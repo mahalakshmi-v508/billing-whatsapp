@@ -1,0 +1,10 @@
+node_modules/
+sessions/.wwebjs_auth/
+sessions/.wwebjs_cache/
+.env
+out.log
+err.log
+sessions/
+.wwebjs_cache/
+node_modules/
+.env
