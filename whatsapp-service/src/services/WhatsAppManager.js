@@ -241,29 +241,32 @@ class WhatsAppManager {
         });
 
 
-        // delivery / read receipts: ack 2 = delivered, 3 = read, 4 = played
+        // delivery / read receipts: ack 1 = sent, 2 = delivered, 3 = read, 4 = played
+        // Only process OUTGOING message acks — incoming acks are irrelevant
         client.on('message_ack', async (message, ack) => {
 
             if (message.from === 'status@broadcast') {
                 return;
             }
 
-            try {
-
-                await this.updateLaravel(sessionId, {
-                    event: 'message_ack',
-                    message: {
-                        id: message.id?._serialized,
-                        ack
-                    }
-                });
-
-            } catch (error) {
-                console.error(
-                    'Ack forward error:',
-                    error.message
-                );
+            if (!message.fromMe) {
+                return;
             }
+
+            const msgId = message.id?._serialized || null;
+
+            console.log(
+                `[${sessionId}] ACK: msgId=${msgId} ack=${ack} ` +
+                `(1=sent 2=delivered 3=read 4=played)`
+            );
+
+            await this.forwardAckToLaravel(sessionId, {
+                event: 'message_ack',
+                message: {
+                    id: msgId,
+                    ack
+                }
+            });
         });
     }
 
@@ -601,6 +604,76 @@ class WhatsAppManager {
                 );
             }
         }
+    }
+
+
+    async forwardAckToLaravel(sessionId, payload) {
+
+        const maxRetries = 10;
+        const baseDelay = 1000;
+
+        const attemptForward = async (attempt) => {
+
+            try {
+
+                await axios.post(
+                    `${config.laravelUrl}/api/internal/whatsapp/events`,
+                    {
+                        session_id: sessionId,
+                        ...payload
+                    },
+                    {
+                        headers: {
+                            Authorization:
+                                `Bearer ${config.internalToken}`,
+                            'X-Internal-Token':
+                                config.internalToken
+                        },
+                        timeout: 15000
+                    }
+                );
+
+                if (attempt > 0) {
+                    console.log(
+                        `[${sessionId}] ACK forwarded after ` +
+                        `${attempt} retry attempt(s)`
+                    );
+                }
+
+            } catch (error) {
+
+                if (attempt < maxRetries) {
+
+                    const delay = Math.min(
+                        baseDelay * Math.pow(2, attempt),
+                        30000
+                    );
+
+                    console.warn(
+                        `[${sessionId}] ACK forward failed ` +
+                        `(attempt ${attempt + 1}/${maxRetries + 1}), ` +
+                        `retrying in ${delay}ms: ` +
+                        `${error.message}`
+                    );
+
+                    setTimeout(
+                        () => attemptForward(attempt + 1),
+                        delay
+                    );
+
+                } else {
+
+                    console.error(
+                        `[${sessionId}] ACK forward FAILED ` +
+                        `after ${maxRetries + 1} attempts, ` +
+                        `giving up: ` +
+                        `${error.response?.data || error.message}`
+                    );
+                }
+            }
+        };
+
+        await attemptForward(0);
     }
 
 
