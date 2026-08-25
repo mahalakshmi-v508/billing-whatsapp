@@ -7,6 +7,7 @@ use App\Models\WhatsAppConnection;
 use App\Models\WhatsAppEvent;
 use App\Models\WhatsAppMessage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class WhatsAppInternalController extends Controller
 {
@@ -103,6 +104,30 @@ class WhatsAppInternalController extends Controller
 
             // skip own messages
             if (!($msg['fromMe'] ?? false)) {
+
+                // Only store message if the sender is a known customer
+                // or has an existing invoice in the billing system.
+                // This prevents unknown WhatsApp contacts from appearing
+                // in the application's contact list.
+                $last10 = substr($phone, -10);
+
+                $knownPhone = strlen($last10) === 10 && (
+                    DB::table('customers')
+                        ->whereRaw('RIGHT(phone, 10) = ?', [$last10])
+                        ->exists()
+                    || DB::table('invoices')
+                        ->whereRaw('RIGHT(customer_phone, 10) = ?', [$last10])
+                        ->exists()
+                );
+
+                if (!$knownPhone) {
+                    // Unknown number — event is already logged in whatsapp_events above.
+                    // Do NOT create a whatsapp_messages record for it.
+                    return response()->json([
+                        "status" => true
+                    ]);
+                }
+
                 WhatsAppMessage::create([
                     'connection_id' => $connection->id,
                     'company_id' => $connection->company_id,
