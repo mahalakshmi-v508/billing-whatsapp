@@ -26,6 +26,8 @@ class ProductController extends Controller
         $gst_percentage = floatval($request->input('gst_percentage', 0));
         $company_id     = intval($request->input('company_id', 0));
         $supplier_id    = intval($request->input('supplier_id', 0));
+        $sale_price     = floatval($request->input('sale_price', 0));
+        $purchase_price = floatval($request->input('purchase_price', 0));
 
         $new_category_name    = trim($request->input('new_category_name', ''));
         $new_subcategory_name = trim($request->input('new_subcategory_name', ''));
@@ -100,6 +102,8 @@ class ProductController extends Controller
             'subcategory_id' => $subcategory_id ?: null,
             'brand_id' => $brand_id ?: null,
             'price' => $price,
+            'sale_price' => $sale_price ?: null,
+            'purchase_price' => $purchase_price ?: null,
             'stock' => $stock,
             'barcode' => $barcode ?: null,
             'unit' => $unit ?: null,
@@ -284,12 +288,14 @@ class ProductController extends Controller
         $unit           = trim($request->input('unit', ''));
         $gst_percentage = floatval($request->input('gst_percentage', 0));
         $supplier_id    = intval($request->input('supplier_id', 0));
+        $sale_price     = floatval($request->input('sale_price', 0));
+        $purchase_price = floatval($request->input('purchase_price', 0));
 
         if (!$id || !$product_name) {
             return response()->json(["status" => false, "message" => "ID and Product Name required"]);
         }
 
-        Product::where('id', $id)->update([
+        $updateData = [
             'product_name' => $product_name,
             'product_code' => $product_code ?: null,
             'category_id' => $category_id ?: null,
@@ -300,9 +306,53 @@ class ProductController extends Controller
             'barcode' => $barcode ?: null,
             'unit' => $unit ?: null,
             'gst_percentage' => $gst_percentage,
-            'supplier_id' => $supplier_id ?: null
-        ]);
+            'supplier_id' => $supplier_id ?: null,
+            'sale_price' => $sale_price ?: null,
+            'purchase_price' => $purchase_price ?: null,
+        ];
+
+        Product::where('id', $id)->update($updateData);
 
         return response()->json(["status" => true, "message" => "Product updated successfully"]);
+    }
+
+    public function getProductSaleHistory(Request $request)
+    {
+        $product_id = intval($request->query('product_id', 0));
+
+        if (!$product_id) {
+            return response()->json(["status" => false, "message" => "product_id required"]);
+        }
+
+        $invoices = DB::table('invoices')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $saleHistory = [];
+
+        foreach ($invoices as $invoice) {
+            $products = json_decode($invoice->products, true);
+            if (!is_array($products)) continue;
+
+            foreach ($products as $item) {
+                if (intval($item['product_id'] ?? 0) === $product_id) {
+                    $qty = intval($item['quantity'] ?? 1);
+                    $price = floatval($item['price'] ?? 0);
+                    $lineTotal = isset($item['total']) ? floatval($item['total']) : $price * $qty;
+
+                    $saleHistory[] = [
+                        'invoice_no' => $invoice->invoice_no,
+                        'customer_name' => $invoice->customer_name ?? '-',
+                        'quantity' => $qty,
+                        'price' => $price,
+                        'total' => $lineTotal,
+                        'date' => $invoice->created_at,
+                    ];
+                    break;
+                }
+            }
+        }
+
+        return response()->json(["status" => true, "data" => $saleHistory]);
     }
 }
