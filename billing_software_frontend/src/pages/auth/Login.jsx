@@ -328,14 +328,14 @@ export default function Login() {
               textShadow: "0 2px 20px rgba(0,100,255,0.4)",
             }}
           >
-            Fathima{" "}
+            Billing{" "}
             <span
               style={{
                 color: "#4da6ff",
                 textShadow: "0 0 24px rgba(77,166,255,0.6)",
               }}
             >
-              Enterprises
+             Products
             </span>
           </h1>
           <p
