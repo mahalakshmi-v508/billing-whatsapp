@@ -36,6 +36,9 @@ export default function MainLayout() {
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
 
+  // Hide sidebar for cashier on billing page (full-screen POS mode)
+  const isCashierBilling = role === "cashier" && location.pathname === "/billing";
+
   useEffect(() => {
     if (!user) {
       navigate("/", { replace: true });
@@ -110,7 +113,8 @@ export default function MainLayout() {
   return (
     <div className="flex h-screen bg-[#f0f4f9] overflow-hidden">
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR - hidden for cashier billing */}
+    {!isCashierBilling && (
     <motion.div
   initial={{ x: -100, opacity: 0 }}
   animate={{ x: 0, opacity: 1 }}
@@ -179,9 +183,9 @@ export default function MainLayout() {
   </div>
 
 </motion.div>
-
+)}
       {/* MAIN CONTENT */}
-      <main className="flex-1 p-4 overflow-auto">
+      <main className={`${isCashierBilling ? 'w-full' : 'flex-1'} ${isCashierBilling ? '' : 'p-4'} overflow-auto`}>
         <Outlet />
       </main>
 
