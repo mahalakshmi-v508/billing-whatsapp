@@ -11,4 +11,9 @@ class WhatsAppMessage extends Model
     protected $guarded = [];
 
     public $timestamps = false;
+
+    protected $casts = [
+        'delivered_at' => 'datetime',
+        'read_at' => 'datetime',
+    ];
 }

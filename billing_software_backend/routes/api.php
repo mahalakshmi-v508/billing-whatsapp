@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\SupplierProductController;
 use App\Http\Controllers\Api\WhatsappController;
 use App\Http\Controllers\Api\WhatsappConnectController;
 use App\Http\Controllers\Api\WhatsAppInternalController;
+use App\Http\Controllers\Api\WhatsAppWebhookController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\HelpdeskController;
 use App\Http\Controllers\Api\AiController;
@@ -224,6 +225,10 @@ Route::prefix('whatsapp')->group(function () {
 
 // ── WHATSAPP INTERNAL (NODE SERVICE -> LARAVEL EVENTS) ──
 Route::post('internal/whatsapp/events', [WhatsAppInternalController::class, 'event']);
+Route::post('internal/whatsapp/validate_sessions', [WhatsAppInternalController::class, 'validateSessions']);
+
+// ── WHATSAPP WEBHOOK (MESSAGE STATUS UPDATES -> BROADCAST) ──
+Route::post('whatsapp/message-status', [WhatsAppWebhookController::class, 'updateStatus']);
 
 // ── PURCHASE ROUTES ──
 Route::prefix('purchase')->group(function () {

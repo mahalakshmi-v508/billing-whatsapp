@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\WhatsAppMessageStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\WhatsAppConnection;
 use App\Models\WhatsAppEvent;
@@ -29,24 +30,17 @@ class WhatsAppInternalController extends Controller
             ], 401);
         }
 
+        $payload = $request->all();
+        unset($payload['session_id']);
+        $eventName = $payload['event'] ?? null;
+
         $connection = WhatsAppConnection::where(
             'session_id',
             $request->input('session_id')
         )->first();
 
-        if (!$connection) {
-            return response()->json([
-                "status" => false,
-                "message" => "Connection not found"
-            ], 404);
-        }
-
-        $payload = $request->all();
-        unset($payload['session_id']);
-
-        $eventName = $payload['event'] ?? null;
-
-        // delivery / read receipt updates (do not spam event log)
+        // delivery / read receipt updates — process BEFORE connection check
+        // because message_ack is matched by whatsapp_message_id, not connection
         if ($eventName === 'message_ack' && !empty($payload['message']['id'])) {
 
             $waMsgId = $payload['message']['id'];
@@ -54,25 +48,50 @@ class WhatsAppInternalController extends Controller
 
             $msgModel = WhatsAppMessage::where('whatsapp_message_id', $waMsgId)->first();
 
+            $deliveredAt = null;
+            $readAt = null;
+
             if ($msgModel) {
-                if ($ack >= 4) {
-                    // played - treat as read
+                $now = now();
+
+                if ($ack >= 3) {
                     $msgModel->status = 'read';
-                } elseif ($ack >= 3) {
-                    $msgModel->status = 'read';
+                    $msgModel->read_at = $msgModel->read_at ?? $now;
+                    $msgModel->delivered_at = $msgModel->delivered_at ?? $now;
                 } elseif ($ack >= 2) {
                     if ($msgModel->status !== 'read') {
                         $msgModel->status = 'delivered';
+                        $msgModel->delivered_at = $msgModel->delivered_at ?? $now;
                     }
                 } elseif ($ack >= 1 && $msgModel->status === 'pending') {
                     $msgModel->status = 'sent';
                 }
 
                 $msgModel->save();
+
+                $deliveredAt = $msgModel->delivered_at ? $msgModel->delivered_at->toDateTimeString() : null;
+                $readAt = $msgModel->read_at ? $msgModel->read_at->toDateTimeString() : null;
             }
+
+            // Always broadcast status update event for realtime Echo listeners
+            event(new WhatsAppMessageStatusUpdated(
+                whatsapp_message_id: $waMsgId,
+                status: $ack,
+                delivered_at: $deliveredAt,
+                read_at: $readAt
+            ));
 
             return response()->json([
                 "status" => true
+            ]);
+        }
+
+        if (!$connection) {
+            // Orphaned session (folder exists on disk but DB row was deleted).
+            // Return success to prevent Node.js from retrying.
+            return response()->json([
+                "status" => true,
+                "message" => "Connection not found — ignored"
             ]);
         }
 
@@ -174,6 +193,32 @@ class WhatsAppInternalController extends Controller
 
         return response()->json([
             "status" => true
+        ]);
+    }
+
+    // ── VALIDATE SESSIONS — Node service calls this at startup to skip orphaned folders ──
+    public function validateSessions(Request $request)
+    {
+        $expected = config('services.whatsapp.token');
+        $given = $request->header('X-Internal-Token');
+
+        if (empty($given) && str_starts_with($request->header('Authorization', ''), 'Bearer ')) {
+            $given = substr($request->header('Authorization'), 7);
+        }
+
+        if (!empty($expected) && $given !== $expected) {
+            return response()->json(["status" => false, "message" => "Unauthorized"], 401);
+        }
+
+        $sessionIds = $request->input('session_ids', []);
+
+        $existing = WhatsAppConnection::whereIn('session_id', $sessionIds)
+            ->pluck('session_id')
+            ->toArray();
+
+        return response()->json([
+            "status" => true,
+            "valid_sessions" => $existing
         ]);
     }
 }
