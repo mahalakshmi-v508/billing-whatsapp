@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
+  Home,
   Package,
   ReceiptText,
   BarChart3,
@@ -25,12 +26,51 @@ import {
   HelpCircle,
   MessageCircle,
   MessageSquareText,
+  ChevronDown,
+  Plus,
+  ShoppingBag,
+  PackagePlus,
+  UserPlus,
+  FolderPlus,
 } from "lucide-react";
+
+// 🎟️ Sale Ticket Icon with % symbol matching reference image
+const SaleIcon = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+    <path d="M15 9l-6 6" />
+    <path d="M9 9h.01" />
+    <path d="M15 15h.01" />
+  </svg>
+);
 
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [hoveredPath, setHoveredPath] = useState(null);
+  const [saleOpen, setSaleOpen] = useState(true);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const quickAddRef = useRef(null);
+
+  // Close quickAdd dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (quickAddRef.current && !quickAddRef.current.contains(event.target)) {
+        setQuickAddOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // 🔥 GET USER
   const user = JSON.parse(localStorage.getItem("user"));
@@ -64,7 +104,21 @@ export default function MainLayout() {
     // ADMIN ONLY
     ...(role === "admin"
       ? [
-          { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard size={20} /> },
+          { name: "Home", path: "/dashboard", icon: <Home size={20} /> },
+          {
+            name: "Sale",
+            icon: <SaleIcon size={20} />,
+            isDropdown: true,
+            subItems: [
+              { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/reports", "/sales/add"] },
+              { name: "Estimate/ Quotation", path: "/sales/quotations" },
+              { name: "Proforma Invoice", path: "/sales/proforma" },
+              { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
+              { name: "Sale Order", path: "/sales/order" },
+              { name: "Delivery Challan", path: "/sales/delivery-challan" },
+              { name: "Sale Return/ Credit Note", path: "/sales/credit-note" },
+            ]
+          },
           { name: "Company", path: "/company", icon: <Building2 size={20} /> },
           { name: "Category & Subcategory", path: "/category", icon: <Package size={20} /> },
           { name: "Brand", path: "/brand", icon: <Tags size={20} /> },
@@ -90,7 +144,7 @@ export default function MainLayout() {
     // CASHIER ONLY
     ...(role === "cashier"
       ? [
-          { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard size={20} /> },
+          { name: "Home", path: "/dashboard", icon: <Home size={20} /> },
           { name: "Billing", path: "/billing", icon: <ReceiptText size={20} /> },
           { name: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
           { name: "Pending Invoice", path: "/payment-pending", icon: <AlertCircle  size={20} /> },
@@ -100,7 +154,7 @@ export default function MainLayout() {
     // DEVELOPER ONLY
     ...(role === "developer"
       ? [
-          { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard size={20} /> },
+          { name: "Home", path: "/dashboard", icon: <Home size={20} /> },
           { name: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
         ]
       : [])
@@ -130,8 +184,75 @@ export default function MainLayout() {
   {/* 🔥 SCROLLABLE MENU */}
   <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/30">
 
-    <nav className="space-y-2">
+    <nav className="space-y-1.5">
       {menuItems.map((item) => {
+        if (item.isDropdown) {
+          const isSaleActive = item.subItems.some(
+            (sub) =>
+              location.pathname === sub.path ||
+              (sub.altPaths && sub.altPaths.includes(location.pathname))
+          );
+
+          return (
+            <div key={item.name} className="flex flex-col">
+              {/* Parent Sale button */}
+              <div
+                onClick={() => setSaleOpen((prev) => !prev)}
+                className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition select-none ${
+                  isSaleActive && !saleOpen
+                    ? "bg-white text-blue-600 font-semibold shadow-sm"
+                    : isSaleActive && saleOpen
+                    ? "bg-white/15 text-white font-semibold"
+                    : "text-white/90 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {item.icon}
+                  <span className="font-semibold text-[15px]">{item.name}</span>
+                </div>
+                <ChevronDown
+                  size={17}
+                  className={`transition-transform duration-200 ${
+                    saleOpen ? "rotate-180 text-white" : "text-white/70"
+                  }`}
+                />
+              </div>
+
+              {/* Submenu List - Matching Theme Color (No black background!) */}
+              <AnimatePresence>
+                {saleOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-1.5 mb-1 pl-3 pr-1 flex flex-col space-y-1"
+                  >
+                    {item.subItems.map((sub) => {
+                      const isSubActive =
+                        location.pathname === sub.path ||
+                        (sub.altPaths && sub.altPaths.includes(location.pathname));
+
+                      return (
+                        <div
+                          key={sub.name}
+                          onClick={() => navigate(sub.path)}
+                          className={`flex items-center py-2.5 px-4 rounded-xl text-[13.5px] cursor-pointer transition-all duration-150 ${
+                            isSubActive
+                              ? "bg-white text-blue-600 font-bold shadow-md"
+                              : "text-white/85 hover:bg-white/15 hover:text-white"
+                          }`}
+                        >
+                          <span className="truncate">{sub.name}</span>
+                        </div>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        }
+
         const isActive = location.pathname === item.path;
 
         return (
@@ -140,7 +261,7 @@ export default function MainLayout() {
             onClick={() => navigate(item.path)}
             whileHover={{ scale: 1.02, x: 5 }}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer ${
-              isActive ? "bg-white text-blue-600" : "text-white/80"
+              isActive ? "bg-white text-blue-600 font-semibold shadow-sm" : "text-white/80"
             }`}
           >
             {item.icon}
@@ -180,10 +301,222 @@ export default function MainLayout() {
 
 </motion.div>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 p-4 overflow-auto">
-        <Outlet />
-      </main>
+      {/* RIGHT CONTENT AREA: FIXED TOP BAR + SCROLLABLE PAGE */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        {/* 🔥 TOP FIXED BAR FOR ADMIN (Exact Same Buttons as in Dashboard) */}
+        {role === "admin" && (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: 10,
+            padding: "12px 24px 6px 24px",
+            background: "#f0f4f9",
+            position: "sticky",
+            top: 0,
+            zIndex: 110,
+            flexShrink: 0
+          }}>
+            {/* Add Sale & Add Purchase Buttons (Visible ONLY on Dashboard) */}
+            {location.pathname === "/dashboard" && (
+              <>
+                {/* Add Sale Button */}
+                <button
+                  onClick={() => navigate("/sales/add")}
+                  style={{
+                    height: 38,
+                    padding: "0 18px",
+                    borderRadius: "9999px",
+                    border: "none",
+                    background: "#ef4444",
+                    color: "#ffffff",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: 13.5,
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    boxShadow: "0 2px 8px rgba(239, 68, 68, 0.25)",
+                    transition: "all .15s ease",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.35)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = "none";
+                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(239, 68, 68, 0.25)";
+                  }}
+                >
+                  <Plus size={16} strokeWidth={2.8} />
+                  <span>Add Sale</span>
+                </button>
+
+                {/* Add Purchase Button */}
+                <button
+                  onClick={() => navigate("/purchases/new")}
+                  style={{
+                    height: 38,
+                    padding: "0 18px",
+                    borderRadius: "9999px",
+                    border: "none",
+                    background: "#1f8cff",
+                    color: "#ffffff",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: 13.5,
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    boxShadow: "0 2px 8px rgba(31, 140, 255, 0.25)",
+                    transition: "all .15s ease",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(31, 140, 255, 0.35)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = "none";
+                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(31, 140, 255, 0.25)";
+                  }}
+                >
+                  <Plus size={16} strokeWidth={2.8} />
+                  <span>Add Purchase</span>
+                </button>
+              </>
+            )}
+
+            {/* Plus (+) Quick Action Button (Visible on ALL Pages) */}
+            <div ref={quickAddRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setQuickAddOpen(v => !v)}
+                title="Quick Actions"
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: "9999px",
+                  border: "1.5px solid #dbeafe",
+                  background: quickAddOpen ? "#dbeafe" : "#eff6ff",
+                  color: "#1f8cff",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all .15s ease",
+                }}
+                onMouseEnter={e => {
+                  if (!quickAddOpen) {
+                    e.currentTarget.style.background = "#dbeafe";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!quickAddOpen) {
+                    e.currentTarget.style.background = "#eff6ff";
+                    e.currentTarget.style.transform = "none";
+                  }
+                }}
+              >
+                <Plus size={18} strokeWidth={2.6} />
+              </button>
+
+              {/* Quick Action Popover Dropdown */}
+              {quickAddOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: 46,
+                    width: 220,
+                    background: "#fff",
+                    borderRadius: 14,
+                    border: "1.5px solid #eef0ff",
+                    boxShadow: "0 12px 32px rgba(30, 27, 75, 0.14)",
+                    overflow: "hidden",
+                    zIndex: 9999,
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      background: "#fafaff",
+                      borderBottom: "1px solid #f1f1f8",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      letterSpacing: ".06em",
+                      textTransform: "uppercase",
+                      color: "#6b7280",
+                      fontFamily: "'Plus Jakarta Sans', sans-serif"
+                    }}
+                  >
+                    Quick Actions
+                  </div>
+
+                  <div style={{ padding: "6px" }}>
+                    {[
+                      { label: "Add Sale", path: "/sales/add", icon: ReceiptText, color: "#ef4444", bg: "#fff1f2" },
+                      { label: "Add Purchase", path: "/purchases/new", icon: ShoppingBag, color: "#1f8cff", bg: "#eff6ff" },
+                      { label: "Add Product", path: "/products/add", icon: PackagePlus, color: "#15803d", bg: "#f0fdf4" },
+                      { label: "Add Customer", path: "/customer/add", icon: UserPlus, color: "#7c3aed", bg: "#f5f3ff" },
+                      { label: "Add Supplier", path: "/supplier/add", icon: Truck, color: "#c2410c", bg: "#fff7ed" },
+                      { label: "Add Category", path: "/category/add", icon: FolderPlus, color: "#b45309", bg: "#fefce8" },
+                    ].map((item, idx) => {
+                      const ItemIcon = item.icon;
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: 9,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            transition: "background .15s",
+                            fontFamily: "'Plus Jakarta Sans', sans-serif"
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#f8f7ff"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                          onClick={() => {
+                            setQuickAddOpen(false);
+                            navigate(item.path);
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 26,
+                              height: 26,
+                              borderRadius: 7,
+                              background: item.bg,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <ItemIcon size={13} color={item.color} />
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#1e1b4b" }}>
+                            {item.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* MAIN CONTENT */}
+        <main className="flex-1 p-4 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
 
     </div>
   );

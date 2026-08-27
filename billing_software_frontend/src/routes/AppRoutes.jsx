@@ -5,6 +5,7 @@ import Dashboard from "../pages/dashboard/Dashboard";
 import ProductList from "../pages/products/ProductList";
 import ProductForm from "../pages/products/ProductForm";
 import Billing from "../pages/billing/Billing";
+import AddSale from "../pages/sales/AddSale";
 import Reports from "../pages/reports/SalesReport";
 import Settings from "../pages/settings/Settings";
 import MainLayout from "../layouts/MainLayout";
@@ -35,8 +36,9 @@ import PaymentPending from "../pages/reports/PaymentPending";
 import CustomerForm from "../pages/customer/CustomerForm";
 import CustomerList from "../pages/customer/CustomerList";
 import EditCustomer from "../pages/customer/EditCustomer";
-
 import CreditSettings from "../pages/billing/CreditSettings";
+import SaleSubmenuView from "../pages/sales/SaleSubmenuView";
+import SaleInvoices from "../pages/sales/SaleInvoices";
 import PaymentPendingHistory from "../pages/reports/PaymentPendingHistory";
 import PendingCashierRequests from "../pages/CashierRequests/PendingCashierRequests";
 import AdminForm from "../pages/Admin/AdminForm";
@@ -82,7 +84,15 @@ export default function AppRoutes() {
         <Route path="/register" element={<Register />} />
                 <Route path="/registercompany" element={<RegisterCompany />} />
 
-<Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        {/* ⚡ Standalone Full-Screen Routes (Add Sale & Invoice Preview) */}
+        <Route element={<ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]} />}>
+          <Route path="/sales/add" element={<AddSale />} />
+          <Route path="/invoice/:invoiceNo" element={<Invoice />} />
+          <Route path="/invoice" element={<Invoice />} />
+        </Route>
+
         {/* 🔐 Protected Routes with MainLayout */}
         <Route
           element={
@@ -95,10 +105,15 @@ export default function AppRoutes() {
           <Route element={<ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]} />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/sales/invoices" element={<SaleInvoices />} />
+            <Route path="/sales/quotations" element={<SaleSubmenuView type="quotation" title="Estimate / Quotation" />} />
+            <Route path="/sales/proforma" element={<SaleSubmenuView type="proforma" title="Proforma Invoice" />} />
+            <Route path="/sales/payment-in" element={<PaymentPending />} />
+            <Route path="/sales/order" element={<SaleSubmenuView type="order" title="Sale Order" />} />
+            <Route path="/sales/delivery-challan" element={<SaleSubmenuView type="challan" title="Delivery Challan" />} />
+            <Route path="/sales/credit-note" element={<SaleSubmenuView type="credit_note" title="Sale Return / Credit Note" />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/change-password" element={<ChangePassword />} />
-            <Route path="/invoice/:invoiceNo" element={<Invoice />} />
-            <Route path="/invoice" element={<Invoice />} />
             <Route path="/payment-pending" element={<PaymentPending />} />
             <Route path="/paymentpending-history" element={<PaymentPendingHistory />} />
             <Route path="/helpdesk" element={<TicketList />} />
@@ -147,8 +162,8 @@ export default function AppRoutes() {
             <Route path="/whatsapp" element={<WhatsAppChat />} />
           </Route>
 
-          {/* 3. Cashier-only routes */}
-          <Route element={<ProtectedRoute allowedRoles={["cashier"]} />}>
+          {/* 3. Cashier and Admin billing route */}
+          <Route element={<ProtectedRoute allowedRoles={["admin", "cashier"]} />}>
             <Route path="/billing" element={<Billing />} />
           </Route>
 

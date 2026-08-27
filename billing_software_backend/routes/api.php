@@ -154,6 +154,7 @@ Route::prefix('dashboard')->group(function () {
 
 // ── INVOICE ROUTES ──
 Route::prefix('invoice')->group(function () {
+    Route::post('create', [InvoiceController::class, 'createInvoice']);
     Route::post('create_invoice', [InvoiceController::class, 'createInvoice']);
     Route::get('get_all_invoice', [InvoiceController::class, 'getAllInvoice']);
     Route::get('get_filtered_invoices', [InvoiceController::class, 'getFilteredInvoices']);
