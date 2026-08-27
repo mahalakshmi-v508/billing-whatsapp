@@ -17,16 +17,16 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
     address_line2: "",
     city: "",
     billing_state: "",
-    pincode: "",
-    country: "India",
+    billing_country: "India",
+    billing_pincode: "",
     shipping_address: "",
     enable_shipping: false,
     shipping_address_line1: "",
     shipping_address_line2: "",
     shipping_city: "",
     shipping_state: "",
-    shipping_pincode: "",
     shipping_country: "India",
+    shipping_pincode: "",
     show_detailed_shipping_address: false,
     state: "",
     email: "",
@@ -34,6 +34,9 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
     credit_enabled: 0,
     credit_limit: "",
     credit_days: "",
+    account_number: "",
+    pan_number: "",
+    date_of_birth: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -73,16 +76,14 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
     form.address_line1.trim() ||
     form.address_line2.trim() ||
     form.city.trim() ||
-    form.billing_state.trim() ||
-    form.pincode.trim();
+    form.billing_state.trim();
 
   const isShippingFilled = () =>
     form.shipping_address.trim() ||
     form.shipping_address_line1.trim() ||
     form.shipping_address_line2.trim() ||
     form.shipping_city.trim() ||
-    form.shipping_state.trim() ||
-    form.shipping_pincode.trim();
+    form.shipping_state.trim();
 
   // ─── fetch existing customer ─────────────────────────────────
   useEffect(() => {
@@ -102,14 +103,31 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
             ...p,
             name: c.name || "",
             phone: c.phone || "",
+            email: c.email || "",
+            state: c.state || "",
             gst_no: c.gst_no || "",
             gst_type: c.type === "B2B" ? "Registered" : "Unregistered",
             billing_address: c.address || "",
-            state: c.state || "",
-            email: c.email || "",
+            address_line1: c.address_line1 || "",
+            address_line2: c.address_line2 || "",
+            city: c.city || "",
+            billing_state: c.billing_state || "",
+            billing_country: c.billing_country || "India",
+            billing_pincode: c.billing_pincode || "",
+            shipping_address: c.shipping_address || "",
+            enable_shipping: !!c.shipping_address,
+            shipping_address_line1: c.shipping_address_line1 || "",
+            shipping_address_line2: c.shipping_address_line2 || "",
+            shipping_city: c.shipping_city || "",
+            shipping_state: c.shipping_state || "",
+            shipping_country: c.shipping_country || "India",
+            shipping_pincode: c.shipping_pincode || "",
             credit_enabled: isEnabled ? 1 : 0,
             credit_limit: c.credit_limit || "",
             credit_days: c.credit_days || "",
+            account_number: c.account_number || "",
+            pan_number: c.pan_number || "",
+            date_of_birth: c.date_of_birth || "",
           }));
         } else {
           showToast("Customer not found", false);
@@ -155,8 +173,8 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
       address_line2: "",
       city: "",
       billing_state: "",
-      pincode: "",
-      country: "India",
+      billing_country: "India",
+      billing_pincode: "",
       show_detailed_address: false,
     }));
   };
@@ -169,8 +187,8 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
       shipping_address_line2: "",
       shipping_city: "",
       shipping_state: "",
-      shipping_pincode: "",
       shipping_country: "India",
+      shipping_pincode: "",
       show_detailed_shipping_address: false,
     }));
   };
@@ -307,12 +325,30 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
         id: customerId,
         name: form.name.trim(),
         phone: form.phone,
+        email: form.email,
+        state: form.state,
         address: form.billing_address,
+        address_line1: form.address_line1,
+        address_line2: form.address_line2,
+        city: form.city,
+        billing_state: form.billing_state,
+        billing_country: form.billing_country,
+        billing_pincode: form.billing_pincode,
+        shipping_address: form.shipping_address,
+        shipping_address_line1: form.shipping_address_line1,
+        shipping_address_line2: form.shipping_address_line2,
+        shipping_city: form.shipping_city,
+        shipping_state: form.shipping_state,
+        shipping_country: form.shipping_country,
+        shipping_pincode: form.shipping_pincode,
         gst_no: form.gst_no,
         type: isB2B ? "B2B" : "B2C",
         credit_enabled: form.credit_enabled,
         credit_limit: form.credit_enabled ? form.credit_limit : 0,
         credit_days: form.credit_enabled ? form.credit_days : 0,
+        account_number: form.account_number,
+        pan_number: form.pan_number,
+        date_of_birth: form.date_of_birth,
       };
 
       const res = await api.post("/customer/update", payload);
@@ -556,9 +592,7 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
             Edit Party
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button type="button" className="cf-icon-btn" title="Settings">
-              <Settings size={18} />
-            </button>
+            
             <button type="button" className="cf-icon-btn" onClick={handleCancelClick} title="Close">
               <X size={20} />
             </button>
@@ -783,27 +817,27 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
                               <option value="Delhi">Delhi</option>
                             </select>
                           </div>
-                          <input
-                            className="cf-input"
-                            placeholder="Pincode"
-                            value={form.pincode}
-                            maxLength={6}
-                            onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
-                          />
-                          <select
-                            className="cf-input"
-                            value={form.country}
-                            onChange={(e) => set("country", e.target.value)}
-                          >
-                            <option value="India">India</option>
-                          </select>
-                        </div>
-                      )}
+                        <select
+                          className="cf-input"
+                          value={form.billing_country}
+                          onChange={(e) => set("billing_country", e.target.value)}
+                        >
+                          <option value="India">India</option>
+                        </select>
+                        <input
+                          className="cf-input"
+                          placeholder="Pincode"
+                          value={form.billing_pincode}
+                          maxLength={6}
+                          onChange={(e) => set("billing_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        />
+                    </div>
+                  )}
 
-                      <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                        <button type="button" className="cf-btn cf-btn-ghost" onClick={handleBillingCancelClick}>
-                          Cancel
-                        </button>
+                    <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                      <button type="button" className="cf-btn cf-btn-ghost" onClick={handleBillingCancelClick}>
+                        Cancel
+                      </button>
                         <button
                           type="button"
                           className="cf-btn cf-btn-primary"
@@ -896,29 +930,27 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
                                   <option value="Delhi">Delhi</option>
                                 </select>
                               </div>
-                              <input
-                                className="cf-input"
-                                placeholder="Pincode"
-                                value={form.shipping_pincode}
-                                maxLength={6}
-                                onChange={(e) =>
-                                  set("shipping_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))
-                                }
-                              />
-                              <select
-                                className="cf-input"
-                                value={form.shipping_country}
-                                onChange={(e) => set("shipping_country", e.target.value)}
-                              >
-                                <option value="India">India</option>
-                              </select>
-                            </div>
-                          )}
+                            <select
+                              className="cf-input"
+                              value={form.shipping_country}
+                              onChange={(e) => set("shipping_country", e.target.value)}
+                            >
+                              <option value="India">India</option>
+                            </select>
+                            <input
+                              className="cf-input"
+                              placeholder="Pincode"
+                              value={form.shipping_pincode}
+                              maxLength={6}
+                              onChange={(e) => set("shipping_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            />
+                          </div>
+                        )}
 
-                          <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
-                            <button type="button" className="cf-btn cf-btn-ghost" onClick={handleShippingCancelClick}>
-                              Cancel
-                            </button>
+                        <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
+                          <button type="button" className="cf-btn cf-btn-ghost" onClick={handleShippingCancelClick}>
+                            Cancel
+                          </button>
                             <button
                               type="button"
                               className="cf-btn cf-btn-primary"
@@ -1073,16 +1105,33 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
 
                 {activeTab === "additional" && (
                   <div style={{ maxWidth: 420 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ marginBottom: 16 }}>
+                      <label className="cf-label">Account Number</label>
                       <input
-                        type="checkbox"
-                        checked={form.show_detailed_address}
-                        onChange={(e) => set("show_detailed_address", e.target.checked)}
-                        style={{ width: 16, height: 16, accentColor: "#2563eb" }}
+                        className="cf-input"
+                        placeholder="Account Number"
+                        value={form.account_number}
+                        onChange={(e) => set("account_number", e.target.value)}
                       />
-                      <label style={{ fontWeight: 500, color: "#1e293b", cursor: "pointer", fontSize: 13 }}>
-                        Show Detailed Address
-                      </label>
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <label className="cf-label">PAN Number</label>
+                      <input
+                        className="cf-input"
+                        placeholder="ABCDE1234F"
+                        value={form.pan_number}
+                        maxLength={10}
+                        onChange={(e) => set("pan_number", e.target.value.toUpperCase().slice(0, 10))}
+                      />
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <label className="cf-label">Date of Birth</label>
+                      <input
+                        type="date"
+                        className="cf-input"
+                        value={form.date_of_birth}
+                        onChange={(e) => set("date_of_birth", e.target.value)}
+                      />
                     </div>
                   </div>
                 )}

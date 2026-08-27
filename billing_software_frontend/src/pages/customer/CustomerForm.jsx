@@ -17,16 +17,16 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     address_line2: "",
     city: "",
     billing_state: "",
-    pincode: "",
-    country: "India",
+    billing_country: "India",
+    billing_pincode: "",
     shipping_address: "",
     enable_shipping: false,
     shipping_address_line1: "",
     shipping_address_line2: "",
     shipping_city: "",
     shipping_state: "",
-    shipping_pincode: "",
     shipping_country: "India",
+    shipping_pincode: "",
     show_detailed_shipping_address: false,
     state: "",
     email: "",
@@ -34,6 +34,9 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     credit_enabled: 0,
     credit_limit: "",
     credit_days: "",
+    account_number: "",
+    pan_number: "",
+    date_of_birth: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -75,16 +78,14 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     form.address_line1.trim() ||
     form.address_line2.trim() ||
     form.city.trim() ||
-    form.billing_state.trim() ||
-    form.pincode.trim();
+    form.billing_state.trim();
 
   const isShippingFilled = () =>
     form.shipping_address.trim() ||
     form.shipping_address_line1.trim() ||
     form.shipping_address_line2.trim() ||
     form.shipping_city.trim() ||
-    form.shipping_state.trim() ||
-    form.shipping_pincode.trim();
+    form.shipping_state.trim();
 
   // ─── whole-form cancel: confirm only if the form is dirty ──
   const handleCancelClick = () => {
@@ -117,8 +118,8 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       address_line2: "",
       city: "",
       billing_state: "",
-      pincode: "",
-      country: "India",
+      billing_country: "India",
+      billing_pincode: "",
       show_detailed_address: false,
     }));
   };
@@ -131,8 +132,8 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       shipping_address_line2: "",
       shipping_city: "",
       shipping_state: "",
-      shipping_pincode: "",
       shipping_country: "India",
+      shipping_pincode: "",
       show_detailed_shipping_address: false,
     }));
   };
@@ -276,12 +277,30 @@ export default function CustomerForm({ onSuccess, onCancel }) {
         admin_id,
         name: form.name.trim(),
         phone: form.phone,
+        email: form.email,
+        state: form.state,
         address: form.billing_address,
+        address_line1: form.address_line1,
+        address_line2: form.address_line2,
+        city: form.city,
+        billing_state: form.billing_state,
+        billing_country: form.billing_country,
+        billing_pincode: form.billing_pincode,
+        shipping_address: form.shipping_address,
+        shipping_address_line1: form.shipping_address_line1,
+        shipping_address_line2: form.shipping_address_line2,
+        shipping_city: form.shipping_city,
+        shipping_state: form.shipping_state,
+        shipping_country: form.shipping_country,
+        shipping_pincode: form.shipping_pincode,
         gst_no: form.gst_no,
         type: isB2B ? "B2B" : "B2C",
         credit_enabled: form.credit_enabled,
         credit_limit: form.credit_enabled ? form.credit_limit : 0,
         credit_days: form.credit_enabled ? form.credit_days : 0,
+        account_number: form.account_number,
+        pan_number: form.pan_number,
+        date_of_birth: form.date_of_birth,
       };
 
       const res = await api.post("/customer/create_customer", payload);
@@ -298,16 +317,16 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             address_line2: "",
             city: "",
             billing_state: "",
-            pincode: "",
-            country: "India",
+            billing_country: "India",
+            billing_pincode: "",
             shipping_address: "",
             enable_shipping: false,
             shipping_address_line1: "",
             shipping_address_line2: "",
             shipping_city: "",
             shipping_state: "",
-            shipping_pincode: "",
             shipping_country: "India",
+            shipping_pincode: "",
             show_detailed_shipping_address: false,
             state: "",
             email: "",
@@ -315,6 +334,9 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             credit_enabled: 0,
             credit_limit: "",
             credit_days: "",
+            account_number: "",
+            pan_number: "",
+            date_of_birth: "",
           });
           setIsCreditAuthorized(false);
           setOtpSent(false);
@@ -559,9 +581,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             Add Party
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button type="button" className="cf-icon-btn" title="Settings">
-              <Settings size={18} />
-            </button>
+           
             <button type="button" className="cf-icon-btn" onClick={handleCancelClick} title="Close">
               <X size={20} />
             </button>
@@ -773,20 +793,20 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                           <option value="Delhi">Delhi</option>
                         </select>
                       </div>
-                      <input
-                        className="cf-input"
-                        placeholder="Pincode"
-                        value={form.pincode}
-                        maxLength={6}
-                        onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      />
                       <select
                         className="cf-input"
-                        value={form.country}
-                        onChange={(e) => set("country", e.target.value)}
+                        value={form.billing_country}
+                        onChange={(e) => set("billing_country", e.target.value)}
                       >
                         <option value="India">India</option>
                       </select>
+                      <input
+                        className="cf-input"
+                        placeholder="Pincode"
+                        value={form.billing_pincode}
+                        maxLength={6}
+                        onChange={(e) => set("billing_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      />
                     </div>
                   )}
 
@@ -886,15 +906,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                               <option value="Delhi">Delhi</option>
                             </select>
                           </div>
-                          <input
-                            className="cf-input"
-                            placeholder="Pincode"
-                            value={form.shipping_pincode}
-                            maxLength={6}
-                            onChange={(e) =>
-                              set("shipping_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))
-                            }
-                          />
                           <select
                             className="cf-input"
                             value={form.shipping_country}
@@ -902,6 +913,13 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                           >
                             <option value="India">India</option>
                           </select>
+                          <input
+                            className="cf-input"
+                            placeholder="Pincode"
+                            value={form.shipping_pincode}
+                            maxLength={6}
+                            onChange={(e) => set("shipping_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          />
                         </div>
                       )}
 
@@ -1063,16 +1081,33 @@ export default function CustomerForm({ onSuccess, onCancel }) {
 
             {activeTab === "additional" && (
               <div style={{ maxWidth: 420 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <label className="cf-label">Account Number</label>
                   <input
-                    type="checkbox"
-                    checked={form.show_detailed_address}
-                    onChange={(e) => set("show_detailed_address", e.target.checked)}
-                    style={{ width: 16, height: 16, accentColor: "#2563eb" }}
+                    className="cf-input"
+                    placeholder="Account Number"
+                    value={form.account_number}
+                    onChange={(e) => set("account_number", e.target.value)}
                   />
-                  <label style={{ fontWeight: 500, color: "#1e293b", cursor: "pointer", fontSize: 13 }}>
-                    Show Detailed Address
-                  </label>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label className="cf-label">PAN Number</label>
+                  <input
+                    className="cf-input"
+                    placeholder="ABCDE1234F"
+                    value={form.pan_number}
+                    maxLength={10}
+                    onChange={(e) => set("pan_number", e.target.value.toUpperCase().slice(0, 10))}
+                  />
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label className="cf-label">Date of Birth</label>
+                  <input
+                    type="date"
+                    className="cf-input"
+                    value={form.date_of_birth}
+                    onChange={(e) => set("date_of_birth", e.target.value)}
+                  />
                 </div>
               </div>
             )}
