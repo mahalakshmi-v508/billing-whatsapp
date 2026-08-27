@@ -89,6 +89,7 @@ export default function AppRoutes() {
         {/* ⚡ Standalone Full-Screen Routes (Add Sale & Invoice Preview) */}
         <Route element={<ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]} />}>
           <Route path="/sales/add" element={<AddSale />} />
+          <Route path="/sales/edit/:invoiceNo" element={<AddSale />} />
           <Route path="/invoice/:invoiceNo" element={<Invoice />} />
           <Route path="/invoice" element={<Invoice />} />
         </Route>

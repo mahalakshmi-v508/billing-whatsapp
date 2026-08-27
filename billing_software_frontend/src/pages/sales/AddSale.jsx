@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import {
   X, Plus, Calculator, Settings, Calendar, ChevronDown, Check,
@@ -284,6 +284,8 @@ function CalculatorModal({ isOpen, onClose }) {
 ══════════════════════════════════════════════════════════════════════════ */
 export default function AddSale() {
   const navigate = useNavigate();
+  const { invoiceNo } = useParams();
+  const isEditMode = Boolean(invoiceNo);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
 
@@ -392,6 +394,72 @@ export default function AddSale() {
     };
     loadProducts();
   }, [selectedCompany]);
+
+  /* ── Load Existing Invoice when in Edit Mode ── */
+  useEffect(() => {
+    if (!invoiceNo) return;
+    const loadInvoiceToEdit = async () => {
+      try {
+        const res = await api.get(`/invoice/get_invoice_by_id?id=${invoiceNo}`);
+        if (res.data.status && res.data.data) {
+          const inv = res.data.data;
+          const prods = Array.isArray(inv.products)
+            ? inv.products
+            : (typeof inv.products === "string" ? JSON.parse(inv.products) : []);
+
+          const mappedRows = prods.length > 0
+            ? prods.map((p, idx) => ({
+                id: Date.now() + idx + Math.random(),
+                product_id: p.product_id || null,
+                item_name: p.product_name || p.name || "",
+                qty: parseFloat(p.qty) || 1,
+                unit: p.unit || "NONE",
+                price: parseFloat(p.price) || 0,
+                discount_percent: p.discount_percent ? String(p.discount_percent) : "",
+                discount_amount: p.discount ? String(p.discount) : "",
+                tax_percent: parseFloat(p.gst ?? p.tax_percent ?? 0) || 0,
+                tax_amount: parseFloat(p.tax_amount) || 0,
+                amount: parseFloat(p.amount) || 0,
+                stock: p.stock || null,
+                product_code: p.product_code || "",
+              }))
+            : [createInitialRow(false)];
+
+          const loadedSale = {
+            id: 1,
+            tabIndex: 1,
+            label: `Edit Sale #${inv.invoice_no}`,
+            paymentType: inv.payment_type || (String(inv.payment_method).toLowerCase() === "credit" ? "credit" : "cash"),
+            invoiceNumber: inv.invoice_no,
+            invoiceDate: inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0],
+            stateOfSupply: inv.state_of_supply || "Tamil Nadu",
+            customerName: inv.customer_name || "",
+            customerPhone: inv.customer_phone || "",
+            customerId: inv.customer_id || null,
+            billingAddress: inv.billing_address || "",
+            shippingAddress: inv.shipping_address || "",
+            rows: mappedRows,
+            overallDiscountPercent: "",
+            overallDiscountAmount: "",
+            overallTaxRate: 0,
+            roundOffEnabled: true,
+            receivedEnabled: inv.payment_type === "credit" && Number(inv.paid_amount || 0) > 0,
+            receivedAmount: inv.payment_type === "credit" ? String(inv.paid_amount || "") : "",
+          };
+
+          setSales([loadedSale]);
+          setActiveTabId(1);
+          if (inv.company_id) {
+            setSelectedCompany(String(inv.company_id));
+          }
+        }
+      } catch (err) {
+        console.error("Error loading invoice for edit:", err);
+        showToast("Failed to load invoice details for editing.", false);
+      }
+    };
+    loadInvoiceToEdit();
+  }, [invoiceNo]);
 
   /* ── Tab Management: Add / Close ── */
   const handleAddNewTab = () => {
@@ -695,15 +763,21 @@ export default function AddSale() {
     };
 
     try {
-      const res = await api.post("/invoice/create_invoice", payload);
+      const endpoint = isEditMode ? "/invoice/update_invoice" : "/invoice/create_invoice";
+      const submitPayload = isEditMode ? { ...payload, invoice_no: invoiceNo } : payload;
+      const res = await api.post(endpoint, submitPayload);
       if (res.data.status) {
-        navigate(`/invoice/${res.data.invoice_no}`);
+        if (isEditMode) {
+          navigate("/sales/invoices");
+        } else {
+          navigate(`/invoice/${res.data.invoice_no}`);
+        }
       } else {
-        showToast(res.data.message || "Failed to generate invoice", false);
+        showToast(res.data.message || (isEditMode ? "Failed to update invoice" : "Failed to generate invoice"), false);
       }
     } catch (err) {
       console.error(err);
-      showToast(err.response?.data?.message || "An error occurred while creating invoice.", false);
+      showToast(err.response?.data?.message || "An error occurred while saving invoice.", false);
     } finally {
       setSaving(false);
     }
@@ -1891,7 +1965,13 @@ export default function AddSale() {
           onMouseEnter={e => { if (!saving) e.currentTarget.style.background = "#1d4ed8"; }}
           onMouseLeave={e => { if (!saving) e.currentTarget.style.background = "#1f8cff"; }}
         >
-          {saving ? <span>Saving...</span> : <span><u>S</u>ave</span>}
+          {saving ? (
+            <span>{isEditMode ? "Updating..." : "Saving..."}</span>
+          ) : isEditMode ? (
+            <span>Update Sale</span>
+          ) : (
+            <span><u>S</u>ave</span>
+          )}
         </button>
       </footer>
 

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import html2pdf from "html2pdf.js";
@@ -945,7 +946,7 @@ export default function InvoicePreview() {
     if (doNotShowAgain) {
       localStorage.setItem("skip_invoice_preview", "true");
     }
-    navigate("/sales/add");
+    navigate("/sales/invoices");
   };
 
   return (

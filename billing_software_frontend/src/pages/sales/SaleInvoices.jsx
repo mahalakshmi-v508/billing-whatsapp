@@ -15,6 +15,9 @@ import {
   Filter,
   Eye,
   Trash2,
+  Edit,
+  AlertTriangle,
+  X,
   RefreshCw,
   FileSpreadsheet,
 } from "lucide-react";
@@ -49,6 +52,11 @@ export default function SaleInvoices() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
+
+  // Delete modal & action toast
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [actionToast, setActionToast] = useState(null);
 
   const menuRef = useRef(null);
 
@@ -247,6 +255,33 @@ export default function SaleInvoices() {
 
     return { total_amount, total_paid, total_pending };
   }, [filteredInvoices]);
+
+  // Delete Invoice Handler with Stock Rollback
+  const handleDeleteInvoice = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await api.post("/invoice/delete_invoice", {
+        invoice_no: deleteTarget.invoice_no,
+        id: deleteTarget.id,
+      });
+      if (res.data.status) {
+        setInvoices((prev) => prev.filter((inv) => inv.invoice_no !== deleteTarget.invoice_no));
+        setActionToast({ msg: "Invoice deleted and stock restored successfully.", ok: true });
+        setDeleteTarget(null);
+        setTimeout(() => setActionToast(null), 3500);
+      } else {
+        setActionToast({ msg: res.data.message || "Failed to delete invoice.", ok: false });
+        setTimeout(() => setActionToast(null), 3500);
+      }
+    } catch (err) {
+      console.error(err);
+      setActionToast({ msg: err.response?.data?.message || "Error deleting invoice.", ok: false });
+      setTimeout(() => setActionToast(null), 3500);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Export to Excel (.xlsx)
   const handleExportExcel = () => {
@@ -747,21 +782,52 @@ export default function SaleInvoices() {
                             {isMenuOpen && (
                               <div
                                 ref={menuRef}
-                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                                className="absolute right-0 top-8 w-38 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                               >
                                 <button
-                                  onClick={() => { setActiveMenuId(null); navigate(`/invoice/${inv.invoice_no}`); }}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(null);
+                                    navigate(`/sales/edit/${inv.invoice_no}`);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
                                 >
-                                  <Eye size={13} />
+                                  <Edit size={14} className="text-blue-600" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(null);
+                                    navigate(`/invoice/${inv.invoice_no}`);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
+                                >
+                                  <Eye size={14} />
                                   <span>View Invoice</span>
                                 </button>
                                 <button
-                                  onClick={() => { setActiveMenuId(null); navigate(`/invoice/${inv.invoice_no}`); }}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition text-left cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(null);
+                                    navigate(`/invoice/${inv.invoice_no}`);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition text-left cursor-pointer"
                                 >
-                                  <Printer size={13} />
+                                  <Printer size={14} className="text-emerald-600" />
                                   <span>Print POS</span>
+                                </button>
+                                <div className="border-t border-slate-100 my-1" />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(null);
+                                    setDeleteTarget(inv);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
+                                >
+                                  <Trash2 size={14} className="text-red-600" />
+                                  <span>Delete</span>
                                 </button>
                               </div>
                             )}
@@ -778,6 +844,103 @@ export default function SaleInvoices() {
         </div>
 
       </div>
+
+      {/* ── DELETE CONFIRMATION MODAL ── */}
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 text-red-600 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={22} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete Invoice?</h3>
+                <p className="text-xs text-slate-500 font-mono">Invoice #{deleteTarget.invoice_no}</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+              Are you sure you want to permanently delete this invoice?
+              <br />
+              <span className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5 mt-2 inline-block font-medium border border-amber-200">
+                ⚠️ Inventory stock for products in this invoice will be automatically restored.
+              </span>
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleDeleteInvoice}
+                className="px-5 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md shadow-red-500/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleting && <RefreshCw size={14} className="animate-spin" />}
+                <span>{deleting ? "Deleting..." : "Yes, Delete"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ACTION FLOATING TOAST NOTIFICATION ── */}
+      {actionToast && (
+        <div
+          style={{
+            position: "fixed",
+            top: 24,
+            right: 28,
+            zIndex: 99999,
+            minWidth: 320,
+            maxWidth: 420,
+            background: actionToast.ok ? "#10b981" : "#ef4444",
+            color: "#ffffff",
+            borderRadius: 6,
+            padding: "12px 16px",
+            boxShadow: actionToast.ok
+              ? "0 6px 20px rgba(16, 185, 129, 0.4)"
+              : "0 6px 20px rgba(239, 68, 68, 0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+            animation: "fadeIn 0.2s ease",
+          }}
+        >
+          <span style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.35, color: "#ffffff" }}>
+            {actionToast.msg}
+          </span>
+          <button
+            onClick={() => setActionToast(null)}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#ffffff",
+              cursor: "pointer",
+              padding: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
 
     </div>
   );
