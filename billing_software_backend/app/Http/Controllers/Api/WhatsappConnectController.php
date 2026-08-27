@@ -217,7 +217,7 @@ class WhatsappConnectController extends Controller
             ]);
         }
 
-        WhatsAppMessage::create([
+        $msg = WhatsAppMessage::create([
             'connection_id' => $connection->id,
             'company_id' => $company_id,
             'whatsapp_message_id' => $result['result']['id'] ?? null,
@@ -233,7 +233,10 @@ class WhatsappConnectController extends Controller
         return response()->json([
             "status" => true,
             "message" => "Message sent successfully.",
-            "data" => $result
+            "data" => array_merge(is_array($result) ? $result : ['result' => $result], [
+                'id' => $msg->id,
+                'whatsapp_message_id' => $msg->whatsapp_message_id
+            ])
         ]);
     }
 
@@ -320,7 +323,7 @@ class WhatsappConnectController extends Controller
             ]);
         }
 
-        WhatsAppMessage::create([
+        $msg = WhatsAppMessage::create([
             'connection_id' => $connection->id,
             'company_id' => $company_id,
             'whatsapp_message_id' => $result['result']['id'] ?? null,
@@ -337,7 +340,10 @@ class WhatsappConnectController extends Controller
         return response()->json([
             "status" => true,
             "message" => "Invoice sent successfully via WhatsApp.",
-            "data" => $result
+            "data" => array_merge(is_array($result) ? $result : ['result' => $result], [
+                'id' => $msg->id,
+                'whatsapp_message_id' => $msg->whatsapp_message_id
+            ])
         ]);
     }
 
@@ -421,7 +427,10 @@ class WhatsappConnectController extends Controller
         return response()->json([
             "status"  => true,
             "message" => "File sent successfully via WhatsApp.",
-            "data"    => ["id" => $msg->id]
+            "data"    => [
+                "id" => $msg->id,
+                "whatsapp_message_id" => $msg->whatsapp_message_id
+            ]
         ]);
     }
 
@@ -600,13 +609,14 @@ class WhatsappConnectController extends Controller
         $data = [];
         foreach ($messages as $m) {
             $item = [
-                'id'          => $m->id,
-                'direction'   => $m->direction,
-                'type'        => $m->message_type,
-                'text'        => $m->message,
-                'status'      => $m->status,
-                'time'        => $m->created_at,
-                'invoice'     => null
+                'id'                  => $m->id,
+                'whatsapp_message_id' => $m->whatsapp_message_id,
+                'direction'           => $m->direction,
+                'type'                => $m->message_type,
+                'text'                => $m->message,
+                'status'              => $m->status,
+                'time'                => $m->created_at,
+                'invoice'             => null
             ];
 
             // any media message carries its real filename

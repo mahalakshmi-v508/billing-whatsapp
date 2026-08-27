@@ -11,12 +11,16 @@ const axios = require('axios');
 
 const config = require('../config');
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 class WhatsAppManager {
 
     constructor() {
         this.clients = new Map();
         this.states = new Map();
+        this.pendingAcks = new Map(); // sessionId -> Map<msgId, {ack, lastChecked}>
         this.watchdog = null;
+        this.syncInterval = null;
     }
 
     async createClient(sessionId) {
@@ -24,6 +28,8 @@ class WhatsAppManager {
         if (this.clients.has(sessionId)) {
             return this.clients.get(sessionId);
         }
+
+        console.log(`[WA][${sessionId}] initializing`);
 
         this.setState(sessionId, {
             status: 'initializing',
@@ -100,25 +106,86 @@ class WhatsAppManager {
                 ) {
 
                     console.warn(
-                        `[${sessionId}] stuck in authenticated, restarting client`
+                        `[WA][${sessionId}] stuck in authenticated, restarting client`
                     );
 
                     try {
 
                         await this.removeClient(sessionId);
 
-                        await new Promise(
-                            resolve => setTimeout(resolve, 5000)
-                        );
+                        await delay(5000);
 
                         await this.createClient(sessionId);
 
                     } catch (error) {
 
                         console.error(
-                            `[${sessionId}] watchdog restart failed`,
+                            `[WA][${sessionId}] watchdog restart failed:`,
                             error.message
                         );
+                    }
+                }
+
+                if (state.status === 'ready') {
+
+                    const client = this.clients.get(sessionId);
+
+                    if (!client) {
+
+                        console.warn(
+                            `[WA][${sessionId}] ready state without client, attempting reconnect`
+                        );
+
+                        this.setState(sessionId, {
+                            status: 'reconnecting',
+                            qr: null
+                        });
+
+                        await this.updateLaravel(sessionId, {
+                            status: 'reconnecting'
+                        });
+
+                        this.createClient(sessionId).catch(err => {
+                            console.error(`[WA][${sessionId}] reconnect failed:`, err.message);
+                        });
+
+                        continue;
+                    }
+
+                    try {
+
+                        const page = client?.pupPage;
+
+                        if (page && typeof page.isClosed === 'function' && page.isClosed()) {
+
+                            console.warn(
+                                `[WA][${sessionId}] puppeteer page is closed, attempting reconnect`
+                            );
+
+                            this.setState(sessionId, {
+                                status: 'reconnecting',
+                                qr: null
+                            });
+
+                            await this.updateLaravel(sessionId, {
+                                status: 'reconnecting'
+                            });
+
+                            this.clients.delete(sessionId);
+
+                            try {
+                                await client.destroy();
+                            } catch (e) {
+                                // ignore
+                            }
+
+                            this.createClient(sessionId).catch(err => {
+                                console.error(`[WA][${sessionId}] reconnect failed:`, err.message);
+                            });
+                        }
+
+                    } catch (e) {
+                        // ignore health check errors
                     }
                 }
             }
@@ -130,7 +197,7 @@ class WhatsAppManager {
 
         client.on('qr', async (qr) => {
 
-            console.log(`[${sessionId}] QR received`);
+            console.log(`[WA][${sessionId}] qr_ready`);
 
             const qrDataUrl = await QRCode.toDataURL(qr);
 
@@ -147,7 +214,7 @@ class WhatsAppManager {
 
         client.on('authenticated', async () => {
 
-            console.log(`[${sessionId}] authenticated`);
+            console.log(`[WA][${sessionId}] authenticated`);
 
             this.setState(sessionId, {
                 status: 'authenticated',
@@ -162,7 +229,7 @@ class WhatsAppManager {
 
         client.on('ready', async () => {
 
-            console.log(`[${sessionId}] WhatsApp ready`);
+            console.log(`[WA][${sessionId}] ready`);
 
             const info = client.info;
 
@@ -187,7 +254,7 @@ class WhatsAppManager {
         client.on('auth_failure', async (message) => {
 
             console.error(
-                `[${sessionId}] Authentication failure`,
+                `[WA][${sessionId}] auth_failure`,
                 message
             );
 
@@ -205,7 +272,7 @@ class WhatsAppManager {
         client.on('disconnected', async (reason) => {
 
             console.log(
-                `[${sessionId}] disconnected`,
+                `[WA][${sessionId}] disconnected`,
                 reason
             );
 
@@ -254,12 +321,15 @@ class WhatsAppManager {
             }
 
             const msgId = message.id?._serialized || null;
+            if (!msgId) return;
+
+            const mappedStatus = ack >= 3 ? 'read' : (ack >= 2 ? 'delivered' : (ack >= 1 ? 'sent' : 'pending'));
 
             console.log(
-                `[${sessionId}] ACK: msgId=${msgId} ack=${ack} ` +
-                `(1=sent 2=delivered 3=read 4=played)`
+                `[WA][ACK] messageId=${msgId} ack=${ack} mappedStatus=${mappedStatus}`
             );
 
+            // Forward to Laravel (Single authoritative path — updates DB and triggers Reverb broadcast)
             await this.forwardAckToLaravel(sessionId, {
                 event: 'message_ack',
                 message: {
@@ -267,9 +337,19 @@ class WhatsAppManager {
                     ack
                 }
             });
+
+            // Track for sync recovery (in case ACK events are missed)
+            if (this.pendingAcks.has(sessionId)) {
+                const pending = this.pendingAcks.get(sessionId);
+                if (ack >= 3) {
+                    pending.delete(msgId);
+                } else {
+                    const meta = pending.get(msgId);
+                    if (meta) meta.ack = ack;
+                }
+            }
         });
     }
-
 
     async handleIncomingMessage(sessionId, message) {
 
@@ -337,6 +417,51 @@ class WhatsAppManager {
         }
     }
 
+    async handleDeadSession(sessionId, error) {
+
+        const msg = String(error?.message || '');
+
+        if (
+            msg.includes('detached') ||
+            msg.includes('Detached') ||
+            msg.includes('Target closed') ||
+            msg.includes('Session closed') ||
+            msg.includes('Connection closed')
+        ) {
+
+            console.warn(
+                `[WA][${sessionId}] transient browser error detected: ${msg}, attempting reconnect`
+            );
+
+            this.setState(sessionId, {
+                status: 'reconnecting',
+                qr: null
+            });
+
+            this.updateLaravel(sessionId, {
+                status: 'reconnecting'
+            }).catch(() => {});
+
+            const client = this.clients.get(sessionId);
+
+            if (client) {
+                this.clients.delete(sessionId);
+                try {
+                    client.destroy().catch(() => {});
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            this.createClient(sessionId).catch(err => {
+                console.error(`[WA][${sessionId}] reconnect after error failed:`, err.message);
+            });
+
+            return true;
+        }
+
+        return false;
+    }
 
     async sendText(
         sessionId,
@@ -356,19 +481,36 @@ class WhatsAppManager {
             throw new Error('WhatsApp is not connected');
         }
 
-        const chatId = await this.resolveChatId(client, phone);
+        try {
 
-        const result = await client.sendMessage(
-            chatId,
-            message
-        );
+            const chatId = await this.resolveChatId(client, phone);
 
-        return {
-            id: result?.id?._serialized ?? null,
-            status: 'sent'
-        };
+            const result = await client.sendMessage(
+                chatId,
+                message
+            );
+
+            const msgId = result?.id?._serialized ?? null;
+            if (msgId) this.trackSentMessage(sessionId, msgId);
+
+            return {
+                id: msgId,
+                status: 'sent'
+            };
+
+        } catch (error) {
+
+            const isDead = await this.handleDeadSession(sessionId, error);
+
+            if (isDead) {
+                throw new Error(
+                    'WhatsApp session lost. Please reconnect from Settings > WhatsApp.'
+                );
+            }
+
+            throw error;
+        }
     }
-
 
     async sendDocument(
         sessionId,
@@ -390,30 +532,47 @@ class WhatsAppManager {
             throw new Error('WhatsApp is not connected');
         }
 
-        const media =
-            MessageMedia.fromFilePath(filePath);
+        try {
 
-        if (filename) {
-            media.filename = filename;
+            const media =
+                MessageMedia.fromFilePath(filePath);
+
+            if (filename) {
+                media.filename = filename;
+            }
+
+            const chatId = await this.resolveChatId(client, phone);
+
+            const result =
+                await client.sendMessage(
+                    chatId,
+                    media,
+                    {
+                        caption
+                    }
+                );
+
+            const docMsgId = result?.id?._serialized ?? null;
+            if (docMsgId) this.trackSentMessage(sessionId, docMsgId);
+
+            return {
+                id: docMsgId,
+                status: 'sent'
+            };
+
+        } catch (error) {
+
+            const isDead = await this.handleDeadSession(sessionId, error);
+
+            if (isDead) {
+                throw new Error(
+                    'WhatsApp session lost. Please reconnect from Settings > WhatsApp.'
+                );
+            }
+
+            throw error;
         }
-
-        const chatId = await this.resolveChatId(client, phone);
-
-        const result =
-            await client.sendMessage(
-                chatId,
-                media,
-                {
-                    caption
-                }
-            );
-
-        return {
-            id: result?.id?._serialized ?? null,
-            status: 'sent'
-        };
     }
-
 
     async sendDocumentBase64(
         sessionId,
@@ -457,12 +616,14 @@ class WhatsAppManager {
                 }
             );
 
+        const b64MsgId = result?.id?._serialized ?? null;
+        if (b64MsgId) this.trackSentMessage(sessionId, b64MsgId);
+
         return {
-            id: result?.id?._serialized ?? null,
+            id: b64MsgId,
             status: 'sent'
         };
     }
-
 
     async resolveChatId(client, phone) {
 
@@ -492,7 +653,6 @@ class WhatsAppManager {
         }
     }
 
-
     normalizePhone(phone) {
 
         let value = String(phone)
@@ -505,8 +665,9 @@ class WhatsAppManager {
         return `${value}@c.us`;
     }
 
-
     async disconnect(sessionId) {
+
+        console.log(`[WA][${sessionId}] explicit disconnect requested`);
 
         const client =
             this.clients.get(sessionId);
@@ -537,7 +698,6 @@ class WhatsAppManager {
         });
     }
 
-
     async removeClient(sessionId) {
 
         const client =
@@ -554,6 +714,41 @@ class WhatsAppManager {
         }
     }
 
+    async restoreSingleSession(sessionId) {
+
+        const maxAttempts = 3;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+
+            console.log(`[WA][${sessionId}] restore attempt ${attempt}/${maxAttempts}`);
+
+            try {
+
+                await this.createClient(sessionId);
+
+                console.log(`[WA][${sessionId}] restore success`);
+
+                return true;
+
+            } catch (error) {
+
+                console.error(
+                    `[WA][${sessionId}] restore attempt ${attempt} failed:`,
+                    error.message
+                );
+
+                if (attempt < maxAttempts) {
+                    await delay(attempt * 2000);
+                }
+            }
+        }
+
+        console.error(
+            `[WA][${sessionId}] restore failure after ${maxAttempts} attempts`
+        );
+
+        return false;
+    }
 
     async restoreSessions() {
 
@@ -584,35 +779,64 @@ class WhatsAppManager {
             }
         }
 
-        for (const sessionId of candidates) {
+        if (candidates.size === 0) return;
 
-            try {
-
-                console.log(
-                    `Restoring ${sessionId}`
-                );
-
-                await this.createClient(
-                    sessionId
-                );
-
-            } catch (error) {
-
-                console.error(
-                    `Failed restoring ${sessionId}`,
-                    error.message
-                );
+        // Only restore sessions that have a live DB row (skip orphaned folders)
+        const allIds = [...candidates];
+        let validIds = allIds;
+        try {
+            const resp = await axios.post(
+                `${config.laravelUrl}/api/internal/whatsapp/validate_sessions`,
+                { session_ids: allIds },
+                {
+                    headers: {
+                        Authorization: `Bearer ${config.internalToken}`,
+                        'X-Internal-Token': config.internalToken
+                    },
+                    timeout: 8000
+                }
+            );
+            if (resp.data?.valid_sessions) {
+                validIds = resp.data.valid_sessions;
             }
+        } catch (err) {
+            // Endpoint may not exist yet — restore all as fallback
         }
-    }
 
+        const skipped = allIds.length - validIds.length;
+        if (skipped > 0) {
+            console.log(`[WA] Skipped ${skipped} orphaned session(s) (no DB row)`);
+        }
+
+        if (validIds.length === 0) return;
+
+        console.log(`[WA] Restoring ${validIds.length} session(s) in parallel...`);
+
+        // Set all candidate sessions in state as initializing so status calls see restoring/initializing
+        for (const sessionId of validIds) {
+            this.setState(sessionId, {
+                status: 'initializing',
+                qr: null,
+                phone: null,
+                name: null
+            });
+        }
+
+        const results = await Promise.allSettled(
+            validIds.map((sessionId) => this.restoreSingleSession(sessionId))
+        );
+
+        const restored = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+        console.log(`[WA] Sessions restored: ${restored}/${validIds.length}`);
+    }
 
     async forwardAckToLaravel(sessionId, payload) {
 
-        const maxRetries = 10;
+        const maxRetries = 3;
         const baseDelay = 1000;
+        const msgId = payload?.message?.id;
 
-        const attemptForward = async (attempt) => {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
 
             try {
 
@@ -629,63 +853,59 @@ class WhatsAppManager {
                             'X-Internal-Token':
                                 config.internalToken
                         },
-                        timeout: 15000
+                        timeout: 8000
                     }
                 );
 
                 if (attempt > 0) {
                     console.log(
-                        `[${sessionId}] ACK forwarded after ` +
-                        `${attempt} retry attempt(s)`
+                        `[WA][ACK] Laravel update success after ` +
+                        `${attempt} retry attempt(s) for msgId=${msgId}`
                     );
                 }
+
+                return true;
 
             } catch (error) {
 
                 if (attempt < maxRetries) {
 
-                    const delay = Math.min(
+                    const waitMs = Math.min(
                         baseDelay * Math.pow(2, attempt),
-                        30000
+                        10000
                     );
 
                     console.warn(
-                        `[${sessionId}] ACK forward failed ` +
-                        `(attempt ${attempt + 1}/${maxRetries + 1}), ` +
-                        `retrying in ${delay}ms: ` +
+                        `[WA][ACK] Laravel update retry in ${waitMs}ms ` +
+                        `(attempt ${attempt + 1}/${maxRetries + 1}) for msgId=${msgId}: ` +
                         `${error.message}`
                     );
 
-                    setTimeout(
-                        () => attemptForward(attempt + 1),
-                        delay
-                    );
+                    await delay(waitMs);
 
                 } else {
 
                     console.error(
-                        `[${sessionId}] ACK forward FAILED ` +
-                        `after ${maxRetries + 1} attempts, ` +
-                        `giving up: ` +
-                        `${error.response?.data || error.message}`
+                        `[WA][ACK] Laravel update permanently failed ` +
+                        `for msgId=${msgId} after ${maxRetries + 1} attempts: ` +
+                        `${error.response?.data?.message || error.message}`
                     );
+
+                    return false;
                 }
             }
-        };
-
-        await attemptForward(0);
+        }
     }
 
-
-    async updateLaravel(sessionId, payload) {
+    async notifyMessageStatus(messageId, status) {
 
         try {
 
             await axios.post(
-                `${config.laravelUrl}/api/internal/whatsapp/events`,
+                `${config.laravelUrl}/api/whatsapp/message-status`,
                 {
-                    session_id: sessionId,
-                    ...payload
+                    message_id: messageId,
+                    status: status
                 },
                 {
                     headers: {
@@ -694,17 +914,139 @@ class WhatsAppManager {
                         'X-Internal-Token':
                             config.internalToken
                     },
-                    timeout: 10000
+                    timeout: 8000
                 }
             );
 
         } catch (error) {
 
-            console.error(
-                'Laravel update failed:',
-                error.response?.data ||
-                error.message
+            console.warn(
+                `[message-status] POST failed for ` +
+                `msgId=${messageId}: ` +
+                `${error.response?.data?.message || error.message}`
             );
+        }
+    }
+
+    trackSentMessage(sessionId, msgId) {
+        if (!this.pendingAcks.has(sessionId)) {
+            this.pendingAcks.set(sessionId, new Map());
+        }
+        this.pendingAcks.get(sessionId).set(msgId, {
+            ack: 1,
+            lastChecked: Date.now()
+        });
+    }
+
+    startSyncInterval() {
+        if (this.syncInterval) return;
+
+        this.syncInterval = setInterval(async () => {
+            for (const [sessionId, client] of this.clients.entries()) {
+                const state = this.getState(sessionId);
+                if (state.status !== 'ready') continue;
+
+                const pending = this.pendingAcks.get(sessionId);
+                if (!pending || pending.size === 0) continue;
+
+                const now = Date.now();
+                const toCheck = [];
+                for (const [msgId, meta] of pending.entries()) {
+                    if (now - meta.lastChecked > 15000) {
+                        toCheck.push(msgId);
+                    }
+                }
+                if (toCheck.length === 0) continue;
+
+                const batch = toCheck.slice(0, 10);
+                for (const msgId of batch) {
+                    const meta = pending.get(msgId);
+                    if (!meta) continue;
+                    meta.lastChecked = now;
+
+                    try {
+                        const msg = await client.getMessageById(msgId);
+                        if (msg && typeof msg.ack === 'number' && msg.ack > meta.ack) {
+                            meta.ack = msg.ack;
+
+                            if (msg.ack >= 3) {
+                                pending.delete(msgId);
+                            }
+
+                            await this.forwardAckToLaravel(sessionId, {
+                                event: 'message_ack',
+                                message: {
+                                    id: msgId,
+                                    ack: msg.ack
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        if (String(error.message).includes('not found') || String(error.message).includes('404')) {
+                            pending.delete(msgId);
+                        }
+                    }
+                }
+            }
+        }, 10000);
+    }
+
+    async updateLaravel(sessionId, payload) {
+
+        const maxRetries = 3;
+        const baseDelay = 1000;
+
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+
+            try {
+
+                await axios.post(
+                    `${config.laravelUrl}/api/internal/whatsapp/events`,
+                    {
+                        session_id: sessionId,
+                        ...payload
+                    },
+                    {
+                        headers: {
+                            Authorization:
+                                `Bearer ${config.internalToken}`,
+                            'X-Internal-Token':
+                                config.internalToken
+                        },
+                        timeout: 8000
+                    }
+                );
+
+                return true;
+
+            } catch (error) {
+
+                if (attempt < maxRetries) {
+
+                    const waitMs = Math.min(
+                        baseDelay * Math.pow(2, attempt),
+                        10000
+                    );
+
+                    console.warn(
+                        `[WA][${sessionId}] Laravel update failed ` +
+                        `(attempt ${attempt + 1}/${maxRetries + 1}), ` +
+                        `retrying in ${waitMs}ms: ${error.message}`
+                    );
+
+                    await delay(waitMs);
+
+                } else {
+
+                    console.error(
+                        `[WA][${sessionId}] Laravel update permanently failed ` +
+                        `after ${maxRetries + 1} attempts: ` +
+                        `${error.response?.data?.message || error.message}`
+                    );
+
+                    return false;
+                }
+            }
         }
     }
 }
