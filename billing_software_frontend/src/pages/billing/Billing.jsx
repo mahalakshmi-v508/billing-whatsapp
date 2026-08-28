@@ -378,7 +378,7 @@ function createFreshBill(id) {
   return {
     id,
     rows: [emptyRow()],
-    customer: { id:null, name:"", phone:"", gst_no:"", credit_enabled:"0", credit_limit:0, points:0, advance_balance:0, pending_amount:0 },
+    customer: { id:null, name:"", phone:"", address:"", gst_no:"", credit_enabled:"0", credit_limit:0, points:0, advance_balance:0, pending_amount:0 },
     billType: "cash_bill",
     paymentMethod: "cash",
     payment: { received: 0 },
@@ -463,6 +463,11 @@ export default function Billing() {
   const phoneSuggestRef = useRef(null);
   const nameSearchTimer  = useRef(null);
   const phoneSearchTimer = useRef(null);
+
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [addCustomerName, setAddCustomerName] = useState("");
+  const [addCustomerPhone, setAddCustomerPhone] = useState("");
+  const [addCustomerAddress, setAddCustomerAddress] = useState("");
 
   const [aiPrompt, setAiPrompt]           = useState("");
   const [aiLoading, setAiLoading]         = useState(false);
@@ -944,12 +949,12 @@ export default function Billing() {
   };
 
   const selectCustomer = async c => {
-    setCustomer(prev => ({ ...prev, id:c.id, name:c.name, phone:c.phone, gst_no:c.gst_no||"", credit_enabled:c.credit_enabled||"0", credit_limit:c.credit_limit||0, points:c.loyalty_points||0, advance_balance:parseFloat(c.advance_balance)||0, pending_amount:parseFloat(c.pending_amount)||0 }));
+    setCustomer(prev => ({ ...prev, id:c.id, name:c.name, phone:c.phone, address:c.address||"", gst_no:c.gst_no||"", credit_enabled:c.credit_enabled||"0", credit_limit:c.credit_limit||0, points:c.loyalty_points||0, advance_balance:parseFloat(c.advance_balance)||0, pending_amount:parseFloat(c.pending_amount)||0 }));
     setNameSuggestions([]); setPhoneSuggestions([]);
     const fresh = await fetchCustomerById(c.id);
     if (fresh) {
       const adv = parseFloat(fresh.advance_balance)||0, pending = parseFloat(fresh.pending_amount)||0, pts = parseInt(fresh.loyalty_points)||0;
-      setCustomer({ id:fresh.id, name:fresh.name, phone:fresh.phone, gst_no:fresh.gst_no||"", credit_enabled:fresh.credit_enabled||"0", credit_limit:fresh.credit_limit||0, points:pts, advance_balance:adv, pending_amount:pending });
+      setCustomer({ id:fresh.id, name:fresh.name, phone:fresh.phone, address:fresh.address||"", gst_no:fresh.gst_no||"", credit_enabled:fresh.credit_enabled||"0", credit_limit:fresh.credit_limit||0, points:pts, advance_balance:adv, pending_amount:pending });
       const msgs = [];
       if (pts > 0) msgs.push(`${pts} loyalty pts`);
       if (adv > 0) msgs.push(`${formatCurrency(adv)} advance`);
@@ -967,7 +972,8 @@ export default function Billing() {
       setCustomerSearchLoading(true);
       try {
         const res = await api.get("/customer/customer_search", { params: { admin_id: adminId, q: value } });
-        setNameSuggestions(res.data.status ? (res.data.data || []) : []);
+        const results = res.data.status ? (res.data.data || []) : [];
+        setNameSuggestions(results);
       } catch { setNameSuggestions([]); }
       setCustomerSearchLoading(false);
     }, 300);
@@ -978,20 +984,71 @@ export default function Billing() {
     setCustomer(c => ({ ...c, phone:digits, id:null, name:c.id ? "" : c.name, credit_enabled:"0", advance_balance:0, pending_amount:0 }));
     setPhoneSuggestions([]);
     clearTimeout(phoneSearchTimer.current);
-    if (digits.length < 3) return;
+    if (digits.length !== 10) return;
     phoneSearchTimer.current = setTimeout(async () => {
       if (!selectedCompany) return;
       setCustomerSearchLoading(true);
       try {
-        if (digits.length === 10) {
-          const res = await api.get("/customer/get_by_phone", { params: { admin_id: adminId, q: value } });
-          if (res.data.status && res.data.data) { await selectCustomer(res.data.data); setCustomerSearchLoading(false); return; }
-        }
-        const res = await api.get("/customer/customer_search", { params: { admin_id: adminId, q: value } });
-        setPhoneSuggestions(res.data.status ? (res.data.data || []) : []);
-      } catch { setPhoneSuggestions([]); }
+        const res = await api.get("/customer/get_by_phone", { params: { admin_id: adminId, phone: digits } });
+        if (res.data.status && res.data.data) { await selectCustomer(res.data.data); setCustomerSearchLoading(false); return; }
+        setAddCustomerPhone(digits);
+        setAddCustomerName(customer.name || "");
+        setAddCustomerAddress("");
+        setShowAddCustomer(true);
+      } catch {}
       setCustomerSearchLoading(false);
     }, 300);
+  };
+
+  const openAddCustomerPopup = () => {
+    setAddCustomerName(customer.name || "");
+    setAddCustomerPhone(customer.phone || "");
+    setAddCustomerAddress("");
+    setShowAddCustomer(true);
+  };
+
+  const handleSaveNewCustomer = async () => {
+    if (!addCustomerName.trim()) { showToast("Customer name is required", "error"); return; }
+    if (!addCustomerPhone.trim() || !/^[0-9]{10}$/.test(addCustomerPhone.trim())) { showToast("Valid 10-digit phone number required", "error"); return; }
+    try {
+      const res = await api.post("/customer/create_customer", {
+        admin_id: adminId,
+        name: addCustomerName.trim(),
+        phone: addCustomerPhone.trim(),
+        address: addCustomerAddress.trim(),
+      });
+      if (res.data.status) {
+        const phoneRes = await api.get("/customer/get_by_phone", { params: { admin_id: adminId, phone: addCustomerPhone.trim() } });
+        if (phoneRes.data.status && phoneRes.data.data) {
+          await selectCustomer(phoneRes.data.data);
+        } else {
+          setCustomer(c => ({ ...c, name:addCustomerName.trim(), phone:addCustomerPhone.trim(), address:addCustomerAddress.trim() }));
+        }
+        showToast("Customer created successfully", "success");
+        setShowAddCustomer(false);
+        setAddCustomerName("");
+        setAddCustomerPhone("");
+        setAddCustomerAddress("");
+      } else {
+        if (res.data.message && res.data.message.includes("already exists")) {
+          const phoneRes = await api.get("/customer/get_by_phone", { params: { admin_id: adminId, phone: addCustomerPhone.trim() } });
+          if (phoneRes.data.status && phoneRes.data.data) {
+            await selectCustomer(phoneRes.data.data);
+            showToast("Customer already exists - selected existing customer", "success");
+            setShowAddCustomer(false);
+            setAddCustomerName("");
+            setAddCustomerPhone("");
+            setAddCustomerAddress("");
+          } else {
+            showToast(res.data.message, "error");
+          }
+        } else {
+          showToast(res.data.message || "Failed to create customer", "error");
+        }
+      }
+    } catch (err) {
+      showToast(err.message || "Server error", "error");
+    }
   };
 
   /* ══ GENERATE INVOICE ══ */
@@ -1104,6 +1161,36 @@ export default function Billing() {
         </div>
       )}
 
+      {/* ── Add New Customer Popup ── */}
+      {showAddCustomer && (
+        <div style={{ position:"fixed", inset:0, zIndex:99997, background:"rgba(0,0,0,.35)" }} onClick={() => setShowAddCustomer(false)}>
+          <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", background:"#fff", borderRadius:8, width:380, maxHeight:"90vh", overflow:"auto", boxShadow:"0 20px 60px rgba(0,0,0,.25)", fontFamily:"'Inter','Outfit',sans-serif" }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding:"14px 18px", borderBottom:"1px solid #e5e7eb", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div style={{ fontSize:14, fontWeight:700, color:"#111827" }}>Add New Customer</div>
+              <button onClick={() => setShowAddCustomer(false)} style={{ background:"none", border:"none", cursor:"pointer", color:"#9ca3af", padding:4, display:"flex", fontSize:18, lineHeight:1 }}><IconClose/></button>
+            </div>
+            <div style={{ padding:"16px 18px" }}>
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:11, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", display:"block", marginBottom:4 }}>Customer Name</label>
+                <input className="pos-input" placeholder="Enter customer name" value={addCustomerName} onChange={e => setAddCustomerName(e.target.value)} style={{ padding:"6px 8px", fontSize:12 }}/>
+              </div>
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:11, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", display:"block", marginBottom:4 }}>Phone Number</label>
+                <input className="pos-input" placeholder="10-digit phone number" value={addCustomerPhone} maxLength={10} onChange={e => setAddCustomerPhone(e.target.value.replace(/\D/g, "").slice(0,10))} style={{ padding:"6px 8px", fontSize:12 }}/>
+              </div>
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:11, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", display:"block", marginBottom:4 }}>Address</label>
+                <input className="pos-input" placeholder="Enter address (optional)" value={addCustomerAddress} onChange={e => setAddCustomerAddress(e.target.value)} style={{ padding:"6px 8px", fontSize:12 }}/>
+              </div>
+              <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+                <button onClick={() => setShowAddCustomer(false)} className="pos-btn-secondary" style={{ flex:"none", padding:"8px 16px" }}>Cancel</button>
+                <button onClick={handleSaveNewCustomer} className="pos-btn-primary" style={{ flex:"none", padding:"8px 16px" }}>Save Customer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ════════════════════════════════════════════════════════════════════
           TOP HEADER BAR — with bill tabs
       ════════════════════════════════════════════════════════════════════ */}
@@ -1153,8 +1240,9 @@ export default function Billing() {
       {/* ════════════════════════════════════════════════════════════════════
           PRODUCT SEARCH BAR
       ════════════════════════════════════════════════════════════════════ */}
-      <div style={{ background:"#fff", borderBottom:"1px solid #e5e7eb", padding:"8px 16px", flexShrink:0, position:"relative" }} ref={suggestBoxRef}>
-        <div style={{ position:"relative", maxWidth:"100%" }}>
+      <div style={{ background:"#fff", borderBottom:"1px solid #e5e7eb", padding:"8px 16px", flexShrink:0, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }} ref={suggestBoxRef}>
+        <div style={{ position:"relative", flex:1, minWidth:0 }}>
+          <div style={{ position:"relative", maxWidth:"100%" }}>
           <div style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", display:"flex", zIndex:1 }}><IconSearch/></div>
           <input
             ref={globalSearchRef}
@@ -1177,12 +1265,12 @@ export default function Billing() {
             <span style={{ display:"flex", alignItems:"center", gap:3, fontSize:10, fontWeight:500, color:"#9ca3af" }}>
               <IconBarcode/> Barcode
             </span>
-            <span className="kbd">F2</span>
+            <span className="kbd">F2</span>a
           </div>
         </div>
 
         {showSuggest && globalSuggestions.length > 0 && (
-          <div style={{ position:"absolute", top:"calc(100% + 2px)", left:16, right:16, background:"#fff", border:"1px solid #d1d5db", borderRadius:"0 0 6px 6px", zIndex:9999, maxHeight:260, overflowY:"auto", boxShadow:"0 8px 24px rgba(0,0,0,.12)", animation:"slideDown .15s ease both" }}>
+          <div style={{ position:"absolute", top:"calc(100% + 2px)", left:0, right:0, background:"#fff", border:"1px solid #d1d5db", borderRadius:"0 0 6px 6px", zIndex:9999, maxHeight:260, overflowY:"auto", boxShadow:"0 8px 24px rgba(0,0,0,.12)", animation:"slideDown .15s ease both" }}>
             {!globalSearch.trim() && recentProducts.length > 0 && (
               <div style={{ padding:"6px 12px 3px", fontSize:10, fontWeight:600, color:"#9ca3af", textTransform:"uppercase", letterSpacing:".04em", display:"flex", alignItems:"center", gap:4 }}>
                 <IconClock/> Recent
@@ -1273,6 +1361,29 @@ export default function Billing() {
             </div>
           </div>
         )}
+        </div>
+
+        {/* Date */}
+        <div style={{ flexShrink:0 }}>
+          <div style={{ fontSize:10, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", marginBottom:4 }}>Date</div>
+          <div style={{ fontSize:12, fontWeight:600, color:"#111827", padding:"6px 10px", background:"#fff", border:"1px solid #d1d5db", borderRadius:4, whiteSpace:"nowrap" }}>{billDate}</div>
+        </div>
+
+        {/* Company */}
+        {companies.length > 1 ? (
+          <div style={{ flexShrink:0 }}>
+            <div style={{ fontSize:10, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", marginBottom:4 }}>Company</div>
+            <select className="pos-select" value={selectedCompany} onChange={e => { setSelectedCompany(e.target.value); localStorage.setItem("selected_company_id", e.target.value); }} style={{ width:160, fontSize:12, padding:"6px 28px 6px 8px" }}>
+              {companies.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+            </select>
+          </div>
+        ) : companies.length === 1 ? (
+          <div style={{ flexShrink:0 }}>
+            <div style={{ fontSize:10, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", marginBottom:4 }}>Company</div>
+            <div style={{ fontSize:12, fontWeight:600, color:"#111827", padding:"6px 10px", background:"#fff", border:"1px solid #d1d5db", borderRadius:4, whiteSpace:"nowrap" }}>{companies[0]?.company_name}</div>
+          </div>
+        ) : null}
+
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════
@@ -1333,7 +1444,7 @@ export default function Billing() {
             </div>
 
             <div className="pos-table-body">
-              {validRows.length === 0 && (
+              {!rows.some(r => r.name || r.product_id) && (
                 <div style={{ textAlign:"center", padding:"40px 0", color:"#9ca3af", fontSize:13 }}>
                   <div style={{ fontSize:28, marginBottom:8, opacity:.5 }}>&#128722;</div>
                   <div>Use the search bar above to add products</div>
@@ -1344,7 +1455,7 @@ export default function Billing() {
                 if (!r.name && !r.product_id) return null;
                 const disc = Number(r.discount) || 0;
                 return (
-                  <div key={i} className="pos-table-row row-enter" style={{ gridTemplateColumns:"36px 90px 1fr 60px 70px 90px 80px 80px 70px 30px", padding:"4px 12px", background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                  <div key={i} className="pos-table-row row-enter" style={{ display:"grid", gridTemplateColumns:"36px 90px 1fr 60px 70px 90px 80px 80px 70px 30px", padding:"4px 12px", background: i % 2 === 0 ? "#fff" : "#fafbfc", alignItems:"center", minHeight:38 }}>
                     <span style={{ fontSize:11, color:"#9ca3af", fontWeight:500 }}>{i + 1}</span>
                     <span style={{ fontSize:12, color:"#6b7280", fontFamily:"monospace" }}>{r.product_code ? `#${r.product_code}` : r.isUnlisted ? <span style={{ fontSize:10, color:"#b45309", background:"#fef3c7", borderRadius:2, padding:"1px 4px" }}>Unlisted</span> : "\u2014"}</span>
                     <div>
@@ -1372,7 +1483,7 @@ export default function Billing() {
                         <span style={{ fontSize:12, color:"#6b7280" }}>{r.unit || "\u2014"}</span>
                       )}
                     </div>
-                    <div style={{ textAlign:"right" }}>
+                    <div style={{ textAlign:"right", whiteSpace:"nowrap" }}>
                       {r.isUnlisted ? (
                         <input type="number" className="pos-input-compact" value={r.price} min={0} onChange={e => updateRow(i, "price", Number(e.target.value) || 0)} onWheel={e => e.target.blur()} style={{ width:76, fontSize:12, fontWeight:600, padding:"3px 4px", textAlign:"right" }}/>
                       ) : (
@@ -1382,7 +1493,7 @@ export default function Billing() {
                     <div style={{ display:"flex", justifyContent:"flex-end" }}>
                       <input type="number" className="pos-input-compact" value={r.discount || 0} min={0} onChange={e => updateRow(i, "discount", Number(e.target.value) || 0)} onWheel={e => e.target.blur()} style={{ width:68, fontSize:12, fontWeight:500, padding:"3px 4px", textAlign:"right", color: disc > 0 ? "#dc2626" : "#111827" }}/>
                     </div>
-                    <div style={{ textAlign:"right" }}>
+                    <div style={{ textAlign:"right", whiteSpace:"nowrap" }}>
                       {billType === "gst_bill" && r.gst > 0 ? (
                         <span style={{ fontSize:12, fontWeight:600, color:"#d97706" }}>{r.gst}% <span style={{ fontSize:10, color:"#9ca3af" }}>{formatCurrency((r.price * r.qty * r.gst) / 100)}</span></span>
                       ) : (
@@ -1406,63 +1517,54 @@ export default function Billing() {
         <div style={{ width:340, flexShrink:0, display:"flex", flexDirection:"column", overflow:"hidden", background:"#f9fafb" }}>
           <div style={{ flex:1, overflowY:"auto", padding:"12px 14px" }}>
 
-            {/* Date */}
-            <div style={{ marginBottom:10 }}>
-              <label style={{ fontSize:11, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", display:"block", marginBottom:4 }}>Date</label>
-              <div style={{ fontSize:13, fontWeight:600, color:"#111827", padding:"6px 10px", background:"#fff", border:"1px solid #d1d5db", borderRadius:4 }}>{billDate}</div>
-            </div>
-
-            {companies.length > 1 && (
-              <div style={{ marginBottom:10 }}>
-                <label style={{ fontSize:11, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", display:"block", marginBottom:4 }}>Company</label>
-                <select className="pos-select" value={selectedCompany} onChange={e => { setSelectedCompany(e.target.value); localStorage.setItem("selected_company_id", e.target.value); }}>
-                  {companies.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-                </select>
-              </div>
-            )}
-            {companies.length === 1 && (
-              <div style={{ marginBottom:10 }}>
-                <label style={{ fontSize:11, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", display:"block", marginBottom:4 }}>Company</label>
-                <div style={{ fontSize:13, fontWeight:600, color:"#111827", padding:"6px 10px", background:"#fff", border:"1px solid #d1d5db", borderRadius:4 }}>{companies[0]?.company_name}</div>
-              </div>
-            )}
-
             {/* Customer Search */}
             <div style={{ marginBottom:10 }}>
               <label style={{ fontSize:11, fontWeight:600, color:"#6b7280", textTransform:"uppercase", letterSpacing:".04em", display:"block", marginBottom:4 }}>
                 Customer <span className="kbd" style={{ marginLeft:4 }}>F11</span>
               </label>
-              <div ref={nameSuggestRef} style={{ position:"relative" }}>
-                <input id="cust-name" className="pos-input" placeholder="Search for a customer by name, phone number" value={customer.name} onChange={e => handleNameSearch(e.target.value)} onFocus={() => { if (customer.name.length >= 2) handleNameSearch(customer.name); }} style={{ padding:"6px 8px", fontSize:12 }}/>
-                {customer.points > 0 && <div style={{ marginTop:3, fontSize:11, color:"#059669", fontWeight:600 }}>Points: {customer.points}</div>}
-                {nameSuggestions.length > 0 && (
-                  <div style={{ position:"absolute", top:"calc(100% + 2px)", left:0, right:0, background:"#fff", border:"1px solid #d1d5db", borderRadius:4, zIndex:9999, maxHeight:160, overflowY:"auto", boxShadow:"0 6px 20px rgba(0,0,0,.1)" }}>
-                    {nameSuggestions.map(c => (
-                      <div key={c.id} className="customer-suggest-item" onMouseDown={() => selectCustomer(c)}>
-                        <div style={{ fontWeight:600, color:"#111827", fontSize:12 }}>{c.name}</div>
-                        <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:1 }}>
-                          <IconPhone/>
-                          <span style={{ fontSize:11, color:"#6b7280" }}>{c.phone}</span>
-                          {parseFloat(c.advance_balance) > 0 && <span style={{ fontSize:9, fontWeight:700, background:"#f0fdf4", color:"#059669", borderRadius:2, padding:"1px 4px" }}>{formatCurrency(parseFloat(c.advance_balance))} adv</span>}
-                          {parseFloat(c.pending_amount) > 0 && <span style={{ fontSize:9, fontWeight:700, background:"#fef2f2", color:"#dc2626", borderRadius:2, padding:"1px 4px" }}>{formatCurrency(parseFloat(c.pending_amount))} due</span>}
+              <div style={{ display:"flex", gap:6, alignItems:"flex-start" }}>
+                <div ref={nameSuggestRef} style={{ position:"relative", flex:2, minWidth:0 }}>
+                  <input id="cust-name" className="pos-input" placeholder="Search for a customer by name, phone number" value={customer.name} onChange={e => handleNameSearch(e.target.value)} onFocus={() => { if (customer.name.length >= 2) handleNameSearch(customer.name); }} style={{ padding:"6px 8px", fontSize:12 }}/>
+                  {customer.points > 0 && <div style={{ marginTop:3, fontSize:11, color:"#059669", fontWeight:600 }}>Points: {customer.points}</div>}
+                  {nameSuggestions.length > 0 && (
+                    <div style={{ position:"absolute", top:"calc(100% + 2px)", left:0, right:0, background:"#fff", border:"1px solid #d1d5db", borderRadius:4, zIndex:9999, maxHeight:200, overflowY:"auto", boxShadow:"0 6px 20px rgba(0,0,0,.1)" }}>
+                      {nameSuggestions.map(c => (
+                        <div key={c.id} className="customer-suggest-item" onMouseDown={() => selectCustomer(c)}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontWeight:600, color:"#111827", fontSize:12 }}>{c.name}</div>
+                            <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:1 }}>
+                              <IconPhone/>
+                              <span style={{ fontSize:11, color:"#6b7280" }}>{c.phone}</span>
+                              {parseFloat(c.advance_balance) > 0 && <span style={{ fontSize:9, fontWeight:700, background:"#f0fdf4", color:"#059669", borderRadius:2, padding:"1px 4px" }}>{formatCurrency(parseFloat(c.advance_balance))} adv</span>}
+                              {parseFloat(c.pending_amount) > 0 && <span style={{ fontSize:9, fontWeight:700, background:"#fef2f2", color:"#dc2626", borderRadius:2, padding:"1px 4px" }}>{formatCurrency(parseFloat(c.pending_amount))} due</span>}
+                            </div>
+                            {c.address && <div style={{ fontSize:10, color:"#9ca3af", marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.address}</div>}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {customerSearchLoading && <span style={{ position:"absolute", right:8, top:"50%", width:12, height:12, border:"2px solid #d1d5db", borderTopColor:"#3b82f6", borderRadius:"50%", display:"inline-block", animation:"spin .7s linear infinite" }}/>}
-              </div>
-              <div ref={phoneSuggestRef} style={{ position:"relative", marginTop:4 }}>
-                <input className="pos-input" placeholder="Phone number" value={customer.phone} maxLength={10} onChange={e => handlePhoneSearch(e.target.value)} style={{ padding:"6px 8px", fontSize:12 }}/>
-                {phoneSuggestions.length > 0 && (
-                  <div style={{ position:"absolute", top:"calc(100% + 2px)", left:0, right:0, background:"#fff", border:"1px solid #d1d5db", borderRadius:4, zIndex:9999, maxHeight:120, overflowY:"auto", boxShadow:"0 6px 20px rgba(0,0,0,.1)" }}>
-                    {phoneSuggestions.map(c => (
-                      <div key={c.id} className="customer-suggest-item" onMouseDown={() => selectCustomer(c)}>
-                        <div style={{ display:"flex", alignItems:"center", gap:4 }}><IconPhone/><span style={{ fontWeight:600, fontSize:12 }}>{c.phone}</span></div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                  {customerSearchLoading && <span style={{ position:"absolute", right:8, top:"50%", width:12, height:12, border:"2px solid #d1d5db", borderTopColor:"#3b82f6", borderRadius:"50%", display:"inline-block", animation:"spin .7s linear infinite" }}/>}
+                </div>
+                <div ref={phoneSuggestRef} style={{ position:"relative", flex:1, minWidth:0 }}>
+                  <input className="pos-input" placeholder="Phone number" value={customer.phone} maxLength={10} onChange={e => handlePhoneSearch(e.target.value)} style={{ padding:"6px 8px", fontSize:12 }}/>
+                  {phoneSuggestions.length > 0 && (
+                    <div style={{ position:"absolute", top:"calc(100% + 2px)", left:0, right:0, background:"#fff", border:"1px solid #d1d5db", borderRadius:4, zIndex:9999, maxHeight:200, overflowY:"auto", boxShadow:"0 6px 20px rgba(0,0,0,.1)" }}>
+                      {phoneSuggestions.map(c => (
+                        <div key={c.id} className="customer-suggest-item" onMouseDown={() => selectCustomer(c)}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontWeight:600, color:"#111827", fontSize:12 }}>{c.name}</div>
+                            <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:1 }}>
+                              <IconPhone/>
+                              <span style={{ fontSize:11, color:"#6b7280" }}>{c.phone}</span>
+                            </div>
+                            {c.address && <div style={{ fontSize:10, color:"#9ca3af", marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.address}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {customer.id && (

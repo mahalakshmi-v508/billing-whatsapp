@@ -1,26 +1,77 @@
 const {
-    Client,
-    LocalAuth,
-    MessageMedia
-} = require('whatsapp-web.js');
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason,
+    fetchLatestBaileysVersion,
+    proto
+} = require('@whiskeysockets/baileys');
 
 const path = require('path');
 const fs = require('fs');
 const QRCode = require('qrcode');
 const axios = require('axios');
+const pino = require('pino');
 
 const config = require('../config');
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const baileysLogger = pino({ level: process.env.BAILEYS_LOG_LEVEL || 'silent' });
+
+const EXT_MIME = {
+    '.pdf': 'application/pdf',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.csv': 'text/csv',
+    '.txt': 'text/plain',
+    '.zip': 'application/zip',
+    '.mp3': 'audio/mpeg',
+    '.mp4': 'video/mp4'
+};
+
+function mimeFromPath(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    return EXT_MIME[ext] || 'application/octet-stream';
+}
+
+function baileysStatusToAck(status) {
+    if (status === proto.WebMessageInfo.Status.READ || status === proto.WebMessageInfo.Status.PLAYED) {
+        return 3;
+    }
+    if (status === proto.WebMessageInfo.Status.DELIVERY_ACK) {
+        return 2;
+    }
+    if (status === proto.WebMessageInfo.Status.SERVER_ACK) {
+        return 1;
+    }
+    return null;
+}
+
 class WhatsAppManager {
 
     constructor() {
         this.clients = new Map();
+        this.authStates = new Map();
         this.states = new Map();
-        this.pendingAcks = new Map(); // sessionId -> Map<msgId, {ack, lastChecked}>
+        this.pendingAcks = new Map();
+        this.reconnectTimers = new Map();
+        this.reconnectAttempts = new Map();
+        this.lidToPhone = new Map();
+        this.removedSessions = new Set();
+        this.creating = new Map();
         this.watchdog = null;
         this.syncInterval = null;
+    }
+
+    baileysSessionPath(sessionId) {
+        return path.join(config.sessionPath, 'baileys', 'session-' + sessionId);
     }
 
     async createClient(sessionId) {
@@ -29,7 +80,22 @@ class WhatsAppManager {
             return this.clients.get(sessionId);
         }
 
-        console.log(`[WA][${sessionId}] initializing`);
+        if (this.creating.has(sessionId)) {
+            return this.creating.get(sessionId);
+        }
+
+        const creation = this.buildClient(sessionId).finally(() => {
+            this.creating.delete(sessionId);
+        });
+
+        this.creating.set(sessionId, creation);
+
+        return creation;
+    }
+
+    async buildClient(sessionId) {
+
+        console.log(`[WA][${sessionId}] initializing (baileys)`);
 
         this.setState(sessionId, {
             status: 'initializing',
@@ -38,35 +104,70 @@ class WhatsAppManager {
             name: null
         });
 
-        const puppeteerOptions = {
-            headless: true,
+        const dir = this.baileysSessionPath(sessionId);
 
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox'
-            ]
-        };
-
-        if (config.chromePath) {
-            puppeteerOptions.executablePath = config.chromePath;
+        try {
+            fs.mkdirSync(dir, { recursive: true });
+        } catch (error) {
+            console.error(`[WA][${sessionId}] cannot create session dir:`, error.message);
         }
 
-        const client = new Client({
-            authStrategy: new LocalAuth({
-                clientId: sessionId,
-                dataPath: path.resolve(config.sessionPath)
-            }),
+        let auth;
 
-            puppeteer: puppeteerOptions
+        try {
+
+            const { state, saveCreds } =
+                await useMultiFileAuthState(dir);
+
+            this.authStates.set(sessionId, { state, saveCreds });
+
+            auth = this.authStates.get(sessionId);
+
+        } catch (error) {
+
+            console.error(
+                `[WA][${sessionId}] failed to load auth state:`,
+                error.message
+            );
+
+            this.setState(sessionId, {
+                status: 'error',
+                qr: null
+            });
+
+            throw error;
+        }
+
+        let version;
+
+        try {
+
+            const v = await fetchLatestBaileysVersion();
+
+            version = v.version;
+
+        } catch (error) {
+
+            version = [2, 3000, 1015901307];
+        }
+
+        const sock = makeWASocket({
+            version,
+            logger: baileysLogger,
+            printQRInTerminal: false,
+            auth: auth.state,
+            generateHighQualityLinkPreview: true,
+            syncFullHistory: false,
+            browser: ['WhatsApp Web Platform', 'Chrome', '124.0.0.0']
         });
 
-        this.registerEvents(client, sessionId);
+        this.registerEvents(sock, sessionId);
 
-        this.clients.set(sessionId, client);
+        this.clients.set(sessionId, sock);
 
-        await client.initialize();
+        console.log(`[WA][${sessionId}] socket created`);
 
-        return client;
+        return sock;
     }
 
     setState(sessionId, state) {
@@ -100,367 +201,417 @@ class WhatsAppManager {
 
             for (const [sessionId, state] of this.states.entries()) {
 
+                if (this.removedSessions.has(sessionId)) {
+                    continue;
+                }
+
                 if (
-                    state.status === 'authenticated' &&
-                    Date.now() - (state.updatedAt || 0) > 120000
+                    state.status === 'ready' &&
+                    !this.clients.has(sessionId)
                 ) {
 
                     console.warn(
-                        `[WA][${sessionId}] stuck in authenticated, restarting client`
+                        `[WA][${sessionId}] ready state without socket, attempting reconnect`
                     );
 
-                    try {
+                    this.setState(sessionId, {
+                        status: 'connecting',
+                        qr: null
+                    });
 
-                        await this.removeClient(sessionId);
+                    await this.updateLaravel(sessionId, {
+                        status: 'reconnecting'
+                    });
 
-                        await delay(5000);
+                    this.createClient(sessionId).catch(err => {
+                        console.error(`[WA][${sessionId}] reconnect failed:`, err.message);
+                    });
 
-                        await this.createClient(sessionId);
-
-                    } catch (error) {
-
-                        console.error(
-                            `[WA][${sessionId}] watchdog restart failed:`,
-                            error.message
-                        );
-                    }
-                }
-
-                if (state.status === 'ready') {
-
-                    const client = this.clients.get(sessionId);
-
-                    if (!client) {
-
-                        console.warn(
-                            `[WA][${sessionId}] ready state without client, attempting reconnect`
-                        );
-
-                        this.setState(sessionId, {
-                            status: 'reconnecting',
-                            qr: null
-                        });
-
-                        await this.updateLaravel(sessionId, {
-                            status: 'reconnecting'
-                        });
-
-                        this.createClient(sessionId).catch(err => {
-                            console.error(`[WA][${sessionId}] reconnect failed:`, err.message);
-                        });
-
-                        continue;
-                    }
-
-                    try {
-
-                        const page = client?.pupPage;
-
-                        if (page && typeof page.isClosed === 'function' && page.isClosed()) {
-
-                            console.warn(
-                                `[WA][${sessionId}] puppeteer page is closed, attempting reconnect`
-                            );
-
-                            this.setState(sessionId, {
-                                status: 'reconnecting',
-                                qr: null
-                            });
-
-                            await this.updateLaravel(sessionId, {
-                                status: 'reconnecting'
-                            });
-
-                            this.clients.delete(sessionId);
-
-                            try {
-                                await client.destroy();
-                            } catch (e) {
-                                // ignore
-                            }
-
-                            this.createClient(sessionId).catch(err => {
-                                console.error(`[WA][${sessionId}] reconnect failed:`, err.message);
-                            });
-                        }
-
-                    } catch (e) {
-                        // ignore health check errors
-                    }
+                    continue;
                 }
             }
 
         }, 30000);
     }
 
-    registerEvents(client, sessionId) {
+    registerEvents(sock, sessionId) {
 
-        client.on('qr', async (qr) => {
-
-            console.log(`[WA][${sessionId}] qr_ready`);
-
-            const qrDataUrl = await QRCode.toDataURL(qr);
-
-            this.setState(sessionId, {
-                status: 'qr_ready',
-                qr: qrDataUrl
-            });
-
-            await this.updateLaravel(sessionId, {
-                status: 'qr_ready'
-            });
+        sock.ev.on('creds.update', () => {
+            const auth = this.authStates.get(sessionId);
+            if (auth) {
+                auth.saveCreds();
+            }
         });
 
+        sock.ev.on('connection.update', async (update) => {
 
-        client.on('authenticated', async () => {
+            const { connection, lastDisconnect, qr } = update;
 
-            console.log(`[WA][${sessionId}] authenticated`);
+            if (qr) {
 
-            this.setState(sessionId, {
-                status: 'authenticated',
-                qr: null
-            });
+                console.log(`[WA][${sessionId}] qr_ready`);
 
-            await this.updateLaravel(sessionId, {
-                status: 'authenticated'
-            });
-        });
+                const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, scale: 8 });
 
+                this.setState(sessionId, {
+                    status: 'qr_ready',
+                    qr: qrDataUrl
+                });
 
-        client.on('ready', async () => {
-
-            console.log(`[WA][${sessionId}] ready`);
-
-            const info = client.info;
-
-            const phone = info?.wid?.user || null;
-            const name = info?.pushname || null;
-
-            this.setState(sessionId, {
-                status: 'ready',
-                qr: null,
-                phone,
-                name
-            });
-
-            await this.updateLaravel(sessionId, {
-                status: 'ready',
-                phone_number: phone,
-                display_name: name
-            });
-        });
-
-
-        client.on('auth_failure', async (message) => {
-
-            console.error(
-                `[WA][${sessionId}] auth_failure`,
-                message
-            );
-
-            this.setState(sessionId, {
-                status: 'auth_failure',
-                qr: null
-            });
-
-            await this.updateLaravel(sessionId, {
-                status: 'auth_failure'
-            });
-        });
-
-
-        client.on('disconnected', async (reason) => {
-
-            console.log(
-                `[WA][${sessionId}] disconnected`,
-                reason
-            );
-
-            this.setState(sessionId, {
-                status: 'disconnected',
-                qr: null
-            });
-
-            await this.updateLaravel(sessionId, {
-                status: 'disconnected'
-            });
-
-            try {
-                await client.destroy();
-            } catch (error) {
-                // ignore destroy errors
+                await this.updateLaravel(sessionId, {
+                    status: 'qr_ready'
+                });
             }
 
-            this.clients.delete(sessionId);
-        });
+            if (connection === 'connecting') {
 
-
-        client.on('message', async (message) => {
-
-            if (message.from === 'status@broadcast') {
-                return;
+                this.setState(sessionId, {
+                    status: 'connecting',
+                    qr: null
+                });
             }
 
-            await this.handleIncomingMessage(
-                sessionId,
-                message
-            );
-        });
+            if (connection === 'open') {
 
+                console.log(`[WA][${sessionId}] ready`);
 
-        // delivery / read receipts: ack 1 = sent, 2 = delivered, 3 = read, 4 = played
-        // Only process OUTGOING message acks — incoming acks are irrelevant
-        client.on('message_ack', async (message, ack) => {
+                this.reconnectAttempts.set(sessionId, 0);
 
-            if (message.from === 'status@broadcast') {
-                return;
+                const phone = sock?.user?.id
+                    ? String(sock.user.id).split(':')[0].replace(/[^0-9]/g, '')
+                    : null;
+
+                const name = sock?.user?.name || null;
+
+                this.setState(sessionId, {
+                    status: 'ready',
+                    qr: null,
+                    phone,
+                    name
+                });
+
+                await this.updateLaravel(sessionId, {
+                    status: 'ready',
+                    phone_number: phone,
+                    display_name: name
+                });
+
+                await this.flushPendingAcks(sessionId);
             }
 
-            if (!message.fromMe) {
-                return;
-            }
+            if (connection === 'close') {
 
-            const msgId = message.id?._serialized || null;
-            if (!msgId) return;
+                const err = lastDisconnect?.error;
+                const statusCode = err?.output?.statusCode ?? null;
+                const loggedOut = statusCode === DisconnectReason.loggedOut;
 
-            const mappedStatus = ack >= 3 ? 'read' : (ack >= 2 ? 'delivered' : (ack >= 1 ? 'sent' : 'pending'));
+                console.log(
+                    `[WA][${sessionId}] connection closed (statusCode=${statusCode}, loggedOut=${loggedOut})`
+                );
 
-            console.log(
-                `[WA][ACK] messageId=${msgId} ack=${ack} mappedStatus=${mappedStatus}`
-            );
+                this.clients.delete(sessionId);
 
-            // Forward to Laravel (Single authoritative path — updates DB and triggers Reverb broadcast)
-            await this.forwardAckToLaravel(sessionId, {
-                event: 'message_ack',
-                message: {
-                    id: msgId,
-                    ack
+                if (this.removedSessions.has(sessionId)) {
+
+                    this.removedSessions.delete(sessionId);
+
+                    return;
                 }
-            });
 
-            // Track for sync recovery (in case ACK events are missed)
-            if (this.pendingAcks.has(sessionId)) {
-                const pending = this.pendingAcks.get(sessionId);
-                if (ack >= 3) {
-                    pending.delete(msgId);
-                } else {
-                    const meta = pending.get(msgId);
-                    if (meta) meta.ack = ack;
+                if (loggedOut) {
+
+                    this.setState(sessionId, {
+                        status: 'disconnected',
+                        qr: null
+                    });
+
+                    await this.updateLaravel(sessionId, {
+                        status: 'logged_out'
+                    });
+
+                    return;
+                }
+
+                const attempts =
+                    (this.reconnectAttempts.get(sessionId) || 0) + 1;
+
+                this.reconnectAttempts.set(sessionId, attempts);
+
+                const waitMs = Math.min(
+                    Math.pow(2, attempts) * 1000,
+                    30000
+                );
+
+                console.log(
+                    `[WA][${sessionId}] will reconnect in ${waitMs}ms (attempt ${attempts})`
+                );
+
+                this.setState(sessionId, {
+                    status: 'connecting',
+                    qr: null
+                });
+
+                await this.updateLaravel(sessionId, {
+                    status: 'reconnecting'
+                });
+
+                if (this.reconnectTimers.has(sessionId)) {
+                    clearTimeout(this.reconnectTimers.get(sessionId));
+                }
+
+                const timer = setTimeout(async () => {
+
+                    this.reconnectTimers.delete(sessionId);
+
+                    if (this.clients.has(sessionId)) {
+                        return;
+                    }
+
+                    await this.createClient(sessionId).catch(err => {
+                        console.error(`[WA][${sessionId}] reconnect failed:`, err.message);
+                    });
+
+                }, waitMs);
+
+                this.reconnectTimers.set(sessionId, timer);
+            }
+        });
+
+        sock.ev.on('messages.upsert', async ({ messages, type }) => {
+
+            if (type !== 'notify' && type !== 'append') {
+                return;
+            }
+
+            for (const rawMessage of messages) {
+                await this.handleIncomingMessage(sessionId, rawMessage);
+            }
+        });
+
+        sock.ev.on('messages.update', async (updates) => {
+
+            for (const { key, update } of updates) {
+
+                if (!key || key.fromMe !== true) {
+                    continue;
+                }
+
+                const msgId = key.id;
+
+                if (!msgId) {
+                    continue;
+                }
+
+                const ack = baileysStatusToAck(update?.status);
+
+                if (ack == null) {
+                    continue;
+                }
+
+                console.log(
+                    `[WA][ACK] messageId=${msgId} status=${update.status} ack=${ack}`
+                );
+
+                await this.forwardAckToLaravel(sessionId, {
+                    event: 'message_ack',
+                    message: {
+                        id: msgId,
+                        ack
+                    }
+                });
+
+                if (this.pendingAcks.has(sessionId)) {
+
+                    const pending = this.pendingAcks.get(sessionId);
+
+                    if (ack >= 3) {
+                        pending.delete(msgId);
+                    } else {
+                        const meta = pending.get(msgId);
+                        if (meta) {
+                            meta.ack = ack;
+                        }
+                    }
                 }
             }
         });
     }
 
-    async handleIncomingMessage(sessionId, message) {
+    registerLidMapping(sessionId, lidJid, phoneJid) {
+
+        if (!String(lidJid).endsWith('@lid')) {
+            return;
+        }
+
+        if (!this.lidToPhone.has(sessionId)) {
+            this.lidToPhone.set(sessionId, new Map());
+        }
+
+        this.lidToPhone.get(sessionId).set(lidJid, phoneJid);
+    }
+
+    resolveIdentity(sessionId, key) {
+
+        const remoteJid = key?.remoteJid || '';
+
+        if (String(remoteJid).endsWith('@s.whatsapp.net')) {
+            return { phoneJid: remoteJid };
+        }
+
+        const candidates = [
+            key?.senderPn,
+            key?.remoteJidAlt,
+            key?.participantPn,
+            key?.participant,
+            key?.participantAlt
+        ];
+
+        for (const candidate of candidates) {
+            if (candidate && String(candidate).endsWith('@s.whatsapp.net')) {
+                if (String(remoteJid).endsWith('@lid')) {
+                    this.registerLidMapping(sessionId, remoteJid, candidate);
+                }
+                return { phoneJid: candidate };
+            }
+        }
+
+        const cache = this.lidToPhone.get(sessionId);
+
+        if (cache && cache.has(remoteJid)) {
+            return { phoneJid: cache.get(remoteJid) };
+        }
+
+        return { phoneJid: null };
+    }
+
+    async handleIncomingMessage(sessionId, rawMessage) {
 
         try {
 
-            let fromJid = message.from ?? '';
-            let lidFrom = null;
+            const key = rawMessage?.key || {};
 
-            // WhatsApp's newer accounts may message from a private "LID"
-            // address (<digits>@lid) instead of their phone number.
-            // Resolve it back to the real phone number so the reply lands
-            // in the SAME conversation as the invoices/messages sent to
-            // that customer - otherwise ghost chats appear under the raw
-            // lid digits and replies to them are never delivered.
-            if (String(fromJid).endsWith('@lid')) {
+            const remoteJid = key.remoteJid || '';
 
-                lidFrom = fromJid;
-
-                try {
-
-                    const contact = await message.getContact();
-
-                    const resolved = contact?.id?._serialized;
-
-                    if (resolved && !String(resolved).endsWith('@lid')) {
-                        fromJid = resolved;
-                    }
-
-                } catch (error) {
-
-                    console.error(
-                        `[${sessionId}] LID resolution failed:`,
-                        error.message
-                    );
-                }
+            if (!remoteJid) {
+                return;
             }
 
-            const phoneDigits =
-                String(fromJid).split('@')[0].replace(/\D/g, '') || null;
+            if (
+                remoteJid === 'status@broadcast' ||
+                remoteJid.endsWith('@broadcast') ||
+                remoteJid.endsWith('@g.us') ||
+                remoteJid.endsWith('@newsletter')
+            ) {
+                return;
+            }
 
-            await this.updateLaravel(
-                sessionId,
-                {
-                    event: 'message',
-                    message: {
-                        id: message.id?._serialized,
-                        from: fromJid,
-                        phone: phoneDigits,
-                        lid_from: lidFrom,
-                        body: message.body,
-                        timestamp: message.timestamp,
-                        type: message.type,
-                        fromMe: message.fromMe,
-                        media_name: message._data?.filename || null
-                    }
-                }
+            if (key.fromMe) {
+                return;
+            }
+
+            const msgId = key.id;
+
+            if (!msgId) {
+                return;
+            }
+
+            const message = rawMessage?.message;
+
+            if (!message) {
+                return;
+            }
+
+            const identity = this.resolveIdentity(sessionId, key);
+
+            const lidJid = String(remoteJid).endsWith('@lid') ? remoteJid : null;
+
+            const from = identity.phoneJid || lidJid || remoteJid;
+
+            const phoneDigits = identity.phoneJid
+                ? String(identity.phoneJid).split('@')[0].replace(/\D/g, '')
+                : null;
+
+            let messageType = 'text';
+            let body = null;
+            let mediaName = null;
+
+            if (message.conversation) {
+                messageType = 'text';
+                body = message.conversation;
+            } else if (message.extendedTextMessage?.text) {
+                messageType = 'text';
+                body = message.extendedTextMessage.text;
+            } else if (message.imageMessage) {
+                messageType = 'image';
+                body = message.imageMessage.caption || null;
+            } else if (message.videoMessage) {
+                messageType = 'video';
+                body = message.videoMessage.caption || null;
+            } else if (message.audioMessage) {
+                messageType = 'audio';
+                body = null;
+            } else if (message.documentMessage) {
+                messageType = 'document';
+                mediaName = message.documentMessage.fileName || null;
+                body = message.documentMessage.caption || null;
+            } else if (message.stickerMessage) {
+                messageType = 'sticker';
+                body = null;
+            } else if (message.contactMessage) {
+                messageType = 'contact';
+                body = message.contactMessage.displayName || 'Contact Card';
+            } else if (message.locationMessage) {
+                messageType = 'location';
+                body = `Location: ${message.locationMessage.degreesLatitude}, ${message.locationMessage.degreesLongitude}`;
+            }
+
+            const timestamp = rawMessage.messageTimestamp
+                ? new Date(Number(rawMessage.messageTimestamp) * 1000).toISOString()
+                : new Date().toISOString();
+
+            console.log(
+                `[WA][MSG] id=${msgId} from=${from} phone=${phoneDigits} type=${messageType}`
             );
+
+            await this.updateLaravel(sessionId, {
+                event: 'message',
+                message: {
+                    id: msgId,
+                    from,
+                    phone: phoneDigits,
+                    lid_from: lidJid,
+                    body,
+                    timestamp,
+                    type: messageType,
+                    fromMe: false,
+                    media_name: mediaName
+                }
+            });
 
         } catch (error) {
 
             console.error(
-                'Incoming message error:',
+                `[${sessionId}] Incoming message error:`,
                 error.message
             );
         }
     }
 
-    async handleDeadSession(sessionId, error) {
+    resolveJid(sessionId, phone) {
 
-        const msg = String(error?.message || '');
+        const digits = String(phone).replace(/\D/g, '');
 
-        if (
-            msg.includes('detached') ||
-            msg.includes('Detached') ||
-            msg.includes('Target closed') ||
-            msg.includes('Session closed') ||
-            msg.includes('Connection closed')
-        ) {
-
-            console.warn(
-                `[WA][${sessionId}] transient browser error detected: ${msg}, attempting reconnect`
-            );
-
-            this.setState(sessionId, {
-                status: 'reconnecting',
-                qr: null
-            });
-
-            this.updateLaravel(sessionId, {
-                status: 'reconnecting'
-            }).catch(() => {});
-
-            const client = this.clients.get(sessionId);
-
-            if (client) {
-                this.clients.delete(sessionId);
-                try {
-                    client.destroy().catch(() => {});
-                } catch (e) {
-                    // ignore
-                }
-            }
-
-            this.createClient(sessionId).catch(err => {
-                console.error(`[WA][${sessionId}] reconnect after error failed:`, err.message);
-            });
-
-            return true;
+        if (!digits) {
+            throw new Error('Invalid phone number');
         }
 
-        return false;
+        let num = digits;
+
+        if (/^\d{10}$/.test(num)) {
+            num = '91' + num;
+        }
+
+        return `${num}@s.whatsapp.net`;
     }
 
     async sendText(
@@ -469,9 +620,9 @@ class WhatsAppManager {
         message
     ) {
 
-        const client = this.clients.get(sessionId);
+        const sock = this.clients.get(sessionId);
 
-        if (!client) {
+        if (!sock) {
             throw new Error('WhatsApp client not found');
         }
 
@@ -481,17 +632,21 @@ class WhatsAppManager {
             throw new Error('WhatsApp is not connected');
         }
 
+        const jid = this.resolveJid(sessionId, phone);
+
         try {
 
-            const chatId = await this.resolveChatId(client, phone);
+            const sentMsg = await sock.sendMessage(jid, {
+                text: message
+            });
 
-            const result = await client.sendMessage(
-                chatId,
-                message
-            );
+            const msgId = sentMsg?.key?.id || null;
 
-            const msgId = result?.id?._serialized ?? null;
-            if (msgId) this.trackSentMessage(sessionId, msgId);
+            console.log(`[WA][SEND] to=${jid} id=${msgId}`);
+
+            if (msgId) {
+                this.trackSentMessage(sessionId, msgId);
+            }
 
             return {
                 id: msgId,
@@ -500,13 +655,10 @@ class WhatsAppManager {
 
         } catch (error) {
 
-            const isDead = await this.handleDeadSession(sessionId, error);
-
-            if (isDead) {
-                throw new Error(
-                    'WhatsApp session lost. Please reconnect from Settings > WhatsApp.'
-                );
-            }
+            console.error(
+                `[WA][${sessionId}] send text failed:`,
+                error.message
+            );
 
             throw error;
         }
@@ -520,9 +672,9 @@ class WhatsAppManager {
         filename = null
     ) {
 
-        const client = this.clients.get(sessionId);
+        const sock = this.clients.get(sessionId);
 
-        if (!client) {
+        if (!sock) {
             throw new Error('WhatsApp client not found');
         }
 
@@ -532,28 +684,26 @@ class WhatsAppManager {
             throw new Error('WhatsApp is not connected');
         }
 
+        const jid = this.resolveJid(sessionId, phone);
+
         try {
 
-            const media =
-                MessageMedia.fromFilePath(filePath);
+            const buffer = fs.readFileSync(filePath);
 
-            if (filename) {
-                media.filename = filename;
+            const sentMsg = await sock.sendMessage(jid, {
+                document: buffer,
+                fileName: filename || path.basename(filePath),
+                mimetype: mimeFromPath(filePath),
+                caption: caption || undefined
+            });
+
+            const docMsgId = sentMsg?.key?.id || null;
+
+            console.log(`[WA][SEND-DOC] to=${jid} id=${docMsgId}`);
+
+            if (docMsgId) {
+                this.trackSentMessage(sessionId, docMsgId);
             }
-
-            const chatId = await this.resolveChatId(client, phone);
-
-            const result =
-                await client.sendMessage(
-                    chatId,
-                    media,
-                    {
-                        caption
-                    }
-                );
-
-            const docMsgId = result?.id?._serialized ?? null;
-            if (docMsgId) this.trackSentMessage(sessionId, docMsgId);
 
             return {
                 id: docMsgId,
@@ -562,13 +712,10 @@ class WhatsAppManager {
 
         } catch (error) {
 
-            const isDead = await this.handleDeadSession(sessionId, error);
-
-            if (isDead) {
-                throw new Error(
-                    'WhatsApp session lost. Please reconnect from Settings > WhatsApp.'
-                );
-            }
+            console.error(
+                `[WA][${sessionId}] send document failed:`,
+                error.message
+            );
 
             throw error;
         }
@@ -583,9 +730,9 @@ class WhatsAppManager {
         caption = ''
     ) {
 
-        const client = this.clients.get(sessionId);
+        const sock = this.clients.get(sessionId);
 
-        if (!client) {
+        if (!sock) {
             throw new Error('WhatsApp client not found');
         }
 
@@ -599,92 +746,85 @@ class WhatsAppManager {
             ? String(base64Data).split(',')[1]
             : String(base64Data);
 
-        const media = new MessageMedia(
-            mimetype,
-            cleanBase64,
-            filename
-        );
+        const jid = this.resolveJid(sessionId, phone);
 
-        const chatId = await this.resolveChatId(client, phone);
-
-        const result =
-            await client.sendMessage(
-                chatId,
-                media,
-                {
-                    caption
-                }
-            );
-
-        const b64MsgId = result?.id?._serialized ?? null;
-        if (b64MsgId) this.trackSentMessage(sessionId, b64MsgId);
-
-        return {
-            id: b64MsgId,
-            status: 'sent'
-        };
-    }
-
-    async resolveChatId(client, phone) {
-
-        const digits = String(phone).replace(/\D/g, '');
-
-        if (!digits) {
-            throw new Error('Invalid phone number');
-        }
-
-        // resolve the correct JID (required for WhatsApp's new LID system)
         try {
-            const numberId = await client.getNumberId(digits);
 
-            if (numberId && numberId._serialized) {
-                return numberId._serialized;
+            const buffer = Buffer.from(cleanBase64, 'base64');
+
+            const sentMsg = await sock.sendMessage(jid, {
+                document: buffer,
+                fileName: filename,
+                mimetype,
+                caption: caption || undefined
+            });
+
+            const b64MsgId = sentMsg?.key?.id || null;
+
+            console.log(`[WA][SEND-B64] to=${jid} id=${b64MsgId}`);
+
+            if (b64MsgId) {
+                this.trackSentMessage(sessionId, b64MsgId);
             }
 
-            throw new Error('This number is not registered on WhatsApp');
+            return {
+                id: b64MsgId,
+                status: 'sent'
+            };
+
         } catch (error) {
 
-            if (String(error.message).includes('not registered')) {
-                throw error;
-            }
+            console.error(
+                `[WA][${sessionId}] send base64 document failed:`,
+                error.message
+            );
 
-            // resolution failed - fall back to plain jid
-            return `${digits}@c.us`;
+            throw error;
         }
-    }
-
-    normalizePhone(phone) {
-
-        let value = String(phone)
-            .replace(/\D/g, '');
-
-        if (!value) {
-            throw new Error('Invalid phone number');
-        }
-
-        return `${value}@c.us`;
     }
 
     async disconnect(sessionId) {
 
         console.log(`[WA][${sessionId}] explicit disconnect requested`);
 
-        const client =
-            this.clients.get(sessionId);
+        const sock = this.clients.get(sessionId);
 
-        if (client) {
+        const timer = this.reconnectTimers.get(sessionId);
+
+        if (timer) {
+            clearTimeout(timer);
+            this.reconnectTimers.delete(sessionId);
+        }
+
+        this.reconnectAttempts.delete(sessionId);
+
+        this.removedSessions.add(sessionId);
+
+        if (sock) {
+
             try {
-                await client.logout();
+                await sock.logout();
             } catch (error) {
                 try {
-                    await client.destroy();
-                } catch (destroyError) {
+                    sock.end(new Error('Manual disconnect'));
+                } catch (endError) {
                     // ignore
                 }
             }
 
             this.clients.delete(sessionId);
         }
+
+        this.authStates.delete(sessionId);
+
+        try {
+            fs.rmSync(this.baileysSessionPath(sessionId), { recursive: true, force: true });
+        } catch (error) {
+            // ignore
+        }
+
+        this.lidToPhone.delete(sessionId);
+        this.pendingAcks.delete(sessionId);
 
         this.setState(sessionId, {
             status: 'disconnected',
@@ -700,12 +840,21 @@ class WhatsAppManager {
 
     async removeClient(sessionId) {
 
-        const client =
-            this.clients.get(sessionId);
+        const sock = this.clients.get(sessionId);
 
-        if (client) {
+        const timer = this.reconnectTimers.get(sessionId);
+
+        if (timer) {
+            clearTimeout(timer);
+            this.reconnectTimers.delete(sessionId);
+        }
+
+        if (sock) {
+
+            this.removedSessions.add(sessionId);
+
             try {
-                await client.destroy();
+                sock.end(new Error('Client removed'));
             } catch (error) {
                 // ignore
             }
@@ -753,41 +902,40 @@ class WhatsAppManager {
     async restoreSessions() {
 
         const basePath =
-            path.resolve(config.sessionPath);
+            path.join(path.resolve(config.sessionPath), 'baileys');
 
-        const candidates = new Set();
+        if (!fs.existsSync(basePath)) {
+            return;
+        }
 
-        // 1. standard LocalAuth extracted sessions
-        const authPath =
-            path.join(basePath, '.wwebjs_auth');
+        const candidates = [];
 
-        if (fs.existsSync(authPath)) {
-            for (const folder of fs.readdirSync(authPath)) {
-                if (folder.startsWith('session-')) {
-                    candidates.add(folder.replace('session-', ''));
+        for (const folder of fs.readdirSync(basePath)) {
+
+            const full = path.join(basePath, folder);
+
+            if (
+                folder.startsWith('session-') &&
+                fs.statSync(full).isDirectory()
+            ) {
+
+                if (fs.existsSync(path.join(full, 'creds.json'))) {
+                    candidates.push(folder.replace('session-', ''));
                 }
             }
         }
 
-        // 2. persistent puppeteer browser profiles (auto-login via localStorage)
-        if (fs.existsSync(basePath)) {
-            for (const folder of fs.readdirSync(basePath)) {
-                const full = path.join(basePath, folder);
-                if (folder.startsWith('session-') && fs.statSync(full).isDirectory()) {
-                    candidates.add(folder.replace('session-', ''));
-                }
-            }
+        if (candidates.length === 0) {
+            return;
         }
 
-        if (candidates.size === 0) return;
+        let validIds = candidates;
 
-        // Only restore sessions that have a live DB row (skip orphaned folders)
-        const allIds = [...candidates];
-        let validIds = allIds;
         try {
+
             const resp = await axios.post(
                 `${config.laravelUrl}/api/internal/whatsapp/validate_sessions`,
-                { session_ids: allIds },
+                { session_ids: candidates },
                 {
                     headers: {
                         Authorization: `Bearer ${config.internalToken}`,
@@ -796,23 +944,27 @@ class WhatsAppManager {
                     timeout: 8000
                 }
             );
+
             if (resp.data?.valid_sessions) {
                 validIds = resp.data.valid_sessions;
             }
+
         } catch (err) {
-            // Endpoint may not exist yet — restore all as fallback
+            // Laravel unreachable — restore all as fallback
         }
 
-        const skipped = allIds.length - validIds.length;
+        const skipped = candidates.length - validIds.length;
+
         if (skipped > 0) {
             console.log(`[WA] Skipped ${skipped} orphaned session(s) (no DB row)`);
         }
 
-        if (validIds.length === 0) return;
+        if (validIds.length === 0) {
+            return;
+        }
 
         console.log(`[WA] Restoring ${validIds.length} session(s) in parallel...`);
 
-        // Set all candidate sessions in state as initializing so status calls see restoring/initializing
         for (const sessionId of validIds) {
             this.setState(sessionId, {
                 status: 'initializing',
@@ -827,7 +979,31 @@ class WhatsAppManager {
         );
 
         const restored = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
+
         console.log(`[WA] Sessions restored: ${restored}/${validIds.length}`);
+    }
+
+    async flushPendingAcks(sessionId) {
+
+        const pending = this.pendingAcks.get(sessionId);
+
+        if (!pending || pending.size === 0) {
+            return;
+        }
+
+        for (const [msgId, meta] of pending.entries()) {
+
+            if (meta.ack >= 1) {
+
+                await this.forwardAckToLaravel(sessionId, {
+                    event: 'message_ack',
+                    message: {
+                        id: msgId,
+                        ack: meta.ack
+                    }
+                });
+            }
+        }
     }
 
     async forwardAckToLaravel(sessionId, payload) {
@@ -929,9 +1105,11 @@ class WhatsAppManager {
     }
 
     trackSentMessage(sessionId, msgId) {
+
         if (!this.pendingAcks.has(sessionId)) {
             this.pendingAcks.set(sessionId, new Map());
         }
+
         this.pendingAcks.get(sessionId).set(msgId, {
             ack: 1,
             lastChecked: Date.now()
@@ -939,56 +1117,39 @@ class WhatsAppManager {
     }
 
     startSyncInterval() {
-        if (this.syncInterval) return;
+
+        if (this.syncInterval) {
+            return;
+        }
 
         this.syncInterval = setInterval(async () => {
-            for (const [sessionId, client] of this.clients.entries()) {
-                const state = this.getState(sessionId);
-                if (state.status !== 'ready') continue;
 
-                const pending = this.pendingAcks.get(sessionId);
-                if (!pending || pending.size === 0) continue;
+            for (const [sessionId, state] of this.states.entries()) {
 
-                const now = Date.now();
-                const toCheck = [];
-                for (const [msgId, meta] of pending.entries()) {
-                    if (now - meta.lastChecked > 15000) {
-                        toCheck.push(msgId);
-                    }
+                if (this.removedSessions.has(sessionId)) {
+                    continue;
                 }
-                if (toCheck.length === 0) continue;
 
-                const batch = toCheck.slice(0, 10);
-                for (const msgId of batch) {
-                    const meta = pending.get(msgId);
-                    if (!meta) continue;
-                    meta.lastChecked = now;
+                if (this.clients.has(sessionId)) {
+                    continue;
+                }
 
-                    try {
-                        const msg = await client.getMessageById(msgId);
-                        if (msg && typeof msg.ack === 'number' && msg.ack > meta.ack) {
-                            meta.ack = msg.ack;
+                if (
+                    (state.status === 'initializing' || state.status === 'connecting' || state.status === 'qr_ready') &&
+                    Date.now() - (state.updatedAt || 0) > 120000
+                ) {
 
-                            if (msg.ack >= 3) {
-                                pending.delete(msgId);
-                            }
+                    console.warn(
+                        `[WA][${sessionId}] stuck without socket, re-creating`
+                    );
 
-                            await this.forwardAckToLaravel(sessionId, {
-                                event: 'message_ack',
-                                message: {
-                                    id: msgId,
-                                    ack: msg.ack
-                                }
-                            });
-                        }
-                    } catch (error) {
-                        if (String(error.message).includes('not found') || String(error.message).includes('404')) {
-                            pending.delete(msgId);
-                        }
-                    }
+                    this.createClient(sessionId).catch(err => {
+                        console.error(`[WA][${sessionId}] recreate failed:`, err.message);
+                    });
                 }
             }
-        }, 10000);
+
+        }, 15000);
     }
 
     async updateLaravel(sessionId, payload) {
