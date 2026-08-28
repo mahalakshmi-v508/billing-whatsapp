@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
+import { Edit } from "lucide-react";
 import {
   Search, Plus, ChevronDown, SlidersHorizontal,
   MoreVertical, FileSpreadsheet, ArrowUpRight, Filter, X,
@@ -86,6 +87,101 @@ export default function ProductList() {
   const [catForm, setCatForm] = useState("");
   const [brandForm, setBrandForm] = useState("");
   const [savingSub, setSavingSub] = useState(false);
+  
+  const [showConversionModal, setShowConversionModal] = useState(false);
+  const [conversionValue, setConversionValue] = useState("");
+  const [conversionToUnit, setConversionToUnit] = useState("");
+  const [conversionIsBase, setConversionIsBase] = useState(false);
+  const [conversionRate, setConversionRate] = useState("");
+  const [savingConversion, setSavingConversion] = useState(false);
+  const unitConversionMap = {
+    LITRE: [
+      { fromUnit: "LITRE", value: 1000, toUnit: "MILLILITRE", isBase: true },
+      { fromUnit: "LITRE", value: 1000, toUnit: "MILILITRE", isBase: false },
+      { fromUnit: "LITRE", value: 33.814, toUnit: "FLUID OUNCE", isBase: false },
+      { fromUnit: "LITRE", value: 4.227, toUnit: "CUP", isBase: false },
+    ],
+    MILILITRE: [
+      { fromUnit: "MILILITRE", value: 0.001, toUnit: "LITRE", isBase: true },
+      { fromUnit: "MILILITRE", value: 0.0338, toUnit: "FLUID OUNCE", isBase: false },
+    ],
+    KILOGRAMS: [
+      { fromUnit: "KILOGRAMS", value: 1000, toUnit: "GRAMMES", isBase: true },
+      { fromUnit: "KILOGRAMS", value: 2.2046, toUnit: "POUNDS", isBase: false },
+      { fromUnit: "KILOGRAMS", value: 35.274, toUnit: "OUNCES", isBase: false },
+    ],
+    GRAMMES: [
+      { fromUnit: "GRAMMES", value: 0.001, toUnit: "KILOGRAMS", isBase: true },
+      { fromUnit: "GRAMMES", value: 0.03527, toUnit: "OUNCES", isBase: false },
+    ],
+    METERS: [
+      { fromUnit: "METERS", value: 100, toUnit: "CENTIMETER", isBase: true },
+      { fromUnit: "METERS", value: 3.2808, toUnit: "FEET", isBase: false },
+      { fromUnit: "METERS", value: 39.3701, toUnit: "INCHES", isBase: false },
+      { fromUnit: "METERS", value: 1.0936, toUnit: "YARDS", isBase: false },
+    ],
+    KILOMETER: [
+      { fromUnit: "KILOMETER", value: 1000, toUnit: "METERS", isBase: true },
+      { fromUnit: "KILOMETER", value: 0.6214, toUnit: "MILES", isBase: false },
+    ],
+    NUMBERS: [
+      { fromUnit: "NUMBERS", value: 12, toUnit: "DOZENS", isBase: false },
+      { fromUnit: "NUMBERS", value: 1, toUnit: "NUMBERS", isBase: true },
+    ],
+    DOZENS: [
+      { fromUnit: "DOZENS", value: 12, toUnit: "NUMBERS", isBase: true },
+      { fromUnit: "DOZENS", value: 1, toUnit: "GROSS", isBase: false },
+    ],
+    PIECES: [
+      { fromUnit: "PIECES", value: 12, toUnit: "DOZENS", isBase: false },
+      { fromUnit: "PIECES", value: 1, toUnit: "PIECES", isBase: true },
+      { fromUnit: "PIECES", value: 100, toUnit: "HUNDREDS", isBase: false },
+    ],
+    PAIRS: [
+      { fromUnit: "PAIRS", value: 2, toUnit: "PIECES", isBase: true },
+      { fromUnit: "PAIRS", value: 6, toUnit: "DOZENS", isBase: false },
+    ],
+    BOX: [
+      { fromUnit: "BOX", value: 24, toUnit: "PIECES", isBase: true },
+      { fromUnit: "BOX", value: 2, toUnit: "DOZENS", isBase: false },
+    ],
+    BOTTLES: [
+      { fromUnit: "BOTTLES", value: 1, toUnit: "BOTTLES", isBase: true },
+      { fromUnit: "BOTTLES", value: 12, toUnit: "DOZENS", isBase: false },
+    ],
+    PACKS: [
+      { fromUnit: "PACKS", value: 10, toUnit: "PIECES", isBase: true },
+      { fromUnit: "PACKS", value: 1, toUnit: "PACKS", isBase: false },
+    ],
+    SET: [
+      { fromUnit: "SET", value: 1, toUnit: "SET", isBase: true },
+      { fromUnit: "SET", value: 6, toUnit: "DOZENS", isBase: false },
+    ],
+    BAGS: [
+      { fromUnit: "BAGS", value: 50, toUnit: "KILOGRAMS", isBase: true },
+    ],
+    BUNDLES: [
+      { fromUnit: "BUNDLES", value: 10, toUnit: "PIECES", isBase: true },
+    ],
+    CANS: [
+      { fromUnit: "CANS", value: 1, toUnit: "LITRE", isBase: true },
+    ],
+    CARTONS: [
+      { fromUnit: "CARTONS", value: 24, toUnit: "PIECES", isBase: true },
+    ],
+    CUBIC_METER: [
+      { fromUnit: "CUBIC METER", value: 1000, toUnit: "LITRE", isBase: true },
+      { fromUnit: "CUBIC METER", value: 35.3147, toUnit: "CUBIC FEET", isBase: false },
+    ],
+    DAY: [
+      { fromUnit: "DAY", value: 24, toUnit: "HOUR", isBase: true },
+    ],
+    HOUR: [
+      { fromUnit: "HOUR", value: 60, toUnit: "MINUTES", isBase: true },
+    ],
+  };
+
+  const [conversions, setConversions] = useState([]);
 
   const [units, setUnits] = useState([
     { full: "BAGS", short: "Bag" },
@@ -103,7 +199,6 @@ export default function ProductList() {
     { full: "KILOMETER", short: "Kmt" },
     { full: "LITRE", short: "Ltr" },
     { full: "METERS", short: "Mtr" },
-    { full: "MILILITRE", short: "Ml" },
     { full: "NUMBERS", short: "Nos" },
     { full: "PACKS", short: "Pac" },
     { full: "PAIRS", short: "Pair" },
@@ -131,6 +226,13 @@ export default function ProductList() {
   const [unitFullForm, setUnitFullForm] = useState("");
   const [unitShortForm, setUnitShortForm] = useState("");
 
+  const handleSelectUnit = (u) => {
+    setSelectedUnit(u);
+    const key = u.full.replace(/\s+/g, "_");
+    const defaultConvs = unitConversionMap[key] || unitConversionMap[u.full] || [];
+    setConversions(defaultConvs);
+  };
+
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
@@ -145,7 +247,15 @@ export default function ProductList() {
       if (res.data.status) {
         setCompanies(res.data.data);
         const savedId = localStorage.getItem("selected_company_id");
-        if (savedId) fetchProducts(savedId);
+        const stillValid = res.data.data.some(c => String(c.id) === savedId);
+        if (savedId && stillValid) {
+          fetchProducts(savedId);
+        } else if (res.data.data.length > 0) {
+          const firstId = String(res.data.data[0].id);
+          setSelectedCompany(firstId);
+          localStorage.setItem("selected_company_id", firstId);
+          fetchProducts(firstId);
+        }
       }
     } catch (err) {
       console.log(err);
@@ -334,11 +444,46 @@ export default function ProductList() {
     }
     const newUnit = { full: unitFullForm.trim().toUpperCase(), short: unitShortForm.trim() };
     setUnits((prev) => [...prev, newUnit]);
-    setSelectedUnit(newUnit);
+    handleSelectUnit(newUnit);
     showToast("Unit added!");
     setUnitFullForm("");
     setUnitShortForm("");
     setShowUnitModal(false);
+  };
+
+  const handleAddConversion = () => {
+    if (!conversionValue.trim()) {
+      showToast("Please enter a conversion value", false);
+      return;
+    }
+    if (!conversionToUnit) {
+      showToast("Please select a target unit", false);
+      return;
+    }
+    
+    setSavingConversion(true);
+    try {
+      const newConversion = {
+        fromUnit: selectedUnit.full,
+        value: conversionValue,
+        toUnit: conversionToUnit,
+        isBase: conversionIsBase,
+        rate: conversionRate || "None"
+      };
+      
+      setConversions(prev => [...prev, newConversion]);
+      showToast("Conversion added successfully!");
+      
+      setConversionValue("");
+      setConversionToUnit("");
+      setConversionIsBase(false);
+      setConversionRate("");
+      setShowConversionModal(false);
+    } catch (err) {
+      showToast("Failed to add conversion", false);
+    } finally {
+      setSavingConversion(false);
+    }
   };
 
   const exportToCSV = () => {
@@ -855,108 +1000,107 @@ export default function ProductList() {
                 ) : (
                   <>
                     {/* Product Header */}
-                    {/* Product Header */}
-<div
-  style={{
-    padding: "20px 24px",
-    borderBottom: `1px solid ${COLORS.border}`,
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 12,
-    background: COLORS.surfaceAlt,
-  }}
->
-  <div>
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <span style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, letterSpacing: "-0.01em" }}>
-        {selectedProduct.product_name}
-      </span>
-      <button
-        onClick={() => setShowEditModal(true)}
-        style={{
-          background: COLORS.primaryTint,
-          border: "none",
-          borderRadius: RADIUS.sm,
-          padding: "4px 10px",
-          fontSize: 11,
-          fontWeight: 600,
-          color: COLORS.primary,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          transition: "all 0.15s",
-        }}
-      >
-        <ArrowUpRight size={13} /> Edit
-      </button>
-    </div>
-    <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
-      <div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-          Sale Price
-        </span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginLeft: 6 }}>
-          {money(selectedProduct.sale_price || selectedProduct.price)}
-        </span>
-      </div>
-      <div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-          Purchase Price
-        </span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginLeft: 6 }}>
-          {money(selectedProduct.purchase_price)}
-        </span>
-      </div>
-      <div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-          Unit
-        </span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginLeft: 6 }}>
-          {selectedProduct.unit || "—"}
-        </span>
-      </div>
-    </div>
-  </div>
+                    <div
+                      style={{
+                        padding: "20px 24px",
+                        borderBottom: `1px solid ${COLORS.border}`,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 12,
+                        background: COLORS.surfaceAlt,
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, letterSpacing: "-0.01em" }}>
+                            {selectedProduct.product_name}
+                          </span>
+                          <button
+                            onClick={() => setShowEditModal(true)}
+                            style={{
+                              background: COLORS.primaryTint,
+                              border: "none",
+                              borderRadius: RADIUS.sm,
+                              padding: "4px 10px",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: COLORS.primary,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              transition: "all 0.15s",
+                            }}
+                          >
+                            <ArrowUpRight size={13} /> Edit
+                          </button>
+                        </div>
+                        <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                              Sale Price
+                            </span>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginLeft: 6 }}>
+                              {money(selectedProduct.sale_price || selectedProduct.price)}
+                            </span>
+                          </div>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                              Purchase Price
+                            </span>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginLeft: 6 }}>
+                              {money(selectedProduct.purchase_price)}
+                            </span>
+                          </div>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                              Unit
+                            </span>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginLeft: 6 }}>
+                              {selectedProduct.unit || "—"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-  <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-    <StatCard
-      label="Stock"
-      value={fmt(selectedProduct.stock)}
-      icon={<Package size={16} />}
-      color={COLORS.successTint}
-    />
-    <StatCard
-      label="Value"
-      value={money(stockValue)}
-      icon={<Zap size={16} />}
-      color={COLORS.warningTint}
-    />
-    <button
-      onClick={() => setShowEditModal(true)}
-      style={{
-        padding: "8px 16px",
-        background: COLORS.primary,
-        color: "#fff",
-        border: "none",
-        borderRadius: RADIUS.sm,
-        fontWeight: 700,
-        fontSize: 12,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        transition: "all 0.15s",
-        whiteSpace: "nowrap",
-      }}
-      className="hover-lift"
-    >
-      <SlidersHorizontal size={14} /> Adjust Stock
-    </button>
-  </div>
-</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <StatCard
+                          label="Stock"
+                          value={fmt(selectedProduct.stock)}
+                          icon={<Package size={16} />}
+                          color={COLORS.successTint}
+                        />
+                        <StatCard
+                          label="Value"
+                          value={money(stockValue)}
+                          icon={<Zap size={16} />}
+                          color={COLORS.warningTint}
+                        />
+                        <button
+                          onClick={() => setShowEditModal(true)}
+                          style={{
+                            padding: "8px 16px",
+                            background: COLORS.primary,
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: RADIUS.sm,
+                            fontWeight: 700,
+                            fontSize: 12,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            transition: "all 0.15s",
+                            whiteSpace: "nowrap",
+                          }}
+                          className="hover-lift"
+                        >
+                          <SlidersHorizontal size={14} /> Adjust Stock
+                        </button>
+                      </div>
+                    </div>
 
                     {/* Transactions */}
                     <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 24px" }}>
@@ -1585,6 +1729,7 @@ export default function ProductList() {
           {/* ─── UNIT TAB ─── */}
           {activeTab === "unit" && (
             <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 20, height: "100%" }}>
+              {/* Left Panel - Unit List */}
               <div
                 style={{
                   background: COLORS.surface,
@@ -1643,14 +1788,17 @@ export default function ProductList() {
 
                 <div style={{ overflowY: "auto", flex: 1 }}>
                   {units
-                    .filter(u => u.full.toLowerCase().includes(unitListSearch.toLowerCase()) || u.short.toLowerCase().includes(unitListSearch.toLowerCase()))
-                    .map((u, idx) => {
-                      const isSelected = selectedUnit ? selectedUnit.full === u.full : idx === 0;
+                    .filter(u => 
+                      u.full.toLowerCase().includes(unitListSearch.toLowerCase()) || 
+                      u.short.toLowerCase().includes(unitListSearch.toLowerCase())
+                    )
+                    .map((u) => {
+                      const isSelected = selectedUnit?.full === u.full;
                       return (
                         <div
                           key={u.full}
                           className="product-card"
-                          onClick={() => setSelectedUnit(u)}
+                          onClick={() => handleSelectUnit(u)}
                           style={{
                             padding: "12px 16px",
                             display: "flex",
@@ -1659,6 +1807,7 @@ export default function ProductList() {
                             borderLeft: isSelected ? `3px solid ${COLORS.primary}` : "3px solid transparent",
                             borderBottom: `1px solid ${COLORS.border}`,
                             background: isSelected ? COLORS.primaryTint : "transparent",
+                            cursor: "pointer",
                           }}
                         >
                           <span style={{ fontWeight: isSelected ? 700 : 500, fontSize: 13.5, color: COLORS.text }}>
@@ -1668,9 +1817,18 @@ export default function ProductList() {
                         </div>
                       );
                     })}
+                  {units.filter(u => 
+                    u.full.toLowerCase().includes(unitListSearch.toLowerCase()) || 
+                    u.short.toLowerCase().includes(unitListSearch.toLowerCase())
+                  ).length === 0 && (
+                    <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>
+                      No units found
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {/* Right Panel - Unit Details */}
               <div
                 style={{
                   background: COLORS.surface,
@@ -1682,71 +1840,248 @@ export default function ProductList() {
                   boxShadow: SHADOW.card,
                 }}
               >
-                {(() => {
-                  const activeUnit = selectedUnit || units[0];
-                  if (!activeUnit) {
-                    return (
-                      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.textMuted }}>
-                        <div style={{ textAlign: "center" }}>
-                          <div style={{ fontWeight: 700, fontSize: 18, color: COLORS.text }}>Select a unit</div>
-                          <p style={{ fontSize: 13, marginTop: 4 }}>Click on a unit from the list</p>
+                {!selectedUnit ? (
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40 }}>
+                    <div
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: RADIUS.xl,
+                        background: COLORS.bg,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginBottom: 16,
+                        border: `2px dashed ${COLORS.border}`,
+                      }}
+                    >
+                      <Ruler size={32} color={COLORS.primary} />
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 18, color: COLORS.text }}>Select a unit</div>
+                    <p style={{ fontSize: 13, marginTop: 6, color: COLORS.textMuted, maxWidth: 300, textAlign: "center", lineHeight: 1.6 }}>
+                      Click on any unit from the list to view its details and conversions.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Unit Header */}
+                    <div
+                      style={{
+                        padding: "20px 24px",
+                        borderBottom: `1px solid ${COLORS.border}`,
+                        background: COLORS.surfaceAlt,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div>
+                          <span style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, letterSpacing: "-0.01em" }}>
+                            {selectedUnit.full}
+                          </span>
+                          <span
+                            style={{
+                              marginLeft: 12,
+                              padding: "2px 12px",
+                              borderRadius: RADIUS.pill,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              background: COLORS.primaryTint,
+                              color: COLORS.primary,
+                            }}
+                          >
+                            {selectedUnit.short}
+                          </span>
+                        </div>
+                        <button
+                          style={{
+                            padding: "6px 14px",
+                            borderRadius: RADIUS.sm,
+                            border: `1.5px solid ${COLORS.border}`,
+                            background: COLORS.surface,
+                            fontWeight: 600,
+                            fontSize: 12,
+                            cursor: "pointer",
+                            color: COLORS.textSoft,
+                            transition: "all 0.15s",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                          }}
+                          className="hover-bg"
+                          onClick={() => {
+                            setUnitFullForm(selectedUnit.full);
+                            setUnitShortForm(selectedUnit.short);
+                            setShowUnitModal(true);
+                          }}
+                        >
+                          <Edit size={14} /> Edit
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Unit Details */}
+                    <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+                      {/* UNITS Section */}
+                      <div style={{ marginBottom: 24 }}>
+                        <div style={{ 
+                          fontSize: 12, 
+                          fontWeight: 700, 
+                          color: COLORS.textMuted, 
+                          textTransform: "uppercase", 
+                          letterSpacing: "0.06em",
+                          marginBottom: 12 
+                        }}>
+                          UNITS
+                        </div>
+                        <div
+                          style={{
+                            padding: "12px 16px",
+                            border: `1px solid ${COLORS.border}`,
+                            borderRadius: RADIUS.sm,
+                            background: COLORS.surfaceAlt,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 20,
+                          }}
+                        >
+                          <div>
+                            <span style={{ fontSize: 11, color: COLORS.textMuted }}>FULLNAME</span>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.text, marginTop: 2 }}>
+                              {selectedUnit.full}
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{ fontSize: 11, color: COLORS.textMuted }}>SHORTNAME</span>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.text, marginTop: 2 }}>
+                              {selectedUnit.short}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    );
-                  }
-                  return (
-                    <>
-                      <div
-                        style={{
-                          padding: "16px 20px",
-                          borderBottom: `1px solid ${COLORS.border}`,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          background: COLORS.surfaceAlt,
-                        }}
-                      >
-                        <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>{activeUnit.full}</span>
-                        <span style={{ fontSize: 13, color: COLORS.textMuted }}>Short: {activeUnit.short}</span>
-                      </div>
 
-                      <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>Conversions</span>
+                      {/* CONVERSION Section */}
+                      <div>
+                        <div style={{ 
+                          display: "flex", 
+                          justifyContent: "space-between", 
+                          alignItems: "center",
+                          marginBottom: 12 
+                        }}>
+                          <span style={{ 
+                            fontSize: 12, 
+                            fontWeight: 700, 
+                            color: COLORS.textMuted, 
+                            textTransform: "uppercase", 
+                            letterSpacing: "0.06em" 
+                          }}>
+                            CONVERSION
+                          </span>
                           <button
+                            onClick={() => setShowConversionModal(true)}
                             style={{
-                              padding: "6px 14px",
+                              padding: "6px 16px",
                               borderRadius: RADIUS.sm,
                               border: "none",
-                              background: COLORS.primary,
+                              background: COLORS.gradient,
                               color: "#fff",
                               fontWeight: 600,
                               fontSize: 12,
                               cursor: "pointer",
                               transition: "all 0.15s",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
                             }}
                             className="hover-lift"
                           >
-                            Add Conversion
+                            <Plus size={14} /> Add Conversion
                           </button>
                         </div>
-                        <div
-                          style={{
-                            border: `1.5px dashed ${COLORS.border}`,
-                            borderRadius: RADIUS.md,
-                            padding: 40,
-                            textAlign: "center",
-                            color: COLORS.textMuted,
-                          }}
-                        >
-                          <Ruler size={32} color={COLORS.textMuted} style={{ marginBottom: 8 }} />
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>No conversions yet</div>
-                          <div style={{ fontSize: 13 }}>Link this unit to another unit</div>
-                        </div>
+
+                        {/* Conversion List */}
+                        {conversions.length === 0 ? (
+                          <div
+                            style={{
+                              border: `1.5px dashed ${COLORS.border}`,
+                              borderRadius: RADIUS.md,
+                              padding: "30px 20px",
+                              textAlign: "center",
+                              background: COLORS.surfaceAlt,
+                            }}
+                          >
+                            <Ruler size={28} color={COLORS.textMuted} style={{ marginBottom: 8, opacity: 0.5 }} />
+                            <div style={{ fontWeight: 500, fontSize: 13, color: COLORS.textMuted }}>
+                              No conversions yet
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              border: `1px solid ${COLORS.border}`,
+                              borderRadius: RADIUS.md,
+                              overflow: "hidden",
+                            }}
+                          >
+                            {conversions.map((conv, index) => (
+                              <div
+                                key={index}
+                                style={{
+                                  padding: "12px 16px",
+                                  borderBottom: index < conversions.length - 1 ? `1px solid ${COLORS.border}` : "none",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  background: COLORS.surface,
+                                }}
+                              >
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                  <span style={{ fontWeight: 600, color: COLORS.text }}>
+                                    1 {conv.fromUnit || selectedUnit.full}
+                                  </span>
+                                  <span style={{ color: COLORS.textMuted, fontWeight: 700, fontSize: 15 }}>=</span>
+                                  <span style={{ fontWeight: 700, color: COLORS.primary, fontSize: 14 }}>
+                                    {conv.value} {conv.toUnit}
+                                  </span>
+                                  {conv.isBase && (
+                                    <span
+                                      style={{
+                                        padding: "1px 10px",
+                                        borderRadius: RADIUS.pill,
+                                        fontSize: 10,
+                                        fontWeight: 600,
+                                        background: COLORS.successTint,
+                                        color: COLORS.success,
+                                      }}
+                                    >
+                                      Base
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    setConversions(prev => prev.filter((_, i) => i !== index));
+                                    showToast("Conversion removed");
+                                  }}
+                                  style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    color: COLORS.textMuted,
+                                    padding: 4,
+                                    borderRadius: RADIUS.sm,
+                                    transition: "all 0.15s",
+                                  }}
+                                  className="hover-bg"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </>
-                  );
-                })()}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -2028,6 +2363,263 @@ export default function ProductList() {
                 }}
               >
                 Save Unit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── ADD CONVERSION MODAL ─── */}
+      {showConversionModal && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowConversionModal(false); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 99999,
+            background: "rgba(10,22,40,.5)",
+            backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            animation: "fadeIn 0.15s ease",
+          }}
+        >
+          <div
+            style={{
+              background: COLORS.surface,
+              borderRadius: RADIUS.lg,
+              width: "100%",
+              maxWidth: 520,
+              boxShadow: SHADOW.modal,
+              animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>
+                Add Conversion
+              </h3>
+              <button
+                onClick={() => setShowConversionModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: COLORS.textMuted,
+                  padding: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: RADIUS.sm,
+                  transition: "all 0.15s",
+                }}
+                className="hover-bg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: "24px" }}>
+              {/* From Unit */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ 
+                  fontSize: 12, 
+                  fontWeight: 600, 
+                  color: COLORS.textMuted, 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.04em", 
+                  display: "block", 
+                  marginBottom: 6 
+                }}>
+                  From Unit
+                </label>
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: RADIUS.sm,
+                    border: `1.5px solid ${COLORS.border}`,
+                    background: COLORS.bg,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: COLORS.text,
+                  }}
+                >
+                  {selectedUnit?.full || "Select a unit"}
+                </div>
+              </div>
+
+              {/* Conversion Value */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ 
+                  fontSize: 12, 
+                  fontWeight: 600, 
+                  color: COLORS.textMuted, 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.04em", 
+                  display: "block", 
+                  marginBottom: 6 
+                }}>
+                  Conversion Value *
+                </label>
+                <input
+                  className="focus-ring"
+                  value={conversionValue}
+                  onChange={(e) => setConversionValue(e.target.value)}
+                  placeholder="e.g. 1000"
+                  type="number"
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: RADIUS.sm,
+                    border: `1.5px solid ${COLORS.border}`,
+                    outline: "none",
+                    fontSize: 14,
+                    color: COLORS.text,
+                    transition: "all 0.15s",
+                  }}
+                  onKeyDown={e => e.key === "Enter" && handleAddConversion()}
+                />
+              </div>
+
+              {/* To Unit */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ 
+                  fontSize: 12, 
+                  fontWeight: 600, 
+                  color: COLORS.textMuted, 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.04em", 
+                  display: "block", 
+                  marginBottom: 6 
+                }}>
+                  To Unit *
+                </label>
+                <select
+                  className="focus-ring"
+                  value={conversionToUnit}
+                  onChange={(e) => setConversionToUnit(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: RADIUS.sm,
+                    border: `1.5px solid ${COLORS.border}`,
+                    outline: "none",
+                    fontSize: 14,
+                    color: COLORS.text,
+                    background: COLORS.surface,
+                    transition: "all 0.15s",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">Select a unit</option>
+                  {units
+                    .filter(u => u.full !== selectedUnit?.full)
+                    .map((u) => (
+                      <option key={u.full} value={u.full}>
+                        {u.full} ({u.short})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Base Unit Checkbox */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 10, 
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: COLORS.textSoft,
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={conversionIsBase}
+                    onChange={(e) => setConversionIsBase(e.target.checked)}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      cursor: "pointer",
+                      accentColor: COLORS.primary,
+                    }}
+                  />
+                  <span>Set as base unit</span>
+                </label>
+              </div>
+
+              {/* Rate (optional) */}
+              <div>
+                <label style={{ 
+                  fontSize: 12, 
+                  fontWeight: 600, 
+                  color: COLORS.textMuted, 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.04em", 
+                  display: "block", 
+                  marginBottom: 6 
+                }}>
+                  Rate (Optional)
+                </label>
+                <input
+                  className="focus-ring"
+                  value={conversionRate}
+                  onChange={(e) => setConversionRate(e.target.value)}
+                  placeholder="e.g. 0.001"
+                  type="number"
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: RADIUS.sm,
+                    border: `1.5px solid ${COLORS.border}`,
+                    outline: "none",
+                    fontSize: 14,
+                    color: COLORS.text,
+                    transition: "all 0.15s",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: "16px 24px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowConversionModal(false);
+                  setConversionValue("");
+                  setConversionToUnit("");
+                  setConversionIsBase(false);
+                  setConversionRate("");
+                }}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: RADIUS.sm,
+                  border: `1.5px solid ${COLORS.border}`,
+                  background: "transparent",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  color: COLORS.textSoft,
+                  transition: "all 0.15s",
+                }}
+                className="hover-bg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddConversion}
+                disabled={savingConversion}
+                style={{
+                  padding: "10px 32px",
+                  borderRadius: RADIUS.sm,
+                  border: "none",
+                  background: savingConversion ? COLORS.textMuted : COLORS.gradient,
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: savingConversion ? "not-allowed" : "pointer",
+                  transition: "all 0.15s",
+                }}
+                className="hover-lift"
+              >
+                {savingConversion ? "Saving..." : "Save Conversion"}
               </button>
             </div>
           </div>
