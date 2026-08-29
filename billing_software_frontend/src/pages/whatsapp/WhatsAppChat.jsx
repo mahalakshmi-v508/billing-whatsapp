@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import api from "../../services/api";
+import { getEcho, leaveChannel } from "../../services/echo";
 import {
   Search,
   MessageCircle,
@@ -26,10 +27,29 @@ import {
 
 // ── delivery indicators (real status from DB via ack events) ──
 function Ticks({ status }) {
-  if (status === "read") return <CheckCheck size={15} color="#53bdeb" />;
-  if (status === "delivered") return <CheckCheck size={15} color="#8696a0" />;
-  if (status === "sent") return <Check size={14} color="#8696a0" />;
-  return <Clock size={12} color="#8696a0" />;
+  if (status === "read")
+    return (
+      <span className="inline-flex items-center ml-0.5">
+        <CheckCheck size={16} className="text-[#53bdeb] drop-shadow-sm" />
+      </span>
+    );
+  if (status === "delivered")
+    return (
+      <span className="inline-flex items-center ml-0.5">
+        <CheckCheck size={16} className="text-[#8696a0]" />
+      </span>
+    );
+  if (status === "sent")
+    return (
+      <span className="inline-flex items-center ml-0.5">
+        <Check size={14} className="text-[#8696a0]" />
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center ml-0.5">
+      <Clock size={12} className="text-[#8696a0] opacity-70" />
+    </span>
+  );
 }
 
 function formatTime(ts) {
@@ -67,11 +87,13 @@ const previewIcon = (m) => {
   return "";
 };
 
+const statusRank = { pending: 0, sent: 1, delivered: 2, read: 3, received: 4 };
+
 export default function WhatsAppChat() {
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(localStorage.getItem("selected_company_id") || "");
-  // connection state: null = unknown, else 'disconnected' | 'qr_ready' | 'authenticated' | 'ready' ...
-  const [connState, setConnState] = useState(null);
+  // connection state: 'checking' | 'initializing' | 'reconnecting' | 'authenticated' | 'ready' | 'qr_ready' | 'disconnected' | 'auth_failure'
+  const [connState, setConnState] = useState("checking");
   const [qr, setQr] = useState(null);
   const [waPhone, setWaPhone] = useState(null);
   const [waName, setWaName] = useState(null);
@@ -137,11 +159,8 @@ export default function WhatsAppChat() {
           setWaName(res.data.data?.name || null);
         }
       } catch (err) {
-        if (!cancelled) {
-          setConnState(null);
-          setWaPhone(null);
-          setWaName(null);
-        }
+        // Do NOT reset connState on network glitches or transient errors.
+        // Preserve last known state to prevent flashing the QR screen.
       }
     };
 
@@ -174,12 +193,37 @@ export default function WhatsAppChat() {
     return () => clearInterval(t);
   }, [companyId, connected]);
 
-  // ── selected conversation ──
+  // ── selected conversation with monotonic status merge ──
   const loadMessages = async (phone) => {
     if (!companyId || !phone) return;
     try {
       const res = await api.get(`/whatsapp/messages?company_id=${companyId}&phone=${phone}`);
-      if (res.data.status) setMessages(res.data.data);
+      if (res.data.status) {
+        const incoming = res.data.data || [];
+        setMessages((prev) => {
+          if (prev.length === 0) return incoming;
+
+          const prevMap = new Map();
+          for (const m of prev) {
+            if (m.whatsapp_message_id) prevMap.set(m.whatsapp_message_id, m);
+            if (m.id) prevMap.set(String(m.id), m);
+          }
+
+          return incoming.map((inc) => {
+            const existing = (inc.whatsapp_message_id && prevMap.get(inc.whatsapp_message_id)) ||
+                             (inc.id && prevMap.get(String(inc.id)));
+            if (existing) {
+              const existingRank = statusRank[existing.status] || 0;
+              const incomingRank = statusRank[inc.status] || 0;
+              return {
+                ...inc,
+                status: existingRank > incomingRank ? existing.status : inc.status,
+              };
+            }
+            return inc;
+          });
+        });
+      }
     } catch (err) {
       console.error(err);
     }
@@ -206,6 +250,49 @@ export default function WhatsAppChat() {
     const t = setInterval(() => loadMessages(selectedPhone), 3000);
     return () => clearInterval(t);
   }, [selectedPhone]);
+
+  // ── real-time WebSocket listener for message status ticks ──
+  useEffect(() => {
+    if (!connected) return;
+
+    let channel = null;
+
+    try {
+      const echo = getEcho();
+      channel = echo.channel("whatsapp-chat");
+
+      channel.listen(".message-status", (data) => {
+        const msgId = data.whatsapp_message_id;
+        const ack = Number(data.status);
+
+        if (!msgId) return;
+
+        let newStatus = "sent";
+        if (ack >= 3) newStatus = "read";
+        else if (ack >= 2) newStatus = "delivered";
+
+        const targetRank = statusRank[newStatus] || 1;
+
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.whatsapp_message_id === msgId || String(m.id) === String(msgId)) {
+              const currentRank = statusRank[m.status] || 0;
+              return currentRank < targetRank ? { ...m, status: newStatus } : m;
+            }
+            return m;
+          })
+        );
+      });
+    } catch (err) {
+      console.warn("WebSocket listener setup failed:", err.message);
+    }
+
+    return () => {
+      if (channel) {
+        leaveChannel("whatsapp-chat");
+      }
+    };
+  }, [connected]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -628,7 +715,19 @@ export default function WhatsAppChat() {
             </div>
 
             <div className="wa-connect">
-              {connState === "authenticated" ? (
+              {connState === "checking" ? (
+                <>
+                  <Loader2 size={34} className="wa-spin" />
+                  <h2>Checking Connection…</h2>
+                  <div className="wa-status-text">Checking WhatsApp connection status…</div>
+                </>
+              ) : connState === "reconnecting" ? (
+                <>
+                  <Loader2 size={34} className="wa-spin" />
+                  <h2>Reconnecting…</h2>
+                  <div className="wa-status-text">Restoring WhatsApp session…</div>
+                </>
+              ) : connState === "authenticated" ? (
                 <>
                   <Loader2 size={34} className="wa-spin" />
                   <h2>Almost there…</h2>
@@ -855,7 +954,7 @@ export default function WhatsAppChat() {
                 <div className="wc-status-card">
                   <span className={`wc-badge ${connected ? "ok" : "off"}`}>
                     <span className="wc-badge-dot" />
-                    {connected ? "Connected" : connState === null ? "Checking…" : "Disconnected"}
+                    {connected ? "Connected" : connState === "checking" ? "Checking…" : connState === "reconnecting" ? "Reconnecting…" : connState === "initializing" ? "Initializing…" : "Disconnected"}
                   </span>
                   <div className="wc-status-row">
                     <div className="wc-status-icon"><Phone size={16} /></div>

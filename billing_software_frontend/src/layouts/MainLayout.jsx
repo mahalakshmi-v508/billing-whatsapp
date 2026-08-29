@@ -125,6 +125,9 @@ export default function MainLayout() {
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
 
+  // Hide sidebar for cashier on billing page (full-screen POS mode)
+  const isCashierBilling = role === "cashier" && location.pathname === "/billing";
+
   useEffect(() => {
     if (!user) {
       navigate("/", { replace: true });

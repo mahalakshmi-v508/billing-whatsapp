@@ -11,11 +11,13 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "6.7.13",
     "axios": "^1.7.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
-    "qrcode": "^1.5.4",
-    "whatsapp-web.js": "^1.26.0"
+    "pino": "^9.5.0",
+    "qrcode": "^1.5.4"
   }
 }
