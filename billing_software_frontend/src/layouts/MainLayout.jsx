@@ -32,6 +32,7 @@ import {
   PackagePlus,
   UserPlus,
   FolderPlus,
+  Play,
 } from "lucide-react";
 
 // 🎟️ Sale Ticket Icon with % symbol matching reference image
@@ -72,6 +73,38 @@ export default function MainLayout() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Keyboard Shortcuts: Ctrl + Enter toggles menu, Alt shortcuts navigate
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.key === "Enter") {
+        e.preventDefault();
+        setQuickAddOpen((prev) => !prev);
+      }
+      if (e.altKey) {
+        const key = e.key.toLowerCase();
+        if (key === "s") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/sales/add");
+        } else if (key === "i") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/sales/payment-in");
+        } else if (key === "r") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/sales/credit-note/add");
+        } else if (key === "f") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/sales/order");
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [navigate]);
+
   // 🔥 GET USER
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
@@ -111,11 +144,8 @@ export default function MainLayout() {
             isDropdown: true,
             subItems: [
               { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/reports", "/sales/add"] },
-              { name: "Estimate/ Quotation", path: "/sales/quotations" },
-              { name: "Proforma Invoice", path: "/sales/proforma" },
               { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
               { name: "Sale Order", path: "/sales/order" },
-              { name: "Delivery Challan", path: "/sales/delivery-challan" },
               { name: "Sale Return/ Credit Note", path: "/sales/credit-note" },
             ]
           },
@@ -423,88 +453,261 @@ export default function MainLayout() {
                 <Plus size={18} strokeWidth={2.6} />
               </button>
 
-              {/* Quick Action Popover Dropdown */}
+              {/* Quick Action Popover Dropdown (Matching media_1787899244680.png) */}
               {quickAddOpen && (
                 <div
                   style={{
                     position: "absolute",
-                    right: 0,
-                    top: 46,
-                    width: 220,
-                    background: "#fff",
+                    right: -10,
+                    top: 48,
+                    width: 660,
+                    background: "#ffffff",
                     borderRadius: 14,
-                    border: "1.5px solid #eef0ff",
-                    boxShadow: "0 12px 32px rgba(30, 27, 75, 0.14)",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 20px 45px -10px rgba(15, 23, 42, 0.22), 0 4px 16px rgba(15, 23, 42, 0.08)",
                     overflow: "hidden",
-                    zIndex: 9999,
+                    zIndex: 99999,
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
                   }}
                 >
+                  {/* Top Upward Pointer Arrow */}
                   <div
                     style={{
-                      padding: "10px 14px",
-                      background: "#fafaff",
-                      borderBottom: "1px solid #f1f1f8",
-                      fontSize: 11,
-                      fontWeight: 800,
-                      letterSpacing: ".06em",
-                      textTransform: "uppercase",
-                      color: "#6b7280",
-                      fontFamily: "'Plus Jakarta Sans', sans-serif"
+                      position: "absolute",
+                      right: 22,
+                      top: -6,
+                      width: 12,
+                      height: 12,
+                      background: "#ffffff",
+                      transform: "rotate(45deg)",
+                      borderLeft: "1px solid #cbd5e1",
+                      borderTop: "1px solid #cbd5e1",
+                      zIndex: 10,
                     }}
-                  >
-                    Quick Actions
-                  </div>
+                  />
 
-                  <div style={{ padding: "6px" }}>
-                    {[
-                      { label: "Add Sale", path: "/sales/add", icon: ReceiptText, color: "#ef4444", bg: "#fff1f2" },
-                      { label: "Add Purchase", path: "/purchases/new", icon: ShoppingBag, color: "#1f8cff", bg: "#eff6ff" },
-                      { label: "Add Product", path: "/products/add", icon: PackagePlus, color: "#15803d", bg: "#f0fdf4" },
-                      { label: "Add Customer", path: "/customer/add", icon: UserPlus, color: "#7c3aed", bg: "#f5f3ff" },
-                      { label: "Add Supplier", path: "/supplier/add", icon: Truck, color: "#c2410c", bg: "#fff7ed" },
-                      { label: "Add Category", path: "/category/add", icon: FolderPlus, color: "#b45309", bg: "#fefce8" },
-                    ].map((item, idx) => {
-                      const ItemIcon = item.icon;
-                      return (
-                        <div
-                          key={idx}
-                          style={{
-                            padding: "8px 12px",
-                            borderRadius: 9,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            transition: "background .15s",
-                            fontFamily: "'Plus Jakarta Sans', sans-serif"
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.background = "#f8f7ff"}
-                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                          onClick={() => {
-                            setQuickAddOpen(false);
-                            navigate(item.path);
-                          }}
-                        >
+                  {/* 3 Columns Section */}
+                  <div style={{ padding: "20px 24px 18px", display: "grid", gridTemplateColumns: "1.1fr 1.1fr 1fr", gap: 24 }}>
+                    {/* ── COLUMN 1: SALE ── */}
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "#1e293b", letterSpacing: ".04em", marginBottom: 14, textTransform: "uppercase" }}>
+                        SALE
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {[
+                          { name: "Sale Invoice", shortcut: "ALT + S", path: "/sales/add", sub: "" },
+                          { name: "Payment-In", shortcut: "ALT + I", path: "/sales/payment-in", sub: "" },
+                          { name: "Sale Return", shortcut: "ALT + R", path: "/sales/credit-note/add", sub: "Cr Note" },
+                          { name: "Sale Order", shortcut: "ALT + F", path: "/sales/order", sub: "" },
+                        ].map((item, idx) => (
                           <div
+                            key={idx}
+                            onClick={() => {
+                              setQuickAddOpen(false);
+                              navigate(item.path);
+                            }}
                             style={{
-                              width: 26,
-                              height: 26,
-                              borderRadius: 7,
-                              background: item.bg,
                               display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
+                              alignItems: "flex-start",
+                              justifyContent: "space-between",
+                              padding: "6px 8px",
+                              borderRadius: 7,
+                              cursor: "pointer",
+                              transition: "all .15s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "#eff6ff";
+                              const title = e.currentTarget.querySelector(".menu-title");
+                              if (title) title.style.color = "#1f8cff";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "transparent";
+                              const title = e.currentTarget.querySelector(".menu-title");
+                              if (title) title.style.color = "#334155";
                             }}
                           >
-                            <ItemIcon size={13} color={item.color} />
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 7, minWidth: 0 }}>
+                              <Play size={8} style={{ fill: "#1f8cff", color: "#1f8cff", marginTop: 5, flexShrink: 0 }} />
+                              <div>
+                                <div className="menu-title" style={{ fontSize: 13, fontWeight: 600, color: "#334155", transition: "color .15s" }}>
+                                  {item.name}
+                                </div>
+                                {item.sub && (
+                                  <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, marginTop: -1 }}>
+                                    {item.sub}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 11, fontFamily: "monospace", color: "#94a3b8", fontWeight: 600, marginLeft: 8, whiteSpace: "nowrap", paddingTop: 2 }}>
+                              {item.shortcut}
+                            </span>
                           </div>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "#1e1b4b" }}>
-                            {item.label}
-                          </span>
-                        </div>
-                      );
-                    })}
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* ── COLUMN 2: PURCHASE ── */}
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "#1e293b", letterSpacing: ".04em", marginBottom: 14, textTransform: "uppercase" }}>
+                        PURCHASE
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {[
+                          { name: "Purchase Bill", shortcut: "ALT + P", path: "/purchases", sub: "" },
+                          { name: "Payment-Out", shortcut: "ALT + O", path: "/purchases", sub: "" },
+                          { name: "Purchase Return", shortcut: "ALT + L", path: "/purchases", sub: "Dr Note" },
+                          { name: "Purchase Order", shortcut: "ALT + G", path: "/purchases", sub: "" },
+                        ].map((item, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setQuickAddOpen(false);
+                              navigate(item.path);
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              justifyContent: "space-between",
+                              padding: "6px 8px",
+                              borderRadius: 7,
+                              cursor: "pointer",
+                              transition: "all .15s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "#eff6ff";
+                              const title = e.currentTarget.querySelector(".menu-title");
+                              if (title) title.style.color = "#1f8cff";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "transparent";
+                              const title = e.currentTarget.querySelector(".menu-title");
+                              if (title) title.style.color = "#334155";
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 7, minWidth: 0 }}>
+                              <Play size={8} style={{ fill: "#1f8cff", color: "#1f8cff", marginTop: 5, flexShrink: 0 }} />
+                              <div>
+                                <div className="menu-title" style={{ fontSize: 13, fontWeight: 600, color: "#334155", transition: "color .15s" }}>
+                                  {item.name}
+                                </div>
+                                {item.sub && (
+                                  <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, marginTop: -1 }}>
+                                    {item.sub}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 11, fontFamily: "monospace", color: "#94a3b8", fontWeight: 600, marginLeft: 8, whiteSpace: "nowrap", paddingTop: 2 }}>
+                              {item.shortcut}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* ── COLUMN 3: OTHERS ── */}
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "#1e293b", letterSpacing: ".04em", marginBottom: 14, textTransform: "uppercase" }}>
+                        OTHERS
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {[
+                          { name: "Expenses", shortcut: "ALT + E", path: "/reports", sub: "" },
+                          { name: "Party To Party Transfer", shortcut: "ALT + J", path: "/customer", sub: "" },
+                        ].map((item, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setQuickAddOpen(false);
+                              navigate(item.path);
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              justifyContent: "space-between",
+                              padding: "6px 8px",
+                              borderRadius: 7,
+                              cursor: "pointer",
+                              transition: "all .15s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "#eff6ff";
+                              const title = e.currentTarget.querySelector(".menu-title");
+                              if (title) title.style.color = "#1f8cff";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "transparent";
+                              const title = e.currentTarget.querySelector(".menu-title");
+                              if (title) title.style.color = "#334155";
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 7, minWidth: 0 }}>
+                              <Play size={8} style={{ fill: "#1f8cff", color: "#1f8cff", marginTop: 5, flexShrink: 0 }} />
+                              <div>
+                                <div className="menu-title" style={{ fontSize: 13, fontWeight: 600, color: "#334155", transition: "color .15s" }}>
+                                  {item.name}
+                                </div>
+                                {item.sub && (
+                                  <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, marginTop: -1 }}>
+                                    {item.sub}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 11, fontFamily: "monospace", color: "#94a3b8", fontWeight: 600, marginLeft: 8, whiteSpace: "nowrap", paddingTop: 2 }}>
+                              {item.shortcut}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── BOTTOM LIGHT GREY BANNER (Matching theme) ── */}
+                  <div
+                    style={{
+                      background: "#f8fafc",
+                      borderTop: "1px solid #e2e8f0",
+                      padding: "9px 24px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#475569",
+                    }}
+                  >
+                    <span>Shortcut to open this menu :</span>
+                    <span
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: 5,
+                        padding: "2px 8px",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color: "#0f172a",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      Ctrl
+                    </span>
+                    <span style={{ color: "#94a3b8", fontWeight: 700 }}>+</span>
+                    <span
+                      style={{
+                        background: "#ffffff",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: 5,
+                        padding: "2px 8px",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color: "#0f172a",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      Enter
+                    </span>
                   </div>
                 </div>
               )}

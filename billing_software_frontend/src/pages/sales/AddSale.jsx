@@ -730,6 +730,7 @@ export default function AddSale() {
 
     const payload = {
       company_id: companyId,
+      admin_id: adminId,
       customer_id: activeSale.customerId || 0,
       customer_name: activeSale.customerName?.trim() || "Cash Customer",
       customer_phone: activeSale.customerPhone || "",

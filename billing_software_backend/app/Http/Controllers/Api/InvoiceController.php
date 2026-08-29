@@ -49,6 +49,56 @@ class InvoiceController extends Controller
             $total_amount = $sub_total;
         }
 
+        $admin_id = intval($request->input('admin_id', 0));
+        if ($admin_id <= 0 && $company_id > 0) {
+            $comp = DB::table('companies')->where('id', $company_id)->first();
+            if ($comp && !empty($comp->admin_id)) {
+                $admin_id = intval($comp->admin_id);
+            }
+        }
+
+        /* AUTO-CREATE OR RESOLVE CUSTOMER (MANDATORY FOR CREDIT SALES) */
+        $isCashDefault = in_array(strtolower($customer_name), ['cash customer', 'customer', '']);
+        if ($customer_id <= 0 && (!$isCashDefault || $payment_type === 'credit')) {
+            $existingCust = null;
+            if (!empty($customer_phone)) {
+                $existingCust = Customer::where('phone', $customer_phone)
+                    ->where('is_deleted', 0)
+                    ->when($admin_id > 0, fn($q) => $q->where('admin_id', $admin_id))
+                    ->first();
+            }
+            if (!$existingCust && !empty($customer_name) && !$isCashDefault) {
+                $existingCust = Customer::where('name', $customer_name)
+                    ->where('is_deleted', 0)
+                    ->when($admin_id > 0, fn($q) => $q->where('admin_id', $admin_id))
+                    ->first();
+            }
+
+            if ($existingCust) {
+                $customer_id = $existingCust->id;
+            } else {
+                $cName = $isCashDefault ? "Credit Customer " . time() : $customer_name;
+                $newCust = Customer::create([
+                    'admin_id'        => $admin_id,
+                    'name'            => $cName,
+                    'phone'           => $customer_phone ?: '',
+                    'address'         => $request->input('billing_address', ''),
+                    'type'            => 'retail',
+                    'credit_enabled'  => 1,
+                    'credit_limit'    => 0,
+                    'credit_days'     => 0,
+                    'gst_no'          => $gst_no ?: null,
+                    'loyalty_points'  => 0,
+                    'advance_balance' => 0,
+                    'pending_amount'  => 0,
+                    'status'          => 'active',
+                    'is_deleted'      => 0,
+                    'created_at'      => now(),
+                ]);
+                $customer_id = $newCust->id;
+            }
+        }
+
         /* CREDIT / CASH LOGIC */
         $advance_balance = 0.0;
         if ($customer_id > 0) {
@@ -97,16 +147,15 @@ class InvoiceController extends Controller
                 : date('Y-m-d');
         }
 
-        /* STOCK CHECK */
+        /* STOCK CHECK (Only check stock for inventory-registered DB items) */
         foreach ($products as $item) {
-            $product_id = intval($item['product_id']);
-            $qty        = floatval($item['qty']);
-            $prod = Product::where('id', $product_id)->where('company_id', $company_id)->where('is_deleted', 0)->first();
-            if (!$prod) {
-                return response()->json(["status" => false, "message" => "Invalid product"]);
-            }
-            if (floatval($prod->stock) < $qty) {
-                return response()->json(["status" => false, "message" => "Stock not enough"]);
+            $product_id = intval($item['product_id'] ?? 0);
+            $qty        = floatval($item['qty'] ?? 1);
+            if ($product_id > 0) {
+                $prod = Product::where('id', $product_id)->where('company_id', $company_id)->where('is_deleted', 0)->first();
+                if ($prod && floatval($prod->stock) < $qty) {
+                    return response()->json(["status" => false, "message" => "Stock not enough for " . ($prod->product_name ?? 'product')]);
+                }
             }
         }
 
@@ -160,11 +209,13 @@ class InvoiceController extends Controller
                 'notes' => ''
             ]);
 
-            /* DEDUCT STOCK */
+            /* DEDUCT STOCK (Only for inventory-tracked DB items) */
             foreach ($products as $item) {
-                $pid = intval($item['product_id']);
-                $qty = floatval($item['qty']);
-                Product::where('id', $pid)->decrement('stock', $qty);
+                $pid = intval($item['product_id'] ?? 0);
+                $qty = floatval($item['qty'] ?? 1);
+                if ($pid > 0) {
+                    Product::where('id', $pid)->decrement('stock', $qty);
+                }
             }
 
             /* UPDATE CUSTOMER */
@@ -940,5 +991,188 @@ class InvoiceController extends Controller
             ->get();
 
         return response()->json(["status" => true, "data" => $payments]);
+    }
+
+    public function deleteInvoice(Request $request)
+    {
+        $id = $request->input('id');
+        $invoice_no = $request->input('invoice_no');
+
+        if (!$id && !$invoice_no) {
+            return response()->json(["status" => false, "message" => "Invoice ID or Invoice No required"]);
+        }
+
+        $query = Invoice::query();
+        if ($id) {
+            $query->where('id', $id);
+        } else {
+            $query->where('invoice_no', $invoice_no);
+        }
+        $invoice = $query->first();
+
+        if (!$invoice) {
+            return response()->json(["status" => false, "message" => "Invoice not found"]);
+        }
+
+        DB::beginTransaction();
+        try {
+            // 1. Revert product stock for inventory tracked items
+            $products = is_string($invoice->products) ? json_decode($invoice->products, true) : $invoice->products;
+            if (is_array($products)) {
+                foreach ($products as $item) {
+                    $pid = intval($item['product_id'] ?? 0);
+                    $qty = floatval($item['qty'] ?? 0);
+                    if ($pid > 0 && $qty > 0) {
+                        Product::where('id', $pid)->increment('stock', $qty);
+                    }
+                }
+            }
+
+            // 2. Delete associated payment records
+            Payment::where('invoice_id', $invoice->id)
+                ->orWhere('invoice_no', $invoice->invoice_no)
+                ->delete();
+
+            // 3. Delete invoice record
+            $invoice->delete();
+
+            DB::commit();
+            return response()->json([
+                "status" => true,
+                "message" => "Invoice deleted successfully"
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                "status" => false,
+                "message" => "Failed to delete invoice: " . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateInvoice(Request $request)
+    {
+        $invoice_no = trim($request->input('invoice_no', ''));
+        $id = intval($request->input('id', 0));
+
+        if (!$invoice_no && !$id) {
+            return response()->json(["status" => false, "message" => "Invoice No or ID required"]);
+        }
+
+        $query = Invoice::query();
+        if ($id > 0) {
+            $query->where('id', $id);
+        } else {
+            $query->where('invoice_no', $invoice_no);
+        }
+        $invoice = $query->first();
+
+        if (!$invoice) {
+            return response()->json(["status" => false, "message" => "Invoice not found"]);
+        }
+
+        $company_id     = intval($request->input('company_id', $invoice->company_id));
+        $customer_id    = intval($request->input('customer_id', 0));
+        $customer_name  = trim($request->input('customer_name', ''));
+        if ($customer_name === "") $customer_name = "Cash Customer";
+        $customer_phone = trim($request->input('customer_phone', ''));
+        $products       = $request->input('products', []);
+        $sub_total      = floatval($request->input('sub_total', 0));
+        $gst_total      = floatval($request->input('gst_total', 0));
+        $total_amount   = floatval($request->input('total_amount', 0));
+        $paid_amount    = floatval($request->input('paid_amount', 0));
+        $payment_method = trim($request->input('payment_method', 'cash'));
+        $payment_type   = trim($request->input('payment_type', 'cash'));
+        $gst_type       = trim($request->input('gst_type', 'with_gst'));
+
+        if (count($products) == 0) {
+            return response()->json(["status" => false, "message" => "No products in invoice"]);
+        }
+
+        DB::beginTransaction();
+        try {
+            // 1. Reconcile Stock: Revert old products stock
+            $oldProducts = is_string($invoice->products) ? json_decode($invoice->products, true) : $invoice->products;
+            if (is_array($oldProducts)) {
+                foreach ($oldProducts as $oldItem) {
+                    $oldPid = intval($oldItem['product_id'] ?? 0);
+                    $oldQty = floatval($oldItem['qty'] ?? 0);
+                    if ($oldPid > 0 && $oldQty > 0) {
+                        Product::where('id', $oldPid)->increment('stock', $oldQty);
+                    }
+                }
+            }
+
+            // 2. Reconcile Stock: Check and deduct new products stock
+            foreach ($products as $item) {
+                $pid = intval($item['product_id'] ?? 0);
+                $qty = floatval($item['qty'] ?? 1);
+                if ($pid > 0) {
+                    $prod = Product::where('id', $pid)->where('is_deleted', 0)->first();
+                    if ($prod && floatval($prod->stock) < $qty) {
+                        DB::rollBack();
+                        return response()->json(["status" => false, "message" => "Stock not enough for " . ($prod->product_name ?? 'product')]);
+                    }
+                    Product::where('id', $pid)->decrement('stock', $qty);
+                }
+            }
+
+            // 3. Compute Paid & Balance
+            if ($payment_type === "credit") {
+                $final_paid     = $paid_amount;
+                $balance_amount = max(0.0, $total_amount - $final_paid);
+                $payment_status = $balance_amount <= 0 ? "paid" : ($final_paid > 0 ? "partial" : "not_paid");
+            } else {
+                $final_paid     = $total_amount;
+                $balance_amount = 0;
+                $payment_status = "paid";
+            }
+
+            // 4. Update Invoice
+            $invoice->update([
+                'customer_id'    => $customer_id > 0 ? $customer_id : null,
+                'customer_name'  => $customer_name,
+                'customer_phone' => $customer_phone,
+                'products'       => $products,
+                'sub_total'      => $sub_total,
+                'gst_total'      => $gst_total,
+                'total_amount'   => $total_amount,
+                'paid_amount'    => $final_paid,
+                'balance_amount' => $balance_amount,
+                'payment_method' => $payment_method,
+                'payment_type'   => $payment_type,
+                'gst_type'       => $gst_type,
+                'payment_status' => $payment_status,
+                'company_id'     => $company_id,
+            ]);
+
+            // 5. Update/Sync Payment record
+            Payment::where('invoice_id', $invoice->id)->orWhere('invoice_no', $invoice->invoice_no)->delete();
+            Payment::create([
+                'company_id'     => $company_id,
+                'invoice_id'     => $invoice->id,
+                'invoice_no'     => $invoice->invoice_no,
+                'customer_id'    => $customer_id > 0 ? $customer_id : 0,
+                'total_amount'   => $total_amount,
+                'paid_amount'    => $final_paid,
+                'balance_amount' => $balance_amount,
+                'payment_method' => $payment_method,
+                'payment_status' => $payment_status,
+                'notes'          => 'Updated from edit invoice'
+            ]);
+
+            DB::commit();
+            return response()->json([
+                "status"     => true,
+                "message"    => "Invoice updated successfully",
+                "invoice_no" => $invoice->invoice_no
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                "status"  => false,
+                "message" => "Failed to update invoice: " . $e->getMessage()
+            ], 500);
+        }
     }
 }

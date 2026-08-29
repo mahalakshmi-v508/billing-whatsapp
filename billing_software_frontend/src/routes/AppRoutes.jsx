@@ -39,6 +39,9 @@ import EditCustomer from "../pages/customer/EditCustomer";
 import CreditSettings from "../pages/billing/CreditSettings";
 import SaleSubmenuView from "../pages/sales/SaleSubmenuView";
 import SaleInvoices from "../pages/sales/SaleInvoices";
+import PaymentIn from "../pages/sales/payment_in/PaymentIn";
+import CreditNoteList from "../pages/sales/credit_note/CreditNoteList";
+import AddCreditNote from "../pages/sales/credit_note/AddCreditNote";
 import PaymentPendingHistory from "../pages/reports/PaymentPendingHistory";
 import PendingCashierRequests from "../pages/CashierRequests/PendingCashierRequests";
 import AdminForm from "../pages/Admin/AdminForm";
@@ -109,10 +112,12 @@ export default function AppRoutes() {
             <Route path="/sales/invoices" element={<SaleInvoices />} />
             <Route path="/sales/quotations" element={<SaleSubmenuView type="quotation" title="Estimate / Quotation" />} />
             <Route path="/sales/proforma" element={<SaleSubmenuView type="proforma" title="Proforma Invoice" />} />
-            <Route path="/sales/payment-in" element={<PaymentPending />} />
+            <Route path="/sales/payment-in" element={<PaymentIn />} />
             <Route path="/sales/order" element={<SaleSubmenuView type="order" title="Sale Order" />} />
             <Route path="/sales/delivery-challan" element={<SaleSubmenuView type="challan" title="Delivery Challan" />} />
-            <Route path="/sales/credit-note" element={<SaleSubmenuView type="credit_note" title="Sale Return / Credit Note" />} />
+            <Route path="/sales/credit-note" element={<CreditNoteList />} />
+            <Route path="/sales/credit-note/add" element={<AddCreditNote />} />
+            <Route path="/sales/credit-note/edit/:id" element={<AddCreditNote />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/change-password" element={<ChangePassword />} />
             <Route path="/payment-pending" element={<PaymentPending />} />

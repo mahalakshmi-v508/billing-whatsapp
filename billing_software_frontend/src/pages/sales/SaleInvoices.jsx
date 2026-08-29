@@ -6,6 +6,8 @@ import {
   Plus,
   Settings,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Calendar,
   Search,
   BarChart2,
@@ -57,6 +59,10 @@ export default function SaleInvoices() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const menuRef = useRef(null);
 
@@ -240,6 +246,19 @@ export default function SaleInvoices() {
       return true;
     });
   }, [invoices, selectedUser, searchQuery]);
+
+  // Reset pagination on filter or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedFirm, selectedUser, fromDate, toDate, period]);
+
+  const totalPages = Math.ceil(filteredInvoices.length / rowsPerPage) || 1;
+  const safePage = Math.min(currentPage, totalPages);
+
+  const paginatedInvoices = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage;
+    return filteredInvoices.slice(start, start + rowsPerPage);
+  }, [filteredInvoices, safePage, rowsPerPage]);
 
   // Summary Metrics
   const summary = useMemo(() => {
@@ -689,7 +708,7 @@ export default function SaleInvoices() {
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map((inv, idx) => {
+                paginatedInvoices.map((inv, idx) => {
                   const isPaid = Number(inv.balance_amount || 0) === 0;
                   const isUnpaid = Number(inv.paid_amount || 0) === 0;
                   const isPos = inv.is_pos || inv.source === "pos" || String(inv.payment_method).toLowerCase() === "cash" && !inv.customer_id;
@@ -841,6 +860,85 @@ export default function SaleInvoices() {
               )}
             </tbody>
           </table>
+
+          {/* ── PAGINATION BAR ── */}
+          {filteredInvoices.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 text-xs text-slate-600 bg-white">
+              <div className="flex items-center gap-4">
+                <span>
+                  Showing <strong className="font-semibold text-slate-800">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
+                  <strong className="font-semibold text-slate-800">{Math.min(safePage * rowsPerPage, filteredInvoices.length)}</strong> of{" "}
+                  <strong className="font-semibold text-slate-800">{filteredInvoices.length}</strong> invoices
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500">Rows:</span>
+                  <select
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={safePage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                  title="Previous Page"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                  .reduce((acc, p, i, arr) => {
+                    if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, i) =>
+                    item === "..." ? (
+                      <span key={`dots-${i}`} className="px-2 text-slate-400 font-bold">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setCurrentPage(item)}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
+                          safePage === item
+                            ? "bg-blue-600 text-white font-bold shadow-sm"
+                            : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+
+                <button
+                  type="button"
+                  disabled={safePage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                  title="Next Page"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
