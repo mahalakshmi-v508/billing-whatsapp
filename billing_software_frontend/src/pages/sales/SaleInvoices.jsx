@@ -452,7 +452,7 @@ export default function SaleInvoices() {
           >
             <span>
               {selectedFirm === "all"
-                ? "All Firms"
+                ? "All company"
                 : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
             </span>
             <ChevronDown size={14} className={`text-slate-500 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
@@ -466,7 +466,7 @@ export default function SaleInvoices() {
                   selectedFirm === "all" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                All Firms
+                All company
               </div>
               {companies.map((c) => (
                 <div
@@ -485,46 +485,7 @@ export default function SaleInvoices() {
           )}
         </div>
 
-        {/* Users Dropdown Pill */}
-        <div className="relative">
-          <button
-            onClick={() => setUserOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
-          >
-            <span>
-              {selectedUser === "all"
-                ? "All Users"
-                : cashiers.find((u) => String(u.id) === String(selectedUser))?.name || "User"}
-            </span>
-            <ChevronDown size={14} className={`text-slate-500 transition-transform ${userOpen ? "rotate-180" : ""}`} />
-          </button>
-
-          {userOpen && (
-            <div className="absolute left-0 top-9 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
-              <div
-                onClick={() => { setSelectedUser("all"); setUserOpen(false); }}
-                className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
-                  selectedUser === "all" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                All Users
-              </div>
-              {cashiers.map((u) => (
-                <div
-                  key={u.id}
-                  onClick={() => { setSelectedUser(u.id); setUserOpen(false); }}
-                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition truncate ${
-                    String(selectedUser) === String(u.id)
-                      ? "bg-blue-50 text-blue-600 font-bold"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {u.name}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+       
 
         {/* Refresh button */}
         <button

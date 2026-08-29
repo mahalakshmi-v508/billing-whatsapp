@@ -345,7 +345,7 @@ export default function CreditNoteList() {
               >
                 <span>
                   {selectedFirm === "all"
-                    ? "ALL FIRMS"
+                    ? "ALL COMPANY"
                     : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "FIRM"}
                 </span>
                 <ChevronDown size={13} />
@@ -360,7 +360,7 @@ export default function CreditNoteList() {
                     }}
                     className="w-full text-left px-3 py-2 hover:bg-slate-50"
                   >
-                    ALL FIRMS
+                    ALL COMPANY
                   </button>
                   {companies.map((c) => (
                     <button
@@ -378,46 +378,21 @@ export default function CreditNoteList() {
               )}
             </div>
 
-            {/* ALL USERS Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setUserOpen(!userOpen)}
-                className="flex items-center gap-2 border border-slate-300 rounded-lg px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-              >
-                <span>
-                  {selectedUser === "all"
-                    ? "ALL USERS"
-                    : cashiers.find((u) => String(u.id) === String(selectedUser))?.name || "USER"}
-                </span>
-                <ChevronDown size={13} />
-              </button>
-
-              {userOpen && (
-                <div className="absolute left-0 mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50">
-                  <button
-                    onClick={() => {
-                      setSelectedUser("all");
-                      setUserOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50"
-                  >
-                    ALL USERS
-                  </button>
-                  {cashiers.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => {
-                        setSelectedUser(String(u.id));
-                        setUserOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 hover:bg-slate-50"
-                    >
-                      {u.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* ALL company Dropdown */}
+             <div className="border border-blue-500 ring-1 ring-blue-500/20 rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-slate-800 bg-white font-medium">
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              className="bg-transparent outline-none cursor-pointer text-xs font-semibold"
+            >
+              <option value="all">All Payment</option>
+              <option value="unpaid">Unpaid/ Unused</option>
+              <option value="partial">Partial</option>
+              <option value="paid">Paid/ Used</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+            
           </div>
 
           {/* Right Tools: Excel Report & Print */}
@@ -440,27 +415,7 @@ export default function CreditNoteList() {
           </div>
         </div>
 
-        {/* Row 2 Filters: Credit Note & All Payment (Matching media_1787845504680.png) */}
-        <div className="flex items-center gap-3 pt-2 border-t border-slate-100 text-xs">
-          <div className="border border-slate-300 rounded-lg px-3 py-1.5 flex items-center gap-2 text-slate-700 bg-white font-medium">
-            <span>Credit Note</span>
-            <ChevronDown size={13} />
-          </div>
-
-          <div className="border border-blue-500 ring-1 ring-blue-500/20 rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-slate-800 bg-white font-medium">
-            <select
-              value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
-              className="bg-transparent outline-none cursor-pointer text-xs font-semibold"
-            >
-              <option value="all">All Payment</option>
-              <option value="unpaid">Unpaid/ Unused</option>
-              <option value="partial">Partial</option>
-              <option value="paid">Paid/ Used</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-        </div>
+       
       </div>
 
       {/* ── 2. SEARCH & + ADD CREDIT NOTE BAR ── */}
