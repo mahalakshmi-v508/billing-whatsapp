@@ -217,7 +217,7 @@ class WhatsappConnectController extends Controller
             ]);
         }
 
-        WhatsAppMessage::create([
+        $msg = WhatsAppMessage::create([
             'connection_id' => $connection->id,
             'company_id' => $company_id,
             'whatsapp_message_id' => $result['result']['id'] ?? null,
@@ -233,7 +233,10 @@ class WhatsappConnectController extends Controller
         return response()->json([
             "status" => true,
             "message" => "Message sent successfully.",
-            "data" => $result
+            "data" => array_merge(is_array($result) ? $result : ['result' => $result], [
+                'id' => $msg->id,
+                'whatsapp_message_id' => $msg->whatsapp_message_id
+            ])
         ]);
     }
 
@@ -320,7 +323,7 @@ class WhatsappConnectController extends Controller
             ]);
         }
 
-        WhatsAppMessage::create([
+        $msg = WhatsAppMessage::create([
             'connection_id' => $connection->id,
             'company_id' => $company_id,
             'whatsapp_message_id' => $result['result']['id'] ?? null,
@@ -337,7 +340,10 @@ class WhatsappConnectController extends Controller
         return response()->json([
             "status" => true,
             "message" => "Invoice sent successfully via WhatsApp.",
-            "data" => $result
+            "data" => array_merge(is_array($result) ? $result : ['result' => $result], [
+                'id' => $msg->id,
+                'whatsapp_message_id' => $msg->whatsapp_message_id
+            ])
         ]);
     }
 
@@ -421,7 +427,10 @@ class WhatsappConnectController extends Controller
         return response()->json([
             "status"  => true,
             "message" => "File sent successfully via WhatsApp.",
-            "data"    => ["id" => $msg->id]
+            "data"    => [
+                "id" => $msg->id,
+                "whatsapp_message_id" => $msg->whatsapp_message_id
+            ]
         ]);
     }
 
@@ -441,7 +450,7 @@ class WhatsappConnectController extends Controller
         return $text !== '' ? mb_substr($text, 0, 60) : 'Message';
     }
 
-    // ── WHATSAPP CHAT CONTACT LIST (100% DYNAMIC — ONLY REAL CONVERSATION HISTORY) ──
+    // ── WHATSAPP CHAT CONTACT LIST — ONLY CUSTOMERS FROM BILLING SYSTEM ──
     public function getChats(Request $request)
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
@@ -450,11 +459,24 @@ class WhatsappConnectController extends Controller
             return response()->json(["status" => false, "message" => "company_id required"]);
         }
 
-        // only phones that have real message history (any direction/type)
-        $phonesWithHistory = DB::table('whatsapp_messages')
-            ->where('company_id', $company_id)
-            ->groupBy('customer_phone')
-            ->pluck('customer_phone');
+        // Only phones that have real message history AND match a known customer
+        // or invoice in the billing system. This prevents unknown WhatsApp
+        // contacts from appearing in the application's contact list.
+        $phonesWithHistory = DB::table('whatsapp_messages as wm')
+            ->where('wm.company_id', $company_id)
+            ->where(function ($query) {
+                $query->whereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('customers as c')
+                        ->whereRaw('RIGHT(wm.customer_phone, 10) = RIGHT(c.phone, 10)');
+                })->orWhereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('invoices as i')
+                        ->whereRaw('RIGHT(wm.customer_phone, 10) = RIGHT(i.customer_phone, 10)');
+                });
+            })
+            ->groupBy('wm.customer_phone')
+            ->pluck('wm.customer_phone');
 
         if ($phonesWithHistory->isEmpty()) {
             return response()->json(["status" => true, "data" => []]);
@@ -527,6 +549,21 @@ class WhatsappConnectController extends Controller
             return response()->json(["status" => false, "message" => "company_id and phone required"]);
         }
 
+        // Safety net: only allow viewing messages for known customers
+        $last10 = substr($phone, -10);
+        $knownPhone = strlen($last10) === 10 && (
+            DB::table('customers')
+                ->whereRaw('RIGHT(phone, 10) = ?', [$last10])
+                ->exists()
+            || DB::table('invoices')
+                ->whereRaw('RIGHT(customer_phone, 10) = ?', [$last10])
+                ->exists()
+        );
+
+        if (!$knownPhone) {
+            return response()->json(["status" => true, "data" => []]);
+        }
+
         $messages = DB::table('whatsapp_messages as wm')
             ->leftJoin('customers as c', function ($join) {
                 $join->on(DB::raw('RIGHT(wm.customer_phone, 10)'), '=', DB::raw('RIGHT(c.phone, 10)'));
@@ -572,13 +609,14 @@ class WhatsappConnectController extends Controller
         $data = [];
         foreach ($messages as $m) {
             $item = [
-                'id'          => $m->id,
-                'direction'   => $m->direction,
-                'type'        => $m->message_type,
-                'text'        => $m->message,
-                'status'      => $m->status,
-                'time'        => $m->created_at,
-                'invoice'     => null
+                'id'                  => $m->id,
+                'whatsapp_message_id' => $m->whatsapp_message_id,
+                'direction'           => $m->direction,
+                'type'                => $m->message_type,
+                'text'                => $m->message,
+                'status'              => $m->status,
+                'time'                => $m->created_at,
+                'invoice'             => null
             ];
 
             // any media message carries its real filename

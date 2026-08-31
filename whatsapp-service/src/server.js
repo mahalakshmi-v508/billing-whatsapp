@@ -292,6 +292,8 @@ app.listen(
             `WhatsApp service running on port ${config.port}`
         );
 
+        manager.startSyncInterval();
+
         manager.restoreSessions()
             .then(() => {
                 manager.startWatchdog();

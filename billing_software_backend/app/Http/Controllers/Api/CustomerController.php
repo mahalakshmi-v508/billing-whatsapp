@@ -121,6 +121,37 @@ class CustomerController extends Controller
             return response()->json(["status" => false, "message" => "Admin ID required"]);
         }
 
+        // Auto-sync any credit customers from invoices who are missing in customers table
+        $missingCusts = DB::table('invoices')
+            ->whereNotNull('customer_name')
+            ->where('customer_name', '!=', '')
+            ->whereNotIn(DB::raw('LOWER(customer_name)'), ['cash customer', 'customer'])
+            ->where(function($b) {
+                $b->whereNull('customer_id')->orWhere('customer_id', 0);
+            })
+            ->select('customer_name', 'customer_phone', DB::raw('SUM(balance_amount) as total_bal'))
+            ->groupBy('customer_name', 'customer_phone')
+            ->get();
+
+        foreach ($missingCusts as $mc) {
+            $c = Customer::firstOrCreate(
+                ['admin_id' => $admin_id, 'name' => $mc->customer_name, 'is_deleted' => 0],
+                [
+                    'phone'          => $mc->customer_phone ?: '',
+                    'pending_amount' => floatval($mc->total_bal),
+                    'status'         => 'active',
+                    'credit_enabled' => 1,
+                    'created_at'     => now()
+                ]
+            );
+            DB::table('invoices')
+                ->where('customer_name', $mc->customer_name)
+                ->where(function($b) {
+                    $b->whereNull('customer_id')->orWhere('customer_id', 0);
+                })
+                ->update(['customer_id' => $c->id]);
+        }
+
         $customers = Customer::where('admin_id', $admin_id)
             ->where('is_deleted', 0)
             ->where(function($query) use ($q) {

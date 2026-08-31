@@ -18,9 +18,11 @@ use App\Http\Controllers\Api\SupplierProductController;
 use App\Http\Controllers\Api\WhatsappController;
 use App\Http\Controllers\Api\WhatsappConnectController;
 use App\Http\Controllers\Api\WhatsAppInternalController;
+use App\Http\Controllers\Api\WhatsAppWebhookController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\HelpdeskController;
 use App\Http\Controllers\Api\AiController;
+use App\Http\Controllers\Api\CreditNoteController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -154,6 +156,7 @@ Route::prefix('dashboard')->group(function () {
 
 // ── INVOICE ROUTES ──
 Route::prefix('invoice')->group(function () {
+    Route::post('create', [InvoiceController::class, 'createInvoice']);
     Route::post('create_invoice', [InvoiceController::class, 'createInvoice']);
     Route::get('get_all_invoice', [InvoiceController::class, 'getAllInvoice']);
     Route::get('get_filtered_invoices', [InvoiceController::class, 'getFilteredInvoices']);
@@ -167,6 +170,17 @@ Route::prefix('invoice')->group(function () {
     Route::post('pay_customer_bulk', [InvoiceController::class, 'payCustomerBulk']);
     Route::get('get_customer_payments', [InvoiceController::class, 'getCustomerPayments']);
     Route::get('verify_gst', [InvoiceController::class, 'verifyGst']);
+    Route::post('delete_invoice', [InvoiceController::class, 'deleteInvoice']);
+    Route::post('update_invoice', [InvoiceController::class, 'updateInvoice']);
+});
+
+// ── CREDIT NOTE / SALE RETURN ROUTES ──
+Route::prefix('credit_note')->group(function () {
+    Route::post('create', [CreditNoteController::class, 'createCreditNote']);
+    Route::get('list', [CreditNoteController::class, 'getCreditNotes']);
+    Route::get('get_by_id', [CreditNoteController::class, 'getCreditNoteById']);
+    Route::post('update', [CreditNoteController::class, 'updateCreditNote']);
+    Route::post('delete', [CreditNoteController::class, 'deleteCreditNote']);
 });
 
 // ── PRODUCT ROUTES ──
@@ -225,6 +239,10 @@ Route::prefix('whatsapp')->group(function () {
 
 // ── WHATSAPP INTERNAL (NODE SERVICE -> LARAVEL EVENTS) ──
 Route::post('internal/whatsapp/events', [WhatsAppInternalController::class, 'event']);
+Route::post('internal/whatsapp/validate_sessions', [WhatsAppInternalController::class, 'validateSessions']);
+
+// ── WHATSAPP WEBHOOK (MESSAGE STATUS UPDATES -> BROADCAST) ──
+Route::post('whatsapp/message-status', [WhatsAppWebhookController::class, 'updateStatus']);
 
 // ── PURCHASE ROUTES ──
 Route::prefix('purchase')->group(function () {
