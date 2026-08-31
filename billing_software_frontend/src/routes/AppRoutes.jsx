@@ -7,7 +7,7 @@ import ProductForm from "../pages/products/ProductForm";
 import Billing from "../pages/billing/Billing";
 import AddSale from "../pages/sales/AddSale";
 import Reports from "../pages/reports/SalesReport";
-import Settings from "../pages/settings/Settings";
+import General from "../pages/settings/General";
 import MainLayout from "../layouts/MainLayout";
 import CompanyList from "../pages/company/CompanyList";
 import CompanyForm from "../pages/company/CompanyForm";
@@ -133,7 +133,7 @@ export default function AppRoutes() {
             <Route path="/products" element={<ProductList />} />
             <Route path="/products/add" element={<ProductForm />} />
             <Route path="/products/edit/:id" element={<EditProduct />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings" element={<General />} />
             <Route path="/company" element={<CompanyList />} />
             <Route path="/company/add" element={<CompanyForm />} />
             <Route path="/company/edit/:id" element={<EditCompany />} />
