@@ -14,33 +14,16 @@ class CustomerController extends Controller
         $admin_id       = intval($request->input('admin_id', 0));
         $name           = trim($request->input('name', ''));
         $phone          = trim($request->input('phone', ''));
-        $email          = trim($request->input('email', ''));
-        $state          = trim($request->input('state', ''));
         $address        = trim($request->input('address', ''));
         $type           = trim($request->input('type', 'B2C'));
         $credit_enabled = intval($request->input('credit_enabled', 0));
         $credit_limit   = floatval($request->input('credit_limit', 0.00));
         $credit_days    = intval($request->input('credit_days', 0));
         $gst_no         = trim($request->input('gst_no', ''));
-        $account_number = trim($request->input('account_number', ''));
-        $pan_number     = trim($request->input('pan_number', ''));
-        $date_of_birth  = $request->input('date_of_birth', null);
         $loyalty_points = intval($request->input('loyalty_points', 0));
         $advance_balance = floatval($request->input('advance_balance', 0.00));
         $pending_amount = floatval($request->input('pending_amount', 0.00));
         $status         = $request->input('status', 'active');
-
-        $address_line1     = trim($request->input('address_line1', ''));
-        $address_line2     = trim($request->input('address_line2', ''));
-        $city              = trim($request->input('city', ''));
-        $billing_country   = trim($request->input('billing_country', 'India'));
-        $billing_pincode   = trim($request->input('billing_pincode', ''));
-        $shipping_address          = trim($request->input('shipping_address', ''));
-        $shipping_address_line1    = trim($request->input('shipping_address_line1', ''));
-        $shipping_address_line2    = trim($request->input('shipping_address_line2', ''));
-        $shipping_city             = trim($request->input('shipping_city', ''));
-        $shipping_country          = trim($request->input('shipping_country', 'India'));
-        $shipping_pincode          = trim($request->input('shipping_pincode', ''));
 
         if (!$admin_id || !$phone) {
             return response()->json(["status" => false, "message" => "Required fields missing"]);
@@ -59,28 +42,12 @@ class CustomerController extends Controller
             'admin_id' => $admin_id,
             'name' => $name ?: 'Customer',
             'phone' => $phone,
-            'email' => $email ?: null,
-            'state' => $state ?: null,
             'address' => $address,
-            'address_line1' => $address_line1 ?: null,
-            'address_line2' => $address_line2 ?: null,
-            'city' => $city ?: null,
-            'billing_country' => $billing_country ?: 'India',
-            'billing_pincode' => $billing_pincode ?: null,
-            'shipping_address' => $shipping_address ?: null,
-            'shipping_address_line1' => $shipping_address_line1 ?: null,
-            'shipping_address_line2' => $shipping_address_line2 ?: null,
-            'shipping_city' => $shipping_city ?: null,
-            'shipping_country' => $shipping_country ?: 'India',
-            'shipping_pincode' => $shipping_pincode ?: null,
             'type' => $type,
             'credit_enabled' => $credit_enabled,
             'credit_limit' => $credit_limit,
             'credit_days' => $credit_days,
             'gst_no' => $gst_no ?: null,
-            'account_number' => $account_number ?: null,
-            'pan_number' => $pan_number ?: null,
-            'date_of_birth' => $date_of_birth ?: null,
             'loyalty_points' => $loyalty_points,
             'advance_balance' => $advance_balance,
             'pending_amount' => $pending_amount,
@@ -269,32 +236,15 @@ class CustomerController extends Controller
         $id             = intval($request->input('id', 0));
         $name           = trim($request->input('name', ''));
         $phone          = trim($request->input('phone', ''));
-        $email          = trim($request->input('email', ''));
-        $state          = trim($request->input('state', ''));
         $address        = trim($request->input('address', ''));
         $type           = trim($request->input('type', 'B2C'));
         $credit_enabled = intval($request->input('credit_enabled', 0));
         $credit_limit   = floatval($request->input('credit_limit', 0.00));
         $credit_days    = intval($request->input('credit_days', 0));
         $gst_no         = trim($request->input('gst_no', ''));
-        $account_number = trim($request->input('account_number', ''));
-        $pan_number     = trim($request->input('pan_number', ''));
-        $date_of_birth  = $request->input('date_of_birth', null);
         $loyalty_points = intval($request->input('loyalty_points', 0));
         $advance_balance = floatval($request->input('advance_balance', 0.00));
         $pending_amount = floatval($request->input('pending_amount', 0.00));
-
-        $address_line1     = trim($request->input('address_line1', ''));
-        $address_line2     = trim($request->input('address_line2', ''));
-        $city              = trim($request->input('city', ''));
-        $billing_country   = trim($request->input('billing_country', 'India'));
-        $billing_pincode   = trim($request->input('billing_pincode', ''));
-        $shipping_address          = trim($request->input('shipping_address', ''));
-        $shipping_address_line1    = trim($request->input('shipping_address_line1', ''));
-        $shipping_address_line2    = trim($request->input('shipping_address_line2', ''));
-        $shipping_city             = trim($request->input('shipping_city', ''));
-        $shipping_country          = trim($request->input('shipping_country', 'India'));
-        $shipping_pincode          = trim($request->input('shipping_pincode', ''));
 
         if (!$id || !$phone) {
             return response()->json(["status" => false, "message" => "Required fields missing"]);
@@ -303,28 +253,12 @@ class CustomerController extends Controller
         Customer::where('id', $id)->update([
             'name' => $name ?: 'Customer',
             'phone' => $phone,
-            'email' => $email ?: null,
-            'state' => $state ?: null,
             'address' => $address,
-            'address_line1' => $address_line1 ?: null,
-            'address_line2' => $address_line2 ?: null,
-            'city' => $city ?: null,
-            'billing_country' => $billing_country ?: 'India',
-            'billing_pincode' => $billing_pincode ?: null,
-            'shipping_address' => $shipping_address ?: null,
-            'shipping_address_line1' => $shipping_address_line1 ?: null,
-            'shipping_address_line2' => $shipping_address_line2 ?: null,
-            'shipping_city' => $shipping_city ?: null,
-            'shipping_country' => $shipping_country ?: 'India',
-            'shipping_pincode' => $shipping_pincode ?: null,
             'type' => $type,
             'credit_enabled' => $credit_enabled,
             'credit_limit' => $credit_limit,
             'credit_days' => $credit_days,
             'gst_no' => $gst_no ?: null,
-            'account_number' => $account_number ?: null,
-            'pan_number' => $pan_number ?: null,
-            'date_of_birth' => $date_of_birth ?: null,
             'loyalty_points' => $loyalty_points,
             'advance_balance' => $advance_balance,
             'pending_amount' => $pending_amount
