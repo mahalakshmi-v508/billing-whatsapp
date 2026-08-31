@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\HelpdeskController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\CreditNoteController;
+use App\Http\Controllers\Api\ReportViewController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -256,5 +257,11 @@ Route::prefix('purchase')->group(function () {
     Route::get('get_payments', [PurchaseController::class, 'getPurchasePayments']);
     Route::get('get_supplier_payments', [PurchaseController::class, 'getSupplierPayments']);
     Route::post('pay_supplier_bulk', [PurchaseController::class, 'paySupplierBulk']);
+});
+
+// �"?�"? REPORT VIEWS / FREQUENTLY USED ROUTES �"?�"? 
+Route::prefix('report')->group(function () {
+    Route::post('record_view', [ReportViewController::class, 'recordView']);
+    Route::get('frequently_used', [ReportViewController::class, 'getFrequentlyUsed']);
 });
 

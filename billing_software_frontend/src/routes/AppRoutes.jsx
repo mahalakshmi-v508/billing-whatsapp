@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Dashboard from "../pages/dashboard/Dashboard";
@@ -6,7 +6,23 @@ import ProductList from "../pages/products/ProductList";
 import ProductForm from "../pages/products/ProductForm";
 import Billing from "../pages/billing/Billing";
 import AddSale from "../pages/sales/AddSale";
-import Reports from "../pages/reports/SalesReport";
+import ReportsLayout from "../components/reports/ReportsLayout";
+import { defaultReportPath } from "../components/reports/reportNavigation";
+import Sale from "../pages/reports/transactions/Sale";
+import Purchase from "../pages/reports/transactions/Purchase";
+import DayBook from "../pages/reports/transactions/DayBook";
+import AllTransactions from "../pages/reports/transactions/AllTransactions";
+import ProfitAndLoss from "../pages/reports/profit-loss/ProfitAndLoss";
+import BillWiseProfit from "../pages/reports/profit-loss/BillWiseProfit";
+import CashFlow from "../pages/reports/financial/CashFlow";
+import TrialBalance from "../pages/reports/financial/TrialBalance";
+import BalanceSheet from "../pages/reports/financial/BalanceSheet";
+import PartyStatement from "../pages/reports/party/PartyStatement";
+import PartyWiseProfitLoss from "../pages/reports/party/PartyWiseProfitLoss";
+import AllParties from "../pages/reports/party/AllParties";
+import PartyReportByItem from "../pages/reports/party/PartyReportByItem";
+import SalePurchaseByParty from "../pages/reports/party/SalePurchaseByParty";
+import SalePurchaseByPartyGroup from "../pages/reports/party/SalePurchaseByPartyGroup";
 import Settings from "../pages/settings/Settings";
 import MainLayout from "../layouts/MainLayout";
 import CompanyList from "../pages/company/CompanyList";
@@ -108,7 +124,24 @@ export default function AppRoutes() {
           {/* 1. Common routes allowed for admin, cashier, superadmin, developer */}
           <Route element={<ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]} />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/reports" element={<Reports />} />
+            <Route path="/reports" element={<ReportsLayout />}>
+              <Route index element={<Navigate to={defaultReportPath} replace />} />
+              <Route path="sale" element={<Sale />} />
+              <Route path="purchase" element={<Purchase />} />
+              <Route path="day-book" element={<DayBook />} />
+              <Route path="all-transactions" element={<AllTransactions />} />
+              <Route path="profit-loss" element={<ProfitAndLoss />} />
+              <Route path="bill-wise-profit" element={<BillWiseProfit />} />
+              <Route path="cash-flow" element={<CashFlow />} />
+              <Route path="trial-balance" element={<TrialBalance />} />
+              <Route path="balance-sheet" element={<BalanceSheet />} />
+              <Route path="party-statement" element={<PartyStatement />} />
+              <Route path="party-profit-loss" element={<PartyWiseProfitLoss />} />
+              <Route path="all-parties" element={<AllParties />} />
+              <Route path="party-by-item" element={<PartyReportByItem />} />
+              <Route path="sale-purchase-by-party" element={<SalePurchaseByParty />} />
+              <Route path="sale-purchase-by-party-group" element={<SalePurchaseByPartyGroup />} />
+            </Route>
             <Route path="/sales/invoices" element={<SaleInvoices />} />
             <Route path="/sales/quotations" element={<SaleSubmenuView type="quotation" title="Estimate / Quotation" />} />
             <Route path="/sales/proforma" element={<SaleSubmenuView type="proforma" title="Proforma Invoice" />} />
