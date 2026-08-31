@@ -33,14 +33,12 @@ class CustomerController extends Controller
         $address_line1     = trim($request->input('address_line1', ''));
         $address_line2     = trim($request->input('address_line2', ''));
         $city              = trim($request->input('city', ''));
-        $billing_state     = trim($request->input('billing_state', ''));
         $billing_country   = trim($request->input('billing_country', 'India'));
         $billing_pincode   = trim($request->input('billing_pincode', ''));
         $shipping_address          = trim($request->input('shipping_address', ''));
         $shipping_address_line1    = trim($request->input('shipping_address_line1', ''));
         $shipping_address_line2    = trim($request->input('shipping_address_line2', ''));
         $shipping_city             = trim($request->input('shipping_city', ''));
-        $shipping_state            = trim($request->input('shipping_state', ''));
         $shipping_country          = trim($request->input('shipping_country', 'India'));
         $shipping_pincode          = trim($request->input('shipping_pincode', ''));
 
@@ -67,14 +65,12 @@ class CustomerController extends Controller
             'address_line1' => $address_line1 ?: null,
             'address_line2' => $address_line2 ?: null,
             'city' => $city ?: null,
-            'billing_state' => $billing_state ?: null,
             'billing_country' => $billing_country ?: 'India',
             'billing_pincode' => $billing_pincode ?: null,
             'shipping_address' => $shipping_address ?: null,
             'shipping_address_line1' => $shipping_address_line1 ?: null,
             'shipping_address_line2' => $shipping_address_line2 ?: null,
             'shipping_city' => $shipping_city ?: null,
-            'shipping_state' => $shipping_state ?: null,
             'shipping_country' => $shipping_country ?: 'India',
             'shipping_pincode' => $shipping_pincode ?: null,
             'type' => $type,
@@ -260,14 +256,12 @@ class CustomerController extends Controller
         $address_line1     = trim($request->input('address_line1', ''));
         $address_line2     = trim($request->input('address_line2', ''));
         $city              = trim($request->input('city', ''));
-        $billing_state     = trim($request->input('billing_state', ''));
         $billing_country   = trim($request->input('billing_country', 'India'));
         $billing_pincode   = trim($request->input('billing_pincode', ''));
         $shipping_address          = trim($request->input('shipping_address', ''));
         $shipping_address_line1    = trim($request->input('shipping_address_line1', ''));
         $shipping_address_line2    = trim($request->input('shipping_address_line2', ''));
         $shipping_city             = trim($request->input('shipping_city', ''));
-        $shipping_state            = trim($request->input('shipping_state', ''));
         $shipping_country          = trim($request->input('shipping_country', 'India'));
         $shipping_pincode          = trim($request->input('shipping_pincode', ''));
 
@@ -284,14 +278,12 @@ class CustomerController extends Controller
             'address_line1' => $address_line1 ?: null,
             'address_line2' => $address_line2 ?: null,
             'city' => $city ?: null,
-            'billing_state' => $billing_state ?: null,
             'billing_country' => $billing_country ?: 'India',
             'billing_pincode' => $billing_pincode ?: null,
             'shipping_address' => $shipping_address ?: null,
             'shipping_address_line1' => $shipping_address_line1 ?: null,
             'shipping_address_line2' => $shipping_address_line2 ?: null,
             'shipping_city' => $shipping_city ?: null,
-            'shipping_state' => $shipping_state ?: null,
             'shipping_country' => $shipping_country ?: 'India',
             'shipping_pincode' => $shipping_pincode ?: null,
             'type' => $type,

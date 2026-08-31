@@ -16,7 +16,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     address_line1: "",
     address_line2: "",
     city: "",
-    billing_state: "",
     billing_country: "India",
     billing_pincode: "",
     shipping_address: "",
@@ -24,7 +23,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     shipping_address_line1: "",
     shipping_address_line2: "",
     shipping_city: "",
-    shipping_state: "",
     shipping_country: "India",
     shipping_pincode: "",
     show_detailed_shipping_address: false,
@@ -77,15 +75,13 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     form.billing_address.trim() ||
     form.address_line1.trim() ||
     form.address_line2.trim() ||
-    form.city.trim() ||
-    form.billing_state.trim();
+    form.city.trim();
 
   const isShippingFilled = () =>
     form.shipping_address.trim() ||
     form.shipping_address_line1.trim() ||
     form.shipping_address_line2.trim() ||
-    form.shipping_city.trim() ||
-    form.shipping_state.trim();
+    form.shipping_city.trim();
 
   // ─── whole-form cancel: confirm only if the form is dirty ──
   const handleCancelClick = () => {
@@ -117,7 +113,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       address_line1: "",
       address_line2: "",
       city: "",
-      billing_state: "",
       billing_country: "India",
       billing_pincode: "",
       show_detailed_address: false,
@@ -131,7 +126,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       shipping_address_line1: "",
       shipping_address_line2: "",
       shipping_city: "",
-      shipping_state: "",
       shipping_country: "India",
       shipping_pincode: "",
       show_detailed_shipping_address: false,
@@ -283,14 +277,12 @@ export default function CustomerForm({ onSuccess, onCancel }) {
         address_line1: form.address_line1,
         address_line2: form.address_line2,
         city: form.city,
-        billing_state: form.billing_state,
         billing_country: form.billing_country,
         billing_pincode: form.billing_pincode,
         shipping_address: form.shipping_address,
         shipping_address_line1: form.shipping_address_line1,
         shipping_address_line2: form.shipping_address_line2,
         shipping_city: form.shipping_city,
-        shipping_state: form.shipping_state,
         shipping_country: form.shipping_country,
         shipping_pincode: form.shipping_pincode,
         gst_no: form.gst_no,
@@ -316,7 +308,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             address_line1: "",
             address_line2: "",
             city: "",
-            billing_state: "",
             billing_country: "India",
             billing_pincode: "",
             shipping_address: "",
@@ -324,7 +315,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             shipping_address_line1: "",
             shipping_address_line2: "",
             shipping_city: "",
-            shipping_state: "",
             shipping_country: "India",
             shipping_pincode: "",
             show_detailed_shipping_address: false,
@@ -771,28 +761,12 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                         value={form.address_line2}
                         onChange={(e) => set("address_line2", e.target.value)}
                       />
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <input
-                          className="cf-input"
-                          placeholder="City"
-                          value={form.city}
-                          onChange={(e) => set("city", e.target.value)}
-                        />
-                        <select
-                          className="cf-input"
-                          value={form.billing_state}
-                          onChange={(e) => set("billing_state", e.target.value)}
-                        >
-                          <option value="">Select State</option>
-                          <option value="Andhra Pradesh">Andhra Pradesh</option>
-                          <option value="Karnataka">Karnataka</option>
-                          <option value="Kerala">Kerala</option>
-                          <option value="Tamil Nadu">Tamil Nadu</option>
-                          <option value="Telangana">Telangana</option>
-                          <option value="Maharashtra">Maharashtra</option>
-                          <option value="Delhi">Delhi</option>
-                        </select>
-                      </div>
+                      <input
+                        className="cf-input"
+                        placeholder="City"
+                        value={form.city}
+                        onChange={(e) => set("city", e.target.value)}
+                      />
                       <select
                         className="cf-input"
                         value={form.billing_country}
@@ -884,28 +858,12 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                             value={form.shipping_address_line2}
                             onChange={(e) => set("shipping_address_line2", e.target.value)}
                           />
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                            <input
-                              className="cf-input"
-                              placeholder="City"
-                              value={form.shipping_city}
-                              onChange={(e) => set("shipping_city", e.target.value)}
-                            />
-                            <select
-                              className="cf-input"
-                              value={form.shipping_state}
-                              onChange={(e) => set("shipping_state", e.target.value)}
-                            >
-                              <option value="">Select State</option>
-                              <option value="Andhra Pradesh">Andhra Pradesh</option>
-                              <option value="Karnataka">Karnataka</option>
-                              <option value="Kerala">Kerala</option>
-                              <option value="Tamil Nadu">Tamil Nadu</option>
-                              <option value="Telangana">Telangana</option>
-                              <option value="Maharashtra">Maharashtra</option>
-                              <option value="Delhi">Delhi</option>
-                            </select>
-                          </div>
+                          <input
+                            className="cf-input"
+                            placeholder="City"
+                            value={form.shipping_city}
+                            onChange={(e) => set("shipping_city", e.target.value)}
+                          />
                           <select
                             className="cf-input"
                             value={form.shipping_country}
