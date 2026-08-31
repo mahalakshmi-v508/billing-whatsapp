@@ -815,8 +815,8 @@ import {
 } from "recharts";
 import {
   TrendingUp, Package, AlertTriangle,
-  ShoppingBag, BarChart2, Wallet, Clock, IndianRupee,Bell,ChevronDown,
-  Lock, LogOut
+  ShoppingBag, BarChart2, Wallet, Clock, IndianRupee, Bell, ChevronDown,
+  Lock, LogOut, Plus, ReceiptText, PackagePlus, UserPlus, Truck, FolderPlus
 } from "lucide-react";
 
 function useStyles() {
@@ -923,6 +923,7 @@ export default function Dashboard() {
 const user = JSON.parse(localStorage.getItem("user") || "{}");
 
 const [showProfile, setShowProfile] = useState(false);
+const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   /* ── Company State ── */
   const [companies, setCompanies]         = useState([]);
@@ -946,6 +947,7 @@ const [overdueList, setOverdueList] = useState([]);
 const isAdmin = user?.role === "admin";
 const bellRef = useRef(null);
 const profileRef = useRef(null);
+const quickAddRef = useRef(null);
 
 
 const [notifPos, setNotifPos] = useState({
@@ -1101,6 +1103,7 @@ useEffect(()=>{
   const handler = (e) => {
     if (!e.target.closest(".notif-bell")) setShowNotif(false);
     if (profileRef.current && !profileRef.current.contains(e.target)) setShowProfile(false);
+    if (quickAddRef.current && !quickAddRef.current.contains(e.target)) setShowQuickAdd(false);
   };
   document.addEventListener("mousedown", handler);
   return () => document.removeEventListener("mousedown", handler);
@@ -1110,18 +1113,28 @@ useEffect(()=>{
   return (
     <div className="db" style={{ fontFamily: font }}>
 
-      {/* ── Header with Company Dropdown ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, animation: "db-up .35s ease both", flexWrap: "wrap", gap: 14, overflow: "visible",  // ← ADD THIS
-  position: "relative", // ← ADD THIS
-  zIndex: 100   }}>
+      {/* ── HEADER ROW: Title on Left, Company & Profile on Right ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 22,
+        animation: "db-up .35s ease both",
+        flexWrap: "wrap",
+        gap: 14,
+        overflow: "visible",
+        position: "relative",
+        zIndex: 100
+      }}>
+        {/* Page Title */}
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#1e1b4b" }}>Dashboard</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#1e1b4b" }}>Home</h1>
           <p style={{ margin: "3px 0 0", fontSize: 13, color: "#9ca3af" }}>Welcome back — here's what's happening today</p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-
-          {/* ── Company Selector ── */}
+        {/* Existing Controls: Company Dropdown, Live Badge, User Profile, Bell */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {/* Company Selector */}
           <div style={{
             display: "flex", alignItems: "center", gap: 10,
             background: "#fff", border: "1.5px solid #e0e7ff",
