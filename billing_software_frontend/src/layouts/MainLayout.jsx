@@ -61,6 +61,7 @@ export default function MainLayout() {
   const location = useLocation();
   const [hoveredPath, setHoveredPath] = useState(null);
   const [saleOpen, setSaleOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState("general");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const quickAddRef = useRef(null);
 
@@ -178,6 +179,7 @@ export default function MainLayout() {
           { name: "Cashiers", path: "/cashier", icon: <Users size={20} /> },
           { name: "Customer", path: "/customer", icon: <User size={20} /> },
           { name: "WhatsApp", path: "/whatsapp", icon: <MessageSquareText size={20} /> },
+          { name: "Settings", path: "/settings", icon: <Settings size={20} /> },
         ]
       : []),
 
@@ -213,7 +215,51 @@ export default function MainLayout() {
   return (
     <div className="flex h-screen bg-[#f0f4f9] overflow-hidden">
 
-      {/* SIDEBAR */}
+      {/* SETTINGS SIDEBAR (replaces main sidebar on /settings) */}
+      {location.pathname === "/settings" ? (
+        <motion.div
+          initial={false}
+          animate={{ width: 288 }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
+          className="m-4 rounded-3xl bg-gradient-to-br from-[#1f8cff] to-[#4338ca] text-white shadow-2xl flex flex-col transition-all duration-300 relative select-none flex-shrink-0 p-6"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-xs flex-shrink-0">
+              <Settings size={22} color="#1f8cff" />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight whitespace-nowrap">Settings</h2>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/30">
+            <nav className="space-y-1.5">
+              {[
+                { id: "general", label: "General" },
+                { id: "transaction", label: "Transaction" },
+                { id: "print", label: "Print" },
+                { id: "taxes", label: "Taxes & GST" },
+                { id: "txn-messages", label: "Transaction Messages" },
+                { id: "party", label: "Party" },
+                { id: "item", label: "Item" },
+                { id: "service-reminders", label: "Service Reminders" },
+                { id: "accounting", label: "Accounting" },
+                { id: "multi-currency", label: "Multi Currency" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setSettingsTab(tab.id)}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-semibold transition cursor-pointer ${
+                    settingsTab === tab.id
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-white/90 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </motion.div>
+      ) : (
       <motion.div
         initial={false}
         animate={{ width: isCollapsed ? 82 : 288 }}
@@ -423,6 +469,7 @@ export default function MainLayout() {
           )}
         </div>
       </motion.div>
+      )}
 
       {/* RIGHT CONTENT AREA: FIXED TOP BAR + SCROLLABLE PAGE */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -810,7 +857,7 @@ export default function MainLayout() {
 
         {/* MAIN CONTENT */}
         <main className="flex-1 p-4 overflow-auto">
-          <Outlet />
+          <Outlet context={{ settingsTab, setSettingsTab }} />
         </main>
       </div>
 
