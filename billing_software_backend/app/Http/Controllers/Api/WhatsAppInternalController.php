@@ -112,13 +112,71 @@ class WhatsAppInternalController extends Controller
             $msg = $payload['message'];
 
             $from = $msg['from'] ?? '';
+            $lidFrom = $msg['lid_from'] ?? '';
 
             // prefer the real phone digits resolved by the node service —
             // WhatsApp LID addresses (<digits>@lid) are NOT customer phones
             $phone = preg_replace('/[^0-9]/', '', (string) ($msg['phone'] ?? ''));
 
+            // If Node could not resolve a real phone yet (e.g. LID mapping not
+            // cached after a restart), recover it from prior events for the same
+            // LID chat. whatsapp_events persists the original payload which held
+            // both "lid_from" and the resolved "phone". The history may contain
+            // stale LID-digit values, so only accept a candidate that matches a
+            // real known customer/invoice (never trust an unvalidated number).
             if ($phone === '') {
-                $phone = preg_replace('/[^0-9]/', '', str_replace(['@c.us', '@lid'], '', $from));
+                $chatIdentity = $lidFrom ?: $from;
+
+                if (str_ends_with($chatIdentity, '@lid') && $chatIdentity !== '') {
+                    $candidates = WhatsAppEvent::where('connection_id', $connection->id)
+                        ->where('event', 'message')
+                        ->orderByDesc('id')
+                        ->get(['payload'])
+                        ->map(function ($row) use ($chatIdentity) {
+                            $p = json_decode($row->payload, true);
+                            $m = $p['message'] ?? [];
+                            $lid = $m['lid_from'] ?? ($m['from'] ?? '');
+                            $ph = preg_replace('/[^0-9]/', '', (string) ($m['phone'] ?? ''));
+                            return ($lid === $chatIdentity) ? $ph : '';
+                        })
+                        ->filter(fn ($ph) => strlen($ph) >= 10)
+                        ->values();
+
+                    foreach ($candidates as $candidatePhone) {
+                        $candidateLast10 = substr($candidatePhone, -10);
+                        if (strlen($candidateLast10) === 10 && (
+                            DB::table('customers')
+                                ->whereRaw('RIGHT(phone, 10) = ?', [$candidateLast10])
+                                ->exists()
+                            || DB::table('invoices')
+                                ->whereRaw('RIGHT(customer_phone, 10) = ?', [$candidateLast10])
+                                ->exists()
+                        )) {
+                            $phone = $candidatePhone;
+                            break;
+                        }
+                    }
+                }
+
+                // As a secondary source, reuse a phone already stored for this
+                // exact chat identity (used when the chat was recorded as @s.whatsapp.net).
+                if ($phone === '' && $chatIdentity !== '') {
+                    $knownChatPhone = WhatsAppMessage::where('chat_id', $chatIdentity)
+                        ->whereNotNull('customer_phone')
+                        ->where('customer_phone', '!=', '')
+                        ->orderByDesc('id')
+                        ->value('customer_phone');
+
+                    if ($knownChatPhone) {
+                        $phone = preg_replace('/[^0-9]/', '', (string) $knownChatPhone);
+                    }
+                }
+            }
+
+            // As a final fallback only for a real @s.whatsapp.net / @c.us user JID,
+            // strip the domain. Never use @lid digits as a phone number.
+            if ($phone === '' && preg_match('/@(?:s\.whatsapp\.net|c\.us)$/', $from)) {
+                $phone = preg_replace('/[^0-9]/', '', str_replace(['@c.us', '@s.whatsapp.net'], '', $from));
             }
 
             // skip own messages
@@ -147,10 +205,26 @@ class WhatsAppInternalController extends Controller
                     ]);
                 }
 
+                // Avoid creating duplicate rows if literature services re-deliver
+                // the same upsert (notify + append) or resend on reconnect.
+                $waMessageId = $msg['id'] ?? null;
+
+                if ($waMessageId) {
+                    $exists = WhatsAppMessage::where('whatsapp_message_id', $waMessageId)
+                        ->where('direction', 'incoming')
+                        ->exists();
+
+                    if ($exists) {
+                        return response()->json([
+                            "status" => true
+                        ]);
+                    }
+                }
+
                 WhatsAppMessage::create([
                     'connection_id' => $connection->id,
                     'company_id' => $connection->company_id,
-                    'whatsapp_message_id' => $msg['id'] ?? null,
+                    'whatsapp_message_id' => $waMessageId,
                     'customer_phone' => $phone,
                     'chat_id' => $from,
                     'direction' => 'incoming',
