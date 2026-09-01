@@ -74,6 +74,64 @@ class WhatsAppManager {
         return path.join(config.sessionPath, 'baileys', 'session-' + sessionId);
     }
 
+    lidMapPath(sessionId) {
+        return path.join(this.baileysSessionPath(sessionId), 'lid-map.json');
+    }
+
+    loadLidMap(sessionId) {
+        try {
+            const file = this.lidMapPath(sessionId);
+            if (!fs.existsSync(file)) {
+                return;
+            }
+            const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (!parsed || typeof parsed !== 'object') {
+                return;
+            }
+            if (!this.lidToPhone.has(sessionId)) {
+                this.lidToPhone.set(sessionId, new Map());
+            }
+            for (const [lid, phone] of Object.entries(parsed)) {
+                this.lidToPhone.get(sessionId).set(lid, phone);
+            }
+            console.log(
+                `[WA][${sessionId}] loaded ${Object.keys(parsed).length} LID mapping(s) from disk`
+            );
+        } catch (error) {
+            console.error(
+                `[WA][${sessionId}] failed to load LID map:`,
+                error.message
+            );
+        }
+    }
+
+    saveLidMap(sessionId) {
+        try {
+            const cache = this.lidToPhone.get(sessionId);
+            if (!cache || cache.size === 0) {
+                return;
+            }
+            const dir = this.baileysSessionPath(sessionId);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            const obj = {};
+            for (const [lid, phone] of cache.entries()) {
+                obj[lid] = phone;
+            }
+            fs.writeFileSync(
+                this.lidMapPath(sessionId),
+                JSON.stringify(obj, null, 2),
+                'utf8'
+            );
+        } catch (error) {
+            console.error(
+                `[WA][${sessionId}] failed to save LID map:`,
+                error.message
+            );
+        }
+    }
+
     async createClient(sessionId) {
 
         if (this.clients.has(sessionId)) {
@@ -111,6 +169,8 @@ class WhatsAppManager {
         } catch (error) {
             console.error(`[WA][${sessionId}] cannot create session dir:`, error.message);
         }
+
+        this.loadLidMap(sessionId);
 
         let auth;
 
@@ -377,6 +437,55 @@ class WhatsAppManager {
             }
         });
 
+        sock.ev.on('contacts.upsert', (contacts) => {
+            for (const contact of contacts) {
+                if (contact?.lid && contact?.id) {
+                    this.registerLidMapping(
+                        sessionId,
+                        String(contact.lid),
+                        String(contact.id)
+                    );
+                }
+            }
+        });
+
+        sock.ev.on('contacts.update', (contacts) => {
+            for (const contact of contacts) {
+                if (contact?.lid && contact?.id) {
+                    this.registerLidMapping(
+                        sessionId,
+                        String(contact.lid),
+                        String(contact.id)
+                    );
+                }
+            }
+        });
+
+        sock.ev.on('messaging-history.set', ({ contacts }) => {
+            if (!Array.isArray(contacts)) {
+                return;
+            }
+            for (const contact of contacts) {
+                if (contact?.lid && contact?.id) {
+                    this.registerLidMapping(
+                        sessionId,
+                        String(contact.lid),
+                        String(contact.id)
+                    );
+                }
+            }
+        });
+
+        sock.ev.on('chats.phoneNumberShare', (share) => {
+            if (share?.lid && share?.jid) {
+                this.registerLidMapping(
+                    sessionId,
+                    String(share.lid),
+                    String(share.jid)
+                );
+            }
+        });
+
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
 
             if (type !== 'notify' && type !== 'append') {
@@ -439,7 +548,19 @@ class WhatsAppManager {
 
     registerLidMapping(sessionId, lidJid, phoneJid) {
 
-        if (!String(lidJid).endsWith('@lid')) {
+        if (!lidJid || !phoneJid) {
+            return;
+        }
+
+        const cleanLid = String(lidJid).includes('@')
+            ? String(lidJid)
+            : String(lidJid) + '@lid';
+
+        const cleanPhone = String(phoneJid).includes('@')
+            ? String(phoneJid)
+            : String(phoneJid) + '@s.whatsapp.net';
+
+        if (!String(cleanLid).endsWith('@lid')) {
             return;
         }
 
@@ -447,14 +568,20 @@ class WhatsAppManager {
             this.lidToPhone.set(sessionId, new Map());
         }
 
-        this.lidToPhone.get(sessionId).set(lidJid, phoneJid);
+        const previous = this.lidToPhone.get(sessionId).get(cleanLid);
+
+        this.lidToPhone.get(sessionId).set(cleanLid, cleanPhone);
+
+        if (previous !== cleanPhone) {
+            this.saveLidMap(sessionId);
+        }
     }
 
     resolveIdentity(sessionId, key) {
 
         const remoteJid = key?.remoteJid || '';
 
-        if (String(remoteJid).endsWith('@s.whatsapp.net')) {
+        if (String(remoteJid).endsWith('@s.whatsapp.net') || String(remoteJid).endsWith('@c.us')) {
             return { phoneJid: remoteJid };
         }
 
@@ -492,6 +619,12 @@ class WhatsAppManager {
 
             const remoteJid = key.remoteJid || '';
 
+            console.log(
+                `[WA][INCOMING-EVENT] sessionId=${sessionId} ` +
+                `messageId=${key?.id || ''} remoteJid=${remoteJid} ` +
+                `fromMe=${!!key?.fromMe} type=${rawMessage?.message ? Object.keys(rawMessage.message).join(',') : ''}`
+            );
+
             if (!remoteJid) {
                 return;
             }
@@ -527,6 +660,9 @@ class WhatsAppManager {
 
             const from = identity.phoneJid || lidJid || remoteJid;
 
+            // Only report a real resolved phone number (from a @s.whatsapp.net / @c.us
+            // identity or a resolved LID map entry). Never fabricate a phone from LID
+            // digits — LID numbers are NOT the customer's phone.
             const phoneDigits = identity.phoneJid
                 ? String(identity.phoneJid).split('@')[0].replace(/\D/g, '')
                 : null;
