@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\HelpdeskController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\CreditNoteController;
 use App\Http\Controllers\Api\ReportViewController;
+use App\Http\Controllers\Api\DayBookController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -263,5 +264,6 @@ Route::prefix('purchase')->group(function () {
 Route::prefix('report')->group(function () {
     Route::post('record_view', [ReportViewController::class, 'recordView']);
     Route::get('frequently_used', [ReportViewController::class, 'getFrequentlyUsed']);
+    Route::get('day-book', [DayBookController::class, 'index']);
 });
 
