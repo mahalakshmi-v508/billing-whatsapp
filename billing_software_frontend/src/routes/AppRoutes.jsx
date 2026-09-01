@@ -9,6 +9,7 @@ import AddSale from "../pages/sales/AddSale";
 import Reports from "../pages/reports/SalesReport";
 import General from "../pages/settings/General";
 import MainLayout from "../layouts/MainLayout";
+import SelectItemsForReminder from "../pages/settings/SelectItemsForReminder";
 import CompanyList from "../pages/company/CompanyList";
 import CompanyForm from "../pages/company/CompanyForm";
 import EditCompany from "../pages/company/EditCompany";
@@ -134,6 +135,7 @@ export default function AppRoutes() {
             <Route path="/products/add" element={<ProductForm />} />
             <Route path="/products/edit/:id" element={<EditProduct />} />
             <Route path="/settings" element={<General />} />
+            <Route path="/settings/service-reminders/select-items" element={<SelectItemsForReminder />} />
             <Route path="/company" element={<CompanyList />} />
             <Route path="/company/add" element={<CompanyForm />} />
             <Route path="/company/edit/:id" element={<EditCompany />} />

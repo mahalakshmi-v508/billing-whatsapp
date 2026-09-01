@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
 import api from "../../services/api";
 import { Info, Crown, Pencil, ChevronDown } from "lucide-react";
 import Transaction from "./Transaction";
+import Print from "./Print";
+import Taxes from "./Taxes";
+import Party from "./Party";
+import Item from "./Item";
+import Accounting from "./Accounting";
+import MultiCurrency from "./MultiCurrency";
+import ServiceReminders from "./ServiceReminders";
+import { useSettings } from "./SettingsContext";
 
 const blue = "#2563eb";
 
@@ -35,7 +42,7 @@ function Checkbox({ label, checked, onChange, info }) {
 function SectionHeading({ title, badge, crown }) {
   return (
     <div className="flex items-center justify-between mb-1">
-      <h4 className="text-[15px] font-bold text-gray-800 flex items-center gap-1.5">
+      <h4 className="text-[18px] font-bold text-gray-800 flex items-center gap-1.5">
         {title}
         {crown && <Crown size={14} className="text-amber-500" />}
       </h4>
@@ -83,7 +90,11 @@ function GeneralSettings() {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-8 min-w-0">
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden min-h-[560px]">
+      <div className="bg-gradient-to-br from-[#1f8cff] to-[#4338ca] px-8 py-7">
+        <h2 className="text-[25px] font-bold text-white">General</h2>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-8 min-w-0 px-8 py-7">
       {/* ── Column 1: Application ── */}
       <div className="min-w-0">
         <SectionHeading title="Application" />
@@ -272,12 +283,12 @@ function GeneralSettings() {
           Apply
         </button>
       </div>
+      </div>
     </div>
   );
 }
 
-function SettingsSection({ title, description, fields, extra }) {
-  const [values, setValues] = useState(() =>
+function SettingsSection({ title, description, fields, extra }) {  const [values, setValues] = useState(() =>
     Object.fromEntries(fields.map((f) => [f.key, f.default || ""]))
   );
   const [saving, setSaving] = useState(false);
@@ -360,35 +371,6 @@ function Toggle({ label, checked, onChange }) {
   );
 }
 
-function PrintSettings() {
-  return (
-    <SettingsSection
-      title="Print Settings"
-      description="Configure how invoices and receipts are printed."
-      fields={[
-        { key: "paperSize", label: "Paper Size", type: "select", options: ["A4", "A5", "Thermal 80mm", "Thermal 58mm"], default: "A4" },
-        { key: "copies", label: "Default Print Copies", default: "1", placeholder: "1" },
-        { key: "footer", label: "Print Footer Message", type: "textarea", full: true },
-      ]}
-    />
-  );
-}
-
-function TaxesSettings() {
-  return (
-    <SettingsSection
-      title="Taxes & GST Settings"
-      description="Configure GST and other tax rates for your business."
-      fields={[
-        { key: "gstRegime", label: "GST Regime", type: "select", options: ["Regular", "Composition", "Non-GST"], default: "Regular" },
-        { key: "gstType", label: "GST Type", type: "select", options: ["Intra-State (CGST+SGST)", "Inter-State (IGST)"], default: "Intra-State (CGST+SGST)" },
-        { key: "taxInclusive", label: "Default Prices Include Tax", type: "select", options: ["Yes", "No"], default: "No" },
-        { key: "showGstOnInvoice", label: "Show GST Breakup on Invoice", type: "select", options: ["Yes", "No"], default: "Yes" },
-        { key: "gstNo", label: "Business GST Number", placeholder: "22ABCDE1234F1Z5" },
-      ]}
-    />
-  );
-}
 
 function TransactionMessagesSettings() {
   return (
@@ -405,137 +387,27 @@ function TransactionMessagesSettings() {
   );
 }
 
-function PartySettings() {
-  return (
-    <SettingsSection
-      title="Party Settings"
-      description="Configure default options for customers and suppliers."
-      fields={[
-        { key: "defaultCreditLimit", label: "Default Credit Limit", placeholder: "0" },
-        { key: "creditEnable", label: "Enable Credit Sales", type: "select", options: ["Yes", "No"], default: "Yes" },
-        { key: "partyType", label: "Party Type", type: "select", options: ["Customer", "Supplier", "Both"], default: "Customer" },
-      ]}
-    />
-  );
-}
 
-function ItemSettings() {
-  return (
-    <SettingsSection
-      title="Item Settings"
-      description="Configure default options for products and items."
-      fields={[
-        { key: "skuAuto", label: "Auto Generate SKU", type: "select", options: ["Yes", "No"], default: "Yes" },
-        { key: "unit", label: "Default Unit", placeholder: "PCS" },
-        { key: "stockWarn", label: "Low Stock Warning Level", placeholder: "10" },
-        { key: "barcode", label: "Barcode Type", type: "select", options: ["Code 128", "EAN-13", "UPC-A"], default: "Code 128" },
-      ]}
-    />
-  );
-}
 
-function ServiceRemindersSettings() {
-  return (
-    <SettingsSection
-      title="Service Reminders"
-      description="Configure automated reminders sent to customers."
-      fields={[
-        { key: "reminderDays", label: "Reminder Before (in days)", placeholder: "7" },
-        { key: "repeatInterval", label: "Repeat Interval (in days)", placeholder: "30" },
-        { key: "channel", label: "Reminder Channel", type: "select", options: ["WhatsApp", "SMS", "Email", "WhatsApp + SMS"], default: "WhatsApp" },
-        { key: "reminderMsg", label: "Reminder Message", type: "textarea", full: true },
-      ]}
-    />
-  );
-}
 
-function AccountingSettings() {
-  return (
-    <SettingsSection
-      title="Accounting Settings"
-      description="Configure defaults used for accounting entries."
-      fields={[
-        { key: "salesAccount", label: "Default Sales Account" },
-        { key: "purchaseAccount", label: "Default Purchase Account" },
-        { key: "cashAccount", label: "Default Cash / Bank Account" },
-        { key: "taxAccount", label: "Default Tax Account" },
-        { key: "fiscalYear", label: "Fiscal Year Start", placeholder: "2026-04-01" },
-      ]}
-    />
-  );
-}
 
-function MultiCurrencySettings() {
-  const [currencies, setCurrencies] = useState([
-    { code: "INR", rate: "1.00" },
-  ]);
-  return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-800">Multi Currency</h3>
-      <p className="text-sm text-gray-500">Set your base currency and exchange rates.</p>
 
-      <div className="space-y-2 max-w-md">
-        <div className="flex items-center gap-2 font-medium text-sm text-gray-600">
-          <span className="flex-1">Currency</span>
-          <span className="flex-1">Exchange Rate</span>
-          <span className="w-8" />
-        </div>
-        {currencies.map((c, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input
-              className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={c.code}
-              onChange={(e) => {
-                const next = [...currencies];
-                next[i] = { ...c, code: e.target.value };
-                setCurrencies(next);
-              }}
-              placeholder="USD"
-            />
-            <input
-              className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={c.rate}
-              onChange={(e) => {
-                const next = [...currencies];
-                next[i] = { ...c, rate: e.target.value };
-                setCurrencies(next);
-              }}
-              placeholder="1.00"
-            />
-            <button
-              onClick={() => setCurrencies(currencies.filter((_, x) => x !== i))}
-              className="w-8 h-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        <button
-          onClick={() => setCurrencies([...currencies, { code: "", rate: "" }])}
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
-        >
-          + Add Currency
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function General() {
-  const { settingsTab = "general" } = useOutletContext() || {};
+  const { settingsTab = "general" } = useSettings();
 
   return (
-    <div className="bg-gray-50 rounded-xl shadow-sm p-8 min-w-0">
+    <div className="bg-transparent h-full p-6 min-w-0">
       {settingsTab === "general" && <GeneralSettings />}
       {settingsTab === "transaction" && <Transaction />}
-      {settingsTab === "print" && <PrintSettings />}
-      {settingsTab === "taxes" && <TaxesSettings />}
+      {settingsTab === "print" && <Print />}
+      {settingsTab === "taxes" && <Taxes />}
       {settingsTab === "txn-messages" && <TransactionMessagesSettings />}
-      {settingsTab === "party" && <PartySettings />}
-      {settingsTab === "item" && <ItemSettings />}
-      {settingsTab === "service-reminders" && <ServiceRemindersSettings />}
-      {settingsTab === "accounting" && <AccountingSettings />}
-      {settingsTab === "multi-currency" && <MultiCurrencySettings />}
+      {settingsTab === "party" && <Party />}
+      {settingsTab === "item" && <Item />}
+      {settingsTab === "service-reminders" && <ServiceReminders />}
+      {settingsTab === "accounting" && <Accounting />}
+      {settingsTab === "multi-currency" && <MultiCurrency />}
     </div>
   );
 }

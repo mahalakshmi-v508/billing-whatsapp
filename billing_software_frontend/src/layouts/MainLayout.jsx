@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import SettingsContext from "../pages/settings/SettingsContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -857,7 +858,9 @@ export default function MainLayout() {
 
         {/* MAIN CONTENT */}
         <main className="flex-1 p-4 overflow-auto">
-          <Outlet context={{ settingsTab, setSettingsTab }} />
+          <SettingsContext.Provider value={{ settingsTab, setSettingsTab }}>
+            <Outlet context={{ settingsTab, setSettingsTab }} />
+          </SettingsContext.Provider>
         </main>
       </div>
 
