@@ -90,7 +90,7 @@ export default function AppRoutes() {
     <BrowserRouter>
       <Routes>
 
-          {/* 🔓 Public */}
+        {/* 🔓 Public */}
         <Route
           path="/"
           element={
@@ -101,17 +101,20 @@ export default function AppRoutes() {
         />
 
         <Route path="/register" element={<Register />} />
-                <Route path="/registercompany" element={<RegisterCompany />} />
+        <Route path="/registercompany" element={<RegisterCompany />} />
 
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* ⚡ Standalone Full-Screen Routes (Add Sale & Invoice Preview) */}
+        {/* ⚡ Standalone Full-Screen Routes (Add Sale, Invoice Preview & Cashier Billing) */}
         <Route element={<ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]} />}>
           <Route path="/sales/add" element={<AddSale />} />
           <Route path="/sales/edit/:invoiceNo" element={<AddSale />} />
           <Route path="/invoice/:invoiceNo" element={<Invoice />} />
           <Route path="/invoice" element={<Invoice />} />
+          <Route path="/billing" element={<Billing />} />
         </Route>
+
+
 
         {/* 🔐 Protected Routes with MainLayout */}
         <Route
@@ -199,11 +202,6 @@ export default function AppRoutes() {
             <Route path="/tax/add" element={<TaxForm />} />
             <Route path="/credit-settings" element={<CreditSettings />} />
             <Route path="/whatsapp" element={<WhatsAppChat />} />
-          </Route>
-
-          {/* 3. Cashier and Admin billing route */}
-          <Route element={<ProtectedRoute allowedRoles={["admin", "cashier"]} />}>
-            <Route path="/billing" element={<Billing />} />
           </Route>
 
           {/* 4. Superadmin-only routes */}
