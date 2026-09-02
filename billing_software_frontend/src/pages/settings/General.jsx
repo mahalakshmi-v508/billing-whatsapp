@@ -250,7 +250,7 @@ function GeneralSettings() {
           Choose Your Screen Zoom/Scale
         </label>
         <p className="text-[12.5px] text-gray-500 leading-relaxed my-1.5">
-          You can use this setting to resize the Vyapar screen, making it larger or smaller to fit your preferences.
+          You can use this setting to resize the Billing screen, making it larger or smaller to fit your preferences.
         </p>
 
         <input

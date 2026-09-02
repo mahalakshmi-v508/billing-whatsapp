@@ -27,7 +27,7 @@ export default function ServiceReminders() {
         <div className="w-full bg-gradient-to-br from-[#1f8cff] to-[#4338ca] rounded-2xl px-7 py-6 flex items-center gap-6 text-white">
           <div className="flex-1 min-w-0">
             <p className="text-[21px] font-bold leading-snug">
-              How does Service Reminders feature work in Vyapar?
+              How does Service Reminders feature work in Billing?
             </p>
             <p className="mt-2 text-[16px] text-blue-100 leading-relaxed">
               Watch the video and see how you can grow your business using Service Reminders.

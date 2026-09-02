@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Info, ChevronDown, QrCode } from "lucide-react";
 import { useSettings } from "./SettingsContext";
+import { useBackendSync } from "./useBackendSync";
 
 const blue = "#2563eb";
 const STORAGE_KEY = "print_settings";
 
 const DEFAULT_STATE = {
   printer: "regular",
-  mode: "layout",
+  mode: "colors",
 
   regularDefault: true,
   repeatHeader: true,
@@ -217,6 +218,176 @@ function NumberSpinner({ label, value, onChange, info }) {
 
 const TEMPLATES = ["Tally Theme", "Landscape Theme 1", "Landscape Theme 2", "GST Theme 1", "GST Theme 2", "Minimal Theme"];
 
+const COLOR_PALETTE = [
+  { hex: "#b39ddb", label: "Light Purple" },
+  { hex: "#009688", label: "Teal Blue" },
+  { hex: "#9e9e9e", label: "Gray" },
+  { hex: "#616161", label: "Dark Gray" },
+  { hex: "#9e9d24", label: "Olive" },
+  { hex: "#1e88e5", label: "Blue" },
+  { hex: "#00bcd4", label: "Cyan" },
+  { hex: "#43a047", label: "Green" },
+  { hex: "#7cb342", label: "Lime Green" },
+  { hex: "#795548", label: "Dark Brown" },
+  { hex: "#8e24aa", label: "Purple" },
+  { hex: "#c2185b", label: "Dark Pink" },
+  { hex: "#d84315", label: "Reddish Brown" },
+  { hex: "#f4511e", label: "Orange Brown" },
+  { hex: "#673ab7", label: "Violet" },
+  { hex: "#ec407a", label: "Magenta" },
+  { hex: "#ffb300", label: "Light Orange" },
+  { hex: "#f57c00", label: "Mustard/Orange" },
+  { hex: "#f06292", label: "Pink" },
+  { hex: "#fb8c00", label: "Orange" },
+  { hex: "#e53935", label: "Red" },
+  { hex: "#ff6d00", label: "Reddish Orange" },
+  { hex: "#6d4c41", label: "Dark Brown" },
+  { hex: "#ffffff", label: "White" },
+];
+
+function ColorSwatch({ hex, selected, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={hex}
+      aria-label={`Color ${hex}`}
+      className="w-10 h-10 rounded-full flex-shrink-0 transition-transform hover:scale-110"
+      style={{
+        background: hex,
+        boxShadow: selected
+          ? "0 0 0 4px #c6f500, 0 0 0 6px #1e88e5"
+          : "inset 0 0 0 1px rgba(0,0,0,0.15)",
+      }}
+    />
+  );
+}
+
+function ColorPalette({ value, onChange }) {
+  return (
+    <div>
+      <div className="grid grid-cols-6 gap-x-5 gap-y-4 py-2 sm:grid-cols-8 lg:grid-cols-12">
+        {COLOR_PALETTE.map((c) => (
+          <ColorSwatch
+            key={c.hex + c.label}
+            hex={c.hex}
+            selected={value === c.hex}
+            onClick={() => onChange(c.hex)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LinkText({ children }) {
+  return (
+    <button
+      type="button"
+      className="text-[13px] text-blue-600 hover:text-blue-800 font-medium mt-1.5"
+    >
+      {children}
+    </button>
+  );
+}
+
+function PrintCompanyHeader({ state, set }) {
+  return (
+    <div>
+      <SectionHeading title="Print Company Info / Header" />
+      <Divider />
+      <Checkbox label="Make Regular Printer Default" checked={state.regularDefault} onChange={set("regularDefault")} info="Make regular printer the default" />
+      <Checkbox label="Print repeat header in all pages" checked={state.repeatHeader} onChange={set("repeatHeader")} info="Repeat company header on every page" />
+      <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" info="Company name printed on invoice" />
+      <div className="py-1.5 px-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <input type="checkbox" checked={state.companyLogo} onChange={(e) => set("companyLogo")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
+            <span className="text-[13.5px] text-gray-700">Company Logo</span>
+            <button type="button" className="text-xs text-blue-600 hover:text-blue-800 font-medium">(Change)</button>
+          </div>
+          <InfoIcon title="Print company logo" />
+        </div>
+      </div>
+      <LayerRow label="Address" checked={state.address} onChange={set("address")} input={state.addressText} onChangeText={set("addressText")} placeholder="Address" info="Company address" />
+      <LayerRow label="Email" checked={state.email} onChange={set("email")} input={state.emailText} onChangeText={set("emailText")} placeholder="Email" info="Company email address" />
+      <LayerRow label="Phone Number" checked={state.phone} onChange={set("phone")} input={state.phoneText} onChangeText={set("phoneText")} placeholder="9994789683" info="Company phone number" />
+      <LayerRow label="GSTIN on Sale" checked={state.gstin} onChange={set("gstin")} input={state.gstinText} onChangeText={set("gstinText")} placeholder="GSTIN on Sale" info="Company GSTIN" />
+    </div>
+  );
+}
+
+function PrintOptions({ state, set }) {
+  return (
+    <div>
+      <SectionHeading title="Print Options" />
+      <Divider />
+      <SelectRow label="Paper Size" value={state.paperSize} onChange={set("paperSize")} options={["A4", "A5", "Legal"]} info="Paper size" />
+      <SelectRow label="Orientation" value={state.orientation} onChange={set("orientation")} options={["Portrait", "Landscape"]} info="Page orientation" />
+      <SelectRow label="Company Name Text Size" value={state.companyNameSize} onChange={set("companyNameSize")} options={["Small", "Medium", "Large"]} info="Company name text size" />
+      <SelectRow label="Invoice Text Size" value={state.invoiceTextSize} onChange={set("invoiceTextSize")} options={["Small", "Medium", "Large"]} info="Invoice text size" />
+      <Checkbox label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} info="Print original/duplicate copies" />
+      <NumberSpinner label="Extra space on Top of PDF" value={state.extraSpaceTop} onChange={set("extraSpaceTop")} info="Extra space at top of PDF" />
+      <LinkText>Change Transaction Names &gt;</LinkText>
+    </div>
+  );
+}
+
+function ItemTableSection({ state, set }) {
+  return (
+    <div>
+      <SectionHeading title="Item Table" />
+      <Divider />
+      <Checkbox label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} info="Expand item table to full width" />
+      <NumberSpinner label="Min No. of Rows in Item Table" value={state.minRowsItemTable} onChange={set("minRowsItemTable")} info="Minimum rows in item table" />
+      <LinkText>Item Table Customization &gt;</LinkText>
+    </div>
+  );
+}
+
+function TotalsAndTaxes({ state, set }) {
+  return (
+    <div>
+      <SectionHeading title="Totals & Taxes" />
+      <Divider />
+      <Checkbox label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} info="Print total item quantity" />
+      <div className="py-1.5 px-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <input type="checkbox" checked={state.amountWithDecimal} onChange={(e) => set("amountWithDecimal")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
+            <span className="text-[13.5px] text-gray-700">Amount with Decimal <span className="text-gray-400 ml-1">e.g. 0.00</span></span>
+          </div>
+          <InfoIcon title="Print amount with decimal places" />
+        </div>
+      </div>
+      <Checkbox label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} info="Print received amount" />
+      <Checkbox label="Balance Amount" checked={state.balanceAmount} onChange={set("balanceAmount")} info="Print balance amount" />
+      <Checkbox label="Current Balance of Party" checked={state.currentBalanceParty} onChange={set("currentBalanceParty")} info="Print current party balance" />
+      <Checkbox label="Tax Details" checked={state.taxDetails} onChange={set("taxDetails")} info="Print tax details" />
+      <Checkbox label="You Saved" checked={state.youSaved} onChange={set("youSaved")} info="Print savings amount" />
+      <Checkbox label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} info="Print grouped amount" />
+      <SelectRow label="Amount in Words" value={state.amountInWords} onChange={set("amountInWords")} options={["Indian", "English", "International"]} info="Amount in words format" />
+    </div>
+  );
+}
+
+function FooterSection({ state, set }) {
+  return (
+    <div>
+      <SectionHeading title="Footer" />
+      <Divider />
+      <Checkbox label="Print Description" checked={state.printDescription} onChange={set("printDescription")} info="Print description footer" />
+      <Checkbox label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} info="Print terms and conditions" />
+      <Checkbox label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} info="Print received by" />
+      <Checkbox label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} info="Print delivered by" />
+      <LayerRow label="Print Signature Text" checked={state.printSignatureText} onChange={set("printSignatureText")} input={state.signatureText} onChangeText={set("signatureText")} placeholder="Authorized Signatory" info="Text for signature line" />
+      <LinkText>Change Signature</LinkText>
+      <Checkbox label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} info="Print payment mode" />
+      <Checkbox label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} info="Print acknowledgement" />
+    </div>
+  );
+}
+
 function InvoicePreview() {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-5 text-gray-800 shadow-sm">
@@ -419,6 +590,161 @@ function InvoicePreview() {
   );
 }
 
+function ThermalReceiptPreview({ state }) {
+  const company = state.companyNameText || "My Company";
+  const phone = state.phoneText || "9994789683";
+
+  const items = [
+    {
+      no: 1,
+      name: "Britannia Chocolate Cake",
+      hsn: "12345678",
+      qty: "100 + 0",
+      unit: "Box",
+      mrp: "100.00",
+      price: "100.00",
+      amount: "10,000.00",
+      desc: "Britannia Chocolate Cake description",
+      disc: "1%",
+      discAmt: "-100.00",
+      taxable: "500.00",
+      final: "10,000.00",
+    },
+    {
+      no: 2,
+      name: "Cadbury Chocolate",
+      hsn: "34567890",
+      qty: "50 + 1",
+      unit: "Pac",
+      mrp: "150.00",
+      price: "150.00",
+      amount: "7,500.00",
+      desc: "Cadbury cake description",
+      disc: "10%",
+      discAmt: "-750.00",
+      taxable: "375.00",
+      final: "7,500.00",
+    },
+  ];
+
+  return (
+    <div className="bg-white text-gray-900" style={{ width: 300, fontFamily: "monospace", fontSize: 11, lineHeight: 1.45 }}>
+      {/* Header */}
+      <div className="text-center">
+        <div className="font-bold text-[13px]">{company}</div>
+        <div>Ph.No.: {phone}</div>
+      </div>
+
+      <DashedLine />
+
+      <div className="text-center font-bold text-[12px] py-1">Tax Invoice</div>
+
+      <div className="flex justify-between gap-2">
+        <div>
+          <div>Vyapar tech solutions (Sample Party Name)</div>
+          <div>Ph. No.: +91 93339 11911, +91 63644 44752</div>
+        </div>
+      </div>
+      <div className="flex justify-between">
+        <div>Date: 02/09/2026</div>
+        <div>Invoice No.: Inv12345</div>
+      </div>
+      <div>Bill To:</div>
+      <div>Sarjapur Road, Bangalore</div>
+      <div>Place of Supply: Karnataka</div>
+
+      <DashedLine />
+
+      {/* Items */}
+      <div className="font-bold">#  Item Name(HSN)</div>
+      {items.map((it) => (
+        <div key={it.no} className="mt-1">
+          <div className="flex justify-between gap-1">
+            <span>{it.no}</span>
+            <span className="flex-1">{it.name}({it.hsn})</span>
+          </div>
+          <div className="flex justify-between pl-4">
+            <span>{it.qty} + 0{it.unit}</span>
+          </div>
+          <div className="flex justify-between pl-4">
+            <span>MRP: {it.mrp}</span>
+            <span>Price: {it.price}</span>
+            <span>Amount: {it.amount}</span>
+          </div>
+          <div className="pl-4">{it.desc}</div>
+          {it.no === 1 && (
+            <div className="pl-4">
+              <div>Batch No.: N1234</div>
+              <div>Model No.: A12345</div>
+              <div>Exp. Date: 09/2027</div>
+              <div>Mfg. Date: 02/09/2026</div>
+              <div>Size: Med/32</div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <span>Disc.({it.disc})</span>
+            <span style={{ width: 90, textAlign: "right" }}> : {it.discAmt}</span>
+          </div>
+          <div className="flex justify-end gap-2">
+            <span style={{ width: 90, textAlign: "right" }}> : {it.taxable}</span>
+          </div>
+          <div className="flex justify-end gap-2 font-semibold">
+            <span>Final amount</span>
+            <span style={{ width: 90, textAlign: "right" }}> : {it.final}</span>
+          </div>
+        </div>
+      ))}
+
+      <DashedLine />
+
+      {/* Totals */}
+      <div className="flex justify-between">
+        <span>Qty: 150 + 1</span>
+        <span style={{ textAlign: "right" }}>17,500.00</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Disc.(0%) </span>
+        <span style={{ width: 90, textAlign: "right" }}> : -500.00</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Tax(0%) </span>
+        <span style={{ width: 90, textAlign: "right" }}> : 500.00</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Total Disc. </span>
+        <span style={{ width: 90, textAlign: "right" }}> : -1,350.00</span>
+      </div>
+      <div className="flex justify-between font-bold text-[12px]">
+        <span>Total </span>
+        <span style={{ width: 90, textAlign: "right" }}> : 20,000.00</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Received </span>
+        <span style={{ width: 90, textAlign: "right" }}> : 20,000.00</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Balance </span>
+        <span style={{ width: 90, textAlign: "right" }}> : 0.00</span>
+      </div>
+
+      <DashedLine />
+
+      <div className="text-center py-1">Balance to be paid in 3 days</div>
+    </div>
+  );
+}
+
+function DashedLine() {
+  return (
+    <div
+      className="my-2"
+      style={{
+        borderTop: "1px dashed #9ca3af",
+      }}
+    />
+  );
+}
+
 function ThermalSettings() {
   const [state, setState] = useState(loadState);
 
@@ -540,7 +866,7 @@ function ThermalSettings() {
       </div>
 
       <div>
-        <SectionHeading title="Vyapar Printer Setup" />
+        <SectionHeading title="Billing Printer Setup" />
         <Divider />
         <div className="space-y-2">
           <div className="flex items-center justify-between p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
@@ -564,6 +890,7 @@ function ThermalSettings() {
 export default function Print() {
   const { setSettingsTab } = useSettings();
   const [state, setState] = useState(loadState);
+  useBackendSync("print", state, setState);
 
   const set = (key) => (val) =>
     setState((s) => {
@@ -624,76 +951,57 @@ export default function Print() {
               {state.printer === "regular" ? (
                 <>
                   {/* Secondary tabs */}
-                  <div className="flex gap-4 border-b border-gray-200 mb-6 flex-shrink-0">
+                  <div className="flex gap-6 border-b border-gray-200 mb-6 flex-shrink-0">
                     {[
                       { id: "layout", label: "CHANGE LAYOUT" },
                       { id: "colors", label: "CHANGE COLORS" },
                     ].map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => set("mode")(m.id)}
-                        className={`px-1 py-2 text-xs font-semibold border-b-2 transition ${
-                          state.mode === m.id
-                            ? "text-blue-600 border-blue-600"
-                            : "text-gray-500 border-transparent hover:text-gray-700"
-                        }`}
-                      >
-                        {m.label}
-                      </button>
+                      <div key={m.id} className="flex items-stretch relative">
+                        {state.mode === m.id && (
+                          <span className="absolute top-0 left-0 right-0 h-[2px] bg-blue-600" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => set("mode")(m.id)}
+                          className={`px-1 pt-2 pb-2 text-xs font-semibold tracking-wide transition ${
+                            state.mode === m.id ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                        {state.mode === m.id && (
+                          <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-pink-500" />
+                        )}
+                      </div>
                     ))}
                   </div>
 
                   <div className="space-y-6 pb-4">
                     {state.mode === "colors" && (
-                      <div>
-                        <SectionHeading title="Theme Color" />
-                        <Divider />
-                        <div className="flex flex-wrap gap-3 py-2">
-                          {[
-                            { color: "#2563eb", name: "Blue" },
-                            { color: "#16a34a", name: "Green" },
-                            { color: "#dc2626", name: "Red" },
-                            { color: "#d97706", name: "Orange" },
-                            { color: "#7c3aed", name: "Purple" },
-                            { color: "#0f172a", name: "Dark" },
-                            { color: "#ec4899", name: "Pink" },
-                            { color: "#14b8a6", name: "Teal" },
-                            { color: "#8b5cf6", name: "Violet" },
-                            { color: "#f59e0b", name: "Amber" },
-                          ].map((c) => (
-                            <button
-                              key={c.color}
-                              type="button"
-                              onClick={() => set("themeColor")(c.color)}
-                              className={`w-10 h-10 rounded-full border-2 cursor-pointer hover:scale-110 transition-all ${
-                                state.themeColor === c.color
-                                  ? "border-blue-600 ring-2 ring-blue-300 ring-offset-2"
-                                  : "border-gray-200 hover:border-gray-400"
-                              }`}
-                              style={{ background: c.color }}
-                              title={c.name}
-                            />
-                          ))}
+                      <>
+                        {/* Color palette */}
+                        <div>
+                          <SectionHeading title="Theme Color" />
+                          <Divider />
+                          <ColorPalette value={state.themeColor} onChange={set("themeColor")} />
+                          <p className="text-xs text-gray-500 mt-2">Choose a theme color for the printed invoice.</p>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Choose a theme color for the printed invoice.</p>
-                        
-                        <Divider />
-                        <div className="mt-2">
-                          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <div 
-                              className="w-12 h-12 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-                              style={{ backgroundColor: state.themeColor }}
-                            >
-                              A
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-800">Preview Color</div>
-                              <div className="text-xs text-gray-500">Selected color will appear in invoice headers</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+
+                        {/* Print Company Info / Header */}
+                        <PrintCompanyHeader state={state} set={set} />
+
+                        {/* Print Options */}
+                        <PrintOptions state={state} set={set} />
+
+                        {/* Item Table */}
+                        <ItemTableSection state={state} set={set} />
+
+                        {/* Totals & Taxes */}
+                        <TotalsAndTaxes state={state} set={set} />
+
+                        {/* Footer */}
+                        <FooterSection state={state} set={set} />
+                      </>
                     )}
 
                     {state.mode === "layout" && (
@@ -812,11 +1120,17 @@ export default function Print() {
           {/* Right Panel - Preview with independent scroll */}
           <div className="w-1/2 overflow-y-auto overflow-x-hidden bg-gray-50">
             <div className="p-6 flex justify-center">
-              <div className="max-w-md w-full">
-                <InvoicePreview />
-                <p className="text-center text-xs text-gray-400 mt-3">Live Preview</p>
+              <div className="w-full flex justify-center">
+                {state.printer === "thermal" ? (
+                  <ThermalReceiptPreview state={state} />
+                ) : (
+                  <div className="max-w-md w-full">
+                    <InvoicePreview />
+                  </div>
+                )}
               </div>
-            </div>
+              <p className="text-center text-xs text-gray-400 mt-3">Live Preview</p>
+            </div>  
           </div>
         </div>
       </div>

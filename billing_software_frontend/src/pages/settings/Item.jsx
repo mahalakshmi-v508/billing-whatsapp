@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, Crown, X, Lock } from "lucide-react";
 import { useSettings } from "./SettingsContext";
+import { useBackendSync } from "./useBackendSync";
 
 const STORAGE_KEY = "item_settings";
 
@@ -29,6 +30,8 @@ const DEFAULT_STATE = {
   mfgDate: false,
   modelNo: false,
   size: false,
+  expDateVal: "",
+  mfgDateVal: "",
 };
 
 function loadState() {
@@ -123,17 +126,16 @@ function TextInput({ placeholder, width = 160 }) {
   );
 }
 
-function DateSelect({ value }) {
+function DateSelect({ value, onChange }) {
   return (
     <div className="relative">
       <input
-        type="text"
-        value={value}
-        readOnly
-        className="bg-white border border-gray-300 rounded-lg px-3 pr-8 text-[18px] text-gray-500 outline-none cursor-default"
-        style={{ height: 48, width: 110 }}
+        type="date"
+        value={value || ""}
+        onChange={(e) => onChange && onChange(e.target.value)}
+        className="bg-white border border-gray-300 rounded-lg pl-2.5 pr-2 text-[15px] text-gray-700 outline-none focus:border-blue-500 cursor-pointer"
+        style={{ height: 48, width: 150 }}
       />
-      <ChevronDown size={18} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
     </div>
   );
 }
@@ -159,6 +161,7 @@ function FieldRow({ checked, onChange, label, input }) {
 export default function Item() {
   const { setSettingsTab } = useSettings();
   const [state, setState] = useState(loadState);
+  useBackendSync("item", state, setState);
 
   const set = (key) => (val) =>
     setState((s) => {
@@ -271,8 +274,8 @@ export default function Item() {
 
           <SectionLabel info="Batch tracking">Batch Tracking</SectionLabel>
           <FieldRow checked={state.batchNo} onChange={set("batchNo")} label="Batch No." input={<TextInput placeholder="Batch No." />} />
-          <FieldRow checked={state.expDate} onChange={set("expDate")} label="Exp Date" input={<div className="flex items-center gap-2"><DateSelect value="mm/yy" /><TextInput placeholder="Exp. Date" /></div>} />
-          <FieldRow checked={state.mfgDate} onChange={set("mfgDate")} label="Mfg Date" input={<div className="flex items-center gap-2"><DateSelect value="dd/mm/yy" /><TextInput placeholder="Mfg. Date" /></div>} />
+          <FieldRow checked={state.expDate} onChange={set("expDate")} label="Exp Date" input={<div className="flex items-center gap-2"><DateSelect value={state.expDateVal} onChange={set("expDateVal")} /><TextInput placeholder="Exp. Date" /></div>} />
+          <FieldRow checked={state.mfgDate} onChange={set("mfgDate")} label="Mfg Date" input={<div className="flex items-center gap-2"><DateSelect value={state.mfgDateVal} onChange={set("mfgDateVal")} /><TextInput placeholder="Mfg. Date" /></div>} />
           <FieldRow checked={state.modelNo} onChange={set("modelNo")} label="Model No." input={<TextInput placeholder="Model No." />} />
           <FieldRow checked={state.size} onChange={set("size")} label="Size" input={<TextInput placeholder="Size" />} />
         </div>

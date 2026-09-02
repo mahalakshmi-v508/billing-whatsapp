@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Info, ChevronDown } from "lucide-react";
 import { useSettings } from "./SettingsContext";
+import { useBackendSync } from "./useBackendSync";
 
 const blue = "#2563eb";
 const STORAGE_KEY = "transaction_settings";
@@ -176,6 +177,7 @@ export default function Transaction() {
   const { setSettingsTab } = useSettings();
 
   const [state, setState] = useState(loadState);
+  useBackendSync("transaction", state, setState);
 
   const set = (key) => (val) =>
     setState((s) => {

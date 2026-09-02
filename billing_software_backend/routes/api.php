@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SubcategoryController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\SupplierProductController;
+use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\WhatsappController;
 use App\Http\Controllers\Api\WhatsappConnectController;
 use App\Http\Controllers\Api\WhatsAppInternalController;
@@ -130,6 +131,12 @@ Route::prefix('CompanyRequest')->group(function () {
 Route::prefix('credit')->group(function () {
     Route::get('get', [CreditController::class, 'get']);
     Route::post('save', [CreditController::class, 'save']);
+});
+
+// ── SETTINGS ROUTES ──
+Route::prefix('settings')->group(function () {
+    Route::get('get', [SettingsController::class, 'get']);
+    Route::post('save', [SettingsController::class, 'save']);
 });
 
 // ── CUSTOMER ROUTES ──

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pencil, Trash2, Plus, X, ChevronDown } from "lucide-react";
 import { useSettings } from "./SettingsContext";
+import { useBackendSync } from "./useBackendSync";
 
 const STORAGE_KEY = "tax_settings";
 
@@ -403,6 +404,7 @@ function EditTaxGroupModal({ group, rates, onClose, onSave }) {
 export default function Taxes() {
   const { setSettingsTab } = useSettings();
   const [state, setState] = useState(loadState);
+  useBackendSync("taxes", state, setState);
   const [showTaxList, setShowTaxList] = useState(false);
   const [rates, setRates] = useState(TAX_RATES);
   const [groups, setGroups] = useState(TAX_GROUPS);

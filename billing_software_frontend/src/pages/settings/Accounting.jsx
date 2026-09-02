@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { useSettings } from "./SettingsContext";
+import { useBackendSync } from "./useBackendSync";
 
 const STORAGE_KEY = "accounting_settings";
 
@@ -33,6 +34,7 @@ function InfoIcon({ title }) {
 export default function Accounting() {
   const { setSettingsTab } = useSettings();
   const [state, setState] = useState(loadState);
+  useBackendSync("accounting", state, setState);
 
   const setEnableAccounting = (val) =>
     setState((s) => {

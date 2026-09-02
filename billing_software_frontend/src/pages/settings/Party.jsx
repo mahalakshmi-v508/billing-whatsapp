@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import { useSettings } from "./SettingsContext";
+import { useBackendSync } from "./useBackendSync";
 
 const STORAGE_KEY = "party_settings";
 
@@ -240,6 +241,7 @@ function ReminderMessageModal({ initialMessage, onClose, onSave }) {
 export default function Party() {
   const { setSettingsTab } = useSettings();
   const [state, setState] = useState(loadState);
+  useBackendSync("party", state, setState);
 
   const set = (key) => (val) =>
     setState((s) => {

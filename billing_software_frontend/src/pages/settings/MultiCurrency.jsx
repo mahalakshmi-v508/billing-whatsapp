@@ -1,12 +1,19 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { useSettings } from "./SettingsContext";
+import { useBackendSync } from "./useBackendSync";
 
 const STORAGE_KEY = "multi_currency_settings";
 
 const DEFAULT_STATE = {
   liveExchangeRate: false,
-  currencies: [],
+  currencies: [
+    { name: "Indian Rupee (INR)", symbol: "₹", rate: "1", date: "Base" },
+    { name: "US Dollar (USD)", symbol: "$", rate: "83.42", date: "02/09/2026" },
+    { name: "Euro (EUR)", symbol: "€", rate: "90.28", date: "02/09/2026" },
+    { name: "British Pound (GBP)", symbol: "£", rate: "106.11", date: "02/09/2026" },
+    { name: "UAE Dirham (AED)", symbol: "د.إ", rate: "22.71", date: "02/09/2026" },
+  ],
 };
 
 function loadState() {
@@ -48,6 +55,7 @@ function Toggle({ checked, onChange }) {
 export default function MultiCurrency() {
   const { setSettingsTab } = useSettings();
   const [state, setState] = useState(loadState);
+  useBackendSync("multiCurrency", state, setState);
 
   const set = (key) => (val) =>
     setState((s) => {
@@ -61,6 +69,7 @@ export default function MultiCurrency() {
     });
 
   const hasCurrencies = state.currencies && state.currencies.length > 0;
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
 
   return (
     <div className="relative bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden min-h-[560px]">
@@ -82,7 +91,7 @@ export default function MultiCurrency() {
         {/* Info banner */}
         <div className="w-full flex items-center rounded-lg px-5 py-3.5 bg-amber-50 border border-amber-100">
           <p className="text-[18px] text-gray-800 leading-snug">
-            ✨ Vyapar now supports Multi-Currency, so you can manage all your bills &amp; transactions in any currency you need!
+            ✨ Billing now supports Multi-Currency, so you can manage all your bills &amp; transactions in any currency you need!
           </p>
         </div>
 
@@ -145,7 +154,7 @@ export default function MultiCurrency() {
             <p className="mt-1.5 text-[18px] text-gray-500">Add your Base currency to start adding more currencies.</p>
             <button
               type="button"
-              onClick={() => {}}
+              onClick={() => setShowCurrencyModal(true)}
               className="mt-5 bg-red-600 hover:bg-red-700 text-white font-semibold text-[19px] rounded-lg flex items-center px-5 transition-colors"
               style={{ height: 46 }}
             >
@@ -155,6 +164,69 @@ export default function MultiCurrency() {
           </div>
         )}
       </div>
+
+      {/* Business Currency modal */}
+      {showCurrencyModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.45)" }}
+        >
+          <div
+            className="bg-white rounded-[10px] shadow-2xl flex flex-col"
+            style={{ width: 350, minHeight: 315 }}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-[20px] font-bold text-gray-900">Business Currency</h3>
+              <button
+                type="button"
+                onClick={() => setShowCurrencyModal(false)}
+                title="Close"
+                className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 flex items-center justify-center transition-colors"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 flex-1">
+              <p className="text-[16px] leading-[1.5] text-gray-700">
+                Please select the correct business currency
+                <br />
+                for your country India before adding
+                <br />
+                additional currencies.
+                <br />
+                <br />
+                Note: The base currency can be set only
+                <br />
+                once and cannot be changed or deleted
+                <br />
+                later.
+              </p>
+            </div>
+
+            {/* Footer buttons */}
+            <div className="px-6 pb-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCurrencyModal(false)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-[15px] rounded-full px-5 h-[38px] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCurrencyModal(false)}
+                className="bg-red-500 hover:bg-red-600 text-white font-bold text-[15px] rounded-full px-5 h-[38px] transition-colors"
+                style={{ boxShadow: "0 0 0 3px rgba(37, 99, 235, 0.45)" }}
+              >
+                Okay, Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
