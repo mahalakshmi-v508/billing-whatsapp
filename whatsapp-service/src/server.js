@@ -117,14 +117,16 @@ app.post(
             const {
                 session_id,
                 phone,
-                message
+                message,
+                reply_to
             } = req.body;
 
             const result =
                 await manager.sendText(
                     session_id,
                     phone,
-                    message
+                    message,
+                    reply_to || null
                 );
 
             return res.json({
@@ -231,6 +233,70 @@ app.post(
         } catch (error) {
 
             console.error(error.message);
+
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+);
+
+
+// ── MESSAGE EDIT DISABLED ──
+// WhatsApp message editing is intentionally not supported in this application.
+// If an old client still calls this endpoint, respond 404 so the request can
+// never reach Baileys or modify any message.
+app.post(
+    '/api/whatsapp/edit',
+    internalAuth,
+    async (req, res) => {
+        return res.status(404).json({
+            success: false,
+            message: 'Message editing is not supported'
+        });
+    }
+);
+
+
+// ── DELETE A MESSAGE ──
+app.post(
+    '/api/whatsapp/delete',
+    internalAuth,
+    async (req, res) => {
+
+        try {
+
+            const {
+                session_id,
+                phone,
+                id,
+                from_me = true
+            } = req.body;
+
+            if (!id) {
+
+                return res.status(422).json({
+                    success: false,
+                    message: 'Original message id is required'
+                });
+            }
+
+            const result =
+                await manager.deleteMessage(
+                    session_id,
+                    phone,
+                    { id, from_me }
+                );
+
+            return res.json({
+                success: true,
+                result
+            });
+
+        } catch (error) {
+
+            console.error('[delete] failed:', error.stack || error.message);
 
             return res.status(500).json({
                 success: false,

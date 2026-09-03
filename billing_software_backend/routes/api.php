@@ -24,6 +24,9 @@ use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\HelpdeskController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\CreditNoteController;
+use App\Http\Controllers\Api\ReportViewController;
+use App\Http\Controllers\Api\DayBookController;
+use App\Http\Controllers\Api\PartyStatementController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -237,6 +240,8 @@ Route::prefix('whatsapp')->group(function () {
     Route::post('connect', [WhatsappConnectController::class, 'connect']);
     Route::post('disconnect', [WhatsappConnectController::class, 'disconnect']);
     Route::post('send_message', [WhatsappConnectController::class, 'sendMessage']);
+    Route::post('update_message', [WhatsappConnectController::class, 'updateMessage']);
+    Route::post('delete_message', [WhatsappConnectController::class, 'deleteMessage']);
     Route::post('send_invoice', [WhatsappConnectController::class, 'sendInvoice']);
     Route::post('send_file', [WhatsappConnectController::class, 'sendFile']);
     Route::get('chats', [WhatsappConnectController::class, 'getChats']);
@@ -263,5 +268,16 @@ Route::prefix('purchase')->group(function () {
     Route::get('get_payments', [PurchaseController::class, 'getPurchasePayments']);
     Route::get('get_supplier_payments', [PurchaseController::class, 'getSupplierPayments']);
     Route::post('pay_supplier_bulk', [PurchaseController::class, 'paySupplierBulk']);
+});
+
+// �"?�"? REPORT VIEWS / FREQUENTLY USED ROUTES �"?�"? 
+Route::prefix('report')->group(function () {
+    Route::post('record_view', [ReportViewController::class, 'recordView']);
+    Route::post('remove_frequent', [ReportViewController::class, 'removeReport']);
+    Route::get('frequently_used', [ReportViewController::class, 'getFrequentlyUsed']);
+    Route::get('day-book', [DayBookController::class, 'index']);
+    Route::get('party-statement/parties', [PartyStatementController::class, 'getParties']);
+    Route::get('party-statement/statement', [PartyStatementController::class, 'getStatement']);
+    Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);
 });
 
