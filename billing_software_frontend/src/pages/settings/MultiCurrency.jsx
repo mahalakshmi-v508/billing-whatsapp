@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Coins } from "lucide-react";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
+import { SettingsShell, InfoIcon } from "./settingsUI";
 
 const STORAGE_KEY = "multi_currency_settings";
 
@@ -24,18 +25,6 @@ function loadState() {
   } catch {
     return DEFAULT_STATE;
   }
-}
-
-function InfoIcon({ title }) {
-  return (
-    <span
-      className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-gray-600 hover:bg-blue-500 hover:text-white cursor-help transition-colors flex-shrink-0 text-[11px] font-bold"
-      title={title}
-      aria-label={title}
-    >
-      i
-    </span>
-  );
 }
 
 function Toggle({ checked, onChange }) {
@@ -72,22 +61,12 @@ export default function MultiCurrency() {
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
 
   return (
-    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden min-h-[560px]">
-      <button
-        type="button"
-        onClick={() => setSettingsTab && setSettingsTab("general")}
-        title="Close"
-        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-gray-500 hover:text-gray-800 shadow flex items-center justify-center transition-colors z-10"
-      >
-        <X size={18} strokeWidth={2.5} />
-      </button>
-
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#1f8cff] to-[#4338ca] px-8 py-7">
-        <h2 className="text-[25px] font-bold text-white">Multi-Currency</h2>
-      </div>
-
-      <div className="px-8 py-7">
+    <SettingsShell
+      title="Multi-Currency"
+      subtitle="SUPPORTED CURRENCIES & LIVE RATES"
+      icon={<Coins size={22} strokeWidth={2.2} />}
+      onClose={() => setSettingsTab && setSettingsTab("general")}
+    >
         {/* Info banner */}
         <div className="w-full flex items-center rounded-lg px-5 py-3.5 bg-amber-50 border border-amber-100">
           <p className="text-[18px] text-gray-800 leading-snug">
@@ -163,7 +142,6 @@ export default function MultiCurrency() {
             </button>
           </div>
         )}
-      </div>
 
       {/* Business Currency modal */}
       {showCurrencyModal && (
@@ -227,6 +205,6 @@ export default function MultiCurrency() {
           </div>
         </div>
       )}
-    </div>
+    </SettingsShell>
   );
 }

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Pencil, Trash2, Plus, X, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, Plus, X, ChevronDown, Percent } from "lucide-react";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
+import { SettingsShell } from "./settingsUI";
 
 const STORAGE_KEY = "tax_settings";
 
@@ -98,14 +99,27 @@ function RedIcon() {
 function GstCheckbox({ label, checked, onChange, info, extra }) {
   return (
     <label className="flex items-center cursor-pointer select-none group py-2">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="w-[22px] h-[22px] cursor-pointer shrink-0 rounded-[4px]"
-        style={{ accentColor: "#2563eb" }}
-      />
-      <span className="ml-3 text-[21px] text-gray-800 group-hover:text-gray-950">{label}</span>
+      <span
+        className={`relative inline-flex items-center justify-center rounded-md border-2 transition-all cursor-pointer shrink-0 ${
+          checked
+            ? "bg-blue-600 border-blue-600 shadow-sm shadow-blue-600/30"
+            : "bg-white border-slate-300 group-hover:border-blue-400"
+        }`}
+        style={{ width: 22, height: 22 }}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        />
+        {checked && (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
+      </span>
+      <span className="ml-3 text-[19px] text-slate-800 group-hover:text-slate-950 font-medium">{label}</span>
       {info && (
         <span className="ml-2.5 flex items-center">
           <InfoIcon title={info} />
@@ -119,7 +133,10 @@ function GstCheckbox({ label, checked, onChange, info, extra }) {
 function GstSettingsColumn({ state, set, onTaxList }) {
   return (
     <div className="flex flex-col">
-      <h2 className="text-[25px] font-bold text-gray-900">GST Settings</h2>
+      <h2 className="flex items-center gap-2 text-[25px] font-bold text-slate-900">
+        <span className="w-1.5 h-6 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
+        GST Settings
+      </h2>
       <div className="h-px bg-gray-200 my-4" />
 
       <div className="space-y-0.5">
@@ -150,7 +167,10 @@ function GstSettingsColumn({ state, set, onTaxList }) {
 function ColumnHeader({ title, onAdd }) {
   return (
     <div className="flex items-center justify-between pr-2">
-      <h3 className="text-[23px] font-bold text-gray-900">{title}</h3>
+      <h3 className="flex items-center gap-2 text-[23px] font-bold text-slate-900">
+        <span className="w-1.5 h-5 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
+        {title}
+      </h3>
       <button
         type="button"
         onClick={onAdd}
@@ -439,31 +459,21 @@ export default function Taxes() {
   };
 
   return (
-    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden min-h-[560px]">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#1f8cff] to-[#4338ca] px-8 py-7">
-        <h2 className="text-[25px] font-bold text-white">Taxes &amp; GST</h2>
-      </div>
-      <button
-        type="button"
-        onClick={() => setSettingsTab && setSettingsTab("general")}
-        title="Close"
-        className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-gray-500 hover:text-gray-800 shadow flex items-center justify-center transition-colors z-10"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
-
+    <SettingsShell
+      title="Taxes & GST"
+      subtitle="GST, TAX RATES & GROUPS"
+      icon={<Percent size={22} strokeWidth={2.2} />}
+      onClose={() => setSettingsTab && setSettingsTab("general")}
+      contentClassName="flex"
+    >
       {showTaxList ? (
-        <div className="grid grid-cols-3 gap-8 px-8 py-7">
+        <div className="grid grid-cols-3 gap-8 flex-1 min-w-0">
           <GstSettingsColumn state={state} set={set} onTaxList={handleTaxList} />
           <TaxRatesColumn rates={rates} onEdit={openEdit} />
           <TaxGroupColumn groups={groups} onEdit={openEditGroup} />
         </div>
       ) : (
-        <div className="max-w-[480px] px-8 py-7">
+        <div className="max-w-[480px] w-full">
           <GstSettingsColumn state={state} set={set} onTaxList={handleTaxList} />
         </div>
       )}
@@ -484,6 +494,6 @@ export default function Taxes() {
           onSave={saveEditGroup}
         />
       )}
-    </div>
+    </SettingsShell>
   );
 }

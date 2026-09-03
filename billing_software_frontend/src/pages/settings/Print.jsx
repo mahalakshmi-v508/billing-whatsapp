@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Info, ChevronDown, QrCode } from "lucide-react";
+import { ChevronDown, QrCode, Printer } from "lucide-react";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
+import { SettingsHeader, InfoIcon, CheckRow } from "./settingsUI";
 
 const blue = "#2563eb";
 const STORAGE_KEY = "print_settings";
@@ -88,41 +89,17 @@ function loadState() {
   }
 }
 
-function InfoIcon({ title }) {
+function SectionHeading({ title }) {
   return (
-    <span
-      className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-gray-500 hover:bg-blue-500 hover:text-white cursor-help transition-colors flex-shrink-0"
-      title={title}
-    >
-      <Info size={11} strokeWidth={2.5} aria-label={title} />
-    </span>
-  );
-}
-
-function Checkbox({ label, checked, onChange, info }) {
-  return (
-    <label className="flex items-center justify-between py-2 px-1 rounded cursor-pointer select-none group">
-      <span className="flex items-center gap-2.5">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          className="w-5 h-5 cursor-pointer shrink-0 rounded"
-          style={{ accentColor: blue }}
-        />
-        <span className="text-[13.5px] text-gray-700 group-hover:text-gray-900">{label}</span>
-      </span>
-      {info && <InfoIcon title={info} />}
-    </label>
+    <h4 className="flex items-center gap-2 text-[16px] font-bold text-slate-800 mb-2">
+      <span className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
+      {title}
+    </h4>
   );
 }
 
 function Divider() {
-  return <div className="h-px bg-gray-200 my-3" />;
-}
-
-function SectionHeading({ title }) {
-  return <h4 className="text-[18px] font-bold text-gray-800 mb-1">{title}</h4>;
+  return <div className="h-px bg-slate-200 my-3" />;
 }
 
 function LayerRow({ label, checked, onChange, input, onChangeText, info, placeholder }) {
@@ -296,8 +273,8 @@ function PrintCompanyHeader({ state, set }) {
     <div>
       <SectionHeading title="Print Company Info / Header" />
       <Divider />
-      <Checkbox label="Make Regular Printer Default" checked={state.regularDefault} onChange={set("regularDefault")} info="Make regular printer the default" />
-      <Checkbox label="Print repeat header in all pages" checked={state.repeatHeader} onChange={set("repeatHeader")} info="Repeat company header on every page" />
+      <CheckRow label="Make Regular Printer Default" checked={state.regularDefault} onChange={set("regularDefault")} info="Make regular printer the default" />
+      <CheckRow label="Print repeat header in all pages" checked={state.repeatHeader} onChange={set("repeatHeader")} info="Repeat company header on every page" />
       <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" info="Company name printed on invoice" />
       <div className="py-1.5 px-1">
         <div className="flex items-center justify-between">
@@ -326,7 +303,7 @@ function PrintOptions({ state, set }) {
       <SelectRow label="Orientation" value={state.orientation} onChange={set("orientation")} options={["Portrait", "Landscape"]} info="Page orientation" />
       <SelectRow label="Company Name Text Size" value={state.companyNameSize} onChange={set("companyNameSize")} options={["Small", "Medium", "Large"]} info="Company name text size" />
       <SelectRow label="Invoice Text Size" value={state.invoiceTextSize} onChange={set("invoiceTextSize")} options={["Small", "Medium", "Large"]} info="Invoice text size" />
-      <Checkbox label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} info="Print original/duplicate copies" />
+      <CheckRow label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} info="Print original/duplicate copies" />
       <NumberSpinner label="Extra space on Top of PDF" value={state.extraSpaceTop} onChange={set("extraSpaceTop")} info="Extra space at top of PDF" />
       <LinkText>Change Transaction Names &gt;</LinkText>
     </div>
@@ -338,7 +315,7 @@ function ItemTableSection({ state, set }) {
     <div>
       <SectionHeading title="Item Table" />
       <Divider />
-      <Checkbox label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} info="Expand item table to full width" />
+      <CheckRow label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} info="Expand item table to full width" />
       <NumberSpinner label="Min No. of Rows in Item Table" value={state.minRowsItemTable} onChange={set("minRowsItemTable")} info="Minimum rows in item table" />
       <LinkText>Item Table Customization &gt;</LinkText>
     </div>
@@ -350,7 +327,7 @@ function TotalsAndTaxes({ state, set }) {
     <div>
       <SectionHeading title="Totals & Taxes" />
       <Divider />
-      <Checkbox label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} info="Print total item quantity" />
+      <CheckRow label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} info="Print total item quantity" />
       <div className="py-1.5 px-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -360,12 +337,12 @@ function TotalsAndTaxes({ state, set }) {
           <InfoIcon title="Print amount with decimal places" />
         </div>
       </div>
-      <Checkbox label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} info="Print received amount" />
-      <Checkbox label="Balance Amount" checked={state.balanceAmount} onChange={set("balanceAmount")} info="Print balance amount" />
-      <Checkbox label="Current Balance of Party" checked={state.currentBalanceParty} onChange={set("currentBalanceParty")} info="Print current party balance" />
-      <Checkbox label="Tax Details" checked={state.taxDetails} onChange={set("taxDetails")} info="Print tax details" />
-      <Checkbox label="You Saved" checked={state.youSaved} onChange={set("youSaved")} info="Print savings amount" />
-      <Checkbox label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} info="Print grouped amount" />
+      <CheckRow label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} info="Print received amount" />
+      <CheckRow label="Balance Amount" checked={state.balanceAmount} onChange={set("balanceAmount")} info="Print balance amount" />
+      <CheckRow label="Current Balance of Party" checked={state.currentBalanceParty} onChange={set("currentBalanceParty")} info="Print current party balance" />
+      <CheckRow label="Tax Details" checked={state.taxDetails} onChange={set("taxDetails")} info="Print tax details" />
+      <CheckRow label="You Saved" checked={state.youSaved} onChange={set("youSaved")} info="Print savings amount" />
+      <CheckRow label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} info="Print grouped amount" />
       <SelectRow label="Amount in Words" value={state.amountInWords} onChange={set("amountInWords")} options={["Indian", "English", "International"]} info="Amount in words format" />
     </div>
   );
@@ -376,14 +353,14 @@ function FooterSection({ state, set }) {
     <div>
       <SectionHeading title="Footer" />
       <Divider />
-      <Checkbox label="Print Description" checked={state.printDescription} onChange={set("printDescription")} info="Print description footer" />
-      <Checkbox label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} info="Print terms and conditions" />
-      <Checkbox label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} info="Print received by" />
-      <Checkbox label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} info="Print delivered by" />
+      <CheckRow label="Print Description" checked={state.printDescription} onChange={set("printDescription")} info="Print description footer" />
+      <CheckRow label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} info="Print terms and conditions" />
+      <CheckRow label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} info="Print received by" />
+      <CheckRow label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} info="Print delivered by" />
       <LayerRow label="Print Signature Text" checked={state.printSignatureText} onChange={set("printSignatureText")} input={state.signatureText} onChangeText={set("signatureText")} placeholder="Authorized Signatory" info="Text for signature line" />
       <LinkText>Change Signature</LinkText>
-      <Checkbox label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} info="Print payment mode" />
-      <Checkbox label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} info="Print acknowledgement" />
+      <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} info="Print payment mode" />
+      <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} info="Print acknowledgement" />
     </div>
   );
 }
@@ -781,9 +758,9 @@ function ThermalSettings() {
       <div>
         <SectionHeading title="Printing Options" />
         <Divider />
-        <Checkbox label="Use Text Styling (Bold)" checked={state.useTextStyling} onChange={set("useTextStyling")} />
-        <Checkbox label="Auto Cut Paper After Printing" checked={state.autoCutPaper} onChange={set("autoCutPaper")} />
-        <Checkbox label="Open Cash Drawer After Printing" checked={state.openCashDrawer} onChange={set("openCashDrawer")} />
+        <CheckRow label="Use Text Styling (Bold)" checked={state.useTextStyling} onChange={set("useTextStyling")} />
+        <CheckRow label="Auto Cut Paper After Printing" checked={state.autoCutPaper} onChange={set("autoCutPaper")} />
+        <CheckRow label="Open Cash Drawer After Printing" checked={state.openCashDrawer} onChange={set("openCashDrawer")} />
       </div>
 
       <div>
@@ -821,48 +798,48 @@ function ThermalSettings() {
       <div>
         <SectionHeading title="Item Table" />
         <Divider />
-        <Checkbox label="S.No" checked={state.showSNo} onChange={set("showSNo")} />
-        <Checkbox label="HSN/SAC Code" checked={state.showHSNCode} onChange={set("showHSNCode")} />
-        <Checkbox label="Units of Measurement" checked={state.showUnits} onChange={set("showUnits")} />
-        <Checkbox label="MRP" checked={state.showMRP} onChange={set("showMRP")} />
-        <Checkbox label="Description" checked={state.showDescription} onChange={set("showDescription")} />
+        <CheckRow label="S.No" checked={state.showSNo} onChange={set("showSNo")} />
+        <CheckRow label="HSN/SAC Code" checked={state.showHSNCode} onChange={set("showHSNCode")} />
+        <CheckRow label="Units of Measurement" checked={state.showUnits} onChange={set("showUnits")} />
+        <CheckRow label="MRP" checked={state.showMRP} onChange={set("showMRP")} />
+        <CheckRow label="Description" checked={state.showDescription} onChange={set("showDescription")} />
       </div>
 
       <div>
         <SectionHeading title="Additional Item Details" />
         <Divider />
-        <Checkbox label="Batch No." checked={state.showBatchNo} onChange={set("showBatchNo")} />
-        <Checkbox label="Exp. Date" checked={state.showExpDate} onChange={set("showExpDate")} />
-        <Checkbox label="Mfg. Date" checked={state.showMfgDate} onChange={set("showMfgDate")} />
-        <Checkbox label="Size" checked={state.showSize} onChange={set("showSize")} />
-        <Checkbox label="Model No." checked={state.showModelNo} onChange={set("showModelNo")} />
-        <Checkbox label="Serial No." checked={state.showSerialNo} onChange={set("showSerialNo")} />
+        <CheckRow label="Batch No." checked={state.showBatchNo} onChange={set("showBatchNo")} />
+        <CheckRow label="Exp. Date" checked={state.showExpDate} onChange={set("showExpDate")} />
+        <CheckRow label="Mfg. Date" checked={state.showMfgDate} onChange={set("showMfgDate")} />
+        <CheckRow label="Size" checked={state.showSize} onChange={set("showSize")} />
+        <CheckRow label="Model No." checked={state.showModelNo} onChange={set("showModelNo")} />
+        <CheckRow label="Serial No." checked={state.showSerialNo} onChange={set("showSerialNo")} />
       </div>
 
       <div>
         <SectionHeading title="Totals & Taxes" />
         <Divider />
-        <Checkbox label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} />
-        <Checkbox label="Amount with Decimal e.g. 0.00" checked={state.amountWithDecimal} onChange={set("amountWithDecimal")} />
-        <Checkbox label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} />
-        <Checkbox label="Balance Amount" checked={state.balanceAmount} onChange={set("balanceAmount")} />
-        <Checkbox label="Current Balance of Party" checked={state.currentBalanceParty} onChange={set("currentBalanceParty")} />
-        <Checkbox label="Tax Details" checked={state.taxDetails} onChange={set("taxDetails")} />
-        <Checkbox label="You Saved" checked={state.youSaved} onChange={set("youSaved")} />
-        <Checkbox label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} />
+        <CheckRow label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} />
+        <CheckRow label="Amount with Decimal e.g. 0.00" checked={state.amountWithDecimal} onChange={set("amountWithDecimal")} />
+        <CheckRow label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} />
+        <CheckRow label="Balance Amount" checked={state.balanceAmount} onChange={set("balanceAmount")} />
+        <CheckRow label="Current Balance of Party" checked={state.currentBalanceParty} onChange={set("currentBalanceParty")} />
+        <CheckRow label="Tax Details" checked={state.taxDetails} onChange={set("taxDetails")} />
+        <CheckRow label="You Saved" checked={state.youSaved} onChange={set("youSaved")} />
+        <CheckRow label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} />
         <SelectRow label="Amount in Words" value={state.amountInWords} onChange={set("amountInWords")} options={["Indian", "English", "International"]} />
       </div>
 
       <div>
         <SectionHeading title="Footer" />
         <Divider />
-        <Checkbox label="Print Description" checked={state.printDescription} onChange={set("printDescription")} />
-        <Checkbox label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} />
-        <Checkbox label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} />
-        <Checkbox label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} />
+        <CheckRow label="Print Description" checked={state.printDescription} onChange={set("printDescription")} />
+        <CheckRow label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} />
+        <CheckRow label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} />
+        <CheckRow label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} />
         <LayerRow label="Print Signature Text" checked={state.printSignatureText} onChange={set("printSignatureText")} input={state.signatureText} onChangeText={set("signatureText")} placeholder="Authorized Signatory" />
-        <Checkbox label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} />
-        <Checkbox label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} />
+        <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} />
+        <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} />
       </div>
 
       <div>
@@ -904,23 +881,14 @@ export default function Print() {
     });
 
   return (
-    <div className="h-full bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="px-8 py-6 flex items-center justify-between flex-shrink-0 bg-gradient-to-br from-[#1f8cff] to-[#4338ca]">
-          <h2 className="text-[25px] font-bold text-white">Print Settings</h2>
-          <button
-            type="button"
-            onClick={() => setSettingsTab && setSettingsTab("general")}
-            title="Close"
-            className="w-9 h-9 rounded-full bg-white/90 hover:bg-white text-gray-500 hover:text-gray-800 shadow flex items-center justify-center transition-colors"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+    <div className="overflow-hidden flex flex-col flex-1">
+      <div className="flex flex-col flex-1">
+        <SettingsHeader
+          title="Print Settings"
+          subtitle="LAYOUT, COLORS & PRINTERS"
+          icon={<Printer size={22} strokeWidth={2.2} />}
+          onClose={() => setSettingsTab && setSettingsTab("general")}
+        />
 
         {/* Two column layout with independent scrolling */}
         <div className="flex-1 flex min-h-0">
@@ -1035,8 +1003,8 @@ export default function Print() {
                         <div>
                           <SectionHeading title="Print Company Info / Header" />
                           <Divider />
-                          <Checkbox label="Make Regular Printer Default" checked={state.regularDefault} onChange={set("regularDefault")} />
-                          <Checkbox label="Print repeat header in all pages" checked={state.repeatHeader} onChange={set("repeatHeader")} />
+                          <CheckRow label="Make Regular Printer Default" checked={state.regularDefault} onChange={set("regularDefault")} />
+                          <CheckRow label="Print repeat header in all pages" checked={state.repeatHeader} onChange={set("repeatHeader")} />
                           <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" />
                           <div className="py-1.5 px-1">
                             <div className="flex items-center justify-between">
@@ -1061,7 +1029,7 @@ export default function Print() {
                           <SelectRow label="Orientation" value={state.orientation} onChange={set("orientation")} options={["Portrait", "Landscape"]} />
                           <SelectRow label="Company Name Text Size" value={state.companyNameSize} onChange={set("companyNameSize")} options={["Small", "Medium", "Large"]} />
                           <SelectRow label="Invoice Text Size" value={state.invoiceTextSize} onChange={set("invoiceTextSize")} options={["Small", "Medium", "Large"]} />
-                          <Checkbox label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} />
+                          <CheckRow label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} />
                           <NumberSpinner label="Extra space on Top of PDF" value={state.extraSpaceTop} onChange={set("extraSpaceTop")} />
                         </div>
 
@@ -1069,7 +1037,7 @@ export default function Print() {
                         <div>
                           <SectionHeading title="Item Table" />
                           <Divider />
-                          <Checkbox label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} />
+                          <CheckRow label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} />
                           <NumberSpinner label="Min No. of Rows in Item Table" value={state.minRowsItemTable} onChange={set("minRowsItemTable")} />
                         </div>
 
@@ -1077,7 +1045,7 @@ export default function Print() {
                         <div>
                           <SectionHeading title="Totals & Taxes" />
                           <Divider />
-                          <Checkbox label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} />
+                          <CheckRow label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} />
                           <div className="py-1.5 px-1">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2.5">
@@ -1086,12 +1054,12 @@ export default function Print() {
                               </div>
                             </div>
                           </div>
-                          <Checkbox label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} />
-                          <Checkbox label="Balance Amount" checked={state.balanceAmount} onChange={set("balanceAmount")} />
-                          <Checkbox label="Current Balance of Party" checked={state.currentBalanceParty} onChange={set("currentBalanceParty")} />
-                          <Checkbox label="Tax Details" checked={state.taxDetails} onChange={set("taxDetails")} />
-                          <Checkbox label="You Saved" checked={state.youSaved} onChange={set("youSaved")} />
-                          <Checkbox label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} />
+                          <CheckRow label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} />
+                          <CheckRow label="Balance Amount" checked={state.balanceAmount} onChange={set("balanceAmount")} />
+                          <CheckRow label="Current Balance of Party" checked={state.currentBalanceParty} onChange={set("currentBalanceParty")} />
+                          <CheckRow label="Tax Details" checked={state.taxDetails} onChange={set("taxDetails")} />
+                          <CheckRow label="You Saved" checked={state.youSaved} onChange={set("youSaved")} />
+                          <CheckRow label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} />
                           <SelectRow label="Amount in Words" value={state.amountInWords} onChange={set("amountInWords")} options={["Indian", "English", "International"]} />
                         </div>
 
@@ -1099,13 +1067,13 @@ export default function Print() {
                         <div>
                           <SectionHeading title="Footer" />
                           <Divider />
-                          <Checkbox label="Print Description" checked={state.printDescription} onChange={set("printDescription")} />
-                          <Checkbox label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} />
-                          <Checkbox label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} />
-                          <Checkbox label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} />
+                          <CheckRow label="Print Description" checked={state.printDescription} onChange={set("printDescription")} />
+                          <CheckRow label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} />
+                          <CheckRow label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} />
+                          <CheckRow label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} />
                           <LayerRow label="Print Signature Text" checked={state.printSignatureText} onChange={set("printSignatureText")} input={state.signatureText} onChangeText={set("signatureText")} placeholder="Authorized Signatory" />
-                          <Checkbox label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} />
-                          <Checkbox label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} />
+                          <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} />
+                          <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} />
                         </div>
                       </>
                     )}

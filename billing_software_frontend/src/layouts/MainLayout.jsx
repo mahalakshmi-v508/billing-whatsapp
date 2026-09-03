@@ -857,7 +857,7 @@ export default function MainLayout() {
         )}
 
         {/* MAIN CONTENT */}
-        <main className="flex-1 p-4 overflow-auto">
+        <main className="flex-1 p-4 overflow-auto flex flex-col">
           <SettingsContext.Provider value={{ settingsTab, setSettingsTab }}>
             <Outlet context={{ settingsTab, setSettingsTab }} />
           </SettingsContext.Provider>

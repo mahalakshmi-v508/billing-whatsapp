@@ -51,7 +51,7 @@ export default function SelectItemsForReminder() {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden min-h-full flex flex-col">
+    <div className="overflow-hidden flex flex-col flex-1">
       {/* Header */}
       <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">

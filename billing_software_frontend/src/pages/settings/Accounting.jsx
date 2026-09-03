@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { Calculator } from "lucide-react";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
+import { SettingsShell, SettingsCard, InfoIcon } from "./settingsUI";
 
 const STORAGE_KEY = "accounting_settings";
 
@@ -17,18 +18,6 @@ function loadState() {
   } catch {
     return DEFAULT_STATE;
   }
-}
-
-function InfoIcon({ title }) {
-  return (
-    <span
-      className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-gray-600 hover:bg-blue-500 hover:text-white cursor-help transition-colors flex-shrink-0 text-[11px] font-bold"
-      title={title}
-      aria-label={title}
-    >
-      i
-    </span>
-  );
 }
 
 export default function Accounting() {
@@ -48,35 +37,36 @@ export default function Accounting() {
     });
 
   return (
-    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden min-h-[560px]">
-      <button
-        type="button"
-        onClick={() => setSettingsTab && setSettingsTab("general")}
-        title="Close"
-        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-gray-500 hover:text-gray-800 shadow flex items-center justify-center transition-colors z-10"
-      >
-        <X size={18} strokeWidth={2.5} />
-      </button>
-
-      <div className="bg-gradient-to-br from-[#1f8cff] to-[#4338ca] px-8 py-7">
-        <h2 className="text-[25px] font-bold text-white">Accounting</h2>
-      </div>
-
-      <div className="px-8 py-7">
-        <label className="flex items-center cursor-pointer select-none group py-1">
-          <input
-            type="checkbox"
-            checked={state.enableAccounting}
-            onChange={(e) => setEnableAccounting(e.target.checked)}
-            className="w-6 h-6 cursor-pointer shrink-0 rounded-[4px]"
-            style={{ accentColor: "#2563eb" }}
-          />
-          <span className="ml-3 text-[21px] text-gray-800 group-hover:text-gray-950">Enable Accounting module</span>
-          <span className="ml-2.5 flex items-center">
+    <SettingsShell
+      title="Accounting"
+      subtitle="MODULES & LEDGER"
+      icon={<Calculator size={22} strokeWidth={2.2} />}
+      onClose={() => setSettingsTab && setSettingsTab("general")}
+      contentClassName="max-w-3xl"
+    >
+      <SettingsCard title="Accounting Module">
+        <div className="flex items-center justify-between gap-4 mt-1">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-[14.5px] text-slate-700">Enable Accounting module</span>
             <InfoIcon title="Enable the accounting module" />
-          </span>
-        </label>
-      </div>
-    </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={state.enableAccounting}
+            onClick={() => setEnableAccounting(!state.enableAccounting)}
+            className={`relative w-12 h-7 rounded-full transition-colors shrink-0 cursor-pointer ${
+              state.enableAccounting ? "bg-blue-600" : "bg-slate-300"
+            }`}
+          >
+            <span
+              className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                state.enableAccounting ? "left-[24px]" : "left-1"
+              }`}
+            />
+          </button>
+        </div>
+      </SettingsCard>
+    </SettingsShell>
   );
 }

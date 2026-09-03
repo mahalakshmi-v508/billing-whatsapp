@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Info, ChevronDown } from "lucide-react";
+import { ChevronDown, ArrowRightLeft } from "lucide-react";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
+import { SettingsShell, SettingsCard, CheckRow, InfoIcon } from "./settingsUI";
 
 const blue = "#2563eb";
 const STORAGE_KEY = "transaction_settings";
@@ -60,43 +61,6 @@ function loadState() {
   } catch {
     return DEFAULT_STATE;
   }
-}
-
-function InfoIcon({ title }) {
-  return (
-    <span
-      className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-gray-500 hover:bg-blue-500 hover:text-white cursor-help transition-colors flex-shrink-0"
-      title={title}
-    >
-      <Info size={11} strokeWidth={2.5} aria-label={title} />
-    </span>
-  );
-}
-
-function Checkbox({ label, checked, onChange, info }) {
-  return (
-    <label className="flex items-center justify-between py-2 px-1 rounded cursor-pointer select-none group">
-      <span className="flex items-center gap-2.5">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          className="w-5 h-5 cursor-pointer shrink-0 rounded"
-          style={{ accentColor: blue }}
-        />
-        <span className="text-[13.5px] text-gray-700 group-hover:text-gray-900">{label}</span>
-      </span>
-      {info && <InfoIcon title={info} />}
-    </label>
-  );
-}
-
-function SectionHeading({ title }) {
-  return <h4 className="text-[20px] font-bold text-gray-800 mb-1">{title}</h4>;
-}
-
-function Divider() {
-  return <div className="h-px bg-gray-200 my-3" />;
 }
 
 function FloatingSelect({ label, value, onChange, options, disabled }) {
@@ -194,131 +158,106 @@ export default function Transaction() {
   const roundOptions = ["1", "5", "10", "50", "100"];
 
   return (
-    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden min-h-[560px]">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#1f8cff] to-[#4338ca] px-8 py-7">
-        <h2 className="text-[25px] font-bold text-white">Transaction</h2>
-      </div>
-      {/* Close button */}
-      <button
-        type="button"
-        onClick={() => setSettingsTab && setSettingsTab("general")}
-        title="Close"
-        className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-gray-500 hover:text-gray-800 shadow flex items-center justify-center transition-colors z-10"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
-
-      <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-10 min-w-0 px-8 py-7">
+    <SettingsShell
+      title="Transaction"
+      subtitle="SALES, PURCHASES & DOCUMENTS"
+      icon={<ArrowRightLeft size={22} strokeWidth={2.2} />}
+      onClose={() => setSettingsTab && setSettingsTab("general")}
+      contentClassName="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-6"
+    >
         {/* Column 1 */}
-        <div className="min-w-0 space-y-10">
+        <div className="min-w-0 space-y-6">
           {/* Transaction Header */}
-          <div>
-            <SectionHeading title="Transaction Header" />
-            <Divider />
-            <Checkbox
+          <SettingsCard title="Transaction Header">
+            <CheckRow
               label="Invoice/Bill No."
               checked={state.invoiceBillNo}
               onChange={set("invoiceBillNo")}
               info="Enable invoice or bill numbering"
             />
-            <Checkbox
+            <CheckRow
               label="Add Time on Transactions"
               checked={state.addTime}
               onChange={set("addTime")}
               info="Include timestamp on transactions"
             />
-            <Checkbox
+            <CheckRow
               label="Cash Sale by default"
               checked={state.cashSaleDefault}
               onChange={set("cashSaleDefault")}
               info="Default new transactions to cash sale"
             />
-            <Checkbox
+            <CheckRow
               label="Billing Name of Parties"
               checked={state.billingName}
               onChange={set("billingName")}
               info="Show billing name for parties"
             />
-            <Checkbox
+            <CheckRow
               label="Customers P.O. Details on Transactions"
               checked={state.customerPoDetails}
               onChange={set("customerPoDetails")}
               info="Show purchase order details on transactions"
             />
-          </div>
+          </SettingsCard>
 
           {/* More Transaction Features */}
-          <div>
-            <SectionHeading title="More Transaction Features" />
-            <Divider />
-            <Checkbox
+          <SettingsCard title="More Transaction Features">
+            <CheckRow
               label="E-way bill no"
               checked={state.ewayBillNo}
               onChange={set("ewayBillNo")}
               info="Enable e-way bill number field"
             />
-            <Checkbox
+            <CheckRow
               label="Quick Entry"
               checked={state.quickEntry}
               onChange={set("quickEntry")}
               info="Enable quick entry mode for transactions"
             />
-            <Checkbox
+            <CheckRow
               label="Do not Show Invoice Preview"
               checked={state.noInvoicePreview}
               onChange={set("noInvoicePreview")}
               info="Skip invoice preview before saving"
             />
-            <Checkbox
+            <CheckRow
               label="Repeat Invoices"
               checked={state.repeatInvoices}
               onChange={set("repeatInvoices")}
               info="Allow repeating invoice entries"
             />
-            <Checkbox
+            <CheckRow
               label="Enable Passcode for transaction edit/delete"
               checked={state.enablePasscode}
               onChange={set("enablePasscode")}
               info="Require passcode to edit or delete transactions"
             />
-            <Checkbox
+            <CheckRow
               label="Discount During Payments"
               checked={state.discountDuringPayments}
               onChange={set("discountDuringPayments")}
               info="Allow applying discounts during payment"
             />
-            <Checkbox
+            <CheckRow
               label="Link Payments to Invoices"
               checked={state.linkPayments}
               onChange={set("linkPayments")}
               info="Link payments directly to invoices"
             />
-            <Checkbox
+            <CheckRow
               label="Due Dates and Payment Terms"
               checked={state.dueDates}
               onChange={set("dueDates")}
               info="Enable due dates and payment terms"
             />
-            <Checkbox
+            <CheckRow
               label="Show Profit while making Sale Invoice"
               checked={state.showProfit}
               onChange={set("showProfit")}
               info="Show profit margin on sale invoices"
             />
-            <Checkbox
+            <CheckRow
               label="Terms and Conditions"
               checked={state.termsAndConditions}
               onChange={set("termsAndConditions")}
@@ -336,40 +275,38 @@ export default function Transaction() {
                 </div>
               </div>
             )}
-          </div>
+          </SettingsCard>
         </div>
 
         {/* Column 2 */}
-        <div className="min-w-0 space-y-10">
+        <div className="min-w-0 space-y-6">
           {/* Items Table */}
-          <div>
-            <SectionHeading title="Items Table" />
-            <Divider />
-            <Checkbox
+          <SettingsCard title="Items Table">
+            <CheckRow
               label="Inclusive/Exclusive Tax on Rate(Price/Unit)"
               checked={state.inclusiveTax}
               onChange={set("inclusiveTax")}
               info="Toggle tax inclusion on item rates"
             />
-            <Checkbox
+            <CheckRow
               label="Display Purchase Price of Items"
               checked={state.displayPurchasePrice}
               onChange={set("displayPurchasePrice")}
               info="Show purchase price in item list"
             />
-            <Checkbox
+            <CheckRow
               label="Show last 5 Sale Price of Items"
               checked={state.showLastSalePrice}
               onChange={set("showLastSalePrice")}
               info="Display last 5 sale prices for items"
             />
-            <Checkbox
+            <CheckRow
               label="Show last 5 Purchase Price of Items"
               checked={state.showLastPurchasePrice}
               onChange={set("showLastPurchasePrice")}
               info="Display last 5 purchase prices for items"
             />
-            <Checkbox
+            <CheckRow
               label="Free Item Quantity"
               checked={state.freeItemQty}
               onChange={set("freeItemQty")}
@@ -400,12 +337,10 @@ export default function Transaction() {
                 <InfoIcon title="Customize count label text" />
               </div>
             </div>
-          </div>
+          </SettingsCard>
 
           {/* Transaction Prefixes */}
-          <div>
-            <SectionHeading title="Transaction Prefixes" />
-            <Divider />
+          <SettingsCard title="Transaction Prefixes">
             <div className="mb-4">
               <FloatingSelect
                 label="Firm"
@@ -466,28 +401,26 @@ export default function Transaction() {
                 />
               </div>
             </div>
-          </div>
+          </SettingsCard>
         </div>
 
         {/* Column 3 */}
-        <div className="min-w-0 space-y-10">
+        <div className="min-w-0 space-y-6">
           {/* Taxes, Discount & Totals */}
-          <div>
-            <SectionHeading title="Taxes, Discount & Totals" />
-            <Divider />
-            <Checkbox
+          <SettingsCard title="Taxes, Discount & Totals">
+            <CheckRow
               label="Transaction wise Tax"
               checked={state.transactionWiseTax}
               onChange={set("transactionWiseTax")}
               info="Apply tax at transaction level"
             />
-            <Checkbox
+            <CheckRow
               label="Transaction wise Discount"
               checked={state.transactionWiseDiscount}
               onChange={set("transactionWiseDiscount")}
               info="Apply discount at transaction level"
             />
-            <Checkbox
+            <CheckRow
               label="Round Off Total"
               checked={state.roundOffTotal}
               onChange={set("roundOffTotal")}
@@ -513,12 +446,10 @@ export default function Transaction() {
                 </div>
               </div>
             )}
-          </div>
+          </SettingsCard>
 
           {/* Billing Type */}
-          <div>
-            <SectionHeading title="Billing Type" />
-            <Divider />
+          <SettingsCard title="Billing Type">
             <Radio
               label="Lite Sale"
               checked={state.billingType === "lite"}
@@ -529,9 +460,8 @@ export default function Transaction() {
               checked={state.billingType === "full"}
               onChange={() => set("billingType")("full")}
             />
-          </div>
+          </SettingsCard>
         </div>
-      </div>
-    </div>
+      </SettingsShell>
   );
 }

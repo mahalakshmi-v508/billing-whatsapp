@@ -1,28 +1,20 @@
 import { useNavigate } from "react-router-dom";
-import { X, Play, Bell, BellRing, Clock, Users, TrendingUp } from "lucide-react";
+import { Play, Bell, BellRing, Clock, Users, TrendingUp } from "lucide-react";
 import { useSettings } from "./SettingsContext";
+import { SettingsShell } from "./settingsUI";
 
 export default function ServiceReminders() {
   const { setSettingsTab } = useSettings();
   const navigate = useNavigate();
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden min-h-full flex flex-col">
-      {/* Header */}
-      <div className="relative px-8 pt-8">
-        <button
-          type="button"
-          onClick={() => setSettingsTab && setSettingsTab("general")}
-          title="Close"
-          className="absolute top-5 right-5 w-9 h-9 rounded-full bg-gray-300 hover:bg-gray-400 text-white flex items-center justify-center transition-colors z-10"
-        >
-          <X size={18} strokeWidth={2.5} />
-        </button>
-        <h2 className="text-[25px] font-bold text-gray-900">Service Reminders</h2>
-      </div>
-      <div className="h-px bg-gray-200 my-4" />
-
-      <div className="px-8 pb-8 flex-1 flex flex-col">
+    <SettingsShell
+      title="Service Reminders"
+      subtitle="GROW YOUR BUSINESS"
+      icon={<BellRing size={22} strokeWidth={2.2} />}
+      onClose={() => setSettingsTab && setSettingsTab("general")}
+      contentClassName="flex flex-col"
+    >
         {/* Blue video banner */}
         <div className="w-full bg-gradient-to-br from-[#1f8cff] to-[#4338ca] rounded-2xl px-7 py-6 flex items-center gap-6 text-white">
           <div className="flex-1 min-w-0">
@@ -99,7 +91,6 @@ export default function ServiceReminders() {
             Enable Service Reminders
           </button>
         </div>
-      </div>
-    </div>
+    </SettingsShell>
   );
 }

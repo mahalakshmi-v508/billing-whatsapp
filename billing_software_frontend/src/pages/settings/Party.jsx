@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, Users, X } from "lucide-react";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
+import { SettingsShell } from "./settingsUI";
 
 const STORAGE_KEY = "party_settings";
 
@@ -52,15 +53,28 @@ function BlueDotIcon() {
 
 function GstCheckbox({ label, checked, onChange, info, extra }) {
   return (
-    <label className="flex items-center cursor-pointer select-none group py-2">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="w-6 h-6 cursor-pointer shrink-0 rounded-[4px]"
-        style={{ accentColor: "#2563eb" }}
-      />
-      <span className="ml-3 text-[21px] text-gray-800 group-hover:text-gray-950">{label}</span>
+    <label className="flex items-center cursor-pointer select-none group py-[10px]">
+      <span
+        className={`relative inline-flex items-center justify-center rounded-md border-2 transition-all cursor-pointer shrink-0 ${
+          checked
+            ? "bg-blue-600 border-blue-600 shadow-sm shadow-blue-600/30"
+            : "bg-white border-slate-300 group-hover:border-blue-400"
+        }`}
+        style={{ width: 24, height: 24 }}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        />
+        {checked && (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        )}
+      </span>
+      <span className="ml-3 text-[19px] text-slate-800 group-hover:text-slate-950 font-medium">{label}</span>
       {info && (
         <span className="ml-2.5 flex items-center">
           <InfoIcon title={info} />
@@ -75,10 +89,13 @@ function ColumnHeading({ title, info }) {
   return (
     <div>
       <div className="flex items-center gap-2">
-        <h2 className="text-[25px] font-bold text-gray-900">{title}</h2>
+        <h2 className="flex items-center gap-2 text-[25px] font-bold text-slate-900">
+          <span className="w-1.5 h-6 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
+          {title}
+        </h2>
         {info && <InfoIcon title={info} />}
       </div>
-      <div className="h-px bg-gray-200 my-4" />
+      <div className="h-px bg-slate-200 my-4" />
     </div>
   );
 }
@@ -287,35 +304,27 @@ export default function Party() {
   };
 
   return (
-    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden min-h-[560px]">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#1f8cff] to-[#4338ca] px-8 py-7">
-        <h2 className="text-[25px] font-bold text-white">Party</h2>
-      </div>
-      <button
-        type="button"
-        onClick={() => setSettingsTab && setSettingsTab("general")}
-        title="Close"
-        className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-gray-500 hover:text-gray-800 shadow flex items-center justify-center transition-colors z-10"
-      >
-        <X size={18} strokeWidth={2.5} />
-      </button>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-10 px-8 py-7">
-        {/* LEFT COLUMN - Party Settings */}
-        <div className="flex flex-col">
-          <ColumnHeading title="Party Settings" />
+    <SettingsShell
+      title="Party"
+      subtitle="PARTY MASTERS, FIELDS & LOYALTY"
+      icon={<Users size={22} strokeWidth={2.2} />}
+      onClose={() => setSettingsTab && setSettingsTab("general")}
+      contentClassName="grid grid-cols-1 md:grid-cols-3 gap-x-16 gap-y-10"
+    >
+      {/* LEFT COLUMN - Party Settings */}
+      <div className="flex flex-col space-y-[6px]">
+        <ColumnHeading title="Party Settings" />
           <GstCheckbox label="Party Grouping" checked={state.partyGrouping} onChange={set("partyGrouping")} info="Group related parties" />
           <GstCheckbox label="Shipping Address" checked={state.shippingAddress} onChange={set("shippingAddress")} info="Enable shipping address" />
           <GstCheckbox label="Manage Party Status" checked={state.managePartyStatus} onChange={set("managePartyStatus")} info="Manage party status" />
           <GstCheckbox label="Enable Payment Reminder" checked={state.enablePaymentReminder} onChange={set("enablePaymentReminder")} info="Enable payment reminders" />
 
-          <div className="mt-4">
-            <div className="flex items-center gap-2">
+          <div className="mt-7 pt-2">
+            <div className="flex items-center gap-2.5">
               <span className="text-[19px] text-gray-700">Remind me for payment due in</span>
               <InfoIcon title="Reminder days" />
             </div>
-            <div className="flex items-center gap-3 mt-2">
+            <div className="flex items-center gap-3 mt-3">
               <input
                 type="number"
                 min="0"
@@ -331,8 +340,8 @@ export default function Party() {
           <button
             type="button"
             onClick={openReminder}
-            className="mt-8 px-5 bg-gray-100 hover:bg-gray-200 text-blue-600 font-semibold text-[21px] rounded-lg flex items-center transition-colors self-start"
-            style={{ height: 50 }}
+            className="mt-10 px-6 bg-gray-100 hover:bg-gray-200 text-blue-600 font-semibold text-[21px] rounded-lg flex items-center transition-colors self-start"
+            style={{ height: 52 }}
           >
             Reminder Message
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-2">
@@ -342,7 +351,7 @@ export default function Party() {
         </div>
 
         {/* CENTER COLUMN - Additional fields */}
-        <div className="flex flex-col">
+        <div className="flex flex-col space-y-2">
           <ColumnHeading title="Additional fields" info="Extra party fields" />
           <AdditionalFieldRow
             field={{ ...state.field1, onChangeLabel: (v) => setField("field1")({ label: v }), placeholder: "Additional Field 1" }}
@@ -367,7 +376,7 @@ export default function Party() {
         </div>
 
         {/* RIGHT COLUMN - Enable Loyalty Point */}
-        <div className="flex flex-col">
+        <div className="flex flex-col space-y-[6px]">
           <ColumnHeading title="Enable Loyalty Point" />
           <GstCheckbox
             label="Enable Loyalty Point"
@@ -377,7 +386,6 @@ export default function Party() {
             extra={<BlueDotIcon />}
           />
         </div>
-      </div>
 
       {showReminder && (
         <ReminderMessageModal
@@ -386,6 +394,6 @@ export default function Party() {
           onSave={saveReminder}
         />
       )}
-    </div>
+    </SettingsShell>
   );
 }
