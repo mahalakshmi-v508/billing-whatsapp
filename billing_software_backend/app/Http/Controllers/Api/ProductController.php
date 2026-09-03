@@ -143,12 +143,13 @@ class ProductController extends Controller
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
         $brand_id = intval($request->input('brand_id') ?: $request->query('brand_id', 0));
+        $admin_id = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
 
-        if (!$company_id) {
-            return response()->json([
-                "status" => true,
-                "data" => []
-            ]);
+        if (!$company_id && $admin_id > 0) {
+            $comp = DB::table('companies')->where('admin_id', $admin_id)->first();
+            if ($comp) {
+                $company_id = $comp->id;
+            }
         }
 
         $query = DB::table('products as p')
@@ -167,8 +168,11 @@ class ProductController extends Controller
                 'comp.gst_type',
                 'sup.supplier_name'
             )
-            ->where('p.company_id', $company_id)
             ->where('p.is_deleted', 0);
+
+        if ($company_id > 0) {
+            $query->where('p.company_id', $company_id);
+        }
 
         if ($brand_id > 0) {
             $query->where('p.brand_id', $brand_id);

@@ -23,6 +23,8 @@ use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\HelpdeskController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\CreditNoteController;
+use App\Http\Controllers\Api\DebitNoteController;
+use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ReportViewController;
 use App\Http\Controllers\Api\DayBookController;
 use App\Http\Controllers\Api\PartyStatementController;
@@ -171,6 +173,8 @@ Route::prefix('invoice')->group(function () {
     Route::post('payment', [InvoiceController::class, 'payment']);
     Route::post('update_credit_payment', [InvoiceController::class, 'updateCreditPayment']);
     Route::post('pay_customer_bulk', [InvoiceController::class, 'payCustomerBulk']);
+    Route::get('get_payment_ins', [InvoiceController::class, 'getPaymentIns']);
+    Route::post('delete_payment_in', [InvoiceController::class, 'deletePaymentIn']);
     Route::get('get_customer_payments', [InvoiceController::class, 'getCustomerPayments']);
     Route::get('verify_gst', [InvoiceController::class, 'verifyGst']);
     Route::post('delete_invoice', [InvoiceController::class, 'deleteInvoice']);
@@ -191,6 +195,7 @@ Route::prefix('product')->group(function () {
     Route::post('add', [ProductController::class, 'add']);
     Route::post('delete', [ProductController::class, 'delete']);
     Route::get('get', [ProductController::class, 'get']);
+    Route::get('get_all', [ProductController::class, 'get']);
     Route::get('get_by_id', [ProductController::class, 'getById']);
     Route::get('get_by_supplier', [ProductController::class, 'getBySupplier']);
     Route::get('get_by_code', [ProductController::class, 'getByCode']);
@@ -261,7 +266,41 @@ Route::prefix('purchase')->group(function () {
     Route::get('get_payments', [PurchaseController::class, 'getPurchasePayments']);
     Route::get('get_supplier_payments', [PurchaseController::class, 'getSupplierPayments']);
     Route::post('pay_supplier_bulk', [PurchaseController::class, 'paySupplierBulk']);
+    Route::get('get_payment_outs', [PurchaseController::class, 'getPaymentOuts']);
+    Route::post('create_payment_out', [PurchaseController::class, 'createPaymentOut']);
+    Route::post('update_payment_out', [PurchaseController::class, 'updatePaymentOut']);
+    Route::post('delete_payment_out', [PurchaseController::class, 'deletePaymentOut']);
 });
+
+// ── DEBIT NOTE (PURCHASE RETURN / DR. NOTE) ROUTES ──
+Route::prefix('debit_note')->group(function () {
+    Route::post('create', [DebitNoteController::class, 'createDebitNote']);
+    Route::get('list', [DebitNoteController::class, 'getDebitNotes']);
+    Route::get('get_by_id', [DebitNoteController::class, 'getDebitNoteById']);
+    Route::post('update', [DebitNoteController::class, 'updateDebitNote']);
+    Route::post('delete', [DebitNoteController::class, 'deleteDebitNote']);
+});
+
+// ── EXPENSES ROUTES ──
+Route::prefix('expense')->group(function () {
+    // Categories
+    Route::get('categories', [ExpenseController::class, 'getCategories']);
+    Route::post('category/create', [ExpenseController::class, 'createCategory']);
+    Route::post('category/update', [ExpenseController::class, 'updateCategory']);
+    Route::post('category/delete', [ExpenseController::class, 'deleteCategory']);
+
+    // Items
+    Route::get('items', [ExpenseController::class, 'getItems']);
+    Route::post('item/create', [ExpenseController::class, 'createItem']);
+
+    // Vouchers
+    Route::post('create', [ExpenseController::class, 'createExpense']);
+    Route::get('list', [ExpenseController::class, 'getExpenses']);
+    Route::get('get_by_id', [ExpenseController::class, 'getExpenseById']);
+    Route::post('update', [ExpenseController::class, 'updateExpense']);
+    Route::post('delete', [ExpenseController::class, 'deleteExpense']);
+});
+
 
 // �"?�"? REPORT VIEWS / FREQUENTLY USED ROUTES �"?�"? 
 Route::prefix('report')->group(function () {
