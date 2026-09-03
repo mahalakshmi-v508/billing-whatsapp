@@ -81,12 +81,16 @@ import SupplierEditProduct from "../pages/SupplierProduct/SupplierEditProduct";
 import PurchaseList from "../pages/purchase/PurchaseList";
 import PurchaseForm from "../pages/purchase/PurchaseForm";
 import PurchaseGSTReport from "../pages/purchase/PurchaseGSTReport";
+import PurchaseSubmenuView from "../pages/purchase/PurchaseSubmenuView";
+import PaymentOut from "../pages/purchase/payment_out/PaymentOut";
+import DebitNoteList from "../pages/purchase/debit_note/DebitNoteList";
+import AddDebitNote from "../pages/purchase/debit_note/AddDebitNote";
+import ExpenseList from "../pages/purchase/expenses/ExpenseList";
+import AddExpense from "../pages/purchase/expenses/AddExpense";
 import TicketList from "../pages/helpdesk/TicketList";
 import TicketDetails from "../pages/helpdesk/TicketDetails";
 import HelpdeskDashboard from "../pages/helpdesk/HelpdeskDashboard";
 import WhatsAppChat from "../pages/whatsapp/WhatsAppChat";
-
-
 
 export default function AppRoutes() {
   return (
@@ -102,7 +106,6 @@ export default function AppRoutes() {
             </PublicRoute>
           }
         />
-
         <Route path="/register" element={<Register />} />
         <Route path="/registercompany" element={<RegisterCompany />} />
 
@@ -112,6 +115,14 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]} />}>
           <Route path="/sales/add" element={<AddSale />} />
           <Route path="/sales/edit/:invoiceNo" element={<AddSale />} />
+          <Route path="/sales/credit-note/add" element={<AddCreditNote />} />
+          <Route path="/sales/credit-note/edit/:id" element={<AddCreditNote />} />
+          <Route path="/purchases/new" element={<PurchaseForm />} />
+          <Route path="/purchases/edit/:id" element={<PurchaseForm />} />
+          <Route path="/purchases/debit-note/add" element={<AddDebitNote />} />
+          <Route path="/purchases/debit-note/edit/:id" element={<AddDebitNote />} />
+          <Route path="/purchases/expenses/add" element={<AddExpense />} />
+          <Route path="/purchases/expenses/edit/:id" element={<AddExpense />} />
           <Route path="/invoice/:invoiceNo" element={<Invoice />} />
           <Route path="/invoice" element={<Invoice />} />
           <Route path="/billing" element={<Billing />} />
@@ -122,7 +133,7 @@ export default function AppRoutes() {
         {/* 🔐 Protected Routes with MainLayout */}
         <Route
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]}>
               <MainLayout />
             </ProtectedRoute>
           }
@@ -166,6 +177,9 @@ export default function AppRoutes() {
             <Route path="/helpdesk/analytics" element={<HelpdeskDashboard />} />
           </Route>
 
+          {/* Cashier and Admin billing route */}
+          <Route path="/billing" element={<Billing />} />
+        </Route>
 
           {/* 2. Admin-only routes */}
           <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
@@ -216,7 +230,6 @@ export default function AppRoutes() {
             <Route path="/cashier-requests" element={<PendingCashierRequests />} />
             <Route path="/company-requests" element={<CompanyRequest />} />
           </Route>
-        </Route>
 
         {/* Catch-all 404 Route */}
         <Route path="*" element={<NotFound />} />
