@@ -25,7 +25,7 @@ import AllParties from "../pages/reports/party/AllParties";
 import PartyReportByItem from "../pages/reports/party/PartyReportByItem";
 import SalePurchaseByParty from "../pages/reports/party/SalePurchaseByParty";
 import SalePurchaseByPartyGroup from "../pages/reports/party/SalePurchaseByPartyGroup";
-import Settings from "../pages/settings/Settings";
+// import Settings from "../pages/settings/Settings";
 import MainLayout from "../layouts/MainLayout";
 import SelectItemsForReminder from "../pages/settings/SelectItemsForReminder";
 import CompanyList from "../pages/company/CompanyList";
