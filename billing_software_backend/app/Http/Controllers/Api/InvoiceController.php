@@ -10,6 +10,7 @@ use App\Models\Payment;
 use App\Models\Customer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 class InvoiceController extends Controller
 {
@@ -875,20 +876,55 @@ class InvoiceController extends Controller
         }
     }
 
+    private function ensurePaymentsTable()
+    {
+        if (Schema::hasTable('payments')) {
+            if (!Schema::hasColumn('payments', 'receipt_no')) {
+                Schema::table('payments', function ($table) {
+                    $table->string('receipt_no', 100)->nullable();
+                });
+            }
+            if (!Schema::hasColumn('payments', 'payment_date')) {
+                Schema::table('payments', function ($table) {
+                    $table->date('payment_date')->nullable();
+                });
+            }
+            if (!Schema::hasColumn('payments', 'payment_type')) {
+                Schema::table('payments', function ($table) {
+                    $table->string('payment_type', 50)->default('invoice_payment');
+                });
+            }
+            if (!Schema::hasColumn('payments', 'discount_amount')) {
+                Schema::table('payments', function ($table) {
+                    $table->decimal('discount_amount', 10, 2)->default(0);
+                });
+            }
+        }
+    }
+
     public function payCustomerBulk(Request $request)
     {
-        $company_id     = intval($request->input('company_id', 0));
-        $customer_id    = intval($request->input('customer_id', 0));
-        $total_amount   = floatval($request->input('amount', 0));
-        $payment_method = $request->input('payment_method', 'cash');
-        $payment_date   = $request->input('payment_date', date('Y-m-d'));
-        $notes          = $request->input('notes', '');
+        $this->ensurePaymentsTable();
+
+        $company_id      = intval($request->input('company_id', 0));
+        $customer_id     = intval($request->input('customer_id', 0));
+        $received_amount = floatval($request->input('amount', 0));
+        $discount_amount = floatval($request->input('discount_amount', 0));
+        $total_amount    = $received_amount + $discount_amount;
+        $payment_method  = $request->input('payment_method', 'cash');
+        $payment_date    = $request->input('payment_date', date('Y-m-d'));
+        $receipt_no      = trim($request->input('receipt_no', ''));
+        $notes           = $request->input('notes', '');
 
         if ($customer_id <= 0) {
             return response()->json(['status' => false, 'message' => 'Invalid Customer ID'], 400);
         }
         if ($total_amount <= 0) {
             return response()->json(['status' => false, 'message' => 'Payment amount must be greater than 0'], 400);
+        }
+
+        if (!$receipt_no) {
+            $receipt_no = 'REC-' . time();
         }
 
         // Fetch all pending invoices for this customer, oldest first (FIFO)
@@ -932,14 +968,6 @@ class InvoiceController extends Controller
                         'payment_status' => $payment_status
                     ]);
 
-                    Payment::where('invoice_no', $invoice->invoice_no)->update([
-                        'paid_amount'    => $new_paid,
-                        'balance_amount' => $new_balance,
-                        'payment_method' => $payment_method,
-                        'payment_status' => $payment_status,
-                        'notes'          => $notes
-                    ]);
-
                     $applied[] = [
                         'invoice_id'   => $invoice->id,
                         'invoice_no'   => $invoice->invoice_no,
@@ -958,6 +986,60 @@ class InvoiceController extends Controller
             }
             $cust->save();
 
+            // Create dedicated Payment-In voucher record
+            Payment::create([
+                'company_id'      => $company_id ?: ($cust->company_id ?? 0),
+                'customer_id'     => $customer_id,
+                'invoice_no'      => $receipt_no,
+                'receipt_no'      => $receipt_no,
+                'total_amount'    => $total_amount,
+                'paid_amount'     => $received_amount,
+                'discount_amount' => $discount_amount,
+                'balance_amount'  => max(0.00, floatval($cust->pending_amount)),
+                'payment_method'  => strtolower($payment_method),
+                'payment_status'  => 'paid',
+                'payment_type'    => 'payment_in',
+                'payment_date'    => $payment_date,
+                'notes'           => $notes
+            ]);
+
+            // Auto record expense for Payment-in Discount if discount was given
+            if ($discount_amount > 0) {
+                try {
+                    $cat = \App\Models\ExpenseCategory::firstOrCreate(
+                        ['name' => 'Payment-in Discount', 'company_id' => $company_id ?: ($cust->company_id ?? 0)],
+                        ['type' => 'Direct Expense', 'admin_id' => $cust->admin_id ?? 0]
+                    );
+                    \App\Models\Expense::create([
+                        'company_id'     => $company_id ?: ($cust->company_id ?? 0),
+                        'admin_id'       => $cust->admin_id ?? 0,
+                        'category_id'    => $cat->id,
+                        'category_name'  => $cat->name,
+                        'expense_no'     => 'PID-' . time(),
+                        'expense_date'   => $payment_date,
+                        'party_name'     => $cust->name ?? 'Customer',
+                        'party_phone'    => $cust->phone ?? '',
+                        'total_amount'   => $discount_amount,
+                        'paid_amount'    => $discount_amount,
+                        'balance_amount' => 0,
+                        'payment_type'   => 'Discount',
+                        'description'    => 'Payment-in discount given to ' . ($cust->name ?? 'Customer') . ($notes ? " ({$notes})" : ""),
+                        'items'          => [
+                            [
+                                'item_name' => 'Payment Settlement Discount',
+                                'qty' => 1,
+                                'price' => $discount_amount,
+                                'tax_rate' => 0,
+                                'tax_amt' => 0,
+                                'amount' => $discount_amount
+                            ]
+                        ]
+                    ]);
+                } catch (\Exception $ex) {
+                    \Log::error("Failed to auto-record Payment-in Discount expense: " . $ex->getMessage());
+                }
+            }
+
             DB::commit();
 
             return response()->json([
@@ -971,6 +1053,109 @@ class InvoiceController extends Controller
             return response()->json([
                 'status'  => false,
                 'message' => 'Error recording bulk payment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get only Payment-In vouchers (recorded through Add Payment-In modal)
+     */
+    public function getPaymentIns(Request $request)
+    {
+        $this->ensurePaymentsTable();
+
+        $admin_id   = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+        $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+
+        if (!$admin_id) {
+            return response()->json(["status" => false, "message" => "admin_id required"]);
+        }
+
+        $query = DB::table('payments as p')
+            ->leftJoin('customers as c', 'c.id', '=', 'p.customer_id')
+            ->leftJoin('companies as comp', 'comp.id', '=', 'p.company_id')
+            ->select(
+                'p.id',
+                'p.company_id',
+                'p.customer_id',
+                'p.invoice_no',
+                'p.receipt_no',
+                'p.total_amount',
+                'p.paid_amount',
+                'p.discount_amount',
+                'p.balance_amount',
+                'p.payment_method',
+                'p.payment_status',
+                'p.notes',
+                'p.payment_date',
+                'p.created_at',
+                'c.name as customer_name',
+                'c.name',
+                'c.phone as phone_number',
+                'comp.company_name'
+            )
+            ->where(function ($q) {
+                $q->where('p.payment_type', 'payment_in')
+                  ->orWhere('p.notes', 'like', '%Payment received%')
+                  ->orWhere('p.receipt_no', 'like', 'REC-%');
+            })
+            ->orderBy('p.id', 'desc');
+
+        if ($admin_id > 0) {
+            $query->where(function ($q) use ($admin_id) {
+                $q->where('c.admin_id', $admin_id)
+                  ->orWhereNull('c.admin_id');
+            });
+        }
+
+        if ($company_id > 0) {
+            $query->where('p.company_id', $company_id);
+        }
+
+        $records = $query->get();
+
+        return response()->json([
+            "status" => true,
+            "data"   => $records
+        ]);
+    }
+
+    /**
+     * Delete a Payment-In voucher and restore customer balance
+     */
+    public function deletePaymentIn(Request $request)
+    {
+        $id = intval($request->input('id', 0));
+        if ($id <= 0) {
+            return response()->json(['status' => false, 'message' => 'Invalid Payment ID']);
+        }
+
+        $payment = Payment::find($id);
+        if (!$payment) {
+            return response()->json(['status' => false, 'message' => 'Payment record not found']);
+        }
+
+        DB::beginTransaction();
+        try {
+            $cust = Customer::find($payment->customer_id);
+            if ($cust) {
+                $restoreAmt = floatval($payment->paid_amount) + floatval($payment->discount_amount);
+                $cust->pending_amount = floatval($cust->pending_amount) + $restoreAmt;
+                $cust->save();
+            }
+
+            $payment->delete();
+            DB::commit();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Payment-In voucher deleted successfully and customer balance restored.'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error deleting payment: ' . $e->getMessage()
             ], 500);
         }
     }

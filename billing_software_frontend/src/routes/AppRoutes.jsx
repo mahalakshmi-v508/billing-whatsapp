@@ -62,19 +62,22 @@ import SupplierEditProduct from "../pages/SupplierProduct/SupplierEditProduct";
 import PurchaseList from "../pages/purchase/PurchaseList";
 import PurchaseForm from "../pages/purchase/PurchaseForm";
 import PurchaseGSTReport from "../pages/purchase/PurchaseGSTReport";
+import PurchaseSubmenuView from "../pages/purchase/PurchaseSubmenuView";
+import PaymentOut from "../pages/purchase/payment_out/PaymentOut";
+import DebitNoteList from "../pages/purchase/debit_note/DebitNoteList";
+import AddDebitNote from "../pages/purchase/debit_note/AddDebitNote";
+import ExpenseList from "../pages/purchase/expenses/ExpenseList";
+import AddExpense from "../pages/purchase/expenses/AddExpense";
 import TicketList from "../pages/helpdesk/TicketList";
 import TicketDetails from "../pages/helpdesk/TicketDetails";
 import HelpdeskDashboard from "../pages/helpdesk/HelpdeskDashboard";
 import WhatsAppChat from "../pages/whatsapp/WhatsAppChat";
 
-
-
 export default function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-
-          {/* 🔓 Public */}
+        {/* 🔓 Public Routes */}
         <Route
           path="/"
           element={
@@ -83,16 +86,22 @@ export default function AppRoutes() {
             </PublicRoute>
           }
         />
-
         <Route path="/register" element={<Register />} />
-                <Route path="/registercompany" element={<RegisterCompany />} />
-
+        <Route path="/registercompany" element={<RegisterCompany />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* ⚡ Standalone Full-Screen Routes (Add Sale & Invoice Preview) */}
+        {/* ⚡ Standalone Full-Screen Routes (Add Sale, Add Purchase, Debit Note, Expenses & Invoice Preview) */}
         <Route element={<ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]} />}>
           <Route path="/sales/add" element={<AddSale />} />
           <Route path="/sales/edit/:invoiceNo" element={<AddSale />} />
+          <Route path="/sales/credit-note/add" element={<AddCreditNote />} />
+          <Route path="/sales/credit-note/edit/:id" element={<AddCreditNote />} />
+          <Route path="/purchases/new" element={<PurchaseForm />} />
+          <Route path="/purchases/edit/:id" element={<PurchaseForm />} />
+          <Route path="/purchases/debit-note/add" element={<AddDebitNote />} />
+          <Route path="/purchases/debit-note/edit/:id" element={<AddDebitNote />} />
+          <Route path="/purchases/expenses/add" element={<AddExpense />} />
+          <Route path="/purchases/expenses/edit/:id" element={<AddExpense />} />
           <Route path="/invoice/:invoiceNo" element={<Invoice />} />
           <Route path="/invoice" element={<Invoice />} />
         </Route>
@@ -100,81 +109,93 @@ export default function AppRoutes() {
         {/* 🔐 Protected Routes with MainLayout */}
         <Route
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]}>
               <MainLayout />
             </ProtectedRoute>
           }
         >
-          {/* 1. Common routes allowed for admin, cashier, superadmin, developer */}
-          <Route element={<ProtectedRoute allowedRoles={["admin", "cashier", "superadmin", "developer"]} />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/sales/invoices" element={<SaleInvoices />} />
-            <Route path="/sales/quotations" element={<SaleSubmenuView type="quotation" title="Estimate / Quotation" />} />
-            <Route path="/sales/proforma" element={<SaleSubmenuView type="proforma" title="Proforma Invoice" />} />
-            <Route path="/sales/payment-in" element={<PaymentIn />} />
-            <Route path="/sales/order" element={<SaleSubmenuView type="order" title="Sale Order" />} />
-            <Route path="/sales/delivery-challan" element={<SaleSubmenuView type="challan" title="Delivery Challan" />} />
-            <Route path="/sales/credit-note" element={<CreditNoteList />} />
-            <Route path="/sales/credit-note/add" element={<AddCreditNote />} />
-            <Route path="/sales/credit-note/edit/:id" element={<AddCreditNote />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/change-password" element={<ChangePassword />} />
-            <Route path="/payment-pending" element={<PaymentPending />} />
-            <Route path="/paymentpending-history" element={<PaymentPendingHistory />} />
-            <Route path="/helpdesk" element={<TicketList />} />
-            <Route path="/helpdesk/ticket/:id" element={<TicketDetails />} />
-            <Route path="/helpdesk/analytics" element={<HelpdeskDashboard />} />
-          </Route>
+          {/* 1. Core & Admin/Cashier Management Routes */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/change-password" element={<ChangePassword />} />
+          
+          <Route path="/products" element={<ProductList />} />
+          <Route path="/products/add" element={<ProductForm />} />
+          <Route path="/products/edit/:id" element={<EditProduct />} />
+          
+          <Route path="/sales" element={<SaleInvoices />} />
+          <Route path="/sales/invoices" element={<SaleInvoices />} />
+          <Route path="/sales/payment-in" element={<PaymentIn />} />
+          <Route path="/sales/return" element={<CreditNoteList />} />
+          <Route path="/sales/credit-note" element={<CreditNoteList />} />
+          <Route path="/sales/estimate" element={<SaleSubmenuView type="estimate" title="Estimate/Quotation" />} />
+          <Route path="/sales/quotations" element={<SaleSubmenuView type="quotation" title="Estimate / Quotation" />} />
+          <Route path="/sales/proforma" element={<SaleSubmenuView type="proforma" title="Proforma Invoice" />} />
+          <Route path="/sales/order" element={<SaleSubmenuView type="sale_order" title="Sale Order" />} />
+          <Route path="/sales/delivery-challan" element={<SaleSubmenuView type="delivery_challan" title="Delivery Challan" />} />
+          
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/reports/sales" element={<Reports />} />
+          <Route path="/reports/payment-pending" element={<PaymentPending />} />
+          <Route path="/reports/payment-pending-history" element={<PaymentPendingHistory />} />
+          <Route path="/payment-pending" element={<PaymentPending />} />
+          <Route path="/paymentpending-history" element={<PaymentPendingHistory />} />
+          
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/company" element={<CompanyList />} />
+          <Route path="/company/add" element={<CompanyForm />} />
+          <Route path="/company/edit/:id" element={<EditCompany />} />
+          
+          <Route path="/customer" element={<CustomerList />} />
+          <Route path="/customer/add" element={<CustomerForm />} />
+          <Route path="/customer/edit/:id" element={<EditCustomer />} />
+          
+          <Route path="/cashier/add" element={<CashierForm />} />
+          <Route path="/cashier" element={<CashierList />} />
+          <Route path="/cashier/edit/:id" element={<EditCashier />} />
+          
+          <Route path="/category/add" element={<CategoryForm />} />
+          <Route path="/category" element={<CategoryList />} />
+          <Route path="/category/edit/:id" element={<EditCategory />} />
+          
+          <Route path="/subcategory/add" element={<SubcategoryForm />} />
+          <Route path="/subcategory" element={<SubcategoryList />} />
+          <Route path="/subcategory/edit/:id" element={<EditSubcategory />} />
+          
+          <Route path="/brand/add" element={<BrandForm />} />
+          <Route path="/brand" element={<BrandList />} />
+          <Route path="/brand/edit/:id" element={<EditBrand />} />
+          
+          <Route path="/supplier/add" element={<SupplierForm />} />
+          <Route path="/supplier" element={<SupplierList />} />
+          <Route path="/supplier/edit/:id" element={<EditSupplier />} />
+          <Route path="/supplier/:supplierId/products" element={<SupplierProductList />} />
+          <Route path="/supplier/:supplierId/add-product" element={<SupplierAddProductForm />} />
+          <Route path="/supplier/:supplierId/products/edit/:id" element={<SupplierEditProduct />} />
+          
+          <Route path="/purchases" element={<PurchaseList />} />
+          <Route path="/purchases/bills" element={<PurchaseList />} />
+          <Route path="/purchases/payment-out" element={<PaymentOut />} />
+          <Route path="/purchases/expenses" element={<ExpenseList />} />
+          <Route path="/purchases/return" element={<DebitNoteList />} />
+          <Route path="/purchases/reports" element={<PurchaseGSTReport />} />
+          
+          <Route path="/tax" element={<TaxList />} />
+          <Route path="/tax/add" element={<TaxForm />} />
+          <Route path="/credit-settings" element={<CreditSettings />} />
+          <Route path="/whatsapp" element={<WhatsAppChat />} />
+          
+          <Route path="/helpdesk" element={<TicketList />} />
+          <Route path="/helpdesk/ticket/:id" element={<TicketDetails />} />
+          <Route path="/helpdesk/analytics" element={<HelpdeskDashboard />} />
 
+          {/* Cashier and Admin billing route */}
+          <Route path="/billing" element={<Billing />} />
+        </Route>
 
-          {/* 2. Admin-only routes */}
-          <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-            <Route path="/products" element={<ProductList />} />
-            <Route path="/products/add" element={<ProductForm />} />
-            <Route path="/products/edit/:id" element={<EditProduct />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/company" element={<CompanyList />} />
-            <Route path="/company/add" element={<CompanyForm />} />
-            <Route path="/company/edit/:id" element={<EditCompany />} />
-            <Route path="/customer" element={<CustomerList />} />
-            <Route path="/customer/add" element={<CustomerForm />} />
-            <Route path="/customer/edit/:id" element={<EditCustomer />} />
-            <Route path="/cashier/add" element={<CashierForm />} />
-            <Route path="/cashier" element={<CashierList />} />
-            <Route path="/cashier/edit/:id" element={<EditCashier />} />
-            <Route path="/category/add" element={<CategoryForm />} />
-            <Route path="/category" element={<CategoryList />} />
-            <Route path="/category/edit/:id" element={<EditCategory />} />
-            <Route path="/subcategory/add" element={<SubcategoryForm />} />
-            <Route path="/subcategory" element={<SubcategoryList />} />
-            <Route path="/subcategory/edit/:id" element={<EditSubcategory />} />
-            <Route path="/brand/add" element={<BrandForm />} />
-            <Route path="/brand" element={<BrandList />} />
-            <Route path="/brand/edit/:id" element={<EditBrand />} />
-            <Route path="/supplier/add" element={<SupplierForm />} />
-            <Route path="/supplier" element={<SupplierList />} />
-            <Route path="/supplier/edit/:id" element={<EditSupplier />} />
-            <Route path="/supplier/:supplierId/products" element={<SupplierProductList />} />
-            <Route path="/supplier/:supplierId/add-product" element={<SupplierAddProductForm />} />
-            <Route path="/supplier/:supplierId/products/edit/:id" element={<SupplierEditProduct />} />
-            <Route path="/purchases" element={<PurchaseList />} />
-            <Route path="/purchases/new" element={<PurchaseForm />} />
-            <Route path="/purchases/edit/:id" element={<PurchaseForm />} />
-            <Route path="/purchases/reports" element={<PurchaseGSTReport />} />
-            <Route path="/tax" element={<TaxList />} />
-            <Route path="/tax/add" element={<TaxForm />} />
-            <Route path="/credit-settings" element={<CreditSettings />} />
-            <Route path="/whatsapp" element={<WhatsAppChat />} />
-          </Route>
-
-          {/* 3. Cashier and Admin billing route */}
-          <Route element={<ProtectedRoute allowedRoles={["admin", "cashier"]} />}>
-            <Route path="/billing" element={<Billing />} />
-          </Route>
-
-          {/* 4. Superadmin-only routes */}
-          <Route element={<ProtectedRoute allowedRoles={["superadmin"]} />}>
+        {/* 2. Superadmin-only routes */}
+        <Route element={<ProtectedRoute allowedRoles={["superadmin"]} />}>
+          <Route element={<MainLayout />}>
             <Route path="/admin" element={<AdminList />} />
             <Route path="/admin/add" element={<AdminForm />} />
             <Route path="/admin/edit/:id" element={<EditAdmin />} />

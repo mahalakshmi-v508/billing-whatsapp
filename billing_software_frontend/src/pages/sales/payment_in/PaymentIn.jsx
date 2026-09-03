@@ -82,6 +82,14 @@ export default function PaymentIn() {
     let from = new Date();
     let to = new Date();
 
+    if (type === "all_time" || type === "all") {
+      setFromDate("");
+      setToDate("");
+      setPeriod("all_time");
+      setPeriodOpen(false);
+      return;
+    }
+
     if (type === "today") {
       from = now;
       to = now;
@@ -136,7 +144,7 @@ export default function PaymentIn() {
     if (!adminId) return;
     setLoading(true);
     try {
-      const res = await api.get(`/invoice/get_pending_invoice_history?admin_id=${adminId}`);
+      const res = await api.get(`/invoice/get_payment_ins?admin_id=${adminId}`);
       if (res.data.status) {
         setPayments(res.data.data || []);
       } else {
@@ -165,21 +173,13 @@ export default function PaymentIn() {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
-  // Filtered Payments List (Option B: Only show credit payment receipts; exclude direct cash sales)
+  // Filtered Payments List (Show only Payment-In receipts recorded through Add Payment-In)
   const filteredPayments = useMemo(() => {
     return payments.filter((item) => {
-      // 1. Exclude direct counter cash sales (which belong in Sale Invoices)
-      const isDirectCashSale = String(item.payment_type || "").toLowerCase() === "cash";
-      if (isDirectCashSale) return false;
-
-      // 2. Only show credit transactions where money was actually received
-      const receivedAmt = parseFloat(item.paid_amount ?? item.paid_amount_total ?? 0);
-      if (receivedAmt <= 0) return false;
-
       // Date range filter
-      if (fromDate && toDate && item.created_at) {
-        const itemDate = item.created_at.split("T")[0].split(" ")[0];
-        if (itemDate < fromDate || itemDate > toDate) return false;
+      if (fromDate && toDate) {
+        const itemDate = (item.payment_date || item.created_at || "").split("T")[0].split(" ")[0];
+        if (itemDate && (itemDate < fromDate || itemDate > toDate)) return false;
       }
 
       // Firm filter
@@ -195,11 +195,11 @@ export default function PaymentIn() {
       // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const refNo = String(item.id || item.invoice_no || "").toLowerCase();
-        const partyName = String(item.customer_name || "").toLowerCase();
+        const refNo = String(item.receipt_no || item.invoice_no || item.id || "").toLowerCase();
+        const partyName = String(item.customer_name || item.name || "").toLowerCase();
         const paymentType = String(item.payment_method || "").toLowerCase();
         const total = String(item.total_amount || "");
-        const received = String(item.paid_amount || item.paid_amount_total || "");
+        const received = String(item.paid_amount || "");
         if (
           !refNo.includes(q) &&
           !partyName.includes(q) &&
@@ -215,20 +215,23 @@ export default function PaymentIn() {
     });
   }, [payments, fromDate, toDate, selectedFirm, selectedUser, searchQuery]);
 
-  // Summary Metrics (Total Amount, Received Amount, Balance Amount)
+  // Summary Metrics (Total Amount, Received Amount, Discount Amount, Balance Amount)
   const metrics = useMemo(() => {
     let total = 0;
     let received = 0;
+    let discount = 0;
     let balance = 0;
     filteredPayments.forEach((p) => {
-      const tot = parseFloat(p.total_amount || 0);
-      const rec = parseFloat(p.paid_amount || p.paid_amount_total || 0);
-      const bal = parseFloat(p.balance_amount !== undefined ? p.balance_amount : Math.max(0, tot - rec));
+      const tot = parseFloat(p.total_amount || p.paid_amount || 0);
+      const rec = parseFloat(p.paid_amount || 0);
+      const disc = parseFloat(p.discount_amount || 0);
+      const bal = parseFloat(p.balance_amount || 0);
       total += tot;
       received += rec;
+      discount += disc;
       balance += bal;
     });
-    return { total, received, balance };
+    return { total, received, discount, balance };
   }, [filteredPayments]);
 
   // Reset page when filters change
@@ -251,14 +254,15 @@ export default function PaymentIn() {
       return;
     }
     const data = filteredPayments.map((p, idx) => ({
-      Date: formatDateDMY(p.created_at),
-      "Ref. no.": idx + 1,
-      "Party Name": p.customer_name || "Cash Customer",
-      "Total Amount": parseFloat(p.total_amount || 0),
-      Received: parseFloat(p.paid_amount || p.paid_amount_total || 0),
-      Balance: parseFloat(p.balance_amount !== undefined ? p.balance_amount : Math.max(0, parseFloat(p.total_amount || 0) - parseFloat(p.paid_amount || p.paid_amount_total || 0))),
+      Date: formatDateDMY(p.payment_date || p.created_at),
+      "Receipt No": p.receipt_no || p.invoice_no || `#${idx + 1}`,
+      "Party Name": p.customer_name || p.name || "Customer",
+      "Total Amount": parseFloat(p.total_amount || p.paid_amount || 0),
+      Received: parseFloat(p.paid_amount || 0),
+      Discount: parseFloat(p.discount_amount || 0),
+      Balance: parseFloat(p.balance_amount || 0),
       "Payment Type": p.payment_method || "Cash",
-      Status: (parseFloat(p.balance_amount !== undefined ? p.balance_amount : Math.max(0, parseFloat(p.total_amount || 0) - parseFloat(p.paid_amount || p.paid_amount_total || 0))) <= 0) ? "Paid" : "Partial",
+      Status: parseFloat(p.balance_amount || 0) <= 0 ? "Paid" : "Partial",
     }));
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
@@ -271,17 +275,16 @@ export default function PaymentIn() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await api.post("/invoice/delete_invoice", {
-        invoice_no: deleteTarget.invoice_no,
+      const res = await api.post("/invoice/delete_payment_in", {
         id: deleteTarget.id,
       });
       if (res.data.status) {
         setPayments((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-        setActionToast({ msg: "Payment record deleted successfully.", ok: true });
+        setActionToast({ msg: "Payment-In voucher deleted successfully.", ok: true });
         setDeleteTarget(null);
         setTimeout(() => setActionToast(null), 3500);
       } else {
-        setActionToast({ msg: res.data.message || "Failed to delete record.", ok: false });
+        setActionToast({ msg: res.data.message || "Failed to delete voucher.", ok: false });
         setTimeout(() => setActionToast(null), 3500);
       }
     } catch (err) {
@@ -334,13 +337,14 @@ export default function PaymentIn() {
             }}
             className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-semibold rounded-full border border-blue-200/60 transition cursor-pointer"
           >
-            <span className="capitalize">{period.replace("_", " ")}</span>
+            <span className="capitalize">{period === "all_time" ? "All Time" : period.replace("_", " ")}</span>
             <ChevronDown size={13} />
           </button>
 
           {periodOpen && (
             <div className="absolute left-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95">
               {[
+                { label: "All Time", val: "all_time" },
                 { label: "Today", val: "today" },
                 { label: "This Week", val: "this_week" },
                 { label: "This Month", val: "this_month" },
@@ -369,7 +373,9 @@ export default function PaymentIn() {
           >
             <Calendar size={13} className="text-blue-600" />
             <span>
-              {formatDateDMY(fromDate)} To {formatDateDMY(toDate)}
+              {fromDate && toDate
+                ? `${formatDateDMY(fromDate)} To ${formatDateDMY(toDate)}`
+                : "All Time"}
             </span>
           </button>
 
@@ -495,7 +501,7 @@ export default function PaymentIn() {
 
       {/* ── 3. METRIC CARD (Matching media_1787829087014.png) ── */}
       <div className="pt-2">
-        <div className="w-80 rounded-2xl border border-purple-200/80 bg-purple-50/20 p-4 shadow-xs">
+        <div className="w-[420px] max-w-full rounded-2xl border border-purple-200/80 bg-purple-50/20 p-4 shadow-xs">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-xs font-semibold text-slate-500 block">Total Amount</span>
@@ -511,16 +517,22 @@ export default function PaymentIn() {
             </div>
           </div>
 
-          <div className="mt-3 pt-2 border-t border-purple-100 flex items-center justify-between text-xs font-semibold text-slate-600">
+          <div className="mt-3 pt-2 border-t border-purple-100 grid grid-cols-3 gap-2 text-xs font-semibold text-slate-600">
             <div>
               Received:{" "}
-              <strong className="text-emerald-700 font-bold">
+              <strong className="text-emerald-700 font-bold block sm:inline">
                 ₹ {metrics.received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
               </strong>
             </div>
             <div>
+              Discount:{" "}
+              <strong className="text-amber-600 font-bold block sm:inline">
+                ₹ {metrics.discount.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+              </strong>
+            </div>
+            <div>
               Balance:{" "}
-              <strong className="text-red-600 font-bold">
+              <strong className="text-red-600 font-bold block sm:inline">
                 ₹ {metrics.balance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
               </strong>
             </div>
@@ -624,6 +636,12 @@ export default function PaymentIn() {
                 </th>
                 <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
                   <div className="flex items-center justify-end gap-1.5">
+                    <span>Discount</span>
+                    <Filter size={11} className="text-slate-400" />
+                  </div>
+                </th>
+                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1.5">
                     <span>Balance</span>
                     <Filter size={11} className="text-slate-400" />
                   </div>
@@ -647,46 +665,46 @@ export default function PaymentIn() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={10} className="py-12 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-blue-500 mx-auto mb-2" />
                     <span>Loading Payment-In Records...</span>
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={10} className="py-12 text-center text-slate-400">
                     <p className="font-semibold text-slate-500">No payment-in transactions found.</p>
                     <p className="text-xs text-slate-400 mt-1">Click &quot;+ Add Payment-In&quot; to record customer credit payment.</p>
                   </td>
                 </tr>
               ) : (
                 paginatedPayments.map((p, idx) => {
-                  const refNo = (safePage - 1) * rowsPerPage + idx + 1;
-                  const total = parseFloat(p.total_amount || 0);
-                  const received = parseFloat(p.paid_amount || p.paid_amount_total || 0);
-                  const balance = parseFloat(p.balance_amount !== undefined ? p.balance_amount : Math.max(0, total - received));
+                  const refNo = p.receipt_no || p.invoice_no || String((safePage - 1) * rowsPerPage + idx + 1);
+                  const total = parseFloat(p.total_amount || p.paid_amount || 0);
+                  const received = parseFloat(p.paid_amount || 0);
+                  const discountAmt = parseFloat(p.discount_amount || 0);
+                  const balance = parseFloat(p.balance_amount || 0);
                   const status = balance <= 0 ? "paid" : "partial";
                   const isMenuOpen = activeMenuId === p.id;
 
                   return (
                     <tr
                       key={p.id || idx}
-                      className="group hover:bg-[#eaedf2] transition-colors duration-150 text-slate-700 cursor-pointer"
-                      onClick={() => navigate(`/invoice/${p.invoice_no}`)}
+                      className="group hover:bg-[#eaedf2] transition-colors duration-150 text-slate-700"
                     >
                       {/* Date */}
                       <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-600 group-hover:text-slate-900 whitespace-nowrap">
-                        {formatDateDMY(p.created_at)}
+                        {formatDateDMY(p.payment_date || p.created_at)}
                       </td>
 
                       {/* Ref. no. */}
                       <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 text-right whitespace-nowrap">
-                        {refNo}
+                        #{refNo}
                       </td>
 
                       {/* Party Name */}
                       <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 whitespace-nowrap">
-                        {p.customer_name || "Cash Customer"}
+                        {p.customer_name || p.name || "Customer"}
                       </td>
 
                       {/* Total Amount */}
@@ -697,6 +715,11 @@ export default function PaymentIn() {
                       {/* Received */}
                       <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-900 text-right whitespace-nowrap">
                         ₹ {received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                      </td>
+
+                      {/* Discount */}
+                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-amber-600 group-hover:text-amber-700 text-right whitespace-nowrap">
+                        ₹ {discountAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                       </td>
 
                       {/* Balance */}

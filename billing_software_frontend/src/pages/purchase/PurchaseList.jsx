@@ -1,22 +1,64 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search, Phone, Mail, MapPin, Wallet } from "lucide-react";
+import {
+  FileSpreadsheet,
+  Printer,
+  Search,
+  Plus,
+  MoreVertical,
+  Share2,
+  Eye,
+  Pencil,
+  Trash2,
+  CreditCard,
+  History,
+  Wallet,
+  Calendar,
+  ChevronDown,
+  Upload,
+  ArrowUpDown,
+  X,
+  FileText,
+  RefreshCw
+} from "lucide-react";
+import * as XLSX from "xlsx";
+
+const periodLabels = {
+  today: "Today",
+  yesterday: "Yesterday",
+  this_week: "This Week",
+  this_month: "This Month",
+  last_month: "Last Month",
+  this_year: "This Year",
+  all_time: "All Time",
+  custom: "Custom",
+};
 
 export default function PurchaseList() {
   const navigate = useNavigate();
+
+  // State
   const [purchases, setPurchases] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(
     localStorage.getItem("selected_company_id") || ""
   );
   const [suppliers, setSuppliers] = useState([]);
-  const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [supplierSearch, setSupplierSearch] = useState("");
 
-  // Payment Modal States
+  // Filters State
+  const [period, setPeriod] = useState("this_month");
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedFirm, setSelectedFirm] = useState("all");
+  const [firmOpen, setFirmOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeMenuId, setActiveMenuId] = useState(null);
+
+  // Modals
   const [showPayModal, setShowPayModal] = useState(false);
   const [paymentPurchase, setPaymentPurchase] = useState(null);
   const [payAmount, setPayAmount] = useState(0);
@@ -25,13 +67,13 @@ export default function PurchaseList() {
   const [payNotes, setPayNotes] = useState("");
   const [submittingPayment, setSubmittingPayment] = useState(false);
 
-  // History Modal States
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistorySupplier, setSelectedHistorySupplier] = useState(null);
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Bulk Pay Modal States
   const [showBulkPayModal, setShowBulkPayModal] = useState(false);
+  const [bulkSupplier, setBulkSupplier] = useState(null);
   const [bulkAmount, setBulkAmount] = useState("");
   const [bulkMethod, setBulkMethod] = useState("cash");
   const [bulkDate, setBulkDate] = useState(new Date().toISOString().split("T")[0]);
@@ -39,17 +81,103 @@ export default function PurchaseList() {
   const [submittingBulk, setSubmittingBulk] = useState(false);
   const [bulkPreview, setBulkPreview] = useState([]);
 
+  // Date Formatting Helper
+  const formatYMD = (date) => {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatDateDMY = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Compute period dates
+  useEffect(() => {
+    const now = new Date();
+    let start = new Date();
+    let end = new Date();
+
+    switch (period) {
+      case "today":
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case "yesterday":
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        break;
+      case "this_week":
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+        start = new Date(now.setDate(diff));
+        end = new Date();
+        break;
+      case "this_month":
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+      case "last_month":
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 0);
+        break;
+      case "this_year":
+        start = new Date(now.getFullYear(), 0, 1);
+        end = new Date(now.getFullYear(), 11, 31);
+        break;
+      case "all_time":
+        start = null;
+        end = null;
+        break;
+      default:
+        return;
+    }
+
+    if (start && end) {
+      setStartDate(formatYMD(start));
+      setEndDate(formatYMD(end));
+    } else {
+      setStartDate("");
+      setEndDate("");
+    }
+  }, [period]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleOutside = () => {
+      setActiveMenuId(null);
+      setPeriodOpen(false);
+      setFirmOpen(false);
+    };
+    window.addEventListener("click", handleOutside);
+    return () => window.removeEventListener("click", handleOutside);
+  }, []);
+
+  // Initial Companies Load
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user) return;
 
     api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
-      .then(res => {
+      .then((res) => {
         if (res.data.status) {
           setCompanies(res.data.data);
           const savedId = localStorage.getItem("selected_company_id");
           if (savedId) {
+            setSelectedCompany(savedId);
+            setSelectedFirm(savedId);
             fetchPurchasesAndSuppliers(savedId);
+          } else if (res.data.data.length > 0) {
+            setSelectedFirm("all");
+            fetchPurchasesAndSuppliers("all", res.data.data);
           } else {
             setLoading(false);
           }
@@ -60,29 +188,61 @@ export default function PurchaseList() {
       .catch(() => setLoading(false));
   }, []);
 
-  const fetchPurchasesAndSuppliers = async (companyId) => {
+  // Fetch Purchases (supports 'all' companies or specific company)
+  const fetchPurchasesAndSuppliers = async (firmId = selectedFirm, companyList = companies) => {
     setLoading(true);
     try {
-      // Fetch Purchases
-      const pRes = await api.get(`/purchase/get_purchases?company_id=${companyId}`);
-      let fetchedPurchases = [];
-      if (pRes.data.status) {
-        fetchedPurchases = pRes.data.data;
-        setPurchases(fetchedPurchases);
+      let companyIds = [];
+      if (firmId === "all" || firmId === "ALL") {
+        companyIds = (companyList.length > 0 ? companyList : companies).map((c) => c.id);
+      } else {
+        companyIds = [Number(firmId)];
       }
 
-      // Fetch Suppliers
-      const sRes = await api.get(`/supplier/get_all?company_id=${companyId}`);
-      if (sRes.data.status) {
-        const fetchedSuppliers = sRes.data.data;
-        setSuppliers(fetchedSuppliers);
-        
-        // Auto-select first supplier if available
-        if (fetchedSuppliers.length > 0) {
-          setSelectedSupplier(fetchedSuppliers[0]);
-        } else {
-          setSelectedSupplier(null);
-        }
+      if (companyIds.length === 0 && (companyList.length > 0 || companies.length > 0)) {
+        companyIds = (companyList.length > 0 ? companyList : companies).map((c) => c.id);
+      }
+
+      if (companyIds.length > 0) {
+        const purchaseRequests = companyIds.map((cid) =>
+          api.get(`/purchase/get_purchases?company_id=${cid}`)
+        );
+        const supplierRequests = companyIds.map((cid) =>
+          api.get(`/supplier/get_all?company_id=${cid}`)
+        );
+
+        const [pResponses, sResponses] = await Promise.all([
+          Promise.all(purchaseRequests),
+          Promise.all(supplierRequests)
+        ]);
+
+        let allPurchases = [];
+        pResponses.forEach((res) => {
+          if (res.data.status && Array.isArray(res.data.data)) {
+            allPurchases = [...allPurchases, ...res.data.data];
+          }
+        });
+
+        let allSuppliers = [];
+        sResponses.forEach((res) => {
+          if (res.data.status && Array.isArray(res.data.data)) {
+            allSuppliers = [...allSuppliers, ...res.data.data];
+          }
+        });
+
+        // Deduplicate
+        const uniquePurchases = Array.from(new Map(allPurchases.map((p) => [p.id, p])).values());
+        uniquePurchases.sort(
+          (a, b) => new Date(b.purchase_date || b.created_at) - new Date(a.purchase_date || a.created_at)
+        );
+
+        const uniqueSuppliers = Array.from(new Map(allSuppliers.map((s) => [s.id, s])).values());
+
+        setPurchases(uniquePurchases);
+        setSuppliers(uniqueSuppliers);
+      } else {
+        setPurchases([]);
+        setSuppliers([]);
       }
     } catch (err) {
       console.error(err);
@@ -91,19 +251,60 @@ export default function PurchaseList() {
     }
   };
 
-  const handleCompanyChange = (companyId) => {
-    setSelectedCompany(companyId);
-    localStorage.setItem("selected_company_id", companyId);
-    fetchPurchasesAndSuppliers(companyId);
+  const handleFirmChange = (firmId) => {
+    setSelectedFirm(firmId);
+    if (firmId !== "all" && firmId !== "ALL") {
+      setSelectedCompany(firmId);
+      localStorage.setItem("selected_company_id", firmId);
+    }
+    fetchPurchasesAndSuppliers(firmId);
   };
 
+  // Filtered Purchases by Date & Search
+  const filteredPurchases = useMemo(() => {
+    return purchases.filter((p) => {
+      // Date filter
+      if (startDate && p.purchase_date < startDate) return false;
+      if (endDate && p.purchase_date > endDate) return false;
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const no = (p.purchase_no || "").toLowerCase();
+        const party = (p.supplier_name || "").toLowerCase();
+        const type = (p.payment_type || "").toLowerCase();
+        if (!no.includes(q) && !party.includes(q) && !type.includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [purchases, startDate, endDate, searchQuery]);
+
+  // Math summary bar metrics (Paid + Unpaid = Total)
+  const { totalPaid, totalUnpaid, grandTotal } = useMemo(() => {
+    let paid = 0;
+    let unpaid = 0;
+    let total = 0;
+    filteredPurchases.forEach((p) => {
+      const pTotal = Number(p.total_amount) || 0;
+      const pPaid = Number(p.paid_amount) || 0;
+      const pBal = Number(p.balance_amount) || 0;
+      paid += pPaid;
+      unpaid += pBal;
+      total += pTotal;
+    });
+    return { totalPaid: paid, totalUnpaid: unpaid, grandTotal: total };
+  }, [filteredPurchases]);
+
+  // Delete draft
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this draft purchase?")) return;
+    if (!window.confirm("Are you sure you want to delete this purchase draft?")) return;
     try {
       const res = await api.post(`/purchase/delete_purchase`, { id });
       if (res.data.status) {
         alert("Purchase draft deleted successfully");
-        fetchPurchasesAndSuppliers(selectedCompany);
+        fetchPurchasesAndSuppliers(selectedFirm);
       } else {
         alert(res.data.message);
       }
@@ -113,7 +314,7 @@ export default function PurchaseList() {
     }
   };
 
-  // Open Payment dialog
+  // Payment dialog
   const openPayModal = (purchase) => {
     setPaymentPurchase(purchase);
     setPayAmount(Number(purchase.balance_amount));
@@ -123,7 +324,6 @@ export default function PurchaseList() {
     setShowPayModal(true);
   };
 
-  // Submit Payment
   const submitPayment = async (e) => {
     e.preventDefault();
     if (payAmount <= 0) {
@@ -134,7 +334,6 @@ export default function PurchaseList() {
       alert(`Payment amount cannot exceed pending balance of ₹${paymentPurchase.balance_amount}`);
       return;
     }
-
     setSubmittingPayment(true);
     try {
       const res = await api.post("/purchase/pay_purchase", {
@@ -145,9 +344,9 @@ export default function PurchaseList() {
         notes: payNotes
       });
       if (res.data.status) {
-        alert("Payment recorded successfully");
+        alert(res.data.message);
         setShowPayModal(false);
-        fetchPurchasesAndSuppliers(selectedCompany);
+        fetchPurchasesAndSuppliers(selectedFirm);
       } else {
         alert(res.data.message);
       }
@@ -159,13 +358,13 @@ export default function PurchaseList() {
     }
   };
 
-  // Open supplier-level Payment History
-  const openSupplierHistoryModal = async (supplier) => {
-    setPaymentHistory([]);
+  // Supplier History Ledger Modal
+  const openSupplierHistoryModal = async (supplierId, supplierName) => {
+    setSelectedHistorySupplier({ id: supplierId, name: supplierName });
     setShowHistoryModal(true);
     setLoadingHistory(true);
     try {
-      const res = await api.get(`/purchase/get_supplier_payments?supplier_id=${supplier.id}`);
+      const res = await api.get(`/purchase/get_supplier_payments?supplier_id=${supplierId}`);
       if (res.data.status) {
         setPaymentHistory(res.data.data);
       }
@@ -176,20 +375,9 @@ export default function PurchaseList() {
     }
   };
 
-  // FIFO distribution preview helper
-  const distributePayment = (pendingBills, totalAmount) => {
-    let remaining = Number(totalAmount) || 0;
-    return pendingBills.map((p) => {
-      const bal = Number(p.balance_amount);
-      if (remaining <= 0) return { ...p, _applying: 0, _newBalance: bal };
-      const applying = Math.min(remaining, bal);
-      remaining -= applying;
-      return { ...p, _applying: applying, _newBalance: bal - applying };
-    });
-  };
-
-  // Open Bulk Pay modal
-  const openBulkPayModal = () => {
+  // Bulk Supplier Payment (FIFO settle across all supplier bills)
+  const openBulkPayDialog = (supplier) => {
+    setBulkSupplier(supplier);
     setBulkAmount("");
     setBulkMethod("cash");
     setBulkDate(new Date().toISOString().split("T")[0]);
@@ -198,31 +386,53 @@ export default function PurchaseList() {
     setShowBulkPayModal(true);
   };
 
-  // Live preview update on amount change
-  const handleBulkAmountChange = (val) => {
-    setBulkAmount(val);
-    const pendingBills = supplierBills.filter(p => Number(p.balance_amount) > 0 && p.status === "submitted");
-    const sorted = [...pendingBills].sort((a, b) => {
-      const da = new Date(a.purchase_date), db = new Date(b.purchase_date);
-      return da - db || a.id - b.id;
-    });
-    setBulkPreview(distributePayment(sorted, val));
+  const handleBulkAmountChange = (amt) => {
+    setBulkAmount(amt);
+    const numAmt = Number(amt) || 0;
+    if (!bulkSupplier || numAmt <= 0) {
+      setBulkPreview([]);
+      return;
+    }
+
+    const unpaidInvoices = purchases
+      .filter((p) => p.supplier_id === bulkSupplier.id && Number(p.balance_amount) > 0 && p.status === "submitted")
+      .sort((a, b) => new Date(a.purchase_date) - new Date(b.purchase_date));
+
+    let remaining = numAmt;
+    const preview = [];
+
+    for (const inv of unpaidInvoices) {
+      if (remaining <= 0) break;
+      const bal = Number(inv.balance_amount);
+      const apply = Math.min(bal, remaining);
+      preview.push({
+        id: inv.id,
+        purchase_no: inv.purchase_no || `#${inv.id}`,
+        purchase_date: inv.purchase_date,
+        total_amount: inv.total_amount,
+        balance_amount: bal,
+        allocated_amount: apply,
+        new_balance: bal - apply
+      });
+      remaining -= apply;
+    }
+
+    setBulkPreview(preview);
   };
 
-  // Submit Bulk Payment
   const submitBulkPayment = async (e) => {
     e.preventDefault();
-    if (!bulkAmount || Number(bulkAmount) <= 0) {
+    const numAmt = Number(bulkAmount) || 0;
+    if (numAmt <= 0) {
       alert("Please enter a valid amount!");
       return;
     }
-    if (!selectedSupplier) return;
-
     setSubmittingBulk(true);
     try {
       const res = await api.post("/purchase/pay_supplier_bulk", {
-        supplier_id: selectedSupplier.id,
-        amount: Number(bulkAmount),
+        company_id: selectedCompany,
+        supplier_id: bulkSupplier.id,
+        amount: numAmt,
         payment_method: bulkMethod,
         payment_date: bulkDate,
         notes: bulkNotes
@@ -230,540 +440,918 @@ export default function PurchaseList() {
       if (res.data.status) {
         alert(res.data.message);
         setShowBulkPayModal(false);
-        fetchPurchasesAndSuppliers(selectedCompany);
+        fetchPurchasesAndSuppliers(selectedFirm);
       } else {
         alert(res.data.message);
       }
     } catch (err) {
       console.error(err);
-      alert("Error recording bulk payment");
+      alert("Error making bulk payment");
     } finally {
       setSubmittingBulk(false);
     }
   };
 
-  // Helper formatting currency
-  const fmt = (n) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Helper number format
+  const fmt = (n) =>
+    Number(n || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
 
-  // Get total pending amount for a supplier (submitted invoices only, drafts excluded)
-  const getSupplierPendingTotal = (supplierId) => {
-    return purchases
-      .filter((p) => Number(p.supplier_id) === Number(supplierId) && p.status === "submitted")
-      .reduce((sum, p) => sum + Number(p.balance_amount || 0), 0);
+  // Excel Export
+  const exportToExcel = () => {
+    if (filteredPurchases.length === 0) {
+      alert("No data to export");
+      return;
+    }
+
+    const data = filteredPurchases.map((p, idx) => ({
+      "Sl No": idx + 1,
+      "Date": formatDateDMY(p.purchase_date),
+      "Invoice No": p.purchase_no || "N/A",
+      "Party Name": p.supplier_name || "Unknown",
+      "Payment Type": p.payment_type || "Cash",
+      "Sub Total (₹)": Number(p.sub_total || 0),
+      "GST Total (₹)": Number(p.gst_total || 0),
+      "Total Amount (₹)": Number(p.total_amount || 0),
+      "Paid Amount (₹)": Number(p.paid_amount || 0),
+      "Balance Due (₹)": Number(p.balance_amount || 0),
+      "Status": Number(p.balance_amount) <= 0 ? "Paid" : Number(p.paid_amount) > 0 ? "Partial" : "Unpaid"
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Purchase Bills");
+    XLSX.writeFile(workbook, `Purchase_Bills_${startDate || "All"}_${endDate || "All"}.xlsx`);
   };
 
-  // Filter suppliers by sidebar search
-  const filteredSuppliers = suppliers.filter((s) => {
-    const name = s.supplier_name ? s.supplier_name.toLowerCase() : "";
-    const phone = s.phone ? s.phone.toLowerCase() : "";
-    return name.includes(supplierSearch.toLowerCase()) || phone.includes(supplierSearch.toLowerCase());
-  });
-
-  // Filter current supplier's purchase bills by search bar input
-  const supplierBills = selectedSupplier
-    ? purchases.filter((p) => Number(p.supplier_id) === Number(selectedSupplier.id))
-    : [];
-
-  const filteredBills = supplierBills.filter((p) => {
-    const billNo = p.purchase_no ? p.purchase_no.toLowerCase() : "";
-    return billNo.includes(search.toLowerCase());
-  });
-
-  // Calculated totals of selected supplier
-  const selectedSupplierPendingTotal = selectedSupplier ? getSupplierPendingTotal(selectedSupplier.id) : 0;
-
   return (
-    <div style={{ minHeight: "100vh", background: "#f1f5f9", padding: 20, fontFamily: "Inter, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "18px 24px", fontFamily: "Inter, sans-serif" }}>
       
-      {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Supplier Purchases</h2>
-          <p style={{ margin: "3px 0 0", color: "#64748b", fontSize: 13 }}>Manage supplier purchase invoices, drafts, & credit payments</p>
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button
-            onClick={() => navigate("/purchases/reports")}
-            style={{
-              background: "#16a34a", color: "#fff", border: "none",
-              borderRadius: 10, padding: "10px 16px", fontWeight: 700, cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 7, fontSize: 13
-            }}
-          >
-            <FileSpreadsheet size={15} /> GST Report
-          </button>
+      {/* ── TOP HEADER ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0, letterSpacing: "-0.3px" }}>
+          Purchase Bills
+        </h1>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {/* + Add Purchase (Primary Red Button) */}
           <button
             onClick={() => navigate("/purchases/new")}
             style={{
-              background: "#ef4444", color: "#fff", border: "none",
-              borderRadius: 10, padding: "10px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13
+              background: "#ef4444",
+              border: "none",
+              color: "#ffffff",
+              borderRadius: 24,
+              padding: "9px 20px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              boxShadow: "0 2px 8px rgba(239, 68, 68, 0.25)"
             }}
           >
-            + Add Purchase
+            <Plus size={16} strokeWidth={2.5} /> Add Purchase
           </button>
         </div>
       </div>
 
-      {/* Company Selector Buttons */}
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          {companies.map((c) => {
-            const isActive = Number(selectedCompany) === Number(c.id);
-            return (
-              <button
-                key={c.id}
-                onClick={() => handleCompanyChange(c.id)}
+      {/* ── FILTER & ACTION BAR (Matches Reference Pill Design) ── */}
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: 16,
+          padding: "10px 18px",
+          border: "1px solid #e2e8f0",
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 16,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+        }}
+      >
+        {/* Left: Filter by label + Period Pill + Date Range Pill + Company Dropdown Pill */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: 13 }}>
+          <span style={{ fontWeight: 600, color: "#64748b", marginRight: 2 }}>Filter by :</span>
+
+          {/* 1. Period Pill Dropdown */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setPeriodOpen((v) => !v);
+                setFirmOpen(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 14px",
+                background: "#f0f9ff",
+                color: "#1e293b",
+                fontWeight: 600,
+                fontSize: 12.5,
+                borderRadius: 24,
+                border: "1px solid #bae6fd",
+                cursor: "pointer",
+                transition: "all 0.15s"
+              }}
+            >
+              <span>{periodLabels[period] || "This Month"}</span>
+              <ChevronDown size={14} style={{ color: "#64748b", transform: periodOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            </button>
+
+            {periodOpen && (
+              <div
+                onClick={(e) => e.stopPropagation()}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  border: isActive ? "2px solid #2563eb" : "1.5px solid #e5e7eb",
-                  backgroundColor: isActive ? "#2563eb" : "#ffffff",
-                  color: isActive ? "#ffffff" : "#475569",
-                  boxShadow: isActive ? "0 4px 12px rgba(37,99,235,0.15)" : "0 1px 3px rgba(0,0,0,0.05)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5
+                  position: "absolute",
+                  left: 0,
+                  top: 36,
+                  width: 150,
+                  background: "#ffffff",
+                  borderRadius: 12,
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                  border: "1px solid #e2e8f0",
+                  padding: "6px 0",
+                  zIndex: 999
                 }}
               >
-                <span>🏢</span> {c.company_name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 2-COLUMN SPLIT LAYOUT */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "300px 1fr",
-        gap: 16,
-        height: "calc(100vh - 150px)"
-      }}>
-
-        {/* ── LEFT PANEL: Suppliers List ── */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column" }}>
-          {/* Supplier Search */}
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", position: "relative" }}>
-            <Search size={15} style={{ position: "absolute", top: "50%", left: 24, transform: "translateY(-50%)", color: "#94a3b8" }} />
-            <input
-              placeholder="Search supplier..."
-              value={supplierSearch}
-              onChange={(e) => setSupplierSearch(e.target.value)}
-              style={{
-                width: "100%", padding: "9px 12px 9px 34px",
-                borderRadius: 10, border: "1px solid #e2e8f0",
-                outline: "none", fontSize: 13, boxSizing: "border-box"
-              }}
-            />
-          </div>
-          {/* Suppliers List */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
-            {loading ? (
-              <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Loading...</div>
-            ) : filteredSuppliers.length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No suppliers found</div>
-            ) : (
-              filteredSuppliers.map((s) => {
-                const pt = getSupplierPendingTotal(s.id);
-                const isSelected = selectedSupplier?.id === s.id;
-                return (
+                {Object.entries(periodLabels).map(([key, label]) => (
                   <div
-                    key={s.id}
+                    key={key}
                     onClick={() => {
-                      setSelectedSupplier(s);
-                      setSearch("");
+                      setPeriod(key);
+                      setPeriodOpen(false);
+                      if (key === "custom") setShowDatePicker(true);
                     }}
                     style={{
-                      padding: "12px 14px", borderBottom: "1px solid #f1f5f9",
-                      cursor: "pointer",
-                      background: isSelected ? "#eff6ff" : "#fff",
-                      borderLeft: isSelected ? "3px solid #2563eb" : "3px solid transparent",
-                      transition: "all 0.15s"
+                      padding: "7px 14px",
+                      fontSize: 12.5,
+                      fontWeight: period === key ? 700 : 500,
+                      color: period === key ? "#2563eb" : "#334155",
+                      background: period === key ? "#eff6ff" : "transparent",
+                      cursor: "pointer"
                     }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = period === key ? "#eff6ff" : "transparent")}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{s.supplier_name}</div>
-                        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{s.phone || "No phone"}</div>
-                      </div>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: pt > 0 ? "#ef4444" : "#94a3b8" }}>
-                        ₹{fmt(pt)}
-                      </div>
-                    </div>
+                    {label}
                   </div>
-                );
-              })
+                ))}
+              </div>
             )}
           </div>
-        </div>
 
-        {/* ── RIGHT PANEL: Invoice Table ── */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          
-          {selectedSupplier && (
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>
-                    {selectedSupplier.supplier_name}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-                    <Phone size={13} /> {selectedSupplier.phone || "N/A"}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-                    <Mail size={13} /> {selectedSupplier.email || "N/A"}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b" }}>
-                    <MapPin size={13} /> {selectedSupplier.address || "No address"}
-                  </div>
-                </div>
+          {/* 2. Date Range Pill Display */}
+          <div
+            onClick={() => setShowDatePicker((v) => !v)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 14px",
+              background: "#f0f9ff",
+              color: "#1e293b",
+              fontWeight: 500,
+              fontSize: 12.5,
+              borderRadius: 24,
+              border: "1px solid #bae6fd",
+              cursor: "pointer",
+              userSelect: "none"
+            }}
+          >
+            <Calendar size={14} style={{ color: "#64748b" }} />
+            <span>
+              {startDate ? formatDateDMY(startDate) : "01/09/2026"} To {endDate ? formatDateDMY(endDate) : "30/09/2026"}
+            </span>
+          </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  {/* Payment History Button */}
-                  <button
-                    onClick={() => openSupplierHistoryModal(selectedSupplier)}
-                    style={{
-                      background: "#f1f5f9", border: "1.5px solid #e2e8f0",
-                      borderRadius: 10, padding: "8px 14px", fontWeight: 700,
-                      cursor: "pointer", display: "flex", alignItems: "center",
-                      gap: 6, fontSize: 13, color: "#475569"
-                    }}
-                  >
-                    <History size={15} /> Payment History
-                  </button>
-
-                  {/* Pay All Pending Button – only show if supplier has pending balance */}
-                  {selectedSupplierPendingTotal > 0 && (
-                    <button
-                      onClick={openBulkPayModal}
-                      style={{
-                        background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                        border: "none", borderRadius: 10, padding: "8px 16px",
-                        fontWeight: 700, cursor: "pointer",
-                        display: "flex", alignItems: "center",
-                        gap: 6, fontSize: 13, color: "#ffffff",
-                        boxShadow: "0 4px 12px rgba(217,119,6,0.3)"
-                      }}
-                    >
-                      <Wallet size={15} /> Pay All Pending
-                    </button>
-                  )}
-
-                  {/* Total Pending Balance Badge */}
-                  {selectedSupplierPendingTotal > 0 && (
-                    <div style={{
-                      background: "#fef2f2", border: "1px solid #fecaca",
-                      borderRadius: 12, padding: "8px 16px", textAlign: "center"
-                    }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: ".5px" }}>
-                        Pending Balance
-                      </div>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: "#dc2626" }}>
-                        ₹{fmt(selectedSupplierPendingTotal)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Bills Search Toolbar */}
-          {selectedSupplier && (
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
-              <Search size={15} style={{ color: "#94a3b8" }} />
+          {/* Custom Date Picker Popover */}
+          {showDatePicker && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "#ffffff",
+                padding: "4px 12px",
+                borderRadius: 24,
+                border: "1px solid #cbd5e1",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                fontSize: 12
+              }}
+            >
               <input
-                placeholder="Search bills by Invoice/Bill No..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  flex: 1, padding: "8px 12px",
-                  borderRadius: 8, border: "1px solid #e2e8f0",
-                  outline: "none", fontSize: 13
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setPeriod("custom");
                 }}
+                style={{ fontSize: 12, color: "#334155", border: "none", outline: "none", cursor: "pointer" }}
+              />
+              <span style={{ color: "#94a3b8" }}>To</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setPeriod("custom");
+                }}
+                style={{ fontSize: 12, color: "#334155", border: "none", outline: "none", cursor: "pointer" }}
               />
             </div>
           )}
 
-          {/* Table Header */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr 1fr 1fr",
-            padding: "11px 20px",
-            background: "#f8fafc",
-            borderBottom: "1px solid #e5e7eb",
-            fontWeight: 700, fontSize: 12, color: "#64748b",
-            textTransform: "uppercase", letterSpacing: ".5px",
-            textAlign: "center", flexShrink: 0
-          }}>
-            <span style={{ textAlign: "left" }}>Date</span>
-            <span style={{ textAlign: "left" }}>Bill No</span>
-            <span>Total</span>
-            <span>Paid</span>
-            <span>Pending</span>
-            <span>Status</span>
-            <span>Actions</span>
-          </div>
+          {/* 3. Company / Firm Dropdown Pill */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setFirmOpen((v) => !v);
+                setPeriodOpen(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 14px",
+                background: "#f0f9ff",
+                color: "#1e293b",
+                fontWeight: 600,
+                fontSize: 12.5,
+                borderRadius: 24,
+                border: "1px solid #bae6fd",
+                cursor: "pointer",
+                transition: "all 0.15s"
+              }}
+            >
+              <span>
+                {selectedFirm === "all" || selectedFirm === "ALL"
+                  ? "All company"
+                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Company"}
+              </span>
+              <ChevronDown size={14} style={{ color: "#64748b", transform: firmOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            </button>
 
-          {/* Invoice Table Rows */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
-            {!selectedSupplier ? (
-              <div style={{
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
-                padding: 48, color: "#94a3b8", textAlign: "center"
-              }}>
-                <div style={{ fontSize: 52, marginBottom: 14 }}>🏢</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>No Supplier Selected</div>
-                <p style={{ fontSize: 13, marginTop: 6, maxWidth: 300, lineHeight: 1.6 }}>
-                  Select a supplier from the left sidebar to view purchase invoices and billing histories.
-                </p>
-              </div>
-            ) : filteredBills.length === 0 ? (
-              <div style={{
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
-                padding: 48, color: "#94a3b8", textAlign: "center"
-              }}>
-                <div style={{ fontSize: 52, marginBottom: 14 }}>📄</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>No Purchase Invoices</div>
-                <p style={{ fontSize: 13, marginTop: 6, maxWidth: 300, lineHeight: 1.6 }}>
-                  There are no purchase invoices matching your search for this supplier.
-                </p>
-              </div>
-            ) : (
-              filteredBills.map((p) => {
-                const isPaid = Number(p.balance_amount) <= 0;
-                return (
+            {firmOpen && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 36,
+                  width: 180,
+                  background: "#ffffff",
+                  borderRadius: 12,
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                  border: "1px solid #e2e8f0",
+                  padding: "6px 0",
+                  maxHeight: 220,
+                  overflowY: "auto",
+                  zIndex: 999
+                }}
+              >
+                <div
+                  onClick={() => {
+                    handleFirmChange("all");
+                    setFirmOpen(false);
+                  }}
+                  style={{
+                    padding: "7px 14px",
+                    fontSize: 12.5,
+                    fontWeight: selectedFirm === "all" || selectedFirm === "ALL" ? 700 : 500,
+                    color: selectedFirm === "all" || selectedFirm === "ALL" ? "#2563eb" : "#334155",
+                    background: selectedFirm === "all" || selectedFirm === "ALL" ? "#eff6ff" : "transparent",
+                    cursor: "pointer"
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background =
+                      selectedFirm === "all" || selectedFirm === "ALL" ? "#eff6ff" : "transparent")
+                  }
+                >
+                  All company
+                </div>
+                {companies.map((c) => (
                   <div
-                    key={p.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr 1fr 1fr",
-                      padding: "14px 20px",
-                      alignItems: "center", textAlign: "center",
-                      borderBottom: "1px solid #f8fafc",
-                      background: "#fff",
-                      transition: "background .15s"
+                    key={c.id}
+                    onClick={() => {
+                      handleFirmChange(c.id);
+                      setFirmOpen(false);
                     }}
+                    style={{
+                      padding: "7px 14px",
+                      fontSize: 12.5,
+                      fontWeight: String(selectedFirm) === String(c.id) ? 700 : 500,
+                      color: String(selectedFirm) === String(c.id) ? "#2563eb" : "#334155",
+                      background: String(selectedFirm) === String(c.id) ? "#eff6ff" : "transparent",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background =
+                        String(selectedFirm) === String(c.id) ? "#eff6ff" : "transparent")
+                    }
                   >
-                    <div style={{ textAlign: "left", fontSize: 13, color: "#334155" }}>
-                      {p.purchase_date}
-                    </div>
-                    <div style={{ textAlign: "left", fontWeight: 600, fontSize: 13, color: "#0f172a" }}>
-                      {p.purchase_no || "N/A"}
-                    </div>
-                    <div style={{ fontSize: 13, color: "#334155" }}>₹{fmt(p.total_amount)}</div>
-                    <div style={{ fontWeight: 700, color: "#16a34a", fontSize: 13 }}>
-                      ₹{fmt(p.paid_amount)}
-                    </div>
-                    <div>
-                      <span style={{
-                        background: isPaid ? "#f0fdf4" : "#fee2e2",
-                        color: isPaid ? "#16a34a" : "#dc2626",
-                        padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700
-                      }}>
-                        ₹{fmt(p.balance_amount)}
-                      </span>
-                    </div>
-                    <div>
-                      <span style={{
-                        padding: "5px 14px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                        background: p.status === "submitted" ? "#dcfce7" : "#fee2e2",
-                        color: p.status === "submitted" ? "#15803d" : "#dc2626",
-                        display: "inline-block", minWidth: 72, textAlign: "center"
-                      }}>
-                        {p.status}
-                      </span>
-                    </div>
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-                        {p.status === "draft" ? (
-                          <>
-                            <button
-                              onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                              title="Edit Draft"
-                              style={{
-                                border: "none", background: "#f0fdf4", color: "#16a34a",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(p.id)}
-                              title="Delete Draft"
-                              style={{
-                                border: "none", background: "#fef2f2", color: "#dc2626",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                              title="View Details"
-                              style={{
-                                border: "none", background: "#eff6ff", color: "#2563eb",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Eye size={14} />
-                            </button>
-                            {Number(p.balance_amount) > 0 && (
-                              <button
-                                onClick={() => openPayModal(p)}
-                                title="Pay Pending Balance"
-                                style={{
-                                  border: "none", background: "#fef3c7", color: "#d97706",
-                                  padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                                }}
-                              >
-                                <CreditCard size={14} />
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
+                    {c.company_name}
                   </div>
-                );
-              })
+                ))}
+              </div>
             )}
           </div>
-
         </div>
 
+        {/* Right: Export Excel, Print, Refresh */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Excel Report */}
+          <button
+            onClick={exportToExcel}
+            style={{
+              background: "#ecfdf5",
+              color: "#047857",
+              border: "1px solid #a7f3d0",
+              borderRadius: 8,
+              padding: "6px 12px",
+              fontSize: 12.5,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6
+            }}
+          >
+            <FileSpreadsheet size={15} /> Excel Report
+          </button>
+
+          {/* Print */}
+          <button
+            onClick={() => window.print()}
+            style={{
+              background: "#f1f5f9",
+              color: "#334155",
+              border: "1px solid #cbd5e1",
+              borderRadius: 8,
+              padding: "6px 12px",
+              fontSize: 12.5,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6
+            }}
+          >
+            <Printer size={15} /> Print
+          </button>
+
+          {/* Refresh */}
+          <button
+            onClick={() => fetchPurchasesAndSuppliers(selectedFirm)}
+            style={{
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "50%",
+              width: 32,
+              height: 32,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#64748b",
+              cursor: "pointer"
+            }}
+            title="Refresh purchases"
+          >
+            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
 
-      {/* ── PAY MODAL ── */}
+      {/* ── VYAPAR MATH SUMMARY BAR: Paid + Unpaid = Total ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
+        
+        {/* Paid Card */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 160,
+            background: "#ecfdf5",
+            borderRadius: 14,
+            padding: "14px 18px",
+            border: "1.5px solid #a7f3d0",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#065f46", marginBottom: 4 }}>Paid</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: "#047857" }}>₹ {fmt(totalPaid)}</div>
+        </div>
+
+        {/* Plus Operator */}
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#94a3b8" }}>+</div>
+
+        {/* Unpaid Card */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 160,
+            background: "#eff6ff",
+            borderRadius: 14,
+            padding: "14px 18px",
+            border: "1.5px solid #bfdbfe",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#1e40af", marginBottom: 4 }}>Unpaid</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: "#1d4ed8" }}>₹ {fmt(totalUnpaid)}</div>
+        </div>
+
+        {/* Equal Operator */}
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#94a3b8" }}>=</div>
+
+        {/* Total Card */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 160,
+            background: "#fff7ed",
+            borderRadius: 14,
+            padding: "14px 18px",
+            border: "1.5px solid #fed7aa",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#9a3412", marginBottom: 4 }}>Total</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: "#c2410c" }}>₹ {fmt(grandTotal)}</div>
+        </div>
+      </div>
+
+      {/* ── TRANSACTIONS TABLE CONTAINER ── */}
+      <div style={{ background: "#ffffff", borderRadius: 14, border: "1px solid #e2e8f0", paddingBottom: 60, position: "relative" }}>
+        
+        {/* Table Title & Search */}
+        <div style={{ padding: "14px 18px", borderBottom: "1px solid #f1f5f9" }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+            TRANSACTIONS
+          </div>
+          <div style={{ position: "relative", maxWidth: 300 }}>
+            <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+            <input
+              type="text"
+              placeholder="Search bills, party name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px 8px 32px",
+                borderRadius: 8,
+                border: "1px solid #e2e8f0",
+                outline: "none",
+                fontSize: 13,
+                boxSizing: "border-box"
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Table View */}
+        <div style={{ overflowX: "visible" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: 900 }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
+                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    DATE <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    INVOICE NO. <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    PARTY NAME <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    PAYMENT TYPE <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", textAlign: "right" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
+                    AMOUNT <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", textAlign: "right" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
+                    BALANCE DUE <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", textAlign: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                    STATUS <ArrowUpDown size={11} />
+                  </div>
+                </th>
+                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", textAlign: "center" }}>
+                  ACTIONS
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+                    Loading purchase transactions...
+                  </td>
+                </tr>
+              ) : filteredPurchases.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: 50, textAlign: "center" }}>
+                    <div style={{ fontSize: 42, marginBottom: 8 }}>📄</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#334155" }}>No transactions found</div>
+                    <p style={{ fontSize: 13, color: "#94a3b8", margin: "4px 0 14px" }}>
+                      There are no purchase invoices matching your selected filters.
+                    </p>
+                    <button
+                      onClick={() => navigate("/purchases/new")}
+                      style={{
+                        background: "#ef4444",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "8px 16px",
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        cursor: "pointer"
+                      }}
+                    >
+                      + Create Purchase Bill
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                filteredPurchases.map((p) => {
+                  const balance = Number(p.balance_amount) || 0;
+                  const paid = Number(p.paid_amount) || 0;
+                  const isPaid = balance <= 0;
+                  const isPartial = balance > 0 && paid > 0;
+                  const isDraft = p.status === "draft";
+
+                  return (
+                    <tr
+                      key={p.id}
+                      style={{
+                        borderBottom: "1px solid #f1f5f9",
+                        transition: "background 0.15s",
+                        background: activeMenuId === p.id ? "#f8fafc" : "#ffffff"
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = activeMenuId === p.id ? "#f8fafc" : "#ffffff")}
+                    >
+                      {/* DATE */}
+                      <td style={{ padding: "12px 16px", fontSize: 13, color: "#334155", fontWeight: 600 }}>
+                        {formatDateDMY(p.purchase_date)}
+                      </td>
+
+                      {/* INVOICE NO. */}
+                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+                        {p.purchase_no || <span style={{ color: "#94a3b8", fontWeight: 400 }}>-</span>}
+                      </td>
+
+                      {/* PARTY NAME */}
+                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#2563eb" }}>
+                        <span
+                          onClick={() => openSupplierHistoryModal(p.supplier_id, p.supplier_name)}
+                          title="Click to view supplier ledger"
+                          style={{ cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}
+                        >
+                          {p.supplier_name || "Unknown Party"}
+                        </span>
+                      </td>
+
+                      {/* PAYMENT TYPE */}
+                      <td style={{ padding: "12px 16px", fontSize: 13, color: "#475569" }}>
+                        {p.payment_type || "Cash"}
+                      </td>
+
+                      {/* AMOUNT */}
+                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#0f172a", textAlign: "right" }}>
+                        {fmt(p.total_amount)}
+                      </td>
+
+                      {/* BALANCE DUE */}
+                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, textAlign: "right", color: balance > 0 ? "#dc2626" : "#16a34a" }}>
+                        {fmt(balance)}
+                      </td>
+
+                      {/* STATUS */}
+                      <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                        {isDraft ? (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", background: "#f1f5f9", padding: "3px 10px", borderRadius: 12 }}>
+                            Draft
+                          </span>
+                        ) : isPaid ? (
+                          <span style={{ fontSize: 12, fontWeight: 800, color: "#16a34a" }}>
+                            Paid
+                          </span>
+                        ) : isPartial ? (
+                          <span style={{ fontSize: 12, fontWeight: 800, color: "#d97706" }}>
+                            Partial
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 12, fontWeight: 800, color: "#ef4444" }}>
+                            Unpaid
+                          </span>
+                        )}
+                      </td>
+
+                      {/* ACTIONS */}
+                      <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                          {/* Print Icon */}
+                          <button
+                            onClick={() => window.print()}
+                            title="Print Invoice Voucher"
+                            style={{ background: "transparent", border: "none", cursor: "pointer", color: "#64748b" }}
+                          >
+                            <Printer size={15} />
+                          </button>
+
+                          {/* Share / WhatsApp */}
+                          <button
+                            onClick={() => alert(`Share Voucher for Invoice ${p.purchase_no || p.id} via WhatsApp/PDF`)}
+                            title="Share via WhatsApp / Email"
+                            style={{ background: "transparent", border: "none", cursor: "pointer", color: "#64748b" }}
+                          >
+                            <Share2 size={15} />
+                          </button>
+
+                          {/* 3-Dots Context Menu */}
+                          <div style={{ position: "relative" }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(activeMenuId === p.id ? null : p.id);
+                              }}
+                              style={{
+                                background: "transparent",
+                                border: "none",
+                                cursor: "pointer",
+                                color: "#64748b",
+                                padding: 3,
+                                display: "flex",
+                                alignItems: "center"
+                              }}
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+
+                            {activeMenuId === p.id && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                  position: "absolute",
+                                  right: 0,
+                                  top: 26,
+                                  background: "#ffffff",
+                                  borderRadius: 10,
+                                  boxShadow: "0 12px 30px rgba(0,0,0,0.18), 0 4px 10px rgba(0,0,0,0.08)",
+                                  border: "1.5px solid #cbd5e1",
+                                  padding: 6,
+                                  width: 175,
+                                  zIndex: 9999,
+                                  textAlign: "left"
+                                }}
+                              >
+                                <div
+                                  onClick={() => navigate(`/purchases/edit/${p.id}`)}
+                                  style={{
+                                    padding: "7px 10px",
+                                    fontSize: 12.5,
+                                    fontWeight: 600,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                    borderRadius: 6,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                >
+                                  <Eye size={13} color="#2563eb" /> View / Edit
+                                </div>
+
+                                {p.status === "submitted" && Number(p.balance_amount) > 0 && (
+                                  <div
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      openPayModal(p);
+                                    }}
+                                    style={{
+                                      padding: "7px 10px",
+                                      fontSize: 12.5,
+                                      fontWeight: 600,
+                                      color: "#334155",
+                                      cursor: "pointer",
+                                      borderRadius: 6,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                  >
+                                    <CreditCard size={13} color="#16a34a" /> Record Payment
+                                  </div>
+                                )}
+
+                                <div
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    openSupplierHistoryModal(p.supplier_id, p.supplier_name);
+                                  }}
+                                  style={{
+                                    padding: "7px 10px",
+                                    fontSize: 12.5,
+                                    fontWeight: 600,
+                                    color: "#334155",
+                                    cursor: "pointer",
+                                    borderRadius: 6,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                >
+                                  <History size={13} color="#6366f1" /> Payment History
+                                </div>
+
+                                {p.status === "draft" && (
+                                  <div
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      handleDelete(p.id);
+                                    }}
+                                    style={{
+                                      padding: "7px 10px",
+                                      fontSize: 12.5,
+                                      fontWeight: 600,
+                                      color: "#ef4444",
+                                      cursor: "pointer",
+                                      borderRadius: 6,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = "#fef2f2")}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                  >
+                                    <Trash2 size={13} color="#ef4444" /> Delete Draft
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── MODAL: RECORD SINGLE INVOICE PAYMENT ── */}
       {showPayModal && paymentPurchase && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.4)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "450px",
-            borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden",
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-          }}>
-            <div style={{ padding: "20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>Record Supplier Payment</h3>
-              <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
-                Bill No: <span style={{ fontWeight: "700", color: "#334155" }}>{paymentPurchase.purchase_no || "N/A"}</span>
-              </p>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16
+          }}
+          onClick={() => setShowPayModal(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              width: "100%",
+              maxWidth: 440,
+              padding: 24,
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>Record Supplier Payment</h3>
+              <button onClick={() => setShowPayModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}>
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={submitPayment} style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "15px" }}>
-              
-              {/* Balances Display */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", padding: "12px", background: "#fef3c7", borderRadius: "12px", border: "1px solid #fde68a" }}>
-                <div>
-                  <span style={{ fontSize: "11px", color: "#92400e", fontWeight: "700", textTransform: "uppercase" }}>Paid Amount</span>
-                  <div style={{ fontSize: "16px", fontWeight: "800", color: "#b45309" }}>₹{fmt(paymentPurchase.paid_amount)}</div>
-                </div>
-                <div>
-                  <span style={{ fontSize: "11px", color: "#92400e", fontWeight: "700", textTransform: "uppercase" }}>Pending Balance</span>
-                  <div style={{ fontSize: "16px", fontWeight: "800", color: "#dc2626" }}>₹{fmt(paymentPurchase.balance_amount)}</div>
-                </div>
+            <div style={{ background: "#f8fafc", padding: "12px 16px", borderRadius: 10, marginBottom: 16, border: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 13, color: "#64748b" }}>
+                Party: <b style={{ color: "#0f172a" }}>{paymentPurchase.supplier_name}</b>
               </div>
+              <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                Bill No: <b style={{ color: "#0f172a" }}>{paymentPurchase.purchase_no || `#${paymentPurchase.id}`}</b>
+              </div>
+              <div style={{ fontSize: 13, color: "#dc2626", fontWeight: 700, marginTop: 4 }}>
+                Pending Balance: ₹{fmt(paymentPurchase.balance_amount)}
+              </div>
+            </div>
 
-              {/* Pay Amount input */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Payment Amount (₹) *</label>
+            <form onSubmit={submitPayment} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>
+                  Paying Amount (₹) *
+                </label>
                 <input
                   type="number"
                   step="0.01"
-                  required
                   max={Number(paymentPurchase.balance_amount)}
-                  min="0.01"
                   value={payAmount}
-                  onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px"
-                  }}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 14, fontWeight: 700, outline: "none", boxSizing: "border-box" }}
+                  required
                 />
               </div>
 
-              {/* Payment Method select */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Payment Method *</label>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>
+                  Payment Method *
+                </label>
                 <select
                   value={payMethod}
                   onChange={(e) => setPayMethod(e.target.value)}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px", background: "#ffffff"
-                  }}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 600, outline: "none" }}
                 >
                   <option value="cash">Cash</option>
-                  <option value="online">Online Transfer / Netbanking</option>
-                  <option value="upi">UPI</option>
-                  <option value="card">Card Payment</option>
+                  <option value="online">Online / Netbanking</option>
+                  <option value="upi">UPI (GPay / PhonePe)</option>
+                  <option value="cheque">Cheque</option>
                 </select>
               </div>
 
-              {/* Payment Date input */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Payment Date *</label>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>
+                  Payment Date *
+                </label>
                 <input
                   type="date"
-                  required
                   value={payDate}
                   onChange={(e) => setPayDate(e.target.value)}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px"
-                  }}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                  required
                 />
               </div>
 
-              {/* Notes */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Notes / Reference</label>
-                <textarea
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>
+                  Notes / Reference No.
+                </label>
+                <input
+                  type="text"
+                  placeholder="Optional reference / remarks"
                   value={payNotes}
                   onChange={(e) => setPayNotes(e.target.value)}
-                  placeholder="e.g. UPI Transaction ID or Cheque No."
-                  rows="2"
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px", fontFamily: "inherit"
-                  }}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, outline: "none", boxSizing: "border-box" }}
                 />
               </div>
 
-              {/* Buttons */}
-              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
                 <button
                   type="button"
                   onClick={() => setShowPayModal(false)}
-                  style={{
-                    flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #cbd5e1",
-                    background: "#ffffff", color: "#475569", fontWeight: "600", fontSize: "14px", cursor: "pointer"
-                  }}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#f8fafc", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingPayment}
-                  style={{
-                    flex: 1, padding: "12px", borderRadius: "10px", border: "none",
-                    background: "#10b981", color: "#ffffff", fontWeight: "700", fontSize: "14px", cursor: "pointer",
-                    boxShadow: "0 4px 12px rgba(16,185,129,0.15)"
-                  }}
+                  style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#16a34a", color: "#ffffff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
                 >
-                  {submittingPayment ? "Recording..." : "Record Payment"}
+                  {submittingPayment ? "Saving..." : "Save Payment"}
                 </button>
               </div>
             </form>
@@ -771,320 +1359,89 @@ export default function PurchaseList() {
         </div>
       )}
 
-      {/* ── SUPPLIER PAYMENT HISTORY MODAL ── */}
-      {showHistoryModal && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "700px",
-            borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden",
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-            maxHeight: "80vh", display: "flex", flexDirection: "column"
-          }}>
-            {/* Modal Header */}
-            <div style={{ padding: "18px 22px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
-                    Payment History
-                  </h3>
-                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
-                    All payments recorded for <strong>{selectedSupplier?.supplier_name}</strong>
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowHistoryModal(false)}
-                  style={{
-                    border: "none", background: "#f1f5f9", color: "#475569",
-                    padding: "8px 14px", borderRadius: 10, fontWeight: 700,
-                    fontSize: 13, cursor: "pointer"
-                  }}
-                >
-                  ✕ Close
-                </button>
+      {/* ── MODAL: SUPPLIER PAYMENT HISTORY / LEDGER ── */}
+      {showHistoryModal && selectedHistorySupplier && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16
+          }}
+          onClick={() => setShowHistoryModal(false)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              width: "100%",
+              maxWidth: 620,
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              padding: 24,
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>Payment Ledger History</h3>
+                <p style={{ fontSize: 12.5, color: "#64748b", margin: "2px 0 0" }}>Supplier: <b>{selectedHistorySupplier.name}</b></p>
               </div>
-
-              {/* Summary bar */}
-              {!loadingHistory && paymentHistory.length > 0 && (
-                <div style={{
-                  marginTop: 12, background: "#f0fdf4", border: "1px solid #bbf7d0",
-                  borderRadius: 10, padding: "10px 14px",
-                  display: "flex", gap: 24, alignItems: "center"
-                }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#15803d", textTransform: "uppercase" }}>Total Paid</span>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#15803d" }}>
-                      ₹{fmt(paymentHistory.reduce((s, h) => s + Number(h.amount || 0), 0))}
-                    </div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Transactions</span>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#334155" }}>{paymentHistory.length}</div>
-                  </div>
-                </div>
-              )}
+              <button onClick={() => setShowHistoryModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}>
+                <X size={18} />
+              </button>
             </div>
 
-            {/* Modal Body */}
-            <div style={{ overflowY: "auto", flex: 1 }}>
+            <div style={{ flex: 1, overflowY: "auto" }}>
               {loadingHistory ? (
-                <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Loading payment records...</div>
+                <div style={{ padding: 40, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Loading payment records...</div>
               ) : paymentHistory.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>
-                  <div style={{ fontSize: 40, marginBottom: 10 }}>🧾</div>
-                  No payment records found for this supplier yet.
-                </div>
+                <div style={{ padding: 40, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No payment transactions recorded for this supplier.</div>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                  <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
-                    <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill No</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Invoice Date</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Pay Date</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Amount Paid</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Method</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Notes</th>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#64748b", fontWeight: 700 }}>
+                      <th style={{ padding: "8px 12px", textAlign: "left" }}>Date</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left" }}>Invoice #</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left" }}>Method</th>
+                      <th style={{ padding: "8px 12px", textAlign: "right" }}>Amount</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left" }}>Notes</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {paymentHistory.map((h, idx) => (
-                      <tr key={h.id} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#0f172a", fontWeight: "700" }}>
-                          {h.purchase_no || "N/A"}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
-                          {h.invoice_date || "-"}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#334155", fontWeight: "500" }}>
-                          {h.payment_date}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#16a34a", fontWeight: "700" }}>
-                          ₹{fmt(h.amount)}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#475569", textTransform: "capitalize" }}>
-                          <span style={{
-                            padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                            background: h.payment_method === "cash" ? "#f0fdf4" : "#eff6ff",
-                            color: h.payment_method === "cash" ? "#15803d" : "#2563eb"
-                          }}>
-                            {h.payment_method}
-                          </span>
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
-                          {h.notes || "-"}
-                        </td>
+                    {paymentHistory.map((h) => (
+                      <tr key={h.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "10px 12px", color: "#334155" }}>{formatDateDMY(h.payment_date)}</td>
+                        <td style={{ padding: "10px 12px", fontWeight: 700, color: "#0f172a" }}>{h.purchase_no || `#${h.purchase_id}`}</td>
+                        <td style={{ padding: "10px 12px", textTransform: "uppercase", fontSize: 11, fontWeight: 700, color: "#475569" }}>{h.payment_method}</td>
+                        <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "#16a34a" }}>₹{fmt(h.amount)}</td>
+                        <td style={{ padding: "10px 12px", color: "#64748b", fontSize: 11.5 }}>{h.notes || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               )}
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* ── BULK PAY MODAL ── */}
-      {showBulkPayModal && selectedSupplier && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.5)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "620px",
-            borderRadius: "20px", border: "1px solid #e2e8f0",
-            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.15)",
-            maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden"
-          }}>
-
-            {/* Header */}
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "linear-gradient(135deg, #fefce8, #fffbeb)", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
-                    <Wallet size={20} color="#d97706" /> Pay All Pending
-                  </h3>
-                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
-                    Payment will be split across pending invoices oldest-first (FIFO) for <strong>{selectedSupplier.supplier_name}</strong>
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowBulkPayModal(false)}
-                  style={{ border: "none", background: "#f1f5f9", color: "#475569", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
-                >
-                  ✕ Cancel
-                </button>
-              </div>
-
-              {/* Summary row */}
-              <div style={{ marginTop: 14, display: "flex", gap: 16 }}>
-                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "8px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#dc2626", textTransform: "uppercase" }}>Total Pending</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#dc2626" }}>₹{fmt(selectedSupplierPendingTotal)}</div>
-                </div>
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#15803d", textTransform: "uppercase" }}>Pending Invoices</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#15803d" }}>
-                    {supplierBills.filter(p => Number(p.balance_amount) > 0 && p.status === "submitted").length}
-                  </div>
-                </div>
-              </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#f8fafc", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                Close
+              </button>
             </div>
-
-            {/* Form + Preview */}
-            <form onSubmit={submitBulkPayment} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-
-                {/* Amount Input */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Amount (₹) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max={selectedSupplierPendingTotal}
-                    required
-                    value={bulkAmount}
-                    onChange={(e) => handleBulkAmountChange(e.target.value)}
-                    placeholder={`Max: ₹${fmt(selectedSupplierPendingTotal)}`}
-                    style={{
-                      width: "100%", padding: "11px 14px", borderRadius: "10px",
-                      border: "1.5px solid #e2e8f0", outline: "none", fontSize: "15px",
-                      fontWeight: "700", boxSizing: "border-box"
-                    }}
-                  />
-                </div>
-
-                {/* Method + Date row */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Method</label>
-                    <select
-                      value={bulkMethod}
-                      onChange={(e) => setBulkMethod(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", background: "#fff", boxSizing: "border-box" }}
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="online">Online Transfer</option>
-                      <option value="upi">UPI</option>
-                      <option value="card">Card</option>
-                      <option value="cheque">Cheque</option>
-                    </select>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Date</label>
-                    <input
-                      type="date"
-                      value={bulkDate}
-                      onChange={(e) => setBulkDate(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", boxSizing: "border-box" }}
-                    />
-                  </div>
-                </div>
-
-                {/* Notes */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Notes / Reference</label>
-                  <input
-                    type="text"
-                    value={bulkNotes}
-                    onChange={(e) => setBulkNotes(e.target.value)}
-                    placeholder="e.g. Cheque No. or UPI Ref."
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", boxSizing: "border-box" }}
-                  />
-                </div>
-
-                {/* Live Split Preview */}
-                {bulkPreview.length > 0 && (
-                  <div style={{ borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "12px", fontWeight: "700", color: "#334155", textTransform: "uppercase", letterSpacing: ".5px" }}>
-                      📊 Distribution Preview (FIFO – Oldest Invoice First)
-                    </div>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                      <thead>
-                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill No</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Date</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Pending</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Applying</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>New Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bulkPreview.map((p, idx) => {
-                          const willPay = Number(p._applying) > 0;
-                          const fullyClear = Number(p._newBalance) <= 0;
-                          return (
-                            <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9", background: willPay ? (fullyClear ? "#f0fdf4" : "#fffbeb") : "#fff" }}>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>
-                                {p.purchase_no || "N/A"}
-                              </td>
-                              <td style={{ padding: "9px 12px", fontSize: "12px", color: "#64748b" }}>
-                                {p.purchase_date}
-                              </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", color: "#dc2626", fontWeight: "600" }}>
-                                ₹{fmt(p.balance_amount)}
-                              </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700", color: willPay ? "#16a34a" : "#94a3b8" }}>
-                                {willPay ? `₹${fmt(p._applying)}` : "—"}
-                              </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700" }}>
-                                <span style={{
-                                  padding: "3px 8px", borderRadius: 20, fontSize: 12,
-                                  background: fullyClear ? "#dcfce7" : (willPay ? "#fef9c3" : "#f1f5f9"),
-                                  color: fullyClear ? "#15803d" : (willPay ? "#92400e" : "#94a3b8")
-                                }}>
-                                  {fullyClear ? "✓ Cleared" : `₹${fmt(p._newBalance)}`}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {/* Leftover notice */}
-                    {Number(bulkAmount) > selectedSupplierPendingTotal && (
-                      <div style={{ padding: "10px 14px", background: "#eff6ff", borderTop: "1px solid #bfdbfe", fontSize: "12.5px", color: "#2563eb", fontWeight: "600" }}>
-                        ℹ️ Amount exceeds total pending. Only ₹{fmt(selectedSupplierPendingTotal)} will be applied.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer Buttons */}
-              <div style={{ padding: "16px 24px", borderTop: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", gap: 10, flexShrink: 0 }}>
-                <button
-                  type="button"
-                  onClick={() => setShowBulkPayModal(false)}
-                  style={{
-                    flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #cbd5e1",
-                    background: "#ffffff", color: "#475569", fontWeight: "600", fontSize: "14px", cursor: "pointer"
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingBulk || !bulkAmount || Number(bulkAmount) <= 0}
-                  style={{
-                    flex: 2, padding: "12px", borderRadius: "10px", border: "none",
-                    background: submittingBulk ? "#94a3b8" : "linear-gradient(135deg, #f59e0b, #d97706)",
-                    color: "#ffffff", fontWeight: "700", fontSize: "14px", cursor: submittingBulk ? "not-allowed" : "pointer",
-                    boxShadow: "0 4px 12px rgba(217,119,6,0.2)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-                  }}
-                >
-                  <Wallet size={16} />
-                  {submittingBulk ? "Processing..." : `Record Payment of ₹${bulkAmount ? fmt(Math.min(Number(bulkAmount), selectedSupplierPendingTotal)) : "0"}`}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
+
     </div>
   );
 }
