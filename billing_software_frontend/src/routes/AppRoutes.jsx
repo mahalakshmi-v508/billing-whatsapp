@@ -226,7 +226,6 @@ export default function AppRoutes() {
             <Route path="/cashier-requests" element={<PendingCashierRequests />} />
             <Route path="/company-requests" element={<CompanyRequest />} />
           </Route>
-        </Route>
 
         {/* Catch-all 404 Route */}
         <Route path="*" element={<NotFound />} />

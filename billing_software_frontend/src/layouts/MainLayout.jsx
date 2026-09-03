@@ -70,6 +70,7 @@ export default function MainLayout() {
   const [hoveredPath, setHoveredPath] = useState(null);
   const [saleOpen, setSaleOpen] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState("general");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const quickAddRef = useRef(null);
 
