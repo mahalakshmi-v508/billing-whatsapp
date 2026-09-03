@@ -21,6 +21,13 @@ import {
   Image as ImageIcon,
   User,
   PlugZap,
+  ChevronDown,
+  CornerUpLeft,
+  Copy,
+  Forward,
+  Pencil,
+  Trash2,
+  Rocket,
 } from "lucide-react";
 
 // Proper WhatsApp logo glyph (official mark, monochrome)
@@ -116,9 +123,38 @@ export default function WhatsAppChat() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const bottomRef = useRef(null);
+  // reply: highlight the original message when a quote is clicked
+  const [highlightId, setHighlightId] = useState(null);
+
+  // swipe-to-reply: visual offset while dragging a message row
+  const [swipe, setSwipe] = useState({ id: null, x: 0 });
+
+  // message action menu
+  const [menuOpenFor, setMenuOpenFor] = useState(null); // message id (string) with menu open
+  const [hoverId, setHoverId] = useState(null); // message id being hovered
+  const [replyTo, setReplyTo] = useState(null); // message object being replied to
+  const [editingMsg, setEditingMsg] = useState(null); // message object being edited
+
+  // forward flow
+  const [forwardMsg, setForwardMsg] = useState(null); // message being forwarded
+  const [forwardCust, setForwardCust] = useState([]); // all saved customers
+  const [forwardSearch, setForwardSearch] = useState("");
+  const [forwardSel, setForwardSel] = useState([]); // selected customer ids
+  const [forwardLoading, setForwardLoading] = useState(false);
+  const [forwardSending, setForwardSending] = useState(false);
+
+  // delete choice dialog
+  const [deleteTarget, setDeleteTarget] = useState(null); // message object pending delete
+
+  const scrollRef = useRef(null);      // conversation scroll container
+  const stickToBottom = useRef(true);  // only auto-scroll when the user is near the bottom
   const docInputRef = useRef(null);
   const imgInputRef = useRef(null);
+  const inputRef = useRef(null);
+  const menuRef = useRef(null);
+  const msgEls = useRef({});
+  const editedRef = useRef({});    // msgId -> edited text (in-session edit override)
+  const swipeStart = useRef(null); // active swipe gesture info
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -198,6 +234,25 @@ export default function WhatsAppChat() {
     return () => clearInterval(t);
   }, [companyId, connected]);
 
+  // Build the quote banner data for a message that carries a reply reference.
+  // The original message lives in the same chat history, so we always resolve
+  // the exact sender name and original text from it (backend-driven flow).
+  const buildReplyMeta = (m, lookup) => {
+    const rid = m.reply_to_message_id ?? m.replyToId;
+    if (!rid) return null;
+    const ridS = String(rid);
+    const orig = lookup.get(ridS);
+    if (!orig) return null;
+    return {
+      toId: ridS,
+      author:
+        orig.direction === "outgoing"
+          ? (waName || "You")
+          : (orig.customer_name || selectedMeta?.name || "Customer"),
+      text: quoteText(orig),
+    };
+  };
+
   // ── selected conversation with monotonic status merge ──
   const loadMessages = async (phone) => {
     if (!companyId || !phone) return;
@@ -206,26 +261,51 @@ export default function WhatsAppChat() {
       if (res.data.status) {
         const incoming = res.data.data || [];
         setMessages((prev) => {
-          if (prev.length === 0) return incoming;
+          let merged;
+          if (prev.length === 0) {
+            merged = incoming;
+          } else {
+            const prevMap = new Map();
+            for (const m of prev) {
+              if (m.whatsapp_message_id) prevMap.set(m.whatsapp_message_id, m);
+              if (m.id) prevMap.set(String(m.id), m);
+            }
 
-          const prevMap = new Map();
-          for (const m of prev) {
-            if (m.whatsapp_message_id) prevMap.set(m.whatsapp_message_id, m);
-            if (m.id) prevMap.set(String(m.id), m);
+            merged = incoming.map((inc) => {
+              const existing = (inc.whatsapp_message_id && prevMap.get(inc.whatsapp_message_id)) ||
+                               (inc.id && prevMap.get(String(inc.id)));
+              if (existing) {
+                const existingRank = statusRank[existing.status] || 0;
+                const incomingRank = statusRank[inc.status] || 0;
+                // Preserve locally-added reply/quote metadata and in-session edits
+                // so polling does not revert them.
+                const preserve = {};
+                if (existing.replyMetadata) preserve.replyMetadata = existing.replyMetadata;
+                if (existing.edited) {
+                  preserve.edited = true;
+                  preserve.text = existing.text || inc.text;
+                }
+                return {
+                  ...inc,
+                  ...preserve,
+                  status: existingRank > incomingRank ? existing.status : inc.status,
+                };
+              }
+              return inc;
+            });
           }
 
-          return incoming.map((inc) => {
-            const existing = (inc.whatsapp_message_id && prevMap.get(inc.whatsapp_message_id)) ||
-                             (inc.id && prevMap.get(String(inc.id)));
-            if (existing) {
-              const existingRank = statusRank[existing.status] || 0;
-              const incomingRank = statusRank[inc.status] || 0;
-              return {
-                ...inc,
-                status: existingRank > incomingRank ? existing.status : inc.status,
-              };
-            }
-            return inc;
+          // Materialize quote-banner metadata for every message that references
+          // an original message, so replies render correctly inside the bubble.
+          const byId = new Map();
+          for (const cm of merged) {
+            if (cm.id !== undefined && cm.id !== null) byId.set(String(cm.id), cm);
+            if (cm.whatsapp_message_id) byId.set(String(cm.whatsapp_message_id), cm);
+          }
+          return merged.map((m) => {
+            if (m.replyMetadata) return m;
+            const meta = buildReplyMeta(m, byId);
+            return meta ? { ...m, replyMetadata: meta } : m;
           });
         });
       }
@@ -246,6 +326,7 @@ export default function WhatsAppChat() {
   const selectContact = (chat) => {
     setSelectedPhone(chat.phone);
     setMessages([]);
+    stickToBottom.current = true;
     markRead(chat.phone);
     loadMessages(chat.phone);
   };
@@ -299,8 +380,19 @@ export default function WhatsAppChat() {
     };
   }, [connected]);
 
+  // Only auto-scroll to the latest message when the user is already near the
+  // bottom. If the user has scrolled up to read older messages, keep their
+  // exact position — never yank them back down on message/state updates.
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!stickToBottom.current) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   // ── connect / disconnect ──
@@ -349,10 +441,62 @@ export default function WhatsAppChat() {
     }
   };
 
+  // ── save an edited message: persist via backend API then update chat ──
+  const sendEdited = async () => {
+    const text = draft.trim();
+    if (!text || !selectedPhone || sending || !editingMsg) return;
+
+    const editKey = msgKey(editingMsg);
+    const editId = editingMsg.id !== undefined ? editingMsg.id : editingMsg.whatsapp_message_id;
+
+    setSending(true);
+    try {
+      // Real backend edit: update the ORIGINAL message by its id, persist in DB,
+      // and (when possible) propagate the edit to WhatsApp itself.
+      const res = await api.post("/whatsapp/update_message", {
+        company_id: companyId,
+        message_id: String(editId),
+        message: text,
+      });
+
+      if (!res.data.status) {
+        showToast(res.data.message || "Failed to update message", false);
+        setSending(false);
+        return;
+      }
+
+      // Update the existing message in place (never duplicate).
+      setMessages((prev) =>
+        prev.map((m) => {
+          const match =
+            (editingMsg.id !== undefined && String(m.id) === String(editingMsg.id)) ||
+            (editingMsg.whatsapp_message_id &&
+              m.whatsapp_message_id === editingMsg.whatsapp_message_id);
+          if (match) return { ...m, text, edited: true };
+          return m;
+        })
+      );
+      if (editKey) editedRef.current[editKey] = { text };
+      setDraft("");
+      setEditingMsg(null);
+      showToast("Message updated");
+      await loadMessages(selectedPhone);
+      await loadChats();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to update message", false);
+    } finally {
+      setSending(false);
+    }
+  };
+
   // ── send text message ──
   const sendDraft = async () => {
     const text = draft.trim();
     if (!text || !selectedPhone || sending) return;
+
+    // real reply reference: the DB id of the original message being replied to
+    const replying = replyTo && !editingMsg;
+    const replyToId = replying && replyTo.id !== undefined ? String(replyTo.id) : null;
 
     setSending(true);
     try {
@@ -360,10 +504,17 @@ export default function WhatsAppChat() {
         company_id: companyId,
         phone: selectedPhone,
         message: text,
+        reply_to_message_id: replyToId,
       });
 
       if (res.data.status) {
+        // The reply reference is persisted by the backend and returned with the
+        // created message; the refresh below re-materializes the quote banner
+        // from that real data (no fake/local reply state).
         setDraft("");
+        setReplyTo(null);
+        setEditingMsg(null);
+        stickToBottom.current = true;
         await loadMessages(selectedPhone);
         await loadChats();
       } else {
@@ -403,6 +554,7 @@ export default function WhatsAppChat() {
 
         if (res.data.status) {
           showToast(kind === "image" ? "Photo sent" : "Document sent");
+          stickToBottom.current = true;
           await loadMessages(selectedPhone);
           await loadChats();
         } else {
@@ -434,6 +586,306 @@ export default function WhatsAppChat() {
     localStorage.setItem("selected_company_id", id);
   };
 
+  // ── message action menu ──
+  const toggleMenu = (e, m) => {
+    e.stopPropagation();
+    if (menuOpenFor === String(m.id)) {
+      setMenuOpenFor(null);
+    } else {
+      setMenuOpenFor(String(m.id));
+    }
+  };
+
+  // close menus / forward on outside click
+  useEffect(() => {
+    const onDoc = (e) => {
+      const inBtn = e.target.closest && e.target.closest(".wc-bubble-menu-btn, .wc-msg-menu, .wc-msg-menu-item");
+      if (inBtn) return;
+      setMenuOpenFor(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const quoteText = (m) => {
+    if (!m) return "";
+    if (m.text) return m.text;
+    if (m.type === "image") return m.filename || "Photo";
+    if (m.type === "document") {
+      if (m.invoice) return m.invoice.invoice_no || "Invoice";
+      return m.filename || "Document";
+    }
+    return "Message";
+  };
+
+  // stable key for a message object (DB id preferred, wa id fallback)
+  const msgKey = (m) =>
+    m == null
+      ? null
+      : String(m.id !== undefined && m.id !== null ? m.id : m.whatsapp_message_id);
+
+  // REPLY → set up quoted message banner in composer
+  const handleReply = (m) => {
+    setReplyTo(m);
+    setEditingMsg(null);
+    setMenuOpenFor(null);
+    setTimeout(() => inputRef.current?.focus(), 60);
+  };
+
+  // ── swipe-to-reply gesture (real WhatsApp: swipe RIGHT on any message) ──
+  const SWIPE_THRESH = 48;
+
+  const onRowPointerDown = (e, m) => {
+    // ignore swipes that start on interactive controls (menu button, reply banner, links)
+    if (e.target.closest && e.target.closest(".wc-bubble-menu-btn, .wc-reply-banner, .wc-msg-menu, .wc-msg-menu-item, button, a")) return;
+    if (e.button !== undefined && e.pointerType === "mouse" && e.button !== 0) return;
+    try {
+      if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (err) { /* ignore */ }
+    swipeStart.current = {
+      id: String(m.id),
+      x: e.clientX,
+      y: e.clientY,
+      active: true,
+    };
+  };
+
+  const onRowPointerMove = (e) => {
+    const s = swipeStart.current;
+    if (!s || !s.active) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    // only react to horizontal intent
+    if (Math.abs(dx) <= Math.abs(dy)) return;
+    if (e.cancelable) e.preventDefault();
+    // replying is triggered by swiping RIGHT for both incoming and outgoing messages
+    const clamped = Math.max(0, Math.min(220, dx));
+    setSwipe({ id: s.id, x: clamped });
+  };
+
+  const endSwipe = (e) => {
+    const s = swipeStart.current;
+    if (!s || !s.active) return;
+    s.active = false;
+    swipeStart.current = null;
+    const dx = e.clientX - s.x;
+    const valid = dx >= SWIPE_THRESH;
+    setSwipe({ id: null, x: 0 });
+    if (!valid) return;
+    const target = messages.find(
+      (mm) => String(mm.id) === s.id || (mm.whatsapp_message_id && String(mm.whatsapp_message_id) === s.id)
+    );
+    if (target) handleReply(target);
+  };
+
+  const cancelSwipe = () => {
+    if (swipeStart.current) swipeStart.current.active = false;
+    swipeStart.current = null;
+    setSwipe({ id: null, x: 0 });
+  };
+
+  // scroll to an original message referenced by a reply quote and highlight it
+  const goToMessage = (id) => {
+    const mid = String(id);
+    const el = msgEls.current[mid] ||
+      (scrollRef.current && scrollRef.current.querySelector(`[data-mid="${mid}"]`)) ||
+      null;
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    setHighlightId(null);
+    requestAnimationFrame(() => setHighlightId(mid));
+    setTimeout(() => setHighlightId(null), 2400);
+  };
+
+  // COPY → copy exact message text to clipboard with proper error handling
+  const handleCopy = (m) => {
+    const text = m.text || quoteText(m);
+    setMenuOpenFor(null);
+    const fallbackCopy = () => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch (err) {
+        return false;
+      }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => showToast("Message copied"))
+        .catch(() => {
+          const ok = fallbackCopy();
+          showToast(ok ? "Message copied" : "Could not copy message", !!ok);
+        });
+    } else {
+      const ok = fallbackCopy();
+      showToast(ok ? "Message copied" : "Could not copy message", !!ok);
+    }
+  };
+
+  // EDIT (own messages) → load into composer
+  const handleEdit = (m) => {
+    setEditingMsg(m);
+    setReplyTo(null);
+    setDraft(m.text || "");
+    setMenuOpenFor(null);
+    setTimeout(() => inputRef.current?.focus(), 60);
+  };
+
+  // DELETE → real backend delete (DB + optional WhatsApp delete)
+  const handleDelete = async (m, deleteFor = "everyone") => {
+    if (!selectedPhone) return;
+    setMenuOpenFor(null);
+    setDeleteTarget(null);
+    const delId = m.id !== undefined ? m.id : m.whatsapp_message_id;
+    try {
+      const res = await api.post("/whatsapp/delete_message", {
+        company_id: companyId,
+        message_id: String(delId),
+        delete_for: deleteFor,
+      });
+      if (res.data.status) {
+        if (deleteFor === "everyone") {
+          // "Delete for everyone" → show placeholder in UI, refresh from server
+          await loadMessages(selectedPhone);
+        } else {
+          // "Delete for me" → remove from UI only
+          setMessages((prev) =>
+            prev.filter((x) => {
+              if (m.id !== undefined && String(x.id) === String(m.id)) return false;
+              if (m.whatsapp_message_id && x.whatsapp_message_id === m.whatsapp_message_id) return false;
+              return true;
+            })
+          );
+        }
+        // Remove any in-session edit override for the deleted message.
+        const key = msgKey(m);
+        if (key && editedRef.current[key]) delete editedRef.current[key];
+        showToast(deleteFor === "everyone" ? "Message deleted for everyone" : "Message deleted");
+        await loadChats();
+      } else {
+        showToast(res.data.message || "Failed to delete message", false);
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to delete message", false);
+    }
+  };
+
+  // ── FORWARD: load saved customers & open selection UI ──
+  const handleForward = async (m) => {
+    setMenuOpenFor(null);
+    setForwardMsg(m);
+    setForwardSel([]);
+    setForwardSearch("");
+    setForwardLoading(true);
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      const res = await api.get(`/customer/get_all_customer`, {
+        params: { admin_id: user?.id },
+      });
+      if (res.data.status) {
+        setForwardCust(res.data.data || []);
+      } else {
+        setForwardCust([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setForwardCust([]);
+    } finally {
+      setForwardLoading(false);
+    }
+  };
+
+  const closeForward = () => {
+    setForwardMsg(null);
+    setForwardSel([]);
+    setForwardSearch("");
+  };
+
+  const toggleForwardSel = (id) => {
+    setForwardSel((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const forwardFiltered = forwardCust.filter((c) => {
+    const q = forwardSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (c.name || "").toLowerCase().includes(q) ||
+      (c.phone || "").includes(q)
+    );
+  });
+
+  const forwardFmtPhone = (p) => String(p || "").replace(/^91(?=\d{10}$)/, "");
+
+  const sendForward = async () => {
+    if (forwardSel.length === 0 || !forwardMsg || forwardSending) {
+      if (forwardSel.length === 0) showToast("Select at least one customer", false);
+      return;
+    }
+    // Build the exact content to forward from the selected message.
+    let content = "";
+    if (forwardMsg.text) {
+      content = forwardMsg.text;
+    } else if (forwardMsg.type === "document" && forwardMsg.invoice && forwardMsg.invoice.invoice_no) {
+      // Forward a faithful, formatted invoice summary (media bytes are not stored).
+      content = `Invoice: ${forwardMsg.invoice.invoice_no}` +
+        (forwardMsg.invoice.total_amount != null ? `\nAmount: ${inr(forwardMsg.invoice.total_amount)}` : "") +
+        (forwardMsg.invoice.balance_amount > 0 && forwardMsg.invoice.due_date
+          ? `\nDue: ${forwardMsg.invoice.due_date}` : "");
+    } else {
+      // Generic media: forward the caption/name.
+      const caption = quoteText(forwardMsg);
+      if (caption) content = `Forwarded: ${caption}`;
+    }
+
+    if (!content) {
+      showToast("Nothing to forward for this message", false);
+      return;
+    }
+
+    setForwardSending(true);
+    try {
+      const targets = forwardCust.filter((c) => forwardSel.includes(c.id));
+      let sent = 0;
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        let phone = String(t.phone || "");
+        phone = phone.replace(/\D/g, "");
+        if (/^\d{10}$/.test(phone)) phone = "91" + phone;
+        if (!phone) continue;
+        const r = await api.post("/whatsapp/send_message", {
+          company_id: companyId,
+          phone,
+          message: content,
+        });
+        if (r.data.status) sent++;
+        // Small spacing between forwards avoids WhatsApp rate limiting.
+        if (i < targets.length - 1) await new Promise((res) => setTimeout(res, 600));
+      }
+      showToast(`Message forwarded to ${sent} customer${sent === 1 ? "" : "s"}`);
+      if (sent > 0) {
+        await loadChats();
+        if (selectedPhone) await loadMessages(selectedPhone);
+      }
+      closeForward();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to forward", false);
+    } finally {
+      setForwardSending(false);
+    }
+  };
+
   const filteredChats = chats.filter((c) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -460,10 +912,42 @@ export default function WhatsAppChat() {
   // ── render helpers ──
   const renderBubble = (m) => {
     const out = m.direction === "outgoing";
+    const menuOpen = menuOpenFor === String(m.id);
+    const isHighlighted = highlightId === String(m.id);
+    const key = msgKey(m);
+    const reply = m.replyMetadata || null;
+    const edited = m.edited || Boolean(key && editedRef.current[key]);
+    const bodyText = key && editedRef.current[key] ? editedRef.current[key].text : m.text;
 
     return (
-      <div key={m.id} className={`wc-row ${out ? "wc-out" : "wc-in"}`}>
+      <div
+        key={m.id}
+        className={`wc-row ${out ? "wc-out" : "wc-in"} ${menuOpen ? "wc-row-open" : ""} ${isHighlighted ? "wc-row-highlight" : ""}`}
+        onMouseEnter={() => setHoverId(String(m.id))}
+        onMouseLeave={() => { if (!menuOpen) setHoverId(null); }}
+        onPointerDown={(e) => onRowPointerDown(e, m)}
+        onPointerMove={onRowPointerMove}
+        onPointerUp={endSwipe}
+        onPointerCancel={cancelSwipe}
+      >
+        <div
+          className={`wc-bubble-wrap ${out ? "wc-bubble-wrap-out" : "wc-bubble-wrap-in"} ${swipe.id === String(m.id) ? "wc-bubble-wrap-swiping" : ""}`}
+          data-mid={String(m.id)}
+          ref={(el) => { msgEls.current[String(m.id)] = el; }}
+          style={swipe.id === String(m.id) && swipe.x ? { transform: `translateX(${swipe.x}px)` } : undefined}
+        >
         <div className={`wc-bubble ${out ? "wc-bubble-out" : ""}`}>
+          {/* Reply quote banner rendered on bubble when it's a reply */}
+          {reply ? (
+            <div
+              className="wc-reply-banner"
+              onClick={() => goToMessage(reply.toId)}
+              title="Go to quoted message"
+            >
+              <div className="wc-reply-author">{reply.author || "Reply"}</div>
+              <div className="wc-reply-text">{reply.text || reply.raw || ""}</div>
+            </div>
+          ) : null}
           {m.type === "document" && m.invoice ? (
             <div className="wc-doc">
               <div className="wc-doc-card">
@@ -508,11 +992,51 @@ export default function WhatsAppChat() {
               </div>
             </div>
           ) : null}
-          {m.text ? <div className="wc-text">{m.text}</div> : null}
+          {bodyText ? <div className="wc-text">{bodyText}</div> : null}
           <div className="wc-meta">
+            {edited && <span className="wc-edited-label">edited</span>}
             <span>{formatTime(m.time)}</span>
             {out && <Ticks status={m.status} />}
           </div>
+        </div>
+
+        {/* Hover dropdown (chevron) button */}
+        <button
+          className={`wc-bubble-menu-btn ${hoverId === String(m.id) || menuOpen ? "show" : ""} ${menuOpen ? "open" : ""}`}
+          onClick={(e) => toggleMenu(e, m)}
+          title="Message actions"
+          aria-label="Message actions"
+        >
+          <ChevronDown size={15} />
+        </button>
+
+        {/* WhatsApp-style action menu popover */}
+        {menuOpen && (
+          <div className="wc-msg-menu" ref={menuOpen ? menuRef : undefined}>
+            <div className="wc-msg-menu-item" onClick={() => handleReply(m)}>
+              <CornerUpLeft size={15} />
+              <span>Reply</span>
+            </div>
+            <div className="wc-msg-menu-item" onClick={() => handleCopy(m)}>
+              <Copy size={15} />
+              <span>Copy</span>
+            </div>
+            <div className="wc-msg-menu-item" onClick={() => handleForward(m)}>
+              <Forward size={15} />
+              <span>Forward</span>
+            </div>
+            {out && m.text ? (
+              <div className="wc-msg-menu-item" onClick={() => handleEdit(m)}>
+                <Pencil size={15} />
+                <span>Edit</span>
+              </div>
+            ) : null}
+            <div className="wc-msg-menu-item wc-msg-menu-danger" onClick={() => { setDeleteTarget(m); setMenuOpenFor(null); }}>
+              <Trash2 size={15} />
+              <span>Delete</span>
+            </div>
+          </div>
+        )}
         </div>
       </div>
     );
@@ -586,25 +1110,25 @@ export default function WhatsAppChat() {
         .wc-chat-head-name { font-size: 15px; font-weight: 700; color: #111b21; line-height: 1.2; }
         .wc-chat-head-sub { font-size: 12px; color: #667781; display: flex; align-items: center; gap: 6px; }
         .wc-conn-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-        .wc-messages { flex: 1; overflow-y: auto; padding: 18px 22px 10px; background-image: radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px); background-size: 18px 18px; }
+        .wc-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 18px 22px 10px; background-image: radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px); background-size: 18px 18px; }
         .wc-day { text-align: center; margin: 10px 0 14px; }
         .wc-day span { background: rgba(255,255,255,0.85); color: #54656f; font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 8px; }
-        .wc-row { display: flex; margin-bottom: 8px; }
+        .wc-row { display: flex; min-width: 0; max-width: 100%; margin-bottom: 8px; }
         .wc-out { justify-content: flex-end; }
         .wc-in { justify-content: flex-start; }
-        .wc-bubble { max-width: 68%; border-radius: 10px; padding: 7px 9px 5px; box-shadow: 0 1px 1px rgba(11,20,26,0.13); background: #ffffff; }
+        .wc-bubble { max-width: 68%; min-width: 0; border-radius: 10px; padding: 7px 9px 5px; box-shadow: 0 1px 1px rgba(11,20,26,0.13); background: #ffffff; }
         .wc-bubble-out { background: #d9fdd3; border-top-right-radius: 2px; }
         .wc-bubble:not(.wc-bubble-out) { border-top-left-radius: 2px; }
-        .wc-text { font-size: 13.8px; color: #111b21; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+        .wc-text { font-size: 13.8px; color: #111b21; line-height: 1.45; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
         .wc-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10.5px; color: #667781; margin-top: 3px; }
 
-        .wc-doc-card { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.05); border-radius: 9px; padding: 9px 11px; min-width: 210px; }
+        .wc-doc-card { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.05); border-radius: 9px; padding: 9px 11px; min-width: 0; max-width: 100%; }
         .wc-doc-icon { width: 38px; height: 38px; min-width: 38px; border-radius: 9px; background: #fff; color: #b91c1c; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px #e2e8f0; }
         .wc-doc-info { min-width: 0; }
         .wc-doc-name { font-size: 13.5px; font-weight: 700; color: #111b21; word-break: break-all; }
         .wc-doc-sub { font-size: 12px; color: #54656f; margin-top: 1px; }
         .wc-doc-meta { font-size: 11.5px; color: #54656f; margin-top: 5px; }
-        .wc-img-card { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.05); border-radius: 9px; padding: 9px 11px; min-width: 180px; }
+        .wc-img-card { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.05); border-radius: 9px; padding: 9px 11px; min-width: 0; max-width: 100%; }
         .wc-img-thumb { width: 44px; height: 44px; min-width: 44px; border-radius: 9px; background: #fff; color: #0369a1; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px #e2e8f0; }
         .wc-img-name { font-size: 12.5px; font-weight: 600; color: #111b21; word-break: break-all; }
 
@@ -612,7 +1136,7 @@ export default function WhatsAppChat() {
         .wc-attach-btn { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; border: none; background: transparent; color: #54656f; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s ease; }
         .wc-attach-btn:hover { background: #e2e8f0; }
         .wc-attach-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-        .wc-input { flex: 1; padding: 12px 16px; border-radius: 999px; border: 1px solid #e2e8f0; font-size: 14px; outline: none; font-family: inherit; background: #fff; }
+        .wc-input { flex: 1; min-width: 0; padding: 12px 16px; border-radius: 999px; border: 1px solid #e2e8f0; font-size: 14px; outline: none; font-family: inherit; background: #fff; }
         .wc-input:focus { border-color: #25d366; }
         .wc-send-btn { width: 44px; height: 44px; min-width: 44px; border-radius: 50%; border: none; background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(18,140,126,0.35); }
         .wc-send-btn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -674,6 +1198,87 @@ export default function WhatsAppChat() {
         .wc-toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; padding: 12px 20px; border-radius: 12px; color: #fff; font-size: 13.5px; font-weight: 600; box-shadow: 0 8px 24px rgba(15,23,42,0.25); }
         .wc-toast.ok { background: #16a34a; }
         .wc-toast.err { background: #dc2626; }
+
+        /* ── message hover dropdown button ── */
+        .wc-row { position: relative; align-items: flex-start; touch-action: pan-y; }
+        .wc-row-highlight { animation: wc-flash-row 2.4s ease; }
+        @keyframes wc-flash-row {
+          0% { background: rgba(37,211,102,0.45); }
+          60% { background: rgba(37,211,102,0.35); }
+          100% { background: transparent; }
+        }
+        .wc-bubble-wrap { position: relative; display: inline-flex; max-width: 68%; min-width: 0; transition: transform 0.18s ease; }
+        .wc-bubble-wrap-swiping { transition: none; will-change: transform; }
+        .wc-bubble-wrap-in { align-self: flex-start; }
+        .wc-bubble-wrap-out { align-self: flex-end; }
+        .wc-bubble { max-width: 100%; }
+        .wc-bubble-menu-btn { position: absolute; top: 2px; width: 26px; height: 26px; border-radius: 50%; border: none; background: transparent; color: #667781; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity 0.12s ease, background 0.12s ease; }
+        .wc-bubble-wrap-in .wc-bubble-menu-btn { right: calc(100% + 2px); }
+        .wc-bubble-wrap-out .wc-bubble-menu-btn { left: calc(100% + 2px); }
+        .wc-bubble-menu-btn:hover { background: rgba(11,20,26,0.08); }
+        .wc-bubble-menu-btn.show, .wc-bubble-menu-btn.open { opacity: 1; }
+        .wc-bubble-menu-btn.open { background: rgba(11,20,26,0.1); transform: rotate(180deg); }
+
+        /* ── WhatsApp-style action menu ── */
+        .wc-msg-menu { position: absolute; top: 34px; z-index: 30; min-width: 170px; background: #ffffff; border-radius: 10px; box-shadow: 0 2px 12px rgba(11,20,26,0.18), 0 0 0 0.5px rgba(0,0,0,0.06); padding: 6px 0; overflow: hidden; }
+        .wc-in .wc-msg-menu { left: 0; }
+        .wc-out .wc-msg-menu { right: 0; }
+        .wc-msg-menu-item { display: flex; align-items: center; gap: 12px; padding: 9px 18px; font-size: 13.5px; font-weight: 500; color: #111b21; cursor: pointer; transition: background 0.1s ease; white-space: nowrap; }
+        .wc-msg-menu-item:hover { background: #f0f2f5; }
+        .wc-msg-menu-item svg { color: #667781; flex-shrink: 0; }
+        .wc-msg-menu-danger { color: #c62828; }
+        .wc-msg-menu-danger svg { color: #c62828; }
+
+        /* reply banner inside a bubble (displays quoted/referenced message) */
+        .wc-reply-banner { border-left: 3px solid #31a24c; background: rgba(37,211,102,0.08); padding: 5px 9px; border-radius: 6px; margin-bottom: 5px; cursor: pointer; }
+        .wc-reply-banner:hover { background: rgba(37,211,102,0.16); }
+        .wc-reply-author { font-size: 12px; font-weight: 700; color: #008069; }
+        .wc-reply-text { font-size: 12.5px; color: #54656f; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+        .wc-edited-label { font-size: 10px; color: #667781; font-style: italic; }
+
+        /* ── composer reply/edit bar ── */
+        .wc-reply-bar { display: flex; align-items: stretch; gap: 10px; width: 100%; background: #dcfce7; border-radius: 10px; padding: 6px 8px; margin-bottom: 8px; box-sizing: border-box; }
+        .wc-reply-bar-accent { width: 4px; border-radius: 4px; background: #25d366; flex-shrink: 0; }
+        .wc-reply-bar-body { flex: 1; min-width: 0; }
+        .wc-reply-bar-title { font-size: 11.5px; font-weight: 700; color: #008069; }
+        .wc-reply-bar-text { font-size: 12.5px; color: #54656f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .wc-reply-bar-close { border: none; background: transparent; color: #667781; cursor: pointer; display: flex; align-items: flex-start; padding: 2px; }
+        .wc-inputbar { flex-wrap: wrap; }
+        .wc-edit-send { background: linear-gradient(135deg, #16a34a, #128c7e); }
+
+        /* ── forward overlay ── */
+        .wc-forward-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .wc-forward-modal { width: 100%; max-width: 420px; max-height: 82vh; background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(11,20,26,0.3); display: flex; flex-direction: column; overflow: hidden; }
+        .wc-forward-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #f1f5f9; }
+        .wc-forward-title { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; color: #111b21; }
+        .wc-forward-title svg { color: #128c7e; }
+        .wc-forward-close { border: none; background: transparent; color: #667781; cursor: pointer; display: flex; padding: 4px; border-radius: 8px; }
+        .wc-forward-close:hover { background: #f1f5f9; }
+        .wc-forward-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 14px 18px; gap: 12px; }
+        .wc-forward-msg { display: flex; flex-direction: column; gap: 3px; background: #f0f2f5; border-radius: 10px; padding: 10px 12px; }
+        .wc-forward-msg-label { font-size: 11px; font-weight: 700; color: #008069; text-transform: uppercase; letter-spacing: 0.4px; }
+        .wc-forward-msg-text { font-size: 13.5px; color: #111b21; white-space: pre-wrap; word-break: break-word; max-height: 80px; overflow-y: auto; }
+        .wc-forward-search-box { position: relative; }
+        .wc-forward-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+        .wc-forward-search { width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1.5px solid #e2e8f0; font-size: 13px; outline: none; box-sizing: border-box; font-family: inherit; }
+        .wc-forward-search:focus { border-color: #25d366; }
+        .wc-forward-list { flex: 1; min-height: 120px; max-height: 44vh; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+        .wc-forward-loading, .wc-forward-empty { padding: 30px 10px; text-align: center; color: #8696a0; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .wc-fcust { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 10px; cursor: pointer; transition: background 0.12s ease; }
+        .wc-fcust:hover { background: #f4fdf7; }
+        .wc-fcust.sel { background: #dcfce7; }
+        .wc-fcust-avatar { width: 38px; height: 38px; min-width: 38px; border-radius: 50%; background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+        .wc-fcust-main { flex: 1; min-width: 0; }
+        .wc-fcust-name { font-size: 13.5px; font-weight: 600; color: #111b21; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .wc-fcust-phone { font-size: 12px; color: #667781; }
+        .wc-fcust-tick { width: 22px; height: 22px; min-width: 22px; border-radius: 50%; border: 2px solid #bec7cc; display: flex; align-items: center; justify-content: center; color: #fff; box-sizing: border-box; }
+        .wc-fcust-tick.sel { background: #25d366; border-color: #25d366; }
+        .wc-forward-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-top: 1px solid #f1f5f9; }
+        .wc-forward-count { font-size: 12.5px; font-weight: 600; color: #54656f; }
+        .wc-forward-send { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 22px; border: none; border-radius: 12px; font-size: 13.5px; font-weight: 700; cursor: pointer; background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; box-shadow: 0 4px 14px rgba(18,140,126,0.3); transition: opacity 0.15s ease; }
+        .wc-forward-send:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+        .wc-forward-send.ready { animation: none; }
+
 
         @media (max-width: 900px) {
           .wa-shell { grid-template-columns: 1fr; }
@@ -867,16 +1472,41 @@ export default function WhatsAppChat() {
                   </div>
                 </div>
 
-                <div className="wc-messages">
+                <div className="wc-messages" ref={scrollRef} onScroll={handleScroll}>
                   {messages.length === 0 ? (
                     <div className="wc-list-empty">No messages yet.</div>
                   ) : (
                     renderConversation()
                   )}
-                  <div ref={bottomRef} />
                 </div>
 
                 <div className="wc-inputbar">
+                  {(replyTo || editingMsg) && (
+                    <div className="wc-reply-bar">
+                      <div className="wc-reply-bar-accent" />
+                      <div className="wc-reply-bar-body">
+                        <div className="wc-reply-bar-title">
+                          {editingMsg
+                            ? "Edit message"
+                            : (replyTo.direction === "outgoing"
+                                ? (waName || "You")
+                                : (selectedMeta?.name || replyTo.customer_name || "Customer"))}
+                        </div>
+                        <div className="wc-reply-bar-text">
+                          {editingMsg
+                            ? (editingMsg.text || quoteText(editingMsg))
+                            : quoteText(replyTo)}
+                        </div>
+                      </div>
+                      <button
+                        className="wc-reply-bar-close"
+                        title="Cancel"
+                        onClick={() => { setReplyTo(null); setEditingMsg(null); setDraft(editingMsg ? "" : draft); }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
                   <input
                     type="file"
                     ref={docInputRef}
@@ -907,6 +1537,7 @@ export default function WhatsAppChat() {
                     <Paperclip size={19} />
                   </button>
                   <input
+                    ref={inputRef}
                     className="wc-input"
                     placeholder={
                       uploading ? "Sending file…" :
@@ -917,8 +1548,13 @@ export default function WhatsAppChat() {
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendDraft()}
                   />
-                  <button className="wc-send-btn" onClick={sendDraft} disabled={!connected || sending}>
-                    <SendIcon size={18} />
+                  <button
+                    className={`wc-send-btn ${editingMsg ? "wc-edit-send" : ""}`}
+                    onClick={() => (editingMsg ? sendEdited() : sendDraft())}
+                    disabled={!connected || sending}
+                    title={editingMsg ? "Save changes" : "Send"}
+                  >
+                    {editingMsg ? <Check size={18} /> : <SendIcon size={18} />}
                   </button>
                 </div>
               </>
@@ -989,6 +1625,93 @@ export default function WhatsAppChat() {
                   again to reconnect a new or the same account.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ FORWARD: CUSTOMER SELECTION OVERLAY ══════════ */}
+      {forwardMsg && (
+        <div className="wc-forward-backdrop" onClick={closeForward}>
+          <div className="wc-forward-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="wc-forward-head">
+              <div className="wc-forward-title">
+                <Forward size={16} />
+                Forward message
+              </div>
+              <button className="wc-forward-close" onClick={closeForward}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="wc-forward-body">
+              {/* quoting the message being forwarded */}
+              <div className="wc-forward-msg">
+                <span className="wc-forward-msg-label">Forwarding:</span>
+                <span className="wc-forward-msg-text">{quoteText(forwardMsg)}</span>
+              </div>
+
+              <div className="wc-forward-search-box">
+                <Search size={14} className="wc-forward-search-icon" />
+                <input
+                  className="wc-forward-search"
+                  placeholder="Search customers…"
+                  value={forwardSearch}
+                  onChange={(e) => setForwardSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="wc-forward-list">
+                {forwardLoading ? (
+                  <div className="wc-forward-loading">
+                    <Loader2 size={20} className="wa-spin" />
+                    Loading customers…
+                  </div>
+                ) : forwardFiltered.length === 0 ? (
+                  <div className="wc-forward-empty">No customers found</div>
+                ) : (
+                  forwardFiltered.map((c) => {
+                    const sel = forwardSel.includes(c.id);
+                    return (
+                      <div
+                        key={c.id}
+                        className={`wc-fcust ${sel ? "sel" : ""}`}
+                        onClick={() => toggleForwardSel(c.id)}
+                      >
+                        <div className="wc-fcust-avatar">{avatarLetter(c.name)}</div>
+                        <div className="wc-fcust-main">
+                          <div className="wc-fcust-name">{c.name || "—"}</div>
+                          {c.phone ? (
+                            <div className="wc-fcust-phone">{forwardFmtPhone(c.phone)}</div>
+                          ) : null}
+                        </div>
+                        <span className={`wc-fcust-tick ${sel ? "sel" : ""}`}>
+                          {sel && <CheckCheck size={13} />}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className="wc-forward-footer">
+              <div className="wc-forward-count">
+                {forwardSel.length > 0
+                  ? `${forwardSel.length} selected`
+                  : "0 selected"}
+              </div>
+              <button
+                className={`wc-forward-send ${forwardSel.length > 0 ? "ready" : ""}`}
+                onClick={sendForward}
+                disabled={forwardSending || forwardSel.length === 0}
+              >
+                {forwardSending ? (
+                  <><Loader2 size={16} className="wa-spin" /> Sending…</>
+                ) : (
+                  <><Rocket size={16} /> Send</>
+                )}
+              </button>
             </div>
           </div>
         </div>

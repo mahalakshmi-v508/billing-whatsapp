@@ -231,6 +231,8 @@ Route::prefix('whatsapp')->group(function () {
     Route::post('connect', [WhatsappConnectController::class, 'connect']);
     Route::post('disconnect', [WhatsappConnectController::class, 'disconnect']);
     Route::post('send_message', [WhatsappConnectController::class, 'sendMessage']);
+    Route::post('update_message', [WhatsappConnectController::class, 'updateMessage']);
+    Route::post('delete_message', [WhatsappConnectController::class, 'deleteMessage']);
     Route::post('send_invoice', [WhatsappConnectController::class, 'sendInvoice']);
     Route::post('send_file', [WhatsappConnectController::class, 'sendFile']);
     Route::get('chats', [WhatsappConnectController::class, 'getChats']);

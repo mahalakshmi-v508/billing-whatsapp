@@ -753,7 +753,8 @@ class WhatsAppManager {
     async sendText(
         sessionId,
         phone,
-        message
+        message,
+        replyTo = null
     ) {
 
         const sock = this.clients.get(sessionId);
@@ -772,9 +773,33 @@ class WhatsAppManager {
 
         try {
 
-            const sentMsg = await sock.sendMessage(jid, {
-                text: message
-            });
+            const content = { text: message };
+
+            const options = {};
+
+            // Real WhatsApp quoted reply: pass the original message's key so
+            // Baileys builds the contextInfo / quoted banner for the recipient.
+            if (replyTo && replyTo.id) {
+
+                const quotedRemoteJid =
+                    typeof replyTo.remote_jid === 'string' &&
+                    /@s\.whatsapp\.net$/i.test(replyTo.remote_jid)
+                        ? replyTo.remote_jid
+                        : jid;
+
+                options.quoted = {
+                    key: {
+                        remoteJid: quotedRemoteJid,
+                        fromMe: Boolean(replyTo.from_me),
+                        id: String(replyTo.id)
+                    },
+                    message: {
+                        conversation: String(replyTo.text || message || '')
+                    }
+                };
+            }
+
+            const sentMsg = await sock.sendMessage(jid, content, options);
 
             const msgId = sentMsg?.key?.id || null;
 
@@ -912,6 +937,114 @@ class WhatsAppManager {
 
             console.error(
                 `[WA][${sessionId}] send base64 document failed:`,
+                error.message
+            );
+
+            throw error;
+        }
+    }
+
+    // Edit an already-sent text message on the recipient's side (WhatsApp
+    // shows the "edited" indicator). Requires the original message key.
+    async editMessage(
+        sessionId,
+        phone,
+        newText,
+        { id, from_me = true } = {}
+    ) {
+
+        const sock = this.clients.get(sessionId);
+
+        if (!sock) {
+            throw new Error('WhatsApp client not found');
+        }
+
+        const state = this.getState(sessionId);
+
+        if (state.status !== 'ready') {
+            throw new Error('WhatsApp is not connected');
+        }
+
+        const jid = this.resolveJid(sessionId, phone);
+
+        if (!id) {
+            throw new Error('Original message id is required to edit');
+        }
+
+        try {
+
+            await sock.sendMessage(
+                jid,
+                { text: String(newText), edit: { remoteJid: jid, fromMe: Boolean(from_me), id: String(id) } }
+            );
+
+            console.log(
+                `[WA][${sessionId}] edited message id=${id} to=${jid}`
+            );
+
+            return { id, status: 'edited' };
+
+        } catch (error) {
+
+            console.error(
+                `[WA][${sessionId}] edit message failed:`,
+                error.message
+            );
+
+            throw error;
+        }
+    }
+
+    // Delete a message for both parties (if within WhatsApp's window) or at
+    // least from our own side. Pass the original message key.
+    async deleteMessage(
+        sessionId,
+        phone,
+        { id, from_me = true } = {}
+    ) {
+
+        const sock = this.clients.get(sessionId);
+
+        if (!sock) {
+            throw new Error('WhatsApp client not found');
+        }
+
+        const state = this.getState(sessionId);
+
+        if (state.status !== 'ready') {
+            throw new Error('WhatsApp is not connected');
+        }
+
+        const jid = this.resolveJid(sessionId, phone);
+
+        if (!id) {
+            throw new Error('Original message id is required to delete');
+        }
+
+        try {
+
+            await sock.sendMessage(
+                jid,
+                {
+                    delete: {
+                        remoteJid: jid,
+                        fromMe: Boolean(from_me),
+                        id: String(id),
+                        participant: undefined
+                    }
+                }
+            );
+
+            console.log(
+                `[WA][${sessionId}] deleted message id=${id} to=${jid}`
+            );
+
+            return { id, status: 'deleted' };
+
+        } catch (error) {
+
+            console.error(
+                `[WA][${sessionId}] delete message failed:`,
                 error.message
             );
 

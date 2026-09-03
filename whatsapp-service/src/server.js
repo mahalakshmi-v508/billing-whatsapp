@@ -117,14 +117,16 @@ app.post(
             const {
                 session_id,
                 phone,
-                message
+                message,
+                reply_to
             } = req.body;
 
             const result =
                 await manager.sendText(
                     session_id,
                     phone,
-                    message
+                    message,
+                    reply_to || null
                 );
 
             return res.json({
@@ -231,6 +233,104 @@ app.post(
         } catch (error) {
 
             console.error(error.message);
+
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+);
+
+
+// ── EDIT AN EXISTING TEXT MESSAGE ──
+app.post(
+    '/api/whatsapp/edit',
+    internalAuth,
+    async (req, res) => {
+
+        try {
+
+            const {
+                session_id,
+                phone,
+                message: newText,
+                id,
+                from_me = true
+            } = req.body;
+
+            if (!id) {
+
+                return res.status(422).json({
+                    success: false,
+                    message: 'Original message id is required'
+                });
+            }
+
+            const result =
+                await manager.editMessage(
+                    session_id,
+                    phone,
+                    newText,
+                    { id, from_me }
+                );
+
+            return res.json({
+                success: true,
+                result
+            });
+
+        } catch (error) {
+
+            console.error('[edit] failed:', error.stack || error.message);
+
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+);
+
+
+// ── DELETE A MESSAGE ──
+app.post(
+    '/api/whatsapp/delete',
+    internalAuth,
+    async (req, res) => {
+
+        try {
+
+            const {
+                session_id,
+                phone,
+                id,
+                from_me = true
+            } = req.body;
+
+            if (!id) {
+
+                return res.status(422).json({
+                    success: false,
+                    message: 'Original message id is required'
+                });
+            }
+
+            const result =
+                await manager.deleteMessage(
+                    session_id,
+                    phone,
+                    { id, from_me }
+                );
+
+            return res.json({
+                success: true,
+                result
+            });
+
+        } catch (error) {
+
+            console.error('[delete] failed:', error.stack || error.message);
 
             return res.status(500).json({
                 success: false,
