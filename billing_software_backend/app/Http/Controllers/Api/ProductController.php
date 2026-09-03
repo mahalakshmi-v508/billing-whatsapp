@@ -343,6 +343,7 @@ class ProductController extends Controller
                     $saleHistory[] = [
                         'invoice_no' => $invoice->invoice_no,
                         'customer_name' => $invoice->customer_name ?? '-',
+                        'customer_phone' => $invoice->customer_phone ?? '',
                         'quantity' => $qty,
                         'price' => $price,
                         'total' => $lineTotal,
