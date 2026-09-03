@@ -709,71 +709,15 @@ class WhatsappConnectController extends Controller
         return response()->json(["status" => true, "data" => $data]);
     }
 
-    // ── UPDATE / EDIT AN OUTGOING TEXT MESSAGE ──
-    public function updateMessage(Request $request, WhatsAppService $whatsapp)
+    // ── UPDATE / EDIT OUTGOING MESSAGE — DISABLED ──
+    // WhatsApp message editing is intentionally not supported. If an old client
+    // still calls this route, respond 404 so no message can ever be modified.
+    public function updateMessage(Request $request)
     {
-        $company_id = intval($request->input('company_id', 0));
-        $message_id = $request->input('message_id', '');
-        $message = trim((string) $request->input('message', ''));
-
-        if (!$company_id || empty($message_id) || $message === '') {
-            return response()->json(["status" => false, "message" => "company_id, message_id and message are required"]);
-        }
-
-        $connection = WhatsAppConnection::where('company_id', $company_id)->first();
-
-        if (!$connection) {
-            return response()->json(["status" => false, "message" => "WhatsApp is not connected."]);
-        }
-
-        // Resolve by DB id (preferred) or whatsapp_message_id
-        $msg = WhatsAppMessage::where('company_id', $company_id)
-            ->where('direction', 'outgoing')
-            ->where(function ($q) use ($message_id) {
-                $q->where('id', $message_id)
-                  ->orWhere('whatsapp_message_id', $message_id);
-            })
-            ->first();
-
-        if (!$msg) {
-            return response()->json(["status" => false, "message" => "Message not found or not editable."]);
-        }
-
-        // Only text messages can be edited
-        if ($msg->message_type !== 'text') {
-            return response()->json(["status" => false, "message" => "Only text messages can be edited."]);
-        }
-
-        // Try to edit on the live WhatsApp session so the recipient sees the update
-        if ($connection->status === 'ready' && !empty($msg->whatsapp_message_id)) {
-            try {
-                $whatsapp->editMessage(
-                    $connection->session_id,
-                    $msg->customer_phone,
-                    $message,
-                    $msg->whatsapp_message_id,
-                    true
-                );
-            } catch (\Exception $e) {
-                // If the live edit fails (e.g. too old to edit on WhatsApp),
-                // still persist locally so the UI/history stays consistent.
-            }
-        }
-
-        $msg->message = $message;
-        $msg->is_edited = true;
-        $msg->save();
-
-        return response()->json([
-            "status" => true,
-            "message" => "Message updated successfully.",
-            "data" => [
-                "id" => $msg->id,
-                "whatsapp_message_id" => $msg->whatsapp_message_id,
-                "message" => $msg->message,
-                "is_edited" => true
-            ]
-        ]);
+        return response()->json(
+            ["status" => false, "message" => "Message editing is not supported."],
+            404
+        );
     }
 
     // ── DELETE A MESSAGE ──

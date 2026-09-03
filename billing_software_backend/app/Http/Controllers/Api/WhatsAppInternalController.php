@@ -108,7 +108,6 @@ class WhatsAppInternalController extends Controller
 
         // incoming message from customer
         if (($payload['event'] ?? null) === 'message' && !empty($payload['message'])) {
-
             $msg = $payload['message'];
 
             $from = $msg['from'] ?? '';
@@ -234,6 +233,32 @@ class WhatsAppInternalController extends Controller
                     'status' => 'received'
                 ]);
             }
+        }
+
+        // opponent deleted a message for everyone
+        if (($payload['event'] ?? null) === 'delete' && !empty($payload['message']['id'])) {
+
+            $dm = $payload['message'];
+            $delId = $dm['id'];
+
+            // Mark the EXISTING incoming message deleted in place. Never insert a
+            // new/blank row — the original bubble must become the placeholder.
+            $updated = WhatsAppMessage::where('whatsapp_message_id', $delId)
+                ->where('direction', 'incoming')
+                ->where('is_deleted', '!=', 2)
+                ->update(['is_deleted' => 2, 'updated_at' => now()]);
+
+            if ($updated) {
+                \Log::info("WA delete sync: incoming message {$delId} marked deleted");
+            } else {
+                \Log::warning("WA delete sync: original incoming message {$delId} NOT found — no blank row created (remote_jid=" . ($dm['remoteJid'] ?? 'null') . ")");
+            }
+
+            $connection->save();
+
+            return response()->json([
+                "status" => true
+            ]);
         }
 
         // connection status updates

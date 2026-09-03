@@ -79,25 +79,6 @@ class WhatsAppService
             ->json();
     }
 
-    public function editMessage(
-        string $sessionId,
-        string $phone,
-        string $newText,
-        ?string $id,
-        bool $fromMe = true
-    ) {
-        return $this->request()
-            ->post("{$this->url}/api/whatsapp/edit", [
-                'session_id' => $sessionId,
-                'phone' => $phone,
-                'message' => $newText,
-                'id' => $id,
-                'from_me' => $fromMe
-            ])
-            ->throw()
-            ->json();
-    }
-
     public function deleteMessage(
         string $sessionId,
         string $phone,
