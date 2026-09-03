@@ -179,9 +179,8 @@ export default function AppRoutes() {
 
           {/* Cashier and Admin billing route */}
           <Route path="/billing" element={<Billing />} />
-        </Route>
 
-          {/* 2. Admin-only routes */}
+          {/* 2. Admin-only routes (kept inside MainLayout so the main sidebar stays visible) */}
           <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
             <Route path="/products" element={<ProductList />} />
             <Route path="/products/add" element={<ProductForm />} />
@@ -221,6 +220,7 @@ export default function AppRoutes() {
             <Route path="/credit-settings" element={<CreditSettings />} />
             <Route path="/whatsapp" element={<WhatsAppChat />} />
           </Route>
+        </Route>
 
           {/* 4. Superadmin-only routes */}
           <Route element={<ProtectedRoute allowedRoles={["superadmin"]} />}>
