@@ -3,7 +3,8 @@ const {
     useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
-    proto
+    proto,
+    WAMessageStubType
 } = require('@whiskeysockets/baileys');
 
 const path = require('path');
@@ -74,6 +75,64 @@ class WhatsAppManager {
         return path.join(config.sessionPath, 'baileys', 'session-' + sessionId);
     }
 
+    lidMapPath(sessionId) {
+        return path.join(this.baileysSessionPath(sessionId), 'lid-map.json');
+    }
+
+    loadLidMap(sessionId) {
+        try {
+            const file = this.lidMapPath(sessionId);
+            if (!fs.existsSync(file)) {
+                return;
+            }
+            const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (!parsed || typeof parsed !== 'object') {
+                return;
+            }
+            if (!this.lidToPhone.has(sessionId)) {
+                this.lidToPhone.set(sessionId, new Map());
+            }
+            for (const [lid, phone] of Object.entries(parsed)) {
+                this.lidToPhone.get(sessionId).set(lid, phone);
+            }
+            console.log(
+                `[WA][${sessionId}] loaded ${Object.keys(parsed).length} LID mapping(s) from disk`
+            );
+        } catch (error) {
+            console.error(
+                `[WA][${sessionId}] failed to load LID map:`,
+                error.message
+            );
+        }
+    }
+
+    saveLidMap(sessionId) {
+        try {
+            const cache = this.lidToPhone.get(sessionId);
+            if (!cache || cache.size === 0) {
+                return;
+            }
+            const dir = this.baileysSessionPath(sessionId);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            const obj = {};
+            for (const [lid, phone] of cache.entries()) {
+                obj[lid] = phone;
+            }
+            fs.writeFileSync(
+                this.lidMapPath(sessionId),
+                JSON.stringify(obj, null, 2),
+                'utf8'
+            );
+        } catch (error) {
+            console.error(
+                `[WA][${sessionId}] failed to save LID map:`,
+                error.message
+            );
+        }
+    }
+
     async createClient(sessionId) {
 
         if (this.clients.has(sessionId)) {
@@ -111,6 +170,8 @@ class WhatsAppManager {
         } catch (error) {
             console.error(`[WA][${sessionId}] cannot create session dir:`, error.message);
         }
+
+        this.loadLidMap(sessionId);
 
         let auth;
 
@@ -377,6 +438,55 @@ class WhatsAppManager {
             }
         });
 
+        sock.ev.on('contacts.upsert', (contacts) => {
+            for (const contact of contacts) {
+                if (contact?.lid && contact?.id) {
+                    this.registerLidMapping(
+                        sessionId,
+                        String(contact.lid),
+                        String(contact.id)
+                    );
+                }
+            }
+        });
+
+        sock.ev.on('contacts.update', (contacts) => {
+            for (const contact of contacts) {
+                if (contact?.lid && contact?.id) {
+                    this.registerLidMapping(
+                        sessionId,
+                        String(contact.lid),
+                        String(contact.id)
+                    );
+                }
+            }
+        });
+
+        sock.ev.on('messaging-history.set', ({ contacts }) => {
+            if (!Array.isArray(contacts)) {
+                return;
+            }
+            for (const contact of contacts) {
+                if (contact?.lid && contact?.id) {
+                    this.registerLidMapping(
+                        sessionId,
+                        String(contact.lid),
+                        String(contact.id)
+                    );
+                }
+            }
+        });
+
+        sock.ev.on('chats.phoneNumberShare', (share) => {
+            if (share?.lid && share?.jid) {
+                this.registerLidMapping(
+                    sessionId,
+                    String(share.lid),
+                    String(share.jid)
+                );
+            }
+        });
+
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
 
             if (type !== 'notify' && type !== 'append') {
@@ -392,13 +502,51 @@ class WhatsAppManager {
 
             for (const { key, update } of updates) {
 
-                if (!key || key.fromMe !== true) {
+                if (!key) {
                     continue;
                 }
 
                 const msgId = key.id;
 
                 if (!msgId) {
+                    continue;
+                }
+
+                // ── OPPONENT (OR A LINKED DEVICE) DELETED A MESSAGE FOR EVERYONE ──
+                // Baileys surfaces a protocol REVOKE as a messages.update where key.id
+                // already carries the ORIGINAL message id (protocolMsg.key.id) and the
+                // update carries messageStubType = REVOKE. Map that delete straight to
+                // the original message — Laravel only marks the existing row deleted.
+                const stubTypeUpper = String(update?.messageStubType ?? '').toUpperCase();
+                const isRevoke =
+                    typeof WAMessageStubType?.REVOKE !== 'undefined' &&
+                    update?.messageStubType === WAMessageStubType.REVOKE ||
+                    (
+                        (typeof proto?.Message?.ProtocolMessage?.Type?.REVOKE !== 'undefined') &&
+                        update?.protocolMessage?.type === proto.Message.ProtocolMessage.Type.REVOKE
+                    ) ||
+                    stubTypeUpper.includes('REVOKE');
+
+                if (isRevoke) {
+
+                    console.log(
+                        `[WA][REVOKE] originalMessageId=${msgId} ` +
+                        `remoteJid=${key?.remoteJid || ''} fromMe=${!!key?.fromMe}`
+                    );
+
+                    await this.updateLaravel(sessionId, {
+                        event: 'delete',
+                        message: {
+                            id: msgId,
+                            remoteJid: key?.remoteJid || null
+                        }
+                    });
+
+                    continue;
+                }
+
+                // Everything below is delivery/read status tracking for our own messages.
+                if (key.fromMe !== true) {
                     continue;
                 }
 
@@ -439,7 +587,19 @@ class WhatsAppManager {
 
     registerLidMapping(sessionId, lidJid, phoneJid) {
 
-        if (!String(lidJid).endsWith('@lid')) {
+        if (!lidJid || !phoneJid) {
+            return;
+        }
+
+        const cleanLid = String(lidJid).includes('@')
+            ? String(lidJid)
+            : String(lidJid) + '@lid';
+
+        const cleanPhone = String(phoneJid).includes('@')
+            ? String(phoneJid)
+            : String(phoneJid) + '@s.whatsapp.net';
+
+        if (!String(cleanLid).endsWith('@lid')) {
             return;
         }
 
@@ -447,14 +607,20 @@ class WhatsAppManager {
             this.lidToPhone.set(sessionId, new Map());
         }
 
-        this.lidToPhone.get(sessionId).set(lidJid, phoneJid);
+        const previous = this.lidToPhone.get(sessionId).get(cleanLid);
+
+        this.lidToPhone.get(sessionId).set(cleanLid, cleanPhone);
+
+        if (previous !== cleanPhone) {
+            this.saveLidMap(sessionId);
+        }
     }
 
     resolveIdentity(sessionId, key) {
 
         const remoteJid = key?.remoteJid || '';
 
-        if (String(remoteJid).endsWith('@s.whatsapp.net')) {
+        if (String(remoteJid).endsWith('@s.whatsapp.net') || String(remoteJid).endsWith('@c.us')) {
             return { phoneJid: remoteJid };
         }
 
@@ -492,6 +658,12 @@ class WhatsAppManager {
 
             const remoteJid = key.remoteJid || '';
 
+            console.log(
+                `[WA][INCOMING-EVENT] sessionId=${sessionId} ` +
+                `messageId=${key?.id || ''} remoteJid=${remoteJid} ` +
+                `fromMe=${!!key?.fromMe} type=${rawMessage?.message ? Object.keys(rawMessage.message).join(',') : ''}`
+            );
+
             if (!remoteJid) {
                 return;
             }
@@ -521,12 +693,29 @@ class WhatsAppManager {
                 return;
             }
 
+            // Protocol messages (message revokes = "delete for everyone", message edits,
+            // ephemeral settings, etc.) are NOT real chat bubbles. They are resolved
+            // against their ORIGINAL message id via the messages.update event instead.
+            // Never create a blank/new message row or bubble for them.
+            if (message.protocolMessage) {
+
+                console.log(
+                    `[WA][SKIP-PROTOCOL] sessionId=${sessionId} ` +
+                    `protocolMessageId=${msgId} type=${message.protocolMessage.type ?? 'unknown'}`
+                );
+
+                return;
+            }
+
             const identity = this.resolveIdentity(sessionId, key);
 
             const lidJid = String(remoteJid).endsWith('@lid') ? remoteJid : null;
 
             const from = identity.phoneJid || lidJid || remoteJid;
 
+            // Only report a real resolved phone number (from a @s.whatsapp.net / @c.us
+            // identity or a resolved LID map entry). Never fabricate a phone from LID
+            // digits — LID numbers are NOT the customer's phone.
             const phoneDigits = identity.phoneJid
                 ? String(identity.phoneJid).split('@')[0].replace(/\D/g, '')
                 : null;
@@ -617,7 +806,8 @@ class WhatsAppManager {
     async sendText(
         sessionId,
         phone,
-        message
+        message,
+        replyTo = null
     ) {
 
         const sock = this.clients.get(sessionId);
@@ -636,9 +826,33 @@ class WhatsAppManager {
 
         try {
 
-            const sentMsg = await sock.sendMessage(jid, {
-                text: message
-            });
+            const content = { text: message };
+
+            const options = {};
+
+            // Real WhatsApp quoted reply: pass the original message's key so
+            // Baileys builds the contextInfo / quoted banner for the recipient.
+            if (replyTo && replyTo.id) {
+
+                const quotedRemoteJid =
+                    typeof replyTo.remote_jid === 'string' &&
+                    /@s\.whatsapp\.net$/i.test(replyTo.remote_jid)
+                        ? replyTo.remote_jid
+                        : jid;
+
+                options.quoted = {
+                    key: {
+                        remoteJid: quotedRemoteJid,
+                        fromMe: Boolean(replyTo.from_me),
+                        id: String(replyTo.id)
+                    },
+                    message: {
+                        conversation: String(replyTo.text || message || '')
+                    }
+                };
+            }
+
+            const sentMsg = await sock.sendMessage(jid, content, options);
 
             const msgId = sentMsg?.key?.id || null;
 
@@ -776,6 +990,63 @@ class WhatsAppManager {
 
             console.error(
                 `[WA][${sessionId}] send base64 document failed:`,
+                error.message
+            );
+
+            throw error;
+        }
+    }
+
+    // Delete a message for both parties (if within WhatsApp's window) or at
+    // least from our own side. Pass the original message key.
+    async deleteMessage(
+        sessionId,
+        phone,
+        { id, from_me = true } = {}
+    ) {
+
+        const sock = this.clients.get(sessionId);
+
+        if (!sock) {
+            throw new Error('WhatsApp client not found');
+        }
+
+        const state = this.getState(sessionId);
+
+        if (state.status !== 'ready') {
+            throw new Error('WhatsApp is not connected');
+        }
+
+        const jid = this.resolveJid(sessionId, phone);
+
+        if (!id) {
+            throw new Error('Original message id is required to delete');
+        }
+
+        try {
+
+            await sock.sendMessage(
+                jid,
+                {
+                    delete: {
+                        remoteJid: jid,
+                        fromMe: Boolean(from_me),
+                        id: String(id),
+                        participant: undefined
+                    }
+                }
+            );
+
+            console.log(
+                `[WA][${sessionId}] deleted message id=${id} to=${jid}`
+            );
+
+            return { id, status: 'deleted' };
+
+        } catch (error) {
+
+            console.error(
+                `[WA][${sessionId}] delete message failed:`,
                 error.message
             );
 
