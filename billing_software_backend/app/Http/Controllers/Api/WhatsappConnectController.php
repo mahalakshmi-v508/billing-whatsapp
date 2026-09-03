@@ -178,6 +178,7 @@ class WhatsappConnectController extends Controller
         $company_id = $request->input('company_id');
         $phone = $request->input('phone', '');
         $message = $request->input('message', '');
+        $replyToInput = $request->input('reply_to_message_id');
 
         if (empty($company_id)) {
             return response()->json([
@@ -207,8 +208,27 @@ class WhatsappConnectController extends Controller
             ]);
         }
 
+        // Resolve the message being replied to so the recipient sees a real
+        // WhatsApp quoted reply (and so the chat history persists the link).
+        $original = null;
+        $replyTo = null;
+        if (!empty($replyToInput)) {
+            $original = WhatsAppMessage::where('id', $replyToInput)
+                ->orWhere('whatsapp_message_id', $replyToInput)
+                ->first();
+
+            if ($original) {
+                $replyTo = [
+                    'id' => $original->whatsapp_message_id ?: null,
+                    'from_me' => $original->direction === 'outgoing',
+                    'remote_jid' => $this->chatJidForQuote($original->chat_id),
+                    'text' => $this->quoteTextFor($original),
+                ];
+            }
+        }
+
         try {
-            $result = $whatsapp->sendMessage($connection->session_id, $phone, $message);
+            $result = $whatsapp->sendMessage($connection->session_id, $phone, $message, $replyTo);
         } catch (\Exception $e) {
             return response()->json([
                 "status" => false,
@@ -226,6 +246,7 @@ class WhatsappConnectController extends Controller
             'direction' => 'outgoing',
             'message_type' => 'text',
             'message' => $message,
+            'reply_to_message_id' => $original ? $original->id : null,
             'status' => 'sent',
             'sent_at' => now()
         ]);
@@ -235,9 +256,34 @@ class WhatsappConnectController extends Controller
             "message" => "Message sent successfully.",
             "data" => array_merge(is_array($result) ? $result : ['result' => $result], [
                 'id' => $msg->id,
-                'whatsapp_message_id' => $msg->whatsapp_message_id
+                'whatsapp_message_id' => $msg->whatsapp_message_id,
+                'reply_to_message_id' => $msg->reply_to_message_id
             ])
         ]);
+    }
+
+    // ── HELPERS FOR WHATSAPP QUOTED REPLIES ──
+    private function chatJidForQuote(?string $chatId): ?string
+    {
+        $chatId = (string) $chatId;
+        if (preg_match('/@s\.whatsapp\.net$/i', $chatId)) {
+            return $chatId;
+        }
+        if (preg_match('/@c\.us$/i', $chatId)) {
+            return preg_replace('/@c\.us$/i', '@s.whatsapp.net', $chatId);
+        }
+        return null;
+    }
+
+    private function quoteTextFor(WhatsAppMessage $m): string
+    {
+        $media = (string) $m->media_name;
+        if ($m->message_type === 'document' && $media !== '') {
+            $inv = preg_replace('/\.pdf$/i', '', $media);
+            return $inv !== '' ? $inv : $media;
+        }
+        $text = trim((string) $m->message);
+        return $text !== '' ? $text : ($media !== '' ? $media : 'Message');
     }
 
     // ── SEND INVOICE PDF VIA WHATSAPP ──
@@ -464,6 +510,9 @@ class WhatsappConnectController extends Controller
         // contacts from appearing in the application's contact list.
         $phonesWithHistory = DB::table('whatsapp_messages as wm')
             ->where('wm.company_id', $company_id)
+            ->where(function ($q) {
+                $q->whereNull('wm.is_deleted')->orWhere('wm.is_deleted', 0);
+            })
             ->where(function ($query) {
                 $query->whereExists(function ($sub) {
                     $sub->select(DB::raw(1))
@@ -486,6 +535,9 @@ class WhatsappConnectController extends Controller
         $lastIds = DB::table('whatsapp_messages')
             ->select('customer_phone', DB::raw('MAX(id) as last_id'))
             ->where('company_id', $company_id)
+            ->where(function ($q) {
+                $q->whereNull('is_deleted')->orWhere('is_deleted', 0);
+            })
             ->whereIn('customer_phone', $phonesWithHistory)
             ->groupBy('customer_phone');
 
@@ -517,6 +569,9 @@ class WhatsappConnectController extends Controller
             ->where('company_id', $company_id)
             ->where('direction', 'incoming')
             ->where('status', 'received')
+            ->where(function ($q) {
+                $q->whereNull('is_deleted')->orWhere('is_deleted', 0);
+            })
             ->whereIn('customer_phone', $phonesWithHistory)
             ->groupBy('customer_phone')
             ->pluck(DB::raw('COUNT(*)'), 'customer_phone');
@@ -570,6 +625,11 @@ class WhatsappConnectController extends Controller
             })
             ->where('wm.company_id', $company_id)
             ->where('wm.customer_phone', $phone)
+            ->where(function ($q) {
+                $q->whereNull('wm.is_deleted')
+                  ->orWhere('wm.is_deleted', 0)
+                  ->orWhere('wm.is_deleted', 2);
+            })
             ->orderBy('wm.id')
             ->get([
                 'wm.id',
@@ -579,6 +639,9 @@ class WhatsappConnectController extends Controller
                 'wm.message_type',
                 'wm.message',
                 'wm.media_name',
+                'wm.reply_to_message_id',
+                'wm.is_edited',
+                'wm.is_deleted',
                 'wm.status',
                 'wm.created_at',
                 DB::raw('COALESCE(NULLIF(c.name, ""), wm.customer_phone) as customer_name')
@@ -616,6 +679,10 @@ class WhatsappConnectController extends Controller
                 'text'                => $m->message,
                 'status'              => $m->status,
                 'time'                => $m->created_at,
+                'reply_to_message_id' => $m->reply_to_message_id,
+                'edited'              => (bool) $m->is_edited,
+                'is_deleted'          => intval($m->is_deleted ?? 0),
+                'customer_name'       => $m->customer_name,
                 'invoice'             => null
             ];
 
@@ -640,6 +707,80 @@ class WhatsappConnectController extends Controller
         }
 
         return response()->json(["status" => true, "data" => $data]);
+    }
+
+    // ── UPDATE / EDIT OUTGOING MESSAGE — DISABLED ──
+    // WhatsApp message editing is intentionally not supported. If an old client
+    // still calls this route, respond 404 so no message can ever be modified.
+    public function updateMessage(Request $request)
+    {
+        return response()->json(
+            ["status" => false, "message" => "Message editing is not supported."],
+            404
+        );
+    }
+
+    // ── DELETE A MESSAGE ──
+    public function deleteMessage(Request $request, WhatsAppService $whatsapp)
+    {
+        $company_id = intval($request->input('company_id', 0));
+        $message_id = $request->input('message_id', '');
+        $delete_for = $request->input('delete_for', 'everyone');
+
+        if (!$company_id || empty($message_id)) {
+            return response()->json(["status" => false, "message" => "company_id and message_id are required"]);
+        }
+
+        $connection = WhatsAppConnection::where('company_id', $company_id)->first();
+
+        if (!$connection) {
+            return response()->json(["status" => false, "message" => "WhatsApp is not connected."]);
+        }
+
+        // Resolve by DB id (preferred) or whatsapp_message_id
+        $msg = WhatsAppMessage::where('company_id', $company_id)
+            ->where(function ($q) use ($message_id) {
+                $q->where('id', $message_id)
+                  ->orWhere('whatsapp_message_id', $message_id);
+            })
+            ->first();
+
+        if (!$msg) {
+            return response()->json(["status" => false, "message" => "Message not found."]);
+        }
+
+        if ($delete_for === 'everyone') {
+            // Delete for everyone: sync deletion to WhatsApp via Baileys
+            if ($connection->status === 'ready' && !empty($msg->whatsapp_message_id)) {
+                try {
+                    $whatsapp->deleteMessage(
+                        $connection->session_id,
+                        $msg->customer_phone,
+                        $msg->whatsapp_message_id,
+                        $msg->direction === 'outgoing'
+                    );
+                } catch (\Exception $e) {
+                    // If live delete fails, still mark deleted locally
+                }
+            }
+            // is_deleted = 2 → "deleted for everyone" (shows placeholder in UI)
+            $msg->is_deleted = 2;
+        } else {
+            // Delete for me: hide from current user only, do NOT sync to WhatsApp
+            // is_deleted = 1 → "deleted for me" (hidden from view)
+            $msg->is_deleted = 1;
+        }
+
+        $msg->save();
+
+        return response()->json([
+            "status" => true,
+            "message" => "Message deleted successfully.",
+            "data" => [
+                "id" => $msg->id,
+                "is_deleted" => $msg->is_deleted
+            ]
+        ]);
     }
 
     // ── MARK INCOMING MESSAGES AS READ WHEN CHAT IS OPENED ──
