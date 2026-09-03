@@ -79,3 +79,22 @@ export async function getFrequentlyUsedReports() {
     return [];
   }
 }
+
+/**
+ * Remove a report from the user's Frequently Used list on the backend
+ * (persistent across refresh). The report's record is DELETED entirely — the
+ * report/page itself is untouched, and its usage count restarts from 1 the
+ * next time the user views it.
+ */
+export async function removeFrequentReport(reportSlug) {
+  const adminId = getAdminId();
+  if (!adminId || !reportSlug) return;
+  try {
+    await api.post("/report/remove_frequent", {
+      admin_id: adminId,
+      report_slug: reportSlug,
+    });
+  } catch {
+    // best effort — a failed remove should never block the UI
+  }
+}

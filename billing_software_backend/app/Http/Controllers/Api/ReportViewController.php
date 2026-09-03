@@ -65,4 +65,26 @@ class ReportViewController extends Controller
             'data'   => $items,
         ]);
     }
+
+    /**
+     * Remove a report from the user's Frequently Used list by DELETING its
+     * record entirely. The report/page itself is untouched. Next time the
+     * user views the report, recordView starts counting that report again
+     * from 1, so it can become frequent again after enough views.
+     */
+    public function removeReport(Request $request)
+    {
+        $adminId = intval($request->input('admin_id', 0));
+        $slug    = trim((string) $request->input('report_slug', ''));
+
+        if ($adminId <= 0 || $slug === '') {
+            return response()->json(['status' => false, 'message' => 'admin_id and report_slug are required']);
+        }
+
+        ReportView::where('admin_id', $adminId)
+            ->where('report_slug', $slug)
+            ->delete();
+
+        return response()->json(['status' => true]);
+    }
 }
