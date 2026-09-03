@@ -3,7 +3,8 @@ const {
     useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
-    proto
+    proto,
+    WAMessageStubType
 } = require('@whiskeysockets/baileys');
 
 const path = require('path');
@@ -501,13 +502,51 @@ class WhatsAppManager {
 
             for (const { key, update } of updates) {
 
-                if (!key || key.fromMe !== true) {
+                if (!key) {
                     continue;
                 }
 
                 const msgId = key.id;
 
                 if (!msgId) {
+                    continue;
+                }
+
+                // ── OPPONENT (OR A LINKED DEVICE) DELETED A MESSAGE FOR EVERYONE ──
+                // Baileys surfaces a protocol REVOKE as a messages.update where key.id
+                // already carries the ORIGINAL message id (protocolMsg.key.id) and the
+                // update carries messageStubType = REVOKE. Map that delete straight to
+                // the original message — Laravel only marks the existing row deleted.
+                const stubTypeUpper = String(update?.messageStubType ?? '').toUpperCase();
+                const isRevoke =
+                    typeof WAMessageStubType?.REVOKE !== 'undefined' &&
+                    update?.messageStubType === WAMessageStubType.REVOKE ||
+                    (
+                        (typeof proto?.Message?.ProtocolMessage?.Type?.REVOKE !== 'undefined') &&
+                        update?.protocolMessage?.type === proto.Message.ProtocolMessage.Type.REVOKE
+                    ) ||
+                    stubTypeUpper.includes('REVOKE');
+
+                if (isRevoke) {
+
+                    console.log(
+                        `[WA][REVOKE] originalMessageId=${msgId} ` +
+                        `remoteJid=${key?.remoteJid || ''} fromMe=${!!key?.fromMe}`
+                    );
+
+                    await this.updateLaravel(sessionId, {
+                        event: 'delete',
+                        message: {
+                            id: msgId,
+                            remoteJid: key?.remoteJid || null
+                        }
+                    });
+
+                    continue;
+                }
+
+                // Everything below is delivery/read status tracking for our own messages.
+                if (key.fromMe !== true) {
                     continue;
                 }
 
@@ -651,6 +690,20 @@ class WhatsAppManager {
             const message = rawMessage?.message;
 
             if (!message) {
+                return;
+            }
+
+            // Protocol messages (message revokes = "delete for everyone", message edits,
+            // ephemeral settings, etc.) are NOT real chat bubbles. They are resolved
+            // against their ORIGINAL message id via the messages.update event instead.
+            // Never create a blank/new message row or bubble for them.
+            if (message.protocolMessage) {
+
+                console.log(
+                    `[WA][SKIP-PROTOCOL] sessionId=${sessionId} ` +
+                    `protocolMessageId=${msgId} type=${message.protocolMessage.type ?? 'unknown'}`
+                );
+
                 return;
             }
 
@@ -937,57 +990,6 @@ class WhatsAppManager {
 
             console.error(
                 `[WA][${sessionId}] send base64 document failed:`,
-                error.message
-            );
-
-            throw error;
-        }
-    }
-
-    // Edit an already-sent text message on the recipient's side (WhatsApp
-    // shows the "edited" indicator). Requires the original message key.
-    async editMessage(
-        sessionId,
-        phone,
-        newText,
-        { id, from_me = true } = {}
-    ) {
-
-        const sock = this.clients.get(sessionId);
-
-        if (!sock) {
-            throw new Error('WhatsApp client not found');
-        }
-
-        const state = this.getState(sessionId);
-
-        if (state.status !== 'ready') {
-            throw new Error('WhatsApp is not connected');
-        }
-
-        const jid = this.resolveJid(sessionId, phone);
-
-        if (!id) {
-            throw new Error('Original message id is required to edit');
-        }
-
-        try {
-
-            await sock.sendMessage(
-                jid,
-                { text: String(newText), edit: { remoteJid: jid, fromMe: Boolean(from_me), id: String(id) } }
-            );
-
-            console.log(
-                `[WA][${sessionId}] edited message id=${id} to=${jid}`
-            );
-
-            return { id, status: 'edited' };
-
-        } catch (error) {
-
-            console.error(
-                `[WA][${sessionId}] edit message failed:`,
                 error.message
             );
 

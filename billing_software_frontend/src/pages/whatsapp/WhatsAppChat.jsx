@@ -25,7 +25,6 @@ import {
   CornerUpLeft,
   Copy,
   Forward,
-  Pencil,
   Trash2,
   Rocket,
 } from "lucide-react";
@@ -133,7 +132,6 @@ export default function WhatsAppChat() {
   const [menuOpenFor, setMenuOpenFor] = useState(null); // message id (string) with menu open
   const [hoverId, setHoverId] = useState(null); // message id being hovered
   const [replyTo, setReplyTo] = useState(null); // message object being replied to
-  const [editingMsg, setEditingMsg] = useState(null); // message object being edited
 
   // forward flow
   const [forwardMsg, setForwardMsg] = useState(null); // message being forwarded
@@ -153,7 +151,6 @@ export default function WhatsAppChat() {
   const inputRef = useRef(null);
   const menuRef = useRef(null);
   const msgEls = useRef({});
-  const editedRef = useRef({});    // msgId -> edited text (in-session edit override)
   const swipeStart = useRef(null); // active swipe gesture info
 
   const showToast = (msg, ok = true) => {
@@ -277,14 +274,10 @@ export default function WhatsAppChat() {
               if (existing) {
                 const existingRank = statusRank[existing.status] || 0;
                 const incomingRank = statusRank[inc.status] || 0;
-                // Preserve locally-added reply/quote metadata and in-session edits
-                // so polling does not revert them.
+                // Preserve locally-added reply/quote metadata
+                // so polling does not revert it.
                 const preserve = {};
                 if (existing.replyMetadata) preserve.replyMetadata = existing.replyMetadata;
-                if (existing.edited) {
-                  preserve.edited = true;
-                  preserve.text = existing.text || inc.text;
-                }
                 return {
                   ...inc,
                   ...preserve,
@@ -441,61 +434,13 @@ export default function WhatsAppChat() {
     }
   };
 
-  // ── save an edited message: persist via backend API then update chat ──
-  const sendEdited = async () => {
-    const text = draft.trim();
-    if (!text || !selectedPhone || sending || !editingMsg) return;
-
-    const editKey = msgKey(editingMsg);
-    const editId = editingMsg.id !== undefined ? editingMsg.id : editingMsg.whatsapp_message_id;
-
-    setSending(true);
-    try {
-      // Real backend edit: update the ORIGINAL message by its id, persist in DB,
-      // and (when possible) propagate the edit to WhatsApp itself.
-      const res = await api.post("/whatsapp/update_message", {
-        company_id: companyId,
-        message_id: String(editId),
-        message: text,
-      });
-
-      if (!res.data.status) {
-        showToast(res.data.message || "Failed to update message", false);
-        setSending(false);
-        return;
-      }
-
-      // Update the existing message in place (never duplicate).
-      setMessages((prev) =>
-        prev.map((m) => {
-          const match =
-            (editingMsg.id !== undefined && String(m.id) === String(editingMsg.id)) ||
-            (editingMsg.whatsapp_message_id &&
-              m.whatsapp_message_id === editingMsg.whatsapp_message_id);
-          if (match) return { ...m, text, edited: true };
-          return m;
-        })
-      );
-      if (editKey) editedRef.current[editKey] = { text };
-      setDraft("");
-      setEditingMsg(null);
-      showToast("Message updated");
-      await loadMessages(selectedPhone);
-      await loadChats();
-    } catch (err) {
-      showToast(err.response?.data?.message || "Failed to update message", false);
-    } finally {
-      setSending(false);
-    }
-  };
-
   // ── send text message ──
   const sendDraft = async () => {
     const text = draft.trim();
     if (!text || !selectedPhone || sending) return;
 
     // real reply reference: the DB id of the original message being replied to
-    const replying = replyTo && !editingMsg;
+    const replying = replyTo;
     const replyToId = replying && replyTo.id !== undefined ? String(replyTo.id) : null;
 
     setSending(true);
@@ -513,7 +458,6 @@ export default function WhatsAppChat() {
         // from that real data (no fake/local reply state).
         setDraft("");
         setReplyTo(null);
-        setEditingMsg(null);
         stickToBottom.current = true;
         await loadMessages(selectedPhone);
         await loadChats();
@@ -591,10 +535,82 @@ export default function WhatsAppChat() {
     e.stopPropagation();
     if (menuOpenFor === String(m.id)) {
       setMenuOpenFor(null);
-    } else {
-      setMenuOpenFor(String(m.id));
+      return;
     }
+    setMenuOpenFor(String(m.id));
   };
+
+  // Recompute popup position relative to the scroll container.
+  // The popup is absolutely-positioned inside .wc-row (position: relative).
+  const repositionMenu = () => {
+    const menu = menuRef.current;
+    const container = scrollRef.current;
+    if (!menu || !container) return;
+
+    const rowEl = menu.closest(".wc-row");
+    const wrapEl = msgEls.current[menuOpenFor];
+    if (!rowEl || !wrapEl) return;
+
+    const mRect  = menu.getBoundingClientRect();
+    const cRect  = container.getBoundingClientRect();
+    const rRect  = rowEl.getBoundingClientRect();
+    const wRect  = wrapEl.getBoundingClientRect();
+    const out    = wrapEl.closest(".wc-out") !== null;
+    const gap    = 8;
+
+    // Bubble-wrap offset inside the row (the positioning parent)
+    const wrapLeft  = wRect.left  - rRect.left;
+    const wrapTop   = wRect.top   - rRect.top;
+    const wrapRight = wRect.right - rRect.left;
+
+    // ── X: prefer outside the bubble on the opposite side (WhatsApp style) ──
+    let menuLeft;
+    if (out) {
+      // Outgoing → bubble on right → prefer menu to its LEFT
+      menuLeft = wrapLeft - mRect.width - gap;
+      if (menuLeft < cRect.left - rRect.left) {
+        menuLeft = wrapRight + gap;
+      }
+    } else {
+      // Incoming → bubble on left → prefer menu to its RIGHT
+      menuLeft = wrapRight + gap;
+      if (menuLeft + mRect.width > cRect.right - rRect.left) {
+        menuLeft = wrapLeft - mRect.width - gap;
+      }
+    }
+
+    // ── Y: aligned with message top, flip above when near the bottom ──
+    let menuTop = wrapTop;
+    const spaceBelow = cRect.bottom - wRect.bottom;
+    if (spaceBelow < mRect.height + gap) {
+      menuTop = wrapTop - mRect.height - gap;
+    }
+
+    // Clamp so the popup stays fully inside the scroll container
+    const minTop = cRect.top    - rRect.top;
+    const maxTop = cRect.bottom - rRect.top - mRect.height;
+    menuTop = Math.max(minTop, Math.min(menuTop, maxTop));
+
+    const minLeft = cRect.left  - rRect.left;
+    const maxLeft = cRect.right - rRect.left - mRect.width;
+    menuLeft = Math.max(minLeft, Math.min(menuLeft, maxLeft));
+
+    menu.style.top   = menuTop  + "px";
+    menu.style.left  = menuLeft + "px";
+    menu.style.right = "auto";
+  };
+
+  useEffect(() => {
+    if (!menuOpenFor) return;
+    // Position immediately after the popup renders
+    repositionMenu();
+
+    // Re-position on every scroll so the popup follows the message
+    const container = scrollRef.current;
+    if (!container) return;
+    container.addEventListener("scroll", repositionMenu, { passive: true });
+    return () => container.removeEventListener("scroll", repositionMenu);
+  }, [menuOpenFor]);
 
   // close menus / forward on outside click
   useEffect(() => {
@@ -627,7 +643,6 @@ export default function WhatsAppChat() {
   // REPLY → set up quoted message banner in composer
   const handleReply = (m) => {
     setReplyTo(m);
-    setEditingMsg(null);
     setMenuOpenFor(null);
     setTimeout(() => inputRef.current?.focus(), 60);
   };
@@ -732,18 +747,14 @@ export default function WhatsAppChat() {
     }
   };
 
-  // EDIT (own messages) → load into composer
-  const handleEdit = (m) => {
-    setEditingMsg(m);
-    setReplyTo(null);
-    setDraft(m.text || "");
-    setMenuOpenFor(null);
-    setTimeout(() => inputRef.current?.focus(), 60);
-  };
-
   // DELETE → real backend delete (DB + optional WhatsApp delete)
   const handleDelete = async (m, deleteFor = "everyone") => {
     if (!selectedPhone) return;
+    // "Delete for everyone" only applies to your own (outgoing) messages.
+    if (deleteFor === "everyone" && m.direction === "incoming") {
+      showToast("You can only delete your own messages for everyone", false);
+      return;
+    }
     setMenuOpenFor(null);
     setDeleteTarget(null);
     const delId = m.id !== undefined ? m.id : m.whatsapp_message_id;
@@ -755,7 +766,14 @@ export default function WhatsAppChat() {
       });
       if (res.data.status) {
         if (deleteFor === "everyone") {
-          // "Delete for everyone" → show placeholder in UI, refresh from server
+          // Optimistically show placeholder, then refresh from server
+          setMessages((prev) =>
+            prev.map((x) => {
+              if (m.id !== undefined && String(x.id) === String(m.id)) return { ...x, is_deleted: 2 };
+              if (m.whatsapp_message_id && x.whatsapp_message_id === m.whatsapp_message_id) return { ...x, is_deleted: 2 };
+              return x;
+            })
+          );
           await loadMessages(selectedPhone);
         } else {
           // "Delete for me" → remove from UI only
@@ -767,9 +785,7 @@ export default function WhatsAppChat() {
             })
           );
         }
-        // Remove any in-session edit override for the deleted message.
-        const key = msgKey(m);
-        if (key && editedRef.current[key]) delete editedRef.current[key];
+        // Accept the deletion result, then refresh the chat list.
         showToast(deleteFor === "everyone" ? "Message deleted for everyone" : "Message deleted");
         await loadChats();
       } else {
@@ -916,8 +932,7 @@ export default function WhatsAppChat() {
     const isHighlighted = highlightId === String(m.id);
     const key = msgKey(m);
     const reply = m.replyMetadata || null;
-    const edited = m.edited || Boolean(key && editedRef.current[key]);
-    const bodyText = key && editedRef.current[key] ? editedRef.current[key].text : m.text;
+    const bodyText = m.text;
 
     return (
       <div
@@ -937,6 +952,17 @@ export default function WhatsAppChat() {
           style={swipe.id === String(m.id) && swipe.x ? { transform: `translateX(${swipe.x}px)` } : undefined}
         >
         <div className={`wc-bubble ${out ? "wc-bubble-out" : ""}`}>
+          {/* Hover action chevron — inside the bubble, top-right */}
+          {m.is_deleted !== 2 && (
+          <button
+            className={`wc-bubble-menu-btn ${hoverId === String(m.id) || menuOpen ? "show" : ""} ${menuOpen ? "open" : ""}`}
+            onClick={(e) => toggleMenu(e, m)}
+            title="Message actions"
+            aria-label="Message actions"
+          >
+            <ChevronDown size={13} />
+          </button>
+          )}
           {/* Reply quote banner rendered on bubble when it's a reply */}
           {reply ? (
             <div
@@ -992,25 +1018,20 @@ export default function WhatsAppChat() {
               </div>
             </div>
           ) : null}
-          {bodyText ? <div className="wc-text">{bodyText}</div> : null}
+          {m.is_deleted === 2 ? (
+            <div className="wc-text wc-text-deleted">
+              🚫 {out ? "You deleted this message" : "This message was deleted"}
+            </div>
+          ) : bodyText ? <div className="wc-text">{bodyText}</div> : null}
           <div className="wc-meta">
-            {edited && <span className="wc-edited-label">edited</span>}
             <span>{formatTime(m.time)}</span>
             {out && <Ticks status={m.status} />}
           </div>
         </div>
 
-        {/* Hover dropdown (chevron) button */}
-        <button
-          className={`wc-bubble-menu-btn ${hoverId === String(m.id) || menuOpen ? "show" : ""} ${menuOpen ? "open" : ""}`}
-          onClick={(e) => toggleMenu(e, m)}
-          title="Message actions"
-          aria-label="Message actions"
-        >
-          <ChevronDown size={15} />
-        </button>
+        </div>
 
-        {/* WhatsApp-style action menu popover */}
+        {/* WhatsApp-style action menu popover — rendered at .wc-row level for proper positioning */}
         {menuOpen && (
           <div className="wc-msg-menu" ref={menuOpen ? menuRef : undefined}>
             <div className="wc-msg-menu-item" onClick={() => handleReply(m)}>
@@ -1025,19 +1046,12 @@ export default function WhatsAppChat() {
               <Forward size={15} />
               <span>Forward</span>
             </div>
-            {out && m.text ? (
-              <div className="wc-msg-menu-item" onClick={() => handleEdit(m)}>
-                <Pencil size={15} />
-                <span>Edit</span>
-              </div>
-            ) : null}
             <div className="wc-msg-menu-item wc-msg-menu-danger" onClick={() => { setDeleteTarget(m); setMenuOpenFor(null); }}>
               <Trash2 size={15} />
               <span>Delete</span>
             </div>
           </div>
         )}
-        </div>
       </div>
     );
   };
@@ -1211,18 +1225,14 @@ export default function WhatsAppChat() {
         .wc-bubble-wrap-swiping { transition: none; will-change: transform; }
         .wc-bubble-wrap-in { align-self: flex-start; }
         .wc-bubble-wrap-out { align-self: flex-end; }
-        .wc-bubble { max-width: 100%; }
-        .wc-bubble-menu-btn { position: absolute; top: 2px; width: 26px; height: 26px; border-radius: 50%; border: none; background: transparent; color: #667781; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity 0.12s ease, background 0.12s ease; }
-        .wc-bubble-wrap-in .wc-bubble-menu-btn { right: calc(100% + 2px); }
-        .wc-bubble-wrap-out .wc-bubble-menu-btn { left: calc(100% + 2px); }
-        .wc-bubble-menu-btn:hover { background: rgba(11,20,26,0.08); }
+        .wc-bubble { position: relative; max-width: 100%; }
+        .wc-bubble-menu-btn { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: none; background: transparent; color: rgba(17,27,33,0.38); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity 0.15s ease, background 0.12s ease, color 0.12s ease; z-index: 2; padding: 0; }
+        .wc-bubble-menu-btn:hover { background: rgba(11,20,26,0.07); color: rgba(17,27,33,0.6); }
         .wc-bubble-menu-btn.show, .wc-bubble-menu-btn.open { opacity: 1; }
-        .wc-bubble-menu-btn.open { background: rgba(11,20,26,0.1); transform: rotate(180deg); }
+        .wc-bubble-menu-btn.open { color: rgba(17,27,33,0.55); transform: rotate(180deg); }
 
         /* ── WhatsApp-style action menu ── */
-        .wc-msg-menu { position: absolute; top: 34px; z-index: 30; min-width: 170px; background: #ffffff; border-radius: 10px; box-shadow: 0 2px 12px rgba(11,20,26,0.18), 0 0 0 0.5px rgba(0,0,0,0.06); padding: 6px 0; overflow: hidden; }
-        .wc-in .wc-msg-menu { left: 0; }
-        .wc-out .wc-msg-menu { right: 0; }
+        .wc-msg-menu { position: absolute; z-index: 30; min-width: 170px; background: #ffffff; border-radius: 10px; box-shadow: 0 2px 12px rgba(11,20,26,0.18), 0 0 0 0.5px rgba(0,0,0,0.06); padding: 6px 0; overflow: visible; }
         .wc-msg-menu-item { display: flex; align-items: center; gap: 12px; padding: 9px 18px; font-size: 13.5px; font-weight: 500; color: #111b21; cursor: pointer; transition: background 0.1s ease; white-space: nowrap; }
         .wc-msg-menu-item:hover { background: #f0f2f5; }
         .wc-msg-menu-item svg { color: #667781; flex-shrink: 0; }
@@ -1234,9 +1244,19 @@ export default function WhatsAppChat() {
         .wc-reply-banner:hover { background: rgba(37,211,102,0.16); }
         .wc-reply-author { font-size: 12px; font-weight: 700; color: #008069; }
         .wc-reply-text { font-size: 12.5px; color: #54656f; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
-        .wc-edited-label { font-size: 10px; color: #667781; font-style: italic; }
+        .wc-text-deleted { font-style: italic; color: #667781; font-size: 13.5px; }
 
-        /* ── composer reply/edit bar ── */
+        /* ── delete confirmation dialog (WhatsApp-style) ── */
+        .wc-delete-backdrop { position: fixed; inset: 0; background: rgba(11,20,26,0.55); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .wc-delete-dialog { width: 100%; max-width: 360px; background: #fff; border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.35); overflow: hidden; }
+        .wc-delete-dialog-title { padding: 20px 22px 4px; font-size: 17px; font-weight: 600; color: #111b21; }
+        .wc-delete-actions { display: flex; flex-direction: column; padding: 6px 8px 12px; }
+        .wc-delete-action { display: flex; align-items: center; justify-content: flex-start; width: 100%; padding: 14px 14px; font-size: 14.5px; font-weight: 600; color: #008069; background: transparent; border: none; cursor: pointer; text-align: left; font-family: inherit; border-radius: 10px; }
+        .wc-delete-action:hover { background: #f0f2f5; }
+        .wc-delete-action.cancel { color: #54656f; font-weight: 500; }
+        .wc-delete-action.danger { color: #c62828; }
+
+        /* ── composer reply bar ── */
         .wc-reply-bar { display: flex; align-items: stretch; gap: 10px; width: 100%; background: #dcfce7; border-radius: 10px; padding: 6px 8px; margin-bottom: 8px; box-sizing: border-box; }
         .wc-reply-bar-accent { width: 4px; border-radius: 4px; background: #25d366; flex-shrink: 0; }
         .wc-reply-bar-body { flex: 1; min-width: 0; }
@@ -1244,7 +1264,6 @@ export default function WhatsAppChat() {
         .wc-reply-bar-text { font-size: 12.5px; color: #54656f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .wc-reply-bar-close { border: none; background: transparent; color: #667781; cursor: pointer; display: flex; align-items: flex-start; padding: 2px; }
         .wc-inputbar { flex-wrap: wrap; }
-        .wc-edit-send { background: linear-gradient(135deg, #16a34a, #128c7e); }
 
         /* ── forward overlay ── */
         .wc-forward-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -1481,27 +1500,23 @@ export default function WhatsAppChat() {
                 </div>
 
                 <div className="wc-inputbar">
-                  {(replyTo || editingMsg) && (
+                  {replyTo && (
                     <div className="wc-reply-bar">
                       <div className="wc-reply-bar-accent" />
                       <div className="wc-reply-bar-body">
                         <div className="wc-reply-bar-title">
-                          {editingMsg
-                            ? "Edit message"
-                            : (replyTo.direction === "outgoing"
-                                ? (waName || "You")
-                                : (selectedMeta?.name || replyTo.customer_name || "Customer"))}
+                          {replyTo.direction === "outgoing"
+                            ? (waName || "You")
+                            : (selectedMeta?.name || replyTo.customer_name || "Customer")}
                         </div>
                         <div className="wc-reply-bar-text">
-                          {editingMsg
-                            ? (editingMsg.text || quoteText(editingMsg))
-                            : quoteText(replyTo)}
+                          {quoteText(replyTo)}
                         </div>
                       </div>
                       <button
                         className="wc-reply-bar-close"
                         title="Cancel"
-                        onClick={() => { setReplyTo(null); setEditingMsg(null); setDraft(editingMsg ? "" : draft); }}
+                        onClick={() => setReplyTo(null)}
                       >
                         <X size={16} />
                       </button>
@@ -1549,12 +1564,12 @@ export default function WhatsAppChat() {
                     onKeyDown={(e) => e.key === "Enter" && sendDraft()}
                   />
                   <button
-                    className={`wc-send-btn ${editingMsg ? "wc-edit-send" : ""}`}
-                    onClick={() => (editingMsg ? sendEdited() : sendDraft())}
+                    className="wc-send-btn"
+                    onClick={() => sendDraft()}
                     disabled={!connected || sending}
-                    title={editingMsg ? "Save changes" : "Send"}
+                    title="Send"
                   >
-                    {editingMsg ? <Check size={18} /> : <SendIcon size={18} />}
+                    <SendIcon size={18} />
                   </button>
                 </div>
               </>
@@ -1712,6 +1727,29 @@ export default function WhatsAppChat() {
                   <><Rocket size={16} /> Send</>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ DELETE CONFIRMATION DIALOG (WhatsApp-style) ══════════ */}
+      {deleteTarget && (
+        <div className="wc-delete-backdrop" onClick={() => setDeleteTarget(null)}>
+          <div className="wc-delete-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Delete message?">
+            <div className="wc-delete-dialog-title">Delete message?</div>
+            <div className="wc-delete-actions">
+              <button className="wc-delete-action" onClick={() => handleDelete(deleteTarget, "me")}>
+                DELETE FOR ME
+              </button>
+              <button className="wc-delete-action cancel" onClick={() => setDeleteTarget(null)}>
+                CANCEL
+              </button>
+              {/* "Delete for everyone" is only available on YOUR OWN messages */}
+              {deleteTarget.direction !== "incoming" && (
+                <button className="wc-delete-action danger" onClick={() => handleDelete(deleteTarget, "everyone")}>
+                  DELETE FOR EVERYONE
+                </button>
+              )}
             </div>
           </div>
         </div>
