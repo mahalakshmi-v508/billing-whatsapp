@@ -9,6 +9,7 @@ import Accounting from "./Accounting";
 import MultiCurrency from "./MultiCurrency";
 import ServiceReminders from "./ServiceReminders";
 import { useSettings } from "./SettingsContext";
+import { useBackendSync } from "./useBackendSync";
 import { SettingsShell, SettingsCard, CheckRow, Badge, SectionHint, InfoIcon } from "./settingsUI";
 
 const blue = "#2563eb";
@@ -33,13 +34,13 @@ function GeneralSettings() {
     challanAmount: false,
     godown: false,
     selectedCompany: "My Company",
+    currency: "₹ Indian Rupee (INR)",
+    zoom: 100,
   });
   const set = (key) => (val) => setState((s) => ({ ...s, [key]: typeof val === "function" ? val(s[key]) : val }));
-
-  const [currency, setCurrency] = useState("₹ Indian Rupee (INR)");
+  useBackendSync("general", state, setState);
 
   const scaleValues = [70, 80, 90, 100, 110, 115, 120, 130];
-  const [zoom, setZoom] = useState(100);
 
   const parseDecimal = (v) => {
     const n = parseInt(v, 10);
@@ -69,8 +70,8 @@ function GeneralSettings() {
           <div className="relative mt-1.5">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₹</span>
             <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
+              value={state.currency}
+              onChange={(e) => set("currency")(e.target.value)}
               className="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-lg text-[13.5px] text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
             >
               <option>₹ Indian Rupee (INR)</option>
@@ -198,26 +199,26 @@ function GeneralSettings() {
           min={70}
           max={130}
           step={1}
-          value={zoom}
+          value={state.zoom}
           onChange={(e) => {
             const raw = parseInt(e.target.value, 10);
             const nearest = scaleValues.reduce((best, v) =>
               Math.abs(v - raw) < Math.abs(best - raw) ? v : best
             );
-            setZoom(nearest);
+            set("zoom")(nearest);
           }}
           className="w-full my-2 accent-blue-600 cursor-pointer"
         />
 
         <div className="flex justify-between text-[11px] text-slate-500 mt-1">
           {scaleValues.map((v) => (
-            <span key={v} className={v === zoom ? "font-bold text-blue-600" : ""}>{v}%</span>
+            <span key={v} className={v === state.zoom ? "font-bold text-blue-600" : ""}>{v}%</span>
           ))}
         </div>
 
         <button
           type="button"
-          onClick={() => alert(`Screen zoom set to ${zoom}%`)}
+          onClick={() => alert(`Screen zoom set to ${state.zoom}%`)}
           className="mt-4 px-5 py-1.5 bg-blue-600 text-white text-[13px] font-medium rounded-full hover:bg-blue-700 transition ml-auto block"
         >
           Apply
@@ -235,7 +236,7 @@ function TransactionMessagesSettings() {
     purchaseMsg: "",
     creditNoteMsg: "",
   });
-  const [saving, setSaving] = useState(false);
+  useBackendSync("transactionMessages", msgs, setMsgs);
 
   const fields = [
     { key: "saleMsg", label: "Sale Invoice Message" },
@@ -245,11 +246,7 @@ function TransactionMessagesSettings() {
   ];
 
   const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => {
-      alert("Transaction Messages saved successfully!");
-      setSaving(false);
-    }, 400);
+    setSettingsTab && setSettingsTab("general");
   };
 
   return (
@@ -278,10 +275,9 @@ function TransactionMessagesSettings() {
         </div>
         <button
           onClick={handleSave}
-          disabled={saving}
-          className="mt-5 px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition"
+          className="mt-5 px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
         >
-          {saving ? "Saving..." : "Save"}
+          Save
         </button>
       </SettingsCard>
     </SettingsShell>
