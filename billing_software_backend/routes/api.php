@@ -271,5 +271,6 @@ Route::prefix('report')->group(function () {
     Route::get('day-book', [DayBookController::class, 'index']);
     Route::get('party-statement/parties', [PartyStatementController::class, 'getParties']);
     Route::get('party-statement/statement', [PartyStatementController::class, 'getStatement']);
+    Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);
 });
 

@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import {
   ChevronDown,
   Search,
@@ -12,10 +14,13 @@ import {
   X,
   AlertCircle,
   Share2,
+  EllipsisVertical,
 } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import { generateInvoicePdfBase64 } from "../../../utils/invoiceShare";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -136,6 +141,7 @@ function printElement(element, title) {
 
 /* ── Main Component ─────────────────────────────────────────────────── */
 export default function PartyStatement() {
+  const navigate = useNavigate();
   const { adminId } = getAuth();
   const [periodOpen, setPeriodOpen] = useState(false);
   const [period, setPeriod] = useState("thisMonth");
@@ -163,14 +169,26 @@ export default function PartyStatement() {
   const [summaryOpen, setSummaryOpen] = useState(true);
   const [filterOpen, setFilterOpen] = useState(null);
 
+  const [sharePopup, setSharePopup] = useState({ open: false, row: null, position: { top: 0, left: 0 } });
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [menuPopup, setMenuPopup] = useState({ open: false, row: null, position: { top: 0, left: 0 } });
+
   const periodRef = useRef(null);
   const partyRef = useRef(null);
+  const sharePopupRef = useRef(null);
+  const menuPopupRef = useRef(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
     function onDoc(e) {
       if (periodRef.current && !periodRef.current.contains(e.target)) setPeriodOpen(false);
       if (partyRef.current && !partyRef.current.contains(e.target)) setPartyOpen(false);
+      if (sharePopupRef.current && !sharePopupRef.current.contains(e.target) && !e.target.closest('[data-share-btn]')) {
+        setSharePopup({ open: false, row: null, position: { top: 0, left: 0 } });
+      }
+      if (menuPopupRef.current && !menuPopupRef.current.contains(e.target) && !e.target.closest('[data-menu-btn]')) {
+        setMenuPopup({ open: false, row: null, position: { top: 0, left: 0 } });
+      }
       setFilterOpen(null);
     }
     document.addEventListener("mousedown", onDoc);
@@ -365,27 +383,165 @@ export default function PartyStatement() {
   };
 
   /* ── Share a single transaction row ── */
-  const shareRow = async (t) => {
-    const text = [
-      `Party Statement — ${summary.party_name || selectedParty?.name || "Party"}`,
-      `Date: ${t.date || "-"}`,
-      `Type: ${t.txn_type || "-"}`,
-      `Ref No.: ${t.ref_no || "-"}`,
-      `Total: ${fmtINR(t.total)}`,
-      `Received/Paid: ${fmtINR(Number(t.received) || Number(t.paid))}`,
-      `Txn Balance: ${fmtINR(t.txn_balance)}`,
-      `Receivable Balance: ${fmtINR(t.receivable_bal)}`,
-      `Payable Balance: ${fmtINR(t.payable_bal)}`,
-    ].join("\n");
+  const handleShareClick = (t, event) => {
+    const btn = event.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const POPUP_WIDTH = 132;
+    const POPUP_HEIGHT = 74;
+    const GAP = 8;
+    const MARGIN = 8;
+
+    let left = rect.left - 42;
+    if (left < MARGIN) left = MARGIN;
+    if (left + POPUP_WIDTH > window.innerWidth - MARGIN) {
+      left = window.innerWidth - MARGIN - POPUP_WIDTH;
+    }
+
+    let top = rect.bottom + GAP;
+    if (top + POPUP_HEIGHT > window.innerHeight - MARGIN) {
+      top = rect.top - GAP - POPUP_HEIGHT;
+    }
+    if (top < MARGIN) top = MARGIN;
+
+    setMenuPopup({ open: false, row: null, position: { top: 0, left: 0 } });
+    setSharePopup({
+      open: true,
+      row: t,
+      position: { top, left },
+    });
+  };
+
+  const closeSharePopup = () => {
+    setSharePopup({ open: false, row: null, position: { top: 0, left: 0 } });
+  };
+
+  /* ── 3-dot menu for a transaction row ── */
+  const handleMenuClick = (t, event) => {
+    const btn = event.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const MENU_WIDTH = 132;
+    const MENU_HEIGHT = 84;
+    const GAP = 8;
+    const MARGIN = 8;
+
+    let left = rect.left;
+    if (left + MENU_WIDTH > window.innerWidth - MARGIN) {
+      left = window.innerWidth - MARGIN - MENU_WIDTH;
+    }
+    if (left < MARGIN) left = MARGIN;
+
+    let top = rect.bottom + GAP;
+    if (top + MENU_HEIGHT > window.innerHeight - MARGIN) {
+      top = rect.top - GAP - MENU_HEIGHT;
+    }
+    if (top < MARGIN) top = MARGIN;
+
+    setSharePopup({ open: false, row: null, position: { top: 0, left: 0 } });
+    setMenuPopup({
+      open: true,
+      row: t,
+      position: { top, left },
+    });
+  };
+
+  const closeMenuPopup = () => {
+    setMenuPopup({ open: false, row: null, position: { top: 0, left: 0 } });
+  };
+
+  /* ── View a transaction (reuse existing view routes) ── */
+  const handleView = (t) => {
+    closeMenuPopup();
+    if (t.kind === "sale" && t.ref_no) {
+      navigate(`/invoice/${t.ref_no}`);
+    }
+  };
+
+  /* ── Edit a transaction (reuse existing edit routes by txn type) ── */
+  const handleEdit = (t) => {
+    closeMenuPopup();
+    switch (t.kind) {
+      case "sale":
+        if (t.ref_no) navigate(`/sales/edit/${t.ref_no}`);
+        break;
+      case "sales_return":
+        if (t.id) navigate(`/sales/credit-note/edit/${t.id}`);
+        break;
+      case "purchase":
+      case "payment":
+        if (t.id) navigate(`/purchases/edit/${t.id}`);
+        break;
+      default:
+        break;
+    }
+  };
+
+  /* ── Build a hidden DOM element for the transaction (reuses print logic) ── */
+  const buildTransactionElement = (t) => {
+    const el = document.createElement("div");
+    el.innerHTML =
+      `<h2>${t.txn_type || "Transaction"}</h2>
+       <div class="meta">${summary.party_name || selectedParty?.name || "Party"} &nbsp;|&nbsp; ${t.date || "-"}</div>
+       <table>
+         <tr><th>Date</th><td>${t.date || "-"}</td></tr>
+         <tr><th>Ref No.</th><td>${t.ref_no || "-"}</td></tr>
+         <tr><th>Txn Type</th><td>${t.txn_type || "-"}</td></tr>
+         <tr><th>Total</th><td class="r">${fmtINR(t.total)}</td></tr>
+         <tr><th>Received/Paid</th><td class="r">${fmtINR(Number(t.received) || Number(t.paid))}</td></tr>
+         <tr><th>Txn Balance</th><td class="r">${fmtINR(t.txn_balance)}</td></tr>
+         <tr><th>Receivable Balance</th><td class="r">${fmtINR(t.receivable_bal)}</td></tr>
+         <tr><th>Payable Balance</th><td class="r">${fmtINR(t.payable_bal)}</td></tr>
+       </table>`;
+    return el;
+  };
+
+  /* ── Share via WhatsApp ── */
+  const shareViaWhatsApp = async (t) => {
+    if (whatsappSending) return;
+    setWhatsappSending(true);
+    closeSharePopup();
+
+    const partyName = summary.party_name || selectedParty?.name || "Party";
+    const phone = selectedParty?.phone || "";
+
     try {
-      await navigator.clipboard.writeText(text);
-      if (navigator.share) {
-        await navigator.share({ title: "Party Statement Transaction", text }).catch(() => {});
+      if (t.kind === "sale" && t.ref_no) {
+        const el = buildTransactionElement(t);
+        document.body.appendChild(el);
+        el.style.position = "absolute";
+        el.style.left = "-9999px";
+        el.style.top = "0";
+
+        try {
+          const pdfBase64 = await generateInvoicePdfBase64({ element: el, invoiceNo: t.ref_no, isPOS: false });
+          const res = await api.post("/whatsapp/send_invoice", {
+            company_id: companyId,
+            invoice_no: t.ref_no,
+            phone: phone,
+            pdf_base64: pdfBase64,
+            filename: `${t.ref_no}.pdf`,
+          });
+          alert(res.data?.message || "Invoice sent via WhatsApp!");
+        } catch {
+          const fallbackMsg = encodeURIComponent(
+            `Party Statement — ${partyName}\nInvoice: ${t.ref_no}\nDate: ${t.date || "-"}\nTotal: ${fmtINR(t.total)}\nReceivable: ${fmtINR(t.receivable_bal)}`
+          );
+          window.open(`https://wa.me/${phone}?text=${fallbackMsg}`, "_blank");
+        } finally {
+          el.remove();
+        }
       } else {
-        alert("Transaction copied to clipboard:\n\n" + text);
+        const message = encodeURIComponent(
+          `Party Statement — ${partyName}\nType: ${t.txn_type || "-"}\nRef: ${t.ref_no || "-"}\nDate: ${t.date || "-"}\nTotal: ${fmtINR(t.total)}\nReceivable: ${fmtINR(t.receivable_bal)}`
+        );
+        window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
       }
     } catch {
-      alert(text);
+      const fallbackMsg = encodeURIComponent(
+        `Party Statement — ${partyName}\nType: ${t.txn_type || "-"}\nRef: ${t.ref_no || "-"}\nDate: ${t.date || "-"}\nTotal: ${fmtINR(t.total)}`
+      );
+      window.open(`https://wa.me/${phone}?text=${fallbackMsg}`, "_blank");
+    } finally {
+      setWhatsappSending(false);
     }
   };
 
@@ -432,7 +588,7 @@ export default function PartyStatement() {
   };
 
   return (
-    <div style={{ fontFamily: FONT, padding: "6px 2px", display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ fontFamily: FONT, padding: "6px 2px", display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
       {/* ═══════════════════════════════════════════════════════════════
           1. TOP FILTER SECTION
           ═══════════════════════════════════════════════════════════════ */}
@@ -603,7 +759,7 @@ export default function PartyStatement() {
                     </div>
                   </th>
                 ))}
-                <th key="actions" style={{ ...thStyle, width: 90, minWidth: 90, textAlign: "center" }}>
+                <th key="actions" style={{ ...thStyle, width: 110, minWidth: 110, textAlign: "center" }}>
                   ACTIONS
                 </th>
               </tr>
@@ -654,8 +810,21 @@ export default function PartyStatement() {
                       <button onClick={() => printSingleRow(t)} title="Print" style={rowIconBtnStyle("#4338ca")}>
                         <Printer size={13} />
                       </button>
-                      <button onClick={() => shareRow(t)} title="Share" style={rowIconBtnStyle("#0891b2")}>
+                      <button
+                        data-share-btn
+                        onClick={(e) => handleShareClick(t, e)}
+                        title="Share"
+                        style={rowIconBtnStyle("#0891b2")}
+                      >
                         <Share2 size={13} />
+                      </button>
+                      <button
+                        data-menu-btn
+                        onClick={(e) => handleMenuClick(t, e)}
+                        title="Actions"
+                        style={{ ...rowIconBtnStyle("#475569"), marginRight: 0 }}
+                      >
+                        <EllipsisVertical size={13} />
                       </button>
                     </td>
                   </tr>
@@ -665,6 +834,84 @@ export default function PartyStatement() {
           </table>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+           SHARE POPUP (WhatsApp) — anchored to the Share button
+          ═══════════════════════════════════════════════════════════════ */}
+      {sharePopup.open &&
+        sharePopup.row &&
+        createPortal(
+          <div
+            ref={sharePopupRef}
+            style={{
+              position: "fixed",
+              top: sharePopup.position.top,
+              left: sharePopup.position.left,
+              zIndex: 9999,
+              background: "#fff",
+              borderRadius: 10,
+              boxShadow: "0 6px 18px rgba(0,0,0,.14)",
+              border: "1px solid #e5e7eb",
+              padding: "8px 14px",
+              fontFamily: FONT,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* WhatsApp */}
+            <button
+              onClick={() => shareViaWhatsApp(sharePopup.row)}
+              disabled={whatsappSending}
+              title="Share via WhatsApp"
+              style={shareOptionStyle}
+            >
+              <SiWhatsapp size={26} color="#25D366" />
+              <span style={shareLabelStyle}>WhatsApp</span>
+            </button>
+          </div>,
+          document.body
+        )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+           ROW MENU POPUP (View / Edit) — anchored to the 3-dot button
+          ═══════════════════════════════════════════════════════════════ */}
+      {menuPopup.open &&
+        menuPopup.row &&
+        createPortal(
+          <div
+            ref={menuPopupRef}
+            style={{
+              position: "fixed",
+              top: menuPopup.position.top,
+              left: menuPopup.position.left,
+              zIndex: 9999,
+              background: "#fff",
+              borderRadius: 10,
+              boxShadow: "0 6px 18px rgba(0,0,0,.14)",
+              border: "1px solid #e5e7eb",
+              padding: "6px",
+              fontFamily: FONT,
+              minWidth: 120,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => handleView(menuPopup.row)}
+              title="View"
+              style={{ ...menuItemStyle, borderBottom: `1px solid ${LIGHT_BORDER}` }}
+            >
+              View
+            </button>
+            <button
+              onClick={() => handleEdit(menuPopup.row)}
+              title="Edit"
+              style={menuItemStyle}
+            >
+              Edit
+            </button>
+          </div>,
+          document.body
+        )}
+
 
       {/* ═══════════════════════════════════════════════════════════════
       4. BOTTOM SUMMARY PANEL
@@ -828,6 +1075,43 @@ const rowIconBtnStyle = (color) => ({
   cursor: "pointer",
   marginRight: 6,
 });
+
+const shareOptionStyle = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 3,
+  background: "transparent",
+  border: "none",
+  cursor: "pointer",
+  padding: "3px 5px",
+  borderRadius: 8,
+  fontFamily: FONT,
+  transition: "background .1s",
+};
+
+const shareLabelStyle = {
+  fontSize: 10,
+  fontWeight: 600,
+  color: "#334155",
+  whiteSpace: "nowrap",
+};
+
+const menuItemStyle = {
+  display: "block",
+  width: "100%",
+  textAlign: "left",
+  padding: "8px 12px",
+  background: "transparent",
+  border: "none",
+  fontSize: 13,
+  fontWeight: 500,
+  fontFamily: FONT,
+  color: "#334155",
+  cursor: "pointer",
+  borderRadius: 6,
+  transition: "background .1s",
+};
 
 const dropdownPanelStyle = {
   position: "absolute",
