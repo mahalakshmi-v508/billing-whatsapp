@@ -14,14 +14,18 @@ import {
   X,
   Printer,
   FileSpreadsheet,
-  ArrowUpDown,
-  Filter,
   Layers,
   Package,
   FolderPlus,
   CheckCircle2,
   TrendingDown,
-  ChevronRight
+  ChevronRight,
+  TrendingUp,
+  Receipt,
+  ArrowUpRight,
+  SlidersHorizontal,
+  Folder,
+  Tag
 } from "lucide-react";
 
 export default function ExpenseList() {
@@ -138,6 +142,11 @@ export default function ExpenseList() {
     const q = leftSearchQuery.toLowerCase().trim();
     return itemsCatalog.filter((item) => (item.item_name || "").toLowerCase().includes(q));
   }, [itemsCatalog, leftSearchQuery]);
+
+  // Total Company Expense Sum
+  const totalCompanyExpenses = useMemo(() => {
+    return expenses.reduce((acc, e) => acc + Number(e.total_amount || 0), 0);
+  }, [expenses]);
 
   // Filtered Right Transactions List
   const filteredTransactions = useMemo(() => {
@@ -288,166 +297,129 @@ export default function ExpenseList() {
   };
 
   return (
-    <div style={{ background: "#f8fafc", minHeight: "100vh", display: "flex", flexDirection: "column", fontFamily: "'Inter', sans-serif" }}>
+    <div className="p-4 sm:p-6 max-w-[1520px] mx-auto min-h-screen space-y-4 bg-[#f8fafc] font-sans text-slate-800">
       
-      {/* ── 1. TOP TABS BAR (CATEGORY | ITEMS - Polished Design) ── */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderBottom: "1px solid #e2e8f0",
-          padding: "0 24px",
-          display: "flex",
-          alignItems: "center",
-          gap: 28,
-          boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
-        }}
-      >
+      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
+            <Receipt size={22} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Expense Management</h1>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                {expenses.length} vouchers
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">
+              Track operational expenses, categorize overheads and monitor spending breakdown
+            </p>
+          </div>
+        </div>
+
+        {/* Header Action Tools */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={fetchData}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Refresh Data"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin text-amber-600" : "text-slate-500"} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Export Excel"
+          >
+            <FileSpreadsheet size={14} className="text-emerald-600" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Print View"
+          >
+            <Printer size={14} className="text-slate-500" />
+            <span>Print</span>
+          </button>
+
+          {/* Primary CTA */}
+          <button
+            onClick={() => navigate("/purchases/expenses/add")}
+            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/25 transition active:scale-95 cursor-pointer"
+          >
+            <Plus size={16} strokeWidth={2.8} />
+            <span>+ Add Expense</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── 2. SEGMENTED TAB SWITCHER ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-2 shadow-xs flex items-center gap-2 w-fit">
         <button
-          type="button"
           onClick={() => setActiveTab("CATEGORY")}
-          style={{
-            padding: "14px 18px",
-            fontSize: 13,
-            fontWeight: 800,
-            textTransform: "uppercase",
-            letterSpacing: "0.6px",
-            color: activeTab === "CATEGORY" ? "#2563eb" : "#64748b",
-            borderBottom: activeTab === "CATEGORY" ? "3px solid #2563eb" : "3px solid transparent",
-            background: "transparent",
-            borderTop: "none",
-            borderLeft: "none",
-            borderRight: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            transition: "all 0.15s ease"
-          }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold tracking-wider uppercase transition cursor-pointer ${
+            activeTab === "CATEGORY"
+              ? "bg-slate-900 text-white shadow-xs"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          }`}
         >
-          <Layers size={16} color={activeTab === "CATEGORY" ? "#2563eb" : "#94a3b8"} />
-          <span>CATEGORY</span>
+          <Layers size={14} />
+          <span>Expense Categories ({categories.length})</span>
         </button>
 
         <button
-          type="button"
           onClick={() => setActiveTab("ITEMS")}
-          style={{
-            padding: "14px 18px",
-            fontSize: 13,
-            fontWeight: 800,
-            textTransform: "uppercase",
-            letterSpacing: "0.6px",
-            color: activeTab === "ITEMS" ? "#2563eb" : "#64748b",
-            borderBottom: activeTab === "ITEMS" ? "3px solid #2563eb" : "3px solid transparent",
-            background: "transparent",
-            borderTop: "none",
-            borderLeft: "none",
-            borderRight: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            transition: "all 0.15s ease"
-          }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold tracking-wider uppercase transition cursor-pointer ${
+            activeTab === "ITEMS"
+              ? "bg-slate-900 text-white shadow-xs"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          }`}
         >
-          <Package size={16} color={activeTab === "ITEMS" ? "#2563eb" : "#94a3b8"} />
-          <span>ITEMS</span>
+          <Package size={14} />
+          <span>Catalog Items ({itemsCatalog.length})</span>
         </button>
       </div>
 
-      {/* ── 2. DUAL-PANE MAIN LAYOUT ── */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "300px 1fr", overflow: "hidden" }}>
+      {/* ── 3. DUAL-PANE SPLIT WORKSPACE ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
-        {/* ── LEFT PANEL: Category / Items List ── */}
-        <div
-          style={{
-            background: "#ffffff",
-            borderRight: "1px solid #e2e8f0",
-            display: "flex",
-            flexDirection: "column",
-            height: "calc(100vh - 51px)"
-          }}
-        >
-          {/* Left Header: Search lens + + Add Expense Red Button */}
-          <div style={{ padding: "14px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 10 }}>
-            
-            <div style={{ position: "relative", flex: 1 }}>
-              <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+        {/* ── LEFT MASTER PANEL (4 Cols) ── */}
+        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col max-h-[750px]">
+          
+          {/* Left Header */}
+          <div className="p-4 border-b border-slate-200 bg-slate-50/70 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                {activeTab === "CATEGORY" ? "Categories Directory" : "Items Master"}
+              </span>
+              <span className="text-[11px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                {activeTab === "CATEGORY" ? categories.length : itemsCatalog.length} records
+              </span>
+            </div>
+
+            {/* Quick Search */}
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder={activeTab === "CATEGORY" ? "Search categories..." : "Search items..."}
                 value={leftSearchQuery}
                 onChange={(e) => setLeftSearchQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "7px 10px 7px 30px",
-                  borderRadius: 20,
-                  border: "1px solid #e2e8f0",
-                  fontSize: 12.5,
-                  outline: "none",
-                  background: "#f8fafc",
-                  transition: "border 0.2s"
-                }}
+                className="w-full pl-8 pr-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
               />
             </div>
-
-            {/* + Add Expense Primary Red Button */}
-            <button
-              type="button"
-              onClick={() => navigate("/purchases/expenses/add")}
-              style={{
-                background: "linear-gradient(135deg, #e11d48, #be123c)",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 20,
-                padding: "8px 16px",
-                fontSize: 12.5,
-                fontWeight: 800,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                cursor: "pointer",
-                boxShadow: "0 3px 10px rgba(225, 29, 72, 0.3)",
-                whiteSpace: "nowrap",
-                transition: "transform 0.15s, box-shadow 0.15s"
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-            >
-              <Plus size={14} strokeWidth={3} />
-              <span>Add Expense</span>
-            </button>
-
           </div>
 
-          {/* List Table Header */}
-          <div
-            style={{
-              padding: "9px 16px",
-              background: "#f8fafc",
-              borderBottom: "1px solid #e2e8f0",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              fontSize: 11,
-              fontWeight: 800,
-              color: "#64748b",
-              letterSpacing: "0.5px",
-              textTransform: "uppercase"
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span>{activeTab === "CATEGORY" ? "CATEGORY" : "ITEM"}</span>
-              <ArrowUpDown size={11} color="#94a3b8" />
-            </div>
-            <span>AMOUNT</span>
-          </div>
-
-          {/* Left List Scrollable Body */}
-          <div style={{ flex: 1, overflowY: "auto" }}>
+          {/* Left List Body */}
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 space-y-1">
             {activeTab === "CATEGORY" ? (
               filteredCategories.length === 0 ? (
-                <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: 12.5 }}>
+                <div className="p-8 text-center text-slate-400 text-xs font-medium">
                   No categories found.
                 </div>
               ) : (
@@ -455,77 +427,60 @@ export default function ExpenseList() {
                   const isSelected = selectedCategory?.id === cat.id;
                   const isMenuOpen = activeCatMenuId === cat.id;
                   const totalAmt = Number(cat.total_amount || 0);
+                  const sharePct = totalCompanyExpenses > 0 ? Math.round((totalAmt / totalCompanyExpenses) * 100) : 0;
 
                   return (
                     <div
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat)}
-                      style={{
-                        padding: "11px 16px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        borderBottom: "1px solid #f1f5f9",
-                        cursor: "pointer",
-                        background: isSelected ? "#f0f9ff" : "#ffffff",
-                        borderLeft: isSelected ? "4px solid #2563eb" : "4px solid transparent",
-                        transition: "all 0.15s ease"
-                      }}
-                      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "#f8fafc"; }}
-                      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "#ffffff"; }}
+                      className={`p-3 rounded-xl transition cursor-pointer flex items-center justify-between group ${
+                        isSelected
+                          ? "bg-amber-50/80 border border-amber-200/90 shadow-xs"
+                          : "hover:bg-slate-50 border border-transparent"
+                      }`}
                     >
-                      <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 8 }}>
-                        <div style={{ fontSize: 13, fontWeight: isSelected ? 800 : 600, color: isSelected ? "#0369a1" : "#1e293b" }}>
-                          {cat.name}
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-2">
+                          <Folder size={14} className={isSelected ? "text-amber-600" : "text-slate-400"} />
+                          <span className={`text-xs font-bold truncate ${isSelected ? "text-amber-950" : "text-slate-800"}`}>
+                            {cat.name}
+                          </span>
                         </div>
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
-                          {cat.type || "Indirect Expense"}
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200 uppercase">
+                            {cat.type || "Indirect Expense"}
+                          </span>
+                          {sharePct > 0 && (
+                            <span className="text-[10px] font-semibold text-slate-400">
+                              {sharePct}% share
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span
-                          style={{
-                            fontSize: 12.5,
-                            fontWeight: 700,
-                            color: totalAmt > 0 ? "#1e293b" : "#94a3b8",
-                            background: isSelected && totalAmt > 0 ? "#e0f2fe" : "transparent",
-                            padding: isSelected && totalAmt > 0 ? "2px 6px" : "0",
-                            borderRadius: 6
-                          }}
-                        >
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-xs font-black ${isSelected ? "text-amber-900" : "text-slate-900"}`}>
                           ₹ {totalAmt.toLocaleString("en-IN")}
                         </span>
 
-                        {/* Category 3-dots Menu */}
-                        <div data-menu-container style={{ position: "relative" }}>
+                        {/* 3-dots Menu */}
+                        <div data-menu-container className="relative">
                           <button
-                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setActiveCatMenuId((prev) => (prev === cat.id ? null : cat.id));
                             }}
-                            style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: 3, display: "flex", borderRadius: 4 }}
+                            className="w-6 h-6 rounded-md hover:bg-white flex items-center justify-center text-slate-400 hover:text-slate-700 transition cursor-pointer"
                           >
-                            <MoreVertical size={14} />
+                            <MoreVertical size={13} />
                           </button>
 
                           {isMenuOpen && (
                             <div
-                              style={{
-                                position: "absolute",
-                                right: 0,
-                                top: 22,
-                                width: 120,
-                                background: "#ffffff",
-                                borderRadius: 8,
-                                boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-                                border: "1px solid #e2e8f0",
-                                zIndex: 9999,
-                                padding: "4px 0"
-                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 top-full mt-1 w-32 bg-white rounded-xl shadow-2xl border border-slate-200 py-1 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                             >
-                              <div
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingCategory(cat);
@@ -534,26 +489,22 @@ export default function ExpenseList() {
                                   setCategoryModalOpen(true);
                                   setActiveCatMenuId(null);
                                 }}
-                                style={{ padding: "7px 12px", fontSize: 12, display: "flex", alignItems: "center", gap: 8, color: "#1e293b", cursor: "pointer", fontWeight: 600 }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = "#eff6ff")}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                className="w-full px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                               >
-                                <Pencil size={13} color="#2563eb" />
+                                <Pencil size={12} className="text-blue-600" />
                                 <span>Edit</span>
-                              </div>
-                              <div
+                              </button>
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleDeleteCategory(cat);
                                   setActiveCatMenuId(null);
                                 }}
-                                style={{ padding: "7px 12px", fontSize: 12, display: "flex", alignItems: "center", gap: 8, color: "#dc2626", cursor: "pointer", borderTop: "1px solid #f1f5f9", fontWeight: 600 }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = "#fef2f2")}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                className="w-full px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-slate-100 mt-0.5 pt-1"
                               >
-                                <Trash2 size={13} color="#dc2626" />
+                                <Trash2 size={12} />
                                 <span>Delete</span>
-                              </div>
+                              </button>
                             </div>
                           )}
                         </div>
@@ -563,10 +514,10 @@ export default function ExpenseList() {
                 })
               )
             ) : (
-              /* ITEMS Tab List */
+              /* Items Catalog */
               filteredItemsCatalog.length === 0 ? (
-                <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: 12.5 }}>
-                  No items to show
+                <div className="p-8 text-center text-slate-400 text-xs font-medium">
+                  No items found in catalog.
                 </div>
               ) : (
                 filteredItemsCatalog.map((item) => {
@@ -575,30 +526,24 @@ export default function ExpenseList() {
                     <div
                       key={item.id}
                       onClick={() => setSelectedItem(item)}
-                      style={{
-                        padding: "12px 16px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        borderBottom: "1px solid #f1f5f9",
-                        cursor: "pointer",
-                        background: isSelected ? "#f0f9ff" : "#ffffff",
-                        borderLeft: isSelected ? "4px solid #2563eb" : "4px solid transparent"
-                      }}
+                      className={`p-3 rounded-xl transition cursor-pointer flex items-center justify-between ${
+                        isSelected
+                          ? "bg-amber-50/80 border border-amber-200/90 shadow-xs"
+                          : "hover:bg-slate-50 border border-transparent"
+                      }`}
                     >
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>
-                          {item.item_name}
+                        <div className="flex items-center gap-2">
+                          <Tag size={13} className="text-slate-400" />
+                          <span className="text-xs font-bold text-slate-800">{item.item_name}</span>
                         </div>
                         {item.category_name && (
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
-                            {item.category_name}
-                          </div>
+                          <span className="text-[10px] text-slate-400 mt-0.5 block">{item.category_name}</span>
                         )}
                       </div>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#2563eb" }}>
+                      <span className="text-xs font-extrabold text-slate-900">
                         ₹ {fmtCurrency(item.price || 0)}
-                      </div>
+                      </span>
                     </div>
                   );
                 })
@@ -606,468 +551,275 @@ export default function ExpenseList() {
             )}
           </div>
 
-          {/* Quick Add Category Prompt at bottom */}
-          <div style={{ padding: "12px 16px", borderTop: "1px solid #e2e8f0", background: "#f8fafc" }}>
+          {/* Left Footer: + New Category Button */}
+          <div className="p-3 border-t border-slate-200 bg-slate-50/70">
             <button
-              type="button"
               onClick={() => {
                 setEditingCategory(null);
                 setCatNameInput("");
                 setCatTypeInput("Indirect Expense");
                 setCategoryModalOpen(true);
               }}
-              style={{
-                width: "100%",
-                padding: "8px 0",
-                background: "#ffffff",
-                border: "1.5px dashed #93c5fd",
-                borderRadius: 8,
-                fontSize: 12.5,
-                fontWeight: 800,
-                color: "#2563eb",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
-              }}
+              className="w-full py-2 bg-white hover:bg-slate-100 border border-dashed border-amber-400/80 text-amber-700 font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
             >
-              <FolderPlus size={15} />
-              <span>Create New Category</span>
+              <FolderPlus size={14} />
+              <span>+ Create New Category</span>
             </button>
           </div>
-
         </div>
 
-        {/* ── RIGHT PANEL: Transactions Table ── */}
-        <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 51px)", overflowY: "auto", background: "#f8fafc" }}>
+        {/* ── RIGHT DETAIL WORKSPACE (8 Cols) ── */}
+        <div className="lg:col-span-8 space-y-4">
           
-          {/* Right Header Area (Matching Screenshot 1) */}
-          <div
-            style={{
-              padding: "16px 28px",
-              background: "#ffffff",
-              borderBottom: "1px solid #e2e8f0",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
-            }}
-          >
+          {/* Active Detail Header & KPI Blocks */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: "#1e293b", textTransform: "uppercase", letterSpacing: "-0.2px" }}>
-                  {activeTab === "CATEGORY"
-                    ? selectedCategory?.name || "ALL EXPENSES"
-                    : selectedItem?.item_name || "ALL ITEMS"}
-                </h2>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: "2px 8px",
-                    borderRadius: 12,
-                    background: "#f1f5f9",
-                    color: "#475569"
-                  }}
-                >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Scope</span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 uppercase">
                   {activeTab === "CATEGORY" ? selectedCategory?.type || "Direct Expense" : "Expense Item"}
                 </span>
               </div>
+              <h2 className="text-xl font-black text-slate-900 mt-1">
+                {activeTab === "CATEGORY"
+                  ? selectedCategory?.name || "All Expenses"
+                  : selectedItem?.item_name || "All Items"}
+              </h2>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-              {/* Total Card */}
-              <div
-                style={{
-                  background: "#fff1f2",
-                  border: "1px solid #fecdd3",
-                  borderRadius: 10,
-                  padding: "6px 14px",
-                  textAlign: "right"
-                }}
-              >
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#9f1239", textTransform: "uppercase" }}>Total Expense</div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: "#be123c" }}>
-                  ₹ {fmtCurrency(currentTotal)}
-                </div>
+            {/* KPI Cards */}
+            <div className="flex items-center gap-3">
+              <div className="bg-rose-50 border border-rose-200/80 rounded-xl px-4 py-2.5 text-right">
+                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">Total Spent</span>
+                <span className="text-base font-black text-rose-900">₹ {fmtCurrency(currentTotal)}</span>
               </div>
 
-              {/* Balance Card */}
-              <div
-                style={{
-                  background: currentBalance > 0 ? "#fff7ed" : "#f0fdf4",
-                  border: `1px solid ${currentBalance > 0 ? "#fed7aa" : "#bbf7d0"}`,
-                  borderRadius: 10,
-                  padding: "6px 14px",
-                  textAlign: "right"
-                }}
-              >
-                <div style={{ fontSize: 11, fontWeight: 700, color: currentBalance > 0 ? "#c2410c" : "#15803d", textTransform: "uppercase" }}>Balance Due</div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: currentBalance > 0 ? "#ea580c" : "#16a34a" }}>
-                  ₹ {fmtCurrency(currentBalance)}
-                </div>
+              <div className="bg-amber-50 border border-amber-200/80 rounded-xl px-4 py-2.5 text-right">
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Balance Due</span>
+                <span className="text-base font-black text-amber-900">₹ {fmtCurrency(currentBalance)}</span>
               </div>
             </div>
           </div>
 
-          {/* Right Filter & Search Bar */}
-          <div style={{ padding: "14px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <div style={{ position: "relative", width: 320 }}>
-              <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+          {/* Search & Transaction Controls */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs flex items-center justify-between gap-3">
+            <div className="relative w-full sm:w-80">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search by ref, party, amount..."
+                placeholder="Search voucher #, party, amount..."
                 value={rightSearchQuery}
                 onChange={(e) => setRightSearchQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px 8px 36px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e1",
-                  fontSize: 13,
-                  outline: "none",
-                  background: "#ffffff",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
-                }}
+                className="w-full pl-9 pr-8 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
               />
+              {rightSearchQuery && (
+                <button onClick={() => setRightSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <X size={13} />
+                </button>
+              )}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button
-                type="button"
-                onClick={fetchData}
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #cbd5e1",
-                  borderRadius: 8,
-                  width: 36,
-                  height: 36,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#64748b",
-                  cursor: "pointer"
-                }}
-                title="Refresh"
-              >
-                <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleExportExcel}
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #cbd5e1",
-                  borderRadius: 8,
-                  padding: "0 12px",
-                  height: 36,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  color: "#16a34a",
-                  fontWeight: 700,
-                  fontSize: 12.5,
-                  cursor: "pointer"
-                }}
-                title="Export Excel"
-              >
-                <FileSpreadsheet size={17} />
-                <span>Excel</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => window.print()}
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #cbd5e1",
-                  borderRadius: 8,
-                  padding: "0 12px",
-                  height: 36,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  color: "#334155",
-                  fontWeight: 700,
-                  fontSize: 12.5,
-                  cursor: "pointer"
-                }}
-                title="Print Transactions"
-              >
-                <Printer size={17} />
-                <span>Print</span>
-              </button>
-            </div>
+            <span className="text-xs font-bold text-slate-500">
+              {filteredTransactions.length} vouchers recorded
+            </span>
           </div>
 
-          {/* Transactions Table Body */}
-          <div style={{ flex: 1, padding: "0 28px 28px 28px" }}>
-            
-            {loading ? (
-              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 240, color: "#64748b", gap: 10 }}>
-                <RefreshCw size={20} className="animate-spin text-blue-600" />
-                <span style={{ fontSize: 13.5, fontWeight: 700 }}>Loading transactions...</span>
-              </div>
-            ) : filteredTransactions.length === 0 ? (
-              <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: 48, textAlign: "center", color: "#94a3b8" }}>
-                <FileText size={42} strokeWidth={1.2} style={{ margin: "0 auto 12px auto", color: "#cbd5e1" }} />
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#334155" }}>No transactions found</div>
-                <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>Click "+ Add Expense" to record a new expense in this category.</div>
-              </div>
-            ) : (
-              <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "visible", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0", color: "#475569", fontWeight: 800, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      <th style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <span>DATE</span>
-                          <Filter size={10} color="#94a3b8" />
-                        </div>
-                      </th>
-                      <th style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <span>EXP NO.</span>
-                          <Filter size={10} color="#94a3b8" />
-                        </div>
-                      </th>
-                      <th style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <span>PARTY</span>
-                          <Filter size={10} color="#94a3b8" />
-                        </div>
-                      </th>
-                      <th style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <span>PAYMENT TYPE</span>
-                          <Filter size={10} color="#94a3b8" />
-                        </div>
-                      </th>
-                      <th style={{ padding: "12px 16px", textAlign: "right" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
-                          <span>AMOUNT</span>
-                          <Filter size={10} color="#94a3b8" />
-                        </div>
-                      </th>
-                      <th style={{ padding: "12px 16px", textAlign: "right" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
-                          <span>BALANCE</span>
-                          <Filter size={10} color="#94a3b8" />
-                        </div>
-                      </th>
-                      <th style={{ padding: "12px 16px", textAlign: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                          <span>STATUS</span>
-                          <Filter size={10} color="#94a3b8" />
-                        </div>
-                      </th>
-                      <th style={{ padding: "12px 16px", width: 40, textAlign: "center" }}></th>
-                    </tr>
-                  </thead>
+          {/* Transaction Ledger Table */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-500 text-[11px] uppercase tracking-wider">
+                    <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Date</th>
+                    <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Voucher #</th>
+                    <th className="py-3 px-5 border-r border-slate-200/70 whitespace-nowrap">Party / Supplier</th>
+                    <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Payment Mode</th>
+                    <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Total Amount</th>
+                    <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Balance Due</th>
+                    <th className="py-3 px-4 border-r border-slate-200/70 text-center whitespace-nowrap">Status</th>
+                    <th className="py-3 px-4 text-center whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
 
-                  <tbody>
-                    {filteredTransactions.map((tx) => {
-                      const isMenuOpen = activeTxMenuId === tx.id;
-                      const isPaid = Number(tx.balance_amount || 0) <= 0;
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                        <RefreshCw size={22} className="animate-spin text-amber-500 mx-auto mb-2" />
+                        <span>Loading expense vouchers...</span>
+                      </td>
+                    </tr>
+                  ) : filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-14 text-center text-slate-400">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-2.5">
+                          <Receipt size={22} />
+                        </div>
+                        <p className="font-extrabold text-slate-700 text-sm">No Expense Transactions Found</p>
+                        <p className="text-xs text-slate-400 mt-1">No vouchers recorded for this category yet.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTransactions.map((item, idx) => {
+                      const isPaid = Number(item.balance_amount || 0) <= 0;
+                      const isMenuOpen = activeTxMenuId === item.id;
 
                       return (
-                        <tr
-                          key={tx.id}
-                          style={{
-                            borderBottom: "1px solid #f1f5f9",
-                            background: isMenuOpen ? "#f8fafc" : "#ffffff",
-                            transition: "background 0.15s"
-                          }}
-                          onMouseEnter={(e) => { if (!isMenuOpen) e.currentTarget.style.background = "#f8fafc"; }}
-                          onMouseLeave={(e) => { if (!isMenuOpen) e.currentTarget.style.background = "#ffffff"; }}
-                        >
-                          <td style={{ padding: "12px 16px", fontWeight: 600, color: "#1e293b" }}>{formatDateDMY(tx.expense_date)}</td>
-                          <td style={{ padding: "12px 16px", fontWeight: 800, color: "#2563eb" }}>#{tx.expense_no || tx.id}</td>
-                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#1e293b" }}>{tx.party_name || "-"}</td>
-                          <td style={{ padding: "12px 16px" }}>
-                            <span
-                              style={{
-                                padding: "3px 10px",
-                                borderRadius: 6,
-                                background: "#f1f5f9",
-                                fontSize: 11.5,
-                                fontWeight: 700,
-                                color: "#334155"
-                              }}
-                            >
-                              {tx.payment_type || "Cash"}
-                            </span>
+                        <tr key={item.id || idx} className="group hover:bg-amber-50/30 transition-colors duration-150 text-slate-700">
+                          {/* DATE */}
+                          <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap text-slate-600 font-semibold">
+                            {formatDateDMY(item.expense_date)}
                           </td>
-                          <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 900, color: "#1e293b" }}>
-                            ₹ {fmtCurrency(tx.total_amount)}
-                          </td>
-                          <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: Number(tx.balance_amount || 0) > 0 ? "#dc2626" : "#64748b" }}>
-                            ₹ {fmtCurrency(tx.balance_amount)}
-                          </td>
-                          <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                            <span
-                              style={{
-                                padding: "4px 12px",
-                                borderRadius: 14,
-                                fontSize: 11.5,
-                                fontWeight: 800,
-                                background: isPaid ? "#dcfce7" : "#fef3c7",
-                                color: isPaid ? "#15803d" : "#b45309",
-                                display: "inline-block"
-                              }}
-                            >
-                              {isPaid ? "Paid" : "Partial"}
+
+                          {/* VOUCHER NO */}
+                          <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
+                            <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                              #{item.expense_no || item.id}
                             </span>
                           </td>
 
-                          {/* Action 3-dots Menu */}
-                          <td data-menu-container style={{ padding: "12px 16px", textAlign: "center", position: "relative" }}>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveTxMenuId((prev) => (prev === tx.id ? null : tx.id));
-                              }}
-                              style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", padding: 4, borderRadius: 4 }}
-                            >
-                              <MoreVertical size={16} />
-                            </button>
+                          {/* PARTY NAME */}
+                          <td className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap font-bold text-slate-900">
+                            {item.party_name || "-"}
+                          </td>
 
-                            {isMenuOpen && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  right: 12,
-                                  top: "100%",
-                                  width: 130,
-                                  background: "#ffffff",
-                                  borderRadius: 8,
-                                  boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
-                                  border: "1px solid #cbd5e1",
-                                  zIndex: 99999,
-                                  padding: "4px 0",
-                                  textAlign: "left"
-                                }}
-                              >
-                                <div
-                                  onClick={() => {
-                                    navigate(`/purchases/expenses/edit/${tx.id}`);
-                                    setActiveTxMenuId(null);
-                                  }}
-                                  style={{ padding: "8px 14px", fontSize: 12.5, display: "flex", alignItems: "center", gap: 8, color: "#1e293b", cursor: "pointer", fontWeight: 600 }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.background = "#eff6ff")}
-                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                                >
-                                  <Pencil size={13} color="#2563eb" />
-                                  <span>Edit</span>
-                                </div>
-                                <div
-                                  onClick={() => {
-                                    setDeleteTarget(tx);
-                                    setActiveTxMenuId(null);
-                                  }}
-                                  style={{ padding: "8px 14px", fontSize: 12.5, display: "flex", alignItems: "center", gap: 8, color: "#dc2626", cursor: "pointer", borderTop: "1px solid #f1f5f9", fontWeight: 600 }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.background = "#fef2f2")}
-                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                                >
-                                  <Trash2 size={13} color="#dc2626" />
-                                  <span>Delete</span>
-                                </div>
-                              </div>
+                          {/* PAYMENT TYPE */}
+                          <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
+                            <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 uppercase">
+                              {item.payment_type || "Cash"}
+                            </span>
+                          </td>
+
+                          {/* TOTAL AMOUNT */}
+                          <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-slate-900 text-right whitespace-nowrap">
+                            ₹ {fmtCurrency(item.total_amount)}
+                          </td>
+
+                          {/* BALANCE DUE */}
+                          <td className={`py-3.5 px-5 border-r border-slate-200/70 font-bold text-right whitespace-nowrap ${
+                            Number(item.balance_amount || 0) > 0 ? "text-rose-600" : "text-emerald-700"
+                          }`}>
+                            ₹ {fmtCurrency(item.balance_amount)}
+                          </td>
+
+                          {/* STATUS */}
+                          <td className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap font-bold">
+                            {isPaid ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                Paid
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                Partial
+                              </span>
                             )}
+                          </td>
+
+                          {/* ACTIONS */}
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => navigate(`/purchases/expenses/edit/${item.id}`)}
+                                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                                title="Edit Expense"
+                              >
+                                <Pencil size={14} />
+                              </button>
+
+                              <button
+                                onClick={() => setDeleteTarget(item)}
+                                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                                title="Delete Expense"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-
         </div>
 
       </div>
 
-      {/* ── 3. ADD / EDIT CATEGORY MODAL ── */}
+      {/* ── MODAL: CREATE / EDIT CATEGORY ── */}
       {categoryModalOpen && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 999999,
-            background: "rgba(15, 23, 42, 0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
           onClick={() => setCategoryModalOpen(false)}
         >
           <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              width: 400,
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-              padding: 22
-            }}
+            className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#1e293b" }}>
-                {editingCategory ? "Edit Expense Category" : "New Expense Category"}
-              </h3>
-              <button onClick={() => setCategoryModalOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}>
-                <X size={18} />
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
+                  <FolderPlus size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {editingCategory ? "Edit Category" : "Create Expense Category"}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Group and classify your overheads</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCategoryModalOpen(false)}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCategory}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 6 }}>
+            <form onSubmit={handleSaveCategory} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
                   Category Name *
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Generator Fuel, Stationery, Office Rent"
+                  placeholder="e.g., Office Rent, Fuel, Electricity"
                   value={catNameInput}
                   onChange={(e) => setCatNameInput(e.target.value)}
-                  autoFocus
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 transition"
                   required
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1.5px solid #2563eb", fontSize: 13.5, outline: "none" }}
                 />
               </div>
 
-              <div style={{ marginBottom: 22 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 6 }}>
-                  Expense Type
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Expense Classification *
                 </label>
                 <select
                   value={catTypeInput}
                   onChange={(e) => setCatTypeInput(e.target.value)}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13, outline: "none", background: "#ffffff", cursor: "pointer" }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-800 text-xs outline-none focus:border-amber-600 transition bg-white"
                 >
-                  <option value="Indirect Expense">Indirect Expense (Office, Tea, Rent, Salary)</option>
-                  <option value="Direct Expense">Direct Expense (Transport, Freight)</option>
+                  <option value="Indirect Expense">Indirect Expense (Overheads, Utilities)</option>
+                  <option value="Direct Expense">Direct Expense (COGS, Raw Materials)</option>
                 </select>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setCategoryModalOpen(false)}
-                  style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#ffffff", fontSize: 13, fontWeight: 700, cursor: "pointer", color: "#475569" }}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingCat}
-                  style={{ padding: "8px 22px", borderRadius: 6, border: "none", background: "#1d72fe", color: "#ffffff", fontSize: 13, fontWeight: 800, cursor: savingCat ? "not-allowed" : "pointer" }}
+                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/25 transition cursor-pointer disabled:opacity-50"
                 >
                   {savingCat ? "Saving..." : "Save Category"}
                 </button>
@@ -1077,50 +829,35 @@ export default function ExpenseList() {
         </div>
       )}
 
-      {/* ── 4. DELETE EXPENSE CONFIRMATION MODAL ── */}
+      {/* ── MODAL: DELETE EXPENSE CONFIRMATION ── */}
       {deleteTarget && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 999999,
-            background: "rgba(15, 23, 42, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
           onClick={() => setDeleteTarget(null)}
         >
           <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              width: 420,
-              maxWidth: "92vw",
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-              overflow: "hidden"
-            }}
+            className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #fee2e2", background: "#fff5f5" }}>
-              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", color: "#dc2626" }}>
+            <div className="px-6 py-4 border-b border-rose-200 bg-rose-50/70 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
                 <AlertTriangle size={20} />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#991b1b" }}>Delete Expense Voucher</h3>
-                <p style={{ margin: "2px 0 0 0", fontSize: 12, color: "#b91c1c" }}>This voucher will be removed from your expenses.</p>
+                <h3 className="text-sm font-bold text-rose-900">Delete Expense Voucher</h3>
+                <p className="text-[11px] text-rose-600 font-medium">This action will remove the record permanently</p>
               </div>
             </div>
 
-            <div style={{ padding: "20px", fontSize: 13.5, color: "#334155", lineHeight: 1.6 }}>
-              Are you sure you want to delete Expense <b>#{deleteTarget.expense_no || deleteTarget.id}</b> ({deleteTarget.category_name}) of amount <b>₹{fmtCurrency(deleteTarget.total_amount)}</b>?
+            <div className="p-6 text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to delete Expense voucher <b>#{deleteTarget.expense_no || deleteTarget.id}</b> ({deleteTarget.category_name}) for amount <b>₹{fmtCurrency(deleteTarget.total_amount)}</b>?
             </div>
 
-            <div style={{ padding: "14px 20px", background: "#f8fafc", display: "flex", justifyContent: "flex-end", gap: 10, borderTop: "1px solid #e2e8f0" }}>
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#ffffff", fontSize: 13, fontWeight: 700, cursor: "pointer", color: "#475569" }}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -1128,7 +865,7 @@ export default function ExpenseList() {
                 type="button"
                 onClick={confirmDeleteExpense}
                 disabled={deleting}
-                style={{ padding: "8px 22px", borderRadius: 6, border: "none", background: "#dc2626", color: "#ffffff", fontSize: 13, fontWeight: 800, cursor: deleting ? "not-allowed" : "pointer" }}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition cursor-pointer disabled:opacity-50"
               >
                 {deleting ? "Deleting..." : "Delete Voucher"}
               </button>
@@ -1139,4 +876,4 @@ export default function ExpenseList() {
 
     </div>
   );
-}
+}
