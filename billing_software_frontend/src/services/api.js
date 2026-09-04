@@ -6,9 +6,12 @@ export const API_BASE_URL = isLocalhost
   ? "http://localhost:8000/api/"
   : "https://myricekart.in/backend/public/api/";
 
-export const API_BASE_URL_IMAGE = isLocalhost
-  ? "http://localhost:8000/public"
-  : "https://myricekart.in/backend/public";
+// Web/docroot root where uploaded files live. Derive it from the API base by
+// stripping "/api/" — matching the working logo-URL convention used across the
+// app (EditCompany/profile via API_BASE_URL.replace("/api/", "/")). This yields
+// the correct root for both localhost (http://localhost:8000 → public/uploads)
+// and production (…/backend/public → public/uploads).
+export const API_BASE_URL_IMAGE = API_BASE_URL.replace("/api/", "/").replace(/\/+$/, "");
 
 // Axios instance
 const api = axios.create({

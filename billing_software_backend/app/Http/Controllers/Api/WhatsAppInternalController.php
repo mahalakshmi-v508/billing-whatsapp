@@ -97,10 +97,14 @@ class WhatsAppInternalController extends Controller
 
         // log event for debugging (skip ack spam)
         try {
+            $logPayload = $payload;
+            if (is_array($logPayload) && isset($logPayload['message']) && is_array($logPayload['message'])) {
+                unset($logPayload['message']['media_base64']);
+            }
             WhatsAppEvent::create([
                 'connection_id' => $connection->id,
                 'event' => $eventName ?? ($payload['status'] ?? 'unknown'),
-                'payload' => json_encode($payload)
+                'payload' => json_encode($logPayload)
             ]);
         } catch (\Exception $e) {
             // ignore logging errors
@@ -220,6 +224,29 @@ class WhatsAppInternalController extends Controller
                     }
                 }
 
+                // Persist incoming media (image/video/document) that the Node
+                // service downloaded, so the dashboard can render a real preview.
+                // Mirrors the outgoing storage convention under public/uploads.
+                $msgType = $msg['type'] ?? 'text';
+                $mediaUrl = null;
+                $mimeType = null;
+
+                if (!empty($msg['media_base64'])) {
+                    $mediaBytes = base64_decode((string) $msg['media_base64'], true);
+                    $mimeType = $msg['media_mimetype'] ?? null;
+                    $mediaExt = $msg['media_ext'] ?? null;
+
+                    if ($mediaBytes !== false && $mediaBytes !== '') {
+                        $mediaUrl = $this->storeMedia(
+                            $connection->company_id,
+                            (string) ($msg['media_name'] ?? ''),
+                            $mimeType,
+                            $mediaExt,
+                            $mediaBytes
+                        );
+                    }
+                }
+
                 WhatsAppMessage::create([
                     'connection_id' => $connection->id,
                     'company_id' => $connection->company_id,
@@ -227,9 +254,11 @@ class WhatsAppInternalController extends Controller
                     'customer_phone' => $phone,
                     'chat_id' => $from,
                     'direction' => 'incoming',
-                    'message_type' => $msg['type'] ?? 'text',
+                    'message_type' => $msgType,
                     'message' => $msg['body'] ?? '',
                     'media_name' => $msg['media_name'] ?? null,
+                    'mime_type' => $mimeType,
+                    'media_url' => $mediaUrl,
                     'status' => 'received'
                 ]);
             }
@@ -319,5 +348,60 @@ class WhatsAppInternalController extends Controller
             "status" => true,
             "valid_sessions" => $existing
         ]);
+    }
+
+    // Store a decoded incoming media file under public/uploads/whatsapp/{company_id}
+    // and return the web-relative path (uploads convention). Returns null on failure.
+    private function storeMedia(int $companyId, string $filename, ?string $mimetype, ?string $mediaExt, string $bytes): ?string
+    {
+        $ext = null;
+
+        if (is_string($mediaExt) && $mediaExt !== '') {
+            $candidate = strtolower(ltrim($mediaExt, '.'));
+            if (preg_match('/^[a-z0-9]{1,10}$/i', $candidate)) {
+                $ext = $candidate;
+            }
+        }
+
+        if ($ext === null && is_string($mimetype) && $mimetype !== '') {
+            $cleanMime = strtolower(trim(explode(';', $mimetype)[0]));
+            $extMap = [
+                'image/jpeg' => 'jpg',
+                'image/png'  => 'png',
+                'image/webp' => 'webp',
+                'image/gif'  => 'gif',
+                'image/bmp'  => 'bmp',
+                'video/mp4'  => 'mp4',
+                'application/pdf' => 'pdf',
+                'application/msword' => 'doc',
+                'text/plain' => 'txt',
+            ];
+            $ext = $extMap[$cleanMime] ?? null;
+        }
+
+        if ($ext === null || !preg_match('/^[a-z0-9]{1,10}$/i', $ext)) {
+            $ext = 'dat';
+        }
+
+        $dir = public_path('uploads/whatsapp/' . intval($companyId));
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0777, true);
+        }
+
+        if ($filename === '' || $filename === null) {
+            $filename = 'media';
+        }
+        $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($filename, PATHINFO_FILENAME));
+        if ($safeBase === '' || $safeBase === '_') {
+            $safeBase = 'media';
+        }
+        $safeBase = substr($safeBase, 0, 80);
+        $name = $safeBase . '-' . substr(uniqid('', true), -8) . '.' . $ext;
+
+        if (file_put_contents($dir . '/' . $name, $bytes) === false) {
+            return null;
+        }
+
+        return 'uploads/whatsapp/' . intval($companyId) . '/' . $name;
     }
 }

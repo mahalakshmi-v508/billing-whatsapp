@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\WhatsAppConnection;
 use App\Models\WhatsAppMessage;
 use App\Services\WhatsAppService;
@@ -436,15 +437,42 @@ class WhatsappConnectController extends Controller
             ]);
         }
 
+        // Distinguish images from documents by MIME type (never by filename
+        // extension). Images must be sent as real WhatsApp images (Baileys
+        // `image`), not as documents.
+        $isImage = str_starts_with(strtolower(trim($mimetype)), 'image/');
+
+        // Clean any data-URI prefix ("data:image/png;base64,...") before decoding.
+        $cleanBase64 = preg_replace('#^data:[^,]*;base64,#i', '', $base64);
+        $mediaBytes = base64_decode($cleanBase64, true);
+
+        // Persist the media file under the public uploads tree so the React
+        // dashboard can render an actual preview, using the same storage
+        // convention as company logos/uploads.
+        $mediaUrl = null;
+        if ($mediaBytes !== false && $mediaBytes !== '') {
+            $mediaUrl = $this->storeWhatsAppMedia($company_id, $filename, $mimetype, $mediaBytes);
+        }
+
         try {
-            $result = $whatsapp->sendDocumentBase64(
-                $connection->session_id,
-                $phone,
-                $base64,
-                $mimetype,
-                $filename,
-                $caption
-            );
+            if ($isImage) {
+                $result = $whatsapp->sendImageBase64(
+                    $connection->session_id,
+                    $phone,
+                    $cleanBase64,
+                    $mimetype,
+                    $caption
+                );
+            } else {
+                $result = $whatsapp->sendDocumentBase64(
+                    $connection->session_id,
+                    $phone,
+                    $cleanBase64,
+                    $mimetype,
+                    $filename,
+                    $caption
+                );
+            }
         } catch (\Exception $e) {
             return response()->json([
                 "status"  => false,
@@ -454,7 +482,7 @@ class WhatsappConnectController extends Controller
         }
 
         // log with the REAL whatsapp message type
-        $type = str_starts_with($mimetype, 'image/') ? 'image' : 'document';
+        $type = $isImage ? 'image' : 'document';
 
         $msg = WhatsAppMessage::create([
             'connection_id'       => $connection->id,
@@ -466,6 +494,8 @@ class WhatsappConnectController extends Controller
             'message_type'        => $type,
             'message'             => $caption,
             'media_name'          => $filename,
+            'mime_type'           => $mimetype ?: null,
+            'media_url'           => $mediaUrl,
             'status'              => 'sent',
             'sent_at'             => now()
         ]);
@@ -494,6 +524,53 @@ class WhatsappConnectController extends Controller
 
         $text = trim((string) $row->message);
         return $text !== '' ? mb_substr($text, 0, 60) : 'Message';
+    }
+
+    // Store a decoded media file under public/uploads/whatsapp/{company_id} and
+    // return the web-relative path (matching the logo/uploads convention) so the
+    // frontend serves it via API_BASE_URL_IMAGE. Returns null on failure.
+    private function storeWhatsAppMedia(int $companyId, string $filename, string $mimetype, string $bytes): ?string
+    {
+        $cleanMime = strtolower(trim(explode(';', $mimetype)[0]));
+
+        $extMap = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'image/gif'  => 'gif',
+            'image/bmp'  => 'bmp',
+            'video/mp4'  => 'mp4',
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'text/plain' => 'txt',
+        ];
+
+        $ext = $extMap[$cleanMime] ?? null;
+        if ($ext === null) {
+            $pathInfo = pathinfo($filename);
+            $ext = isset($pathInfo['extension']) && $pathInfo['extension'] !== '' ? strtolower($pathInfo['extension']) : 'dat';
+        }
+        if (!preg_match('/^[a-z0-9]{1,10}$/i', $ext)) {
+            $ext = 'dat';
+        }
+
+        $dir = public_path('uploads/whatsapp/' . intval($companyId));
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0777, true);
+        }
+
+        $safeBase = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($filename, PATHINFO_FILENAME));
+        if ($safeBase === '' || $safeBase === '_') {
+            $safeBase = 'media-' . time();
+        }
+        $safeBase = substr($safeBase, 0, 80);
+        $name = $safeBase . '-' . substr(uniqid('', true), -8) . '.' . $ext;
+
+        if (file_put_contents($dir . '/' . $name, $bytes) === false) {
+            return null;
+        }
+
+        return 'uploads/whatsapp/' . intval($companyId) . '/' . $name;
     }
 
     // ── WHATSAPP CHAT CONTACT LIST — ONLY CUSTOMERS FROM BILLING SYSTEM ──
@@ -639,6 +716,8 @@ class WhatsappConnectController extends Controller
                 'wm.message_type',
                 'wm.message',
                 'wm.media_name',
+                'wm.mime_type',
+                'wm.media_url',
                 'wm.reply_to_message_id',
                 'wm.is_edited',
                 'wm.is_deleted',
@@ -683,6 +762,8 @@ class WhatsappConnectController extends Controller
                 'edited'              => (bool) $m->is_edited,
                 'is_deleted'          => intval($m->is_deleted ?? 0),
                 'customer_name'       => $m->customer_name,
+                'mime_type'           => $m->mime_type,
+                'media_url'           => $m->media_url,
                 'invoice'             => null
             ];
 
@@ -801,5 +882,130 @@ class WhatsappConnectController extends Controller
             ->update(['status' => 'read', 'updated_at' => now()]);
 
         return response()->json(["status" => true, "message" => "Marked as read"]);
+    }
+
+    // ── GET CONTACT FOR A WHATSAPP PHONE ──
+    // Looks up an existing customer/contact by its last 10 digits, scoped to the
+    // owning admin. Reuses the existing `customers` table (no duplicate system).
+    public function getContact(Request $request)
+    {
+        $admin_id = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+        $phone = preg_replace('/[^0-9]/', '', (string) ($request->input('phone') ?: $request->query('phone', '')));
+
+        if (!$admin_id || !$phone) {
+            return response()->json(["status" => false, "message" => "admin_id and phone are required"]);
+        }
+
+        $last10 = substr($phone, -10);
+
+        $customer = Customer::where('is_deleted', 0)
+            ->where('admin_id', $admin_id)
+            ->whereRaw('RIGHT(phone, 10) = ?', [$last10])
+            ->first();
+
+        if (!$customer) {
+            return response()->json(["status" => false, "found" => false, "message" => "Contact not found"]);
+        }
+
+        return response()->json([
+            "status"   => true,
+            "found"    => true,
+            "contact"  => [
+                "id"    => $customer->id,
+                "name"  => $customer->name,
+                "phone" => $customer->phone,
+                "email" => $customer->email,
+                "address" => $customer->address
+            ]
+        ]);
+    }
+
+    // ── SAVE / ADD A WHATSAPP CONTACT ──
+    // Creates a customer/contact in the existing `customers` table (scoped by
+    // admin_id) OR returns the existing one. Duplicate-safe: matched by the last
+    // 10 digits so the WhatsApp 12-digit number and the customer 10-digit number
+    // resolve to the same record. Never creates a duplicate.
+    public function saveContact(Request $request)
+    {
+        $admin_id = intval($request->input('admin_id', 0));
+        $name = trim((string) $request->input('name', ''));
+        $phone = trim(preg_replace('/[^0-9]/', '', (string) $request->input('phone', '')));
+        $email = trim((string) $request->input('email', ''));
+        $address = trim((string) $request->input('address', ''));
+
+        if (!$admin_id) {
+            return response()->json(["status" => false, "message" => "admin_id is required"], 422);
+        }
+
+        if ($name === '') {
+            return response()->json(["status" => false, "message" => "Contact name is required"], 422);
+        }
+
+        if (strlen($phone) < 10) {
+            return response()->json(["status" => false, "message" => "A valid phone number is required"], 422);
+        }
+
+        $last10 = substr($phone, -10);
+
+        // Duplicate prevention: same owner + last 10 digits + not soft-deleted.
+        $existing = Customer::where('is_deleted', 0)
+            ->where('admin_id', $admin_id)
+            ->whereRaw('RIGHT(phone, 10) = ?', [$last10])
+            ->first();
+
+        if ($existing) {
+            // Contact already saved — refresh name if provided, do NOT duplicate.
+            $update = [];
+            if ($existing->name != $name && $existing->name) {
+                // keep original name to avoid clobbering billing name unless empty
+            } else {
+                $update['name'] = $name;
+            }
+            if ($email !== '' && trim((string) $existing->email) === '') {
+                $update['email'] = $email;
+            }
+            if ($update) {
+                $existing->update($update);
+            }
+            $existing->refresh();
+
+            return response()->json([
+                "status"      => true,
+                "is_new"      => false,
+                "contact"     => [
+                    "id"    => $existing->id,
+                    "name"  => $existing->name,
+                    "phone" => $existing->phone,
+                    "email" => $existing->email,
+                    "address" => $existing->address
+                ]
+            ]);
+        }
+
+        $customer = Customer::create([
+            'admin_id'      => $admin_id,
+            'name'          => $name,
+            'phone'         => $last10,
+            'email'         => $email,
+            'address'       => $address,
+            'type'          => 'B2C',
+            'credit_enabled'=> 0,
+            'credit_limit'  => 0,
+            'credit_days'   => 0,
+            'is_deleted'    => 0,
+            'created_at'    => now()
+        ]);
+
+        return response()->json([
+            "status"      => true,
+            "is_new"      => true,
+            "contact"     => [
+                "id"    => $customer->id,
+                "name"  => $customer->name,
+                "phone" => $customer->phone,
+                "email" => $customer->email,
+                "address" => $customer->address
+            ]
+        ]);
     }
 }

@@ -243,6 +243,57 @@ app.post(
 );
 
 
+// ── SEND IMAGE FROM BASE64 (PHOTO FROM FRONTEND) ──
+app.post(
+    '/api/whatsapp/send-image',
+    internalAuth,
+    async (req, res) => {
+
+        try {
+
+            const {
+                session_id,
+                phone,
+                base64,
+                mimetype,
+                caption
+            } = req.body;
+
+            if (!base64) {
+
+                return res.status(422).json({
+                    success: false,
+                    message: 'base64 is required'
+                });
+            }
+
+            const result =
+                await manager.sendImageBase64(
+                    session_id,
+                    phone,
+                    base64,
+                    mimetype || 'image/jpeg',
+                    caption || ''
+                );
+
+            return res.json({
+                success: true,
+                result
+            });
+
+        } catch (error) {
+
+            console.error(error.message);
+
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+);
+
+
 // ── MESSAGE EDIT DISABLED ──
 // WhatsApp message editing is intentionally not supported in this application.
 // If an old client still calls this endpoint, respond 404 so the request can

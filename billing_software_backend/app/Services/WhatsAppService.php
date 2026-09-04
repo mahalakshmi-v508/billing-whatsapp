@@ -79,6 +79,25 @@ class WhatsAppService
             ->json();
     }
 
+    public function sendImageBase64(
+        string $sessionId,
+        string $phone,
+        string $base64,
+        string $mimetype = 'image/jpeg',
+        string $caption = ''
+    ) {
+        return $this->request()
+            ->post("{$this->url}/api/whatsapp/send-image", [
+                'session_id' => $sessionId,
+                'phone' => $phone,
+                'base64' => $base64,
+                'mimetype' => $mimetype,
+                'caption' => $caption
+            ])
+            ->throw()
+            ->json();
+    }
+
     public function deleteMessage(
         string $sessionId,
         string $phone,

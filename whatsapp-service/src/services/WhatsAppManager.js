@@ -4,7 +4,8 @@ const {
     DisconnectReason,
     fetchLatestBaileysVersion,
     proto,
-    WAMessageStubType
+    WAMessageStubType,
+    downloadMediaMessage
 } = require('@whiskeysockets/baileys');
 
 const path = require('path');
@@ -40,6 +41,22 @@ const EXT_MIME = {
 function mimeFromPath(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     return EXT_MIME[ext] || 'application/octet-stream';
+}
+
+const MIME_EXT = {};
+for (const ext of Object.keys(EXT_MIME)) {
+    const mime = EXT_MIME[ext];
+    if (!MIME_EXT[mime]) {
+        MIME_EXT[mime] = ext;
+    }
+}
+
+function mimeToExt(mime) {
+    if (!mime) {
+        return null;
+    }
+    const key = String(mime).toLowerCase().split(';')[0].trim();
+    return MIME_EXT[key] || null;
 }
 
 function baileysStatusToAck(status) {
@@ -494,7 +511,7 @@ class WhatsAppManager {
             }
 
             for (const rawMessage of messages) {
-                await this.handleIncomingMessage(sessionId, rawMessage);
+                await this.handleIncomingMessage(sessionId, rawMessage, sock);
             }
         });
 
@@ -650,7 +667,7 @@ class WhatsAppManager {
         return { phoneJid: null };
     }
 
-    async handleIncomingMessage(sessionId, rawMessage) {
+    async handleIncomingMessage(sessionId, rawMessage, sock) {
 
         try {
 
@@ -754,6 +771,52 @@ class WhatsAppManager {
                 body = `Location: ${message.locationMessage.degreesLatitude}, ${message.locationMessage.degreesLongitude}`;
             }
 
+            // Download incoming media (image/video/document) so Laravel can store
+            // it and serve a real preview URL to the dashboard. Only meaningful
+            // media types are downloaded; downloads that fail are non-fatal.
+            let mediaMime = null;
+            let mediaBase64 = null;
+            let mediaExt = null;
+
+            if (
+                (messageType === 'image' || messageType === 'video' || messageType === 'document') &&
+                sock
+            ) {
+                try {
+                    const buf = await downloadMediaMessage(
+                        rawMessage,
+                        'buffer',
+                        {},
+                        {
+                            reuploadRequest: sock.updateMediaMessage
+                        }
+                    );
+
+                    if (buf && buf.length > 0) {
+                        mediaMime =
+                            message.imageMessage?.mimetype ||
+                            message.videoMessage?.mimetype ||
+                            message.documentMessage?.mimetype ||
+                            null;
+                        mediaExt =
+                            (message.imageMessage?.fileName && path.extname(message.imageMessage.fileName)) ||
+                            (message.videoMessage?.fileName && path.extname(message.videoMessage.fileName)) ||
+                            (message.documentMessage?.fileName && path.extname(message.documentMessage.fileName)) ||
+                            (mediaMime ? mimeToExt(mediaMime) : null) ||
+                            (messageType === 'image' ? '.jpg' : null);
+                        mediaBase64 = buf.toString('base64');
+                        console.log(
+                            `[WA][MEDIA] id=${msgId} type=${messageType} mime=${mediaMime} bytes=${buf.length}`
+                        );
+                    }
+                } catch (mediaError) {
+                    console.error(
+                        `[WA][${sessionId}] media download failed type=${messageType}:`,
+                        mediaError.message
+                    );
+                }
+            }
+
             const timestamp = rawMessage.messageTimestamp
                 ? new Date(Number(rawMessage.messageTimestamp) * 1000).toISOString()
                 : new Date().toISOString();
@@ -762,19 +825,27 @@ class WhatsAppManager {
                 `[WA][MSG] id=${msgId} from=${from} phone=${phoneDigits} type=${messageType}`
             );
 
+            const msgPayload = {
+                id: msgId,
+                from,
+                phone: phoneDigits,
+                lid_from: lidJid,
+                body,
+                timestamp,
+                type: messageType,
+                fromMe: false,
+                media_name: mediaName
+            };
+
+            if (mediaBase64) {
+                msgPayload.media_base64 = mediaBase64;
+                msgPayload.media_mimetype = mediaMime;
+                msgPayload.media_ext = mediaExt;
+            }
+
             await this.updateLaravel(sessionId, {
                 event: 'message',
-                message: {
-                    id: msgId,
-                    from,
-                    phone: phoneDigits,
-                    lid_from: lidJid,
-                    body,
-                    timestamp,
-                    type: messageType,
-                    fromMe: false,
-                    media_name: mediaName
-                }
+                message: msgPayload
             });
 
         } catch (error) {
@@ -990,6 +1061,66 @@ class WhatsAppManager {
 
             console.error(
                 `[WA][${sessionId}] send base64 document failed:`,
+                error.message
+            );
+
+            throw error;
+        }
+    }
+
+    async sendImageBase64(
+        sessionId,
+        phone,
+        base64Data,
+        mimetype = 'image/jpeg',
+        caption = ''
+    ) {
+
+        const sock = this.clients.get(sessionId);
+
+        if (!sock) {
+            throw new Error('WhatsApp client not found');
+        }
+
+        const state = this.getState(sessionId);
+
+        if (state.status !== 'ready') {
+            throw new Error('WhatsApp is not connected');
+        }
+
+        const cleanBase64 = String(base64Data).includes(',')
+            ? String(base64Data).split(',')[1]
+            : String(base64Data);
+
+        const jid = this.resolveJid(sessionId, phone);
+
+        try {
+
+            const buffer = Buffer.from(cleanBase64, 'base64');
+
+            const sentMsg = await sock.sendMessage(jid, {
+                image: buffer,
+                mimetype,
+                caption: caption || undefined
+            });
+
+            const imgMsgId = sentMsg?.key?.id || null;
+
+            console.log(`[WA][SEND-IMG] to=${jid} id=${imgMsgId}`);
+
+            if (imgMsgId) {
+                this.trackSentMessage(sessionId, imgMsgId);
+            }
+
+            return {
+                id: imgMsgId,
+                status: 'sent'
+            };
+
+        } catch (error) {
+
+            console.error(
+                `[WA][${sessionId}] send image failed:`,
                 error.message
             );
 

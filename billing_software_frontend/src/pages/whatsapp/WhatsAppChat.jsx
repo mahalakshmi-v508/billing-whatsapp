@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import api from "../../services/api";
+import api, { API_BASE_URL_IMAGE } from "../../services/api";
 import { getEcho, leaveChannel } from "../../services/echo";
 import {
   Search,
@@ -20,6 +20,8 @@ import {
   Paperclip,
   Image as ImageIcon,
   User,
+  UserPlus,
+  Mail,
   PlugZap,
   ChevronDown,
   CornerUpLeft,
@@ -143,6 +145,25 @@ export default function WhatsAppChat() {
 
   // delete choice dialog
   const [deleteTarget, setDeleteTarget] = useState(null); // message object pending delete
+
+  // full-size image preview lightbox
+  const [previewImage, setPreviewImage] = useState(null); // url of image being previewed
+
+  // contact panel
+  const [showAddContact, setShowAddContact] = useState(false);  // New Contact popup visibility
+  const [settingsView, setSettingsView] = useState("main");     // Settings sub-page: 'main' | 'contacts'
+  const [contacts, setContacts] = useState([]);            // all saved contacts (customers)
+  const [contactSearch, setContactSearch] = useState("");  // search by name/phone
+  const [contactLoading, setContactLoading] = useState(false);
+  // add-contact form
+  const [addName, setAddName] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [addEmail, setAddEmail] = useState("");
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState(null);
+
+  const userObj = (() => { try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; } })();
+  const adminId = userObj.role === "cashier" ? userObj.admin_id : (userObj.id || null);
 
   const scrollRef = useRef(null);      // conversation scroll container
   const stickToBottom = useRef(true);  // only auto-scroll when the user is near the bottom
@@ -323,6 +344,117 @@ export default function WhatsAppChat() {
     markRead(chat.phone);
     loadMessages(chat.phone);
   };
+
+  // ── CONTACT PANEL ──
+  // Normalize a stored 10-digit customer phone to the WhatsApp-side 12-digit
+  // number (with India country code) so it opens the existing chat flow.
+  const normalizeWaPhone = (phone) => {
+    const digits = String(phone || "").replace(/\D/g, "");
+    return digits.length === 10 ? "91" + digits : digits;
+  };
+
+  const loadContacts = async () => {
+    if (!adminId) return;
+    try {
+      const res = await api.get(`/customer/get_all_customer?admin_id=${adminId}`);
+      if (res.data.status) setContacts(res.data.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const closeAddContact = () => {
+    setShowAddContact(false);
+    setAddName("");
+    setAddPhone("");
+    setAddEmail("");
+    setAddError(null);
+  };
+
+  const openAddContact = () => {
+    // always open the popup with EMPTY fields; the user enters contact info manually
+    setAddName("");
+    setAddPhone("");
+    setAddEmail("");
+    setAddError(null);
+    setShowAddContact(true);
+  };
+
+  const handleAddContact = async (e) => {
+    e.preventDefault();
+    if (!adminId) { setAddError("Unable to identify your account"); return; }
+    const name = addName.trim();
+    const phone = addPhone.replace(/\D/g, "");
+    const email = addEmail.trim();
+    if (!name) { setAddError("Please enter a contact name"); return; }
+    if (phone.length < 10) { setAddError("Please enter a valid 10-digit phone number"); return; }
+    setAddSaving(true);
+    setAddError(null);
+    try {
+      const res = await api.post("/whatsapp/save_contact", { admin_id: adminId, name, phone, email });
+      if (res.data.status) {
+        const contact = res.data.contact;
+        showToast(res.data.is_new ? "Contact added" : "Contact already saved");
+        setAddName(""); setAddPhone(""); setAddEmail("");
+        setShowAddContact(false);
+        // update the contacts list immediately without a page refresh
+        // (dedupe by last-10-digits so a duplicate is never shown)
+        const last10 = (p) => String(p || "").replace(/\D/g, "").slice(-10);
+        const newLast10 = last10(contact?.phone);
+        setContacts((prev) => {
+          if (!contact) return prev;
+          const idx = prev.findIndex((c) => newLast10 !== "" && last10(c.phone) === newLast10);
+          if (idx >= 0) {
+            const next = prev.slice();
+            next[idx] = { ...next[idx], name: contact.name, email: contact.email, address: contact.address };
+            return next;
+          }
+          return [contact, ...prev];
+        });
+        // update the current chat / header contact state immediately
+        if (contact) setCurrentContact(contact);
+        // make the new contact available in the WhatsApp chat list
+        if (companyId && connected) loadChats();
+      } else {
+        setAddError(res.data.message || "Failed to save contact");
+      }
+    } catch (err) {
+      setAddError(err.response?.data?.message || "Failed to save contact");
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
+  const openChatFromContact = (c) => {
+    const phone = normalizeWaPhone(c.phone || c.phone_number);
+    setShowAddContact(false);
+    setDrawerOpen(false);
+    selectContact({ phone });
+  };
+
+  const openContacts = () => {
+    setSettingsView("contacts");
+    setContactSearch("");
+    if (contacts.length === 0) {
+      setContactLoading(true);
+      (async () => {
+        try {
+          await loadContacts();
+        } finally {
+          setContactLoading(false);
+        }
+      })();
+    }
+  };
+
+  const closeContacts = () => {
+    setSettingsView("main");
+    setContactSearch("");
+  };
+
+  useEffect(() => {
+    if (!drawerOpen) setSettingsView("main");
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (!selectedPhone) return;
@@ -911,6 +1043,15 @@ export default function WhatsAppChat() {
     );
   });
 
+  const filteredContacts = contacts.filter((c) => {
+    const q = contactSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (c.name || "").toLowerCase().includes(q) ||
+      (c.phone || "").includes(q)
+    );
+  });
+
   const selectedMeta = chats.find((c) => c.phone === selectedPhone) || null;
   const avatarLetter = (name) => (name || "?").trim().charAt(0).toUpperCase();
 
@@ -999,12 +1140,24 @@ export default function WhatsAppChat() {
               )}
             </div>
           ) : m.type === "image" ? (
-            <div className="wc-img-card">
-              <div className="wc-img-thumb">
-                <ImageIcon size={26} />
+            m.media_url ? (
+              <div className="wc-img">
+                <img
+                  className="wc-img-preview"
+                  src={`${API_BASE_URL_IMAGE}/${m.media_url}`}
+                  alt={m.filename || "Photo"}
+                  loading="lazy"
+                  onClick={() => setPreviewImage(`${API_BASE_URL_IMAGE}/${m.media_url}`)}
+                />
               </div>
-              <div className="wc-img-name">{m.filename || "Photo"}</div>
-            </div>
+            ) : (
+              <div className="wc-img-card">
+                <div className="wc-img-thumb">
+                  <ImageIcon size={26} />
+                </div>
+                <div className="wc-img-name">{m.filename || "Photo"}</div>
+              </div>
+            )
           ) : m.type === "document" ? (
             <div className="wc-doc">
               <div className="wc-doc-card">
@@ -1123,6 +1276,7 @@ export default function WhatsAppChat() {
         .wc-chat-head-avatar { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
         .wc-chat-head-name { font-size: 15px; font-weight: 700; color: #111b21; line-height: 1.2; }
         .wc-chat-head-sub { font-size: 12px; color: #667781; display: flex; align-items: center; gap: 6px; }
+        .wc-spin { animation: wa-rotate 0.8s linear infinite; }
         .wc-conn-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
         .wc-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 18px 22px 10px; background-image: radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px); background-size: 18px 18px; }
         .wc-day { text-align: center; margin: 10px 0 14px; }
@@ -1145,6 +1299,14 @@ export default function WhatsAppChat() {
         .wc-img-card { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.05); border-radius: 9px; padding: 9px 11px; min-width: 0; max-width: 100%; }
         .wc-img-thumb { width: 44px; height: 44px; min-width: 44px; border-radius: 9px; background: #fff; color: #0369a1; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px #e2e8f0; }
         .wc-img-name { font-size: 12.5px; font-weight: 600; color: #111b21; word-break: break-all; }
+
+        .wc-img { max-width: 280px; overflow: hidden; border-radius: 10px; margin: 2px 0; }
+        .wc-img-preview { display: block; width: 100%; max-width: 280px; max-height: 320px; object-fit: cover; border-radius: 10px; cursor: zoom-in; background: #e2e8f0; }
+
+        .wc-img-lightbox { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+        .wc-img-lightbox-img { max-width: 92vw; max-height: 92vh; border-radius: 8px; object-fit: contain; box-shadow: 0 12px 48px rgba(0,0,0,0.5); }
+        .wc-img-lightbox-close { position: absolute; top: 18px; right: 18px; width: 44px; height: 44px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .wc-img-lightbox-close:hover { background: rgba(255,255,255,0.3); }
 
         .wc-inputbar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #f0f2f5; border-top: 1px solid #e2e8f0; }
         .wc-attach-btn { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; border: none; background: transparent; color: #54656f; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s ease; }
@@ -1174,6 +1336,17 @@ export default function WhatsAppChat() {
         .wc-drawer-close:hover { background: #f1f5f9; }
         .wc-drawer-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 18px; }
         .wc-drawer-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #94a3b8; margin-bottom: 8px; }
+        .wc-drawer-nav-btn { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; padding: 12px 14px; cursor: pointer; font-family: inherit; text-align: left; box-sizing: border-box; }
+        .wc-drawer-nav-btn:hover { background: #f1f5f9; }
+        .wc-drawer-nav-icon { width: 34px; height: 34px; min-width: 34px; border-radius: 10px; background: #e0f2fe; color: #0369a1; display: flex; align-items: center; justify-content: center; }
+        .wc-drawer-nav-text { flex: 1; font-size: 14px; font-weight: 600; color: #1e293b; }
+        .wc-drawer-nav-chev { color: #94a3b8; }
+        .wc-drawer-subhead { display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-bottom: 10px; }
+        .wc-drawer-subtitle { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #111b21; }
+        .wc-drawer-subtitle svg { color: #128c7e; }
+        .wc-drawer-back { border: none; background: transparent; color: #128c7e; cursor: pointer; display: flex; padding: 6px; border-radius: 8px; }
+        .wc-drawer-back:hover { background: #f1f5f9; }
+        .wc-contacts-sub-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
         .wc-drawer-select { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e2e8f0; font-size: 13px; font-weight: 600; color: #334155; outline: none; box-sizing: border-box; font-family: inherit; }
         .wc-status-card { border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 12px; background: #f8fafc; }
         .wc-status-row { display: flex; align-items: center; gap: 10px; }
@@ -1273,6 +1446,52 @@ export default function WhatsAppChat() {
         .wc-forward-title svg { color: #128c7e; }
         .wc-forward-close { border: none; background: transparent; color: #667781; cursor: pointer; display: flex; padding: 4px; border-radius: 8px; }
         .wc-forward-close:hover { background: #f1f5f9; }
+
+        /* ── contact panel ── */
+        .wc-contact-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .wc-contact-modal { width: 100%; max-width: 440px; max-height: 84vh; background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(11,20,26,0.3); display: flex; flex-direction: column; overflow: hidden; }
+        .wc-contact-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #f1f5f9; }
+        .wc-contact-title { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; color: #111b21; }
+        .wc-contact-title svg { color: #128c7e; }
+        .wc-contact-close { border: none; background: transparent; color: #667781; cursor: pointer; display: flex; padding: 4px; border-radius: 8px; }
+        .wc-contact-close:hover { background: #f1f5f9; }
+        .wc-contact-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 14px 18px; gap: 12px; overflow-y: auto; }
+        .wc-current-contact { display: flex; align-items: center; gap: 12px; background: #f6f8fa; border-radius: 12px; padding: 12px 14px; }
+        .wc-current-avatar { width: 44px; height: 44px; min-width: 44px; border-radius: 50%; background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+        .wc-current-info { flex: 1; min-width: 0; }
+        .wc-current-name { font-size: 14px; font-weight: 700; color: #111b21; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .wc-current-phone { font-size: 12.5px; color: #667781; }
+        .wc-saved-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #008069; background: #dcfce7; padding: 5px 10px; border-radius: 20px; white-space: nowrap; }
+        .wc-add-current-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #fff; background: #128c7e; border: none; padding: 7px 12px; border-radius: 20px; cursor: pointer; }
+        .wc-add-current-btn:hover { background: #0f766e; }
+        .wc-contact-actions { display: flex; }
+        .wc-new-contact-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #fff; background: #25d366; border: none; padding: 9px 14px; border-radius: 10px; cursor: pointer; }
+        .wc-new-contact-btn:hover { background: #1fb958; }
+        .wc-contact-search-box { position: relative; }
+        .wc-contact-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #8696a0; }
+        .wc-contact-search { width: 100%; box-sizing: border-box; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px 10px 34px; font-size: 13px; outline: none; }
+        .wc-contact-search:focus { border-color: #25d366; }
+        .wc-contact-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+        .wc-contact-state { padding: 26px 10px; text-align: center; color: #667781; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .wc-contact-row { display: flex; align-items: center; gap: 12px; padding: 10px 8px; border-radius: 10px; cursor: pointer; }
+        .wc-contact-row:hover { background: #f0f2f5; }
+        .wc-contact-row-avatar { width: 42px; height: 42px; min-width: 42px; border-radius: 50%; background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+        .wc-contact-row-info { flex: 1; min-width: 0; }
+        .wc-contact-row-name { font-size: 14px; font-weight: 600; color: #111b21; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .wc-contact-row-phone { font-size: 12.5px; color: #667781; }
+        .wc-contact-row-mail { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #8696a0; white-space: nowrap; }
+        .wc-add-contact { display: flex; flex-direction: column; gap: 8px; }
+        .wc-add-title { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #111b21; }
+        .wc-add-label { font-size: 12px; font-weight: 600; color: #54656f; }
+        .wc-add-input { width: 100%; box-sizing: border-box; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-size: 14px; outline: none; }
+        .wc-add-input:focus { border-color: #25d366; }
+        .wc-add-error { font-size: 12.5px; color: #c62828; background: #fdecea; padding: 8px 10px; border-radius: 8px; }
+        .wc-add-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+        .wc-add-cancel { border: none; background: transparent; color: #54656f; font-weight: 600; font-size: 13.5px; padding: 9px 14px; border-radius: 8px; cursor: pointer; }
+        .wc-add-cancel:hover { background: #f0f2f5; }
+        .wc-add-save { display: inline-flex; align-items: center; gap: 6px; border: none; background: #25d366; color: #fff; font-weight: 700; font-size: 13.5px; padding: 9px 16px; border-radius: 10px; cursor: pointer; }
+        .wc-add-save:hover { background: #1fb958; }
+        .wc-add-save:disabled { opacity: 0.6; cursor: not-allowed; }
         .wc-forward-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 14px 18px; gap: 12px; }
         .wc-forward-msg { display: flex; flex-direction: column; gap: 3px; background: #f0f2f5; border-radius: 10px; padding: 10px 12px; }
         .wc-forward-msg-label { font-size: 11px; font-weight: 700; color: #008069; text-transform: uppercase; letter-spacing: 0.4px; }
@@ -1591,56 +1810,167 @@ export default function WhatsAppChat() {
             </div>
 
             <div className="wc-drawer-body">
-              {/* CONNECTION STATUS */}
-              <div>
-                <div className="wc-drawer-label">Connection</div>
-                <div className="wc-status-card">
-                  <span className={`wc-badge ${connected ? "ok" : "off"}`}>
-                    <span className="wc-badge-dot" />
-                    {connected ? "Connected" : connState === "checking" ? "Checking…" : connState === "reconnecting" ? "Reconnecting…" : connState === "initializing" ? "Initializing…" : "Disconnected"}
-                  </span>
-                  <div className="wc-status-row">
-                    <div className="wc-status-icon"><Phone size={16} /></div>
-                    <div>
-                      <div className="wc-status-label">WhatsApp Number</div>
-                      <div className="wc-status-value">
-                        {connected && waPhone ? `+${waPhone}` : "—"}
+              {settingsView === "contacts" ? (
+                /* ══ CONTACTS SUB-PAGE (replaces the main settings content) ══ */
+                <>
+                  <div className="wc-drawer-subhead">
+                    <button className="wc-drawer-back" title="Back" onClick={closeContacts}>
+                      <ChevronLeft size={18} />
+                    </button>
+                    <span className="wc-drawer-subtitle"><User size={15} /> Contacts</span>
+                  </div>
+
+                  <div className="wc-contact-actions">
+                    <button className="wc-new-contact-btn" onClick={openAddContact}>
+                      <UserPlus size={16} /> New Contact
+                    </button>
+                  </div>
+
+                  <div className="wc-contact-search-box">
+                    <Search size={14} className="wc-contact-search-icon" />
+                    <input
+                      className="wc-contact-search"
+                      placeholder="Search contacts…"
+                      value={contactSearch}
+                      onChange={(e) => setContactSearch(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="wc-contacts-sub-list">
+                    {contactLoading ? (
+                      <div className="wc-contact-state"><Loader2 size={18} className="wc-spin" /> Loading contacts…</div>
+                    ) : filteredContacts.length === 0 ? (
+                      <div className="wc-contact-state">
+                        {contacts.length === 0 ? "No contacts found" : "No matching contacts."}
                       </div>
+                    ) : (
+                      filteredContacts.map((c) => (
+                        <div key={c.id ?? c.phone} className="wc-contact-row" onClick={() => openChatFromContact(c)}>
+                          <div className="wc-contact-row-avatar">{avatarLetter(c.name)}</div>
+                          <div className="wc-contact-row-info">
+                            <div className="wc-contact-row-name">{c.name}</div>
+                            <div className="wc-contact-row-phone">{c.phone}</div>
+                          </div>
+                          {c.email ? <div className="wc-contact-row-mail"><Mail size={13} />{c.email}</div> : null}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* ══ MAIN SETTINGS VIEW ══ */
+                <>
+                  {/* CONTACTS NAV */}
+                  <div>
+                    <div className="wc-drawer-label">Contacts</div>
+                    <button className="wc-drawer-nav-btn" onClick={openContacts}>
+                      <span className="wc-drawer-nav-icon"><User size={16} /></span>
+                      <span className="wc-drawer-nav-text">Contacts</span>
+                      <ChevronDown size={16} className="wc-drawer-nav-chev" />
+                    </button>
+                  </div>
+
+                  {/* CONNECTION STATUS */}
+                  <div>
+                    <div className="wc-drawer-label">Connection</div>
+                    <div className="wc-status-card">
+                      <span className={`wc-badge ${connected ? "ok" : "off"}`}>
+                        <span className="wc-badge-dot" />
+                        {connected ? "Connected" : connState === "checking" ? "Checking…" : connState === "reconnecting" ? "Reconnecting…" : connState === "initializing" ? "Initializing…" : "Disconnected"}
+                      </span>
+                      <div className="wc-status-row">
+                        <div className="wc-status-icon"><Phone size={16} /></div>
+                        <div>
+                          <div className="wc-status-label">WhatsApp Number</div>
+                          <div className="wc-status-value">
+                            {connected && waPhone ? `+${waPhone}` : "—"}
+                          </div>
+                        </div>
+                      </div>
+                      {connected && waName && (
+                        <div className="wc-status-row">
+                          <div className="wc-status-icon"><CheckCircle2 size={16} /></div>
+                          <div>
+                            <div className="wc-status-label">Account</div>
+                            <div className="wc-status-value">{waName}</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {connected && waName && (
-                    <div className="wc-status-row">
-                      <div className="wc-status-icon"><CheckCircle2 size={16} /></div>
-                      <div>
-                        <div className="wc-status-label">Account</div>
-                        <div className="wc-status-value">{waName}</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              {/* DISCONNECT */}
-              <div>
-                <div className="wc-drawer-label">Session</div>
-                <button
-                  className="wc-disconnect-btn"
-                  onClick={disconnectWhatsApp}
-                  disabled={disconnecting || !connected}
-                  style={{ width: "100%" }}
-                >
-                  {disconnecting ? (
-                    <><Loader2 size={15} /> Disconnecting…</>
-                  ) : (
-                    <><Unplug size={15} /> Disconnect WhatsApp</>
-                  )}
-                </button>
-                <p style={{ fontSize: 11.5, color: "#94a3b8", lineHeight: 1.6, marginTop: 10 }}>
-                  Disconnecting logs out this WhatsApp session. Scan the QR code
-                  again to reconnect a new or the same account.
-                </p>
-              </div>
+                  {/* SESSION / DISCONNECT */}
+                  <div>
+                    <div className="wc-drawer-label">Session</div>
+                    <button
+                      className="wc-disconnect-btn"
+                      onClick={disconnectWhatsApp}
+                      disabled={disconnecting || !connected}
+                      style={{ width: "100%" }}
+                    >
+                      {disconnecting ? (
+                        <><Loader2 size={15} /> Disconnecting…</>
+                      ) : (
+                        <><Unplug size={15} /> Disconnect WhatsApp</>
+                      )}
+                    </button>
+                    <p style={{ fontSize: 11.5, color: "#94a3b8", lineHeight: 1.6, marginTop: 10 }}>
+                      Disconnecting logs out this WhatsApp session. Scan the QR code
+                      again to reconnect a new or the same account.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ NEW CONTACT POPUP (separate modal above Settings) ══════════ */}
+      {showAddContact && (
+        <div className="wc-contact-backdrop" onClick={closeAddContact}>
+          <div className="wc-contact-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="wc-contact-head">
+              <div className="wc-contact-title">
+                <UserPlus size={16} />
+                New Contact
+              </div>
+              <button className="wc-contact-close" title="Close" onClick={closeAddContact}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form className="wc-contact-body" onSubmit={handleAddContact}>
+              <label className="wc-add-label">Name *</label>
+              <input
+                className="wc-add-input"
+                placeholder="Contact name"
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                autoFocus
+              />
+              <label className="wc-add-label">Phone *</label>
+              <input
+                className="wc-add-input"
+                placeholder="Phone number"
+                value={addPhone}
+                onChange={(e) => setAddPhone(e.target.value.replace(/\D/g, "").slice(0, 15))}
+              />
+              <label className="wc-add-label">Email (optional)</label>
+              <input
+                className="wc-add-input"
+                placeholder="email@example.com"
+                value={addEmail}
+                onChange={(e) => setAddEmail(e.target.value)}
+              />
+              {addError && <div className="wc-add-error">{addError}</div>}
+              <div className="wc-add-actions">
+                <button type="button" className="wc-add-cancel" onClick={closeAddContact}>Cancel</button>
+                <button type="submit" className="wc-add-save" disabled={addSaving}>
+                  {addSaving ? <Loader2 size={16} className="wc-spin" /> : <UserPlus size={16} />} Save Contact
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1752,6 +2082,16 @@ export default function WhatsAppChat() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ══════════ IMAGE PREVIEW LIGHTBOX ══════════ */}
+      {previewImage && (
+        <div className="wc-img-lightbox" onClick={() => setPreviewImage(null)} role="dialog" aria-modal="true" aria-label="Image preview">
+          <button className="wc-img-lightbox-close" onClick={() => setPreviewImage(null)} aria-label="Close preview">
+            <X size={26} />
+          </button>
+          <img className="wc-img-lightbox-img" src={previewImage} alt="Preview" />
         </div>
       )}
 
