@@ -839,6 +839,20 @@ export default function InvoicePreview() {
     }).catch(err => console.error(err));
   }, [invoiceNo]);
 
+  /* Load print settings from the DB so the bill matches the company's saved theme */
+  useEffect(() => {
+    if (!invoice) return;
+    const companyId = invoice.company_id;
+    api
+      .get("/settings/get", { params: { company_id: companyId } })
+      .then((res) => {
+        const data = (res.data && res.data.data) || {};
+        const print = data.print || {};
+        if (print && print.themeColor) setSelectedColor(print.themeColor);
+      })
+      .catch(() => {});
+  }, [invoice]);
+
   if (!invoice) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f8fafc", color: "#64748b", fontSize: 14 }}>

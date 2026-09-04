@@ -518,7 +518,7 @@ export default function ProductList() {
     setProducts((prev) =>
       prev.map((p) =>
         moveCategorySelected.includes(p.id)
-          ? { ...p, category_name: selectedCategory.name }
+          ? { ...p, category_name: selectedCategory.name, category_id: selectedCategory.id }
           : p
       )
     );
@@ -533,7 +533,7 @@ export default function ProductList() {
     if (!selectedBrand || moveBrandSelected.length === 0) return;
     setProducts((prev) =>
       prev.map((p) =>
-        moveBrandSelected.includes(p.id) ? { ...p, brand_name: selectedBrand.name } : p
+        moveBrandSelected.includes(p.id) ? { ...p, brand_name: selectedBrand.name, brand_id: selectedBrand.id } : p
       )
     );
     showToast(`Moved ${moveBrandSelected.length} item(s) to ${selectedBrand.name}`);
@@ -542,6 +542,18 @@ export default function ProductList() {
     setMoveBrandSearch("");
     setRemoveFromExistingBrand(false);
   };
+
+  const moveCategoryOptions = products.filter(
+    (p) =>
+      p.category_id !== selectedCategory?.id &&
+      p.product_name?.toLowerCase().includes(moveCategorySearch.toLowerCase())
+  );
+
+  const moveBrandOptions = products.filter(
+    (p) =>
+      p.brand_id !== selectedBrand?.id &&
+      p.product_name?.toLowerCase().includes(moveBrandSearch.toLowerCase())
+  );
 
   const TABS = [
     { key: "product", label: "Products", icon: ShoppingBag },
@@ -1191,57 +1203,22 @@ export default function ProductList() {
                           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
                             <thead>
                               <tr style={{ background: COLORS.surfaceAlt, borderBottom: `1px solid ${COLORS.border}` }}>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Type</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Invoice</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Customer</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Date</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Qty</th>
+                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Customer Name</th>
+                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Phone Number</th>
+                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Quantity</th>
                                 <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Price</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Status</th>
                               </tr>
                             </thead>
                             <tbody>
                               {filteredHistory.map((s, i) => {
-                                const type = s.type || "Sale";
-                                const isSale = type.toLowerCase().includes("sale");
                                 return (
                                   <tr key={i} className="hover-bg" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                                    <td style={{ padding: "11px 14px" }}>
-                                      <span
-                                        style={{
-                                          display: "inline-block",
-                                          padding: "2px 10px",
-                                          borderRadius: RADIUS.pill,
-                                          fontSize: 11,
-                                          fontWeight: 600,
-                                          background: isSale ? COLORS.successTint : COLORS.dangerTint,
-                                          color: isSale ? COLORS.success : COLORS.danger,
-                                        }}
-                                      >
-                                        {type}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>{s.invoice_no || "N/A"}</td>
-                                    <td style={{ padding: "11px 14px", color: COLORS.textSoft }}>{s.customer_name || "-"}</td>
-                                    <td style={{ padding: "11px 14px", color: COLORS.textSoft }}>{formatDate(s.date)}</td>
+                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>{s.customer_name || "-"}</td>
+                                    <td style={{ padding: "11px 14px", color: COLORS.textSoft }}>{s.customer_phone || "-"}</td>
                                     <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>
                                       {s.quantity} {selectedProduct.unit?.slice(0, 3) || ""}
                                     </td>
                                     <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>{money(s.price)}</td>
-                                    <td style={{ padding: "11px 14px" }}>
-                                      <span
-                                        style={{
-                                          padding: "2px 10px",
-                                          borderRadius: RADIUS.pill,
-                                          fontSize: 11,
-                                          fontWeight: 600,
-                                          background: s.status === "Paid" ? COLORS.successTint : COLORS.warningTint,
-                                          color: s.status === "Paid" ? COLORS.success : COLORS.warning,
-                                        }}
-                                      >
-                                        {s.status || "Paid"}
-                                      </span>
-                                    </td>
                                   </tr>
                                 );
                               })}
@@ -2683,32 +2660,30 @@ export default function ProductList() {
             </div>
 
             <div style={{ padding: "12px 24px", flex: 1, overflowY: "auto" }}>
-              {products
-                .filter(p => p.product_name?.toLowerCase().includes(moveCategorySearch.toLowerCase()))
-                .map((p) => {
-                  const checked = moveCategorySelected.includes(p.id);
-                  return (
-                    <div
-                      key={p.id}
-                      className="hover-bg"
-                      onClick={() => setMoveCategorySelected(prev => checked ? prev.filter(id => id !== p.id) : [...prev, p.id])}
-                      style={{
-                        padding: "10px 12px",
-                        borderRadius: RADIUS.sm,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        cursor: "pointer",
-                        borderBottom: `1px solid ${COLORS.border}`,
-                      }}
-                    >
-                      <input type="checkbox" checked={checked} onChange={() => {}} />
-                      <span style={{ flex: 1, fontSize: 13.5, color: COLORS.text }}>{p.product_name}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.textMuted }}>{Number(p.stock || 0)}</span>
-                    </div>
-                  );
-                })}
-              {products.filter(p => p.product_name?.toLowerCase().includes(moveCategorySearch.toLowerCase())).length === 0 && (
+              {moveCategoryOptions.map((p) => {
+                const checked = moveCategorySelected.includes(p.id);
+                return (
+                  <div
+                    key={p.id}
+                    className="hover-bg"
+                    onClick={() => setMoveCategorySelected(prev => checked ? prev.filter(id => id !== p.id) : [...prev, p.id])}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: RADIUS.sm,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      cursor: "pointer",
+                      borderBottom: `1px solid ${COLORS.border}`,
+                    }}
+                  >
+                    <input type="checkbox" checked={checked} onChange={() => {}} />
+                    <span style={{ flex: 1, fontSize: 13.5, color: COLORS.text }}>{p.product_name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.textMuted }}>{Number(p.stock || 0)}</span>
+                  </div>
+                );
+              })}
+              {moveCategoryOptions.length === 0 && (
                 <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted }}>No items found</div>
               )}
             </div>
@@ -2813,32 +2788,30 @@ export default function ProductList() {
             </div>
 
             <div style={{ padding: "12px 24px", flex: 1, overflowY: "auto" }}>
-              {products
-                .filter(p => p.product_name?.toLowerCase().includes(moveBrandSearch.toLowerCase()))
-                .map((p) => {
-                  const checked = moveBrandSelected.includes(p.id);
-                  return (
-                    <div
-                      key={p.id}
-                      className="hover-bg"
-                      onClick={() => setMoveBrandSelected(prev => checked ? prev.filter(id => id !== p.id) : [...prev, p.id])}
-                      style={{
-                        padding: "10px 12px",
-                        borderRadius: RADIUS.sm,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        cursor: "pointer",
-                        borderBottom: `1px solid ${COLORS.border}`,
-                      }}
-                    >
-                      <input type="checkbox" checked={checked} onChange={() => {}} />
-                      <span style={{ flex: 1, fontSize: 13.5, color: COLORS.text }}>{p.product_name}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.textMuted }}>{Number(p.stock || 0)}</span>
-                    </div>
-                  );
-                })}
-              {products.filter(p => p.product_name?.toLowerCase().includes(moveBrandSearch.toLowerCase())).length === 0 && (
+              {moveBrandOptions.map((p) => {
+                const checked = moveBrandSelected.includes(p.id);
+                return (
+                  <div
+                    key={p.id}
+                    className="hover-bg"
+                    onClick={() => setMoveBrandSelected(prev => checked ? prev.filter(id => id !== p.id) : [...prev, p.id])}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: RADIUS.sm,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      cursor: "pointer",
+                      borderBottom: `1px solid ${COLORS.border}`,
+                    }}
+                  >
+                    <input type="checkbox" checked={checked} onChange={() => {}} />
+                    <span style={{ flex: 1, fontSize: 13.5, color: COLORS.text }}>{p.product_name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.textMuted }}>{Number(p.stock || 0)}</span>
+                  </div>
+                );
+              })}
+              {moveBrandOptions.length === 0 && (
                 <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted }}>No items found</div>
               )}
             </div>

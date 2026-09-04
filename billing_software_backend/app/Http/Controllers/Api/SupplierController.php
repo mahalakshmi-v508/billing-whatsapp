@@ -56,7 +56,15 @@ class SupplierController extends Controller
     public function getAll(Request $request)
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
-        $suppliers = Supplier::where('company_id', $company_id)->where('is_deleted', 0)->orderBy('id', 'desc')->get();
+        $query = Supplier::where('is_deleted', 0);
+        if ($company_id > 0) {
+            $query->where('company_id', $company_id);
+        }
+
+        $suppliers = $query->select('suppliers.*')
+            ->selectRaw('(SELECT COALESCE(SUM(balance_amount), 0) FROM purchases WHERE purchases.supplier_id = suppliers.id AND purchases.status = "submitted") as pending_balance')
+            ->orderBy('id', 'desc')
+            ->get();
 
         return response()->json([
             "status" => true,

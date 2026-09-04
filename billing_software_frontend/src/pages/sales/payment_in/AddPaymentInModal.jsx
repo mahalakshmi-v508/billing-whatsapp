@@ -128,13 +128,16 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     setErrorMsg("");
 
     try {
+      const discNum = parseFloat(discountAmount) || 0;
       const payload = {
         company_id: parseInt(companyId) || 0,
         customer_id: selectedParty.id,
+        receipt_no: String(receiptNo),
         amount: amountNum,
+        discount_amount: discNum,
         payment_method: paymentType.toLowerCase(),
         payment_date: paymentDate,
-        notes: description || `Payment received: ₹${amountNum}${discountAmount ? `, Discount: ₹${discountAmount}` : ""}`,
+        notes: description || `Payment received: ₹${amountNum}${discNum > 0 ? `, Discount: ₹${discNum}` : ""}`,
       };
 
       const res = await api.post("/invoice/pay_customer_bulk", payload);
@@ -299,7 +302,7 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
 
               {showPaymentTypeDropdown && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
-                  {["Cash", "Bank Transfer", "UPI / GooglePay", "Cheque"].map((type) => (
+                  {["Cash", "Online / Bank Transfer", "UPI / GooglePay", "Cheque"].map((type) => (
                     <div
                       key={type}
                       onClick={() => {
@@ -316,17 +319,6 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* + Add Payment type link */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setPaymentType(paymentType === "Cash" ? "Bank Transfer" : "Cash")}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition flex items-center gap-1 cursor-pointer"
-              >
-                + Add Payment type
-              </button>
             </div>
 
             {/* + ADD DESCRIPTION Toggle & Textarea */}
