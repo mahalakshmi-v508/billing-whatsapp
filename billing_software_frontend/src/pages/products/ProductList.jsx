@@ -714,7 +714,7 @@ export default function ProductList() {
       />
 
       {/* ─── MAIN LAYOUT ─── */}
-      <div style={{ minHeight: "100vh", background: COLORS.bg, fontFamily: FONT, color: COLORS.textSoft }}>
+      <div style={{ minHeight: "100%", width: "100%", background: COLORS.bg, fontFamily: FONT, color: COLORS.textSoft }}>
 
         {/* ─── COMPANY SELECTOR ─── */}
         <div
