@@ -20,7 +20,17 @@ import {
   Pencil,
   Settings,
   TrendingUp,
-  Edit3
+  Edit3,
+  SlidersHorizontal,
+  Building2,
+  Truck,
+  RotateCcw,
+  Receipt,
+  ArrowUpRight,
+  Sparkles,
+  CheckCircle2,
+  Clock,
+  CircleDot
 } from "lucide-react";
 
 export default function DebitNoteList() {
@@ -35,7 +45,7 @@ export default function DebitNoteList() {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Filter states (Pill dropdowns like Payment-Out)
+  // Filter states
   const [period, setPeriod] = useState("this_month");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
@@ -50,9 +60,8 @@ export default function DebitNoteList() {
   const [toDate, setToDate] = useState("");
   const [showDatePickerModal, setShowDatePickerModal] = useState(false);
 
-  // Search & view toggles (Header icons like Payment-Out)
+  // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -70,7 +79,7 @@ export default function DebitNoteList() {
     this_month: "This Month",
     this_quarter: "This Quarter",
     this_year: "This Year",
-    custom: "Custom"
+    custom: "Custom Date"
   };
 
   // Format Helper: DD/MM/YYYY
@@ -141,7 +150,7 @@ export default function DebitNoteList() {
     if (adminId) {
       api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
         .then((res) => {
-          if (res.data.status) {
+          if (res.data?.status) {
             setCompanies(res.data.data || []);
           }
         })
@@ -154,7 +163,7 @@ export default function DebitNoteList() {
     const compParam = selectedFirm !== "all" ? `?company_id=${selectedFirm}` : "";
     api.get(`/supplier/get_all${compParam}`)
       .then((res) => {
-        if (res.data.status) {
+        if (res.data?.status) {
           setSuppliers(res.data.data || []);
         }
       })
@@ -169,7 +178,7 @@ export default function DebitNoteList() {
       const supParam = selectedSupplier !== "all" ? `&supplier_id=${selectedSupplier}` : "";
       const dateParam = fromDate && toDate ? `&from_date=${fromDate}&to_date=${toDate}` : "";
       const res = await api.get(`/debit_note/list?admin_id=${adminId || 0}${compParam}${supParam}${dateParam}`);
-      if (res.data.status) {
+      if (res.data?.status) {
         setDebitNotes(res.data.data || []);
       } else {
         setDebitNotes([]);
@@ -202,7 +211,7 @@ export default function DebitNoteList() {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
-  // Filtered List
+  // Filtered Debit Notes
   const filteredDebitNotes = useMemo(() => {
     return debitNotes.filter((item) => {
       // Date filter
@@ -223,22 +232,21 @@ export default function DebitNoteList() {
 
       // Payment Type filter
       if (paymentFilter !== "all") {
-        if (String(item.payment_type).toLowerCase() !== paymentFilter.toLowerCase()) return false;
+        const pType = (item.payment_type || "").toLowerCase();
+        if (pType !== paymentFilter.toLowerCase()) return false;
       }
 
-      // Search query
+      // Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const retNo = String(item.return_no || "").toLowerCase();
-        const billNo = String(item.bill_no || "").toLowerCase();
-        const supName = String(item.supplier_name || "").toLowerCase();
-        const supPhone = String(item.supplier_phone || "").toLowerCase();
+        const refNo = String(item.return_no || item.id || "").toLowerCase();
+        const partyName = String(item.supplier_name || "").toLowerCase();
+        const partyPhone = String(item.supplier_phone || "").toLowerCase();
         const total = String(item.total_amount || "");
         if (
-          !retNo.includes(q) &&
-          !billNo.includes(q) &&
-          !supName.includes(q) &&
-          !supPhone.includes(q) &&
+          !refNo.includes(q) &&
+          !partyName.includes(q) &&
+          !partyPhone.includes(q) &&
           !total.includes(q)
         ) {
           return false;
@@ -249,151 +257,248 @@ export default function DebitNoteList() {
     });
   }, [debitNotes, fromDate, toDate, selectedFirm, selectedSupplier, paymentFilter, searchQuery]);
 
-  // Totals KPI
-  const { totalAmount, totalBalance, totalRefund } = useMemo(() => {
-    let totAmt = 0;
-    let totBal = 0;
-    let totRef = 0;
+  // Summary Metrics
+  const { totalAmount, totalRefund, totalBalance } = useMemo(() => {
+    let tot = 0;
+    let ref = 0;
+    let bal = 0;
     filteredDebitNotes.forEach((item) => {
-      totAmt += Number(item.total_amount || 0);
-      totBal += Number(item.balance_amount || 0);
-      totRef += Number(item.refund_amount || 0);
+      tot += parseFloat(item.total_amount || 0);
+      ref += parseFloat(item.refund_amount || 0);
+      bal += parseFloat(item.balance_amount || 0);
     });
-    return {
-      totalAmount: totAmt,
-      totalBalance: totBal,
-      totalRefund: totRef
-    };
+    return { totalAmount: tot, totalRefund: ref, totalBalance: bal };
   }, [filteredDebitNotes]);
 
-  // Paginated List
+  // Pagination calculation
   const totalPages = Math.ceil(filteredDebitNotes.length / rowsPerPage) || 1;
   const paginatedList = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
     return filteredDebitNotes.slice(start, start + rowsPerPage);
   }, [filteredDebitNotes, currentPage, rowsPerPage]);
 
-  // Delete Debit Note
-  const confirmDeleteDebitNote = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      const res = await api.post("/debit_note/delete", { id: deleteTarget.id });
-      if (res.data.status) {
-        setActionToast({ type: "success", text: "Debit Note deleted and stock restored successfully!" });
-        setDeleteTarget(null);
-        fetchDebitNotes();
-      } else {
-        alert(res.data.message || "Failed to delete Debit Note.");
-      }
-    } catch (err) {
-      console.error("Error deleting debit note:", err);
-      alert("Failed to delete Debit Note.");
-    } finally {
-      setDeleting(false);
-      setTimeout(() => setActionToast(null), 3000);
-    }
-  };
+  const fmtCurrency = (n) =>
+    Number(n || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
 
-  // Export Excel
+  // Export to Excel
   const handleExportExcel = () => {
     if (filteredDebitNotes.length === 0) {
       alert("No data available to export.");
       return;
     }
-
     const data = filteredDebitNotes.map((item, idx) => ({
-      "S.No": idx + 1,
-      "Return Date": formatDateDMY(item.return_date),
-      "Return No": `#${item.return_no || item.id}`,
-      "Bill No": item.bill_no || "-",
-      "Supplier Name": item.supplier_name || "-",
+      "#": idx + 1,
+      "Date": formatDateDMY(item.return_date),
+      "Ref No.": item.return_no || item.id,
+      "Party Name": item.supplier_name || "-",
       "Phone": item.supplier_phone || "-",
       "Payment Type": item.payment_type || "Cash",
-      "Total Amount": item.total_amount || 0,
-      "Refund Amount": item.refund_amount || 0,
-      "Balance Due": item.balance_amount || 0,
-      "Status": Number(item.balance_amount || 0) <= 0 ? "Paid" : "Unpaid",
+      "Total Amount": parseFloat(item.total_amount || 0),
+      "Received/Refund": parseFloat(item.refund_amount || 0),
+      "Balance": parseFloat(item.balance_amount || 0),
+      "Status": Number(item.balance_amount || 0) <= 0 ? "Settled" : "Unpaid"
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "DebitNotes");
-    XLSX.writeFile(wb, `Purchase_Return_Report_${fromDate || "all"}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Purchase Return");
+    XLSX.writeFile(wb, `Purchase_Return_DebitNotes_${fromDate || "all"}.xlsx`);
   };
 
-  const fmtCurrency = (n) =>
-    Number(n || 0).toLocaleString("en-IN", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    });
+  // Delete Action
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await api.post("/debit_note/delete", { id: deleteTarget.id });
+      if (res.data?.status) {
+        setDebitNotes((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+        setActionToast({ msg: "Debit Note deleted successfully.", ok: true });
+        setDeleteTarget(null);
+        setTimeout(() => setActionToast(null), 3500);
+      } else {
+        setActionToast({ msg: res.data?.message || "Failed to delete.", ok: false });
+        setTimeout(() => setActionToast(null), 3500);
+      }
+    } catch (err) {
+      console.error(err);
+      setActionToast({ msg: "Error deleting debit note.", ok: false });
+      setTimeout(() => setActionToast(null), 3500);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const refundRate = totalAmount > 0 ? Math.round((totalRefund / totalAmount) * 100) : 0;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "18px 24px", fontFamily: "Inter, sans-serif" }}>
+    <div className="p-4 sm:p-6 max-w-[1520px] mx-auto min-h-screen space-y-4 bg-[#f8fafc] font-sans text-slate-800">
       
-      {/* ── 1. TOP HEADER (Matching Payment-Out Page) ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        
-        {/* Title with Down Chevron */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0, letterSpacing: "-0.3px" }}>
-            Purchase Return / Debit Note
-          </h1>
-         
+      {/* Toast Alert */}
+      {actionToast && (
+        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold transition-all flex items-center gap-2.5 backdrop-blur-md animate-in slide-in-from-top-3 duration-200 ${
+          actionToast.ok ? "bg-emerald-500/90 text-white border-emerald-400" : "bg-rose-500/90 text-white border-rose-400"
+        }`}>
+          {actionToast.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+          <span>{actionToast.msg}</span>
+        </div>
+      )}
+
+      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-500/20 shrink-0">
+            <RotateCcw size={22} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Purchase Return & Debit Notes</h1>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                {filteredDebitNotes.length} notes
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">
+              Manage returned items, supplier debit adjustments, and refund settlements
+            </p>
+          </div>
         </div>
 
-        {/* Right Button: + Add Debit Note & Settings */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Header Action Tools */}
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
-            type="button"
-            onClick={() => navigate("/purchases/debit-note/add")}
-            style={{
-              background: "#1d72fe",
-              border: "none",
-              color: "#ffffff",
-              borderRadius: 24,
-              padding: "9px 20px",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              boxShadow: "0 2px 8px rgba(29, 114, 254, 0.25)"
-            }}
+            onClick={fetchDebitNotes}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Refresh Data"
           >
-            <Plus size={16} strokeWidth={2.5} />
-            <span>Add Debit Note</span>
+            <RefreshCw size={14} className={loading ? "animate-spin text-purple-600" : "text-slate-500"} />
+            <span>Refresh</span>
           </button>
 
-          
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Export Excel"
+          >
+            <FileSpreadsheet size={14} className="text-emerald-600" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Print View"
+          >
+            <Printer size={14} className="text-slate-500" />
+            <span>Print</span>
+          </button>
+
+          {/* Primary CTA */}
+          <button
+            onClick={() => navigate("/purchases/debit-note/add")}
+            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-purple-500/25 transition active:scale-95 cursor-pointer"
+          >
+            <Plus size={16} strokeWidth={2.8} />
+            <span>+ Add Debit Note</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── 2. SEGMENTED FINANCIAL INTELLIGENCE STRIP (3 KPIs) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        {/* KPI 1: Total Return Amount */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+              Total Return Value
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <RotateCcw size={16} />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              ₹ {fmtCurrency(totalAmount)}
+            </div>
+            <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 font-semibold">
+              <span className="text-purple-600 font-bold">{filteredDebitNotes.length}</span> returns processed
+            </div>
+          </div>
+          <div className="w-full bg-purple-100 h-1.5 rounded-full mt-4 overflow-hidden">
+            <div className="bg-purple-600 h-full rounded-full w-full" />
+          </div>
+        </div>
+
+        {/* KPI 2: Refund / Settled Amount */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">
+              Refunded & Settled
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 size={16} />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight">
+              ₹ {fmtCurrency(totalRefund)}
+            </div>
+            <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 font-semibold">
+              <span className="text-emerald-700 font-bold">{refundRate}%</span> recovery rate
+            </div>
+          </div>
+          <div className="w-full bg-emerald-100 h-1.5 rounded-full mt-4 overflow-hidden">
+            <div
+              className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(100, Math.max(0, refundRate))}%` }}
+            />
+          </div>
+        </div>
+
+        {/* KPI 3: Pending Balance Due */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-600">
+              Pending Refund Balance
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <Clock size={16} />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className={`text-2xl sm:text-3xl font-black tracking-tight ${totalBalance > 0 ? "text-rose-600" : "text-slate-900"}`}>
+              ₹ {fmtCurrency(totalBalance)}
+            </div>
+            <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 font-semibold">
+              <span>{totalBalance > 0 ? "Awaiting supplier credit note / cash refund" : "All returns fully settled"}</span>
+            </div>
+          </div>
+          <div className="w-full bg-rose-100 h-1.5 rounded-full mt-4 overflow-hidden">
+            <div
+              className="bg-rose-500 h-full rounded-full transition-all duration-500"
+              style={{ width: `${totalAmount > 0 ? Math.min(100, (totalBalance / totalAmount) * 100) : 0}%` }}
+            />
+          </div>
         </div>
 
       </div>
 
-      {/* ── 2. FILTER BAR (Exact Matching media_1788344681856.png Pill Badges) ── */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: 16,
-          padding: "10px 18px",
-          border: "1px solid #e2e8f0",
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 16,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-        }}
-      >
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: 13 }}>
-          <span style={{ fontWeight: 600, color: "#64748b", marginRight: 2 }}>Filter by :</span>
+      {/* ── 3. SEGMENTED FILTER BAR ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        
+        {/* Left Filter Pill Group */}
+        <div className="flex flex-wrap items-center gap-2.5 text-xs">
+          <span className="font-extrabold text-slate-500 flex items-center gap-1.5 mr-1 uppercase text-[11px] tracking-wider">
+            <SlidersHorizontal size={13} />
+            <span>Filters</span>
+          </span>
 
-          {/* 1. Period Pill Dropdown */}
-          <div data-dropdown-container style={{ position: "relative" }}>
+          {/* Period Dropdown Pill */}
+          <div data-dropdown-container className="relative">
             <button
-              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setPeriodOpen((v) => !v);
@@ -401,41 +506,20 @@ export default function DebitNoteList() {
                 setSupplierOpen(false);
                 setPaymentFilterOpen(false);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "#f0f9ff",
-                color: "#1e293b",
-                fontWeight: 600,
-                fontSize: 12.5,
-                borderRadius: 24,
-                border: "1px solid #bae6fd",
-                cursor: "pointer"
-              }}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
             >
+              <Calendar size={13} className="text-slate-400" />
               <span>{periodLabels[period] || "This Month"}</span>
-              <ChevronDown size={14} style={{ color: "#64748b", transform: periodOpen ? "rotate(180deg)" : "none" }} />
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
             {periodOpen && (
               <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 36,
-                  width: 150,
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 0",
-                  zIndex: 9999
-                }}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
               >
                 {Object.entries(periodLabels).map(([key, label]) => (
-                  <div
+                  <button
                     key={key}
                     onClick={() => {
                       setPeriod(key);
@@ -446,47 +530,57 @@ export default function DebitNoteList() {
                         setPresetDates(key);
                       }
                     }}
-                    style={{
-                      padding: "7px 14px",
-                      fontSize: 12.5,
-                      fontWeight: period === key ? 700 : 500,
-                      color: period === key ? "#2563eb" : "#334155",
-                      background: period === key ? "#eff6ff" : "transparent",
-                      cursor: "pointer"
-                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                      period === key ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
                   >
-                    {label}
-                  </div>
+                    <span>{label}</span>
+                    {period === key && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* 2. Date Range Pill */}
-          <div
-            onClick={() => setShowDatePickerModal(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 14px",
-              background: "#f0f9ff",
-              color: "#1e293b",
-              fontWeight: 600,
-              fontSize: 12.5,
-              borderRadius: 24,
-              border: "1px solid #bae6fd",
-              cursor: "pointer"
-            }}
+          {/* Date Picker Button */}
+          <button
+            onClick={() => setShowDatePickerModal((v) => !v)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
           >
-            <Calendar size={14} color="#0284c7" />
-            <span>{fromDate && toDate ? `${formatDateDMY(fromDate)} To ${formatDateDMY(toDate)}` : "All Time"}</span>
-          </div>
+            <Calendar size={13} className="text-purple-600" />
+            <span>
+              {fromDate ? formatDateDMY(fromDate) : "01/09/2026"} - {toDate ? formatDateDMY(toDate) : "30/09/2026"}
+            </span>
+          </button>
 
-          {/* 3. All Firms Pill Dropdown */}
-          <div data-dropdown-container style={{ position: "relative" }}>
+          {/* Date Range Modal Popover */}
+          {showDatePickerModal && (
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setPeriod("custom");
+                }}
+                className="text-xs text-slate-700 font-bold outline-none bg-transparent cursor-pointer"
+              />
+              <span className="text-slate-400 text-xs font-bold">to</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setPeriod("custom");
+                }}
+                className="text-xs text-slate-700 font-bold outline-none bg-transparent cursor-pointer"
+              />
+            </div>
+          )}
+
+          {/* Firm Selector Pill */}
+          <div data-dropdown-container className="relative">
             <button
-              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setFirmOpen((v) => !v);
@@ -494,88 +588,55 @@ export default function DebitNoteList() {
                 setSupplierOpen(false);
                 setPaymentFilterOpen(false);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "#f0f9ff",
-                color: "#1e293b",
-                fontWeight: 600,
-                fontSize: 12.5,
-                borderRadius: 24,
-                border: "1px solid #bae6fd",
-                cursor: "pointer"
-              }}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
             >
+              <Building2 size={13} className="text-slate-400" />
               <span>
                 {selectedFirm === "all"
-                  ? "All Company"
+                  ? "All Firms"
                   : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
               </span>
-              <ChevronDown size={14} style={{ color: "#64748b", transform: firmOpen ? "rotate(180deg)" : "none" }} />
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
             </button>
 
             {firmOpen && (
               <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 36,
-                  width: 180,
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 0",
-                  maxHeight: 220,
-                  overflowY: "auto",
-                  zIndex: 9999
-                }}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute left-0 top-full mt-1.5 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
               >
-                <div
+                <button
                   onClick={() => {
                     setSelectedFirm("all");
                     setFirmOpen(false);
                   }}
-                  style={{
-                    padding: "7px 14px",
-                    fontSize: 12.5,
-                    fontWeight: selectedFirm === "all" ? 700 : 500,
-                    color: selectedFirm === "all" ? "#2563eb" : "#334155",
-                    background: selectedFirm === "all" ? "#eff6ff" : "transparent",
-                    cursor: "pointer"
-                  }}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                    selectedFirm === "all" ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
                 >
-                  All company
-                </div>
+                  <span>All Firms</span>
+                  {selectedFirm === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                </button>
                 {companies.map((c) => (
-                  <div
+                  <button
                     key={c.id}
                     onClick={() => {
                       setSelectedFirm(c.id);
                       setFirmOpen(false);
                     }}
-                    style={{
-                      padding: "7px 14px",
-                      fontSize: 12.5,
-                      fontWeight: String(selectedFirm) === String(c.id) ? 700 : 500,
-                      color: String(selectedFirm) === String(c.id) ? "#2563eb" : "#334155",
-                      background: String(selectedFirm) === String(c.id) ? "#eff6ff" : "transparent",
-                      cursor: "pointer"
-                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer truncate ${
+                      String(selectedFirm) === String(c.id) ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
                   >
                     {c.company_name}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* 4. All Suppliers Pill Dropdown */}
-          <div data-dropdown-container style={{ position: "relative" }}>
+          {/* Supplier Selector Pill */}
+          <div data-dropdown-container className="relative">
             <button
-              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setSupplierOpen((v) => !v);
@@ -583,20 +644,9 @@ export default function DebitNoteList() {
                 setFirmOpen(false);
                 setPaymentFilterOpen(false);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "#f0f9ff",
-                color: "#1e293b",
-                fontWeight: 600,
-                fontSize: 12.5,
-                borderRadius: 24,
-                border: "1px solid #bae6fd",
-                cursor: "pointer"
-              }}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
             >
+              <Truck size={13} className="text-slate-400" />
               <span>
                 {selectedSupplier === "all"
                   ? "All Suppliers"
@@ -604,77 +654,51 @@ export default function DebitNoteList() {
                     suppliers.find((s) => String(s.id) === String(selectedSupplier))?.name ||
                     "Supplier"}
               </span>
-              <ChevronDown size={14} style={{ color: "#64748b", transform: supplierOpen ? "rotate(180deg)" : "none" }} />
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${supplierOpen ? "rotate-180" : ""}`} />
             </button>
 
             {supplierOpen && (
               <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 36,
-                  width: 210,
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 0",
-                  maxHeight: 250,
-                  overflowY: "auto",
-                  zIndex: 9999
-                }}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute left-0 top-full mt-1.5 w-60 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
               >
-                <div
+                <button
                   onClick={() => {
                     setSelectedSupplier("all");
                     setSupplierOpen(false);
                   }}
-                  style={{
-                    padding: "7px 14px",
-                    fontSize: 12.5,
-                    fontWeight: selectedSupplier === "all" ? 700 : 500,
-                    color: selectedSupplier === "all" ? "#2563eb" : "#334155",
-                    background: selectedSupplier === "all" ? "#eff6ff" : "transparent",
-                    cursor: "pointer"
-                  }}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                    selectedSupplier === "all" ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
                 >
-                  All Suppliers
-                </div>
+                  <span>All Suppliers</span>
+                  {selectedSupplier === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                </button>
                 {suppliers.map((s) => {
                   const sName = s.supplier_name || s.name || `Supplier #${s.id}`;
                   const isSelected = String(selectedSupplier) === String(s.id);
                   return (
-                    <div
+                    <button
                       key={s.id}
                       onClick={() => {
                         setSelectedSupplier(s.id);
                         setSupplierOpen(false);
                       }}
-                      style={{
-                        padding: "7px 14px",
-                        fontSize: 12.5,
-                        fontWeight: isSelected ? 700 : 500,
-                        color: isSelected ? "#2563eb" : "#334155",
-                        background: isSelected ? "#eff6ff" : "transparent",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                      }}
-                      title={sName}
+                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer truncate ${
+                        isSelected ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                      }`}
                     >
                       {sName}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             )}
           </div>
 
-          {/* 5. All Payment Pill Dropdown */}
-          <div data-dropdown-container style={{ position: "relative" }}>
+          {/* Payment Filter Pill */}
+          <div data-dropdown-container className="relative">
             <button
-              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setPaymentFilterOpen((v) => !v);
@@ -682,23 +706,11 @@ export default function DebitNoteList() {
                 setFirmOpen(false);
                 setSupplierOpen(false);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "#f0f9ff",
-                color: "#1e293b",
-                fontWeight: 600,
-                fontSize: 12.5,
-                borderRadius: 24,
-                border: "1px solid #bae6fd",
-                cursor: "pointer"
-              }}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
             >
               <span>
                 {paymentFilter === "all"
-                  ? "All Payment"
+                  ? "All Payment Modes"
                   : paymentFilter === "cash"
                   ? "Cash"
                   : paymentFilter === "online"
@@ -709,579 +721,277 @@ export default function DebitNoteList() {
                   ? "Cheque"
                   : "Credit"}
               </span>
-              <ChevronDown size={14} style={{ color: "#64748b", transform: paymentFilterOpen ? "rotate(180deg)" : "none" }} />
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${paymentFilterOpen ? "rotate-180" : ""}`} />
             </button>
 
             {paymentFilterOpen && (
               <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 36,
-                  width: 150,
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 0",
-                  zIndex: 9999
-                }}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
               >
                 {[
-                  { key: "all", label: "All Payment" },
+                  { key: "all", label: "All Payment Modes" },
                   { key: "cash", label: "Cash" },
                   { key: "online", label: "Online" },
                   { key: "upi", label: "UPI" },
                   { key: "cheque", label: "Cheque" },
                   { key: "credit", label: "Credit" },
                 ].map((item) => (
-                  <div
+                  <button
                     key={item.key}
                     onClick={() => {
                       setPaymentFilter(item.key);
                       setPaymentFilterOpen(false);
                     }}
-                    style={{
-                      padding: "7px 14px",
-                      fontSize: 12.5,
-                      fontWeight: paymentFilter === item.key ? 700 : 500,
-                      color: paymentFilter === item.key ? "#2563eb" : "#334155",
-                      background: paymentFilter === item.key ? "#eff6ff" : "transparent",
-                      cursor: "pointer"
-                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                      paymentFilter === item.key ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
                   >
-                    {item.label}
-                  </div>
+                    <span>{item.label}</span>
+                    {paymentFilter === item.key && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                  </button>
                 ))}
               </div>
             )}
           </div>
-
         </div>
 
-        {/* Right Tools: Refresh Button */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            type="button"
-            onClick={fetchDebitNotes}
-            style={{
-              background: "#f8fafc",
-              border: "1px solid #e2e8f0",
-              borderRadius: "50%",
-              width: 32,
-              height: 32,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#64748b",
-              cursor: "pointer"
-            }}
-            title="Refresh"
-          >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-          </button>
-        </div>
-
-      </div>
-
-      {/* ── 3. SUMMARY KPI CARD (Matching Payment-Out Left Card) ── */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 18 }}>
-        <div
-          style={{
-            width: 320,
-            background: "#ffffff",
-            borderRadius: 12,
-            padding: "16px 20px",
-            border: "1.5px solid #f1f5f9",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-            position: "relative"
-          }}
-        >
-          {/* Top Label & % vs last month */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>Total Return Amount</span>
-            <span style={{ fontSize: 11.5, fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: "2px 6px", borderRadius: 12, display: "inline-flex", alignItems: "center", gap: 2 }}>
-              100% <TrendingUp size={12} />
-            </span>
-          </div>
-
-          {/* Large Amount */}
-          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginBottom: 8 }}>
-            ₹ {fmtCurrency(totalAmount)}
-          </div>
-
-          {/* Subtitle Paid & Balance */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12.5, fontWeight: 600 }}>
-            <span style={{ color: "#16a34a" }}>Refund: ₹ {fmtCurrency(totalRefund)}</span>
-            <span style={{ color: totalBalance > 0 ? "#dc2626" : "#64748b" }}>Balance: ₹ {fmtCurrency(totalBalance)}</span>
-          </div>
+        {/* Global Search Input */}
+        <div className="relative w-full sm:w-72">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search ref #, party, phone..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-8 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition shadow-2xs"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
+              <X size={13} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── 4. TRANSACTIONS TABLE CONTAINER (Matching media_1788344743516.png) ── */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: 12,
-          border: "1px solid #e2e8f0",
-          overflow: "visible",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-          minHeight: 280
-        }}
-      >
-        {/* Table Title Bar with Search Toggle, Excel & Print (Exact media_1788344743516.png) */}
-        <div
-          style={{
-            padding: "14px 20px",
-            borderBottom: "1px solid #f1f5f9",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center"
-          }}
-        >
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", textTransform: "capitalize" }}>
-            Transactions
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            
-            {/* Search Toggle Icon */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                type="button"
-                onClick={() => setShowSearchInput(!showSearchInput)}
-                title="Search Transactions"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", display: "flex" }}
-              >
-                <Search size={18} />
-              </button>
-              {showSearchInput && (
-                <input
-                  type="text"
-                  placeholder="Search Ref, party, amount..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    padding: "5px 10px",
-                    borderRadius: 6,
-                    border: "1px solid #cbd5e1",
-                    fontSize: 12.5,
-                    outline: "none",
-                    width: 180
-                  }}
-                  autoFocus
-                />
-              )}
-            </div>
-
-            {/* Excel Report Icon (Green) */}
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              title="Export Excel"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#16a34a", display: "flex" }}
-            >
-              <FileSpreadsheet size={19} />
-            </button>
-
-            {/* Print Icon (Dark) */}
-            <button
-              type="button"
-              onClick={() => window.print()}
-              title="Print Transactions"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#334155", display: "flex" }}
-            >
-              <Printer size={19} />
-            </button>
-
-          </div>
-        </div>
-
-        {/* Table Body / Loading / Empty State */}
-        {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 200, color: "#64748b", gap: 10 }}>
-            <RefreshCw size={20} className="animate-spin text-blue-600" />
-            <span style={{ fontSize: 14, fontWeight: 600 }}>Loading Transactions...</span>
-          </div>
-        ) : filteredDebitNotes.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>
-            <FileText size={36} strokeWidth={1.5} style={{ margin: "0 auto 10px auto", color: "#cbd5e1" }} />
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#334155" }}>No Transactions Available</div>
-            <div style={{ fontSize: 12.5, color: "#94a3b8", marginTop: 4 }}>Click "+ Add Debit Note" to record a purchase return.</div>
-          </div>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 12.5 }}>
+      {/* ── 4. MODERN TWO-TIER DATA TABLE ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0", color: "#475569", fontWeight: 700, fontSize: 11.5, textTransform: "uppercase" }}>
-                <th style={{ padding: "10px 14px", width: 40 }}>#</th>
-                <th style={{ padding: "10px 14px" }}>DATE</th>
-                <th style={{ padding: "10px 14px" }}>REF NO.</th>
-                <th style={{ padding: "10px 14px" }}>PARTY NAME</th>
-                <th style={{ padding: "10px 14px" }}>CATEGORY</th>
-                <th style={{ padding: "10px 14px" }}>TYPE</th>
-                <th style={{ padding: "10px 14px", textAlign: "right" }}>TOTAL</th>
-                <th style={{ padding: "10px 14px", textAlign: "right" }}>RECEIVED</th>
-                <th style={{ padding: "10px 14px", textAlign: "right" }}>BALANCE</th>
-                <th style={{ padding: "10px 14px", textAlign: "center" }}>STATUS</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", width: 80 }}>ACTION</th>
+              <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-500 text-[11px] uppercase tracking-wider">
+                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">#</th>
+                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">Date</th>
+                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">Ref No</th>
+                <th className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap">Supplier / Party</th>
+                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">Mode</th>
+                <th className="py-3.5 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Total Return</th>
+                <th className="py-3.5 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Received / Refund</th>
+                <th className="py-3.5 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Balance Due</th>
+                <th className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap">Status</th>
+                <th className="py-3.5 px-4 text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {paginatedList.map((item, idx) => {
-                const globalIdx = (currentPage - 1) * rowsPerPage + idx + 1;
-                const isMenuOpen = activeMenuId === item.id;
-                const isPaid = Number(item.balance_amount || 0) <= 0;
 
-                return (
-                  <tr
-                    key={item.id}
-                    style={{
-                      borderBottom: "1px solid #f1f5f9",
-                      transition: "background .15s",
-                      background: isMenuOpen ? "#f8fafc" : "#ffffff"
-                    }}
-                    onMouseEnter={(e) => { if (!isMenuOpen) e.currentTarget.style.background = "#f8fafc"; }}
-                    onMouseLeave={(e) => { if (!isMenuOpen) e.currentTarget.style.background = "#ffffff"; }}
-                  >
-                    <td style={{ padding: "11px 14px", color: "#64748b", fontWeight: 600 }}>{globalIdx}</td>
-                    <td style={{ padding: "11px 14px", fontWeight: 600, color: "#1e293b" }}>{formatDateDMY(item.return_date)}</td>
-                    <td style={{ padding: "11px 14px", fontWeight: 700, color: "#2563eb" }}>#{item.return_no || item.id}</td>
-                    <td style={{ padding: "11px 14px" }}>
-                      <div style={{ fontWeight: 700, color: "#1e293b" }}>{item.supplier_name || "-"}</div>
-                      {item.supplier_phone && (
-                        <div style={{ fontSize: 11, color: "#64748b" }}>{item.supplier_phone}</div>
-                      )}
-                    </td>
-                    <td style={{ padding: "11px 14px", color: "#64748b", fontWeight: 500 }}>Purchase Return</td>
-                    <td style={{ padding: "11px 14px" }}>
-                      <span
-                        style={{
-                          padding: "3px 8px",
-                          borderRadius: 4,
-                          background: "#f1f5f9",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "#334155"
-                        }}
-                      >
-                        {item.payment_type || "Cash"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
-                      ₹ {fmtCurrency(item.total_amount)}
-                    </td>
-                    <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 700, color: "#16a34a" }}>
-                      ₹ {fmtCurrency(item.refund_amount)}
-                    </td>
-                    <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 700, color: Number(item.balance_amount || 0) > 0 ? "#dc2626" : "#64748b" }}>
-                      ₹ {fmtCurrency(item.balance_amount)}
-                    </td>
-                    <td style={{ padding: "11px 14px", textAlign: "center" }}>
-                      <span
-                        style={{
-                          padding: "3px 8px",
-                          borderRadius: 12,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: isPaid ? "#dcfce7" : "#fee2e2",
-                          color: isPaid ? "#15803d" : "#b91c1c"
-                        }}
-                      >
-                        {isPaid ? "Paid" : "Unpaid"}
-                      </span>
-                    </td>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {loading ? (
+                <tr>
+                  <td colSpan={10} className="py-14 text-center text-slate-400">
+                    <RefreshCw size={24} className="animate-spin text-purple-600 mx-auto mb-2" />
+                    <span className="font-semibold text-xs">Loading debit note transactions...</span>
+                  </td>
+                </tr>
+              ) : filteredDebitNotes.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-16 text-center text-slate-400">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
+                      <RotateCcw size={26} />
+                    </div>
+                    <p className="font-extrabold text-slate-800 text-sm">No Debit Notes Found</p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                      No purchase returns match your filter criteria. Record a new return to manage vendor adjustments.
+                    </p>
+                    <button
+                      onClick={() => navigate("/purchases/debit-note/add")}
+                      className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer active:scale-95"
+                    >
+                      <Plus size={15} /> + Add Debit Note
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                paginatedList.map((item, idx) => {
+                  const globalIdx = (currentPage - 1) * rowsPerPage + idx + 1;
+                  const isMenuOpen = activeMenuId === item.id;
+                  const isPaid = Number(item.balance_amount || 0) <= 0;
 
-                    {/* Actions 3-dots Menu */}
-                    <td data-dropdown-container style={{ padding: "11px 14px", textAlign: "center", position: "relative" }}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuId((prev) => (prev === item.id ? null : item.id));
-                        }}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          padding: "4px 8px",
-                          borderRadius: 4,
-                          cursor: "pointer",
-                          color: "#64748b"
-                        }}
-                      >
-                        <MoreVertical size={16} />
-                      </button>
+                  return (
+                    <tr
+                      key={item.id || idx}
+                      className="group hover:bg-purple-50/30 transition-colors duration-150 text-slate-700"
+                    >
+                      {/* S.NO */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 text-slate-400 font-semibold whitespace-nowrap">
+                        {globalIdx}
+                      </td>
 
-                      {isMenuOpen && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            right: 10,
-                            top: "100%",
-                            width: 130,
-                            background: "#ffffff",
-                            borderRadius: 8,
-                            boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
-                            border: "1px solid #cbd5e1",
-                            padding: "4px 0",
-                            zIndex: 99999,
-                            textAlign: "left"
-                          }}
-                        >
-                          <div
-                            onClick={() => {
-                              navigate(`/purchases/debit-note/edit/${item.id}`);
-                              setActiveMenuId(null);
-                            }}
-                            style={{
-                              padding: "8px 12px",
-                              fontSize: 12.5,
-                              fontWeight: 600,
-                              color: "#1e293b",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              cursor: "pointer"
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                          >
-                            <Edit3 size={14} style={{ color: "#2563eb" }} />
-                            <span>Edit</span>
-                          </div>
+                      {/* DATE */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap text-slate-600 font-semibold">
+                        {formatDateDMY(item.return_date)}
+                      </td>
 
-                          <div
-                            onClick={() => {
-                              setDeleteTarget(item);
-                              setActiveMenuId(null);
-                            }}
-                            style={{
-                              padding: "8px 12px",
-                              fontSize: 12.5,
-                              fontWeight: 600,
-                              color: "#dc2626",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              cursor: "pointer",
-                              borderTop: "1px solid #f1f5f9"
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "#fef2f2")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                          >
-                            <Trash2 size={14} style={{ color: "#dc2626" }} />
-                            <span>Delete</span>
-                          </div>
+                      {/* REF NO */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
+                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                          #{item.return_no || item.id}
+                        </span>
+                      </td>
+
+                      {/* SUPPLIER NAME */}
+                      <td className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap">
+                        <div className="font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
+                          {item.supplier_name || "-"}
                         </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                        {item.supplier_phone && (
+                          <div className="text-[10px] text-slate-400 font-medium">{item.supplier_phone}</div>
+                        )}
+                      </td>
+
+                      {/* PAYMENT TYPE */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
+                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 uppercase">
+                          {item.payment_type || "Cash"}
+                        </span>
+                      </td>
+
+                      {/* TOTAL AMOUNT */}
+                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-slate-900 text-right whitespace-nowrap">
+                        ₹ {fmtCurrency(item.total_amount)}
+                      </td>
+
+                      {/* REFUND / RECEIVED AMOUNT */}
+                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-bold text-emerald-700 text-right whitespace-nowrap">
+                        ₹ {fmtCurrency(item.refund_amount)}
+                      </td>
+
+                      {/* BALANCE AMOUNT */}
+                      <td className={`py-3.5 px-5 border-r border-slate-200/70 font-bold text-right whitespace-nowrap ${
+                        Number(item.balance_amount || 0) > 0 ? "text-rose-600" : "text-slate-600"
+                      }`}>
+                        ₹ {fmtCurrency(item.balance_amount)}
+                      </td>
+
+                      {/* STATUS */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap font-bold">
+                        {isPaid ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Settled
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                            Pending
+                          </span>
+                        )}
+                      </td>
+
+                      {/* ACTIONS */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => navigate(`/purchases/debit-note/edit/${item.id}`)}
+                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            title="Edit Debit Note"
+                          >
+                            <Pencil size={14} />
+                          </button>
+
+                          <button
+                            onClick={() => setDeleteTarget(item)}
+                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            title="Delete Debit Note"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
-        )}
+        </div>
 
-        {/* Table Footer with Pagination */}
+        {/* Pagination Footer */}
         {totalPages > 1 && (
-          <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10 }}>
-            <button
-              type="button"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              style={{
-                padding: "4px 8px",
-                borderRadius: 4,
-                border: "1px solid #cbd5e1",
-                background: "#ffffff",
-                cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                color: currentPage === 1 ? "#cbd5e1" : "#334155"
-              }}
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span style={{ fontSize: 12, color: "#64748b" }}>
-              {currentPage} / {totalPages}
+          <div className="px-5 py-3.5 border-t border-slate-200 flex justify-between items-center bg-slate-50/70 text-xs">
+            <span className="text-slate-500 font-medium">
+              Showing Page <b className="text-slate-800">{currentPage}</b> of <b className="text-slate-800">{totalPages}</b> ({filteredDebitNotes.length} total)
             </span>
-            <button
-              type="button"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              style={{
-                padding: "4px 8px",
-                borderRadius: 4,
-                border: "1px solid #cbd5e1",
-                background: "#ffffff",
-                cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-                color: currentPage === totalPages ? "#cbd5e1" : "#334155"
-              }}
-            >
-              <ChevronRight size={14} />
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white disabled:opacity-40 font-bold hover:bg-slate-100 text-slate-700 transition cursor-pointer shadow-2xs"
+              >
+                Previous
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white disabled:opacity-40 font-bold hover:bg-slate-100 text-slate-700 transition cursor-pointer shadow-2xs"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
-
       </div>
 
-      {/* ── 5. CUSTOM DATE PICKER MODAL ── */}
-      {showDatePickerModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 99999,
-            background: "rgba(15, 23, 42, 0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-          onClick={() => setShowDatePickerModal(false)}
-        >
-          <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              width: 360,
-              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-              padding: 20
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#1e293b" }}>Select Date Range</h3>
-              <button onClick={() => setShowDatePickerModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>From Date</label>
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => {
-                    setFromDate(e.target.value);
-                    setPeriod("custom");
-                  }}
-                  style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13, outline: "none" }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>To Date</label>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => {
-                    setToDate(e.target.value);
-                    setPeriod("custom");
-                  }}
-                  style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13, outline: "none" }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setShowDatePickerModal(false)}
-                style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#ffffff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDatePickerModal(false)}
-                style={{ padding: "8px 20px", borderRadius: 6, border: "none", background: "#1d72fe", color: "#ffffff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 6. DELETE CONFIRMATION MODAL ── */}
+      {/* ── MODAL: DELETE CONFIRMATION ── */}
       {deleteTarget && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 99999,
-            background: "rgba(15, 23, 42, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
           onClick={() => setDeleteTarget(null)}
         >
           <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 12,
-              width: 440,
-              maxWidth: "92vw",
-              boxShadow: "0 20px 40px rgba(15, 23, 42, 0.25)",
-              overflow: "hidden"
-            }}
+            className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #fee2e2", background: "#fff5f5" }}>
-              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", color: "#dc2626" }}>
+            <div className="px-6 py-4 border-b border-rose-200 bg-rose-50/70 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
                 <AlertTriangle size={20} />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#991b1b" }}>Delete Debit Note</h3>
-                <p style={{ margin: "2px 0 0 0", fontSize: 12, color: "#b91c1c" }}>This action cannot be undone.</p>
+                <h3 className="text-sm font-bold text-rose-900">Delete Debit Note</h3>
+                <p className="text-[11px] text-rose-600 font-medium">This action will remove the record permanently</p>
               </div>
             </div>
 
-            <div style={{ padding: "20px", fontSize: 13.5, color: "#334155", lineHeight: 1.6 }}>
-              Are you sure you want to delete Debit Note <b>#{deleteTarget.return_no || deleteTarget.id}</b> for{" "}
-              <b>{deleteTarget.supplier_name}</b>?
-              <div style={{ marginTop: 10, padding: "10px 14px", background: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 12, color: "#64748b" }}>
-                📦 <b>Stock Restoration:</b> Any items deducted by this debit note will be automatically returned back to your store's inventory.
-              </div>
+            <div className="p-6 text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to delete Debit Note <b>#{deleteTarget.return_no || deleteTarget.id}</b> for supplier <b>{deleteTarget.supplier_name || "-"}</b> with amount <b>₹{fmtCurrency(deleteTarget.total_amount)}</b>?
             </div>
 
-            <div style={{ padding: "14px 20px", background: "#f8fafc", display: "flex", justifyContent: "flex-end", gap: 10, borderTop: "1px solid #e2e8f0" }}>
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#ffffff", fontWeight: 700, fontSize: 13, cursor: "pointer", color: "#475569" }}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={confirmDeleteDebitNote}
+                onClick={confirmDelete}
                 disabled={deleting}
-                style={{ padding: "8px 20px", borderRadius: 6, border: "none", background: "#dc2626", color: "#ffffff", fontWeight: 800, fontSize: 13, cursor: deleting ? "not-allowed" : "pointer" }}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition cursor-pointer disabled:opacity-50"
               >
-                {deleting ? "Deleting..." : "Delete & Restore Stock"}
+                {deleting ? "Deleting..." : "Delete Note"}
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Toast */}
-      {actionToast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            zIndex: 99999,
-            background: "#1e293b",
-            color: "#ffffff",
-            padding: "10px 18px",
-            borderRadius: 8,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.25)",
-            fontSize: 13,
-            fontWeight: 700
-          }}
-        >
-          {actionToast.text}
         </div>
       )}
 

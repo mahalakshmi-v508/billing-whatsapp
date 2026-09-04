@@ -4,23 +4,26 @@ import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import {
   Plus,
-  Settings,
   ChevronDown,
   Calendar,
   Search,
   Printer,
   FileSpreadsheet,
-  Share2,
   MoreVertical,
-  Filter,
-  Eye,
   Trash2,
   Edit3,
   AlertTriangle,
   X,
   RefreshCw,
   TrendingUp,
-  ArrowUpDown
+  Building2,
+  Truck,
+  SlidersHorizontal,
+  CheckCircle2,
+  Receipt,
+  ArrowUpRight,
+  ArrowDownRight,
+  Wallet
 } from "lucide-react";
 import AddPaymentOutModal from "./AddPaymentOutModal";
 
@@ -63,13 +66,11 @@ export default function PaymentOut() {
 
   // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
 
   // Modals & toast states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
   // Pagination states
@@ -255,7 +256,7 @@ export default function PaymentOut() {
 
       return true;
     });
-  }, [payments, fromDate, toDate, selectedCompany, searchQuery]);
+  }, [payments, fromDate, toDate, selectedCompany, selectedSupplier, searchQuery]);
 
   // Summary Metrics (Total Amount, Paid Amount)
   const metrics = useMemo(() => {
@@ -323,257 +324,283 @@ export default function PaymentOut() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "18px 24px", fontFamily: "Inter, sans-serif" }}>
+    <div className="p-4 sm:p-6 max-w-[1520px] mx-auto min-h-screen space-y-5 bg-[#f8fafc] font-sans text-slate-800">
       
-      {/* ── 1. TOP HEADER (Matching Image 1) ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        {/* Title with Down Chevron */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0, letterSpacing: "-0.3px" }}>
-            Payment-Out
-          </h1>
-          <ChevronDown size={18} color="#475569" style={{ marginTop: 2 }} />
+      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-purple-500/20 shrink-0">
+            <ArrowDownRight size={24} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Payment-Out Ledger</h1>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                {filteredPayments.length} vouchers
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">
+              Vendor cash/bank payment disbursements, settlement receipts and ledger adjustments
+            </p>
+          </div>
         </div>
 
-        {/* Right Buttons: + Add Payment-Out (Red) & Settings */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Toolbar Actions */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={fetchPaymentOuts}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Refresh Data"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin text-purple-600" : "text-slate-500"} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={exportToExcel}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Export Excel"
+          >
+            <FileSpreadsheet size={14} className="text-emerald-600" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Print View"
+          >
+            <Printer size={14} className="text-slate-500" />
+            <span>Print</span>
+          </button>
+
+          {/* Primary CTA */}
           <button
             onClick={() => {
               setEditingPayment(null);
               setIsAddModalOpen(true);
             }}
-            style={{
-              background: "#ef4444",
-              border: "none",
-              color: "#ffffff",
-              borderRadius: 24,
-              padding: "9px 20px",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              boxShadow: "0 2px 8px rgba(239, 68, 68, 0.25)"
-            }}
+            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-purple-500/25 transition active:scale-95 cursor-pointer"
           >
-            <Plus size={16} strokeWidth={2.5} /> Add Payment-Out
-          </button>
-
-          <button
-            title="Settings"
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "#64748b",
-              display: "flex",
-              alignItems: "center",
-              padding: 4
-            }}
-          >
-            <Settings size={20} />
+            <Plus size={16} strokeWidth={2.8} />
+            <span>+ Add Payment-Out</span>
           </button>
         </div>
       </div>
 
-      {/* ── 2. FILTER BAR (Matching Image 1 Pill Design) ── */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: 16,
-          padding: "10px 18px",
-          border: "1px solid #e2e8f0",
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 16,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-        }}
-      >
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: 13 }}>
-          <span style={{ fontWeight: 600, color: "#64748b", marginRight: 2 }}>Filter by :</span>
+      {/* ── 2. SEGMENTED FINANCIAL INTELLIGENCE STRIP ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        {/* Metric 1: Total Payment Out */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                Total Disbursed
+              </span>
+              <div className="text-2xl font-black text-slate-900 mt-1.5 tracking-tight">
+                ₹ {fmt(metrics.total)}
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+              <Wallet size={20} />
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+            <span>Supplier Payouts</span>
+            <span className="font-bold text-slate-800">{filteredPayments.length} Transactions</span>
+          </div>
+        </div>
 
-          {/* 1. Period Pill Dropdown */}
-          <div style={{ position: "relative" }}>
+        {/* Metric 2: Paid To Vendors */}
+        <div className="bg-white rounded-2xl border border-emerald-200/80 p-4 shadow-xs relative overflow-hidden flex flex-col justify-between bg-gradient-to-br from-white to-emerald-50/20">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Vendor Clearance
+              </span>
+              <div className="text-2xl font-black text-emerald-900 mt-1.5 tracking-tight">
+                ₹ {fmt(metrics.paid)}
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-100/70 text-emerald-700 flex items-center justify-center">
+              <CheckCircle2 size={20} />
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-emerald-100 flex items-center justify-between text-xs">
+            <span className="text-emerald-700 font-semibold">Settlement Status</span>
+            <span className="font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full text-[11px]">100% Cleared</span>
+          </div>
+        </div>
+
+        {/* Metric 3: Average Payout Size */}
+        <div className="bg-white rounded-2xl border border-indigo-200/80 p-4 shadow-xs relative overflow-hidden flex flex-col justify-between bg-gradient-to-br from-white to-indigo-50/20">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                Avg. Payout Voucher
+              </span>
+              <div className="text-2xl font-black text-indigo-900 mt-1.5 tracking-tight">
+                ₹ {fmt(filteredPayments.length > 0 ? metrics.total / filteredPayments.length : 0)}
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-indigo-100/70 text-indigo-700 flex items-center justify-center">
+              <TrendingUp size={20} />
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-indigo-100 flex items-center justify-between text-xs">
+            <span className="text-indigo-700 font-medium">Recorded Across</span>
+            <span className="font-bold text-indigo-800">{new Set(filteredPayments.map(p => p.supplier_id)).size} Suppliers</span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── 3. FILTER & SEARCH CONTROL TOOLBAR ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        {/* Left Filter Pill Group */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5 mr-1">
+            <SlidersHorizontal size={14} className="text-slate-400" />
+            <span>Filters:</span>
+          </span>
+
+          {/* Period Selector */}
+          <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setPeriodOpen((v) => !v);
                 setFirmOpen(false);
-                setUserOpen(false);
+                setSupplierOpen(false);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "#f0f9ff",
-                color: "#1e293b",
-                fontWeight: 600,
-                fontSize: 12.5,
-                borderRadius: 24,
-                border: "1px solid #bae6fd",
-                cursor: "pointer"
-              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
             >
               <span>{periodLabels[period] || "This Month"}</span>
-              <ChevronDown size={14} style={{ color: "#64748b", transform: periodOpen ? "rotate(180deg)" : "none" }} />
+              <ChevronDown size={13} className={`text-slate-500 transition-transform duration-200 ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
             {periodOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 36,
-                  width: 150,
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 0",
-                  zIndex: 999
-                }}
+                className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
               >
                 {Object.entries(periodLabels).map(([key, label]) => (
-                  <div
+                  <button
                     key={key}
                     onClick={() => {
                       setPeriod(key);
                       setPeriodOpen(false);
                       if (key === "custom") setShowDatePicker(true);
                     }}
-                    style={{
-                      padding: "7px 14px",
-                      fontSize: 12.5,
-                      fontWeight: period === key ? 700 : 500,
-                      color: period === key ? "#2563eb" : "#334155",
-                      background: period === key ? "#eff6ff" : "transparent",
-                      cursor: "pointer"
-                    }}
+                    className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                      period === key ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
                   >
-                    {label}
-                  </div>
+                    <span>{label}</span>
+                    {period === key && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* 2. Date Range Pill */}
-          <div
-            onClick={() => setShowDatePicker(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 14px",
-              background: "#f0f9ff",
-              color: "#1e293b",
-              fontWeight: 600,
-              fontSize: 12.5,
-              borderRadius: 24,
-              border: "1px solid #bae6fd",
-              cursor: "pointer"
-            }}
+          {/* Date Range Display Button */}
+          <button
+            onClick={() => setShowDatePicker((v) => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-semibold text-xs transition cursor-pointer"
           >
-            <Calendar size={14} color="#0284c7" />
-            <span>{fromDate ? formatDateDMY(fromDate) : "01/09/2026"} To {toDate ? formatDateDMY(toDate) : "30/09/2026"}</span>
-          </div>
+            <Calendar size={13} className="text-slate-500" />
+            <span>
+              {fromDate ? formatDateDMY(fromDate) : "01/09/2026"} - {toDate ? formatDateDMY(toDate) : "30/09/2026"}
+            </span>
+          </button>
 
-          {/* 3. All Firms Pill Dropdown */}
-          <div style={{ position: "relative" }}>
+          {/* Date Picker Range Popover */}
+          {showDatePicker && (
+            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border border-purple-300 shadow-sm">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setPeriod("custom");
+                }}
+                className="text-xs text-slate-700 outline-none bg-transparent cursor-pointer font-medium"
+              />
+              <span className="text-slate-400 text-xs font-bold">to</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setPeriod("custom");
+                }}
+                className="text-xs text-slate-700 outline-none bg-transparent cursor-pointer font-medium"
+              />
+            </div>
+          )}
+
+          {/* Firm Selector */}
+          <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setFirmOpen((v) => !v);
                 setPeriodOpen(false);
-                setUserOpen(false);
+                setSupplierOpen(false);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "#f0f9ff",
-                color: "#1e293b",
-                fontWeight: 600,
-                fontSize: 12.5,
-                borderRadius: 24,
-                border: "1px solid #bae6fd",
-                cursor: "pointer"
-              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
             >
+              <Building2 size={13} className="text-slate-500" />
               <span>
                 {selectedCompany === "all"
                   ? "All Firms"
                   : companies.find((c) => String(c.id) === String(selectedCompany))?.company_name || "Firm"}
               </span>
-              <ChevronDown size={14} style={{ color: "#64748b", transform: firmOpen ? "rotate(180deg)" : "none" }} />
+              <ChevronDown size={13} className={`text-slate-500 transition-transform duration-200 ${firmOpen ? "rotate-180" : ""}`} />
             </button>
 
             {firmOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 36,
-                  width: 180,
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 0",
-                  maxHeight: 220,
-                  overflowY: "auto",
-                  zIndex: 999
-                }}
+                className="absolute left-0 top-full mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
               >
-                <div
+                <button
                   onClick={() => {
                     setSelectedCompany("all");
                     setFirmOpen(false);
                   }}
-                  style={{
-                    padding: "7px 14px",
-                    fontSize: 12.5,
-                    fontWeight: selectedCompany === "all" ? 700 : 500,
-                    color: selectedCompany === "all" ? "#2563eb" : "#334155",
-                    background: selectedCompany === "all" ? "#eff6ff" : "transparent",
-                    cursor: "pointer"
-                  }}
+                  className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                    selectedCompany === "all" ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
                 >
-                  All Firms
-                </div>
+                  <span>All Firms</span>
+                  {selectedCompany === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                </button>
                 {companies.map((c) => (
-                  <div
+                  <button
                     key={c.id}
                     onClick={() => {
                       setSelectedCompany(c.id);
                       setFirmOpen(false);
                     }}
-                    style={{
-                      padding: "7px 14px",
-                      fontSize: 12.5,
-                      fontWeight: String(selectedCompany) === String(c.id) ? 700 : 500,
-                      color: String(selectedCompany) === String(c.id) ? "#2563eb" : "#334155",
-                      background: String(selectedCompany) === String(c.id) ? "#eff6ff" : "transparent",
-                      cursor: "pointer"
-                    }}
+                    className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer truncate ${
+                      String(selectedCompany) === String(c.id) ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
                   >
                     {c.company_name}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* 4. All Suppliers Pill Dropdown */}
-          <div style={{ position: "relative" }}>
+          {/* Supplier Selector */}
+          <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -581,20 +608,9 @@ export default function PaymentOut() {
                 setPeriodOpen(false);
                 setFirmOpen(false);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "#f0f9ff",
-                color: "#1e293b",
-                fontWeight: 600,
-                fontSize: 12.5,
-                borderRadius: 24,
-                border: "1px solid #bae6fd",
-                cursor: "pointer"
-              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
             >
+              <Truck size={13} className="text-slate-500" />
               <span>
                 {selectedSupplier === "all"
                   ? "All Suppliers"
@@ -602,68 +618,42 @@ export default function PaymentOut() {
                     suppliers.find((s) => String(s.id) === String(selectedSupplier))?.name ||
                     "Supplier"}
               </span>
-              <ChevronDown size={14} style={{ color: "#64748b", transform: supplierOpen ? "rotate(180deg)" : "none" }} />
+              <ChevronDown size={13} className={`text-slate-500 transition-transform duration-200 ${supplierOpen ? "rotate-180" : ""}`} />
             </button>
 
             {supplierOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 36,
-                  width: 200,
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 0",
-                  maxHeight: 250,
-                  overflowY: "auto",
-                  zIndex: 999
-                }}
+                className="absolute left-0 top-full mt-1.5 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
               >
-                <div
+                <button
                   onClick={() => {
                     setSelectedSupplier("all");
                     setSupplierOpen(false);
                   }}
-                  style={{
-                    padding: "7px 14px",
-                    fontSize: 12.5,
-                    fontWeight: selectedSupplier === "all" ? 700 : 500,
-                    color: selectedSupplier === "all" ? "#2563eb" : "#334155",
-                    background: selectedSupplier === "all" ? "#eff6ff" : "transparent",
-                    cursor: "pointer"
-                  }}
+                  className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                    selectedSupplier === "all" ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
                 >
-                  All Suppliers
-                </div>
+                  <span>All Suppliers</span>
+                  {selectedSupplier === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                </button>
                 {suppliers.map((s) => {
                   const sName = s.supplier_name || s.name || `Supplier #${s.id}`;
                   const isSelected = String(selectedSupplier) === String(s.id);
                   return (
-                    <div
+                    <button
                       key={s.id}
                       onClick={() => {
                         setSelectedSupplier(s.id);
                         setSupplierOpen(false);
                       }}
-                      style={{
-                        padding: "7px 14px",
-                        fontSize: 12.5,
-                        fontWeight: isSelected ? 700 : 500,
-                        color: isSelected ? "#2563eb" : "#334155",
-                        background: isSelected ? "#eff6ff" : "transparent",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                      }}
-                      title={sName}
+                      className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer truncate ${
+                        isSelected ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                      }`}
                     >
                       {sName}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -671,309 +661,182 @@ export default function PaymentOut() {
           </div>
         </div>
 
-        {/* Right Tools: Refresh */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            onClick={fetchPaymentOuts}
-            style={{
-              background: "#f8fafc",
-              border: "1px solid #e2e8f0",
-              borderRadius: "50%",
-              width: 32,
-              height: 32,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#64748b",
-              cursor: "pointer"
-            }}
-            title="Refresh"
-          >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-          </button>
+        {/* Global Search Input */}
+        <div className="relative w-full sm:w-72">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search ref, supplier, amount..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-8 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── 3. SUMMARY KPI CARD (Matching Image 1 Left Card) ── */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 18 }}>
-        <div
-          style={{
-            width: 300,
-            background: "#ffffff",
-            borderRadius: 12,
-            padding: "16px 20px",
-            border: "1.5px solid #f1f5f9",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-            position: "relative"
-          }}
-        >
-          {/* Top Label & % vs last month */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>Total Amount</span>
-            <span style={{ fontSize: 11.5, fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: "2px 6px", borderRadius: 12, display: "inline-flex", alignItems: "center", gap: 2 }}>
-              100% <TrendingUp size={12} />
-            </span>
-          </div>
-
-          {/* Large Amount */}
-          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginBottom: 8 }}>
-            ₹ {fmt(metrics.total)}
-          </div>
-
-          {/* Subtitle Paid */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#64748b" }}>Paid: ₹ {fmt(metrics.paid)}</span>
-            <span style={{ fontSize: 10.5, color: "#94a3b8" }}>vs last month</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 4. TRANSACTIONS TABLE CONTAINER (Matching Image 1) ── */}
-      <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+      {/* ── 4. MODERN SAAS TRANSACTION DATA TABLE ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
         
-        {/* Table Title Bar with Search, Excel & Print */}
-        <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", textTransform: "capitalize" }}>
-            Transactions
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            {/* Search Input Toggle */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                onClick={() => setShowSearchInput(!showSearchInput)}
-                title="Search Transactions"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", display: "flex" }}
-              >
-                <Search size={18} />
-              </button>
-              {showSearchInput && (
-                <input
-                  type="text"
-                  placeholder="Search Ref, party, amount..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    padding: "5px 10px",
-                    borderRadius: 6,
-                    border: "1px solid #cbd5e1",
-                    fontSize: 12.5,
-                    outline: "none",
-                    width: 180
-                  }}
-                  autoFocus
-                />
-              )}
-            </div>
-
-            {/* Excel Report Icon */}
-            <button
-              onClick={exportToExcel}
-              title="Export Excel"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#16a34a", display: "flex" }}
-            >
-              <FileSpreadsheet size={19} />
-            </button>
-
-            {/* Print Icon */}
-            <button
-              onClick={() => window.print()}
-              title="Print"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", display: "flex" }}
-            >
-              <Printer size={18} />
-            </button>
+        {/* Table Header Bar */}
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">Payment-Out Register</h2>
+            <span className="text-[11px] font-bold text-slate-400">({filteredPayments.length} records)</span>
           </div>
         </div>
 
-        {/* Table Content */}
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: 900 }}>
+        {/* Table View */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                <th style={{ padding: "12px 18px", fontSize: 11.5, fontWeight: 700, color: "#475569" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>Date <Filter size={11} color="#94a3b8" /></div>
-                </th>
-                <th style={{ padding: "12px 18px", fontSize: 11.5, fontWeight: 700, color: "#475569" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>Ref. no. <Filter size={11} color="#94a3b8" /></div>
-                </th>
-                <th style={{ padding: "12px 18px", fontSize: 11.5, fontWeight: 700, color: "#475569" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>Party Name <Filter size={11} color="#94a3b8" /></div>
-                </th>
-                <th style={{ padding: "12px 18px", fontSize: 11.5, fontWeight: 700, color: "#475569", textAlign: "right" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>Total Amount <Filter size={11} color="#94a3b8" /></div>
-                </th>
-                <th style={{ padding: "12px 18px", fontSize: 11.5, fontWeight: 700, color: "#475569", textAlign: "right" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>Paid <Filter size={11} color="#94a3b8" /></div>
-                </th>
-                <th style={{ padding: "12px 18px", fontSize: 11.5, fontWeight: 700, color: "#475569" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>Payment Type <Filter size={11} color="#94a3b8" /></div>
-                </th>
-                <th style={{ padding: "12px 18px", fontSize: 11.5, fontWeight: 700, color: "#475569", textAlign: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>Status <Filter size={11} color="#94a3b8" /></div>
-                </th>
-                <th style={{ padding: "12px 18px", fontSize: 11.5, fontWeight: 700, color: "#475569", textAlign: "center" }}>
-                  Actions
-                </th>
+              <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-500 text-[11px] uppercase tracking-wider">
+                <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Date</th>
+                <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Ref / Receipt #</th>
+                <th className="py-3 px-5 border-r border-slate-200/70 whitespace-nowrap">Supplier / Party</th>
+                <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Payment Mode</th>
+                <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Total Amount</th>
+                <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Paid Amount</th>
+                <th className="py-3 px-4 border-r border-slate-200/70 text-center whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody>
+
+            <tbody className="divide-y divide-slate-100 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
-                    Loading payment-out transactions...
+                  <td colSpan={8} className="py-14 text-center text-slate-400">
+                    <RefreshCw size={24} className="animate-spin text-purple-600 mx-auto mb-2.5" />
+                    <span className="font-bold text-slate-600">Loading payout records...</span>
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
-                /* ── Empty State Matching Image 1 ── */
                 <tr>
-                  <td colSpan={8} style={{ padding: "60px 20px", textAlign: "center" }}>
-                    <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-                      <AlertTriangle size={36} color="#f87171" strokeWidth={1.8} />
+                  <td colSpan={8} className="py-16 text-center text-slate-400">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
+                      <AlertTriangle size={24} />
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
-                      No Transaction Found
-                    </div>
-                    <p style={{ fontSize: 12.5, color: "#94a3b8", margin: 0 }}>
-                      We could not find any transactions.
-                    </p>
+                    <p className="font-extrabold text-slate-700 text-sm">No Payment Vouchers Found</p>
+                    <p className="text-xs text-slate-400 mt-1">There are no payment-out records matching your active filters.</p>
+                    <button
+                      onClick={() => {
+                        setEditingPayment(null);
+                        setIsAddModalOpen(true);
+                      }}
+                      className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer transition active:scale-95"
+                    >
+                      <Plus size={14} /> Record Payment-Out
+                    </button>
                   </td>
                 </tr>
               ) : (
-                paginatedPayments.map((p) => {
+                paginatedPayments.map((p, idx) => {
+                  const isMenuOpen = activeMenuId === p.id;
+
                   return (
                     <tr
-                      key={p.id}
-                      style={{ borderBottom: "1px solid #f1f5f9", transition: "background 0.15s" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+                      key={p.id || idx}
+                      className="group hover:bg-purple-50/30 transition-colors duration-150 text-slate-700"
                     >
-                      {/* Date */}
-                      <td style={{ padding: "12px 18px", fontSize: 13, color: "#334155", fontWeight: 600 }}>
+                      {/* DATE */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap text-slate-600 group-hover:text-slate-900 font-semibold">
                         {formatDateDMY(p.payment_date)}
                       </td>
 
-                      {/* Ref No */}
-                      <td style={{ padding: "12px 18px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                        {p.receipt_no || `REC-${p.id}`}
+                      {/* REF NO */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
+                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                          {p.receipt_no ? `#${p.receipt_no}` : `#REC-${p.id}`}
+                        </span>
                       </td>
 
-                      {/* Party Name */}
-                      <td style={{ padding: "12px 18px", fontSize: 13, fontWeight: 700, color: "#2563eb" }}>
-                        {p.supplier_name || "Unknown Party"}
+                      {/* PARTY NAME */}
+                      <td className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap font-bold text-slate-900">
+                        <span>{p.supplier_name || "Unknown Party"}</span>
                       </td>
 
-                      {/* Total Amount */}
-                      <td style={{ padding: "12px 18px", fontSize: 13, fontWeight: 700, color: "#0f172a", textAlign: "right" }}>
+                      {/* PAYMENT TYPE */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
+                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 uppercase">
+                          {p.payment_method || "Cash"}
+                        </span>
+                      </td>
+
+                      {/* TOTAL AMOUNT */}
+                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-slate-900 text-right whitespace-nowrap">
                         ₹ {fmt(p.amount)}
                       </td>
 
-                      {/* Paid */}
-                      <td style={{ padding: "12px 18px", fontSize: 13, fontWeight: 700, color: "#059669", textAlign: "right" }}>
+                      {/* PAID */}
+                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-emerald-700 text-right whitespace-nowrap">
                         ₹ {fmt(p.amount)}
                       </td>
 
-                      {/* Payment Type */}
-                      <td style={{ padding: "12px 18px", fontSize: 13, color: "#475569", textTransform: "capitalize" }}>
-                        {p.payment_method || "Cash"}
-                      </td>
-
-                      {/* Status */}
-                      <td style={{ padding: "12px 18px", textAlign: "center" }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#059669", background: "#ecfdf5", padding: "3px 10px", borderRadius: 12 }}>
+                      {/* STATUS */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap font-bold">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           Paid
                         </span>
                       </td>
 
-                      {/* Actions Column with 3-Dots */}
-                      <td style={{ padding: "12px 18px", textAlign: "center", position: "relative" }}>
-                        <div style={{ display: "inline-block", position: "relative" }}>
+                      {/* ACTIONS */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Print POS */}
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuId(activeMenuId === p.id ? null : p.id);
-                            }}
-                            title="Actions"
-                            style={{
-                              background: activeMenuId === p.id ? "#f1f5f9" : "transparent",
-                              border: "none",
-                              cursor: "pointer",
-                              color: "#475569",
-                              padding: "4px 6px",
-                              borderRadius: 6,
-                              display: "inline-flex",
-                              alignItems: "center"
-                            }}
+                            onClick={() => window.print()}
+                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            title="Print Voucher"
                           >
-                            <MoreVertical size={16} />
+                            <Printer size={14} />
                           </button>
 
-                          {/* 3-dots Floating Dropdown Menu */}
-                          {activeMenuId === p.id && (
-                            <div
-                              ref={menuRef}
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                position: "absolute",
-                                right: 0,
-                                top: 28,
-                                background: "#ffffff",
-                                borderRadius: 8,
-                                border: "1px solid #e2e8f0",
-                                boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                                zIndex: 999,
-                                width: 125,
-                                overflow: "hidden",
-                                padding: "4px 0",
-                                textAlign: "left"
-                              }}
+                          {/* 3-Dots More Menu */}
+                          <div className="relative">
+                            <button
+                              onClick={() => setActiveMenuId(isMenuOpen ? null : p.id)}
+                              className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                              title="More options"
                             >
-                              {/* Edit Option */}
-                              <div
-                                onClick={() => {
-                                  setEditingPayment(p);
-                                  setIsAddModalOpen(true);
-                                  setActiveMenuId(null);
-                                }}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  padding: "8px 14px",
-                                  fontSize: 13,
-                                  color: "#1e293b",
-                                  cursor: "pointer",
-                                  fontWeight: 600
-                                }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = "#eff6ff")}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
-                              >
-                                <Edit3 size={15} color="#2563eb" />
-                                <span>Edit</span>
-                              </div>
+                              <MoreVertical size={15} />
+                            </button>
 
-                              {/* Delete Option */}
+                            {isMenuOpen && (
                               <div
-                                onClick={() => handleDeletePayment(p.id)}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  padding: "8px 14px",
-                                  fontSize: 13,
-                                  color: "#ef4444",
-                                  cursor: "pointer",
-                                  fontWeight: 600,
-                                  borderTop: "1px solid #f1f5f9"
-                                }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = "#fef2f2")}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+                                ref={menuRef}
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 top-full mt-1 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                               >
-                                <Trash2 size={15} color="#ef4444" />
-                                <span>Delete</span>
+                                <button
+                                  onClick={() => {
+                                    setEditingPayment(p);
+                                    setIsAddModalOpen(true);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Edit3 size={14} className="text-blue-600" />
+                                  <span>Edit</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleDeletePayment(p.id)}
+                                  className="w-full px-3.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-slate-100 mt-1 pt-1.5"
+                                >
+                                  <Trash2 size={14} />
+                                  <span>Delete</span>
+                                </button>
                               </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -988,12 +851,12 @@ export default function PaymentOut() {
       {/* ── 5. ADD / EDIT PAYMENT-OUT MODAL ── */}
       <AddPaymentOutModal
         isOpen={isAddModalOpen}
-        editPayment={editingPayment}
         onClose={() => {
           setIsAddModalOpen(false);
           setEditingPayment(null);
         }}
         onSuccess={fetchPaymentOuts}
+        editPayment={editingPayment}
       />
 
     </div>

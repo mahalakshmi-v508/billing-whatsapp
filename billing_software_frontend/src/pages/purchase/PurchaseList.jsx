@@ -9,18 +9,21 @@ import {
   MoreVertical,
   Share2,
   Eye,
-  Pencil,
   Trash2,
   CreditCard,
   History,
-  Wallet,
   Calendar,
   ChevronDown,
-  Upload,
-  ArrowUpDown,
   X,
   FileText,
-  RefreshCw
+  RefreshCw,
+  TrendingUp,
+  Clock,
+  Building2,
+  SlidersHorizontal,
+  CheckCircle2,
+  Receipt,
+  ArrowUpRight
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -38,7 +41,7 @@ const periodLabels = {
 export default function PurchaseList() {
   const navigate = useNavigate();
 
-  // State
+  // Data States
   const [purchases, setPurchases] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(
@@ -72,15 +75,6 @@ export default function PurchaseList() {
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const [showBulkPayModal, setShowBulkPayModal] = useState(false);
-  const [bulkSupplier, setBulkSupplier] = useState(null);
-  const [bulkAmount, setBulkAmount] = useState("");
-  const [bulkMethod, setBulkMethod] = useState("cash");
-  const [bulkDate, setBulkDate] = useState(new Date().toISOString().split("T")[0]);
-  const [bulkNotes, setBulkNotes] = useState("");
-  const [submittingBulk, setSubmittingBulk] = useState(false);
-  const [bulkPreview, setBulkPreview] = useState([]);
-
   // Date Formatting Helper
   const formatYMD = (date) => {
     const d = new Date(date);
@@ -91,7 +85,7 @@ export default function PurchaseList() {
   };
 
   const formatDateDMY = (dateStr) => {
-    if (!dateStr) return "";
+    if (!dateStr) return "-";
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
     const day = String(d.getDate()).padStart(2, "0");
@@ -115,12 +109,13 @@ export default function PurchaseList() {
         start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
         end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
         break;
-      case "this_week":
+      case "this_week": {
         const day = now.getDay();
         const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
         start = new Date(now.setDate(diff));
         end = new Date();
         break;
+      }
       case "this_month":
         start = new Date(now.getFullYear(), now.getMonth(), 1);
         end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -163,8 +158,8 @@ export default function PurchaseList() {
 
   // Initial Companies Load
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user) return;
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!user.id) return;
 
     api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
       .then((res) => {
@@ -281,8 +276,8 @@ export default function PurchaseList() {
     });
   }, [purchases, startDate, endDate, searchQuery]);
 
-  // Math summary bar metrics (Paid + Unpaid = Total)
-  const { totalPaid, totalUnpaid, grandTotal } = useMemo(() => {
+  // Math summary bar metrics
+  const { totalPaid, totalUnpaid, grandTotal, settleRate } = useMemo(() => {
     let paid = 0;
     let unpaid = 0;
     let total = 0;
@@ -294,7 +289,8 @@ export default function PurchaseList() {
       unpaid += pBal;
       total += pTotal;
     });
-    return { totalPaid: paid, totalUnpaid: unpaid, grandTotal: total };
+    const rate = total > 0 ? Math.round((paid / total) * 100) : 100;
+    return { totalPaid: paid, totalUnpaid: unpaid, grandTotal: total, settleRate: rate };
   }, [filteredPurchases]);
 
   // Delete draft
@@ -375,87 +371,10 @@ export default function PurchaseList() {
     }
   };
 
-  // Bulk Supplier Payment (FIFO settle across all supplier bills)
-  const openBulkPayDialog = (supplier) => {
-    setBulkSupplier(supplier);
-    setBulkAmount("");
-    setBulkMethod("cash");
-    setBulkDate(new Date().toISOString().split("T")[0]);
-    setBulkNotes("");
-    setBulkPreview([]);
-    setShowBulkPayModal(true);
-  };
-
-  const handleBulkAmountChange = (amt) => {
-    setBulkAmount(amt);
-    const numAmt = Number(amt) || 0;
-    if (!bulkSupplier || numAmt <= 0) {
-      setBulkPreview([]);
-      return;
-    }
-
-    const unpaidInvoices = purchases
-      .filter((p) => p.supplier_id === bulkSupplier.id && Number(p.balance_amount) > 0 && p.status === "submitted")
-      .sort((a, b) => new Date(a.purchase_date) - new Date(b.purchase_date));
-
-    let remaining = numAmt;
-    const preview = [];
-
-    for (const inv of unpaidInvoices) {
-      if (remaining <= 0) break;
-      const bal = Number(inv.balance_amount);
-      const apply = Math.min(bal, remaining);
-      preview.push({
-        id: inv.id,
-        purchase_no: inv.purchase_no || `#${inv.id}`,
-        purchase_date: inv.purchase_date,
-        total_amount: inv.total_amount,
-        balance_amount: bal,
-        allocated_amount: apply,
-        new_balance: bal - apply
-      });
-      remaining -= apply;
-    }
-
-    setBulkPreview(preview);
-  };
-
-  const submitBulkPayment = async (e) => {
-    e.preventDefault();
-    const numAmt = Number(bulkAmount) || 0;
-    if (numAmt <= 0) {
-      alert("Please enter a valid amount!");
-      return;
-    }
-    setSubmittingBulk(true);
-    try {
-      const res = await api.post("/purchase/pay_supplier_bulk", {
-        company_id: selectedCompany,
-        supplier_id: bulkSupplier.id,
-        amount: numAmt,
-        payment_method: bulkMethod,
-        payment_date: bulkDate,
-        notes: bulkNotes
-      });
-      if (res.data.status) {
-        alert(res.data.message);
-        setShowBulkPayModal(false);
-        fetchPurchasesAndSuppliers(selectedFirm);
-      } else {
-        alert(res.data.message);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error making bulk payment");
-    } finally {
-      setSubmittingBulk(false);
-    }
-  };
-
   // Helper number format
   const fmt = (n) =>
     Number(n || 0).toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
       maximumFractionDigits: 2
     });
 
@@ -487,166 +406,210 @@ export default function PurchaseList() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "18px 24px", fontFamily: "Inter, sans-serif" }}>
+    <div className="p-4 sm:p-6 max-w-[1520px] mx-auto min-h-screen space-y-5 bg-[#f8fafc] font-sans text-slate-800">
       
-      {/* ── TOP HEADER ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0, letterSpacing: "-0.3px" }}>
-          Purchase Bills
-        </h1>
+      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-rose-400 text-white flex items-center justify-center shadow-md shadow-rose-500/20 shrink-0">
+            <Receipt size={22} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Purchase Invoices</h1>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                {filteredPurchases.length} bills
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">
+              Vendor procurement registry, bill payment settlements and invoice tracking
+            </p>
+          </div>
+        </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {/* + Add Purchase (Primary Red Button) */}
+        {/* Action Buttons Toolbar */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => fetchPurchasesAndSuppliers(selectedFirm)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Refresh Data"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin text-blue-600" : "text-slate-500"} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={exportToExcel}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Export Excel"
+          >
+            <FileSpreadsheet size={14} className="text-emerald-600" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            title="Print View"
+          >
+            <Printer size={14} className="text-slate-500" />
+            <span>Print</span>
+          </button>
+
+          {/* Primary CTA */}
           <button
             onClick={() => navigate("/purchases/new")}
-            style={{
-              background: "#ef4444",
-              border: "none",
-              color: "#ffffff",
-              borderRadius: 24,
-              padding: "9px 20px",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              boxShadow: "0 2px 8px rgba(239, 68, 68, 0.25)"
-            }}
+            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-700 hover:to-rose-600 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/25 transition active:scale-95 cursor-pointer"
           >
-            <Plus size={16} strokeWidth={2.5} /> Add Purchase
+            <Plus size={16} strokeWidth={2.8} />
+            <span>+ Add Purchase</span>
           </button>
         </div>
       </div>
 
-      {/* ── FILTER & ACTION BAR (Matches Reference Pill Design) ── */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: 16,
-          padding: "10px 18px",
-          border: "1px solid #e2e8f0",
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 16,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-        }}
-      >
-        {/* Left: Filter by label + Period Pill + Date Range Pill + Company Dropdown Pill */}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: 13 }}>
-          <span style={{ fontWeight: 600, color: "#64748b", marginRight: 2 }}>Filter by :</span>
+      {/* ── 2. SEGMENTED FINANCIAL INTELLIGENCE STRIP ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        {/* Metric 1: Total Purchases */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                Total Purchases
+              </span>
+              <div className="text-2xl font-black text-slate-900 mt-1.5 tracking-tight">
+                ₹ {fmt(grandTotal)}
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+              <TrendingUp size={20} />
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+            <span>Procurement Volume</span>
+            <span className="font-bold text-slate-800">{filteredPurchases.length} Invoices</span>
+          </div>
+        </div>
 
-          {/* 1. Period Pill Dropdown */}
-          <div style={{ position: "relative" }}>
+        {/* Metric 2: Settled & Paid */}
+        <div className="bg-white rounded-2xl border border-emerald-200/80 p-4 shadow-xs relative overflow-hidden flex flex-col justify-between bg-gradient-to-br from-white to-emerald-50/20">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Settled / Paid
+              </span>
+              <div className="text-2xl font-black text-emerald-900 mt-1.5 tracking-tight">
+                ₹ {fmt(totalPaid)}
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-100/70 text-emerald-700 flex items-center justify-center">
+              <CheckCircle2 size={20} />
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-emerald-100">
+            <div className="flex items-center justify-between text-xs font-semibold mb-1">
+              <span className="text-emerald-700">Settlement Ratio</span>
+              <span className="text-emerald-800 font-bold">{settleRate}%</span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-emerald-100 overflow-hidden">
+              <div
+                className="h-full bg-emerald-600 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(settleRate, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 3: Outstanding Balance Due */}
+        <div className="bg-white rounded-2xl border border-rose-200/80 p-4 shadow-xs relative overflow-hidden flex flex-col justify-between bg-gradient-to-br from-white to-rose-50/20">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                Outstanding Balance Due
+              </span>
+              <div className="text-2xl font-black text-rose-900 mt-1.5 tracking-tight">
+                ₹ {fmt(totalUnpaid)}
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-rose-100/70 text-rose-700 flex items-center justify-center">
+              <Clock size={20} />
+            </div>
+          </div>
+          <div className="mt-3 pt-2.5 border-t border-rose-100 flex items-center justify-between text-xs">
+            <span className="text-rose-700 font-medium">Pending Vendor Payables</span>
+            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold text-[11px]">
+              {totalUnpaid > 0 ? "Requires Action" : "All Clear"}
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── 3. FILTER & SEARCH CONTROL TOOLBAR ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        {/* Left Filter Pill Group */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5 mr-1">
+            <SlidersHorizontal size={14} className="text-slate-400" />
+            <span>Filters:</span>
+          </span>
+
+          {/* Period Selector */}
+          <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setPeriodOpen((v) => !v);
                 setFirmOpen(false);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "#f0f9ff",
-                color: "#1e293b",
-                fontWeight: 600,
-                fontSize: 12.5,
-                borderRadius: 24,
-                border: "1px solid #bae6fd",
-                cursor: "pointer",
-                transition: "all 0.15s"
-              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
             >
               <span>{periodLabels[period] || "This Month"}</span>
-              <ChevronDown size={14} style={{ color: "#64748b", transform: periodOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+              <ChevronDown size={13} className={`text-slate-500 transition-transform duration-200 ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
             {periodOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 36,
-                  width: 150,
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 0",
-                  zIndex: 999
-                }}
+                className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
               >
                 {Object.entries(periodLabels).map(([key, label]) => (
-                  <div
+                  <button
                     key={key}
                     onClick={() => {
                       setPeriod(key);
                       setPeriodOpen(false);
                       if (key === "custom") setShowDatePicker(true);
                     }}
-                    style={{
-                      padding: "7px 14px",
-                      fontSize: 12.5,
-                      fontWeight: period === key ? 700 : 500,
-                      color: period === key ? "#2563eb" : "#334155",
-                      background: period === key ? "#eff6ff" : "transparent",
-                      cursor: "pointer"
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = period === key ? "#eff6ff" : "transparent")}
+                    className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                      period === key ? "bg-rose-50 text-rose-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
                   >
-                    {label}
-                  </div>
+                    <span>{label}</span>
+                    {period === key && <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />}
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* 2. Date Range Pill Display */}
-          <div
+          {/* Date Range Display Button */}
+          <button
             onClick={() => setShowDatePicker((v) => !v)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 14px",
-              background: "#f0f9ff",
-              color: "#1e293b",
-              fontWeight: 500,
-              fontSize: 12.5,
-              borderRadius: 24,
-              border: "1px solid #bae6fd",
-              cursor: "pointer",
-              userSelect: "none"
-            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-semibold text-xs transition cursor-pointer"
           >
-            <Calendar size={14} style={{ color: "#64748b" }} />
+            <Calendar size={13} className="text-slate-500" />
             <span>
-              {startDate ? formatDateDMY(startDate) : "01/09/2026"} To {endDate ? formatDateDMY(endDate) : "30/09/2026"}
+              {startDate ? formatDateDMY(startDate) : "01/09/2026"} - {endDate ? formatDateDMY(endDate) : "30/09/2026"}
             </span>
-          </div>
+          </button>
 
-          {/* Custom Date Picker Popover */}
+          {/* Date Picker Range Popover */}
           {showDatePicker && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: "#ffffff",
-                padding: "4px 12px",
-                borderRadius: 24,
-                border: "1px solid #cbd5e1",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                fontSize: 12
-              }}
-            >
+            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border border-rose-300 shadow-sm">
               <input
                 type="date"
                 value={startDate}
@@ -654,9 +617,9 @@ export default function PurchaseList() {
                   setStartDate(e.target.value);
                   setPeriod("custom");
                 }}
-                style={{ fontSize: 12, color: "#334155", border: "none", outline: "none", cursor: "pointer" }}
+                className="text-xs text-slate-700 outline-none bg-transparent cursor-pointer font-medium"
               />
-              <span style={{ color: "#94a3b8" }}>To</span>
+              <span className="text-slate-400 text-xs font-bold">to</span>
               <input
                 type="date"
                 value={endDate}
@@ -664,561 +627,301 @@ export default function PurchaseList() {
                   setEndDate(e.target.value);
                   setPeriod("custom");
                 }}
-                style={{ fontSize: 12, color: "#334155", border: "none", outline: "none", cursor: "pointer" }}
+                className="text-xs text-slate-700 outline-none bg-transparent cursor-pointer font-medium"
               />
             </div>
           )}
 
-          {/* 3. Company / Firm Dropdown Pill */}
-          <div style={{ position: "relative" }}>
+          {/* Firm Selector */}
+          <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setFirmOpen((v) => !v);
                 setPeriodOpen(false);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "#f0f9ff",
-                color: "#1e293b",
-                fontWeight: 600,
-                fontSize: 12.5,
-                borderRadius: 24,
-                border: "1px solid #bae6fd",
-                cursor: "pointer",
-                transition: "all 0.15s"
-              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
             >
+              <Building2 size={13} className="text-slate-500" />
               <span>
                 {selectedFirm === "all" || selectedFirm === "ALL"
-                  ? "All company"
-                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Company"}
+                  ? "All Firms"
+                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
               </span>
-              <ChevronDown size={14} style={{ color: "#64748b", transform: firmOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+              <ChevronDown size={13} className={`text-slate-500 transition-transform duration-200 ${firmOpen ? "rotate-180" : ""}`} />
             </button>
 
             {firmOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 36,
-                  width: 180,
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 0",
-                  maxHeight: 220,
-                  overflowY: "auto",
-                  zIndex: 999
-                }}
+                className="absolute left-0 top-full mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
               >
-                <div
+                <button
                   onClick={() => {
                     handleFirmChange("all");
                     setFirmOpen(false);
                   }}
-                  style={{
-                    padding: "7px 14px",
-                    fontSize: 12.5,
-                    fontWeight: selectedFirm === "all" || selectedFirm === "ALL" ? 700 : 500,
-                    color: selectedFirm === "all" || selectedFirm === "ALL" ? "#2563eb" : "#334155",
-                    background: selectedFirm === "all" || selectedFirm === "ALL" ? "#eff6ff" : "transparent",
-                    cursor: "pointer"
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background =
-                      selectedFirm === "all" || selectedFirm === "ALL" ? "#eff6ff" : "transparent")
-                  }
+                  className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
+                    selectedFirm === "all" || selectedFirm === "ALL" ? "bg-rose-50 text-rose-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
                 >
-                  All company
-                </div>
+                  <span>All Firms</span>
+                  {(selectedFirm === "all" || selectedFirm === "ALL") && <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />}
+                </button>
                 {companies.map((c) => (
-                  <div
+                  <button
                     key={c.id}
                     onClick={() => {
                       handleFirmChange(c.id);
                       setFirmOpen(false);
                     }}
-                    style={{
-                      padding: "7px 14px",
-                      fontSize: 12.5,
-                      fontWeight: String(selectedFirm) === String(c.id) ? 700 : 500,
-                      color: String(selectedFirm) === String(c.id) ? "#2563eb" : "#334155",
-                      background: String(selectedFirm) === String(c.id) ? "#eff6ff" : "transparent",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis"
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background =
-                        String(selectedFirm) === String(c.id) ? "#eff6ff" : "transparent")
-                    }
+                    className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer truncate ${
+                      String(selectedFirm) === String(c.id) ? "bg-rose-50 text-rose-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
                   >
                     {c.company_name}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
         </div>
 
-        {/* Right: Export Excel, Print, Refresh */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Excel Report */}
-          <button
-            onClick={exportToExcel}
-            style={{
-              background: "#ecfdf5",
-              color: "#047857",
-              border: "1px solid #a7f3d0",
-              borderRadius: 8,
-              padding: "6px 12px",
-              fontSize: 12.5,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6
-            }}
-          >
-            <FileSpreadsheet size={15} /> Excel Report
-          </button>
-
-          {/* Print */}
-          <button
-            onClick={() => window.print()}
-            style={{
-              background: "#f1f5f9",
-              color: "#334155",
-              border: "1px solid #cbd5e1",
-              borderRadius: 8,
-              padding: "6px 12px",
-              fontSize: 12.5,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6
-            }}
-          >
-            <Printer size={15} /> Print
-          </button>
-
-          {/* Refresh */}
-          <button
-            onClick={() => fetchPurchasesAndSuppliers(selectedFirm)}
-            style={{
-              background: "#f8fafc",
-              border: "1px solid #e2e8f0",
-              borderRadius: "50%",
-              width: 32,
-              height: 32,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#64748b",
-              cursor: "pointer"
-            }}
-            title="Refresh purchases"
-          >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-          </button>
+        {/* Global Search Input */}
+        <div className="relative w-full sm:w-72">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search invoice no, supplier..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-8 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── VYAPAR MATH SUMMARY BAR: Paid + Unpaid = Total ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
+      {/* ── 4. MODERN SAAS TRANSACTION DATA TABLE ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
         
-        {/* Paid Card */}
-        <div
-          style={{
-            flex: 1,
-            minWidth: 160,
-            background: "#ecfdf5",
-            borderRadius: 14,
-            padding: "14px 18px",
-            border: "1.5px solid #a7f3d0",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-          }}
-        >
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#065f46", marginBottom: 4 }}>Paid</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: "#047857" }}>₹ {fmt(totalPaid)}</div>
-        </div>
-
-        {/* Plus Operator */}
-        <div style={{ fontSize: 20, fontWeight: 800, color: "#94a3b8" }}>+</div>
-
-        {/* Unpaid Card */}
-        <div
-          style={{
-            flex: 1,
-            minWidth: 160,
-            background: "#eff6ff",
-            borderRadius: 14,
-            padding: "14px 18px",
-            border: "1.5px solid #bfdbfe",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-          }}
-        >
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#1e40af", marginBottom: 4 }}>Unpaid</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: "#1d4ed8" }}>₹ {fmt(totalUnpaid)}</div>
-        </div>
-
-        {/* Equal Operator */}
-        <div style={{ fontSize: 20, fontWeight: 800, color: "#94a3b8" }}>=</div>
-
-        {/* Total Card */}
-        <div
-          style={{
-            flex: 1,
-            minWidth: 160,
-            background: "#fff7ed",
-            borderRadius: 14,
-            padding: "14px 18px",
-            border: "1.5px solid #fed7aa",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-          }}
-        >
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#9a3412", marginBottom: 4 }}>Total</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: "#c2410c" }}>₹ {fmt(grandTotal)}</div>
-        </div>
-      </div>
-
-      {/* ── TRANSACTIONS TABLE CONTAINER ── */}
-      <div style={{ background: "#ffffff", borderRadius: 14, border: "1px solid #e2e8f0", paddingBottom: 60, position: "relative" }}>
-        
-        {/* Table Title & Search */}
-        <div style={{ padding: "14px 18px", borderBottom: "1px solid #f1f5f9" }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
-            TRANSACTIONS
-          </div>
-          <div style={{ position: "relative", maxWidth: 300 }}>
-            <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
-            <input
-              type="text"
-              placeholder="Search bills, party name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px 8px 32px",
-                borderRadius: 8,
-                border: "1px solid #e2e8f0",
-                outline: "none",
-                fontSize: 13,
-                boxSizing: "border-box"
-              }}
-            />
+        {/* Table Header Bar */}
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">Invoice Register</h2>
+            <span className="text-[11px] font-bold text-slate-400">({filteredPurchases.length} records)</span>
           </div>
         </div>
 
         {/* Table View */}
-        <div style={{ overflowX: "visible" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: 900 }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
-                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    DATE <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    INVOICE NO. <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    PARTY NAME <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    PAYMENT TYPE <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", textAlign: "right" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
-                    AMOUNT <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", textAlign: "right" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 }}>
-                    BALANCE DUE <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", textAlign: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                    STATUS <ArrowUpDown size={11} />
-                  </div>
-                </th>
-                <th style={{ padding: "12px 16px", fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase", textAlign: "center" }}>
-                  ACTIONS
-                </th>
+              <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-500 text-[11px] uppercase tracking-wider">
+                <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Date</th>
+                <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Invoice #</th>
+                <th className="py-3 px-5 border-r border-slate-200/70 whitespace-nowrap">Supplier / Party</th>
+                <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Payment Mode</th>
+                <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Bill Amount</th>
+                <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Balance Due</th>
+                <th className="py-3 px-4 border-r border-slate-200/70 text-center whitespace-nowrap">Settlement Status</th>
+                <th className="py-3 px-4 text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody>
+
+            <tbody className="divide-y divide-slate-100 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
-                    Loading purchase transactions...
+                  <td colSpan={8} className="py-14 text-center text-slate-400">
+                    <RefreshCw size={24} className="animate-spin text-rose-500 mx-auto mb-2.5" />
+                    <span className="font-bold text-slate-600">Loading procurement vouchers...</span>
                   </td>
                 </tr>
               ) : filteredPurchases.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: 50, textAlign: "center" }}>
-                    <div style={{ fontSize: 42, marginBottom: 8 }}>📄</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#334155" }}>No transactions found</div>
-                    <p style={{ fontSize: 13, color: "#94a3b8", margin: "4px 0 14px" }}>
-                      There are no purchase invoices matching your selected filters.
-                    </p>
+                  <td colSpan={8} className="py-16 text-center text-slate-400">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
+                      <FileText size={24} />
+                    </div>
+                    <p className="font-extrabold text-slate-700 text-sm">No Purchase Bills Found</p>
+                    <p className="text-xs text-slate-400 mt-1">There are no purchase vouchers matching your active filter criteria.</p>
                     <button
                       onClick={() => navigate("/purchases/new")}
-                      style={{
-                        background: "#ef4444",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 8,
-                        padding: "8px 16px",
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                        cursor: "pointer"
-                      }}
+                      className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer transition active:scale-95"
                     >
-                      + Create Purchase Bill
+                      <Plus size={14} /> Create Purchase Bill
                     </button>
                   </td>
                 </tr>
               ) : (
-                filteredPurchases.map((p) => {
+                filteredPurchases.map((p, idx) => {
                   const balance = Number(p.balance_amount) || 0;
                   const paid = Number(p.paid_amount) || 0;
                   const isPaid = balance <= 0;
                   const isPartial = balance > 0 && paid > 0;
                   const isDraft = p.status === "draft";
+                  const isMenuOpen = activeMenuId === p.id;
 
                   return (
                     <tr
-                      key={p.id}
-                      style={{
-                        borderBottom: "1px solid #f1f5f9",
-                        transition: "background 0.15s",
-                        background: activeMenuId === p.id ? "#f8fafc" : "#ffffff"
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = activeMenuId === p.id ? "#f8fafc" : "#ffffff")}
+                      key={p.id || idx}
+                      className="group hover:bg-rose-50/30 transition-colors duration-150 text-slate-700"
                     >
                       {/* DATE */}
-                      <td style={{ padding: "12px 16px", fontSize: 13, color: "#334155", fontWeight: 600 }}>
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap text-slate-600 group-hover:text-slate-900 font-semibold">
                         {formatDateDMY(p.purchase_date)}
                       </td>
 
-                      {/* INVOICE NO. */}
-                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                        {p.purchase_no || <span style={{ color: "#94a3b8", fontWeight: 400 }}>-</span>}
-                      </td>
-
-                      {/* PARTY NAME */}
-                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#2563eb" }}>
-                        <span
-                          onClick={() => openSupplierHistoryModal(p.supplier_id, p.supplier_name)}
-                          title="Click to view supplier ledger"
-                          style={{ cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}
-                        >
-                          {p.supplier_name || "Unknown Party"}
+                      {/* INVOICE NO */}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
+                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                          {p.purchase_no ? `#${p.purchase_no}` : `-`}
                         </span>
                       </td>
 
+                      {/* PARTY NAME */}
+                      <td className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap">
+                        <div
+                          onClick={() => openSupplierHistoryModal(p.supplier_id, p.supplier_name)}
+                          className="font-bold text-slate-900 hover:text-rose-600 transition cursor-pointer flex items-center gap-1.5"
+                          title="Click to view supplier ledger history"
+                        >
+                          <span>{p.supplier_name || "Unknown Party"}</span>
+                          <ArrowUpRight size={13} className="text-slate-400 group-hover:text-rose-500 opacity-0 group-hover:opacity-100 transition" />
+                        </div>
+                      </td>
+
                       {/* PAYMENT TYPE */}
-                      <td style={{ padding: "12px 16px", fontSize: 13, color: "#475569" }}>
-                        {p.payment_type || "Cash"}
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
+                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 uppercase">
+                          {p.payment_type || "Cash"}
+                        </span>
                       </td>
 
                       {/* AMOUNT */}
-                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#0f172a", textAlign: "right" }}>
-                        {fmt(p.total_amount)}
+                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-slate-900 text-right whitespace-nowrap">
+                        ₹ {fmt(p.total_amount)}
                       </td>
 
                       {/* BALANCE DUE */}
-                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, textAlign: "right", color: balance > 0 ? "#dc2626" : "#16a34a" }}>
-                        {fmt(balance)}
+                      <td className={`py-3.5 px-5 border-r border-slate-200/70 font-bold text-right whitespace-nowrap ${
+                        balance > 0 ? "text-rose-600" : "text-emerald-700"
+                      }`}>
+                        ₹ {fmt(balance)}
                       </td>
 
                       {/* STATUS */}
-                      <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                      <td className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap font-bold">
                         {isDraft ? (
-                          <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", background: "#f1f5f9", padding: "3px 10px", borderRadius: 12 }}>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                             Draft
                           </span>
                         ) : isPaid ? (
-                          <span style={{ fontSize: 12, fontWeight: 800, color: "#16a34a" }}>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             Paid
                           </span>
                         ) : isPartial ? (
-                          <span style={{ fontSize: 12, fontWeight: 800, color: "#d97706" }}>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                             Partial
                           </span>
                         ) : (
-                          <span style={{ fontSize: 12, fontWeight: 800, color: "#ef4444" }}>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                             Unpaid
                           </span>
                         )}
                       </td>
 
                       {/* ACTIONS */}
-                      <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-                          {/* Print Icon */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Print POS */}
                           <button
                             onClick={() => window.print()}
-                            title="Print Invoice Voucher"
-                            style={{ background: "transparent", border: "none", cursor: "pointer", color: "#64748b" }}
+                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            title="Print Voucher"
                           >
-                            <Printer size={15} />
+                            <Printer size={14} />
                           </button>
 
-                          {/* Share / WhatsApp */}
+                          {/* Share Icon */}
                           <button
                             onClick={() => alert(`Share Voucher for Invoice ${p.purchase_no || p.id} via WhatsApp/PDF`)}
-                            title="Share via WhatsApp / Email"
-                            style={{ background: "transparent", border: "none", cursor: "pointer", color: "#64748b" }}
+                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            title="Share via WhatsApp"
                           >
-                            <Share2 size={15} />
+                            <Share2 size={14} />
                           </button>
 
-                          {/* 3-Dots Context Menu */}
-                          <div style={{ position: "relative" }}>
+                          {/* 3-Dots More Menu */}
+                          <div className="relative">
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(activeMenuId === p.id ? null : p.id);
-                              }}
-                              style={{
-                                background: "transparent",
-                                border: "none",
-                                cursor: "pointer",
-                                color: "#64748b",
-                                padding: 3,
-                                display: "flex",
-                                alignItems: "center"
-                              }}
+                              onClick={() => setActiveMenuId(isMenuOpen ? null : p.id)}
+                              className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                              title="More actions"
                             >
-                              <MoreVertical size={16} />
+                              <MoreVertical size={15} />
                             </button>
 
-                            {activeMenuId === p.id && (
+                            {isMenuOpen && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                style={{
-                                  position: "absolute",
-                                  right: 0,
-                                  top: 26,
-                                  background: "#ffffff",
-                                  borderRadius: 10,
-                                  boxShadow: "0 12px 30px rgba(0,0,0,0.18), 0 4px 10px rgba(0,0,0,0.08)",
-                                  border: "1.5px solid #cbd5e1",
-                                  padding: 6,
-                                  width: 175,
-                                  zIndex: 9999,
-                                  textAlign: "left"
-                                }}
+                                className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                               >
-                                <div
-                                  onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                                  style={{
-                                    padding: "7px 10px",
-                                    fontSize: 12.5,
-                                    fontWeight: 600,
-                                    color: "#334155",
-                                    cursor: "pointer",
-                                    borderRadius: 6,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    navigate(`/purchases/edit/${p.id}`);
                                   }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                  className="w-full px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                                 >
-                                  <Eye size={13} color="#2563eb" /> View / Edit
-                                </div>
+                                  <Eye size={14} className="text-blue-600" />
+                                  <span>View / Edit</span>
+                                </button>
 
                                 {p.status === "submitted" && Number(p.balance_amount) > 0 && (
-                                  <div
+                                  <button
                                     onClick={() => {
                                       setActiveMenuId(null);
                                       openPayModal(p);
                                     }}
-                                    style={{
-                                      padding: "7px 10px",
-                                      fontSize: 12.5,
-                                      fontWeight: 600,
-                                      color: "#334155",
-                                      cursor: "pointer",
-                                      borderRadius: 6,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 8
-                                    }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                    className="w-full px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                                   >
-                                    <CreditCard size={13} color="#16a34a" /> Record Payment
-                                  </div>
+                                    <CreditCard size={14} className="text-emerald-600" />
+                                    <span>Record Payment</span>
+                                  </button>
                                 )}
 
-                                <div
+                                <button
                                   onClick={() => {
                                     setActiveMenuId(null);
                                     openSupplierHistoryModal(p.supplier_id, p.supplier_name);
                                   }}
-                                  style={{
-                                    padding: "7px 10px",
-                                    fontSize: 12.5,
-                                    fontWeight: 600,
-                                    color: "#334155",
-                                    cursor: "pointer",
-                                    borderRadius: 6,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                  className="w-full px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                                 >
-                                  <History size={13} color="#6366f1" /> Payment History
-                                </div>
+                                  <History size={14} className="text-indigo-600" />
+                                  <span>Payment History</span>
+                                </button>
 
                                 {p.status === "draft" && (
-                                  <div
+                                  <button
                                     onClick={() => {
                                       setActiveMenuId(null);
                                       handleDelete(p.id);
                                     }}
-                                    style={{
-                                      padding: "7px 10px",
-                                      fontSize: 12.5,
-                                      fontWeight: 600,
-                                      color: "#ef4444",
-                                      cursor: "pointer",
-                                      borderRadius: 6,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 8
-                                    }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.background = "#fef2f2")}
-                                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                    className="w-full px-3.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-slate-100 mt-1 pt-1.5"
                                   >
-                                    <Trash2 size={13} color="#ef4444" /> Delete Draft
-                                  </div>
+                                    <Trash2 size={14} />
+                                    <span>Delete Draft</span>
+                                  </button>
                                 )}
                               </div>
                             )}
@@ -1234,56 +937,58 @@ export default function PurchaseList() {
         </div>
       </div>
 
-      {/* ── MODAL: RECORD SINGLE INVOICE PAYMENT ── */}
+      {/* ── MODAL 1: RECORD SINGLE INVOICE PAYMENT ── */}
       {showPayModal && paymentPurchase && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: 16
-          }}
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
           onClick={() => setShowPayModal(false)}
         >
           <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 16,
-              width: "100%",
-              maxWidth: 440,
-              padding: 24,
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
-            }}
+            className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>Record Supplier Payment</h3>
-              <button onClick={() => setShowPayModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}>
-                <X size={18} />
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+                  <CreditCard size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Record Vendor Payment</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Settle pending purchase invoice</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPayModal(false)}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
               </button>
             </div>
 
-            <div style={{ background: "#f8fafc", padding: "12px 16px", borderRadius: 10, marginBottom: 16, border: "1px solid #e2e8f0" }}>
-              <div style={{ fontSize: 13, color: "#64748b" }}>
-                Party: <b style={{ color: "#0f172a" }}>{paymentPurchase.supplier_name}</b>
-              </div>
-              <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                Bill No: <b style={{ color: "#0f172a" }}>{paymentPurchase.purchase_no || `#${paymentPurchase.id}`}</b>
-              </div>
-              <div style={{ fontSize: 13, color: "#dc2626", fontWeight: 700, marginTop: 4 }}>
-                Pending Balance: ₹{fmt(paymentPurchase.balance_amount)}
+            {/* Bill Info Banner */}
+            <div className="p-6 pb-0">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Supplier:</span>
+                  <span className="font-bold text-slate-900">{paymentPurchase.supplier_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Invoice Number:</span>
+                  <span className="font-mono font-bold text-slate-900">{paymentPurchase.purchase_no || `#${paymentPurchase.id}`}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-slate-200">
+                  <span className="text-rose-600 font-bold">Pending Balance:</span>
+                  <span className="text-rose-600 font-black text-sm">₹ {fmt(paymentPurchase.balance_amount)}</span>
+                </div>
               </div>
             </div>
 
-            <form onSubmit={submitPayment} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Form */}
+            <form onSubmit={submitPayment} className="p-6 space-y-4 text-xs">
               <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>
-                  Paying Amount (₹) *
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Payment Amount (₹) *
                 </label>
                 <input
                   type="number"
@@ -1291,67 +996,68 @@ export default function PurchaseList() {
                   max={Number(paymentPurchase.balance_amount)}
                   value={payAmount}
                   onChange={(e) => setPayAmount(e.target.value)}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 14, fontWeight: 700, outline: "none", boxSizing: "border-box" }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-black text-slate-900 text-base outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 transition"
                   required
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
                   Payment Method *
                 </label>
                 <select
                   value={payMethod}
                   onChange={(e) => setPayMethod(e.target.value)}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 600, outline: "none" }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-800 text-xs outline-none focus:border-emerald-600 transition bg-white"
                 >
                   <option value="cash">Cash</option>
                   <option value="online">Online / Netbanking</option>
-                  <option value="upi">UPI (GPay / PhonePe)</option>
+                  <option value="upi">UPI (GPay / PhonePe / Paytm)</option>
                   <option value="cheque">Cheque</option>
                 </select>
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
                   Payment Date *
                 </label>
                 <input
                   type="date"
                   value={payDate}
                   onChange={(e) => setPayDate(e.target.value)}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-slate-800 font-semibold text-xs outline-none focus:border-emerald-600 transition"
                   required
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 4 }}>
-                  Notes / Reference No.
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Notes / Reference Remarks
                 </label>
                 <input
                   type="text"
-                  placeholder="Optional reference / remarks"
+                  placeholder="Optional reference / transaction notes"
                   value={payNotes}
                   onChange={(e) => setPayNotes(e.target.value)}
-                  style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-slate-800 text-xs outline-none focus:border-emerald-600 transition"
                 />
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowPayModal(false)}
-                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#f8fafc", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingPayment}
-                  style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#16a34a", color: "#ffffff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/25 transition cursor-pointer disabled:opacity-50"
                 >
-                  {submittingPayment ? "Saving..." : "Save Payment"}
+                  {submittingPayment ? "Recording..." : "Save Payment"}
                 </button>
               </div>
             </form>
@@ -1359,81 +1065,82 @@ export default function PurchaseList() {
         </div>
       )}
 
-      {/* ── MODAL: SUPPLIER PAYMENT HISTORY / LEDGER ── */}
+      {/* ── MODAL 2: SUPPLIER PAYMENT HISTORY / LEDGER ── */}
       {showHistoryModal && selectedHistorySupplier && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: 16
-          }}
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
           onClick={() => setShowHistoryModal(false)}
         >
           <div
-            style={{
-              background: "#ffffff",
-              borderRadius: 16,
-              width: "100%",
-              maxWidth: 620,
-              maxHeight: "85vh",
-              display: "flex",
-              flexDirection: "column",
-              padding: 24,
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
-            }}
+            className="bg-white rounded-2xl w-full max-w-xl shadow-2xl border border-slate-200 max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div>
-                <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>Payment Ledger History</h3>
-                <p style={{ fontSize: 12.5, color: "#64748b", margin: "2px 0 0" }}>Supplier: <b>{selectedHistorySupplier.name}</b></p>
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700">
+                  <History size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Supplier Payment Ledger</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Party: <b className="text-slate-800">{selectedHistorySupplier.name}</b></p>
+                </div>
               </div>
-              <button onClick={() => setShowHistoryModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}>
-                <X size={18} />
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto" }}>
+            {/* Content List */}
+            <div className="p-6 flex-1 overflow-y-auto">
               {loadingHistory ? (
-                <div style={{ padding: 40, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Loading payment records...</div>
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  <RefreshCw size={20} className="animate-spin text-indigo-600 mx-auto mb-2" />
+                  <span>Loading payment records...</span>
+                </div>
               ) : paymentHistory.length === 0 ? (
-                <div style={{ padding: 40, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No payment transactions recorded for this supplier.</div>
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  <p className="font-bold text-slate-700 text-sm">No Payment Transactions Recorded</p>
+                  <p className="text-slate-400 mt-1">No payments found for this supplier yet.</p>
+                </div>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-                  <thead>
-                    <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#64748b", fontWeight: 700 }}>
-                      <th style={{ padding: "8px 12px", textAlign: "left" }}>Date</th>
-                      <th style={{ padding: "8px 12px", textAlign: "left" }}>Invoice #</th>
-                      <th style={{ padding: "8px 12px", textAlign: "left" }}>Method</th>
-                      <th style={{ padding: "8px 12px", textAlign: "right" }}>Amount</th>
-                      <th style={{ padding: "8px 12px", textAlign: "left" }}>Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paymentHistory.map((h) => (
-                      <tr key={h.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                        <td style={{ padding: "10px 12px", color: "#334155" }}>{formatDateDMY(h.payment_date)}</td>
-                        <td style={{ padding: "10px 12px", fontWeight: 700, color: "#0f172a" }}>{h.purchase_no || `#${h.purchase_id}`}</td>
-                        <td style={{ padding: "10px 12px", textTransform: "uppercase", fontSize: 11, fontWeight: 700, color: "#475569" }}>{h.payment_method}</td>
-                        <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "#16a34a" }}>₹{fmt(h.amount)}</td>
-                        <td style={{ padding: "10px 12px", color: "#64748b", fontSize: 11.5 }}>{h.notes || "-"}</td>
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 text-[11px] uppercase">
+                        <th className="py-2.5 px-3">Date</th>
+                        <th className="py-2.5 px-3">Invoice #</th>
+                        <th className="py-2.5 px-3">Method</th>
+                        <th className="py-2.5 px-3 text-right">Amount</th>
+                        <th className="py-2.5 px-3">Notes</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                      {paymentHistory.map((h, i) => (
+                        <tr key={h.id || i} className="hover:bg-slate-50/80">
+                          <td className="py-2.5 px-3 font-semibold">{formatDateDMY(h.payment_date)}</td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{h.purchase_no || `#${h.purchase_id}`}</td>
+                          <td className="py-2.5 px-3 uppercase text-[10px] font-bold text-slate-600">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200">{h.payment_method}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-emerald-700">₹ {fmt(h.amount)}</td>
+                          <td className="py-2.5 px-3 text-slate-500 text-[11px]">{h.notes || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end">
               <button
                 onClick={() => setShowHistoryModal(false)}
-                style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#f8fafc", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                className="px-4 py-1.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
               >
                 Close
               </button>

@@ -2,18 +2,13 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import api from "../../../services/api";
 import {
   X,
-  Calculator,
-  Settings,
-  Calendar,
   ChevronDown,
-  Camera,
-  AlignLeft,
-  Share2,
-  Check,
-  Search,
   Truck,
-  RefreshCw,
-  Plus
+  AlertCircle,
+  CreditCard,
+  Building2,
+  Calendar,
+  DollarSign
 } from "lucide-react";
 
 export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initialSupplier = null, editPayment = null }) {
@@ -31,12 +26,10 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
   const [receiptNo, setReceiptNo] = useState(1);
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [paidAmount, setPaidAmount] = useState("");
-  const [showDescription, setShowDescription] = useState(false);
   const [description, setDescription] = useState("");
   const [attachment, setAttachment] = useState("");
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [showCalculator, setShowCalculator] = useState(false);
 
   const partyRef = useRef(null);
 
@@ -62,7 +55,6 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
       setPaymentDate(editPayment.payment_date || new Date().toISOString().split("T")[0]);
       setReceiptNo(editPayment.receipt_no ? editPayment.receipt_no.replace("REC-", "") : String(editPayment.id));
       setDescription(editPayment.notes || "");
-      if (editPayment.notes) setShowDescription(true);
     } else {
       setSelectedSupplier(initialSupplier || null);
       setPartyQuery(initialSupplier ? (initialSupplier.supplier_name || initialSupplier.name || "") : "");
@@ -70,7 +62,6 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
       setPaymentType("Cash");
       setPaymentDate(new Date().toISOString().split("T")[0]);
       setDescription("");
-      setShowDescription(false);
 
       // Load next sequential receipt number for new payments
       const loadReceiptNo = async () => {
@@ -131,7 +122,6 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
     setShowPartyDropdown(false);
     setErrorMsg("");
 
-    // If supplier has a balance / pending amount, suggest it in paidAmount if empty
     const pending = parseFloat(sup.pending_balance ?? sup.balance ?? 0);
     if (pending > 0 && (!paidAmount || paidAmount === "0" || paidAmount === "")) {
       setPaidAmount(String(pending));
@@ -151,33 +141,22 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
 
   // Save Payment-Out
   const handleSavePaymentOut = async () => {
+    setErrorMsg("");
+
     if (!selectedSupplier && !partyQuery.trim()) {
-      setErrorMsg("Please select or enter a Supplier / Party.");
+      setErrorMsg("Please select or enter a supplier / party name.");
       return;
     }
+
     const amountNum = parseFloat(paidAmount);
-    if (!amountNum || amountNum <= 0) {
-      setErrorMsg("Please enter a valid paid amount.");
+    if (isNaN(amountNum) || amountNum <= 0) {
+      setErrorMsg("Please enter a valid paid amount greater than 0.");
       return;
     }
 
     setSaving(true);
-    setErrorMsg("");
-
     try {
-      let supplierId = selectedSupplier?.id;
-      if (!supplierId && partyQuery.trim()) {
-        const supRes = await api.post("/supplier/create", {
-          company_id: companyId,
-          supplier_name: partyQuery.trim(),
-          mobile_number: "0000000000"
-        });
-        if (supRes.data.status) {
-          supplierId = supRes.data.data?.id || supRes.data.supplier_id;
-        }
-      }
-
-      if (editPayment && editPayment.id) {
+      if (editPayment) {
         const payload = {
           id: editPayment.id,
           amount: amountNum,
@@ -185,7 +164,9 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
           payment_date: paymentDate,
           receipt_no: String(receiptNo),
           notes: description || `Payment-Out voucher of ₹${amountNum}`,
+          attachment: attachment
         };
+
         const res = await api.post("/purchase/update_payment_out", payload);
         if (res.data.status) {
           if (onSuccess) onSuccess();
@@ -196,7 +177,8 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
       } else {
         const payload = {
           company_id: parseInt(companyId) || 0,
-          supplier_id: supplierId,
+          supplier_id: selectedSupplier?.id || 0,
+          supplier_name: selectedSupplier ? (selectedSupplier.supplier_name || selectedSupplier.name) : partyQuery.trim(),
           amount: amountNum,
           payment_method: paymentType.toLowerCase(),
           payment_date: paymentDate,
@@ -225,398 +207,209 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        background: "rgba(15, 23, 42, 0.55)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-        fontFamily: "Inter, sans-serif"
-      }}
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
       onClick={onClose}
     >
       <div
-        style={{
-          background: "#ffffff",
-          borderRadius: 8,
-          width: "100%",
-          maxWidth: 780,
-          boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
-          overflow: "hidden",
-          border: "1px solid #e2e8f0",
-          position: "relative"
-        }}
+        className="bg-white rounded-2xl w-full max-w-xl shadow-2xl border border-slate-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── TOP HEADER (Matching Image 2) ── */}
-        <div
-          style={{
-            padding: "16px 24px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderBottom: "1px solid #f1f5f9"
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1e293b" }}>
-            Payment-Out
-          </h2>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            {/* Calculator Icon */}
-            <button
-              onClick={() => setShowCalculator(!showCalculator)}
-              title="Calculator"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", display: "flex", padding: 2 }}
-            >
-              <Calculator size={19} />
-            </button>
-
-            {/* Settings Icon with Red Dot */}
-            <div style={{ position: "relative", cursor: "pointer", color: "#64748b", display: "flex" }}>
-              <Settings size={19} />
-              <span
-                style={{
-                  position: "absolute",
-                  top: -2,
-                  right: -2,
-                  width: 6,
-                  height: 6,
-                  background: "#ef4444",
-                  borderRadius: "50%"
-                }}
-              />
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 shadow-xs">
+              <Truck size={18} />
             </div>
-
-            {/* Close Cross Icon */}
-            <button
-              onClick={onClose}
-              title="Close"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", display: "flex", padding: 2 }}
-            >
-              <X size={20} />
-            </button>
+            <div>
+              <h2 className="text-sm font-black text-slate-900 tracking-tight">
+                {editPayment ? "Edit Payment-Out Voucher" : "Record Payment-Out Voucher"}
+              </h2>
+              <p className="text-[11px] text-slate-500 font-medium">Direct vendor payout disbursement entry</p>
+            </div>
           </div>
+
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+          >
+            <X size={16} />
+          </button>
         </div>
 
-        {/* ── MODAL BODY FORM (Matching Image 2 Layout) ── */}
-        <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
-          
+        {/* Form Body */}
+        <div className="p-6 space-y-4">
           {errorMsg && (
-            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: "10px 14px", borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
-              {errorMsg}
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* Top Row: Party Dropdown (Left) & Receipt No / Date (Right) */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 32, alignItems: "start" }}>
-            
-            {/* Left Column: Party & Payment Type */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              
-              {/* Party * Dropdown Box with Blue Border */}
-              <div ref={partyRef} style={{ position: "relative" }}>
-                <div
-                  style={{
-                    position: "relative",
-                    border: "2px solid #2563eb",
-                    borderRadius: 6,
-                    padding: "6px 12px 6px 12px",
-                    background: "#ffffff"
-                  }}
-                >
-                  <label
-                    style={{
-                      position: "absolute",
-                      top: -9,
-                      left: 10,
-                      background: "#ffffff",
-                      padding: "0 4px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#2563eb"
-                    }}
-                  >
-                    Party *
-                  </label>
-                  
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <input
-                      type="text"
-                      placeholder="Search or enter party name..."
-                      value={partyQuery}
-                      onChange={(e) => handleSearchSuppliers(e.target.value)}
-                      onFocus={() => setShowPartyDropdown(true)}
-                      style={{
-                        width: "100%",
-                        border: "none",
-                        outline: "none",
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: "#1e293b",
-                        background: "transparent"
-                      }}
-                    />
-                    <ChevronDown size={18} color="#2563eb" style={{ cursor: "pointer", marginLeft: 6 }} onClick={() => setShowPartyDropdown(!showPartyDropdown)} />
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+            {/* Left Column: Party & Method */}
+            <div className="space-y-3.5">
+              {/* Party Selector */}
+              <div ref={partyRef} className="relative">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Supplier / Vendor *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search supplier..."
+                    value={partyQuery}
+                    onChange={(e) => handleSearchSuppliers(e.target.value)}
+                    onFocus={() => setShowPartyDropdown(true)}
+                    className="w-full px-3.5 py-2.5 pr-8 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition"
+                  />
+                  <ChevronDown
+                    size={14}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"
+                    onClick={() => setShowPartyDropdown(!showPartyDropdown)}
+                  />
                 </div>
 
                 {/* Selected Supplier Live Unpaid Balance */}
                 {selectedSupplier && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4, padding: "0 4px" }}>
-                    <span style={{ fontSize: 11.5, color: "#64748b", fontWeight: 500 }}>Unpaid Balance:</span>
-                    <span style={{ fontSize: 12, color: Number(selectedSupplier.pending_balance || 0) > 0 ? "#dc2626" : "#059669", fontWeight: 800 }}>
-                      ₹{Number(selectedSupplier.pending_balance || 0).toFixed(2)}
+                  <div className="flex justify-between items-center mt-1.5 px-1 text-[11px] bg-slate-50 py-1 rounded-lg border border-slate-200">
+                    <span className="text-slate-500 font-medium">Pending Due:</span>
+                    <span className={`font-black ${Number(selectedSupplier.pending_balance || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                      ₹ {Number(selectedSupplier.pending_balance || 0).toFixed(2)}
                     </span>
                   </div>
                 )}
 
                 {/* Supplier Suggestions Dropdown */}
                 {showPartyDropdown && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: 0,
-                      right: 0,
-                      background: "#ffffff",
-                      borderRadius: 8,
-                      border: "1px solid #e2e8f0",
-                      boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
-                      zIndex: 100,
-                      marginTop: 4,
-                      maxHeight: 200,
-                      overflowY: "auto"
-                    }}
-                  >
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-48 overflow-y-auto z-50 py-1">
                     {searchingParty ? (
-                      <div style={{ padding: 12, fontSize: 13, color: "#94a3b8", textAlign: "center" }}>Loading parties...</div>
+                      <div className="p-3 text-xs text-slate-400 text-center font-medium">Loading suppliers...</div>
                     ) : supplierSuggestions.length === 0 ? (
-                      <div style={{ padding: 12, fontSize: 13, color: "#64748b" }}>
-                        <span>No existing party found. Press save to create new party <b>"{partyQuery}"</b></span>
+                      <div className="p-3 text-xs text-slate-600">
+                        No match. Will save as <b>"{partyQuery}"</b>
                       </div>
                     ) : (
                       supplierSuggestions.map((sup) => (
-                        <div
+                        <button
                           key={sup.id}
                           onClick={() => selectSupplier(sup)}
-                          style={{
-                            padding: "9px 14px",
-                            fontSize: 13,
-                            color: "#1e293b",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            borderBottom: "1px solid #f8fafc"
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#eff6ff")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+                          className="w-full text-left px-3.5 py-2 text-xs hover:bg-purple-50 flex items-center justify-between border-b border-slate-50 cursor-pointer"
                         >
                           <div>
-                            <div style={{ fontWeight: 700 }}>{sup.supplier_name || sup.name}</div>
-                            {sup.mobile_number && <div style={{ fontSize: 11, color: "#64748b" }}>{sup.mobile_number}</div>}
+                            <div className="font-bold text-slate-900">{sup.supplier_name || sup.name}</div>
+                            {sup.mobile_number && <div className="text-[10px] text-slate-400">{sup.mobile_number}</div>}
                           </div>
-                          {sup.pending_balance > 0 && (
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "#dc2626" }}>
+                          {Number(sup.pending_balance) > 0 && (
+                            <span className="font-bold text-rose-600 text-[11px]">
                               Due: ₹{Number(sup.pending_balance).toFixed(2)}
-                            </div>
+                            </span>
                           )}
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Payment Type Dropdown Box */}
-              <div style={{ position: "relative" }}>
-                <div
-                  style={{
-                    position: "relative",
-                    border: "1px solid #cbd5e1",
-                    borderRadius: 6,
-                    padding: "4px 12px",
-                    background: "#ffffff"
-                  }}
-                >
-                  <label
-                    style={{
-                      position: "absolute",
-                      top: -9,
-                      left: 10,
-                      background: "#ffffff",
-                      padding: "0 4px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: "#64748b"
-                    }}
-                  >
-                    Payment Type
-                  </label>
-                  <select
-                    value={paymentType}
-                    onChange={(e) => setPaymentType(e.target.value)}
-                    style={{
-                      width: "100%",
-                      border: "none",
-                      outline: "none",
-                      fontSize: 13.5,
-                      fontWeight: 600,
-                      color: "#1e293b",
-                      background: "transparent",
-                      padding: "4px 0",
-                      cursor: "pointer"
-                    }}
-                  >
-                    <option value="Cash">Cash</option>
-                    <option value="Online">Online / Netbanking</option>
-                    <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
-                    <option value="Cheque">Cheque</option>
-                  </select>
+              {/* Payment Type */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Payment Mode *
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {["Cash", "UPI", "Online", "Cheque"].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setPaymentType(type)}
+                      className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
+                        paymentType === type
+                          ? "bg-purple-600 text-white border-purple-600 shadow-xs shadow-purple-600/30"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
                 </div>
               </div>
-
             </div>
 
-            {/* Right Column: Receipt No, Date, and Paid Amount Box */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 18, alignItems: "flex-end" }}>
-              
-              {/* Receipt No */}
-              <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-                <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>Receipt No</span>
-                <input
-                  type="text"
-                  value={receiptNo}
-                  onChange={(e) => setReceiptNo(e.target.value)}
-                  style={{
-                    width: 150,
-                    border: "none",
-                    borderBottom: "1px solid #cbd5e1",
-                    padding: "4px 8px",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#1e293b",
-                    outline: "none",
-                    textAlign: "right"
-                  }}
-                />
-              </div>
+            {/* Right Column: Receipt No, Date, Amount */}
+            <div className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Receipt No */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Receipt #</label>
+                  <input
+                    type="text"
+                    value={receiptNo}
+                    onChange={(e) => setReceiptNo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 text-xs outline-none focus:border-purple-600 transition"
+                  />
+                </div>
 
-              {/* Date */}
-              <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-                <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>Date</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {/* Date */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Payment Date</label>
                   <input
                     type="date"
                     value={paymentDate}
                     onChange={(e) => setPaymentDate(e.target.value)}
-                    style={{
-                      border: "none",
-                      fontSize: 13.5,
-                      fontWeight: 600,
-                      color: "#1e293b",
-                      outline: "none",
-                      cursor: "pointer"
-                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold text-slate-800 text-xs outline-none focus:border-purple-600 transition"
                   />
-                  <Calendar size={15} color="#64748b" />
                 </div>
               </div>
 
-              {/* Paid Amount Input Box (Matching Image 2) */}
-              <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 18 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>Paid</span>
+              {/* Paid Amount */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Disbursed Amount (₹) *
+                </label>
                 <input
                   type="number"
-                  placeholder=""
+                  placeholder="0.00"
                   min="0"
                   step="any"
                   value={paidAmount}
                   onChange={(e) => setPaidAmount(e.target.value)}
-                  style={{
-                    width: 170,
-                    height: 38,
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    border: "1px solid #cbd5e1",
-                    fontSize: 16,
-                    fontWeight: 800,
-                    textAlign: "right",
-                    color: "#1e293b",
-                    outline: "none",
-                    background: "#ffffff",
-                    boxSizing: "border-box"
-                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-black text-slate-900 text-base outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition"
                 />
               </div>
-
             </div>
-
           </div>
 
+          {/* Description & Remarks */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Notes / Transaction Reference</label>
+            <input
+              type="text"
+              placeholder="Optional remarks, cheque/UTR reference"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 outline-none focus:border-purple-600 transition"
+            />
+          </div>
         </div>
 
-        {/* ── BOTTOM ACTIONS FOOTER (Matching Image 2) ── */}
-        <div
-          style={{
-            padding: "14px 28px",
-            background: "#ffffff",
-            borderTop: "1px solid #f1f5f9",
-            display: "flex",
-            justifyContent: "flex-end",
-            alignItems: "center",
-            gap: 12
-          }}
-        >
-          {/* Share ▾ Button */}
-          <div style={{ display: "flex", alignItems: "center", border: "1px solid #60a5fa", borderRadius: 6, overflow: "hidden", background: "#ffffff" }}>
-            <button
-              type="button"
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "#2563eb",
-                padding: "8px 16px",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer"
-              }}
-            >
-              Share
-            </button>
-            <div style={{ borderLeft: "1px solid #bfdbfe", padding: "8px 8px", color: "#2563eb", cursor: "pointer", display: "flex" }}>
-              <ChevronDown size={14} />
-            </div>
-          </div>
-
-          {/* Save Button (Primary Blue) */}
+        {/* Footer */}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+          >
+            Cancel
+          </button>
           <button
             type="button"
             onClick={handleSavePaymentOut}
             disabled={saving}
-            style={{
-              background: "#1d72fe",
-              border: "none",
-              color: "#ffffff",
-              borderRadius: 6,
-              padding: "9px 30px",
-              fontSize: 14,
-              fontWeight: 800,
-              cursor: saving ? "not-allowed" : "pointer",
-              boxShadow: "0 2px 6px rgba(29, 114, 254, 0.3)"
-            }}
+            className="px-6 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-purple-600/30 transition cursor-pointer disabled:opacity-50"
           >
-            {saving ? "Saving..." : (
-              <span><u>S</u>ave</span>
-            )}
+            {saving ? "Recording..." : "Save Payment"}
           </button>
         </div>
-
       </div>
     </div>
   );
