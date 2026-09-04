@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import SettingsContext from "../pages/settings/SettingsContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -35,6 +36,7 @@ import {
   UserPlus,
   FolderPlus,
   Play,
+  ShoppingCart,
 } from "lucide-react";
 
 // 🎟️ Sale Ticket Icon with % symbol matching reference image
@@ -68,6 +70,7 @@ export default function MainLayout() {
   const location = useLocation();
   const [hoveredPath, setHoveredPath] = useState(null);
   const [saleOpen, setSaleOpen] = useState(false);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState("general");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const quickAddRef = useRef(null);
@@ -142,6 +145,16 @@ export default function MainLayout() {
     }
   }, [user, navigate]);
 
+  // Auto-expand Sale or Purchase dropdown if current route is inside it
+  useEffect(() => {
+    if (location.pathname.startsWith("/sales")) {
+      setSaleOpen(true);
+    }
+    if (location.pathname.startsWith("/purchases")) {
+      setPurchaseOpen(true);
+    }
+  }, [location.pathname]);
+
   // 🔥 LOGOUT
   const handleLogout = async () => {
     try {
@@ -172,7 +185,6 @@ export default function MainLayout() {
             subItems: [
               { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/reports", "/sales/add"] },
               { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
-              { name: "Sale Order", path: "/sales/order" },
               { name: "Sale Return/ Credit Note", path: "/sales/credit-note" },
             ]
           },
@@ -181,7 +193,18 @@ export default function MainLayout() {
           { name: "Brand", path: "/brand", icon: <Tags size={20} /> },
           { name: "Supplier", path: "/supplier", icon: <Truck size={20} /> },
           { name: "Products", path: "/products", icon: <PackageSearch size={20} /> },
-          { name: "Purchases", path: "/purchases", icon: <ClipboardList size={20} /> },
+          {
+            name: "Purchase & Expense",
+            icon: <ShoppingCart size={20} />,
+            isDropdown: true,
+            dropdownKey: "purchase",
+            subItems: [
+              { name: "Purchase Bills", path: "/purchases", altPaths: ["/purchases", "/purchases/bills", "/purchases/new"] },
+              { name: "Payment-Out", path: "/purchases/payment-out" },
+              { name: "Expenses", path: "/purchases/expenses", altPaths: ["/purchases/expenses", "/purchases/expenses/add"] },
+              { name: "Purchase Return/ Dr. Note", path: "/purchases/return", altPaths: ["/purchases/return", "/purchases/debit-note/add"] },
+            ]
+          },
           { name: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
           { name: "Cashiers", path: "/cashier", icon: <Users size={20} /> },
           { name: "Customer", path: "/customer", icon: <User size={20} /> },
@@ -318,21 +341,30 @@ export default function MainLayout() {
           <nav className="space-y-0.5 min-w-0">
             {menuItems.map((item) => {
               if (item.isDropdown) {
-                const isSaleActive = item.subItems.some(
+                const isDropdownItemActive = item.subItems.some(
                   (sub) =>
                     location.pathname === sub.path ||
                     (sub.altPaths && sub.altPaths.includes(location.pathname))
                 );
 
+                const isOpen = item.dropdownKey === "purchase" ? purchaseOpen : saleOpen;
+                const toggleDropdown = () => {
+                  if (item.dropdownKey === "purchase") {
+                    setPurchaseOpen((prev) => !prev);
+                  } else {
+                    setSaleOpen((prev) => !prev);
+                  }
+                };
+
                 if (isCollapsed) {
                   return (
                     <motion.div
                       key={item.name}
-                      onClick={() => navigate(item.subItems[0]?.path || "/sales/invoices")}
-                      whileHover={{ scale: 1.06 }}
-                      title="Sale"
-                      className={`flex items-center justify-center p-2.5 rounded-lg cursor-pointer transition mx-1 ${
-                        isSaleActive ? "bg-white text-slate-800 shadow" : "text-slate-400 hover:bg-white/10 hover:text-white"
+                      onClick={() => navigate(item.subItems[0]?.path || "/purchases")}
+                      whileHover={{ scale: 1.08 }}
+                      title={item.name}
+                      className={`flex items-center justify-center p-3 rounded-xl cursor-pointer transition ${
+                        isDropdownItemActive ? "bg-white text-blue-600 shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white"
                       }`}
                     >
                       <div className="flex-shrink-0">{item.icon}</div>
@@ -342,15 +374,15 @@ export default function MainLayout() {
 
                 return (
                   <div key={item.name} className="flex flex-col">
-                    {/* Parent Sale button */}
+                    {/* Parent button */}
                     <div
-                      onClick={() => setSaleOpen((prev) => !prev)}
-                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition select-none min-w-0 ${
-                        isSaleActive && !saleOpen
-                          ? "bg-white text-slate-800 font-medium"
-                          : isSaleActive && saleOpen
-                          ? "bg-white/15 text-white font-medium"
-                          : "text-slate-300 hover:bg-white/10 hover:text-white"
+                      onClick={toggleDropdown}
+                      className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition select-none ${
+                        isDropdownItemActive && !isOpen
+                          ? "bg-white text-blue-600 font-semibold shadow-sm"
+                          : isDropdownItemActive && isOpen
+                          ? "bg-white/15 text-white font-semibold"
+                          : "text-white/90 hover:bg-white/10 hover:text-white"
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -361,14 +393,14 @@ export default function MainLayout() {
                       <ChevronDown
                         size={16}
                         className={`transition-transform duration-200 ${
-                          saleOpen ? "rotate-180 text-slate-300" : "text-slate-500"
+                          isOpen ? "rotate-180 text-white" : "text-white/70"
                         }`}
                       />
                     </div>
 
                     {/* Submenu List */}
                     <AnimatePresence>
-                      {saleOpen && (
+                      {isOpen && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
@@ -647,7 +679,6 @@ export default function MainLayout() {
                           { name: "Sale Invoice", shortcut: "ALT + S", path: "/sales/add", sub: "" },
                           { name: "Payment-In", shortcut: "ALT + I", path: "/sales/payment-in", sub: "" },
                           { name: "Sale Return", shortcut: "ALT + R", path: "/sales/credit-note/add", sub: "Cr Note" },
-                          { name: "Sale Order", shortcut: "ALT + F", path: "/sales/order", sub: "" },
                         ].map((item, idx) => (
                           <div
                             key={idx}
@@ -865,8 +896,10 @@ export default function MainLayout() {
         )}
 
         {/* MAIN CONTENT */}
-        <main className="flex-1 p-4 overflow-auto">
-          <Outlet context={{ settingsTab, setSettingsTab }} />
+        <main className="flex-1 p-4 overflow-auto flex flex-col">
+          <SettingsContext.Provider value={{ settingsTab, setSettingsTab }}>
+            <Outlet context={{ settingsTab, setSettingsTab }} />
+          </SettingsContext.Provider>
         </main>
       </div>
 

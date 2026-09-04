@@ -12,10 +12,74 @@ use App\Models\Subcategory;
 use App\Models\Brand;
 use App\Models\Supplier;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 use App\Models\PurchasePayment;
 
 class PurchaseController extends Controller
 {
+    /**
+     * Ensure Vyapar-specific columns exist in purchases and purchase_items tables.
+     */
+    private function ensureSchemaUpdated()
+    {
+        if (Schema::hasTable('purchases')) {
+            Schema::table('purchases', function (Blueprint $table) {
+                if (!Schema::hasColumn('purchases', 'discount_total')) {
+                    $table->decimal('discount_total', 10, 2)->default(0)->after('gst_total');
+                }
+                if (!Schema::hasColumn('purchases', 'round_off')) {
+                    $table->decimal('round_off', 10, 2)->default(0)->after('discount_total');
+                }
+                if (!Schema::hasColumn('purchases', 'payment_type')) {
+                    $table->string('payment_type', 50)->default('Cash')->after('balance_amount');
+                }
+                if (!Schema::hasColumn('purchases', 'state_of_supply')) {
+                    $table->string('state_of_supply', 100)->nullable()->after('payment_type');
+                }
+                if (!Schema::hasColumn('purchases', 'terms_conditions')) {
+                    $table->text('terms_conditions')->nullable()->after('state_of_supply');
+                }
+                if (!Schema::hasColumn('purchases', 'description')) {
+                    $table->text('description')->nullable()->after('terms_conditions');
+                }
+                if (!Schema::hasColumn('purchases', 'bill_attachment')) {
+                    $table->string('bill_attachment', 255)->nullable()->after('description');
+                }
+            });
+        }
+
+        if (Schema::hasTable('purchase_items')) {
+            Schema::table('purchase_items', function (Blueprint $table) {
+                if (!Schema::hasColumn('purchase_items', 'tax_mode')) {
+                    $table->string('tax_mode', 20)->default('without_tax')->after('price');
+                }
+                if (!Schema::hasColumn('purchase_items', 'discount_percent')) {
+                    $table->decimal('discount_percent', 5, 2)->default(0)->after('tax_mode');
+                }
+                if (!Schema::hasColumn('purchase_items', 'discount_amount')) {
+                    $table->decimal('discount_amount', 10, 2)->default(0)->after('discount_percent');
+                }
+                if (!Schema::hasColumn('purchase_items', 'tax_amount')) {
+                    $table->decimal('tax_amount', 10, 2)->default(0)->after('gst_percentage');
+                }
+                if (!Schema::hasColumn('purchase_items', 'total_amount')) {
+                    $table->decimal('total_amount', 10, 2)->default(0)->after('tax_amount');
+                }
+            });
+        }
+
+        if (Schema::hasTable('purchase_payments')) {
+            Schema::table('purchase_payments', function (Blueprint $table) {
+                if (!Schema::hasColumn('purchase_payments', 'supplier_id')) {
+                    $table->integer('supplier_id')->nullable()->after('company_id');
+                }
+                if (!Schema::hasColumn('purchase_payments', 'receipt_no')) {
+                    $table->string('receipt_no', 100)->nullable()->after('id');
+                }
+            });
+        }
+    }
     /**
      * Parse and validate imported Excel/JSON items.
      * Looks up existing Category/Subcategory/Brand/Product mappings.
@@ -171,6 +235,8 @@ class PurchaseController extends Controller
      */
     public function saveDraft(Request $request)
     {
+        $this->ensureSchemaUpdated();
+
         $id = intval($request->input('id', 0));
         $companyId = intval($request->input('company_id', 0));
         $supplierId = intval($request->input('supplier_id', 0));
@@ -187,23 +253,48 @@ class PurchaseController extends Controller
 
         DB::beginTransaction();
         try {
-            // Calculated totals
             $subTotal = 0;
             $gstTotal = 0;
-            $totalAmount = 0;
+            $discountTotal = 0;
+            $computedTotal = 0;
 
             foreach ($items as $item) {
-                $qty = intval($item['quantity'] ?? 0);
+                $qty = floatval($item['quantity'] ?? 0);
                 $price = floatval($item['price'] ?? 0);
+                $taxMode = $item['tax_mode'] ?? 'without_tax';
+                $discountPct = floatval($item['discount_percent'] ?? 0);
+                $discountAmt = floatval($item['discount_amount'] ?? 0);
                 $gstPct = floatval($item['gst_percentage'] ?? 0);
 
-                $itemSub = $qty * $price;
-                $itemGst = $itemSub * ($gstPct / 100);
+                // Base calculation
+                $rawSub = $qty * $price;
+                if ($discountPct > 0) {
+                    $discountAmt = $rawSub * ($discountPct / 100);
+                }
+                $lineTaxable = max(0, $rawSub - $discountAmt);
 
-                $subTotal += $itemSub;
-                $gstTotal += $itemGst;
-                $totalAmount += ($itemSub + $itemGst);
+                if ($taxMode === 'with_tax') {
+                    // Reverse tax calculation: price is inclusive of GST
+                    $inclusiveTotal = max(0, ($qty * $price) - $discountAmt);
+                    $lineTax = $inclusiveTotal - ($inclusiveTotal / (1 + ($gstPct / 100)));
+                    $lineSub = $inclusiveTotal - $lineTax;
+                    $lineTotal = $inclusiveTotal;
+                } else {
+                    $lineTax = $lineTaxable * ($gstPct / 100);
+                    $lineSub = $lineTaxable;
+                    $lineTotal = $lineTaxable + $lineTax;
+                }
+
+                $subTotal += $lineSub;
+                $gstTotal += $lineTax;
+                $discountTotal += $discountAmt;
+                $computedTotal += $lineTotal;
             }
+
+            $roundOff = floatval($request->input('round_off', 0));
+            $finalTotal = floatval($request->input('total_amount', $computedTotal + $roundOff));
+            $paidAmount = floatval($request->input('paid_amount', 0));
+            $balanceAmount = max(0.00, $finalTotal - $paidAmount);
 
             $purchaseData = [
                 'purchase_no' => $purchaseNo ?: null,
@@ -212,9 +303,16 @@ class PurchaseController extends Controller
                 'purchase_date' => $purchaseDate,
                 'sub_total' => $subTotal,
                 'gst_total' => $gstTotal,
-                'total_amount' => $totalAmount,
-                'paid_amount' => floatval($request->input('paid_amount', 0)),
-                'balance_amount' => $totalAmount - floatval($request->input('paid_amount', 0)),
+                'discount_total' => $discountTotal,
+                'round_off' => $roundOff,
+                'total_amount' => $finalTotal,
+                'paid_amount' => $paidAmount,
+                'balance_amount' => $balanceAmount,
+                'payment_type' => $request->input('payment_type', 'Cash'),
+                'state_of_supply' => $request->input('state_of_supply', null),
+                'terms_conditions' => $request->input('terms_conditions', null),
+                'description' => $request->input('description', null),
+                'bill_attachment' => $request->input('bill_attachment', null),
                 'status' => 'draft'
             ];
 
@@ -224,13 +322,34 @@ class PurchaseController extends Controller
                     return response()->json(['status' => false, 'message' => 'Purchase not found']);
                 }
                 $purchase->update($purchaseData);
-                // Clear old items
                 PurchaseItem::where('purchase_id', $purchase->id)->delete();
             } else {
                 $purchase = Purchase::create($purchaseData);
             }
 
             foreach ($items as $item) {
+                $qty = floatval($item['quantity'] ?? 0);
+                $price = floatval($item['price'] ?? 0);
+                $taxMode = $item['tax_mode'] ?? 'without_tax';
+                $discountPct = floatval($item['discount_percent'] ?? 0);
+                $discountAmt = floatval($item['discount_amount'] ?? 0);
+                $gstPct = floatval($item['gst_percentage'] ?? 0);
+
+                $rawSub = $qty * $price;
+                if ($discountPct > 0) {
+                    $discountAmt = $rawSub * ($discountPct / 100);
+                }
+                $lineTaxable = max(0, $rawSub - $discountAmt);
+
+                if ($taxMode === 'with_tax') {
+                    $inclusiveTotal = max(0, ($qty * $price) - $discountAmt);
+                    $lineTax = $inclusiveTotal - ($inclusiveTotal / (1 + ($gstPct / 100)));
+                    $lineTotal = $inclusiveTotal;
+                } else {
+                    $lineTax = $lineTaxable * ($gstPct / 100);
+                    $lineTotal = $lineTaxable + $lineTax;
+                }
+
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
                     'product_id' => $item['product_id'] ?? null,
@@ -243,12 +362,17 @@ class PurchaseController extends Controller
                     'category_id' => $item['category_id'] ?? null,
                     'subcategory_id' => $item['subcategory_id'] ?? null,
                     'brand_id' => $item['brand_id'] ?? null,
-                    'price' => floatval($item['price'] ?? 0),
+                    'price' => $price,
+                    'tax_mode' => $taxMode,
+                    'discount_percent' => $discountPct,
+                    'discount_amount' => $discountAmt,
                     'selling_price' => floatval($item['selling_price'] ?? 0),
                     'selling_price_per_unit' => trim($item['selling_price_per_unit'] ?? '') ?: null,
-                    'quantity' => intval($item['quantity'] ?? 0),
-                    'unit' => trim($item['unit'] ?? 'pcs'),
-                    'gst_percentage' => floatval($item['gst_percentage'] ?? 0),
+                    'quantity' => $qty,
+                    'unit' => trim($item['unit'] ?? 'Piece'),
+                    'gst_percentage' => $gstPct,
+                    'tax_amount' => $lineTax,
+                    'total_amount' => $lineTotal
                 ]);
             }
 
@@ -273,6 +397,8 @@ class PurchaseController extends Controller
      */
     public function submitPurchase(Request $request)
     {
+        $this->ensureSchemaUpdated();
+
         $id = intval($request->input('id', 0));
         $companyId = intval($request->input('company_id', 0));
         $supplierId = intval($request->input('supplier_id', 0));
@@ -291,21 +417,45 @@ class PurchaseController extends Controller
         try {
             $subTotal = 0;
             $gstTotal = 0;
-            $totalAmount = 0;
+            $discountTotal = 0;
+            $computedTotal = 0;
 
-            // 1. Calculate totals
             foreach ($items as $item) {
-                $qty = intval($item['quantity'] ?? 0);
+                $qty = floatval($item['quantity'] ?? 0);
                 $price = floatval($item['price'] ?? 0);
+                $taxMode = $item['tax_mode'] ?? 'without_tax';
+                $discountPct = floatval($item['discount_percent'] ?? 0);
+                $discountAmt = floatval($item['discount_amount'] ?? 0);
                 $gstPct = floatval($item['gst_percentage'] ?? 0);
 
-                $itemSub = $qty * $price;
-                $itemGst = $itemSub * ($gstPct / 100);
+                $rawSub = $qty * $price;
+                if ($discountPct > 0) {
+                    $discountAmt = $rawSub * ($discountPct / 100);
+                }
+                $lineTaxable = max(0, $rawSub - $discountAmt);
 
-                $subTotal += $itemSub;
-                $gstTotal += $itemGst;
-                $totalAmount += ($itemSub + $itemGst);
+                if ($taxMode === 'with_tax') {
+                    $inclusiveTotal = max(0, ($qty * $price) - $discountAmt);
+                    $lineTax = $inclusiveTotal - ($inclusiveTotal / (1 + ($gstPct / 100)));
+                    $lineSub = $inclusiveTotal - $lineTax;
+                    $lineTotal = $inclusiveTotal;
+                } else {
+                    $lineTax = $lineTaxable * ($gstPct / 100);
+                    $lineSub = $lineTaxable;
+                    $lineTotal = $lineTaxable + $lineTax;
+                }
+
+                $subTotal += $lineSub;
+                $gstTotal += $lineTax;
+                $discountTotal += $discountAmt;
+                $computedTotal += $lineTotal;
             }
+
+            $roundOff = floatval($request->input('round_off', 0));
+            $finalTotal = floatval($request->input('total_amount', $computedTotal + $roundOff));
+            $paidAmount = floatval($request->input('paid_amount', 0));
+            $balanceAmount = max(0.00, $finalTotal - $paidAmount);
+            $paymentType = $request->input('payment_type', 'Cash');
 
             $purchaseData = [
                 'purchase_no' => $purchaseNo ?: null,
@@ -314,9 +464,16 @@ class PurchaseController extends Controller
                 'purchase_date' => $purchaseDate,
                 'sub_total' => $subTotal,
                 'gst_total' => $gstTotal,
-                'total_amount' => $totalAmount,
-                'paid_amount' => floatval($request->input('paid_amount', 0)),
-                'balance_amount' => $totalAmount - floatval($request->input('paid_amount', 0)),
+                'discount_total' => $discountTotal,
+                'round_off' => $roundOff,
+                'total_amount' => $finalTotal,
+                'paid_amount' => $paidAmount,
+                'balance_amount' => $balanceAmount,
+                'payment_type' => $paymentType,
+                'state_of_supply' => $request->input('state_of_supply', null),
+                'terms_conditions' => $request->input('terms_conditions', null),
+                'description' => $request->input('description', null),
+                'bill_attachment' => $request->input('bill_attachment', null),
                 'status' => 'submitted'
             ];
 
@@ -325,7 +482,6 @@ class PurchaseController extends Controller
                 if (!$purchase) {
                     return response()->json(['status' => false, 'message' => 'Purchase not found']);
                 }
-                // If it was already submitted, don't allow duplicate inventory updates
                 if ($purchase->status === 'submitted') {
                     return response()->json(['status' => false, 'message' => 'Purchase already finalized']);
                 }
@@ -335,7 +491,7 @@ class PurchaseController extends Controller
                 $purchase = Purchase::create($purchaseData);
             }
 
-            // 2. Process and create items & products
+            // 2. Process items & update/create inventory stock
             foreach ($items as $item) {
                 $productName = trim($item['product_name'] ?? '');
                 $productCode = trim($item['product_code'] ?? '') ?: null;
@@ -344,10 +500,13 @@ class PurchaseController extends Controller
                 $subcategoryName = trim($item['subcategory_name'] ?? '');
                 $brandName = trim($item['brand_name'] ?? '');
                 $price = floatval($item['price'] ?? 0);
+                $taxMode = $item['tax_mode'] ?? 'without_tax';
+                $discountPct = floatval($item['discount_percent'] ?? 0);
+                $discountAmt = floatval($item['discount_amount'] ?? 0);
                 $sellingPrice = floatval($item['selling_price'] ?? 0);
                 $sellingPricePerUnit = trim($item['selling_price_per_unit'] ?? '');
-                $qty = intval($item['quantity'] ?? 0);
-                $unit = trim($item['unit'] ?? 'pcs');
+                $qty = floatval($item['quantity'] ?? 0);
+                $unit = trim($item['unit'] ?? 'Piece');
                 $gstPct = floatval($item['gst_percentage'] ?? 0);
 
                 $productId = $item['product_id'] ?? null;
@@ -355,7 +514,22 @@ class PurchaseController extends Controller
                 $subcategoryId = $item['subcategory_id'] ?? null;
                 $brandId = $item['brand_id'] ?? null;
 
-                // Create Categories / Subcategories / Brands dynamically if missing
+                $rawSub = $qty * $price;
+                if ($discountPct > 0) {
+                    $discountAmt = $rawSub * ($discountPct / 100);
+                }
+                $lineTaxable = max(0, $rawSub - $discountAmt);
+
+                if ($taxMode === 'with_tax') {
+                    $inclusiveTotal = max(0, ($qty * $price) - $discountAmt);
+                    $lineTax = $inclusiveTotal - ($inclusiveTotal / (1 + ($gstPct / 100)));
+                    $lineTotal = $inclusiveTotal;
+                } else {
+                    $lineTax = $lineTaxable * ($gstPct / 100);
+                    $lineTotal = $lineTaxable + $lineTax;
+                }
+
+                // Dynamic Category / Subcategory / Brand resolution
                 if (!$productId) {
                     if (!$categoryId && !empty($categoryName)) {
                         $cat = Category::firstOrCreate(
@@ -374,7 +548,6 @@ class PurchaseController extends Controller
                     }
 
                     if (!$brandId && !empty($brandName)) {
-                        // Brand requires category/subcategory IDs in our table schema
                         $brand = Brand::firstOrCreate(
                             ['company_id' => $companyId, 'name' => $brandName, 'is_deleted' => 0],
                             [
@@ -386,7 +559,6 @@ class PurchaseController extends Controller
                         $brandId = $brand->id;
                     }
 
-                    // Look up if a product with same name/code exists before creating
                     $existingProd = Product::where('company_id', $companyId)
                         ->where('is_deleted', 0)
                         ->where(function($q) use ($productName, $productCode, $barcode) {
@@ -398,7 +570,6 @@ class PurchaseController extends Controller
                     if ($existingProd) {
                         $productId = $existingProd->id;
                     } else {
-                        // Create Brand new product catalog item
                         $newProd = Product::create([
                             'product_name' => $productName,
                             'product_code' => $productCode ?: ('PRD' . rand(100000, 999999)),
@@ -406,8 +577,8 @@ class PurchaseController extends Controller
                             'category_id' => $categoryId,
                             'subcategory_id' => $subcategoryId,
                             'brand_id' => $brandId,
-                            'price' => $sellingPrice, // selling_price is product table's price field
-                            'stock' => 0, // Stock starts at 0, incremented below
+                            'price' => $sellingPrice > 0 ? $sellingPrice : $price,
+                            'stock' => 0,
                             'unit' => $unit,
                             'gst_percentage' => $gstPct,
                             'company_id' => $companyId,
@@ -419,19 +590,18 @@ class PurchaseController extends Controller
                     }
                 }
 
-                // Increments the catalog stock
+                // Increment catalog stock
                 if ($productId) {
                     $prod = Product::find($productId);
                     if ($prod) {
                         $prod->increment('stock', $qty);
-                        // Optional: update product price to latest selling price
-                        $prod->update([
-                            'price' => $sellingPrice
-                        ]);
+                        if ($sellingPrice > 0) {
+                            $prod->update(['price' => $sellingPrice]);
+                        }
                     }
                 }
 
-                // Save Purchase Item record
+                // Create PurchaseItem
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
                     'product_id' => $productId,
@@ -445,22 +615,26 @@ class PurchaseController extends Controller
                     'subcategory_id' => $subcategoryId,
                     'brand_id' => $brandId,
                     'price' => $price,
+                    'tax_mode' => $taxMode,
+                    'discount_percent' => $discountPct,
+                    'discount_amount' => $discountAmt,
                     'selling_price' => $sellingPrice,
                     'selling_price_per_unit' => $sellingPricePerUnit ?: null,
                     'quantity' => $qty,
                     'unit' => $unit,
                     'gst_percentage' => $gstPct,
+                    'tax_amount' => $lineTax,
+                    'total_amount' => $lineTotal
                 ]);
             }
 
             // Record initial payment if paid_amount > 0
-            $paidAmount = floatval($request->input('paid_amount', 0));
             if ($paidAmount > 0) {
                 PurchasePayment::create([
                     'purchase_id' => $purchase->id,
                     'company_id' => $companyId,
                     'amount' => $paidAmount,
-                    'payment_method' => 'cash',
+                    'payment_method' => strtolower($paymentType),
                     'payment_date' => $purchaseDate,
                     'notes' => 'Initial payment upon invoice submission'
                 ]);
@@ -776,6 +950,290 @@ class PurchaseController extends Controller
             return response()->json([
                 'status'  => false,
                 'message' => 'Error recording bulk payment: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get all Payment-Out records with supplier and purchase details.
+     */
+    public function getPaymentOuts(Request $request)
+    {
+        $this->ensureSchemaUpdated();
+
+        $companyId  = intval($request->query('company_id') ?: $request->input('company_id', 0));
+        $supplierId = intval($request->query('supplier_id') ?: $request->input('supplier_id', 0));
+        $fromDate   = $request->query('from_date');
+        $toDate     = $request->query('to_date');
+
+        $query = DB::table('purchase_payments as pp')
+            ->leftJoin('purchases as p', 'pp.purchase_id', '=', 'p.id')
+            ->leftJoin('suppliers as s', function($join) {
+                $join->on('p.supplier_id', '=', 's.id')
+                     ->orWhere('pp.supplier_id', '=', 's.id');
+            })
+            ->select(
+                'pp.id',
+                'pp.purchase_id',
+                'pp.company_id',
+                'pp.amount',
+                'pp.payment_method',
+                'pp.payment_date',
+                'pp.notes',
+                'pp.created_at',
+                'pp.updated_at',
+                DB::raw("COALESCE(pp.receipt_no, CONCAT('REC-', pp.id)) as receipt_no"),
+                'p.purchase_no',
+                'p.total_amount as invoice_total',
+                'p.balance_amount as invoice_balance',
+                's.id as supplier_id',
+                's.supplier_name',
+                's.mobile_number as supplier_phone'
+            );
+
+        if ($companyId > 0) {
+            $query->where(function($q) use ($companyId) {
+                $q->where('pp.company_id', $companyId)
+                  ->orWhere('p.company_id', $companyId);
+            });
+        }
+        if ($supplierId > 0) {
+            $query->where(function($q) use ($supplierId) {
+                $q->where('p.supplier_id', $supplierId)
+                  ->orWhere('pp.supplier_id', $supplierId);
+            });
+        }
+        if (!empty($fromDate) && !empty($toDate)) {
+            $query->whereBetween('pp.payment_date', [$fromDate, $toDate]);
+        }
+
+        $payments = $query->orderBy('pp.payment_date', 'desc')
+            ->orderBy('pp.id', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'data'   => $payments
+        ]);
+    }
+
+    /**
+     * Create a new Payment-Out record.
+     */
+    public function createPaymentOut(Request $request)
+    {
+        $this->ensureSchemaUpdated();
+
+        $companyId     = intval($request->input('company_id', 0));
+        $supplierId    = intval($request->input('supplier_id', 0));
+        $totalAmount   = floatval($request->input('amount', 0));
+        $paymentMethod = $request->input('payment_method', 'cash');
+        $paymentDate   = $request->input('payment_date', date('Y-m-d'));
+        $receiptNo     = trim($request->input('receipt_no', ''));
+        $notes         = trim($request->input('notes', ''));
+
+        if ($supplierId <= 0) {
+            return response()->json(['status' => false, 'message' => 'Please select a Supplier / Party']);
+        }
+        if ($totalAmount <= 0) {
+            return response()->json(['status' => false, 'message' => 'Payment amount must be greater than 0']);
+        }
+
+        $supplier = Supplier::find($supplierId);
+        if (!$supplier) {
+            return response()->json(['status' => false, 'message' => 'Supplier not found']);
+        }
+
+        if (!$companyId) {
+            $companyId = $supplier->company_id;
+        }
+
+        DB::beginTransaction();
+        try {
+            $pendingInvoices = Purchase::where('supplier_id', $supplierId)
+                ->where('status', 'submitted')
+                ->where('balance_amount', '>', 0)
+                ->orderBy('purchase_date', 'asc')
+                ->orderBy('id', 'asc')
+                ->get();
+
+            $remaining = $totalAmount;
+            $applied   = [];
+
+            if ($pendingInvoices->isNotEmpty()) {
+                foreach ($pendingInvoices as $invoice) {
+                    if ($remaining <= 0) break;
+
+                    $balance  = floatval($invoice->balance_amount);
+                    $applying = min($remaining, $balance);
+                    $remaining -= $applying;
+
+                    $newPaid    = floatval($invoice->paid_amount) + $applying;
+                    $newBalance = max(0.00, $balance - $applying);
+
+                    $invoice->update([
+                        'paid_amount'    => $newPaid,
+                        'balance_amount' => $newBalance
+                    ]);
+
+                    PurchasePayment::create([
+                        'purchase_id'    => $invoice->id,
+                        'company_id'     => $companyId,
+                        'supplier_id'    => $supplierId,
+                        'receipt_no'     => $receiptNo ?: ('REC-' . time()),
+                        'amount'         => $applying,
+                        'payment_method' => strtolower($paymentMethod),
+                        'payment_date'   => $paymentDate,
+                        'notes'          => $notes ?: 'Payment-Out voucher settlement'
+                    ]);
+
+                    $applied[] = [
+                        'purchase_id' => $invoice->id,
+                        'purchase_no' => $invoice->purchase_no,
+                        'applied'     => $applying,
+                        'new_balance' => $newBalance
+                    ];
+                }
+            }
+
+            if ($remaining > 0) {
+                $firstPurchase = Purchase::where('supplier_id', $supplierId)->first();
+                $purchaseId    = $firstPurchase ? $firstPurchase->id : null;
+
+                PurchasePayment::create([
+                    'purchase_id'    => $purchaseId ?: 0,
+                    'company_id'     => $companyId,
+                    'supplier_id'    => $supplierId,
+                    'receipt_no'     => $receiptNo ?: ('REC-' . time()),
+                    'amount'         => $remaining,
+                    'payment_method' => strtolower($paymentMethod),
+                    'payment_date'   => $paymentDate,
+                    'notes'          => $notes ? ($notes . ' (Advance)') : 'Advance payment to supplier'
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'           => true,
+                'message'          => 'Payment-Out recorded successfully',
+                'applied'          => $applied,
+                'leftover_advance' => $remaining
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error recording Payment-Out: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Delete a Payment-Out voucher and revert invoice balance.
+     */
+    public function deletePaymentOut(Request $request)
+    {
+        $id = intval($request->input('id', 0));
+        if ($id <= 0) {
+            return response()->json(['status' => false, 'message' => 'Invalid Payment ID']);
+        }
+
+        $payment = PurchasePayment::find($id);
+        if (!$payment) {
+            return response()->json(['status' => false, 'message' => 'Payment record not found']);
+        }
+
+        DB::beginTransaction();
+        try {
+            if ($payment->purchase_id > 0) {
+                $purchase = Purchase::find($payment->purchase_id);
+                if ($purchase) {
+                    $revertedPaid = max(0.00, floatval($purchase->paid_amount) - floatval($payment->amount));
+                    $revertedBalance = min(floatval($purchase->total_amount), floatval($purchase->balance_amount) + floatval($payment->amount));
+                    $purchase->update([
+                        'paid_amount'    => $revertedPaid,
+                        'balance_amount' => $revertedBalance
+                    ]);
+                }
+            }
+
+            $payment->delete();
+            DB::commit();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Payment-Out voucher deleted successfully and purchase balance restored.'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error deleting payment voucher: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Update an existing Payment-Out voucher.
+     */
+    public function updatePaymentOut(Request $request)
+    {
+        $id            = intval($request->input('id', 0));
+        $newAmount     = floatval($request->input('amount', 0));
+        $paymentMethod = $request->input('payment_method', 'cash');
+        $paymentDate   = $request->input('payment_date', date('Y-m-d'));
+        $receiptNo     = trim($request->input('receipt_no', ''));
+        $notes         = trim($request->input('notes', ''));
+
+        if ($id <= 0) {
+            return response()->json(['status' => false, 'message' => 'Invalid Payment ID']);
+        }
+        if ($newAmount <= 0) {
+            return response()->json(['status' => false, 'message' => 'Payment amount must be greater than 0']);
+        }
+
+        $payment = PurchasePayment::find($id);
+        if (!$payment) {
+            return response()->json(['status' => false, 'message' => 'Payment record not found']);
+        }
+
+        DB::beginTransaction();
+        try {
+            $oldAmount = floatval($payment->amount);
+            $diff      = $newAmount - $oldAmount;
+
+            if ($payment->purchase_id > 0) {
+                $purchase = Purchase::find($payment->purchase_id);
+                if ($purchase) {
+                    $newPaid    = max(0.00, floatval($purchase->paid_amount) + $diff);
+                    $newBalance = max(0.00, floatval($purchase->total_amount) - $newPaid);
+                    $purchase->update([
+                        'paid_amount'    => $newPaid,
+                        'balance_amount' => $newBalance
+                    ]);
+                }
+            }
+
+            $payment->update([
+                'amount'         => $newAmount,
+                'payment_method' => strtolower($paymentMethod),
+                'payment_date'   => $paymentDate,
+                'receipt_no'     => $receiptNo ?: $payment->receipt_no,
+                'notes'          => $notes
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Payment-Out updated successfully'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error updating Payment-Out: ' . $e->getMessage()
             ]);
         }
     }

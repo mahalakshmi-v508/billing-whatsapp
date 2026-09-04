@@ -76,6 +76,14 @@ export default function CreditNoteList() {
 
   // Preset Date Helper
   const setPresetDates = (type) => {
+    if (type === "all_time" || type === "all") {
+      setFromDate("");
+      setToDate("");
+      setPeriod("all_time");
+      setPeriodOpen(false);
+      return;
+    }
+
     const now = new Date();
     let from = new Date();
     let to = new Date();
@@ -292,13 +300,14 @@ export default function CreditNoteList() {
                 onClick={() => setPeriodOpen(!periodOpen)}
                 className="flex items-center gap-2 font-bold text-slate-900 text-sm hover:text-blue-600 transition cursor-pointer"
               >
-                <span>{period === "this_month" ? "This Month" : period.replace("_", " ")}</span>
+                <span>{period === "all_time" ? "All Time" : period === "this_month" ? "This Month" : period.replace("_", " ")}</span>
                 <ChevronDown size={15} />
               </button>
 
               {periodOpen && (
                 <div className="absolute left-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50">
                   {[
+                    { label: "All Time", val: "all_time" },
                     { label: "Today", val: "today" },
                     { label: "This Week", val: "this_week" },
                     { label: "This Month", val: "this_month" },

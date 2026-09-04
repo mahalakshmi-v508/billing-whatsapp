@@ -1411,73 +1411,8 @@ export default function AddSale() {
                 </th>
 
                 {/* 9. AMOUNT */}
-                <th style={{ width: 95, padding: "8px 12px", textAlign: "right", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
+                <th style={{ width: 110, padding: "8px 12px", textAlign: "right", fontWeight: 700, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
                   AMOUNT
-                </th>
-
-                {/* 10. (+) Header Action */}
-                <th style={{ width: 42, padding: "6px", textAlign: "center", borderBottom: `1px solid ${THEME.borderLight}`, position: "relative" }}>
-                  <div ref={columnMenuRef} style={{ position: "relative", display: "inline-block" }}>
-                    <button
-                      onClick={() => setShowColumnMenu(v => !v)}
-                      title="Add column"
-                      style={{
-                        border: "none", background: "transparent", color: THEME.primary,
-                        cursor: "pointer", display: "flex", margin: "auto"
-                      }}
-                    >
-                      <Plus size={18} strokeWidth={2.8} />
-                    </button>
-
-                    {showColumnMenu && (
-                      <div style={{
-                        position: "absolute", top: "100%", right: 0, marginTop: 6,
-                        width: 200, background: "#ffffff", borderRadius: 6,
-                        border: `1px solid ${THEME.borderLight}`, boxShadow: "0 12px 28px rgba(0,0,0,0.15)",
-                        zIndex: 10000, textAlign: "left", padding: "8px 0",
-                        overflow: "visible", maxHeight: "none"
-                      }}>
-                        {[
-                          { key: "itemCategory", label: "Item Category" },
-                          { key: "itemCode", label: "Item Code" },
-                          { key: "hsnCode", label: "HSN/SAC Code" },
-                          { key: "description", label: "Description" },
-                          { key: "discount", label: "Discount" },
-                        ].map(opt => (
-                          <label
-                            key={opt.key}
-                            style={{
-                              display: "flex", alignItems: "center", gap: 10,
-                              padding: "8px 14px", fontSize: 12.5, fontWeight: 600,
-                              color: THEME.textMain, cursor: "pointer"
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
-                            onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={extraColumns[opt.key]}
-                              onChange={() => toggleExtraColumn(opt.key)}
-                              style={{ width: 14, height: 14, cursor: "pointer", accentColor: THEME.primary }}
-                            />
-                            <span>{opt.label}</span>
-                          </label>
-                        ))}
-                        <div style={{ borderTop: `1px solid ${THEME.borderLight}`, margin: "6px 0" }} />
-                        <button
-                          onClick={() => { setShowColumnMenu(false); navigate("/settings"); }}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 8, width: "100%",
-                            border: "none", background: "transparent", cursor: "pointer",
-                            padding: "8px 14px", fontSize: 12.5, fontWeight: 700, color: THEME.primary
-                          }}
-                        >
-                          <Settings size={14} />
-                          <span>More Settings</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 </th>
               </tr>
             </thead>
@@ -1659,30 +1594,8 @@ export default function AddSale() {
                     </td>
 
                     {/* Column 9: AMOUNT */}
-                    <td style={{ padding: "6px 12px", textAlign: "right", fontWeight: 600, color: "#111827", fontSize: 13, borderRight: `1px solid ${THEME.borderLight}` }}>
+                    <td style={{ padding: "6px 12px", textAlign: "right", fontWeight: 600, color: "#111827", fontSize: 13 }}>
                       {row.amount ? `₹${row.amount.toFixed(2)}` : "₹0.00"}
-                    </td>
-
-                    {/* Column 10: Action (Checkmark on active row or delete icon) */}
-                    <td style={{ textAlign: "center", padding: 0, height: 44 }}>
-                      {isLightning ? (
-                        <div style={{
-                          width: "100%", height: "100%", minHeight: 44, background: THEME.primary, color: "#fff",
-                          display: "flex", alignItems: "center", justifyContent: "center"
-                        }}>
-                          <Check size={16} strokeWidth={3} />
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setRowToDelete(row.id)}
-                          title="Delete row"
-                          style={{ border: "none", background: "transparent", color: "#9ca3af", cursor: "pointer", display: "flex", margin: "auto" }}
-                          onMouseEnter={e => e.currentTarget.style.color = THEME.danger}
-                          onMouseLeave={e => e.currentTarget.style.color = "#9ca3af"}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
                     </td>
                   </tr>
                 );
@@ -1732,10 +1645,9 @@ export default function AddSale() {
                 <td style={{ textAlign: "center", fontWeight: 600, fontSize: 12.5, color: "#4b5563", borderRight: `1px solid ${THEME.borderLight}` }}>
                   {totals.totalTaxAmount || 0}
                 </td>
-                <td style={{ textAlign: "right", fontWeight: 700, fontSize: 13.5, color: "#111827", padding: "6px 12px", borderRight: `1px solid ${THEME.borderLight}` }}>
+                <td style={{ textAlign: "right", fontWeight: 700, fontSize: 13.5, color: "#111827", padding: "6px 12px" }}>
                   ₹{totals.subtotalAmount ? totals.subtotalAmount.toFixed(2) : "0.00"}
                 </td>
-                <td></td>
               </tr>
             </tfoot>
           </table>
@@ -2014,7 +1926,7 @@ export default function AddSale() {
         onCancel={() => setShowCloseConfirm(false)}
         onConfirm={() => {
           setShowCloseConfirm(false);
-          navigate("/dashboard");
+          navigate("/sales/invoices");
         }}
       />
 

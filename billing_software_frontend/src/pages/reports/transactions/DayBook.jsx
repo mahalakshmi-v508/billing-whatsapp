@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Search,
@@ -10,6 +11,11 @@ import {
   X,
   AlertCircle,
   Inbox,
+  MoreVertical,
+  Eye,
+  Trash2,
+  Edit,
+  AlertTriangle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -110,6 +116,7 @@ const COL_FIELD = {
 const NUM_COLS = new Set(["Total", "Money In", "Money Out"]);
 
 export default function DayBook() {
+  const navigate = useNavigate();
   const { adminId } = getAuth();
   const [companies, setCompanies] = useState([]);
   const [firm, setFirm] = useState("all"); // "all" | company id
@@ -125,6 +132,63 @@ export default function DayBook() {
   const [openFilter, setOpenFilter] = useState("");
   const searchTimer = useRef(null);
   const firmNameRef = useRef("ALL FIRMS");
+
+  const [activeMenu, setActiveMenu] = useState(null);
+  const [menuPos, setMenuPos] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [actionToast, setActionToast] = useState(null);
+  const menuRef = useRef(null);
+
+  /* close the 3-dot menu on outside click */
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setActiveMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  /* open the 3-dot menu anchored above the clicked button (fixed positioning so it is never clipped) */
+  const toggleMenu = (e, reference) => {
+    e.stopPropagation();
+    if (activeMenu === reference) {
+      setActiveMenu(null);
+      setMenuPos(null);
+      return;
+    }
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    setMenuPos({ right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.top, top: rect.bottom });
+    setActiveMenu(reference);
+  };
+
+  /* delete a sale invoice on this day book row */
+  const handleDeleteInvoice = async () => {
+    if (!deleteTarget || deleteTarget.kind !== "sale") return;
+    setDeleting(true);
+    try {
+      const res = await api.post("/invoice/delete_invoice", {
+        invoice_no: deleteTarget.reference,
+      });
+      if (res.data?.status) {
+        setTransactions((prev) => prev.filter((t) => t.reference !== deleteTarget.reference));
+        setActionToast({ msg: "Invoice deleted successfully.", ok: true });
+        setTimeout(() => setActionToast(null), 3500);
+      } else {
+        setActionToast({ msg: res.data?.message || "Failed to delete invoice.", ok: false });
+        setTimeout(() => setActionToast(null), 3500);
+      }
+    } catch {
+      setActionToast({ msg: "Error deleting invoice.", ok: false });
+      setTimeout(() => setActionToast(null), 3500);
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
 
   /* load companies for this admin, default to saved selected company */
   useEffect(() => {
@@ -468,7 +532,7 @@ export default function DayBook() {
                 {headerCell("Total", true)}
                 {headerCell("Money In", true)}
                 {headerCell("Money Out", true)}
-                <th style={{ padding: "9px 12px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#334155", whiteSpace: "nowrap" }}>Print / Share</th>
+                <th style={{ padding: "9px 12px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#334155", whiteSpace: "nowrap" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -503,6 +567,53 @@ export default function DayBook() {
                   <td style={{ padding: "10px 12px", textAlign: "center", whiteSpace: "nowrap" }}>
                     <button onClick={() => printSingleRow(t)} title="Print" style={rowIconBtn("#4338ca")}><Printer size={13} /></button>
                     <button onClick={() => shareRow(t)} title="Share" style={rowIconBtn("#0891b2")}><Share2 size={13} /></button>
+                    <div style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}>
+                      <button
+                        onClick={(e) => toggleMenu(e, t.reference)}
+                        title="More actions"
+                        style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + BORDER, background: "#fff", color: "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                      >
+                        <MoreVertical size={14} />
+                      </button>
+
+                      {activeMenu === t.reference && menuPos && (
+                        <div
+                          ref={menuRef}
+                          style={{
+                            position: "fixed", right: menuPos.right, bottom: menuPos.bottom, marginBottom: 8, minWidth: 160,
+                            background: "#fff", borderRadius: 12, border: "1px solid " + BORDER,
+                            boxShadow: "0 -10px 30px rgba(30, 27, 75, 0.15)", padding: "5px 0",
+                            zIndex: 99999, textAlign: "left", fontFamily: FONT,
+                          }}
+                        >
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveMenu(null); navigate(`/invoice/${t.reference}`); }}
+                            style={menuItemBtn}
+                          >
+                            <Eye size={14} color="#64748b" /> View Invoice
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveMenu(null); navigate(`/sales/edit/${t.reference}`); }}
+                            style={menuItemBtn}
+                          >
+                            <Edit size={14} color="#4338ca" /> Edit
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveMenu(null); navigate(`/invoice/${t.reference}`); }}
+                            style={menuItemBtn}
+                          >
+                            <Printer size={14} color="#15803d" /> Print POS
+                          </button>
+                          <div style={{ borderTop: "1px solid #f1f5f9", margin: "4px 0" }} />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveMenu(null); setDeleteTarget(t); }}
+                            style={{ ...menuItemBtn, color: "#dc2626" }}
+                          >
+                            <Trash2 size={14} color="#dc2626" /> Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )) : (
@@ -519,6 +630,72 @@ export default function DayBook() {
           </table>
         </div>
       </div>
+
+      {/* ── DELETE CONFIRMATION MODAL ── */}
+      {deleteTarget && deleteTarget.kind === "sale" && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 99998, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15, 23, 42, 0.5)", backdropFilter: "blur(2px)", padding: 20 }}
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px rgba(30, 27, 75, 0.3)", maxWidth: 420, width: "100%", padding: 22 }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <AlertTriangle size={22} color="#dc2626" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a" }}>Delete Invoice?</h3>
+                <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b", fontFamily: "monospace" }}>
+                  Invoice #{deleteTarget.reference}
+                </p>
+              </div>
+            </div>
+            <p style={{ fontSize: 13, color: "#475569", margin: "0 0 16px", lineHeight: 1.6 }}>
+              Are you sure you want to permanently delete this invoice?
+            </p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+                style={{ ...miniBtn, padding: "8px 16px", fontSize: 12 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleDeleteInvoice}
+                style={{ ...miniBtn, padding: "8px 16px", fontSize: 12, color: "#fff", background: "#dc2626", border: "none", fontWeight: 700 }}
+              >
+                {deleting ? "Deleting..." : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ACTION TOAST NOTIFICATION ── */}
+      {actionToast && (
+        <div
+          style={{
+            position: "fixed", top: 24, right: 28, zIndex: 99999, minWidth: 280, maxWidth: 420,
+            background: actionToast.ok ? "#10b981" : "#ef4444", color: "#fff", borderRadius: 6,
+            padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 14, boxShadow: actionToast.ok ? "0 6px 20px rgba(16, 185, 129, 0.4)" : "0 6px 20px rgba(239, 68, 68, 0.4)",
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.35 }}>{actionToast.msg}</span>
+          <button
+            onClick={() => setActionToast(null)}
+            style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -550,6 +727,22 @@ const rowIconBtn = (color) => ({
   cursor: "pointer",
   marginRight: 4,
 });
+const menuItemBtn = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "8px 14px",
+  border: "none",
+  background: "transparent",
+  color: "#334155",
+  fontSize: 12,
+  fontWeight: 600,
+  textAlign: "left",
+  whiteSpace: "nowrap",
+  cursor: "pointer",
+  fontFamily: FONT,
+};
 const miniBtn = {
   display: "inline-flex",
   alignItems: "center",
