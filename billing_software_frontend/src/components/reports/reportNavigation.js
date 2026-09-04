@@ -28,15 +28,7 @@ export const reports = [
   { title: "Day Book", path: "/reports/day-book", group: "transactions", slug: "DayBook" },
   { title: "All Transactions", path: "/reports/all-transactions", group: "transactions", slug: "AllTransactions" },
 
-  { title: "Profit And Loss", path: "/reports/profit-loss", group: "profit-loss", slug: "ProfitAndLoss" },
-  { title: "Bill Wise Profit", path: "/reports/bill-wise-profit", group: "profit-loss", slug: "BillWiseProfit" },
-
-  { title: "Cash Flow", path: "/reports/cash-flow", group: "financial", slug: "CashFlow" },
-  { title: "Trial Balance Report", path: "/reports/trial-balance", group: "financial", slug: "TrialBalance" },
-  { title: "Balance Sheet", path: "/reports/balance-sheet", group: "financial", slug: "BalanceSheet" },
-
   { title: "Party Statement", path: "/reports/party-statement", group: "party", slug: "PartyStatement" },
-  { title: "Party wise Profit & Loss", path: "/reports/party-profit-loss", group: "party", slug: "PartyWiseProfitLoss" },
   { title: "All Parties", path: "/reports/all-parties", group: "party", slug: "AllParties" },
   { title: "Party Report By Item", path: "/reports/party-by-item", group: "party", slug: "PartyReportByItem" },
   { title: "Sale Purchase By Party", path: "/reports/sale-purchase-by-party", group: "party", slug: "SalePurchaseByParty" },
