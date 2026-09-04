@@ -134,6 +134,7 @@ export default function DayBook() {
   const firmNameRef = useRef("ALL FIRMS");
 
   const [activeMenu, setActiveMenu] = useState(null);
+  const [menuPos, setMenuPos] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
@@ -149,6 +150,20 @@ export default function DayBook() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  /* open the 3-dot menu anchored above the clicked button (fixed positioning so it is never clipped) */
+  const toggleMenu = (e, reference) => {
+    e.stopPropagation();
+    if (activeMenu === reference) {
+      setActiveMenu(null);
+      setMenuPos(null);
+      return;
+    }
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    setMenuPos({ right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.top, top: rect.bottom });
+    setActiveMenu(reference);
+  };
 
   /* delete a sale invoice on this day book row */
   const handleDeleteInvoice = async () => {
@@ -554,21 +569,21 @@ export default function DayBook() {
                     <button onClick={() => shareRow(t)} title="Share" style={rowIconBtn("#0891b2")}><Share2 size={13} /></button>
                     <div style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}>
                       <button
-                        onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === t.reference ? null : t.reference); }}
+                        onClick={(e) => toggleMenu(e, t.reference)}
                         title="More actions"
                         style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + BORDER, background: "#fff", color: "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                       >
                         <MoreVertical size={14} />
                       </button>
 
-                      {activeMenu === t.reference && (
+                      {activeMenu === t.reference && menuPos && (
                         <div
                           ref={menuRef}
                           style={{
-                            position: "absolute", right: 0, top: 32, minWidth: 160,
+                            position: "fixed", right: menuPos.right, bottom: menuPos.bottom, marginBottom: 8, minWidth: 160,
                             background: "#fff", borderRadius: 12, border: "1px solid " + BORDER,
-                            boxShadow: "0 10px 30px rgba(30, 27, 75, 0.15)", padding: "5px 0",
-                            zIndex: 60, textAlign: "left", fontFamily: FONT,
+                            boxShadow: "0 -10px 30px rgba(30, 27, 75, 0.15)", padding: "5px 0",
+                            zIndex: 99999, textAlign: "left", fontFamily: FONT,
                           }}
                         >
                           <button

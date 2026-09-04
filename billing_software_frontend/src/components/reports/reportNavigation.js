@@ -24,7 +24,7 @@ export const reportGroups = [
 
 export const reports = [
   { title: "Sale", path: "/reports/sale", group: "transactions", slug: "Sale" },
-  { title: "Purchase", path: "/reports/purchase", group: "transactions", slug: "Purchase" },
+  { title: "Purchase Bills", path: "/reports/purchase", group: "transactions", slug: "Purchase" },
   { title: "Day Book", path: "/reports/day-book", group: "transactions", slug: "DayBook" },
   { title: "All Transactions", path: "/reports/all-transactions", group: "transactions", slug: "AllTransactions" },
 
