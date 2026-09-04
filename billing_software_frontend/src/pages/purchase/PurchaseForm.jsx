@@ -823,6 +823,13 @@ export default function PurchaseForm() {
             )}
           </div>
 
+          {/* Import Excel Tool */}
+          <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold shadow-2xs transition cursor-pointer" title="Import Excel Sheet">
+            <FileSpreadsheet size={14} className="text-emerald-600" />
+            <span className="hidden sm:inline">Import Excel</span>
+            <input type="file" accept=".xlsx, .xls, .csv" onChange={handleExcelUpload} className="hidden" />
+          </label>
+
           {/* Calculator Tool */}
           <button
             type="button"

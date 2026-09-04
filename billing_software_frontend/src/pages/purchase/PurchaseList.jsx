@@ -14,6 +14,8 @@ import {
   History,
   Calendar,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   X,
   FileText,
   RefreshCw,
@@ -60,6 +62,10 @@ export default function PurchaseList() {
   const [firmOpen, setFirmOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeMenuId, setActiveMenuId] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(15);
 
   // Modals
   const [showPayModal, setShowPayModal] = useState(false);
@@ -275,6 +281,20 @@ export default function PurchaseList() {
       return true;
     });
   }, [purchases, startDate, endDate, searchQuery]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [startDate, endDate, searchQuery, selectedFirm, period]);
+
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredPurchases.length / rowsPerPage) || 1;
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedPurchases = useMemo(() => {
+    const start = (safePage - 1) * rowsPerPage;
+    return filteredPurchases.slice(start, start + rowsPerPage);
+  }, [filteredPurchases, safePage, rowsPerPage]);
 
   // Math summary bar metrics
   const { totalPaid, totalUnpaid, grandTotal, settleRate } = useMemo(() => {
@@ -760,7 +780,7 @@ export default function PurchaseList() {
                   </td>
                 </tr>
               ) : (
-                filteredPurchases.map((p, idx) => {
+                paginatedPurchases.map((p, idx) => {
                   const balance = Number(p.balance_amount) || 0;
                   const paid = Number(p.paid_amount) || 0;
                   const isPaid = balance <= 0;
@@ -935,6 +955,86 @@ export default function PurchaseList() {
             </tbody>
           </table>
         </div>
+
+        {/* ── PAGINATION BAR ── */}
+        {filteredPurchases.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 text-xs text-slate-600 bg-white">
+            <div className="flex items-center gap-4">
+              <span>
+                Showing <strong className="font-semibold text-slate-800">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
+                <strong className="font-semibold text-slate-800">{Math.min(safePage * rowsPerPage, filteredPurchases.length)}</strong> of{" "}
+                <strong className="font-semibold text-slate-800">{filteredPurchases.length}</strong> invoices
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">Rows:</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={(e) => {
+                    setRowsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-rose-500 cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={safePage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                title="Previous Page"
+              >
+                <ChevronLeft size={15} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                .reduce((acc, p, i, arr) => {
+                  if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((item, i) =>
+                  item === "..." ? (
+                    <span key={`dots-${i}`} className="px-2 text-slate-400 font-bold">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setCurrentPage(item)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
+                        safePage === item
+                          ? "bg-rose-600 text-white shadow-xs"
+                          : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+              <button
+                type="button"
+                disabled={safePage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                title="Next Page"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── MODAL 1: RECORD SINGLE INVOICE PAYMENT ── */}
