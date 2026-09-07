@@ -363,6 +363,217 @@ class PartyStatementController extends Controller
     }
 
     /**
+     * Sale Purchase By Party — a per-party aggregation of Sale Amount
+     * (customers) and Purchase Amount (suppliers) within a date range.
+     *
+     * Customers (receivable side) → SALE AMOUNT (from invoices).
+     * Suppliers  (payable side)   → PURCHASE AMOUNT (from submitted purchases).
+     *
+     * A party can appear with sale, purchase, or both based on real data.
+     * No hardcoded values — everything is derived from the transaction tables.
+     */
+    public function getSalePurchaseByParty(Request $request)
+    {
+        $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        $admin_id   = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+        $from       = $request->input('from_date') ?: $request->query('from_date', '');
+        $to         = $request->input('to_date') ?: $request->query('to_date', '');
+
+        if (!$company_id && !$admin_id) {
+            return response()->json(['status' => false, 'message' => 'company_id or admin_id required']);
+        }
+        if (!$from || !$to) {
+            return response()->json(['status' => false, 'message' => 'from_date and to_date required']);
+        }
+        $from = date('Y-m-d', strtotime($from));
+        $to   = date('Y-m-d', strtotime($to));
+        if ($to < $from) { [$from, $to] = [$to, $from]; }
+
+        $rowsKeyed = [];
+
+        // ── Customers → SALE AMOUNT (invoices in range) ──
+        $saleAgg = DB::table('invoices')
+            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
+            ->whereNotNull('customer_id')
+            ->where('customer_id', '>', 0)
+            ->when($company_id > 0, fn($q) => $q->where('company_id', $company_id))
+            ->selectRaw('customer_id, COALESCE(SUM(total_amount),0) as total')
+            ->groupBy('customer_id')
+            ->get();
+
+        foreach ($saleAgg as $r) {
+            $cid = (int)$r->customer_id;
+            $rowsKeyed['cust_' . $cid] = [
+                'id' => $cid, 'role' => 'customer', 'name' => '',
+                'sale_amount' => round((float)$r->total, 2), 'purchase_amount' => 0.0,
+            ];
+        }
+        if ($saleAgg->isNotEmpty()) {
+            $ids = $saleAgg->pluck('customer_id')->map(fn($v) => (int)$v)->all();
+            $q = DB::table('customers')->where('is_deleted', 0)->whereIn('id', $ids);
+            if ($admin_id > 0) { $q->where('admin_id', $admin_id); }
+            foreach ($q->get(['id', 'name']) as $c) {
+                $key = 'cust_' . (int)$c->id;
+                if (isset($rowsKeyed[$key])) { $rowsKeyed[$key]['name'] = trim((string)$c->name); }
+            }
+        }
+
+        // ── Suppliers → PURCHASE AMOUNT (submitted purchases in range) ──
+        $purAgg = DB::table('purchases as p')
+            ->where('p.status', 'submitted')
+            ->whereBetween('p.purchase_date', [$from, $to])
+            ->whereNotNull('p.supplier_id')
+            ->where('p.supplier_id', '>', 0)
+            ->when($company_id > 0, fn($q) => $q->where('p.company_id', $company_id))
+            ->selectRaw('p.supplier_id, COALESCE(SUM(p.total_amount),0) as total')
+            ->groupBy('p.supplier_id')
+            ->get();
+
+        foreach ($purAgg as $r) {
+            $sid = (int)$r->supplier_id;
+            $key = 'sup_' . $sid;
+            if (!isset($rowsKeyed[$key])) {
+                $rowsKeyed[$key] = [
+                    'id' => $sid, 'role' => 'supplier', 'name' => '',
+                    'sale_amount' => 0.0, 'purchase_amount' => round((float)$r->total, 2),
+                ];
+            } else {
+                $rowsKeyed[$key]['purchase_amount'] = round((float)$r->total, 2);
+            }
+        }
+        if ($purAgg->isNotEmpty()) {
+            $ids = $purAgg->pluck('supplier_id')->map(fn($v) => (int)$v)->all();
+            $sq = DB::table('suppliers')->where('is_deleted', 0)->whereIn('id', $ids);
+            if ($company_id > 0) { $sq->where('company_id', $company_id); }
+            foreach ($sq->get(['id', 'supplier_name']) as $s) {
+                $key = 'sup_' . (int)$s->id;
+                if (isset($rowsKeyed[$key])) { $rowsKeyed[$key]['name'] = trim((string)$s->supplier_name); }
+            }
+        }
+
+        // Drop rows with no resolved name
+        $rows = array_values(array_filter($rowsKeyed, fn($r) => $r['name'] !== ''));
+        foreach ($rows as &$r) {
+            $r['sale_amount']     = round(floatval($r['sale_amount']), 2);
+            $r['purchase_amount'] = round(floatval($r['purchase_amount']), 2);
+        }
+        unset($r);
+        usort($rows, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+
+        $totalSale = round(array_sum(array_column($rows, 'sale_amount')), 2);
+        $totalPurchase = round(array_sum(array_column($rows, 'purchase_amount')), 2);
+
+        return response()->json([
+            'status'     => true,
+            'from_date'  => $from,
+            'to_date'    => $to,
+            'data'       => $rows,
+            'totals'     => ['total_sale' => $totalSale, 'total_purchase' => $totalPurchase],
+        ]);
+    }
+
+    /**
+     * Sale Purchase By Party Group — aggregate Sale Amount (from sales) and
+     * Purchase Amount (from purchases) grouped by the party GROUP.
+     *
+     * A party group is derived from real party data:
+     *   - Customers: their `type` value (e.g. "General", "B2B", "B2C") — or
+     *     "General" when no type is set.
+     *   - Suppliers: suppliers carry no group/type column, so they fall under
+     *     "General".
+     *
+     * Each returned row is one group with its combined sale & purchase totals.
+     * Rows are grouped by name — never duplicated. If a group has no sale or
+     * no purchase amount, that side is 0.00.
+     */
+    public function getSalePurchaseByPartyGroup(Request $request)
+    {
+        $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        $admin_id   = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+        $from       = $request->input('from_date') ?: $request->query('from_date', '');
+        $to         = $request->input('to_date') ?: $request->query('to_date', '');
+
+        if (!$company_id && !$admin_id) {
+            return response()->json(['status' => false, 'message' => 'company_id or admin_id required']);
+        }
+        if (!$from || !$to) {
+            return response()->json(['status' => false, 'message' => 'from_date and to_date required']);
+        }
+        $from = date('Y-m-d', strtotime($from));
+        $to   = date('Y-m-d', strtotime($to));
+        if ($to < $from) { [$from, $to] = [$to, $from]; }
+
+        $grouped = [];
+
+        // ── SALES → group by customer type ──
+        $saleAgg = DB::table('invoices')
+            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
+            ->whereNotNull('customer_id')
+            ->where('customer_id', '>', 0)
+            ->when($company_id > 0, fn($q) => $q->where('company_id', $company_id))
+            ->selectRaw('customer_id, COALESCE(SUM(total_amount),0) as total')
+            ->groupBy('customer_id')
+            ->get();
+
+        $custGroups = [];
+        if ($saleAgg->isNotEmpty()) {
+            $ids = $saleAgg->pluck('customer_id')->map(fn($v) => (int)$v)->all();
+            $q = DB::table('customers')->where('is_deleted', 0)->whereIn('id', $ids);
+            if ($admin_id > 0) { $q->where('admin_id', $admin_id); }
+            foreach ($q->get(['id', 'type']) as $c) {
+                $custGroups[(int)$c->id] = trim((string)($c->type ?? ''));
+            }
+        }
+        foreach ($saleAgg as $r) {
+            $cid = (int)$r->customer_id;
+            $group = $custGroups[$cid] !== '' ? $custGroups[$cid] : 'General';
+            if (!isset($grouped[$group])) {
+                $grouped[$group] = ['name' => $group, 'sale_amount' => 0.0, 'purchase_amount' => 0.0];
+            }
+            $grouped[$group]['sale_amount'] += (float)$r->total;
+        }
+
+        // ── PURCHASES → group by supplier (no group column, so "General") ──
+        $purAgg = DB::table('purchases as p')
+            ->where('p.status', 'submitted')
+            ->whereBetween('p.purchase_date', [$from, $to])
+            ->whereNotNull('p.supplier_id')
+            ->where('p.supplier_id', '>', 0)
+            ->when($company_id > 0, fn($q) => $q->where('p.company_id', $company_id))
+            ->selectRaw('p.supplier_id, COALESCE(SUM(p.total_amount),0) as total')
+            ->groupBy('p.supplier_id')
+            ->get();
+
+        // Suppliers belong to "General" (they have no group/type field).
+        $supplierGroup = 'General';
+        foreach ($purAgg as $r) {
+            if (!isset($grouped[$supplierGroup])) {
+                $grouped[$supplierGroup] = ['name' => $supplierGroup, 'sale_amount' => 0.0, 'purchase_amount' => 0.0];
+            }
+            $grouped[$supplierGroup]['purchase_amount'] += (float)$r->total;
+        }
+
+        $rows = array_values($grouped);
+        foreach ($rows as &$r) {
+            $r['sale_amount']     = round(floatval($r['sale_amount']), 2);
+            $r['purchase_amount'] = round(floatval($r['purchase_amount']), 2);
+        }
+        unset($r);
+        usort($rows, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+
+        $totalSale = round(array_sum(array_column($rows, 'sale_amount')), 2);
+        $totalPurchase = round(array_sum(array_column($rows, 'purchase_amount')), 2);
+
+        return response()->json([
+            'status'     => true,
+            'from_date'  => $from,
+            'to_date'    => $to,
+            'data'       => $rows,
+            'totals'     => ['total_sale' => $totalSale, 'total_purchase' => $totalPurchase],
+        ]);
+    }
+
+    /**
      * Build the party statement for one party across a date range.
      */
     public function getStatement(Request $request)
