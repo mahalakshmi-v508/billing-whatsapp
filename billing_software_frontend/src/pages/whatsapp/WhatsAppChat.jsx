@@ -21,7 +21,6 @@ import {
   Image as ImageIcon,
   User,
   UserPlus,
-  Mail,
   PlugZap,
   ChevronDown,
   CornerUpLeft,
@@ -29,6 +28,7 @@ import {
   Forward,
   Trash2,
   Rocket,
+  Plus,
 } from "lucide-react";
 
 // Proper WhatsApp logo glyph (official mark, monochrome)
@@ -151,7 +151,7 @@ export default function WhatsAppChat() {
 
   // contact panel
   const [showAddContact, setShowAddContact] = useState(false);  // New Contact popup visibility
-  const [settingsView, setSettingsView] = useState("main");     // Settings sub-page: 'main' | 'contacts'
+  const [contactsPageOpen, setContactsPageOpen] = useState(false); // dedicated contacts page overlay
   const [contacts, setContacts] = useState([]);            // all saved contacts (customers)
   const [contactSearch, setContactSearch] = useState("");  // search by name/phone
   const [contactLoading, setContactLoading] = useState(false);
@@ -161,6 +161,12 @@ export default function WhatsAppChat() {
   const [addEmail, setAddEmail] = useState("");
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState(null);
+
+  // real WhatsApp profile pictures (DP): cache keyed by "<companyId>:<phone>"
+  // → URL string, or null once resolved so the same DP is reused in the chat
+  // list and chat header without re-requesting on every poll/render.
+  const [profilePics, setProfilePics] = useState({});
+  const profilePicLoadingRef = useRef(new Set()); // phones with an in-flight DP request
 
   const userObj = (() => { try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; } })();
   const adminId = userObj.role === "cashier" ? userObj.admin_id : (userObj.id || null);
@@ -429,11 +435,12 @@ export default function WhatsAppChat() {
     const phone = normalizeWaPhone(c.phone || c.phone_number);
     setShowAddContact(false);
     setDrawerOpen(false);
+    setContactsPageOpen(false);
     selectContact({ phone });
   };
 
-  const openContacts = () => {
-    setSettingsView("contacts");
+  const openContactsPage = () => {
+    setContactsPageOpen(true);
     setContactSearch("");
     if (contacts.length === 0) {
       setContactLoading(true);
@@ -448,13 +455,9 @@ export default function WhatsAppChat() {
   };
 
   const closeContacts = () => {
-    setSettingsView("main");
+    setContactsPageOpen(false);
     setContactSearch("");
   };
-
-  useEffect(() => {
-    if (!drawerOpen) setSettingsView("main");
-  }, [drawerOpen]);
 
   useEffect(() => {
     if (!selectedPhone) return;
@@ -1055,6 +1058,70 @@ export default function WhatsAppChat() {
   const selectedMeta = chats.find((c) => c.phone === selectedPhone) || null;
   const avatarLetter = (name) => (name || "?").trim().charAt(0).toUpperCase();
 
+  // ── WhatsApp profile picture (DP) fetching / caching ──
+  // Keyed by company+phone so switching companies never leaks another business's DPs.
+  const picKey = (phone) => `${companyId}:${phone}`;
+
+  const picFor = (phone) => {
+    if (!phone || !companyId) return null;
+    const url = profilePics[picKey(phone)];
+    return url || null;
+  };
+
+  // Fetch a contact's real WhatsApp DP once per session and cache it. Concurrent
+  // requests for the same phone are deduped; failures resolve to null so the
+  // initial-letter avatar stays as the fallback (never a broken image).
+  const ensureProfilePic = (phone) => {
+    if (!phone || !companyId) return;
+    if (picKey(phone) in profilePics) return;
+    if (profilePicLoadingRef.current.has(phone)) return;
+    profilePicLoadingRef.current.add(phone);
+    api
+      .get("/whatsapp/profile_picture", { params: { company_id: companyId, phone } })
+      .then((res) => {
+        const url = res.data?.profile_picture || null;
+        setProfilePics((prev) => ({ ...prev, [picKey(phone)]: url }));
+      })
+      .catch(() => {
+        setProfilePics((prev) => ({ ...prev, [picKey(phone)]: null }));
+      })
+      .finally(() => {
+        profilePicLoadingRef.current.delete(phone);
+      });
+  };
+
+  // Renders the real DP image when available, otherwise keeps the existing
+  // green initial-letter circle exactly as it was. Image errors drop back to
+  // initials automatically (cached as null so it is not requested again).
+  const renderAvatar = (phone, name, className) => {
+    const url = picFor(phone);
+    if (url) {
+      return (
+        <div className={className} style={{ overflow: "hidden" }}>
+          <img
+            className="wc-avatar-img"
+            src={url}
+            alt=""
+            loading="lazy"
+            onError={() => {
+              setProfilePics((prev) => ({ ...prev, [picKey(phone)]: null }));
+            }}
+          />
+        </div>
+      );
+    }
+    return <div className={className}>{avatarLetter(name)}</div>;
+  };
+
+  useEffect(() => {
+    if (!companyId || !connected) return;
+    // keep DPs fresh for every visible chat + the currently opened chat;
+    // already-cached phones are skipped instantly, so this does not poll.
+    chats.forEach((c) => ensureProfilePic(c.phone));
+    if (selectedPhone) ensureProfilePic(selectedPhone);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chats, selectedPhone, companyId, connected]);
+
   const CompanySelect = ({ className }) => (
     <select className={className} value={companyId} onChange={handleCompanyChange}>
       <option value="">Select Company</option>
@@ -1274,6 +1341,7 @@ export default function WhatsAppChat() {
         .wc-right { display: flex; flex-direction: column; min-height: 0; background: #efeae2; }
         .wc-chat-head { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #f0f2f5; border-bottom: 1px solid #e2e8f0; }
         .wc-chat-head-avatar { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+        .wc-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
         .wc-chat-head-name { font-size: 15px; font-weight: 700; color: #111b21; line-height: 1.2; }
         .wc-chat-head-sub { font-size: 12px; color: #667781; display: flex; align-items: center; gap: 6px; }
         .wc-spin { animation: wa-rotate 0.8s linear infinite; }
@@ -1359,6 +1427,23 @@ export default function WhatsAppChat() {
         .wc-badge-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
         .wc-disconnect-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px; border: none; border-radius: 12px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3); }
         .wc-disconnect-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* GREEN CONTACTS FAB (top-right of chat list) */
+        .wc-contacts-fab { width: 38px; height: 38px; min-width: 38px; border-radius: 10px; border: none; background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s ease, box-shadow 0.15s ease; box-shadow: 0 2px 8px rgba(37,211,102,0.35); }
+        .wc-contacts-fab:hover { background: linear-gradient(135deg, #1fb958, #0f766e); box-shadow: 0 4px 14px rgba(37,211,102,0.5); }
+
+        /* DEDICATED CONTACTS PAGE (full overlay inside wa-shell) */
+        .wc-contacts-page { position: absolute; inset: 0; z-index: 12; background: #fff; border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08); }
+        .wc-contacts-page-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; }
+        .wc-contacts-page-back { border: none; background: transparent; color: #fff; cursor: pointer; display: flex; padding: 6px; border-radius: 8px; transition: background 0.15s ease; }
+        .wc-contacts-page-back:hover { background: rgba(255,255,255,0.2); }
+        .wc-contacts-page-title { font-size: 17px; font-weight: 700; flex: 1; }
+        .wc-contacts-page-actions { padding: 14px 18px 0; }
+        .wc-contacts-page-search-box { padding: 10px 18px; position: relative; }
+        .wc-contacts-page-search-icon { position: absolute; left: 30px; top: 50%; transform: translateY(-50%); color: #8696a0; }
+        .wc-contacts-page-search { width: 100%; box-sizing: border-box; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 12px 10px 34px; font-size: 13px; outline: none; font-family: inherit; }
+        .wc-contacts-page-search:focus { border-color: #25d366; }
+        .wc-contacts-page-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 18px 18px; display: flex; flex-direction: column; gap: 2px; }
 
         /* CONNECT VIEW (QR) */
         .wa-connect-wrap { flex: 1; min-height: 0; overflow-y: auto; display: flex; align-items: center; justify-content: center; padding: 10px; }
@@ -1651,6 +1736,13 @@ export default function WhatsAppChat() {
               >
                 <Settings size={18} />
               </button>
+              <button
+                className="wc-contacts-fab"
+                title="Contacts"
+                onClick={openContactsPage}
+              >
+                <Plus size={20} />
+              </button>
             </div>
             <div className="wc-list">
               {filteredChats.length === 0 ? (
@@ -1666,7 +1758,7 @@ export default function WhatsAppChat() {
                     className={`wc-contact ${selectedPhone === c.phone ? "active" : ""}`}
                     onClick={() => selectContact(c)}
                   >
-                    <div className="wc-avatar">{avatarLetter(c.name)}</div>
+                    {renderAvatar(c.phone, c.name, "wc-avatar")}
                     <div className="wc-c-main">
                       <div className="wc-c-top">
                         <span className="wc-c-name">{c.name}</span>
@@ -1700,7 +1792,7 @@ export default function WhatsAppChat() {
                   <button className="wc-back" onClick={() => setSelectedPhone(null)}>
                     <ChevronLeft size={22} />
                   </button>
-                  <div className="wc-chat-head-avatar">{avatarLetter(selectedMeta?.name)}</div>
+                  {renderAvatar(selectedPhone, selectedMeta?.name, "wc-chat-head-avatar")}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="wc-chat-head-name">{selectedMeta?.name || selectedPhone}</div>
                     <div className="wc-chat-head-sub">
@@ -1810,119 +1902,105 @@ export default function WhatsAppChat() {
             </div>
 
             <div className="wc-drawer-body">
-              {settingsView === "contacts" ? (
-                /* ══ CONTACTS SUB-PAGE (replaces the main settings content) ══ */
-                <>
-                  <div className="wc-drawer-subhead">
-                    <button className="wc-drawer-back" title="Back" onClick={closeContacts}>
-                      <ChevronLeft size={18} />
-                    </button>
-                    <span className="wc-drawer-subtitle"><User size={15} /> Contacts</span>
-                  </div>
-
-                  <div className="wc-contact-actions">
-                    <button className="wc-new-contact-btn" onClick={openAddContact}>
-                      <UserPlus size={16} /> New Contact
-                    </button>
-                  </div>
-
-                  <div className="wc-contact-search-box">
-                    <Search size={14} className="wc-contact-search-icon" />
-                    <input
-                      className="wc-contact-search"
-                      placeholder="Search contacts…"
-                      value={contactSearch}
-                      onChange={(e) => setContactSearch(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="wc-contacts-sub-list">
-                    {contactLoading ? (
-                      <div className="wc-contact-state"><Loader2 size={18} className="wc-spin" /> Loading contacts…</div>
-                    ) : filteredContacts.length === 0 ? (
-                      <div className="wc-contact-state">
-                        {contacts.length === 0 ? "No contacts found" : "No matching contacts."}
+              {/* CONNECTION STATUS */}
+              <div>
+                <div className="wc-drawer-label">Connection</div>
+                <div className="wc-status-card">
+                  <span className={`wc-badge ${connected ? "ok" : "off"}`}>
+                    <span className="wc-badge-dot" />
+                    {connected ? "Connected" : connState === "checking" ? "Checking…" : connState === "reconnecting" ? "Reconnecting…" : connState === "initializing" ? "Initializing…" : "Disconnected"}
+                  </span>
+                  <div className="wc-status-row">
+                    <div className="wc-status-icon"><Phone size={16} /></div>
+                    <div>
+                      <div className="wc-status-label">WhatsApp Number</div>
+                      <div className="wc-status-value">
+                        {connected && waPhone ? `+${waPhone}` : "—"}
                       </div>
-                    ) : (
-                      filteredContacts.map((c) => (
-                        <div key={c.id ?? c.phone} className="wc-contact-row" onClick={() => openChatFromContact(c)}>
-                          <div className="wc-contact-row-avatar">{avatarLetter(c.name)}</div>
-                          <div className="wc-contact-row-info">
-                            <div className="wc-contact-row-name">{c.name}</div>
-                            <div className="wc-contact-row-phone">{c.phone}</div>
-                          </div>
-                          {c.email ? <div className="wc-contact-row-mail"><Mail size={13} />{c.email}</div> : null}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </>
-              ) : (
-                /* ══ MAIN SETTINGS VIEW ══ */
-                <>
-                  {/* CONTACTS NAV */}
-                  <div>
-                    <div className="wc-drawer-label">Contacts</div>
-                    <button className="wc-drawer-nav-btn" onClick={openContacts}>
-                      <span className="wc-drawer-nav-icon"><User size={16} /></span>
-                      <span className="wc-drawer-nav-text">Contacts</span>
-                      <ChevronDown size={16} className="wc-drawer-nav-chev" />
-                    </button>
-                  </div>
-
-                  {/* CONNECTION STATUS */}
-                  <div>
-                    <div className="wc-drawer-label">Connection</div>
-                    <div className="wc-status-card">
-                      <span className={`wc-badge ${connected ? "ok" : "off"}`}>
-                        <span className="wc-badge-dot" />
-                        {connected ? "Connected" : connState === "checking" ? "Checking…" : connState === "reconnecting" ? "Reconnecting…" : connState === "initializing" ? "Initializing…" : "Disconnected"}
-                      </span>
-                      <div className="wc-status-row">
-                        <div className="wc-status-icon"><Phone size={16} /></div>
-                        <div>
-                          <div className="wc-status-label">WhatsApp Number</div>
-                          <div className="wc-status-value">
-                            {connected && waPhone ? `+${waPhone}` : "—"}
-                          </div>
-                        </div>
-                      </div>
-                      {connected && waName && (
-                        <div className="wc-status-row">
-                          <div className="wc-status-icon"><CheckCircle2 size={16} /></div>
-                          <div>
-                            <div className="wc-status-label">Account</div>
-                            <div className="wc-status-value">{waName}</div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
+                  {connected && waName && (
+                    <div className="wc-status-row">
+                      <div className="wc-status-icon"><CheckCircle2 size={16} /></div>
+                      <div>
+                        <div className="wc-status-label">Account</div>
+                        <div className="wc-status-value">{waName}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-                  {/* SESSION / DISCONNECT */}
-                  <div>
-                    <div className="wc-drawer-label">Session</div>
-                    <button
-                      className="wc-disconnect-btn"
-                      onClick={disconnectWhatsApp}
-                      disabled={disconnecting || !connected}
-                      style={{ width: "100%" }}
-                    >
-                      {disconnecting ? (
-                        <><Loader2 size={15} /> Disconnecting…</>
-                      ) : (
-                        <><Unplug size={15} /> Disconnect WhatsApp</>
-                      )}
-                    </button>
-                    <p style={{ fontSize: 11.5, color: "#94a3b8", lineHeight: 1.6, marginTop: 10 }}>
-                      Disconnecting logs out this WhatsApp session. Scan the QR code
-                      again to reconnect a new or the same account.
-                    </p>
-                  </div>
-                </>
-              )}
+              {/* SESSION / DISCONNECT */}
+              <div>
+                <div className="wc-drawer-label">Session</div>
+                <button
+                  className="wc-disconnect-btn"
+                  onClick={disconnectWhatsApp}
+                  disabled={disconnecting || !connected}
+                  style={{ width: "100%" }}
+                >
+                  {disconnecting ? (
+                    <><Loader2 size={15} /> Disconnecting…</>
+                  ) : (
+                    <><Unplug size={15} /> Disconnect WhatsApp</>
+                  )}
+                </button>
+                <p style={{ fontSize: 11.5, color: "#94a3b8", lineHeight: 1.6, marginTop: 10 }}>
+                  Disconnecting logs out this WhatsApp session. Scan the QR code
+                  again to reconnect a new or the same account.
+                </p>
+              </div>
             </div>
           </div>
+
+          {/* ══════════ DEDICATED CONTACTS PAGE (FULL OVERLAY) ══════════ */}
+          {contactsPageOpen && (
+            <div className="wc-contacts-page">
+              <div className="wc-contacts-page-head">
+                <button className="wc-contacts-page-back" title="Back" onClick={closeContacts}>
+                  <ChevronLeft size={20} />
+                </button>
+                <span className="wc-contacts-page-title">Contacts</span>
+              </div>
+
+              <div className="wc-contacts-page-actions">
+                <button className="wc-new-contact-btn" onClick={openAddContact}>
+                  <UserPlus size={16} /> New Contact
+                </button>
+              </div>
+
+              <div className="wc-contacts-page-search-box">
+                <Search size={14} className="wc-contacts-page-search-icon" />
+                <input
+                  className="wc-contacts-page-search"
+                  placeholder="Search contacts…"
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="wc-contacts-page-list">
+                {contactLoading ? (
+                  <div className="wc-contact-state"><Loader2 size={18} className="wc-spin" /> Loading contacts…</div>
+                ) : filteredContacts.length === 0 ? (
+                  <div className="wc-contact-state">
+                    {contacts.length === 0 ? "No contacts found" : "No matching contacts."}
+                  </div>
+                ) : (
+                  filteredContacts.map((c) => (
+                    <div key={c.id ?? c.phone} className="wc-contact-row" onClick={() => openChatFromContact(c)}>
+                      <div className="wc-contact-row-avatar">{avatarLetter(c.name)}</div>
+                      <div className="wc-contact-row-info">
+                        <div className="wc-contact-row-name">{c.name}</div>
+                        <div className="wc-contact-row-phone">{c.phone}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

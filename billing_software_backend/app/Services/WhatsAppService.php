@@ -124,4 +124,15 @@ class WhatsAppService
             ->throw()
             ->json();
     }
+
+    public function getProfilePicture(string $sessionId, string $phone)
+    {
+        return $this->request()
+            ->post("{$this->url}/api/whatsapp/profile-picture", [
+                'session_id' => $sessionId,
+                'phone' => $phone
+            ])
+            ->throw()
+            ->json();
+    }
 }

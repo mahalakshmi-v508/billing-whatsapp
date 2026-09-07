@@ -1185,6 +1185,43 @@ class WhatsAppManager {
         }
     }
 
+    async getProfilePicture(sessionId, phone) {
+
+        const sock = this.clients.get(sessionId);
+
+        if (!sock) {
+            throw new Error('WhatsApp client not found');
+        }
+
+        const state = this.getState(sessionId);
+
+        if (state.status !== 'ready') {
+            throw new Error('WhatsApp is not connected');
+        }
+
+        // Use the contact's real WhatsApp JID (same conversion as send/delete)
+        // so the DP is fetched for THIS contact, never the logged-in account.
+        const jid = this.resolveJid(sessionId, phone);
+
+        try {
+
+            const url = await sock.profilePictureUrl(jid, 'image', 8000);
+
+            return url || null;
+
+        } catch (error) {
+
+            // No profile picture set / privacy restrictions / unknown contact.
+            // Gracefully return null — the frontend keeps the initial-letter avatar.
+            console.log(
+                `[WA][${sessionId}] no profile picture for ${jid}:`,
+                error.message || error
+            );
+
+            return null;
+        }
+    }
+
     async disconnect(sessionId) {
 
         console.log(`[WA][${sessionId}] explicit disconnect requested`);

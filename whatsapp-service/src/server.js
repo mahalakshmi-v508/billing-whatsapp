@@ -358,6 +358,73 @@ app.post(
 );
 
 
+// ── GET CONTACT PROFILE PICTURE (DP VIA BAILEYS) ──
+app.post(
+    '/api/whatsapp/profile-picture',
+    internalAuth,
+    async (req, res) => {
+
+        try {
+
+            const {
+                session_id,
+                phone
+            } = req.body;
+
+            if (!session_id) {
+
+                return res.status(422).json({
+                    success: false,
+                    profile_picture: null,
+                    message:
+                        'session_id is required'
+                });
+            }
+
+            if (!phone) {
+
+                return res.status(422).json({
+                    success: false,
+                    profile_picture: null,
+                    message:
+                        'phone is required'
+                });
+            }
+
+            const url =
+                await manager.getProfilePicture(
+                    session_id,
+                    phone
+                );
+
+            if (url) {
+
+                return res.json({
+                    success: true,
+                    profile_picture: url
+                });
+            }
+
+            // No DP available / private profile — never an error for the caller.
+            return res.json({
+                success: false,
+                profile_picture: null
+            });
+
+        } catch (error) {
+
+            console.error('[profile-picture] failed:', error.stack || error.message);
+
+            return res.status(500).json({
+                success: false,
+                profile_picture: null,
+                message: error.message
+            });
+        }
+    }
+);
+
+
 // ── DISCONNECT ──
 app.post(
     '/api/whatsapp/disconnect',

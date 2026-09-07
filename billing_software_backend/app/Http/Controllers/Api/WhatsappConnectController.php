@@ -884,6 +884,52 @@ class WhatsappConnectController extends Controller
         return response()->json(["status" => true, "message" => "Marked as read"]);
     }
 
+    // ── GET CONTACT'S REAL WHATSAPP PROFILE PICTURE (DP) ──
+    // Fetches the opponent's actual WhatsApp DP through the live Baileys
+    // session (same session as the chat, keyed by the contact's phone/JID).
+    // No DP / private profile / unknown contact → status false with null so the
+    // frontend keeps its existing initial-letter avatar fallback.
+    public function getProfilePicture(Request $request, WhatsAppService $whatsapp)
+    {
+        $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        $phone = preg_replace('/[^0-9]/', '', (string) ($request->input('phone') ?: $request->query('phone', '')));
+
+        if (!$company_id || !$phone) {
+            return response()->json(["status" => false, "profile_picture" => null, "message" => "company_id and phone are required"]);
+        }
+
+        if (!$whatsapp->isConfigured()) {
+            return response()->json(["status" => false, "profile_picture" => null, "message" => "WhatsApp service is not configured"]);
+        }
+
+        // normalize exactly like send_message: 10-digit → 91 prefix
+        if (strlen($phone) === 10) {
+            $phone = "91" . $phone;
+        }
+
+        $connection = WhatsAppConnection::where('company_id', $company_id)->first();
+
+        if (!$connection || $connection->status !== 'ready') {
+            return response()->json(["status" => false, "profile_picture" => null, "message" => "WhatsApp is not connected"]);
+        }
+
+        try {
+            $result = $whatsapp->getProfilePicture($connection->session_id, $phone);
+            $url = $result['profile_picture'] ?? null;
+
+            return response()->json([
+                "status"          => !empty($url),
+                "profile_picture" => !empty($url) ? $url : null
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                "status"          => false,
+                "profile_picture" => null,
+                "message"         => $e->getMessage()
+            ]);
+        }
+    }
+
     // ── GET CONTACT FOR A WHATSAPP PHONE ──
     // Looks up an existing customer/contact by its last 10 digits, scoped to the
     // owning admin. Reuses the existing `customers` table (no duplicate system).
