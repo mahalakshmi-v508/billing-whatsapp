@@ -252,6 +252,9 @@ Route::prefix('whatsapp')->group(function () {
     Route::get('chats', [WhatsappConnectController::class, 'getChats']);
     Route::get('messages', [WhatsappConnectController::class, 'getMessages']);
     Route::post('mark_read', [WhatsappConnectController::class, 'markRead']);
+    Route::get('profile_picture', [WhatsappConnectController::class, 'getProfilePicture']);
+    Route::get('contact', [WhatsappConnectController::class, 'getContact']);
+    Route::post('save_contact', [WhatsappConnectController::class, 'saveContact']);
 });
 
 // ── WHATSAPP INTERNAL (NODE SERVICE -> LARAVEL EVENTS) ──

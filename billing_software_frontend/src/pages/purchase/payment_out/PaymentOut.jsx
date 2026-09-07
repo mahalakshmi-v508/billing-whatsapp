@@ -5,6 +5,8 @@ import * as XLSX from "xlsx";
 import {
   Plus,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Calendar,
   Search,
   Printer,
@@ -257,6 +259,11 @@ export default function PaymentOut() {
       return true;
     });
   }, [payments, fromDate, toDate, selectedCompany, selectedSupplier, searchQuery]);
+
+  // Reset page on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [fromDate, toDate, selectedCompany, selectedSupplier, searchQuery, period]);
 
   // Summary Metrics (Total Amount, Paid Amount)
   const metrics = useMemo(() => {
@@ -846,6 +853,86 @@ export default function PaymentOut() {
             </tbody>
           </table>
         </div>
+
+        {/* ── PAGINATION BAR ── */}
+        {filteredPayments.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 text-xs text-slate-600 bg-white">
+            <div className="flex items-center gap-4">
+              <span>
+                Showing <strong className="font-semibold text-slate-800">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
+                <strong className="font-semibold text-slate-800">{Math.min(safePage * rowsPerPage, filteredPayments.length)}</strong> of{" "}
+                <strong className="font-semibold text-slate-800">{filteredPayments.length}</strong> payments
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">Rows:</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={(e) => {
+                    setRowsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-purple-500 cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={safePage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                title="Previous Page"
+              >
+                <ChevronLeft size={15} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                .reduce((acc, p, i, arr) => {
+                  if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((item, i) =>
+                  item === "..." ? (
+                    <span key={`dots-${i}`} className="px-2 text-slate-400 font-bold">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setCurrentPage(item)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
+                        safePage === item
+                          ? "bg-purple-600 text-white shadow-xs"
+                          : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+              <button
+                type="button"
+                disabled={safePage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                title="Next Page"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── 5. ADD / EDIT PAYMENT-OUT MODAL ── */}
