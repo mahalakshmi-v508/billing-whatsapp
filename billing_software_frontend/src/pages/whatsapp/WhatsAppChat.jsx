@@ -1060,7 +1060,14 @@ export default function WhatsAppChat() {
 
   // ── WhatsApp profile picture (DP) fetching / caching ──
   // Keyed by company+phone so switching companies never leaks another business's DPs.
-  const picKey = (phone) => `${companyId}:${phone}`;
+  // Phone is normalized to the canonical 12-digit (91‑prefixed) form so the same
+  // contact shares one cache entry whether it comes from the chat list (12-digit)
+  // or the Contacts page (10-digit customer number).
+  const dpPhone = (phone) => {
+    const digits = String(phone || "").replace(/\D/g, "");
+    return digits.length === 10 ? "91" + digits : digits;
+  };
+  const picKey = (phone) => `${companyId}:${dpPhone(phone)}`;
 
   const picFor = (phone) => {
     if (!phone || !companyId) return null;
@@ -1072,21 +1079,22 @@ export default function WhatsAppChat() {
   // requests for the same phone are deduped; failures resolve to null so the
   // initial-letter avatar stays as the fallback (never a broken image).
   const ensureProfilePic = (phone) => {
-    if (!phone || !companyId) return;
-    if (picKey(phone) in profilePics) return;
-    if (profilePicLoadingRef.current.has(phone)) return;
-    profilePicLoadingRef.current.add(phone);
+    const np = dpPhone(phone);
+    if (!np || !companyId) return;
+    if (picKey(np) in profilePics) return;
+    if (profilePicLoadingRef.current.has(np)) return;
+    profilePicLoadingRef.current.add(np);
     api
-      .get("/whatsapp/profile_picture", { params: { company_id: companyId, phone } })
+      .get("/whatsapp/profile_picture", { params: { company_id: companyId, phone: np } })
       .then((res) => {
         const url = res.data?.profile_picture || null;
-        setProfilePics((prev) => ({ ...prev, [picKey(phone)]: url }));
+        setProfilePics((prev) => ({ ...prev, [picKey(np)]: url }));
       })
       .catch(() => {
-        setProfilePics((prev) => ({ ...prev, [picKey(phone)]: null }));
+        setProfilePics((prev) => ({ ...prev, [picKey(np)]: null }));
       })
       .finally(() => {
-        profilePicLoadingRef.current.delete(phone);
+        profilePicLoadingRef.current.delete(np);
       });
   };
 
@@ -1121,6 +1129,15 @@ export default function WhatsAppChat() {
     if (selectedPhone) ensureProfilePic(selectedPhone);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chats, selectedPhone, companyId, connected]);
+
+  // Fetch DPs for every contact shown on the dedicated Contacts page. Runs when
+  // the page opens and when contacts load/add — cached phones are skipped, so it
+  // never re-requests existing DPs.
+  useEffect(() => {
+    if (!contactsPageOpen || !companyId || !connected) return;
+    contacts.forEach((c) => ensureProfilePic(c.phone));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactsPageOpen, contacts, companyId, connected]);
 
   const CompanySelect = ({ className }) => (
     <select className={className} value={companyId} onChange={handleCompanyChange}>
@@ -1990,7 +2007,7 @@ export default function WhatsAppChat() {
                 ) : (
                   filteredContacts.map((c) => (
                     <div key={c.id ?? c.phone} className="wc-contact-row" onClick={() => openChatFromContact(c)}>
-                      <div className="wc-contact-row-avatar">{avatarLetter(c.name)}</div>
+                      {renderAvatar(c.phone, c.name, "wc-contact-row-avatar")}
                       <div className="wc-contact-row-info">
                         <div className="wc-contact-row-name">{c.name}</div>
                         <div className="wc-contact-row-phone">{c.phone}</div>
