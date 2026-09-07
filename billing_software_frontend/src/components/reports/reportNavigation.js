@@ -27,6 +27,8 @@ export const reports = [
   { title: "Purchase Bills", path: "/reports/purchase", group: "transactions", slug: "Purchase" },
   { title: "Day Book", path: "/reports/day-book", group: "transactions", slug: "DayBook" },
   { title: "All Transactions", path: "/reports/all-transactions", group: "transactions", slug: "AllTransactions" },
+  { title: "Payment In", path: "/reports/payment-in", group: "transactions", slug: "PaymentIn" },
+  { title: "Payment Out", path: "/reports/payment-out", group: "transactions", slug: "PaymentOut" },
 
   { title: "Party Statement", path: "/reports/party-statement", group: "party", slug: "PartyStatement" },
   { title: "All Parties", path: "/reports/all-parties", group: "party", slug: "AllParties" },
