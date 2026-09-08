@@ -4,8 +4,20 @@ import api from "../../services/api";
 import {
   X, Plus, Calculator, Settings, Calendar, ChevronDown, Check,
   Trash2, AlignLeft, Image, Paperclip, BarChart2,
-  Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap, ChevronsUpDown, TrendingUp, ShieldAlert
+  Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap, ChevronsUpDown, TrendingUp, ShieldAlert,
+  Search, RotateCcw, GripVertical, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2
 } from "lucide-react";
+
+/* ── Item Table Columns List for customization drawer with rich icons & colors ─ */
+const DEFAULT_ITEM_COLUMNS = [
+  { key: "item_name", label: "Item Name", icon: Package, color: "text-blue-600", bg: "bg-blue-50", desc: "Product & description" },
+  { key: "qty", label: "Quantity", icon: Layers, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Item quantity count" },
+  { key: "unit", label: "Unit", icon: Scale, color: "text-purple-600", bg: "bg-purple-50", desc: "Unit of measurement (PCS, KG, BOX)" },
+  { key: "price", label: "Price / Unit", icon: IndianRupee, color: "text-teal-600", bg: "bg-teal-50", desc: "Unit price / rate" },
+  { key: "discount", label: "Discount", icon: Tag, color: "text-amber-600", bg: "bg-amber-50", desc: "Percentage (%) & discount amount" },
+  { key: "tax", label: "Tax (GST)", icon: ReceiptText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "GST rate (%) & tax amount" },
+  { key: "amount", label: "Amount", icon: Wallet, color: "text-rose-600", bg: "bg-rose-50", desc: "Total calculated line amount" },
+];
 
 /* ── Indian States List for State of Supply ──────────────────────────────── */
 const INDIAN_STATES = [
@@ -32,7 +44,7 @@ const TAX_RATES = [
 ];
 
 /* ── Factory to create an initial row for a sale (Quantity initially EMPTY) ─ */
-function createInitialRow(isLightning = false) {
+function createInitialRow() {
   return {
     id: Date.now() + Math.random(),
     product_id: null,
@@ -49,7 +61,6 @@ function createInitialRow(isLightning = false) {
     amount: 0,
     stock: 0,
     product_code: "",
-    isLightning,
   };
 }
 
@@ -73,9 +84,9 @@ function createNewSaleTab(id, index) {
     invoiceDate: new Date().toISOString().split("T")[0],
     stateOfSupply: "Select",
     rows: [
-      createInitialRow(true),
-      createInitialRow(false),
-      createInitialRow(false),
+      createInitialRow(),
+      createInitialRow(),
+      createInitialRow(),
     ],
     showTerms: false,
     termsText: "",
@@ -86,7 +97,7 @@ function createNewSaleTab(id, index) {
     overallDiscountPercent: "",
     overallDiscountAmount: "",
     overallTaxRate: 0,
-    roundOffEnabled: true,
+    roundOffEnabled: false,
     receivedEnabled: true,
     receivedAmount: "",
   };
@@ -342,17 +353,43 @@ export default function AddSale() {
     }, 4500);
   };
 
-  /* ── Column settings dropdown (opened via the "+" icon in the table header) ── */
-  const [showColumnMenu, setShowColumnMenu] = useState(false);
-  const [extraColumns, setExtraColumns] = useState({
-    itemCategory: false,
-    itemCode: false,
-    hsnCode: false,
-    description: false,
-    discount: true,
+  /* ── Table Column Customization Drawer state & persistence ── */
+  const [showColumnDrawer, setShowColumnDrawer] = useState(false);
+  const [columnSearch, setColumnSearch] = useState("");
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    try {
+      const saved = localStorage.getItem("add_sale_item_columns");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return DEFAULT_ITEM_COLUMNS.reduce((acc, col) => ({
+          ...acc,
+          [col.key]: parsed[col.key] !== undefined ? parsed[col.key] : true,
+        }), {});
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return DEFAULT_ITEM_COLUMNS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {});
   });
-  const toggleExtraColumn = (key) => {
-    setExtraColumns(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const toggleColumn = (key) => {
+    setVisibleColumns((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem("add_sale_item_columns", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const selectAllColumns = (val) => {
+    const next = DEFAULT_ITEM_COLUMNS.reduce((acc, col) => ({ ...acc, [col.key]: val }), {});
+    setVisibleColumns(next);
+    localStorage.setItem("add_sale_item_columns", JSON.stringify(next));
+  };
+
+  const resetDefaultColumns = () => {
+    const next = DEFAULT_ITEM_COLUMNS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {});
+    setVisibleColumns(next);
+    localStorage.setItem("add_sale_item_columns", JSON.stringify(next));
   };
 
   const customerBoxRef = useRef(null);
@@ -659,8 +696,8 @@ export default function AddSale() {
     }
 
     const rawGrandTotal = afterExtraDisc + overallTax;
-    const roundedGrandTotal = activeSale.roundOffEnabled ? Math.round(rawGrandTotal) : rawGrandTotal;
-    const roundDifference = roundedGrandTotal - rawGrandTotal;
+    const roundedGrandTotal = rawGrandTotal;
+    const roundDifference = 0;
 
     return {
       totalQty,
@@ -902,20 +939,21 @@ export default function AddSale() {
         {/* Right: Header Utilities */}
         <div style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 8 }}>
           <button
-            onClick={() => setShowCalculator(true)}
-            title="Calculator"
-            style={{ border: "none", background: "transparent", color: THEME.textMuted, cursor: "pointer", display: "flex" }}
+            onClick={() => setShowColumnDrawer(true)}
+            title="Customise Table Columns"
+            style={{
+              border: "none",
+              background: showColumnDrawer ? "#dbeafe" : "transparent",
+              color: showColumnDrawer ? "#2563eb" : THEME.textMuted,
+              cursor: "pointer",
+              position: "relative",
+              display: "flex",
+              padding: 4,
+              borderRadius: "50%",
+              transition: "all 0.15s ease"
+            }}
           >
-            <Calculator size={17} />
-          </button>
-
-          <button
-            onClick={() => navigate("/settings")}
-            title="Settings"
-            style={{ border: "none", background: "transparent", color: THEME.textMuted, cursor: "pointer", position: "relative", display: "flex" }}
-          >
-            <Settings size={17} />
-            <span style={{ position: "absolute", top: -1, right: -1, width: 6, height: 6, borderRadius: "50%", background: THEME.danger }} />
+            <Settings size={18} />
           </button>
 
           <button
@@ -1321,7 +1359,7 @@ export default function AddSale() {
                   onChange={e => updateActiveSale({ invoiceDate: e.target.value })}
                   style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, fontWeight: 600, color: THEME.textMain }}
                 />
-                <Calendar size={14} color={THEME.primary} />
+               
               </div>
             </div>
 
@@ -1339,7 +1377,7 @@ export default function AddSale() {
                 >
                   {INDIAN_STATES.map(st => <option key={st} value={st}>{st}</option>)}
                 </select>
-                <ChevronDown size={12} color={THEME.textMuted} />
+               
               </div>
             </div>
           </div>
@@ -1370,233 +1408,254 @@ export default function AddSale() {
                 </th>
 
                 {/* 2. ITEM */}
-                <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                  ITEM
-                </th>
+                {visibleColumns.item_name !== false && (
+                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
+                    ITEM
+                  </th>
+                )}
 
                 {/* 3. QTY */}
-                <th style={{ width: 68, padding: "8px 6px", textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                  QTY
-                </th>
+                {visibleColumns.qty !== false && (
+                  <th style={{ width: 68, padding: "8px 6px", textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
+                    QTY
+                  </th>
+                )}
 
                 {/* 4. UNIT */}
-                <th style={{ width: 92, padding: "8px 6px", textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                  UNIT
-                </th>
+                {visibleColumns.unit !== false && (
+                  <th style={{ width: 92, padding: "8px 6px", textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
+                    UNIT
+                  </th>
+                )}
 
-                {/* 6. PRICE/UNIT */}
-                <th style={{ width: 140, padding: "6px 8px", textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                  <div>PRICE/UNIT</div>
-                  <div style={{ fontSize: 10.5, color: "#6b7280", fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 2 }}>
-                    <span>Without Tax</span> <ChevronDown size={11} />
-                  </div>
-                </th>
+                {/* 5. PRICE/UNIT */}
+                {visibleColumns.price !== false && (
+                  <th style={{ width: 140, padding: "6px 8px", textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
+                    <div>PRICE/UNIT</div>
+                    <div style={{ fontSize: 10.5, color: "#6b7280", fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 2 }}>
+                      <span>Without Tax</span> <ChevronDown size={11} />
+                    </div>
+                  </th>
+                )}
 
-                {/* 7. DISCOUNT */}
-                <th style={{ width: 140, padding: 0, textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                  <div style={{ padding: "5px 6px", borderBottom: `1px solid ${THEME.borderLight}` }}>DISCOUNT</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, color: "#6b7280", fontWeight: 500 }}>
-                    <div style={{ padding: "3px 2px", borderRight: `1px solid ${THEME.borderLight}` }}>%</div>
-                    <div style={{ padding: "3px 2px" }}>AMOUNT</div>
-                  </div>
-                </th>
+                {/* 6. DISCOUNT */}
+                {visibleColumns.discount !== false && (
+                  <th style={{ width: 140, padding: 0, textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
+                    <div style={{ padding: "5px 6px", borderBottom: `1px solid ${THEME.borderLight}` }}>DISCOUNT</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, color: "#6b7280", fontWeight: 500 }}>
+                      <div style={{ padding: "3px 2px", borderRight: `1px solid ${THEME.borderLight}` }}>%</div>
+                      <div style={{ padding: "3px 2px" }}>AMOUNT</div>
+                    </div>
+                  </th>
+                )}
 
-                {/* 8. TAX */}
-                <th style={{ width: 145, padding: 0, textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                  <div style={{ padding: "5px 6px", borderBottom: `1px solid ${THEME.borderLight}` }}>TAX</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, color: "#6b7280", fontWeight: 500 }}>
-                    <div style={{ padding: "3px 2px", borderRight: `1px solid ${THEME.borderLight}` }}>%</div>
-                    <div style={{ padding: "3px 2px" }}>AMOUNT</div>
-                  </div>
-                </th>
+                {/* 7. TAX */}
+                {visibleColumns.tax !== false && (
+                  <th style={{ width: 145, padding: 0, textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
+                    <div style={{ padding: "5px 6px", borderBottom: `1px solid ${THEME.borderLight}` }}>TAX</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, color: "#6b7280", fontWeight: 500 }}>
+                      <div style={{ padding: "3px 2px", borderRight: `1px solid ${THEME.borderLight}` }}>%</div>
+                      <div style={{ padding: "3px 2px" }}>AMOUNT</div>
+                    </div>
+                  </th>
+                )}
 
-                {/* 9. AMOUNT */}
-                <th style={{ width: 110, padding: "8px 12px", textAlign: "right", fontWeight: 700, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                  AMOUNT
-                </th>
+                {/* 8. AMOUNT */}
+                {visibleColumns.amount !== false && (
+                  <th style={{ width: 110, padding: "8px 12px", textAlign: "right", fontWeight: 700, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
+                    AMOUNT
+                  </th>
+                )}
               </tr>
             </thead>
 
             <tbody>
               {activeSale.rows.map((row, idx) => {
-                const isLightning = row.isLightning || idx === 0;
-                const rowBg = isLightning ? "#eaf4fe" : "#ffffff";
-
                 return (
                   <tr
                     key={row.id}
                     style={{
                       borderBottom: `1px solid ${THEME.borderLight}`,
-                      background: rowBg,
+                      background: "#ffffff",
                       height: 44,
                     }}
                   >
                     {/* Column 1: Row Indicator + Reorder & Delete icons */}
                     <td style={{ textAlign: "center", padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
-                      {isLightning ? (
-                        <Zap size={16} color={THEME.primary} fill={THEME.primary} style={{ margin: "auto" }} />
-                      ) : (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                          <span style={{ color: "#9ca3af", display: "flex", cursor: "grab" }} title="Drag / Reorder">
-                            <ChevronsUpDown size={12} />
-                          </span>
-                          <span style={{ color: "#4b5563", fontWeight: 600, fontSize: 12 }}>{idx}</span>
-                          <button
-                            onClick={() => setRowToDelete(row.id)}
-                            title="Delete this row"
-                            style={{
-                              border: "none", background: "transparent", color: "#6b7280",
-                              cursor: "pointer", display: "flex", padding: 2, borderRadius: 4
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.color = THEME.danger}
-                            onMouseLeave={e => e.currentTarget.style.color = "#6b7280"}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      )}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                        <span style={{ color: "#9ca3af", display: "flex", cursor: "grab" }} title="Drag / Reorder">
+                          <ChevronsUpDown size={12} />
+                        </span>
+                        <span style={{ color: "#4b5563", fontWeight: 600, fontSize: 12 }}>{idx + 1}</span>
+                        <button
+                          onClick={() => setRowToDelete(row.id)}
+                          title="Delete this row"
+                          style={{
+                            border: "none", background: "transparent", color: "#6b7280",
+                            cursor: "pointer", display: "flex", padding: 2, borderRadius: 4
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.color = THEME.danger}
+                          onMouseLeave={e => e.currentTarget.style.color = "#6b7280"}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
 
                     {/* Column 2: ITEM name input */}
-                    <td style={{ padding: "6px 10px", position: "relative", borderRight: `1px solid ${THEME.borderLight}` }}>
-                      <input
-                        type="text"
-                        placeholder={isLightning && !row.item_name ? "" : "Enter item name..."}
-                        value={row.item_name}
-                        onChange={(e) => {
-                          updateRowField(row.id, "item_name", e.target.value);
-                          setItemSearchQuery(e.target.value);
-                          setActiveRowSuggestId(row.id);
-                        }}
-                        onFocus={() => { setItemSearchQuery(row.item_name); setActiveRowSuggestId(row.id); }}
-                        style={{ ...fieldInputStyle, fontSize: 13, fontWeight: 500 }}
-                      />
-                      
-                      {/* Product Suggestions Dropdown with NO INTERNAL SCROLLBAR */}
-                      {activeRowSuggestId === row.id && (
-                        <div ref={itemSuggestRef} style={{
-                          position: "absolute", top: "100%", left: 0, width: 310,
-                          background: "#ffffff", borderRadius: 6, border: `1px solid ${THEME.borderLight}`,
-                          boxShadow: "0 10px 24px rgba(0,0,0,0.12)", zIndex: 9999,
-                          marginTop: 2, overflow: "visible", maxHeight: "none"
-                        }}>
-                          {filteredProducts.map(p => (
-                            <div key={p.id} onClick={() => handleSelectProduct(row.id, p)} style={{
-                              padding: "9px 12px", cursor: "pointer", borderBottom: `1px solid ${THEME.borderLight}`,
-                              fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center"
-                            }}
-                              onMouseEnter={e => e.currentTarget.style.background = THEME.primarySoft}
-                              onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}>
-                              <div>
-                                <div style={{ fontWeight: 700, color: THEME.textMain }}>{p.product_name || p.name}</div>
-                                <div style={{ fontSize: 11, color: THEME.textMuted }}>Stock: {p.stock} {p.unit || ""}</div>
+                    {visibleColumns.item_name !== false && (
+                      <td style={{ padding: "6px 10px", position: "relative", borderRight: `1px solid ${THEME.borderLight}` }}>
+                        <input
+                          type="text"
+                          placeholder="Enter item name..."
+                          value={row.item_name}
+                          onChange={(e) => {
+                            updateRowField(row.id, "item_name", e.target.value);
+                            setItemSearchQuery(e.target.value);
+                            setActiveRowSuggestId(row.id);
+                          }}
+                          onFocus={() => { setItemSearchQuery(row.item_name); setActiveRowSuggestId(row.id); }}
+                          style={{ ...fieldInputStyle, fontSize: 13, fontWeight: 500 }}
+                        />
+                        
+                        {/* Product Suggestions Dropdown with NO INTERNAL SCROLLBAR */}
+                        {activeRowSuggestId === row.id && (
+                          <div ref={itemSuggestRef} style={{
+                            position: "absolute", top: "100%", left: 0, width: 310,
+                            background: "#ffffff", borderRadius: 6, border: `1px solid ${THEME.borderLight}`,
+                            boxShadow: "0 10px 24px rgba(0,0,0,0.12)", zIndex: 9999,
+                            marginTop: 2, overflow: "visible", maxHeight: "none"
+                          }}>
+                            {filteredProducts.map(p => (
+                              <div key={p.id} onClick={() => handleSelectProduct(row.id, p)} style={{
+                                padding: "9px 12px", cursor: "pointer", borderBottom: `1px solid ${THEME.borderLight}`,
+                                fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center"
+                              }}
+                                onMouseEnter={e => e.currentTarget.style.background = THEME.primarySoft}
+                                onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}>
+                                <div>
+                                  <div style={{ fontWeight: 700, color: THEME.textMain }}>{p.product_name || p.name}</div>
+                                  <div style={{ fontSize: 11, color: THEME.textMuted }}>Stock: {p.stock} {p.unit || ""}</div>
+                                </div>
+                                <div style={{ fontWeight: 700, color: THEME.primary }}>₹{parseFloat(p.price || 0).toLocaleString()}</div>
                               </div>
-                              <div style={{ fontWeight: 700, color: THEME.primary }}>₹{parseFloat(p.price || 0).toLocaleString()}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    )}
 
-                    {/* Column 3: QTY (Initially EMPTY, becomes 1 upon product selection, fully editable) */}
-                    <td style={{ padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder=""
-                        value={row.qty}
-                        onChange={e => updateRowField(row.id, "qty", e.target.value)}
-                        style={{ ...fieldInputStyle, textAlign: "center", fontSize: 13, fontWeight: 600 }}
-                      />
-                    </td>
+                    {/* Column 3: QTY */}
+                    {visibleColumns.qty !== false && (
+                      <td style={{ padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder=""
+                          value={row.qty}
+                          onChange={e => updateRowField(row.id, "qty", e.target.value)}
+                          style={{ ...fieldInputStyle, textAlign: "center", fontSize: 13, fontWeight: 600 }}
+                        />
+                      </td>
+                    )}
 
                     {/* Column 4: UNIT */}
-                    <td style={{ padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
-                        <select
-                          value={row.unit}
-                          onChange={e => updateRowField(row.id, "unit", e.target.value)}
-                          style={{ ...fieldInputStyle, fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer", textAlign: "center" }}
-                        >
-                          {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                        <ChevronDown size={11} color="#6b7280" />
-                      </div>
-                    </td>
-
-                    {/* Column 6: PRICE/UNIT */}
-                    <td style={{ padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder=""
-                        value={row.price || ""}
-                        onChange={e => updateRowField(row.id, "price", e.target.value)}
-                        style={{ ...fieldInputStyle, textAlign: "center", fontSize: 13, fontWeight: 600 }}
-                      />
-                    </td>
-
-                    {/* Column 7: DISCOUNT (% & AMOUNT) */}
-                    <td style={{ padding: 0, borderRight: `1px solid ${THEME.borderLight}` }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%" }}>
-                        <div style={{ borderRight: `1px solid ${THEME.borderLight}`, padding: "6px 2px" }}>
-                          <input
-                            type="number"
-                            placeholder=""
-                            min="0"
-                            max="100"
-                            value={row.discount_percent || ""}
-                            onChange={e => {
-                              updateRowField(row.id, "discount_percent", e.target.value);
-                              updateRowField(row.id, "discount_amount", "");
-                            }}
-                            style={{ ...fieldInputStyle, textAlign: "center", fontSize: 12.5 }}
-                          />
-                        </div>
-                        <div style={{ padding: "6px 2px" }}>
-                          <input
-                            type="number"
-                            placeholder=""
-                            min="0"
-                            value={row.discount_amount || ""}
-                            onChange={e => {
-                              updateRowField(row.id, "discount_amount", e.target.value);
-                              updateRowField(row.id, "discount_percent", "");
-                            }}
-                            style={{ ...fieldInputStyle, textAlign: "center", fontSize: 12.5 }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Column 8: TAX (% & AMOUNT) */}
-                    <td style={{ padding: 0, borderRight: `1px solid ${THEME.borderLight}` }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%" }}>
-                        <div style={{ borderRight: `1px solid ${THEME.borderLight}`, padding: "6px 2px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {visibleColumns.unit !== false && (
+                      <td style={{ padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
                           <select
-                            value={row.tax_percent}
-                            onChange={e => updateRowField(row.id, "tax_percent", e.target.value)}
-                            style={{ ...fieldInputStyle, fontSize: 11.5, color: "#374151", cursor: "pointer", fontWeight: 500, textAlign: "center" }}
+                            value={row.unit}
+                            onChange={e => updateRowField(row.id, "unit", e.target.value)}
+                            style={{ ...fieldInputStyle, fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer", textAlign: "center" }}
                           >
-                            {TAX_RATES.map((tr, i) => (
-                              <option key={i} value={tr.value}>{tr.label}</option>
-                            ))}
+                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                           </select>
                           <ChevronDown size={11} color="#6b7280" />
                         </div>
-                        <div style={{ padding: "6px 2px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
-                            {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : ""}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
+                      </td>
+                    )}
 
-                    {/* Column 9: AMOUNT */}
-                    <td style={{ padding: "6px 12px", textAlign: "right", fontWeight: 600, color: "#111827", fontSize: 13 }}>
-                      {row.amount ? `₹${row.amount.toFixed(2)}` : "₹0.00"}
-                    </td>
+                    {/* Column 5: PRICE/UNIT */}
+                    {visibleColumns.price !== false && (
+                      <td style={{ padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder=""
+                          value={row.price || ""}
+                          onChange={e => updateRowField(row.id, "price", e.target.value)}
+                          style={{ ...fieldInputStyle, textAlign: "center", fontSize: 13, fontWeight: 600 }}
+                        />
+                      </td>
+                    )}
+
+                    {/* Column 6: DISCOUNT (% & AMOUNT) */}
+                    {visibleColumns.discount !== false && (
+                      <td style={{ padding: 0, borderRight: `1px solid ${THEME.borderLight}` }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%" }}>
+                          <div style={{ borderRight: `1px solid ${THEME.borderLight}`, padding: "6px 2px" }}>
+                            <input
+                              type="number"
+                              placeholder=""
+                              min="0"
+                              max="100"
+                              value={row.discount_percent || ""}
+                              onChange={e => {
+                                updateRowField(row.id, "discount_percent", e.target.value);
+                                updateRowField(row.id, "discount_amount", "");
+                              }}
+                              style={{ ...fieldInputStyle, textAlign: "center", fontSize: 12.5 }}
+                            />
+                          </div>
+                          <div style={{ padding: "6px 2px" }}>
+                            <input
+                              type="number"
+                              placeholder=""
+                              min="0"
+                              value={row.discount_amount || ""}
+                              onChange={e => {
+                                updateRowField(row.id, "discount_amount", e.target.value);
+                                updateRowField(row.id, "discount_percent", "");
+                              }}
+                              style={{ ...fieldInputStyle, textAlign: "center", fontSize: 12.5 }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    )}
+
+                    {/* Column 7: TAX (% & AMOUNT) */}
+                    {visibleColumns.tax !== false && (
+                      <td style={{ padding: 0, borderRight: `1px solid ${THEME.borderLight}` }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%" }}>
+                          <div style={{ borderRight: `1px solid ${THEME.borderLight}`, padding: "6px 2px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <select
+                              value={row.tax_percent}
+                              onChange={e => updateRowField(row.id, "tax_percent", e.target.value)}
+                              style={{ ...fieldInputStyle, fontSize: 11.5, color: "#374151", cursor: "pointer", fontWeight: 500, textAlign: "center" }}
+                            >
+                              {TAX_RATES.map((tr, i) => (
+                                <option key={i} value={tr.value}>{tr.label}</option>
+                              ))}
+                            </select>
+                            <ChevronDown size={11} color="#6b7280" />
+                          </div>
+                          <div style={{ padding: "6px 2px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
+                              {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : ""}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                    )}
+
+                    {/* Column 8: AMOUNT */}
+                    {visibleColumns.amount !== false && (
+                      <td style={{ padding: "6px 12px", textAlign: "right", fontWeight: 600, color: "#111827", fontSize: 13 }}>
+                        {row.amount ? `₹${row.amount.toFixed(2)}` : "₹0.00"}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -1606,48 +1665,62 @@ export default function AddSale() {
             <tfoot>
               <tr style={{ background: "#ffffff", borderTop: `1px solid ${THEME.borderLight}`, height: 46 }}>
                 <td style={{ padding: "6px 12px", borderRight: `1px solid ${THEME.borderLight}` }}></td>
-                <td style={{ padding: "6px 14px", borderRight: `1px solid ${THEME.borderLight}` }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <button
-                      onClick={addRow}
-                      style={{
-                        padding: "6px 16px",
-                        borderRadius: 4,
-                        border: `1px solid ${THEME.primary}`,
-                        background: "#ffffff",
-                        color: THEME.primary,
-                        fontWeight: 700,
-                        fontSize: 12,
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        transition: "all .15s"
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = THEME.primarySoft}
-                      onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
-                    >
-                      ADD ROW
-                    </button>
-                    <span style={{ fontWeight: 700, fontSize: 12, color: "#374151", textTransform: "uppercase" }}>
-                      TOTAL
-                    </span>
-                  </div>
-                </td>
-                <td style={{ textAlign: "center", fontWeight: 700, fontSize: 13, color: "#111827", borderRight: `1px solid ${THEME.borderLight}` }}>
-                  {totals.totalQty || 0}
-                </td>
-                <td style={{ borderRight: `1px solid ${THEME.borderLight}` }}></td>
-                <td style={{ borderRight: `1px solid ${THEME.borderLight}` }}></td>
-                <td style={{ textAlign: "center", fontWeight: 600, fontSize: 12.5, color: "#4b5563", borderRight: `1px solid ${THEME.borderLight}` }}>
-                  {totals.totalDiscountAmount || 0}
-                </td>
-                <td style={{ textAlign: "center", fontWeight: 600, fontSize: 12.5, color: "#4b5563", borderRight: `1px solid ${THEME.borderLight}` }}>
-                  {totals.totalTaxAmount || 0}
-                </td>
-                <td style={{ textAlign: "right", fontWeight: 700, fontSize: 13.5, color: "#111827", padding: "6px 12px" }}>
-                  ₹{totals.subtotalAmount ? totals.subtotalAmount.toFixed(2) : "0.00"}
-                </td>
+                {visibleColumns.item_name !== false && (
+                  <td style={{ padding: "6px 14px", borderRight: `1px solid ${THEME.borderLight}` }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <button
+                        onClick={addRow}
+                        style={{
+                          padding: "6px 16px",
+                          borderRadius: 4,
+                          border: `1px solid ${THEME.primary}`,
+                          background: "#ffffff",
+                          color: THEME.primary,
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          transition: "all .15s"
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = THEME.primarySoft}
+                        onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
+                      >
+                        ADD ROW
+                      </button>
+                      <span style={{ fontWeight: 700, fontSize: 12, color: "#374151", textTransform: "uppercase" }}>
+                        TOTAL
+                      </span>
+                    </div>
+                  </td>
+                )}
+                {visibleColumns.qty !== false && (
+                  <td style={{ textAlign: "center", fontWeight: 700, fontSize: 13, color: "#111827", borderRight: `1px solid ${THEME.borderLight}` }}>
+                    {totals.totalQty || 0}
+                  </td>
+                )}
+                {visibleColumns.unit !== false && (
+                  <td style={{ borderRight: `1px solid ${THEME.borderLight}` }}></td>
+                )}
+                {visibleColumns.price !== false && (
+                  <td style={{ borderRight: `1px solid ${THEME.borderLight}` }}></td>
+                )}
+                {visibleColumns.discount !== false && (
+                  <td style={{ textAlign: "center", fontWeight: 600, fontSize: 12.5, color: "#4b5563", borderRight: `1px solid ${THEME.borderLight}` }}>
+                    {totals.totalDiscountAmount || 0}
+                  </td>
+                )}
+                {visibleColumns.tax !== false && (
+                  <td style={{ textAlign: "center", fontWeight: 600, fontSize: 12.5, color: "#4b5563", borderRight: `1px solid ${THEME.borderLight}` }}>
+                    {totals.totalTaxAmount || 0}
+                  </td>
+                )}
+                {visibleColumns.amount !== false && (
+                  <td style={{ textAlign: "right", fontWeight: 700, fontSize: 13.5, color: "#111827", padding: "6px 12px" }}>
+                    ₹{totals.subtotalAmount ? totals.subtotalAmount.toFixed(2) : "0.00"}
+                  </td>
+                )}
               </tr>
             </tfoot>
           </table>
@@ -1718,42 +1791,16 @@ export default function AddSale() {
             </div>
           </div>
 
-          {/* 3. Round Off & Total Row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            {/* Left: Round Off Checkbox + Diff Box */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                id="roundOffCheckbox"
-                checked={activeSale.roundOffEnabled}
-                onChange={e => updateActiveSale({ roundOffEnabled: e.target.checked })}
-                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563eb" }}
-              />
-              <label htmlFor="roundOffCheckbox" style={{ fontSize: 12.5, color: "#6b7280", fontWeight: 500, cursor: "pointer" }}>
-                Round Off
-              </label>
-              <input
-                type="text"
-                readOnly
-                value={totals.roundDifference ? (totals.roundDifference > 0 ? `+${totals.roundDifference.toFixed(2)}` : totals.roundDifference.toFixed(2)) : ""}
-                style={{
-                  width: 52, height: 30, padding: "2px 4px", borderRadius: 4,
-                  border: "1px solid #d1d5db", background: "#ffffff", fontSize: 12, textAlign: "center", color: "#6b7280"
-                }}
-              />
-            </div>
-
-            {/* Right: Total */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#374151" }}>Total</span>
-              <div style={{
-                width: 155, height: 36, padding: "6px 12px", borderRadius: 6,
-                border: "1px solid #d1d5db", background: "#f3f4f6", fontSize: 15,
-                fontWeight: 700, color: "#111827", textAlign: "right", boxSizing: "border-box",
-                display: "flex", alignItems: "center", justifyContent: "flex-end"
-              }}>
-                {totals.roundedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-              </div>
+          {/* 3. Total Row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#374151" }}>Total</span>
+            <div style={{
+              width: 155, height: 36, padding: "6px 12px", borderRadius: 6,
+              border: "1px solid #d1d5db", background: "#f3f4f6", fontSize: 15,
+              fontWeight: 700, color: "#111827", textAlign: "right", boxSizing: "border-box",
+              display: "flex", alignItems: "center", justifyContent: "flex-end"
+            }}>
+              {totals.roundedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
 
@@ -1816,7 +1863,7 @@ export default function AddSale() {
         boxShadow: "0 -2px 10px rgba(0,0,0,0.03)"
       }}>
         {/* Left: Trend Graph Button */}
-        <button
+        {/* <button
           type="button"
           title="Sales Margin Analytics"
           style={{
@@ -1829,10 +1876,10 @@ export default function AddSale() {
           onMouseLeave={e => e.currentTarget.style.background = "#eff6ff"}
         >
           <TrendingUp size={18} strokeWidth={2.2} />
-        </button>
+        </button> */}
 
         {/* Center: Generate e-Invoice Split Button */}
-        <div style={{ display: "flex", alignItems: "center" }}>
+        {/* <div style={{ display: "flex", alignItems: "center" }}>
           <button
             type="button"
             style={{
@@ -1860,7 +1907,7 @@ export default function AddSale() {
           >
             <ChevronDown size={14} strokeWidth={2.5} />
           </button>
-        </div>
+        </div> */}
 
         {/* Right: Save Button */}
         <button
@@ -1883,7 +1930,7 @@ export default function AddSale() {
           ) : isEditMode ? (
             <span>Update Sale</span>
           ) : (
-            <span><u>S</u>ave</span>
+            <span>Save</span>
           )}
         </button>
       </footer>
@@ -1932,6 +1979,184 @@ export default function AddSale() {
 
       {/* Calculator Modal */}
       <CalculatorModal isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
+
+      {/* ── 6. TABLE COLUMN CUSTOMIZATION DRAWER (SIDEBAR) ── */}
+      {showColumnDrawer && (
+        <div className="fixed inset-0 z-[99999] overflow-hidden">
+          {/* Backdrop with Blur */}
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            onClick={() => setShowColumnDrawer(false)}
+          />
+
+          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-sm bg-white shadow-2xl flex flex-col transform transition-transform ease-out duration-300 animate-in slide-in-from-right font-['Plus_Jakarta_Sans',sans-serif]">
+              
+              {/* 1. Modern Header */}
+              <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between bg-gradient-to-b from-slate-50/80 to-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
+                    <Settings size={19} strokeWidth={2.2} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight leading-tight">
+                      Table Columns
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Show or hide columns in items table
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowColumnDrawer(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer flex-shrink-0"
+                  title="Close panel"
+                >
+                  <X size={16} strokeWidth={2.4} />
+                </button>
+              </div>
+
+              {/* 2. Search & Controls Bar */}
+              <div className="px-6 py-3.5 border-b border-slate-100 bg-slate-50/40 space-y-3">
+                {/* Search input */}
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Filter columns..."
+                    value={columnSearch}
+                    onChange={(e) => setColumnSearch(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-white text-xs text-slate-800 placeholder:text-slate-400 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 outline-none transition shadow-2xs"
+                  />
+                  {columnSearch && (
+                    <button
+                      onClick={() => setColumnSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs w-4 h-4 flex items-center justify-center rounded-full hover:bg-slate-100 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Visible count badge + Quick actions */}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-100/80">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                    {Object.values(visibleColumns).filter(Boolean).length} of {DEFAULT_ITEM_COLUMNS.length} visible
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => selectAllColumns(true)}
+                      className="text-[11px] font-semibold text-slate-600 hover:text-blue-600 hover:bg-white px-2 py-0.5 rounded transition cursor-pointer"
+                    >
+                      Show all
+                    </button>
+                    <span className="text-slate-300">·</span>
+                    <button
+                      type="button"
+                      onClick={() => selectAllColumns(false)}
+                      className="text-[11px] font-semibold text-slate-600 hover:text-red-600 hover:bg-white px-2 py-0.5 rounded transition cursor-pointer"
+                    >
+                      Hide all
+                    </button>
+                    <span className="text-slate-300">·</span>
+                    <button
+                      type="button"
+                      onClick={resetDefaultColumns}
+                      className="text-[11px] font-semibold text-slate-600 hover:text-indigo-600 hover:bg-white px-2 py-0.5 rounded transition cursor-pointer flex items-center gap-1"
+                      title="Reset to default visibility"
+                    >
+                      <RotateCcw size={10} />
+                      <span>Reset</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Column List Items */}
+              <div className="flex-1 overflow-y-auto px-6 py-3.5 space-y-2 scrollbar-thin scrollbar-thumb-slate-200">
+                {DEFAULT_ITEM_COLUMNS.filter((col) =>
+                  col.label.toLowerCase().includes(columnSearch.toLowerCase())
+                ).length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs">
+                    No column matching &quot;{columnSearch}&quot;
+                  </div>
+                ) : (
+                  DEFAULT_ITEM_COLUMNS.filter((col) =>
+                    col.label.toLowerCase().includes(columnSearch.toLowerCase())
+                  ).map((col) => {
+                    const isChecked = !!visibleColumns[col.key];
+                    const IconComponent = col.icon;
+
+                    return (
+                      <div
+                        key={col.key}
+                        onClick={() => toggleColumn(col.key)}
+                        className={`group flex items-center justify-between p-2.5 px-3 rounded-xl border transition-all duration-150 cursor-pointer select-none ${
+                          isChecked
+                            ? "bg-white border-slate-200 shadow-2xs hover:border-blue-300 hover:shadow-xs"
+                            : "bg-slate-50/70 border-slate-200/60 opacity-60 hover:opacity-90 hover:bg-slate-50"
+                        }`}
+                      >
+                        {/* Left: Drag dots + Icon + Label & Desc */}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <GripVertical size={13} className="text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" />
+                          
+                          <div className={`w-8 h-8 rounded-lg ${col.bg} ${col.color} flex items-center justify-center flex-shrink-0 shadow-2xs`}>
+                            <IconComponent size={15} strokeWidth={2.2} />
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className={`text-xs tracking-tight ${isChecked ? "font-bold text-slate-800" : "font-medium text-slate-600"}`}>
+                              {col.label}
+                            </div>
+                            <div className="text-[10.5px] text-slate-400 truncate">
+                              {col.desc}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right: Modern iOS Toggle Switch */}
+                        <div
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out flex-shrink-0 ${
+                            isChecked ? "bg-blue-600" : "bg-slate-200"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                              isChecked ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* 4. Drawer Footer with Auto-save indicator & Done button */}
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
+                  <Check size={14} strokeWidth={2.5} />
+                  <span className="text-[11px]">Saved automatically</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowColumnDrawer(false)}
+                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 transition transform active:scale-95 cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
