@@ -155,6 +155,8 @@ export default function AppRoutes() {
               <Route path="party-by-item" element={<PartyReportByItem />} />
               <Route path="sale-purchase-by-party" element={<SalePurchaseByParty />} />
               <Route path="sale-purchase-by-party-group" element={<SalePurchaseByPartyGroup />} />
+              <Route path="payment-in" element={<PaymentIn />} />
+              <Route path="payment-out" element={<PaymentOut />} />
             </Route>
 
             {/* Sales Management */}

@@ -252,6 +252,9 @@ Route::prefix('whatsapp')->group(function () {
     Route::get('chats', [WhatsappConnectController::class, 'getChats']);
     Route::get('messages', [WhatsappConnectController::class, 'getMessages']);
     Route::post('mark_read', [WhatsappConnectController::class, 'markRead']);
+    Route::get('profile_picture', [WhatsappConnectController::class, 'getProfilePicture']);
+    Route::get('contact', [WhatsappConnectController::class, 'getContact']);
+    Route::post('save_contact', [WhatsappConnectController::class, 'saveContact']);
 });
 
 // ── WHATSAPP INTERNAL (NODE SERVICE -> LARAVEL EVENTS) ──
@@ -318,5 +321,7 @@ Route::prefix('report')->group(function () {
     Route::get('party-statement/parties', [PartyStatementController::class, 'getParties']);
     Route::get('party-statement/statement', [PartyStatementController::class, 'getStatement']);
     Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);
+    Route::get('sale-purchase-by-party', [PartyStatementController::class, 'getSalePurchaseByParty']);
+    Route::get('sale-purchase-by-party-group', [PartyStatementController::class, 'getSalePurchaseByPartyGroup']);
 });
 
