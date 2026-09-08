@@ -15,7 +15,7 @@ class BrandController extends Controller
         $subcategory_id = intval($request->input('subcategory_id', 0));
         $company_id = intval($request->input('company_id', 0));
 
-        if (!$name || !$category_id || !$subcategory_id || !$company_id) {
+        if (!$name || !$company_id) {
             return response()->json([
                 "status" => false,
                 "message" => "All fields are required"
