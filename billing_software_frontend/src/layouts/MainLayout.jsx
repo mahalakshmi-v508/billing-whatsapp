@@ -205,6 +205,7 @@ export default function MainLayout() {
     ...(role === "admin"
       ? [
           { name: "Home", path: "/dashboard", icon: <Home size={20} /> },
+            { name: "Customer", path: "/customer", icon: <User size={20} /> },
           {
             name: "Sale",
             icon: <SaleIcon size={20} />,
@@ -217,8 +218,8 @@ export default function MainLayout() {
             ]
           },
           { name: "Company", path: "/company", icon: <Building2 size={20} /> },
-          { name: "Category & Subcategory", path: "/category", icon: <Package size={20} /> },
-          { name: "Brand", path: "/brand", icon: <Tags size={20} /> },
+          // { name: "Category & Subcategory", path: "/category", icon: <Package size={20} /> },
+          // { name: "Brand", path: "/brand", icon: <Tags size={20} /> },
           { name: "Supplier", path: "/supplier", icon: <Truck size={20} /> },
           { name: "Products", path: "/products", icon: <PackageSearch size={20} /> },
           {
@@ -235,7 +236,7 @@ export default function MainLayout() {
           },
           { name: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
           { name: "Cashiers", path: "/cashier", icon: <Users size={20} /> },
-          { name: "Customer", path: "/customer", icon: <User size={20} /> },
+        
           { name: "WhatsApp", path: "/whatsapp", icon: <WhatsAppIcon size={20} /> },
           { name: "Settings", path: "/settings", icon: <Settings size={20} /> },
         ]
