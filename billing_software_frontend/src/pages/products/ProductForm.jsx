@@ -1388,22 +1388,6 @@ const handleCompanyChange = (e) => {
   const handleSubmit = async () => {
     if (!form.name.trim())    { show("warn", "Missing Field", "Product name is required."); return; }
 
-    if (!form.category_id)    { show("warn", "Missing Field", "Please select or create a category."); return; }
-    if (form.category_id === "NEW_CATEGORY" && !form.new_category_name.trim()) {
-      show("warn", "Missing Field", "Please enter a name for the new category."); return;
-    }
-
-    if (form.category_id !== "NEW_CATEGORY" && !form.subcategory_id) {
-      show("warn", "Missing Field", "Please select or create a sub category."); return;
-    }
-    if (form.subcategory_id === "NEW_SUBCATEGORY" && !form.new_subcategory_name.trim()) {
-      show("warn", "Missing Field", "Please enter a name for the new sub category."); return;
-    }
-
-    if (form.brand_id === "NEW_BRAND" && !form.new_brand_name.trim()) {
-      show("warn", "Missing Field", "Please enter a name for the new brand."); return;
-    }
-
     if (!form.price)          { show("warn", "Missing Field", "Price is required."); return; }
     if (isNaN(Number(form.price)) || Number(form.price) < 0) { show("warn", "Invalid Price", "Please enter a valid price."); return; }
     if (!form.stock)          { show("warn", "Missing Field", "Stock quantity is required."); return; }
@@ -1428,13 +1412,10 @@ const handleCompanyChange = (e) => {
       const res = await api.post("/product/add", {
         product_name: form.name,
         product_code: form.product_code,
-        category_id: form.category_id === "NEW_CATEGORY" ? 0 : form.category_id,
-        subcategory_id: form.subcategory_id === "NEW_SUBCATEGORY" ? 0 : form.subcategory_id,
-        brand_id: form.brand_id === "NEW_BRAND" ? 0 : form.brand_id,
-        new_category_name: form.category_id === "NEW_CATEGORY" ? form.new_category_name : "",
-        new_subcategory_name: form.subcategory_id === "NEW_SUBCATEGORY" ? form.new_subcategory_name : "",
-        new_brand_name: form.brand_id === "NEW_BRAND" ? form.new_brand_name : "",
-        supplier_id: form.supplier_id, 
+        category_id: 0,
+        subcategory_id: 0,
+        brand_id: 0,
+        supplier_id: 0,
         company_id: getCompanyId() || selectedCompany,
         price: form.price,
         stock: form.stock,
@@ -1773,37 +1754,6 @@ const handleCompanyChange = (e) => {
 </div>
 
 <div className="pf-field">
-  <label className="pf-label">
-    Supplier <span style={{fontSize:"9.5px", textTransform:"none", color:"#94a3b8"}}>(Optional)</span>
-  </label>
-
-  <div className="pf-select-wrap pf-input-wrap">
-    <span className="pf-input-icon">🚚</span>
-
-    <select
-      className="pf-select"
-      value={form.supplier_id}
-      onChange={(e)=>set("supplier_id",e.target.value)}
-      disabled={!selectedCompany}
-    >
-      <option value="">
-        {selectedCompany
-          ? "Select Supplier"
-          : "Select Company First"}
-      </option>
-
-      {suppliers.map((s)=>(
-        <option key={s.id} value={s.id}>
-          {s.supplier_name}
-        </option>
-      ))}
-    </select>
-
-    <span className="pf-select-arrow">▾</span>
-  </div>
-</div>
-
-            <div className="pf-field">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                 <label className="pf-label" style={{ margin: 0 }}>Product Name <span style={{color:"#ef4444"}}>*</span></label>
                 <button
@@ -1850,136 +1800,6 @@ const handleCompanyChange = (e) => {
                 />
               </div>
             </div>
-
-            {/* Category selection + Inline Creation */}
-            <div className="pf-field">
-              <label className="pf-label">Category <span style={{color:"#ef4444"}}>*</span></label>
-              <div className="pf-select-wrap pf-input-wrap">
-                <span className="pf-input-icon">🗂️</span>
-                <select
-                  className="pf-select"
-                  value={form.category_id}
-                  onChange={(e) => {
-                    const categoryId = e.target.value;
-                    set("category_id", categoryId);
-                    set("subcategory_id", "");
-                    set("brand_id", "");
-                    if (categoryId !== "NEW_CATEGORY") {
-                      fetchSubCategories(selectedCompany, categoryId);
-                    } else {
-                      setSubCategories([]);
-                    }
-                    setBrands([]);
-                  }}
-                >
-                  <option value="">Select a category...</option>
-                  <option value="NEW_CATEGORY" style={{ fontWeight: "700", color: "#4f46e5" }}>
-                    + Create New Category...
-                  </option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="pf-select-arrow">▾</span>
-              </div>
-              {form.category_id === "NEW_CATEGORY" && (
-                <div className="pf-input-wrap" style={{ marginTop: "8px", animation: "pfFadeIn 0.3s ease both" }}>
-                  <span className="pf-input-icon">✨</span>
-                  <input
-                    className="pf-input"
-                    placeholder="Enter new category name (e.g. Beverages)"
-                    value={form.new_category_name}
-                    onChange={e => set("new_category_name", e.target.value)}
-                    style={{ borderColor: "#6366f1", background: "#f5f3ff" }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Subcategory selection + Inline Creation */}
-            <div className="pf-field">
-              <label className="pf-label">Sub Category</label>
-              <div className="pf-select-wrap pf-input-wrap">
-                <span className="pf-input-icon">📂</span>
-                <select
-                  className="pf-select"
-                  value={form.subcategory_id}
-                  onChange={(e) => {
-                    const subId = e.target.value;
-                    set("subcategory_id", subId);
-                    set("brand_id", "");
-                    if (subId !== "NEW_SUBCATEGORY") {
-                      fetchBrands(selectedCompany, form.category_id, subId);
-                    } else {
-                      setBrands([]);
-                    }
-                  }}
-                >
-                  <option value="">Select Sub Category</option>
-                  <option value="NEW_SUBCATEGORY" style={{ fontWeight: "700", color: "#4f46e5" }}>
-                    + Create New Subcategory...
-                  </option>
-                  {subCategories.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="pf-select-arrow">▾</span>
-              </div>
-              {form.subcategory_id === "NEW_SUBCATEGORY" && (
-                <div className="pf-input-wrap" style={{ marginTop: "8px", animation: "pfFadeIn 0.3s ease both" }}>
-                  <span className="pf-input-icon">✨</span>
-                  <input
-                    className="pf-input"
-                    placeholder="Enter new sub-category name (e.g. Soft Drinks)"
-                    value={form.new_subcategory_name}
-                    onChange={e => set("new_subcategory_name", e.target.value)}
-                    style={{ borderColor: "#6366f1", background: "#f5f3ff" }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Brand selection + Inline Creation */}
-            <div className="pf-field">
-              <label className="pf-label">Brand</label>
-              <div className="pf-select-wrap pf-input-wrap">
-                <span className="pf-input-icon">🏷️</span>
-                <select
-                  className="pf-select"
-                  value={form.brand_id}
-                  onChange={(e) => set("brand_id", e.target.value)}
-                >
-                  <option value="">Select Brand</option>
-                  <option value="NEW_BRAND" style={{ fontWeight: "700", color: "#4f46e5" }}>
-                    + Create New Brand...
-                  </option>
-                  {brands.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="pf-select-arrow">▾</span>
-              </div>
-              {form.brand_id === "NEW_BRAND" && (
-                <div className="pf-input-wrap" style={{ marginTop: "8px", animation: "pfFadeIn 0.3s ease both" }}>
-                  <span className="pf-input-icon">✨</span>
-                  <input
-                    className="pf-input"
-                    placeholder="Enter new brand name (e.g. Coca Cola)"
-                    value={form.new_brand_name}
-                    onChange={e => set("new_brand_name", e.target.value)}
-                    style={{ borderColor: "#6366f1", background: "#f5f3ff" }}
-                  />
-                </div>
-              )}
-            </div>
-
-
 
             {/* ── Pricing & Stock ── */}
             <p className="pf-section" style={{marginTop:"1.25rem"}}>Pricing & Stock</p>

@@ -116,7 +116,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
         subcategory_id: 0,
         brand_id: 0,
         company_id: getCompanyId(),
-        price: form.price || 0,
+        price: Number(form.price !== "" ? form.price : form.sale_price || 0),
         sale_price: form.sale_price || 0,
         purchase_price: form.purchase_price || 0,
         stock: form.stock,
