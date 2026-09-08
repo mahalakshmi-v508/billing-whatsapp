@@ -74,6 +74,8 @@ export default function MainLayout() {
   const [hoveredPath, setHoveredPath] = useState(null);
   const [saleOpen, setSaleOpen] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [accountsOpen, setAccountsOpen] = useState(false);
+  const [customerOpen, setCustomerOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState("general");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const quickAddRef = useRef(null);
@@ -168,13 +170,19 @@ export default function MainLayout() {
     }
   }, [user, navigate]);
 
-  // Auto-expand Sale or Purchase dropdown if current route is inside it
+  // Auto-expand Sale, Purchase, Accounts, or Customer dropdown if current route is inside it
   useEffect(() => {
     if (location.pathname.startsWith("/sales")) {
       setSaleOpen(true);
     }
     if (location.pathname.startsWith("/purchases")) {
       setPurchaseOpen(true);
+    }
+    if (location.pathname.startsWith("/company") || location.pathname.startsWith("/cashier")) {
+      setAccountsOpen(true);
+    }
+    if (location.pathname.startsWith("/customer") || location.pathname.startsWith("/whatsapp")) {
+      setCustomerOpen(true);
     }
   }, [location.pathname]);
 
@@ -206,11 +214,21 @@ export default function MainLayout() {
     ...(role === "admin"
       ? [
           { name: "Home", path: "/dashboard", icon: <Home size={20} /> },
-            { name: "Customer", path: "/customer", icon: <User size={20} /> },
+          {
+            name: "Customer",
+            icon: <User size={20} />,
+            isDropdown: true,
+            dropdownKey: "customer",
+            subItems: [
+              { name: "Customers Details", path: "/customer", altPaths: ["/customer", "/customer/add", "/customer/edit"] },
+              { name: "WhatsApp", path: "/whatsapp", altPaths: ["/whatsapp"] },
+            ]
+          },
           {
             name: "Sale",
             icon: <SaleIcon size={20} />,
             isDropdown: true,
+            dropdownKey: "sale",
             subItems: [
               { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/reports", "/sales/add"] },
               { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
@@ -218,10 +236,6 @@ export default function MainLayout() {
               ...saleSubItemsFromSettings,
             ]
           },
-          { name: "Company", path: "/company", icon: <Building2 size={20} /> },
-          // { name: "Category & Subcategory", path: "/category", icon: <Package size={20} /> },
-          // { name: "Brand", path: "/brand", icon: <Tags size={20} /> },
-          { name: "Supplier", path: "/supplier", icon: <Truck size={20} /> },
           { name: "Products", path: "/products", icon: <PackageSearch size={20} /> },
           {
             name: "Purchase & Expense",
@@ -235,10 +249,17 @@ export default function MainLayout() {
               { name: "Purchase Return/ Dr. Note", path: "/purchases/return", altPaths: ["/purchases/return", "/purchases/debit-note/add"] },
             ]
           },
+          {
+            name: "Accounts",
+            icon: <Building2 size={20} />,
+            isDropdown: true,
+            dropdownKey: "accounts",
+            subItems: [
+              { name: "Company", path: "/company", altPaths: ["/company", "/company/add", "/company/edit"] },
+              { name: "Cashier", path: "/cashier", altPaths: ["/cashier", "/cashier/add", "/cashier/edit"] },
+            ]
+          },
           { name: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
-          { name: "Cashiers", path: "/cashier", icon: <Users size={20} /> },
-        
-          { name: "WhatsApp", path: "/whatsapp", icon: <WhatsAppIcon size={20} /> },
           { name: "Settings", path: "/settings", icon: <Settings size={20} /> },
         ]
       : []),
@@ -384,13 +405,25 @@ export default function MainLayout() {
                 const isDropdownItemActive = item.subItems.some(
                   (sub) =>
                     location.pathname === sub.path ||
-                    (sub.altPaths && sub.altPaths.includes(location.pathname))
+                    (sub.altPaths && sub.altPaths.some((p) => location.pathname.startsWith(p)))
                 );
 
-                const isOpen = item.dropdownKey === "purchase" ? purchaseOpen : saleOpen;
+                const isOpen =
+                  item.dropdownKey === "purchase"
+                    ? purchaseOpen
+                    : item.dropdownKey === "accounts"
+                    ? accountsOpen
+                    : item.dropdownKey === "customer"
+                    ? customerOpen
+                    : saleOpen;
+
                 const toggleDropdown = () => {
                   if (item.dropdownKey === "purchase") {
                     setPurchaseOpen((prev) => !prev);
+                  } else if (item.dropdownKey === "accounts") {
+                    setAccountsOpen((prev) => !prev);
+                  } else if (item.dropdownKey === "customer") {
+                    setCustomerOpen((prev) => !prev);
                   } else {
                     setSaleOpen((prev) => !prev);
                   }
@@ -400,7 +433,7 @@ export default function MainLayout() {
                   return (
                     <motion.div
                       key={item.name}
-                      onClick={() => navigate(item.subItems[0]?.path || "/purchases")}
+                      onClick={() => navigate(item.subItems[0]?.path || "/dashboard")}
                       whileHover={{ scale: 1.08 }}
                       title={item.name}
                       className={`flex items-center justify-center p-3 rounded-xl cursor-pointer transition ${
