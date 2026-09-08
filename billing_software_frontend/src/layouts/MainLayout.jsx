@@ -405,7 +405,7 @@ export default function MainLayout() {
                     {/* Parent button */}
                     <div
                       onClick={toggleDropdown}
-                      className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition select-none ${
+                      className={`flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition select-none ${
                         isDropdownItemActive && !isOpen
                           ? "bg-white text-blue-600 font-semibold shadow-sm"
                           : isDropdownItemActive && isOpen
