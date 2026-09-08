@@ -1,12 +1,10 @@
-import { ShoppingCart } from "lucide-react";
-import ReportPlaceholder from "../../../components/reports/ReportPlaceholder";
+import PurchaseList from "../../purchase/PurchaseList";
 
+/*
+ * The reports "Purchase" page renders the Purchase Bills list content (the
+ * same component used by the admin sidebar /purchases route) inside the
+ * reports area, so the report selector stays visible on top.
+ */
 export default function Purchase() {
-  return (
-    <ReportPlaceholder
-      title="Purchase"
-      icon={<ShoppingCart size={19} />}
-      notes="Connect the purchase data source here."
-    />
-  );
+  return <PurchaseList />;
 }

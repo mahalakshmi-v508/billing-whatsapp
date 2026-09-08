@@ -79,6 +79,25 @@ class WhatsAppService
             ->json();
     }
 
+    public function sendImageBase64(
+        string $sessionId,
+        string $phone,
+        string $base64,
+        string $mimetype = 'image/jpeg',
+        string $caption = ''
+    ) {
+        return $this->request()
+            ->post("{$this->url}/api/whatsapp/send-image", [
+                'session_id' => $sessionId,
+                'phone' => $phone,
+                'base64' => $base64,
+                'mimetype' => $mimetype,
+                'caption' => $caption
+            ])
+            ->throw()
+            ->json();
+    }
+
     public function deleteMessage(
         string $sessionId,
         string $phone,
@@ -101,6 +120,17 @@ class WhatsAppService
         return $this->request()
             ->post("{$this->url}/api/whatsapp/disconnect", [
                 'session_id' => $sessionId
+            ])
+            ->throw()
+            ->json();
+    }
+
+    public function getProfilePicture(string $sessionId, string $phone)
+    {
+        return $this->request()
+            ->post("{$this->url}/api/whatsapp/profile-picture", [
+                'session_id' => $sessionId,
+                'phone' => $phone
             ])
             ->throw()
             ->json();

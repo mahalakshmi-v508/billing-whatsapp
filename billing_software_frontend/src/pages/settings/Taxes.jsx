@@ -119,7 +119,7 @@ function GstCheckbox({ label, checked, onChange, info, extra }) {
           </svg>
         )}
       </span>
-      <span className="ml-3 text-[19px] text-slate-800 group-hover:text-slate-950 font-medium">{label}</span>
+      <span className="ml-3 text-[13.5px] text-slate-700 group-hover:text-slate-900 font-medium">{label}</span>
       {info && (
         <span className="ml-2.5 flex items-center">
           <InfoIcon title={info} />
@@ -133,8 +133,8 @@ function GstCheckbox({ label, checked, onChange, info, extra }) {
 function GstSettingsColumn({ state, set, onTaxList }) {
   return (
     <div className="flex flex-col">
-      <h2 className="flex items-center gap-2 text-[25px] font-bold text-slate-900">
-        <span className="w-1.5 h-6 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
+      <h2 className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
+        <span className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
         GST Settings
       </h2>
       <div className="h-px bg-gray-200 my-4" />
@@ -153,7 +153,7 @@ function GstSettingsColumn({ state, set, onTaxList }) {
       <button
         type="button"
         onClick={onTaxList}
-        className="mt-8 px-5 py-3 bg-gray-100 hover:bg-gray-200 text-blue-600 font-semibold text-[18px] rounded-lg flex items-center transition-colors self-start"
+        className="mt-8 px-5 py-3 bg-gray-100 hover:bg-gray-200 text-blue-600 font-semibold text-[13px] rounded-lg flex items-center transition-colors self-start"
       >
         Tax List
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-2">
@@ -167,8 +167,8 @@ function GstSettingsColumn({ state, set, onTaxList }) {
 function ColumnHeader({ title, onAdd }) {
   return (
     <div className="flex items-center justify-between pr-2">
-      <h3 className="flex items-center gap-2 text-[23px] font-bold text-slate-900">
-        <span className="w-1.5 h-5 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
+      <h3 className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
+        <span className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
         {title}
       </h3>
       <button
@@ -191,8 +191,8 @@ function TaxRatesColumn({ rates, onEdit }) {
       <div className="overflow-y-auto pr-1 space-y-0 max-h-[380px]">
         {rates.map(({ name, rate, type }, i) => (
           <div key={i} className="border-b border-gray-100 last:border-0 py-2 flex items-center justify-between">
-            <span className="text-[18px] text-gray-800">{name}</span>
-            <span className="text-[18px] text-gray-800 w-12 text-right">{rate}</span>
+            <span className="text-[13.5px] text-slate-700">{name}</span>
+            <span className="text-[13.5px] text-slate-700 w-12 text-right">{rate}</span>
             <span className="flex items-center gap-2 ml-3">
               <button type="button" className="text-gray-400 hover:text-blue-600 transition-colors" title="Edit" onClick={() => onEdit({ name, rate, type }, i)}>
                 <Pencil size={16} strokeWidth={2} />
@@ -217,7 +217,7 @@ function TaxGroupColumn({ groups, onEdit }) {
         {groups.map((g, i) => (
           <div key={i} className="border-b border-gray-100 last:border-0 py-2">
             <div className="flex items-center justify-between">
-              <span className="text-[18px] font-medium text-gray-900">{g.name}</span>
+              <span className="text-[13.5px] font-medium text-slate-800">{g.name}</span>
               <span className="flex items-center gap-2">
                 <button type="button" className="text-gray-400 hover:text-blue-600 transition-colors" title="Edit" onClick={() => onEdit(g, i)}>
                   <Pencil size={16} strokeWidth={2} />
@@ -249,9 +249,9 @@ function FloatingInput({ label, value, onChange, type = "text" }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder=" "
-        className="peer w-full border border-gray-300 rounded-lg px-3 pt-5 pb-2 text-[21px] text-gray-900 outline-none transition-colors focus:border-blue-500"
+        className="peer w-full border border-gray-300 rounded-lg px-3 pt-5 pb-2 text-[13.5px] text-gray-900 outline-none transition-colors focus:border-blue-500"
       />
-      <label className="absolute left-3 top-1 text-[11px] text-gray-500 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-[18px] peer-focus:top-1 peer-focus:text-[11px] peer-focus:text-blue-600">
+      <label className="absolute left-3 top-1 text-[11px] text-gray-500 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-[13.5px] peer-focus:top-1 peer-focus:text-[11px] peer-focus:text-blue-600">
         {label}
       </label>
     </div>
@@ -264,7 +264,7 @@ function SelectField({ label, value, onChange, options }) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="peer w-full appearance-none border border-gray-300 rounded-lg px-3 pt-5 pb-2 text-[21px] text-gray-900 outline-none transition-colors focus:border-blue-500 cursor-pointer"
+        className="peer w-full appearance-none border border-gray-300 rounded-lg px-3 pt-5 pb-2 text-[13.5px] text-gray-900 outline-none transition-colors focus:border-blue-500 cursor-pointer"
       >
         {options.map((o) => (
           <option key={o} value={o}>{o}</option>
@@ -297,7 +297,7 @@ function EditTaxRateModal({ rate, onClose, onSave }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl w-full max-w-[425px] p-6 shadow-lg">
         <div className="flex items-start justify-between mb-5">
-          <h3 className="text-[23px] font-bold text-gray-900">Edit Tax Rate</h3>
+          <h3 className="text-[16px] font-bold text-slate-900">Edit Tax Rate</h3>
           <button
             type="button"
             onClick={onClose}
@@ -321,14 +321,14 @@ function EditTaxRateModal({ rate, onClose, onSave }) {
           <button
             type="button"
             onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[18px] px-7 py-2.5 rounded-lg transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] px-7 py-2.5 rounded-lg transition-colors"
           >
             CANCEL
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[18px] px-7 py-2.5 rounded-lg transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] px-7 py-2.5 rounded-lg transition-colors"
           >
             SAVE
           </button>
@@ -363,7 +363,7 @@ function EditTaxGroupModal({ group, rates, onClose, onSave }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl w-full max-w-[425px] p-6 shadow-lg flex flex-col max-h-[92vh]">
         <div className="flex items-start justify-between mb-5">
-          <h3 className="text-[23px] font-bold text-gray-900">Edit Tax Group</h3>
+          <h3 className="text-[16px] font-bold text-slate-900">Edit Tax Group</h3>
           <button
             type="button"
             onClick={onClose}
@@ -379,13 +379,13 @@ function EditTaxGroupModal({ group, rates, onClose, onSave }) {
         </div>
 
         <div className="mb-2">
-          <span className="text-[21px] font-bold text-gray-800">Select Taxes</span>
+          <span className="text-[13.5px] font-bold text-gray-800">Select Taxes</span>
         </div>
 
         <div className="overflow-y-auto pr-1 border-y border-gray-100 -mx-6 px-6 max-h-[40vh]">
           {rates.map((r) => (
             <label key={r.name} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 cursor-pointer select-none">
-              <span className="text-[18px] text-gray-800">{r.name}</span>
+              <span className="text-[13.5px] text-slate-700">{r.name}</span>
               <span className="flex items-center gap-3">
                 <span className="text-[14px] text-gray-500">{r.rate}%</span>
                 <input
@@ -404,14 +404,14 @@ function EditTaxGroupModal({ group, rates, onClose, onSave }) {
           <button
             type="button"
             onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[18px] w-[105px] h-[45px] rounded-lg transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors"
           >
             CANCEL
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[18px] w-[105px] h-[45px] rounded-lg transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors"
           >
             SAVE
           </button>
@@ -426,10 +426,11 @@ export default function Taxes() {
   const [state, setState] = useState(loadState);
   useBackendSync("taxes", state, setState);
   const [showTaxList, setShowTaxList] = useState(false);
-  const [rates, setRates] = useState(TAX_RATES);
-  const [groups, setGroups] = useState(TAX_GROUPS);
   const [editingRate, setEditingRate] = useState(null);
   const [editingGroup, setEditingGroup] = useState(null);
+
+  const rates = state.taxRates || TAX_RATES;
+  const groups = state.taxGroups || TAX_GROUPS;
 
   const set = (key) => (val) =>
     setState((s) => {
@@ -447,14 +448,14 @@ export default function Taxes() {
   const openEdit = (rate, index) => setEditingRate({ ...rate, index });
   const closeEditRate = () => setEditingRate(null);
   const saveEdit = (edited) => {
-    setRates((prev) => prev.map((r, i) => (i === editingRate.index ? { ...r, ...edited } : r)));
+    set("taxRates")((prev) => (prev || TAX_RATES).map((r, i) => (i === editingRate.index ? { ...r, ...edited } : r)));
     setEditingRate(null);
   };
 
   const openEditGroup = (group, index) => setEditingGroup({ ...group, index });
   const closeEditGroup = () => setEditingGroup(null);
   const saveEditGroup = (edited) => {
-    setGroups((prev) => prev.map((g, i) => (i === editingGroup.index ? { ...g, ...edited } : g)));
+    set("taxGroups")((prev) => (prev || TAX_GROUPS).map((g, i) => (i === editingGroup.index ? { ...g, ...edited } : g)));
     setEditingGroup(null);
   };
 

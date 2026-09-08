@@ -155,14 +155,19 @@ export default function AppRoutes() {
               <Route path="party-by-item" element={<PartyReportByItem />} />
               <Route path="sale-purchase-by-party" element={<SalePurchaseByParty />} />
               <Route path="sale-purchase-by-party-group" element={<SalePurchaseByPartyGroup />} />
+              <Route path="payment-in" element={<PaymentIn />} />
+              <Route path="payment-out" element={<PaymentOut />} />
             </Route>
 
             {/* Sales Management */}
             <Route path="/sales/invoices" element={<SaleInvoices />} />
             <Route path="/sales/quotations" element={<SaleSubmenuView type="quotation" title="Estimate / Quotation" />} />
             <Route path="/sales/proforma" element={<SaleSubmenuView type="proforma" title="Proforma Invoice" />} />
+            <Route path="/sales/order" element={<SaleSubmenuView type="order" title="Sale Order" />} />
             <Route path="/sales/payment-in" element={<PaymentIn />} />
             <Route path="/sales/delivery-challan" element={<SaleSubmenuView type="challan" title="Delivery Challan" />} />
+            <Route path="/sales/other-income" element={<SaleSubmenuView type="other_income" title="Other Income" />} />
+            <Route path="/sales/fixed-assets" element={<SaleSubmenuView type="fixed_assets" title="Fixed Assets" />} />
             <Route path="/sales/credit-note" element={<CreditNoteList />} />
 
             {/* Profile & Logs */}
@@ -177,6 +182,11 @@ export default function AppRoutes() {
             <Route path="/helpdesk/analytics" element={<HelpdeskDashboard />} />
           </Route>
 
+          {/* Cashier and Admin billing route */}
+          <Route path="/billing" element={<Billing />} />
+
+          {/* 2. Admin-only routes (kept inside MainLayout so the main sidebar stays visible) */}
+          <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           {/* 2. Admin & Management Routes (Inside MainLayout) */}
           <Route element={<ProtectedRoute allowedRoles={["admin", "superadmin", "developer"]} />}>
             {/* Products */}
@@ -235,6 +245,7 @@ export default function AppRoutes() {
             <Route path="/credit-settings" element={<CreditSettings />} />
             <Route path="/whatsapp" element={<WhatsAppChat />} />
           </Route>
+        </Route>
 
           {/* 3. Superadmin-only routes */}
           <Route element={<ProtectedRoute allowedRoles={["superadmin"]} />}>

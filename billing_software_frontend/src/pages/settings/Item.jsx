@@ -94,7 +94,7 @@ function ItemCheckbox({ label, checked, onChange, info, extra, sub }) {
             </svg>
           )}
         </span>
-        <span className="ml-3 text-[19px] text-slate-800 group-hover:text-slate-950 font-medium">{label}</span>
+        <span className="ml-3 text-[13.5px] text-slate-700 group-hover:text-slate-900 font-medium">{label}</span>
         {info && (
           <span className="ml-2 flex items-center">
             <InfoIcon title={info} />
@@ -111,8 +111,8 @@ function ColumnHeading({ title, trailing }) {
   return (
     <div>
       <div className="flex items-center gap-2">
-        <h2 className="flex items-center gap-2 text-[25px] font-bold text-slate-900">
-          <span className="w-1.5 h-6 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
+        <h2 className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
+          <span className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
           {title}
         </h2>
         {trailing}
@@ -125,7 +125,7 @@ function ColumnHeading({ title, trailing }) {
 function SectionLabel({ children, info, trailing }) {
   return (
     <div className="flex items-center gap-2 mt-7 mb-2">
-      <span className="text-[19px] font-semibold text-blue-950">{children}</span>
+      <span className="text-[13.5px] font-semibold text-blue-950">{children}</span>
       {info && <InfoIcon title={info} />}
       {trailing}
     </div>
@@ -137,7 +137,7 @@ function TextInput({ placeholder, width = 160 }) {
     <input
       type="text"
       placeholder={placeholder}
-      className="bg-white border border-gray-300 rounded-lg px-3 text-[19px] text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500"
+      className="bg-white border border-gray-300 rounded-lg px-3 text-[13.5px] text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500"
       style={{ height: 48, width }}
     />
   );
@@ -181,7 +181,7 @@ function FieldRow({ checked, onChange, label, input }) {
             </svg>
           )}
         </span>
-        <span className="ml-3 text-[19px] text-slate-800 group-hover:text-slate-950 font-medium">{label}</span>
+        <span className="ml-3 text-[13.5px] text-slate-700 group-hover:text-slate-900 font-medium">{label}</span>
       </label>
       {input && <div className="ml-9 mt-1.5">{input}</div>}
     </div>
@@ -220,7 +220,7 @@ export default function Item() {
 
           <div className="py-2.5">
             <div className="flex items-center">
-              <span className="text-[19px] text-gray-800">What do you sell?</span>
+              <span className="text-[13.5px] text-gray-800">What do you sell?</span>
               <span className="ml-2 flex items-center">
                 <InfoIcon title="What do you sell" />
               </span>
@@ -229,7 +229,7 @@ export default function Item() {
               <select
                 value={state.sellType}
                 onChange={(e) => set("sellType")(e.target.value)}
-                className="appearance-none border border-gray-300 rounded-lg pl-3 pr-9 text-[19px] text-gray-900 outline-none focus:border-blue-500 cursor-pointer bg-white"
+                className="appearance-none border border-gray-300 rounded-lg pl-3 pr-9 text-[13.5px] text-gray-900 outline-none focus:border-blue-500 cursor-pointer bg-white"
                 style={{ height: 44, width: 200 }}
               >
                 <option>Product</option>
@@ -254,7 +254,7 @@ export default function Item() {
 
           <div className="py-2.5">
             <div className="flex items-center">
-              <span className="text-[19px] text-gray-700">Quantity</span>
+              <span className="text-[13.5px] text-gray-700">Quantity</span>
               <span className="ml-2 flex items-center">
                 <InfoIcon title="Quantity decimal places" />
               </span>
@@ -267,7 +267,7 @@ export default function Item() {
                 max="4"
                 value={state.quantityDecimals}
                 onChange={(e) => set("quantityDecimals")(parseInt(e.target.value, 10) || 0)}
-                className="w-16 border border-gray-300 rounded-lg px-3 text-center text-[19px] text-gray-900 outline-none focus:border-blue-500"
+                className="w-16 border border-gray-300 rounded-lg px-3 text-center text-[13.5px] text-gray-900 outline-none focus:border-blue-500"
                 style={{ height: 40 }}
               />
               <span className="text-[14px] text-gray-500">e.g. 0.00</span>
@@ -286,7 +286,7 @@ export default function Item() {
           <div className="py-2">
             <label className="flex items-center cursor-pointer select-none group">
               <input type="checkbox" checked={state.calcTaxOnMrp} onChange={(e) => set("calcTaxOnMrp")(e.target.checked)} className="w-6 h-6 cursor-pointer shrink-0 rounded-[4px]" style={{ accentColor: "#2563eb" }} />
-              <span className="ml-3 text-[19px] text-gray-800">Calculate Tax based on MRP</span>
+              <span className="ml-3 text-[13.5px] text-gray-800">Calculate Tax based on MRP</span>
               <span className="ml-2 flex items-center"><InfoIcon title="Calculate tax based on MRP" /></span>
             </label>
           </div>
@@ -309,7 +309,7 @@ export default function Item() {
           <button
             type="button"
             onClick={() => {}}
-            className="mt-4 px-6 bg-gray-100 hover:bg-gray-200 text-blue-600 font-semibold text-[19px] rounded-lg flex items-center transition-colors self-start"
+            className="mt-4 px-6 bg-gray-100 hover:bg-gray-200 text-blue-600 font-semibold text-[13.5px] rounded-lg flex items-center transition-colors self-start"
             style={{ height: 50 }}
           >
             Add Custom Fields

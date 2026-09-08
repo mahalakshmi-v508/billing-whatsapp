@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import SettingsContext from "../pages/settings/SettingsContext";
+import { fetchSettings } from "../pages/settings/settingsApi";
+import { SALES_TRANSACTION_MENU_ITEMS } from "../config/salesTransactionMap";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -37,6 +39,7 @@ import {
   FolderPlus,
   Play,
   ShoppingCart,
+  X,
 } from "lucide-react";
 
 // 🎟️ Sale Ticket Icon with % symbol matching reference image
@@ -71,9 +74,31 @@ export default function MainLayout() {
   const [hoveredPath, setHoveredPath] = useState(null);
   const [saleOpen, setSaleOpen] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [accountsOpen, setAccountsOpen] = useState(false);
+  const [customerOpen, setCustomerOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState("general");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const quickAddRef = useRef(null);
+  const [generalSettings, setGeneralSettings] = useState({});
+
+  // Fetch general settings so the Sale dropdown can react to "More Transactions" checkboxes
+  useEffect(() => {
+    let mounted = true;
+    fetchSettings().then((settings) => {
+      if (!mounted) return;
+      setGeneralSettings((settings && settings.general) || {});
+    });
+    const handleUpdate = (e) => {
+      if (!mounted) return;
+      const general = (e.detail && e.detail.general) || {};
+      setGeneralSettings(general);
+    };
+    window.addEventListener("company-settings-updated", handleUpdate);
+    return () => {
+      mounted = false;
+      window.removeEventListener("company-settings-updated", handleUpdate);
+    };
+  }, []);
 
   // Collapsible Sidebar state
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -145,13 +170,19 @@ export default function MainLayout() {
     }
   }, [user, navigate]);
 
-  // Auto-expand Sale or Purchase dropdown if current route is inside it
+  // Auto-expand Sale, Purchase, Accounts, or Customer dropdown if current route is inside it
   useEffect(() => {
     if (location.pathname.startsWith("/sales")) {
       setSaleOpen(true);
     }
     if (location.pathname.startsWith("/purchases")) {
       setPurchaseOpen(true);
+    }
+    if (location.pathname.startsWith("/company") || location.pathname.startsWith("/cashier")) {
+      setAccountsOpen(true);
+    }
+    if (location.pathname.startsWith("/customer") || location.pathname.startsWith("/whatsapp")) {
+      setCustomerOpen(true);
     }
   }, [location.pathname]);
 
@@ -170,6 +201,11 @@ export default function MainLayout() {
   };
 
   // 🔥 ROLE BASED MENU
+  // Sale submenu transaction items are driven by Settings > General >
+  // "More Transactions" checkboxes via the shared salesTransactionMap.
+  const saleSubItemsFromSettings = SALES_TRANSACTION_MENU_ITEMS.filter(
+    (item) => generalSettings[item.settingsKey] !== false
+  ).map((item) => ({ name: item.label, path: item.path }));
   const menuItems = [
     // COMMON FOR ALL ROLES
     { name: "Helpdesk Support", path: "/helpdesk", icon: <HelpCircle size={20} /> },
@@ -179,19 +215,27 @@ export default function MainLayout() {
       ? [
           { name: "Home", path: "/dashboard", icon: <Home size={20} /> },
           {
+            name: "Customer",
+            icon: <User size={20} />,
+            isDropdown: true,
+            dropdownKey: "customer",
+            subItems: [
+              { name: "Customers Details", path: "/customer", altPaths: ["/customer", "/customer/add", "/customer/edit"] },
+              { name: "WhatsApp", path: "/whatsapp", altPaths: ["/whatsapp"] },
+            ]
+          },
+          {
             name: "Sale",
             icon: <SaleIcon size={20} />,
             isDropdown: true,
+            dropdownKey: "sale",
             subItems: [
               { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/reports", "/sales/add"] },
               { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
-              { name: "Sale Return/ Credit Note", path: "/sales/credit-note" },
+              { name: "Sale Return/ Credit Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
+              ...saleSubItemsFromSettings,
             ]
           },
-          { name: "Company", path: "/company", icon: <Building2 size={20} /> },
-          { name: "Category & Subcategory", path: "/category", icon: <Package size={20} /> },
-          { name: "Brand", path: "/brand", icon: <Tags size={20} /> },
-          { name: "Supplier", path: "/supplier", icon: <Truck size={20} /> },
           { name: "Products", path: "/products", icon: <PackageSearch size={20} /> },
           {
             name: "Purchase & Expense",
@@ -205,10 +249,17 @@ export default function MainLayout() {
               { name: "Purchase Return/ Dr. Note", path: "/purchases/return", altPaths: ["/purchases/return", "/purchases/debit-note/add"] },
             ]
           },
+          {
+            name: "Accounts",
+            icon: <Building2 size={20} />,
+            isDropdown: true,
+            dropdownKey: "accounts",
+            subItems: [
+              { name: "Company", path: "/company", altPaths: ["/company", "/company/add", "/company/edit"] },
+              { name: "Cashier", path: "/cashier", altPaths: ["/cashier", "/cashier/add", "/cashier/edit"] },
+            ]
+          },
           { name: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
-          { name: "Cashiers", path: "/cashier", icon: <Users size={20} /> },
-          { name: "Customer", path: "/customer", icon: <User size={20} /> },
-          { name: "WhatsApp", path: "/whatsapp", icon: <WhatsAppIcon size={20} /> },
           { name: "Settings", path: "/settings", icon: <Settings size={20} /> },
         ]
       : []),
@@ -253,11 +304,21 @@ export default function MainLayout() {
           transition={{ duration: 0.25, ease: "easeInOut" }}
           className="bg-[#1e293b] text-white flex flex-col transition-all duration-300 relative select-none flex-shrink-0 px-3 py-5 h-screen"
         >
-          <div className="flex items-center gap-2.5 mb-5">
-            <div className="w-9 h-9 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Settings size={20} color="#ffffff" />
+          <div className="flex items-center justify-between mb-5 pr-0.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Settings size={20} color="#ffffff" />
+              </div>
+              <h2 className="text-[15px] font-semibold tracking-wide whitespace-nowrap">Settings</h2>
             </div>
-            <h2 className="text-[15px] font-semibold tracking-wide whitespace-nowrap">Settings</h2>
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard")}
+              title="Close Settings"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all duration-200 cursor-pointer flex-shrink-0"
+            >
+              <X size={18} strokeWidth={2.5} />
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-0.5 scrollbar-thin scrollbar-thumb-white/20">
@@ -344,13 +405,25 @@ export default function MainLayout() {
                 const isDropdownItemActive = item.subItems.some(
                   (sub) =>
                     location.pathname === sub.path ||
-                    (sub.altPaths && sub.altPaths.includes(location.pathname))
+                    (sub.altPaths && sub.altPaths.some((p) => location.pathname.startsWith(p)))
                 );
 
-                const isOpen = item.dropdownKey === "purchase" ? purchaseOpen : saleOpen;
+                const isOpen =
+                  item.dropdownKey === "purchase"
+                    ? purchaseOpen
+                    : item.dropdownKey === "accounts"
+                    ? accountsOpen
+                    : item.dropdownKey === "customer"
+                    ? customerOpen
+                    : saleOpen;
+
                 const toggleDropdown = () => {
                   if (item.dropdownKey === "purchase") {
                     setPurchaseOpen((prev) => !prev);
+                  } else if (item.dropdownKey === "accounts") {
+                    setAccountsOpen((prev) => !prev);
+                  } else if (item.dropdownKey === "customer") {
+                    setCustomerOpen((prev) => !prev);
                   } else {
                     setSaleOpen((prev) => !prev);
                   }
@@ -360,7 +433,7 @@ export default function MainLayout() {
                   return (
                     <motion.div
                       key={item.name}
-                      onClick={() => navigate(item.subItems[0]?.path || "/purchases")}
+                      onClick={() => navigate(item.subItems[0]?.path || "/dashboard")}
                       whileHover={{ scale: 1.08 }}
                       title={item.name}
                       className={`flex items-center justify-center p-3 rounded-xl cursor-pointer transition ${
@@ -377,7 +450,7 @@ export default function MainLayout() {
                     {/* Parent button */}
                     <div
                       onClick={toggleDropdown}
-                      className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition select-none ${
+                      className={`flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition select-none ${
                         isDropdownItemActive && !isOpen
                           ? "bg-white text-blue-600 font-semibold shadow-sm"
                           : isDropdownItemActive && isOpen

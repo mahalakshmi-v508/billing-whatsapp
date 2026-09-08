@@ -17,7 +17,20 @@ import {
   Pencil,
   AlignLeft,
   Zap,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Building2,
+  Truck,
+  DollarSign,
+  FileText,
+  AlertCircle,
+  Layers,
+  Percent,
+  Receipt,
+  Phone,
+  CreditCard,
+  CornerUpLeft,
+  Save,
+  Clock
 } from "lucide-react";
 
 const unitOptions = [
@@ -85,50 +98,49 @@ function CloseConfirmModal({ isOpen, onCancel, onConfirm }) {
   if (!isOpen) return null;
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 99999,
-        background: "rgba(15, 23, 42, 0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
       onClick={onCancel}
     >
       <div
-        style={{
-          background: "#ffffff",
-          borderRadius: 8,
-          width: 440,
-          maxWidth: "92vw",
-          boxShadow: "0 20px 40px rgba(15, 23, 42, 0.2)",
-          overflow: "hidden",
-          border: "1px solid #e2e8f0"
-        }}
+        className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e5e7eb" }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#1e3a47" }}>Close Debit Note</h3>
-          <button onClick={onCancel} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#374151" }}>
-            <X size={18} />
-          </button>
-        </div>
-        <div style={{ padding: "20px", fontSize: 14, color: "#374151", lineHeight: 1.5 }}>
-          Current changes will be discarded. Do you wish to continue?
-        </div>
-        <div style={{ padding: "12px 20px", background: "#f9fafb", display: "flex", justifyContent: "flex-end", gap: 10, borderTop: "1px solid #e5e7eb" }}>
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <CornerUpLeft size={16} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Close Debit Note</h3>
+              <p className="text-[11px] text-slate-500">Unsaved purchase return data will be discarded</p>
+            </div>
+          </div>
           <button
             onClick={onCancel}
-            style={{ padding: "7px 16px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#ffffff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-6 text-xs text-slate-600 leading-relaxed">
+          Current changes in this debit note voucher will be discarded. Do you wish to continue and return to the purchase returns list?
+        </div>
+
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={onConfirm}
-            style={{ padding: "7px 20px", borderRadius: 6, border: "none", background: "#1d72fe", color: "#ffffff", fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+            className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition cursor-pointer"
           >
-            OK
+            OK, Discard
           </button>
         </div>
       </div>
@@ -136,7 +148,7 @@ function CloseConfirmModal({ isOpen, onCancel, onConfirm }) {
   );
 }
 
-/* ── Built-in Calculator Modal ── */
+/* ── Built-in Calculator Modal (Safe) ── */
 function CalculatorModal({ isOpen, onClose }) {
   const [calcInput, setCalcInput] = useState("");
   if (!isOpen) return null;
@@ -145,8 +157,9 @@ function CalculatorModal({ isOpen, onClose }) {
     if (val === "C") setCalcInput("");
     else if (val === "=") {
       try {
-        // eslint-disable-next-line no-eval
-        const res = eval(calcInput.replace(/×/g, "*").replace(/÷/g, "/"));
+        const sanitized = calcInput.replace(/×/g, "*").replace(/÷/g, "/");
+        // Safe evaluation without direct eval
+        const res = Function(`'use strict'; return (${sanitized})`)();
         setCalcInput(String(res));
       } catch {
         setCalcInput("Error");
@@ -158,50 +171,33 @@ function CalculatorModal({ isOpen, onClose }) {
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 99999,
-        background: "rgba(15,23,42,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
       onClick={onClose}
     >
       <div
-        style={{
-          background: "#ffffff",
-          borderRadius: 12,
-          width: 280,
-          boxShadow: "0 20px 40px rgba(0,0,0,0.25)",
-          overflow: "hidden"
-        }}
+        className="bg-white rounded-2xl w-72 shadow-2xl border border-slate-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ padding: "10px 14px", background: "#1e293b", color: "#ffffff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontWeight: 700, fontSize: 13 }}>Calculator</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer" }}><X size={15} /></button>
+        <div className="px-4 py-3 bg-slate-900 text-white flex justify-between items-center">
+          <span className="font-bold text-xs">Calculator</span>
+          <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X size={15} /></button>
         </div>
-        <div style={{ padding: "14px", background: "#f8fafc", textAlign: "right", fontSize: 22, fontWeight: 800, color: "#0f172a", minHeight: 48, borderBottom: "1px solid #e2e8f0" }}>
+        <div className="p-4 bg-slate-50 text-right text-2xl font-black text-slate-900 min-h-[56px] border-b border-slate-200">
           {calcInput || "0"}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, padding: 12 }}>
+        <div className="grid grid-cols-4 gap-2 p-3 bg-white">
           {["7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "-", "C", "0", "=", "+"].map((b) => (
             <button
               key={b}
               type="button"
               onClick={() => handleBtn(b)}
-              style={{
-                padding: "12px 0",
-                fontSize: 15,
-                fontWeight: 700,
-                borderRadius: 6,
-                border: "1px solid #e2e8f0",
-                background: b === "=" ? "#2563eb" : b === "C" ? "#fee2e2" : "#ffffff",
-                color: b === "=" ? "#ffffff" : b === "C" ? "#dc2626" : "#1e293b",
-                cursor: "pointer"
-              }}
+              className={`py-3 text-sm font-bold rounded-xl border transition cursor-pointer ${
+                b === "="
+                  ? "bg-rose-600 text-white border-rose-600 shadow-sm"
+                  : b === "C"
+                  ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100"
+                  : "bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100"
+              }`}
             >
               {b}
             </button>
@@ -668,1041 +664,799 @@ export default function AddDebitNote() {
     });
 
   return (
-    <div style={{ background: "#f8fafc", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 flex flex-col font-sans text-slate-800 antialiased pb-24">
       
-      {/* ── 1. TOP TABS & UTILITY BAR (Exact Vyapar Reference) ── */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderBottom: "1px solid #e2e8f0",
-          padding: "0 16px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          minHeight: 42
-        }}
-      >
-        {/* Multi-tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, overflowX: "auto" }}>
-          {tabs.map((tab) => {
-            const isActive = tab.id === activeTabId;
-            return (
-              <div
-                key={tab.id}
-                onClick={() => setActiveTabId(tab.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 14px",
-                  fontSize: 13,
-                  fontWeight: isActive ? 800 : 600,
-                  color: isActive ? "#1d72fe" : "#64748b",
-                  borderBottom: isActive ? "2.5px solid #1d72fe" : "2.5px solid transparent",
-                  background: isActive ? "#f8fafc" : "transparent",
-                  cursor: "pointer",
-                  borderRadius: "4px 4px 0 0"
-                }}
-              >
-                <span>{tab.title}</span>
-                <button
-                  type="button"
-                  onClick={(e) => handleCloseTab(tab.id, e)}
-                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#94a3b8", display: "flex" }}
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            );
-          })}
-
-          {!isEditMode && (
+      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+          
+          {/* Left: Back & Badge Title */}
+          <div className="flex items-center gap-3.5">
             <button
               type="button"
-              onClick={handleAddTab}
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: "50%",
-                background: "#1d72fe",
-                color: "#ffffff",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                marginLeft: 6
-              }}
-              title="Add New Debit Note Tab"
+              onClick={() => setShowCloseModal(true)}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100/80 transition-all border border-slate-200/70 shadow-2xs cursor-pointer"
+              title="Back to Purchase Returns"
             >
-              <Plus size={16} strokeWidth={3} />
+              <ArrowLeft size={18} />
             </button>
-          )}
-        </div>
-
-        {/* Right utility icons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <button
-            type="button"
-            onClick={() => setShowCalculator(true)}
-            style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", padding: 4 }}
-            title="Open Calculator"
-          >
-            <Calculator size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowCloseModal(true)}
-            style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", padding: 4 }}
-            title="Close Form"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── 2. PAGE HEADER TITLE ── */}
-      <div style={{ padding: "12px 24px 4px 24px" }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1e293b" }}>Debit Note</h2>
-      </div>
-
-      {/* ── 3. MAIN FORM BODY ── */}
-      <div style={{ flex: 1, padding: "8px 24px 24px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-        
-        {/* Top Details Grid (Left Party, Right Voucher metadata) */}
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: 8,
-            border: "1px solid #e2e8f0",
-            padding: "16px 20px",
-            display: "grid",
-            gridTemplateColumns: "1.2fr 1fr",
-            gap: 32,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-          }}
-        >
-          {/* Left: Party * & Phone No. */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              
-              {/* Searchable Party Box with Instant Dropdown */}
-              <div ref={partyRef} style={{ position: "relative", flex: 1 }}>
-                <div
-                  onClick={() => setShowPartyDropdown((prev) => !prev)}
-                  style={{
-                    position: "relative",
-                    border: "1.5px solid #2563eb",
-                    borderRadius: 6,
-                    padding: "4px 12px",
-                    background: "#ffffff",
-                    cursor: "pointer"
-                  }}
-                >
-                  <label
-                    style={{
-                      position: "absolute",
-                      top: -9,
-                      left: 10,
-                      background: "#ffffff",
-                      padding: "0 4px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#2563eb"
-                    }}
-                  >
-                    Party *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Search or select supplier..."
-                    value={activeTab.partyInput}
-                    onChange={(e) => {
-                      updateActiveTab({ partyInput: e.target.value, selectedSupplier: null });
-                      setShowPartyDropdown(true);
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowPartyDropdown(true);
-                    }}
-                    onFocus={() => setShowPartyDropdown(true)}
-                    style={{
-                      width: "100%",
-                      border: "none",
-                      outline: "none",
-                      fontSize: 13.5,
-                      fontWeight: 600,
-                      color: "#1e293b",
-                      padding: "4px 0",
-                      cursor: "text"
-                    }}
-                  />
-                  <ChevronDown
-                    size={16}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowPartyDropdown((prev) => !prev);
-                    }}
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      top: "50%",
-                      transform: `translateY(-50%) ${showPartyDropdown ? "rotate(180deg)" : "rotate(0deg)"}`,
-                      transition: "transform 0.15s ease",
-                      color: "#64748b",
-                      cursor: "pointer"
-                    }}
-                  />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-red-500 text-white flex items-center justify-center shadow-md shadow-rose-500/20">
+                <CornerUpLeft size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-black text-slate-900 tracking-tight">
+                    {isEditMode ? "Edit Debit Note" : "New Debit Note"}
+                  </h1>
+                  <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200/60 rounded-full">
+                    Purchase Return
+                  </span>
                 </div>
-
-                {/* Suppliers Suggestions Dropdown */}
-                {showPartyDropdown && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      top: 40,
-                      width: "100%",
-                      background: "#ffffff",
-                      borderRadius: 8,
-                      boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
-                      border: "1px solid #cbd5e1",
-                      maxHeight: 220,
-                      overflowY: "auto",
-                      zIndex: 999
-                    }}
-                  >
-                    {filteredSuppliers.map((s) => (
-                      <div
-                        key={s.id}
-                        onClick={() => handleSelectParty(s)}
-                        style={{
-                          padding: "9px 14px",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          cursor: "pointer",
-                          borderBottom: "1px solid #f1f5f9"
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#eff6ff"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                      >
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{s.supplier_name || s.name}</div>
-                          {(s.phone || s.mobile_number) && (
-                            <div style={{ fontSize: 11, color: "#64748b" }}>{s.phone || s.mobile_number}</div>
-                          )}
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 10.5, color: "#94a3b8" }}>Balance</div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "#dc2626" }}>
-                            ₹ {fmtCurrency(s.pending_balance || 0)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {filteredSuppliers.length === 0 && (
-                      <div style={{ padding: "12px 14px", fontSize: 12.5, color: "#64748b", textAlign: "center" }}>
-                        Press Save to add <b>"{activeTab.partyInput}"</b> as a new supplier.
-                      </div>
-                    )}
-                  </div>
-                )}
+                <p className="text-xs text-slate-500 font-medium">Record purchase returns, defective items & supplier credit notes</p>
               </div>
-
-              {/* Phone No. */}
-              <div
-                style={{
-                  width: 170,
-                  border: "1px solid #cbd5e1",
-                  borderRadius: 6,
-                  padding: "4px 10px",
-                  background: "#ffffff",
-                  position: "relative"
-                }}
-              >
-                <label style={{ position: "absolute", top: -9, left: 8, background: "#ffffff", padding: "0 4px", fontSize: 10, fontWeight: 600, color: "#64748b" }}>
-                  Phone No.
-                </label>
-                <input
-                  type="text"
-                  placeholder="Phone No."
-                  value={activeTab.supplierPhone}
-                  onChange={(e) => updateActiveTab({ supplierPhone: e.target.value })}
-                  style={{ width: "100%", border: "none", outline: "none", fontSize: 13, color: "#1e293b", padding: "4px 0" }}
-                />
-              </div>
-
             </div>
-
-            {/* Live Party Balance indicator */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#64748b", fontWeight: 600 }}>
-              <span>Party Balance:</span>
-              <span style={{ color: "#dc2626", fontWeight: 800 }}>
-                ₹ {fmtCurrency(activeTab.selectedSupplier?.pending_balance || 0)}
-              </span>
-            </div>
-
           </div>
 
-          {/* Right: Return No, Bill Number, Bill Date, Date, State of supply */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              
-              {/* Return No. */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: 4 }}>
-                <span style={{ fontSize: 12.5, color: "#64748b", fontWeight: 600 }}>Return No.</span>
-                <input
-                  type="text"
-                  value={activeTab.returnNo}
-                  onChange={(e) => updateActiveTab({ returnNo: e.target.value })}
-                  style={{ width: 80, border: "none", outline: "none", textAlign: "right", fontSize: 13, fontWeight: 700, color: "#1e293b" }}
-                />
-              </div>
+          {/* Center: Multi-Tab Vouchers */}
+          <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60">
+            {tabs.map((tab) => {
+              const isActive = tab.id === activeTabId;
+              return (
+                <div
+                  key={tab.id}
+                  onClick={() => setActiveTabId(tab.id)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-white text-rose-700 shadow-xs border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                  }`}
+                >
+                  <Receipt size={13} className={isActive ? "text-rose-600" : "text-slate-400"} />
+                  <span>{tab.title}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => handleCloseTab(tab.id, e)}
+                    className="p-0.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              );
+            })}
 
-              {/* Bill Number */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: 4 }}>
-                <span style={{ fontSize: 12.5, color: "#64748b", fontWeight: 600 }}>Bill Number</span>
-                <input
-                  type="text"
-                  placeholder="e.g. PUR-001"
-                  value={activeTab.billNo}
-                  onChange={(e) => updateActiveTab({ billNo: e.target.value })}
-                  style={{ width: 110, border: "none", outline: "none", textAlign: "right", fontSize: 13, fontWeight: 600, color: "#1e293b" }}
-                />
-              </div>
-
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              
-              {/* Bill Date */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: 4 }}>
-                <span style={{ fontSize: 12.5, color: "#64748b", fontWeight: 600 }}>Bill Date</span>
-                <input
-                  type="date"
-                  value={activeTab.billDate}
-                  onChange={(e) => updateActiveTab({ billDate: e.target.value })}
-                  style={{ border: "none", outline: "none", fontSize: 12, fontWeight: 600, color: "#1e293b", cursor: "pointer" }}
-                />
-              </div>
-
-              {/* Return Date */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: 4 }}>
-                <span style={{ fontSize: 12.5, color: "#64748b", fontWeight: 600 }}>Date</span>
-                <input
-                  type="date"
-                  value={activeTab.returnDate}
-                  onChange={(e) => updateActiveTab({ returnDate: e.target.value })}
-                  style={{ border: "none", outline: "none", fontSize: 12, fontWeight: 700, color: "#1e293b", cursor: "pointer" }}
-                />
-              </div>
-
-            </div>
-
-            {/* State of supply */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: 4 }}>
-              <span style={{ fontSize: 12.5, color: "#64748b", fontWeight: 600 }}>State of supply</span>
-              <select
-                value={activeTab.stateOfSupply}
-                onChange={(e) => updateActiveTab({ stateOfSupply: e.target.value })}
-                style={{ border: "none", outline: "none", fontSize: 12.5, fontWeight: 700, color: "#1e293b", background: "transparent", cursor: "pointer" }}
+            {!isEditMode && (
+              <button
+                type="button"
+                onClick={handleAddTab}
+                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer"
+                title="Open another Return Tab"
               >
-                {indianStates.map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
-            </div>
+                <Plus size={14} />
+              </button>
+            )}
+          </div>
 
+          {/* Right: Quick Tools */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowCalculator(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-xs font-bold shadow-2xs transition cursor-pointer"
+            >
+              <Calculator size={14} className="text-slate-500" />
+              <span>Calculator</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCloseModal(true)}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              title="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
 
         </div>
+      </header>
 
-        {/* ── 4. ITEMS TABLE (Exact Matches media_1788343634794.png) ── */}
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: 8,
-            border: "1px solid #e2e8f0",
-            overflow: "visible",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-          }}
-        >
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-            <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
-                
-                {/* 1. Barcode Scanner Icon Header */}
-                <th style={{ width: 44, padding: "8px 6px", textAlign: "center", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }}>
-                  <div
-                    style={{
-                      width: 32,
-                      height: 26,
-                      borderRadius: 4,
-                      background: "#e6f9ed",
-                      border: "1px solid #bbf7d0",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      margin: "auto"
-                    }}
-                  >
-                    <ScanBarcode size={15} color="#059669" />
-                  </div>
-                </th>
+      {/* ── 2. MAIN FORM BODY ── */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex-1 w-full space-y-6">
 
-                {/* 2. ITEM */}
-                <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", color: "#374151" }}>
-                  ITEM
-                </th>
+        {/* ── SECTION 1: SUPPLIER & RETURN DETAILS ── */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">
+          <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
+                1
+              </div>
+              <h2 className="text-sm font-bold text-slate-900">Supplier & Voucher Reference</h2>
+            </div>
+            {activeTab.selectedSupplier && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200/60 rounded-xl text-xs">
+                <span className="text-amber-700 font-medium">Supplier Pending Balance:</span>
+                <span className="font-extrabold text-amber-900">₹ {fmtCurrency(activeTab.selectedSupplier.pending_balance || 0)}</span>
+              </div>
+            )}
+          </div>
 
-                {/* 3. QTY */}
-                <th style={{ width: 70, padding: "8px 6px", textAlign: "center", fontWeight: 700, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", color: "#374151" }}>
-                  QTY
-                </th>
-
-                {/* 4. UNIT */}
-                <th style={{ width: 96, padding: "8px 6px", textAlign: "center", fontWeight: 700, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", color: "#374151" }}>
-                  UNIT
-                </th>
-
-                {/* 5. PRICE/UNIT Header (with Without Tax dropdown) */}
-                <th style={{ width: 140, padding: "6px 8px", textAlign: "center", fontWeight: 700, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", color: "#374151", position: "relative" }}>
-                  <div>PRICE/UNIT</div>
-                  <div
-                    onClick={() => setShowTaxModeDropdown(!showTaxModeDropdown)}
-                    style={{
-                      fontSize: 10.5,
-                      color: "#6b7280",
-                      fontWeight: 500,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 2,
-                      marginTop: 2,
-                      cursor: "pointer"
-                    }}
-                  >
-                    <span>{activeTab.globalTaxMode === "with_tax" ? "With Tax" : "Without Tax"}</span>
-                    <ChevronDown size={11} />
-                  </div>
-
-                  {showTaxModeDropdown && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        background: "#ffffff",
-                        borderRadius: 6,
-                        border: "1px solid #e2e8f0",
-                        boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
-                        zIndex: 100,
-                        width: 120,
-                        padding: "4px 0"
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+            
+            {/* Left: Supplier Search / Selection */}
+            <div className="md:col-span-6 space-y-4" ref={partyRef}>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Supplier / Vendor (Party) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="relative flex items-center">
+                    <Truck size={16} className="absolute left-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search supplier by name or phone..."
+                      value={activeTab.partyInput}
+                      onChange={(e) => {
+                        updateActiveTab({ partyInput: e.target.value, selectedSupplier: null });
+                        setShowPartyDropdown(true);
                       }}
-                    >
-                      <div
-                        onClick={() => handleTaxModeChange("without_tax")}
-                        style={{ padding: "6px 12px", fontSize: 11, cursor: "pointer", color: "#334155" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "#eff6ff")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        Without Tax
-                      </div>
-                      <div
-                        onClick={() => handleTaxModeChange("with_tax")}
-                        style={{ padding: "6px 12px", fontSize: 11, cursor: "pointer", color: "#334155" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "#eff6ff")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        With Tax
-                      </div>
+                      onFocus={() => setShowPartyDropdown(true)}
+                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 placeholder:text-slate-400 transition-all outline-hidden"
+                    />
+                    <ChevronDown
+                      size={15}
+                      className={`absolute right-3.5 text-slate-400 transition-transform cursor-pointer ${
+                        showPartyDropdown ? "rotate-180 text-rose-600" : ""
+                      }`}
+                      onClick={() => setShowPartyDropdown((prev) => !prev)}
+                    />
+                  </div>
+
+                  {/* Supplier Suggestions Dropdown */}
+                  {showPartyDropdown && (
+                    <div className="absolute left-0 top-full mt-1.5 w-full bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2 z-50 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                      {filteredSuppliers.length > 0 ? (
+                        filteredSuppliers.map((s) => (
+                          <div
+                            key={s.id}
+                            onClick={() => handleSelectParty(s)}
+                            className="px-4 py-2.5 hover:bg-rose-50/60 cursor-pointer flex items-center justify-between transition-colors border-b border-slate-50 last:border-0"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 font-bold text-xs flex items-center justify-center">
+                                {(s.supplier_name || s.name || "S")[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-slate-900">{s.supplier_name || s.name}</p>
+                                <p className="text-[11px] text-slate-500">{s.phone || s.mobile_number || "No phone"}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] text-slate-400 block font-medium">Balance</span>
+                              <span className="text-xs font-bold text-rose-600">
+                                ₹ {fmtCurrency(s.pending_balance || 0)}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center">
+                          <p className="text-xs text-slate-500">No matching supplier found.</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Saving will create <strong>"{activeTab.partyInput}"</strong> as a new vendor.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
-                </th>
+                </div>
+              </div>
 
-                {/* 6. DISCOUNT Header (% & AMOUNT) */}
-                <th style={{ width: 140, padding: 0, textAlign: "center", fontWeight: 700, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", color: "#374151" }}>
-                  <div style={{ padding: "5px 6px", borderBottom: "1px solid #e2e8f0" }}>DISCOUNT</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, color: "#6b7280", fontWeight: 500 }}>
-                    <div style={{ padding: "3px 2px", borderRight: "1px solid #e2e8f0" }}>%</div>
-                    <div style={{ padding: "3px 2px" }}>AMOUNT</div>
+              {/* Phone number field */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Supplier Contact Phone</label>
+                  <div className="relative">
+                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Phone number"
+                      value={activeTab.supplierPhone}
+                      onChange={(e) => updateActiveTab({ supplierPhone: e.target.value })}
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 placeholder:text-slate-400 transition-all outline-hidden"
+                    />
                   </div>
-                </th>
+                </div>
 
-                {/* 7. TAX Header (% & AMOUNT) */}
-                <th style={{ width: 145, padding: 0, textAlign: "center", fontWeight: 700, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", color: "#374151" }}>
-                  <div style={{ padding: "5px 6px", borderBottom: "1px solid #e2e8f0" }}>TAX</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, color: "#6b7280", fontWeight: 500 }}>
-                    <div style={{ padding: "3px 2px", borderRight: "1px solid #e2e8f0" }}>%</div>
-                    <div style={{ padding: "3px 2px" }}>AMOUNT</div>
-                  </div>
-                </th>
-
-                {/* 8. AMOUNT Header */}
-                <th style={{ width: 110, padding: "8px 12px", textAlign: "right", fontWeight: 700, borderBottom: "1px solid #e2e8f0", color: "#374151" }}>
-                  AMOUNT
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {activeTab.items.map((row, idx) => {
-                const isLightning = idx === 0;
-                const rowBg = isLightning ? "#eaf4fe" : "#ffffff";
-                const isProductSearchOpen = activeProductSearchIndex === idx;
-
-                return (
-                  <tr
-                    key={row.id || idx}
-                    style={{
-                      borderBottom: "1px solid #e2e8f0",
-                      background: rowBg,
-                      height: 44
-                    }}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">State of Supply</label>
+                  <select
+                    value={activeTab.stateOfSupply}
+                    onChange={(e) => updateActiveTab({ stateOfSupply: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 transition-all outline-hidden cursor-pointer"
                   >
-                    {/* Col 1: Zap ⚡ on row 0 or (↕ index 🗑️) on subsequent rows */}
-                    <td style={{ textAlign: "center", padding: "6px 6px", borderRight: "1px solid #e2e8f0" }}>
-                      {isLightning ? (
-                        <Zap size={16} color="#2563eb" fill="#2563eb" style={{ margin: "auto" }} />
-                      ) : (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                          <span style={{ color: "#9ca3af", display: "flex", cursor: "grab" }}>
-                            <ChevronsUpDown size={12} />
-                          </span>
-                          <span style={{ color: "#4b5563", fontWeight: 600, fontSize: 12 }}>{idx}</span>
-                          <button
-                            type="button"
-                            onClick={() => deleteRow(idx)}
-                            title="Delete row"
-                            style={{ border: "none", background: "transparent", color: "#6b7280", cursor: "pointer", display: "flex", padding: 2 }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      )}
-                    </td>
+                    {indianStates.map((st) => (
+                      <option key={st} value={st}>{st}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
 
-                    {/* Col 2: ITEM name input with autocomplete */}
-                    <td style={{ padding: "6px 10px", position: "relative", borderRight: "1px solid #e2e8f0" }}>
-                      <input
-                        type="text"
-                        placeholder={isLightning && !row.product_name ? "" : "Enter item name..."}
-                        value={row.product_name}
-                        onChange={(e) => {
-                          updateRow(idx, "product_name", e.target.value);
-                          setActiveProductSearchIndex(idx);
-                        }}
-                        onClick={() => setActiveProductSearchIndex(idx)}
-                        onFocus={() => setActiveProductSearchIndex(idx)}
-                        style={{
-                          width: "100%",
-                          border: "none",
-                          outline: "none",
-                          background: "transparent",
-                          fontSize: 13,
-                          fontWeight: 500,
-                          color: "#0f172a"
-                        }}
-                      />
+            {/* Right: Return #, Original Bill Ref & Dates */}
+            <div className="md:col-span-6 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Debit Note Return #</label>
+                  <div className="relative">
+                    <Receipt size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Return #"
+                      value={activeTab.returnNo}
+                      onChange={(e) => updateActiveTab({ returnNo: e.target.value })}
+                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-bold text-slate-900 transition-all outline-hidden"
+                    />
+                  </div>
+                </div>
 
-                      {/* Autocomplete suggestions */}
-                      {isProductSearchOpen && (
-                        <div
-                          ref={productSuggestRef}
-                          style={{
-                            position: "absolute",
-                            top: "100%",
-                            left: 0,
-                            width: 330,
-                            background: "#ffffff",
-                            borderRadius: 6,
-                            border: "1px solid #e2e8f0",
-                            boxShadow: "0 10px 24px rgba(0,0,0,0.12)",
-                            zIndex: 9999,
-                            marginTop: 2,
-                            maxHeight: 220,
-                            overflowY: "auto"
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Original Purchase Bill #</label>
+                  <div className="relative">
+                    <FileText size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="e.g. PUR-0082"
+                      value={activeTab.billNo}
+                      onChange={(e) => updateActiveTab({ billNo: e.target.value })}
+                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 transition-all outline-hidden"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Original Bill Date</label>
+                  <div className="relative">
+                    <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="date"
+                      value={activeTab.billDate}
+                      onChange={(e) => updateActiveTab({ billDate: e.target.value })}
+                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 transition-all outline-hidden cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Return Date</label>
+                  <div className="relative">
+                    <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-rose-500" />
+                    <input
+                      type="date"
+                      value={activeTab.returnDate}
+                      onChange={(e) => updateActiveTab({ returnDate: e.target.value })}
+                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-rose-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-bold text-slate-900 transition-all outline-hidden cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* ── SECTION 2: RETURN ITEMS TABLE ── */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
+                2
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Returned Line Items</h2>
+                <p className="text-[11px] text-slate-500">Add returned goods with quantity, rate, discount and GST slab</p>
+              </div>
+            </div>
+
+            {/* Tax Mode Switcher */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <div
+                onClick={() => setShowTaxModeDropdown(!showTaxModeDropdown)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition cursor-pointer"
+              >
+                <Percent size={13} className="text-rose-600" />
+                <span>Prices: {activeTab.globalTaxMode === "with_tax" ? "Tax Inclusive" : "Tax Exclusive"}</span>
+                <ChevronDown size={13} className="text-slate-400" />
+              </div>
+
+              {showTaxModeDropdown && (
+                <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in duration-100">
+                  <div
+                    onClick={() => handleTaxModeChange("without_tax")}
+                    className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
+                      activeTab.globalTaxMode === "without_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>Tax Exclusive</span>
+                    {activeTab.globalTaxMode === "without_tax" && <Check size={14} />}
+                  </div>
+                  <div
+                    onClick={() => handleTaxModeChange("with_tax")}
+                    className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
+                      activeTab.globalTaxMode === "with_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>Tax Inclusive</span>
+                    {activeTab.globalTaxMode === "with_tax" && <Check size={14} />}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Line Items Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="w-12 py-3 px-3 text-center border-r border-slate-200/60">
+                    <ScanBarcode size={15} className="mx-auto text-slate-400" />
+                  </th>
+                  <th className="py-3 px-4 min-w-[220px] border-r border-slate-200/60">Item Name / Product</th>
+                  <th className="py-3 px-3 w-24 text-center border-r border-slate-200/60">Qty</th>
+                  <th className="py-3 px-3 w-28 text-center border-r border-slate-200/60">Unit</th>
+                  <th className="py-3 px-3 w-32 text-center border-r border-slate-200/60">Rate (₹)</th>
+                  <th className="py-3 px-0 w-36 text-center border-r border-slate-200/60">
+                    <div className="border-b border-slate-200/60 pb-1">Discount</div>
+                    <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
+                      <span>%</span>
+                      <span>Amount</span>
+                    </div>
+                  </th>
+                  <th className="py-3 px-0 w-36 text-center border-r border-slate-200/60">
+                    <div className="border-b border-slate-200/60 pb-1">Tax (GST)</div>
+                    <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
+                      <span>% Slab</span>
+                      <span>Tax (₹)</span>
+                    </div>
+                  </th>
+                  <th className="py-3 px-4 w-32 text-right">Amount (₹)</th>
+                  <th className="py-3 px-2 w-10 text-center"></th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {activeTab.items.map((row, idx) => {
+                  const isLightning = idx === 0;
+                  const isProductSearchOpen = activeProductSearchIndex === idx;
+
+                  return (
+                    <tr
+                      key={row.id || idx}
+                      className={`transition-colors ${
+                        isLightning
+                          ? "bg-rose-50/40 hover:bg-rose-50/70 border-b border-rose-200/60"
+                          : "hover:bg-slate-50/70"
+                      }`}
+                    >
+                      {/* Col 1: Lightning / Row # */}
+                      <td className="py-2 px-3 text-center border-r border-slate-100">
+                        {isLightning ? (
+                          <div className="w-7 h-7 rounded-lg bg-rose-500/15 text-rose-600 flex items-center justify-center mx-auto" title="Quick Add Lightning Row">
+                            <Zap size={14} className="fill-rose-500 text-rose-500" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1 text-slate-400 font-bold text-[11px]">
+                            <span>{idx}</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Col 2: Product Name Autocomplete */}
+                      <td className="py-2 px-3 relative border-r border-slate-100">
+                        <input
+                          type="text"
+                          placeholder={isLightning && !row.product_name ? "⚡ Type item name for instant add..." : "Enter returned product name..."}
+                          value={row.product_name}
+                          onChange={(e) => {
+                            updateRow(idx, "product_name", e.target.value);
+                            setActiveProductSearchIndex(idx);
                           }}
-                        >
-                          {(() => {
-                            const q = (row.product_name || "").toLowerCase().trim();
-                            const selectedSupId = activeTab.selectedSupplier?.id;
+                          onFocus={() => setActiveProductSearchIndex(idx)}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-xs font-semibold text-slate-900 placeholder:text-slate-400 outline-hidden transition-all"
+                        />
 
-                            // Filter supplier-specific products if a supplier is selected
-                            let sourceList = productsCatalog;
-                            if (selectedSupId) {
-                              const supItems = productsCatalog.filter(
-                                (p) => Number(p.supplier_id) === Number(selectedSupId)
-                              );
-                              if (supItems.length > 0) {
-                                sourceList = supItems;
+                        {/* Product Suggestions Dropdown */}
+                        {isProductSearchOpen && (
+                          <div
+                            ref={productSuggestRef}
+                            className="absolute left-2 top-full mt-1 w-80 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2 z-50 max-h-60 overflow-y-auto animate-in fade-in duration-100"
+                          >
+                            {(() => {
+                              const q = (row.product_name || "").toLowerCase().trim();
+                              const selectedSupId = activeTab.selectedSupplier?.id;
+
+                              let sourceList = productsCatalog;
+                              if (selectedSupId) {
+                                const supItems = productsCatalog.filter(
+                                  (p) => Number(p.supplier_id) === Number(selectedSupId)
+                                );
+                                if (supItems.length > 0) sourceList = supItems;
                               }
-                            }
 
-                            const filtered = q
-                              ? sourceList.filter(
-                                  (p) =>
-                                    (p.product_name || p.name || "").toLowerCase().includes(q) ||
-                                    (p.product_code || "").toLowerCase().includes(q) ||
-                                    (p.barcode || "").includes(q)
-                                )
-                              : sourceList;
+                              const filtered = q
+                                ? sourceList.filter(
+                                    (p) =>
+                                      (p.product_name || p.name || "").toLowerCase().includes(q) ||
+                                      (p.product_code || "").toLowerCase().includes(q) ||
+                                      (p.barcode || "").includes(q)
+                                  )
+                                : sourceList;
 
-                            if (filtered.length === 0) {
+                              if (filtered.length === 0) {
+                                return (
+                                  <div className="p-3 text-center text-xs text-slate-500">
+                                    No item found. Press Enter to use <strong>"{row.product_name}"</strong>.
+                                  </div>
+                                );
+                              }
+
                               return (
-                                <div style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>
-                                  {selectedSupId
-                                    ? `No products found for ${activeTab.partyInput || "this supplier"}. Type to enter "${row.product_name}".`
-                                    : `No products found. Type to enter "${row.product_name}".`}
-                                </div>
+                                <>
+                                  {selectedSupId && sourceList.length > 0 && (
+                                    <div className="px-3 py-1 bg-slate-100 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
+                                      Vendor Catalog ({filtered.length})
+                                    </div>
+                                  )}
+                                  {filtered.slice(0, 15).map((p) => (
+                                    <div
+                                      key={p.id}
+                                      onClick={() => handleSelectProduct(idx, p)}
+                                      className="px-3.5 py-2 hover:bg-rose-50/70 cursor-pointer flex items-center justify-between transition text-xs border-b border-slate-50 last:border-0"
+                                    >
+                                      <div>
+                                        <p className="font-bold text-slate-900">{p.product_name || p.name}</p>
+                                        <p className="text-[11px] text-slate-400">
+                                          Stock: {p.stock || 0} {p.unit || ""} {p.product_code ? `• Code: ${p.product_code}` : ""}
+                                        </p>
+                                      </div>
+                                      <div className="text-right">
+                                        <span className="font-extrabold text-rose-600">
+                                          ₹{parseFloat(p.purchase_price || p.price || 0).toLocaleString()}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 block">Unit Cost</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </>
                               );
-                            }
+                            })()}
+                          </div>
+                        )}
+                      </td>
 
-                            return (
-                              <>
-                                {selectedSupId && sourceList.length > 0 && (
-                                  <div style={{ padding: "6px 12px", background: "#f1f5f9", fontSize: 11, fontWeight: 700, color: "#475569", borderBottom: "1px solid #e2e8f0" }}>
-                                    📦 Products for {activeTab.partyInput || "Supplier"} ({filtered.length})
-                                  </div>
-                                )}
-                                {filtered.slice(0, 15).map((p) => (
-                                  <div
-                                    key={p.id}
-                                    onClick={() => handleSelectProduct(idx, p)}
-                                    style={{
-                                      padding: "9px 12px",
-                                      cursor: "pointer",
-                                      borderBottom: "1px solid #f1f5f9",
-                                      fontSize: 12,
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center"
-                                    }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.background = "#eff6ff")}
-                                    onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
-                                  >
-                                    <div>
-                                      <div style={{ fontWeight: 700, color: "#1e293b" }}>{p.product_name || p.name}</div>
-                                      <div style={{ fontSize: 11, color: "#64748b" }}>
-                                        Stock: {p.stock || 0} {p.unit || ""} {p.product_code ? `• Code: ${p.product_code}` : ""}
-                                      </div>
-                                    </div>
-                                    <div style={{ textAlign: "right" }}>
-                                      <div style={{ fontWeight: 700, color: "#2563eb" }}>
-                                        ₹{parseFloat(p.purchase_price || p.price || 0).toLocaleString()}
-                                      </div>
-                                      <div style={{ fontSize: 10, color: "#94a3b8" }}>Rate</div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </td>
+                      {/* Col 3: Qty */}
+                      <td className="py-2 px-2 text-center border-r border-slate-100">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0"
+                          value={row.quantity}
+                          onChange={(e) => updateRow(idx, "quantity", e.target.value)}
+                          className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
+                        />
+                      </td>
 
-                    {/* Col 3: QTY */}
-                    <td style={{ padding: "6px 6px", borderRight: "1px solid #e2e8f0" }}>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder=""
-                        value={row.quantity}
-                        onChange={(e) => updateRow(idx, "quantity", e.target.value)}
-                        style={{
-                          width: "100%",
-                          border: "none",
-                          outline: "none",
-                          background: "transparent",
-                          textAlign: "center",
-                          fontSize: 13,
-                          fontWeight: 600,
-                          color: "#0f172a"
-                        }}
-                      />
-                    </td>
-
-                    {/* Col 4: UNIT */}
-                    <td style={{ padding: "6px 6px", borderRight: "1px solid #e2e8f0" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
+                      {/* Col 4: Unit */}
+                      <td className="py-2 px-2 text-center border-r border-slate-100">
                         <select
                           value={row.unit}
                           onChange={(e) => updateRow(idx, "unit", e.target.value)}
-                          style={{
-                            border: "none",
-                            outline: "none",
-                            background: "transparent",
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: "#374151",
-                            cursor: "pointer",
-                            textAlign: "center"
-                          }}
+                          className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-semibold text-slate-700 outline-hidden transition-all text-xs cursor-pointer"
                         >
                           {unitOptions.map((u) => (
                             <option key={u} value={u}>{u}</option>
                           ))}
                         </select>
-                        <ChevronDown size={11} color="#6b7280" />
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Col 5: PRICE/UNIT */}
-                    <td style={{ padding: "6px 6px", borderRight: "1px solid #e2e8f0" }}>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder=""
-                        value={row.price}
-                        onChange={(e) => updateRow(idx, "price", e.target.value)}
-                        style={{
-                          width: "100%",
-                          border: "none",
-                          outline: "none",
-                          background: "transparent",
-                          textAlign: "center",
-                          fontSize: 13,
-                          fontWeight: 600,
-                          color: "#0f172a"
-                        }}
-                      />
-                    </td>
+                      {/* Col 5: Rate */}
+                      <td className="py-2 px-2 text-center border-r border-slate-100">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={row.price}
+                          onChange={(e) => updateRow(idx, "price", e.target.value)}
+                          className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
+                        />
+                      </td>
 
-                    {/* Col 6: DISCOUNT (% & AMOUNT) */}
-                    <td style={{ padding: 0, borderRight: "1px solid #e2e8f0" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%" }}>
-                        <div style={{ borderRight: "1px solid #e2e8f0", padding: "6px 2px" }}>
+                      {/* Col 6: Discount (% & Amt) */}
+                      <td className="py-2 px-0 border-r border-slate-100">
+                        <div className="grid grid-cols-2 divide-x divide-slate-100">
                           <input
                             type="number"
-                            placeholder=""
                             min="0"
                             max="100"
+                            placeholder="%"
                             value={row.discount_percent || ""}
                             onChange={(e) => {
                               updateRow(idx, "discount_percent", e.target.value);
                               updateRow(idx, "discount_amount", "");
                             }}
-                            style={{
-                              width: "100%",
-                              border: "none",
-                              outline: "none",
-                              background: "transparent",
-                              textAlign: "center",
-                              fontSize: 12.5,
-                              color: "#0f172a"
-                            }}
+                            className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 placeholder:text-slate-300 outline-hidden text-xs"
                           />
-                        </div>
-                        <div style={{ padding: "6px 2px" }}>
                           <input
                             type="number"
-                            placeholder=""
                             min="0"
+                            placeholder="₹"
                             value={row.discount_amount || ""}
                             onChange={(e) => {
                               updateRow(idx, "discount_amount", e.target.value);
                               updateRow(idx, "discount_percent", "");
                             }}
-                            style={{
-                              width: "100%",
-                              border: "none",
-                              outline: "none",
-                              background: "transparent",
-                              textAlign: "center",
-                              fontSize: 12.5,
-                              color: "#0f172a"
-                            }}
+                            className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 placeholder:text-slate-300 outline-hidden text-xs"
                           />
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Col 7: TAX (% & AMOUNT) */}
-                    <td style={{ padding: 0, borderRight: "1px solid #e2e8f0" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%" }}>
-                        <div style={{ borderRight: "1px solid #e2e8f0", padding: "6px 2px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {/* Col 7: Tax (% & Amt) */}
+                      <td className="py-2 px-0 border-r border-slate-100">
+                        <div className="grid grid-cols-2 divide-x divide-slate-100 items-center">
                           <select
                             value={row.gst_percentage}
                             onChange={(e) => updateRow(idx, "gst_percentage", e.target.value)}
-                            style={{
-                              border: "none",
-                              outline: "none",
-                              background: "transparent",
-                              fontSize: 11.5,
-                              color: "#374151",
-                              cursor: "pointer",
-                              fontWeight: 500,
-                              textAlign: "center"
-                            }}
+                            className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 outline-hidden text-xs cursor-pointer"
                           >
                             {gstSlabs.map((s, i) => (
                               <option key={i} value={s.value}>{s.label}</option>
                             ))}
                           </select>
-                          <ChevronDown size={11} color="#6b7280" />
+                          <div className="px-1.5 py-1.5 text-center font-bold text-slate-600 text-xs truncate">
+                            {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : "—"}
+                          </div>
                         </div>
-                        <div style={{ padding: "6px 2px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
-                            {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : ""}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Col 8: AMOUNT */}
-                    <td style={{ padding: "6px 12px", textAlign: "right", fontWeight: 700, color: "#0f172a", fontSize: 13 }}>
-                      ₹{row.amount ? Number(row.amount).toFixed(2) : "0.00"}
-                    </td>
+                      {/* Col 8: Row Amount */}
+                      <td className="py-2 px-4 text-right font-black text-slate-900 text-xs">
+                        ₹ {row.amount ? fmtCurrency(row.amount) : "0.00"}
+                      </td>
 
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {/* Col 9: Delete */}
+                      <td className="py-2 px-2 text-center">
+                        {!isLightning && (
+                          <button
+                            type="button"
+                            onClick={() => deleteRow(idx)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Delete row"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-          {/* Table Footer: ADD ROW button & Totals Summary */}
-          <div
-            style={{
-              padding: "10px 16px",
-              background: "#ffffff",
-              borderTop: "1.5px solid #e2e8f0",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center"
-            }}
-          >
+          {/* Table Footer: Add Row & Live Totals */}
+          <div className="px-6 py-3.5 bg-slate-50/70 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
             <button
               type="button"
               onClick={addRow}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 16px",
-                borderRadius: 6,
-                border: "1.5px solid #1d72fe",
-                background: "#ffffff",
-                color: "#1d72fe",
-                fontSize: 12.5,
-                fontWeight: 800,
-                cursor: "pointer"
-              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 hover:border-rose-300 hover:bg-rose-50/30 text-rose-700 text-xs font-bold shadow-2xs transition cursor-pointer"
             >
-              <span>ADD ROW</span>
+              <Plus size={14} className="text-rose-600" />
+              <span>Add Another Item Row</span>
             </button>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 32, fontSize: 13, fontWeight: 700, color: "#475569" }}>
-              <div>TOTAL <span style={{ color: "#0f172a", marginLeft: 8 }}>{totalQty}</span></div>
-              <div>{totalDiscount > 0 ? `₹${totalDiscount.toFixed(2)}` : "0"}</div>
-              <div>{totalTax > 0 ? `₹${totalTax.toFixed(2)}` : "0"}</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a" }}>
+            <div className="flex items-center gap-6 text-xs font-bold text-slate-600">
+              <div>
+                <span className="text-slate-400 font-medium">Total Qty:</span>{" "}
+                <span className="text-slate-900">{totalQty}</span>
+              </div>
+              {totalDiscount > 0 && (
+                <div>
+                  <span className="text-slate-400 font-medium">Discount:</span>{" "}
+                  <span className="text-amber-600">-₹{fmtCurrency(totalDiscount)}</span>
+                </div>
+              )}
+              {totalTax > 0 && (
+                <div>
+                  <span className="text-slate-400 font-medium">GST Tax:</span>{" "}
+                  <span className="text-rose-600">+₹{fmtCurrency(totalTax)}</span>
+                </div>
+              )}
+              <div className="text-sm font-black text-slate-900">
+                <span className="text-slate-400 font-medium text-xs">Subtotal:</span>{" "}
                 ₹{fmtCurrency(calculatedTotal)}
               </div>
             </div>
           </div>
-
         </div>
 
-        {/* ── 5. SETTLEMENT AREA (Payment Type, Round Off, Grand Total) ── */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 24,
-            background: "#ffffff",
-            borderRadius: 8,
-            border: "1px solid #e2e8f0",
-            padding: "16px 20px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-          }}
-        >
-          {/* Left: Payment Type & Description */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            
-            {/* Payment Type */}
-            <div style={{ width: 220 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", display: "block", marginBottom: 4 }}>
-                Payment Type
-              </label>
-              <select
-                value={activeTab.paymentType}
-                onChange={(e) => updateActiveTab({ paymentType: e.target.value })}
-                style={{
-                  width: "100%",
-                  padding: "7px 10px",
-                  borderRadius: 6,
-                  border: "1px solid #cbd5e1",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#1e293b",
-                  background: "#ffffff",
-                  outline: "none",
-                  cursor: "pointer"
-                }}
-              >
-                <option value="Cash">Cash</option>
-                <option value="Online">Online / Netbanking</option>
-                <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
-                <option value="Cheque">Cheque</option>
-                <option value="Credit">Credit (Adjust Supplier Debt)</option>
-              </select>
+        {/* ── SECTION 3: REFUND SETTLEMENT & HERO TOTAL ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Left: Refund Mode & Reason / Notes (7 Cols) */}
+          <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
+                3
+              </div>
+              <h2 className="text-sm font-bold text-slate-900">Refund Settlement & Reason</h2>
             </div>
 
-            {/* Description Toggle */}
-            {!activeTab.showDescription ? (
-              <button
-                type="button"
-                onClick={() => updateActiveTab({ showDescription: true })}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  background: "none",
-                  border: "none",
-                  color: "#64748b",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  padding: 0,
-                  width: "fit-content"
-                }}
-              >
-                <AlignLeft size={14} />
-                <span>+ ADD DESCRIPTION</span>
-              </button>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Description / Return Reason</span>
+            {/* Refund Type Selection Chips */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-2">Refund Settlement Mode</label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "Cash", value: "Cash" },
+                  { label: "Online / Bank", value: "Online" },
+                  { label: "UPI", value: "UPI" },
+                  { label: "Cheque", value: "Cheque" },
+                  { label: "Credit Adjustment", value: "Credit" }
+                ].map((type) => {
+                  const isSelected = activeTab.paymentType === type.value;
+                  return (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => updateActiveTab({ paymentType: type.value })}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                        isSelected
+                          ? "bg-rose-600 text-white border-rose-600 shadow-xs shadow-rose-600/20"
+                          : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
+                      }`}
+                    >
+                      {type.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Return Reason / Description */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-700">Reason for Return / Remarks</label>
+                {!activeTab.showDescription && (
+                  <button
+                    type="button"
+                    onClick={() => updateActiveTab({ showDescription: true })}
+                    className="text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
+                  >
+                    + Add Reason
+                  </button>
+                )}
+              </div>
+
+              {activeTab.showDescription ? (
                 <textarea
-                  rows="2"
-                  placeholder="Enter reason for purchase return..."
+                  rows="3"
+                  placeholder="e.g. Defective batch received, wrong part number delivered, overcharged rate adjustment..."
                   value={activeTab.description}
                   onChange={(e) => updateActiveTab({ description: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: 6,
-                    border: "1px solid #cbd5e1",
-                    fontSize: 12.5,
-                    outline: "none"
-                  }}
+                  className="w-full p-3 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-medium text-slate-900 transition-all outline-hidden resize-none"
                 />
-              </div>
-            )}
-
+              ) : (
+                <div
+                  onClick={() => updateActiveTab({ showDescription: true })}
+                  className="p-3 border border-dashed border-slate-200 rounded-xl text-slate-400 text-xs cursor-pointer hover:bg-slate-50/50 transition"
+                >
+                  Click to add reason for debit note (e.g. Quality defect, Wrong shipment, Rate dispute)...
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right: Round Off & Grand Total */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-end", justifyContent: "center" }}>
-            
-            {/* Round Off Checkbox */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#475569", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={activeTab.roundOffEnabled}
-                  onChange={(e) => updateActiveTab({ roundOffEnabled: e.target.checked })}
-                  style={{ cursor: "pointer" }}
-                />
-                <span>Round Off</span>
-              </label>
+          {/* Right: Tax Breakdown & Hero Grand Total (5 Cols) */}
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+            <h2 className="text-sm font-bold text-slate-900 pb-3 border-b border-slate-100">
+              Return Value Summary
+            </h2>
 
-              <input
-                type="text"
-                readOnly
-                value={roundOffVal ? (roundOffVal > 0 ? `+${roundOffVal.toFixed(2)}` : roundOffVal.toFixed(2)) : "0.00"}
-                style={{ width: 80, padding: "4px 8px", borderRadius: 4, border: "1px solid #cbd5e1", background: "#f8fafc", textAlign: "right", fontSize: 12, fontWeight: 700, color: "#64748b" }}
-              />
+            <div className="space-y-2.5 text-xs">
+              <div className="flex items-center justify-between text-slate-600 font-medium">
+                <span>Taxable Return Value</span>
+                <span className="font-bold text-slate-900">₹ {fmtCurrency(calculatedTotal - totalTax + totalDiscount)}</span>
+              </div>
+
+              {totalDiscount > 0 && (
+                <div className="flex items-center justify-between text-amber-600 font-medium">
+                  <span>Total Discount</span>
+                  <span className="font-bold">-₹ {fmtCurrency(totalDiscount)}</span>
+                </div>
+              )}
+
+              {totalTax > 0 && (
+                <div className="flex items-center justify-between text-rose-600 font-medium">
+                  <span>Total GST Return Tax</span>
+                  <span className="font-bold">+₹ {fmtCurrency(totalTax)}</span>
+                </div>
+              )}
+
+              {/* Round Off Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={activeTab.roundOffEnabled}
+                    onChange={(e) => updateActiveTab({ roundOffEnabled: e.target.checked })}
+                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer"
+                  />
+                  <span>Auto Round Off</span>
+                </label>
+                <span className="font-bold text-slate-600">
+                  {roundOffVal !== 0 ? (roundOffVal > 0 ? `+₹${roundOffVal.toFixed(2)}` : `-₹${Math.abs(roundOffVal).toFixed(2)}`) : "₹0.00"}
+                </span>
+              </div>
             </div>
 
-            {/* Total Box */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <span style={{ fontSize: 15, fontWeight: 800, color: "#1e293b" }}>Total</span>
-              <div
-                style={{
-                  minWidth: 160,
-                  padding: "8px 14px",
-                  borderRadius: 6,
-                  border: "1.5px solid #cbd5e1",
-                  background: "#ffffff",
-                  fontSize: 18,
-                  fontWeight: 800,
-                  color: "#1e293b",
-                  textAlign: "right"
-                }}
-              >
+            {/* Hero Total Box */}
+            <div className="bg-gradient-to-br from-rose-600 via-rose-700 to-red-700 rounded-2xl p-5 text-white shadow-lg shadow-rose-600/25">
+              <span className="text-xs uppercase tracking-wider font-extrabold text-rose-200 block mb-1">
+                Total Refund / Credit Value
+              </span>
+              <div className="text-2xl sm:text-3xl font-black tracking-tight">
                 ₹ {fmtCurrency(grandTotal)}
               </div>
+              <p className="text-[11px] text-rose-100/80 mt-1">
+                {activeTab.paymentType === "Credit"
+                  ? "Will reduce supplier outstanding payable ledger"
+                  : `Will be refunded to business via ${activeTab.paymentType}`}
+              </p>
             </div>
-
           </div>
 
         </div>
 
-      </div>
+      </main>
 
-      {/* ── 6. BOTTOM ACTION BAR (Share ▾ | Save) ── */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderTop: "1px solid #e2e8f0",
-          padding: "12px 24px",
-          display: "flex",
-          justifyContent: "flex-end",
-          alignItems: "center",
-          gap: 12
-        }}
-      >
-        {/* Share ▾ Split Button */}
-        <div style={{ display: "flex", alignItems: "center", border: "1px solid #60a5fa", borderRadius: 6, overflow: "hidden", background: "#ffffff" }}>
+      {/* ── 4. STICKY BOTTOM COMMAND BAR ── */}
+      <footer className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 py-3 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          
           <button
             type="button"
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#2563eb",
-              padding: "8px 16px",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer"
-            }}
+            onClick={() => setShowCloseModal(true)}
+            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition cursor-pointer"
           >
-            Share
+            Discard
           </button>
-          <div style={{ borderLeft: "1px solid #bfdbfe", padding: "8px 8px", color: "#2563eb", cursor: "pointer", display: "flex" }}>
-            <ChevronDown size={14} />
-          </div>
-        </div>
 
-        {/* Save Button (Primary Blue) */}
-        <button
-          type="button"
-          onClick={handleSaveDebitNote}
-          disabled={saving}
-          style={{
-            background: "#1d72fe",
-            border: "none",
-            color: "#ffffff",
-            borderRadius: 6,
-            padding: "9px 34px",
-            fontSize: 14,
-            fontWeight: 800,
-            cursor: saving ? "not-allowed" : "pointer",
-            boxShadow: "0 2px 6px rgba(29, 114, 254, 0.3)"
-          }}
-        >
-          {saving ? "Saving..." : (
-            <span><u>S</u>ave</span>
-          )}
-        </button>
-      </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSaveDebitNote}
+              disabled={saving}
+              className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-extrabold text-xs shadow-md shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={15} />
+                  <span>Save Debit Note</span>
+                </>
+              )}
+            </button>
+          </div>
+
+        </div>
+      </footer>
 
       {/* Close Confirm Modal */}
       <CloseConfirmModal
@@ -1711,7 +1465,7 @@ export default function AddDebitNote() {
         onConfirm={() => navigate("/purchases/return")}
       />
 
-      {/* Built-in Calculator Modal */}
+      {/* Built-in Safe Calculator Modal */}
       <CalculatorModal
         isOpen={showCalculator}
         onClose={() => setShowCalculator(false)}
