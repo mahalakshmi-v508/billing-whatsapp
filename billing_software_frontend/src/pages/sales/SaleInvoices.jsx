@@ -412,10 +412,9 @@ export default function SaleInvoices() {
       
       {/* ── 1. TOP HEADER ROW: Title + Add Sale + Settings ── */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-200/80">
-        {/* Title with dropdown indicator */}
-        <div className="flex items-center gap-2 cursor-pointer group select-none">
+        {/* Title */}
+        <div className="flex items-center gap-2 select-none">
           <h1 className="text-xl font-bold text-slate-800 tracking-tight">Sale Invoices</h1>
-          <ChevronDown size={18} className="text-slate-500 group-hover:text-slate-800 transition" />
         </div>
 
         {/* Right Buttons: Add Sale + Settings */}
