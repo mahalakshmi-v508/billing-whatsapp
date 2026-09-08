@@ -257,7 +257,7 @@ export default function PurchaseList() {
   // Filter suppliers by sidebar search
   const filteredSuppliers = suppliers.filter((s) => {
     const name = s.supplier_name ? s.supplier_name.toLowerCase() : "";
-    const phone = s.phone ? s.phone.toLowerCase() : "";
+    const phone = (s.mobile_number || s.phone || s.alt_mobile || "").toLowerCase();
     return name.includes(supplierSearch.toLowerCase()) || phone.includes(supplierSearch.toLowerCase());
   });
 
@@ -424,7 +424,7 @@ export default function PurchaseList() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{s.supplier_name}</div>
-                        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{s.phone || "No phone"}</div>
+                        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{s.mobile_number || s.phone || "No phone"}</div>
                       </div>
                       <div style={{ fontWeight: 700, fontSize: 13, color: pt > 0 ? "#ef4444" : "#94a3b8" }}>
                         ₹{fmt(pt)}
@@ -448,7 +448,8 @@ export default function PurchaseList() {
                     {selectedSupplier.supplier_name}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-                    <Phone size={13} /> {selectedSupplier.phone || "N/A"}
+                    <Phone size={13} /> {selectedSupplier.mobile_number || selectedSupplier.phone || "N/A"}
+                    {selectedSupplier.alt_mobile && <span style={{ color: "#94a3b8" }}> / {selectedSupplier.alt_mobile}</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", marginBottom: 4 }}>
                     <Mail size={13} /> {selectedSupplier.email || "N/A"}
