@@ -39,6 +39,7 @@ import {
   FolderPlus,
   Play,
   ShoppingCart,
+  X,
 } from "lucide-react";
 
 // 🎟️ Sale Ticket Icon with % symbol matching reference image
@@ -281,11 +282,21 @@ export default function MainLayout() {
           transition={{ duration: 0.25, ease: "easeInOut" }}
           className="bg-[#1e293b] text-white flex flex-col transition-all duration-300 relative select-none flex-shrink-0 px-3 py-5 h-screen"
         >
-          <div className="flex items-center gap-2.5 mb-5">
-            <div className="w-9 h-9 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Settings size={20} color="#ffffff" />
+          <div className="flex items-center justify-between mb-5 pr-0.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Settings size={20} color="#ffffff" />
+              </div>
+              <h2 className="text-[15px] font-semibold tracking-wide whitespace-nowrap">Settings</h2>
             </div>
-            <h2 className="text-[15px] font-semibold tracking-wide whitespace-nowrap">Settings</h2>
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard")}
+              title="Close Settings"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all duration-200 cursor-pointer flex-shrink-0"
+            >
+              <X size={18} strokeWidth={2.5} />
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-0.5 scrollbar-thin scrollbar-thumb-white/20">

@@ -74,7 +74,7 @@ function GstCheckbox({ label, checked, onChange, info, extra }) {
           </svg>
         )}
       </span>
-      <span className="ml-3 text-[19px] text-slate-800 group-hover:text-slate-950 font-medium">{label}</span>
+      <span className="ml-3 text-[13.5px] text-slate-700 group-hover:text-slate-900 font-medium">{label}</span>
       {info && (
         <span className="ml-2.5 flex items-center">
           <InfoIcon title={info} />
@@ -89,8 +89,8 @@ function ColumnHeading({ title, info }) {
   return (
     <div>
       <div className="flex items-center gap-2">
-        <h2 className="flex items-center gap-2 text-[25px] font-bold text-slate-900">
-          <span className="w-1.5 h-6 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
+        <h2 className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
+          <span className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
           {title}
         </h2>
         {info && <InfoIcon title={info} />}
@@ -116,13 +116,13 @@ function AdditionalFieldRow({ field, onToggle, onShowInPrint }) {
           value={field.label}
           onChange={(e) => field.onChangeLabel(e.target.value)}
           placeholder={field.placeholder}
-          className="w-full max-w-[300px] bg-white border border-gray-300 rounded-lg px-3 text-[21px] text-gray-900 outline-none focus:border-blue-500"
+          className="w-full max-w-[300px] bg-white border border-gray-300 rounded-lg px-3 text-[13.5px] text-gray-900 outline-none focus:border-blue-500"
           style={{ height: 52 }}
         />
       </div>
       <div className="flex items-center gap-2 ml-9 mt-1.5">
         <Toggle checked={field.showInPrint} onChange={onShowInPrint} />
-        <span className="text-[21px] text-gray-800">Show In Print</span>
+        <span className="text-[13.5px] text-gray-800">Show In Print</span>
       </div>
     </div>
   );
@@ -144,7 +144,7 @@ function AdditionalField4Row({ field, onToggle, onShowInPrint }) {
           value={field.label}
           onChange={(e) => field.onChangeLabel(e.target.value)}
           placeholder={field.placeholder}
-          className="bg-white border border-gray-300 rounded-lg px-3 text-[21px] text-gray-900 outline-none focus:border-blue-500"
+          className="bg-white border border-gray-300 rounded-lg px-3 text-[13.5px] text-gray-900 outline-none focus:border-blue-500"
           style={{ height: 52, width: 245 }}
         />
         <div className="relative">
@@ -152,7 +152,7 @@ function AdditionalField4Row({ field, onToggle, onShowInPrint }) {
             type="text"
             value="dd/mm/yy"
             readOnly
-            className="bg-white border border-gray-300 rounded-lg px-3 pr-9 text-[21px] text-gray-500 outline-none cursor-default"
+            className="bg-white border border-gray-300 rounded-lg px-3 pr-9 text-[13.5px] text-gray-500 outline-none cursor-default"
             style={{ height: 52, width: 160 }}
           />
           <ChevronDown size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -160,7 +160,7 @@ function AdditionalField4Row({ field, onToggle, onShowInPrint }) {
       </div>
       <div className="flex items-center gap-2 ml-9 mt-1.5">
         <Toggle checked={field.showInPrint} onChange={onShowInPrint} />
-        <span className="text-[21px] text-gray-800">Show In Print</span>
+        <span className="text-[13.5px] text-gray-800">Show In Print</span>
       </div>
     </div>
   );
@@ -192,7 +192,7 @@ function ReminderMessageModal({ initialMessage, onClose, onSave }) {
         style={{ width: "545px", maxWidth: "calc(100vw - 40px)", padding: 24 }}
       >
         <div className="flex items-start justify-between">
-          <h3 className="text-[23px] font-bold text-gray-900">Add/Edit Reminder Message</h3>
+          <h3 className="text-[16px] font-bold text-slate-900">Add/Edit Reminder Message</h3>
           <button
             type="button"
             onClick={onClose}
@@ -204,7 +204,7 @@ function ReminderMessageModal({ initialMessage, onClose, onSave }) {
         </div>
         <div className="h-px bg-gray-200 my-4" />
 
-        <div className="text-[23px] text-gray-900 leading-relaxed">
+        <div className="text-[13.5px] text-slate-700 leading-relaxed">
           <p>Dear, [Party Name]</p>
           <p>
             Your payment of [Amount] is pending with [Business
@@ -217,11 +217,11 @@ function ReminderMessageModal({ initialMessage, onClose, onSave }) {
           value={additional}
           onChange={(e) => setAdditional(e.target.value)}
           placeholder="Type additional message"
-          className="mt-5 w-full bg-white border border-gray-300 rounded-lg p-4 text-[21px] text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 resize-none"
+          className="mt-5 w-full bg-white border border-gray-300 rounded-lg p-4 text-[13.5px] text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 resize-none"
           style={{ height: 115 }}
         />
 
-        <p className="mt-4 text-[21px] text-gray-900 leading-snug">
+        <p className="mt-4 text-[13.5px] text-gray-900 leading-snug">
           If you have already made the payment, kindly ignore this
           <br />
           message.
@@ -231,21 +231,21 @@ function ReminderMessageModal({ initialMessage, onClose, onSave }) {
           <button
             type="button"
             onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[18px] w-[105px] h-[45px] rounded-lg transition-colors shadow-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors shadow-sm"
           >
             CANCEL
           </button>
           <button
             type="button"
             onClick={resetDefault}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[18px] w-[165px] h-[45px] rounded-lg transition-colors shadow-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[165px] h-[45px] rounded-lg transition-colors shadow-sm"
           >
             RESET DEFAULT
           </button>
           <button
             type="button"
             onClick={() => onSave(additional)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[18px] w-[105px] h-[45px] rounded-lg transition-colors shadow-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors shadow-sm"
           >
             SAVE
           </button>
@@ -321,7 +321,7 @@ export default function Party() {
 
           <div className="mt-7 pt-2">
             <div className="flex items-center gap-2.5">
-              <span className="text-[19px] text-gray-700">Remind me for payment due in</span>
+              <span className="text-[13.5px] text-slate-700">Remind me for payment due in</span>
               <InfoIcon title="Reminder days" />
             </div>
             <div className="flex items-center gap-3 mt-3">
@@ -330,17 +330,17 @@ export default function Party() {
                 min="0"
                 value={state.reminderDays}
                 onChange={(e) => set("reminderDays")(parseInt(e.target.value, 10) || 0)}
-                className="w-16 bg-white border border-gray-300 rounded-lg px-3 text-[21px] text-gray-900 outline-none focus:border-blue-500 text-center"
+                className="w-16 bg-white border border-gray-300 rounded-lg px-3 text-[13.5px] text-gray-900 outline-none focus:border-blue-500 text-center"
                 style={{ height: 44 }}
               />
-              <span className="text-[19px] text-gray-700">(days)</span>
+              <span className="text-[13.5px] text-slate-700">(days)</span>
             </div>
           </div>
 
           <button
             type="button"
             onClick={openReminder}
-            className="mt-10 px-6 bg-gray-100 hover:bg-gray-200 text-blue-600 font-semibold text-[21px] rounded-lg flex items-center transition-colors self-start"
+            className="mt-10 px-6 bg-gray-100 hover:bg-gray-200 text-blue-600 font-semibold text-[13.5px] rounded-lg flex items-center transition-colors self-start"
             style={{ height: 52 }}
           >
             Reminder Message
