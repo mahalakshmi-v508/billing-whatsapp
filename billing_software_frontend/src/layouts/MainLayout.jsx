@@ -230,7 +230,7 @@ export default function MainLayout() {
             isDropdown: true,
             dropdownKey: "sale",
             subItems: [
-              { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/reports", "/sales/add"] },
+              { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/sales/add", "/sales/edit"] },
               { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
               { name: "Sale Return/ Credit Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
               ...saleSubItemsFromSettings,
@@ -506,7 +506,9 @@ export default function MainLayout() {
                 );
               }
 
-              const isActive = location.pathname === item.path;
+              const isActive =
+                location.pathname === item.path ||
+                (item.path !== "/" && location.pathname.startsWith(item.path + "/"));
 
               if (isCollapsed) {
                 return (
