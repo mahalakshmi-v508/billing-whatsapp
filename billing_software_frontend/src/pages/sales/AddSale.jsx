@@ -82,6 +82,7 @@ function createNewSaleTab(id, index) {
     invoicePrefix: "ss",
     invoiceNumber: index + 2,
     invoiceDate: new Date().toISOString().split("T")[0],
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     stateOfSupply: "Select",
     rows: [
       createInitialRow(),
@@ -470,6 +471,7 @@ export default function AddSale() {
             invoiceNumber: inv.invoice_no,
             invoiceDate: inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0],
             stateOfSupply: inv.state_of_supply || "Tamil Nadu",
+            dueDate: inv.due_date ? inv.due_date.split("T")[0].split(" ")[0] : (inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0]),
             customerName: inv.customer_name || "",
             customerPhone: inv.customer_phone || "",
             customerId: inv.customer_id || null,
@@ -479,7 +481,7 @@ export default function AddSale() {
             overallDiscountPercent: "",
             overallDiscountAmount: "",
             overallTaxRate: 0,
-            roundOffEnabled: true,
+            roundOffEnabled: false,
             receivedEnabled: inv.payment_type === "credit" && Number(inv.paid_amount || 0) > 0,
             receivedAmount: inv.payment_type === "credit" ? String(inv.paid_amount || "") : "",
           };
@@ -547,6 +549,11 @@ export default function AddSale() {
   };
 
   const selectCustomer = (c) => {
+    const cDays = c.credit_days !== undefined && c.credit_days !== null && c.credit_days !== "" ? Number(c.credit_days) : 30;
+    const baseDate = new Date(activeSale.invoiceDate || Date.now());
+    baseDate.setDate(baseDate.getDate() + cDays);
+    const calcDueDate = baseDate.toISOString().split("T")[0];
+
     updateActiveSale({
       customerId: c.id,
       customerName: c.name || c.customer_name,
@@ -555,6 +562,8 @@ export default function AddSale() {
       shippingAddress: c.shipping_address || c.address || "",
       customerPendingBalance: parseFloat(c.pending_amount) || 0,
       customerCreditLimit: parseFloat(c.credit_limit) || 0,
+      creditDays: cDays,
+      dueDate: calcDueDate,
       stateOfSupply: c.state || activeSale.stateOfSupply,
     });
     setShowCustomerDropdown(false);
@@ -794,6 +803,7 @@ export default function AddSale() {
             : 0)),
       payment_method: activeSale.paymentType === "cash" ? "cash" : "credit",
       payment_type: activeSale.paymentType,
+      due_date: activeSale.paymentType === "credit" ? (activeSale.dueDate || activeSale.invoiceDate) : null,
       gst_type: totals.totalTaxAmount > 0 ? "with_gst" : "without_gst",
       state_of_supply: activeSale.stateOfSupply,
       terms_conditions: activeSale.termsText,
@@ -980,7 +990,16 @@ export default function AddSale() {
         <span style={{ fontSize: 13, fontWeight: 600, color: isCredit ? THEME.primary : THEME.textMuted }}>Credit</span>
         <button
           type="button"
-          onClick={() => updateActiveSale({ paymentType: isCredit ? "cash" : "credit" })}
+          onClick={() => {
+            const nextType = isCredit ? "cash" : "credit";
+            const cDays = activeSale.creditDays !== undefined && activeSale.creditDays !== null && activeSale.creditDays !== "" ? Number(activeSale.creditDays) : 30;
+            const baseDate = new Date(activeSale.invoiceDate || Date.now());
+            baseDate.setDate(baseDate.getDate() + cDays);
+            updateActiveSale({
+              paymentType: nextType,
+              dueDate: baseDate.toISOString().split("T")[0]
+            });
+          }}
           style={{
             width: 38,
             height: 20,
@@ -1356,10 +1375,18 @@ export default function AddSale() {
                 <input
                   type="date"
                   value={activeSale.invoiceDate}
-                  onChange={e => updateActiveSale({ invoiceDate: e.target.value })}
-                  style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, fontWeight: 600, color: THEME.textMain }}
+                  onChange={e => {
+                    const newInvDate = e.target.value;
+                    const cDays = Number(activeSale.creditDays) || 30;
+                    const baseDate = new Date(newInvDate || Date.now());
+                    baseDate.setDate(baseDate.getDate() + cDays);
+                    updateActiveSale({
+                      invoiceDate: newInvDate,
+                      dueDate: baseDate.toISOString().split("T")[0]
+                    });
+                  }}
+                  style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, fontWeight: 600, color: THEME.textMain, cursor: "pointer" }}
                 />
-               
               </div>
             </div>
 
@@ -1377,9 +1404,23 @@ export default function AddSale() {
                 >
                   {INDIAN_STATES.map(st => <option key={st} value={st}>{st}</option>)}
                 </select>
-               
               </div>
             </div>
+
+            {/* Credit Due Date (Visible only when in Credit mode) */}
+            {isCredit && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
+                <span style={{ fontSize: 12.5, color: THEME.textMuted, fontWeight: 500 }}>Payment Due Date</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input
+                    type="date"
+                    value={activeSale.dueDate || activeSale.invoiceDate}
+                    onChange={e => updateActiveSale({ dueDate: e.target.value })}
+                    style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, fontWeight: 600, color: THEME.textMain, cursor: "pointer" }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
         </div>

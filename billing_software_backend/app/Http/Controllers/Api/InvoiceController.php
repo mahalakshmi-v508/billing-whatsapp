@@ -136,16 +136,20 @@ class InvoiceController extends Controller
         /* DUE DATE */
         $due_date = null;
         if ($payment_type === "credit") {
-            $credit_days = 0;
-            if ($customer_id > 0) {
-                $cust = Customer::find($customer_id);
-                if ($cust) {
-                    $credit_days = intval($cust->credit_days);
+            if ($request->filled('due_date')) {
+                $due_date = $request->input('due_date');
+            } else {
+                $credit_days = 0;
+                if ($customer_id > 0) {
+                    $cust = Customer::find($customer_id);
+                    if ($cust) {
+                        $credit_days = intval($cust->credit_days);
+                    }
                 }
+                $due_date = $credit_days > 0
+                    ? date('Y-m-d', strtotime("+$credit_days days"))
+                    : date('Y-m-d');
             }
-            $due_date = $credit_days > 0
-                ? date('Y-m-d', strtotime("+$credit_days days"))
-                : date('Y-m-d');
         }
 
         /* STOCK CHECK (Only check stock for inventory-registered DB items) */
@@ -1302,11 +1306,26 @@ class InvoiceController extends Controller
                 }
             }
 
-            // 3. Compute Paid & Balance
+            // 3. Compute Paid, Balance & Due Date
+            $due_date = null;
             if ($payment_type === "credit") {
                 $final_paid     = $paid_amount;
                 $balance_amount = max(0.0, $total_amount - $final_paid);
                 $payment_status = $balance_amount <= 0 ? "paid" : ($final_paid > 0 ? "partial" : "not_paid");
+                if ($request->filled('due_date')) {
+                    $due_date = $request->input('due_date');
+                } else {
+                    $credit_days = 0;
+                    if ($customer_id > 0) {
+                        $cust = Customer::find($customer_id);
+                        if ($cust) {
+                            $credit_days = intval($cust->credit_days);
+                        }
+                    }
+                    $due_date = $credit_days > 0
+                        ? date('Y-m-d', strtotime("+$credit_days days"))
+                        : date('Y-m-d');
+                }
             } else {
                 $final_paid     = $total_amount;
                 $balance_amount = 0;
@@ -1324,6 +1343,7 @@ class InvoiceController extends Controller
                 'total_amount'   => $total_amount,
                 'paid_amount'    => $final_paid,
                 'balance_amount' => $balance_amount,
+                'due_date'       => $due_date,
                 'payment_method' => $payment_method,
                 'payment_type'   => $payment_type,
                 'gst_type'       => $gst_type,
