@@ -1,11 +1,24 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Play, Bell, BellRing, Clock, Users, TrendingUp } from "lucide-react";
 import { useSettings } from "./SettingsContext";
+import { useBackendSync } from "./useBackendSync";
 import { SettingsShell } from "./settingsUI";
 
 export default function ServiceReminders() {
   const { setSettingsTab } = useSettings();
   const navigate = useNavigate();
+  const [state, setState] = useState({
+    enableServiceReminders: false,
+    reminderDays: 30,
+    reminderMessage: "",
+  });
+  useBackendSync("serviceReminders", state, setState);
+
+  const enable = () => {
+    setState((s) => ({ ...s, enableServiceReminders: true }));
+    navigate("/settings/service-reminders/select-items");
+  };
 
   return (
     <SettingsShell
@@ -84,11 +97,11 @@ export default function ServiceReminders() {
           {/* Enable button */}
           <button
             type="button"
-            onClick={() => navigate("/settings/service-reminders/select-items")}
+            onClick={enable}
             className="mt-9 flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white font-bold text-[16px] rounded-full px-8 h-[48px] transition-colors shadow-md"
           >
             <Bell size={20} />
-            Enable Service Reminders
+            {state.enableServiceReminders ? "Service Reminders Enabled" : "Enable Service Reminders"}
           </button>
         </div>
     </SettingsShell>

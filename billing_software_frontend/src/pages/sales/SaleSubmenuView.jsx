@@ -12,7 +12,9 @@ export default function SaleSubmenuView({ title = "Sale Document", type = "docum
     proforma: "Manage proforma invoices before final billing generation",
     order: "Track confirmed customer purchase and sale orders",
     challan: "Manage dispatch and delivery challans for goods transfer",
-    credit_note: "Process sales returns, credit notes, and customer adjustments"
+    credit_note: "Process sales returns, credit notes, and customer adjustments",
+    other_income: "Record and track non-sale income entries",
+    fixed_assets: "Manage your fixed assets and their value over time"
   }[type] || "Manage and view documents";
 
   return (

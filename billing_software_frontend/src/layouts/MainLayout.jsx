@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import SettingsContext from "../pages/settings/SettingsContext";
+import { fetchSettings } from "../pages/settings/settingsApi";
+import { SALES_TRANSACTION_MENU_ITEMS } from "../config/salesTransactionMap";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -74,6 +76,26 @@ export default function MainLayout() {
   const [settingsTab, setSettingsTab] = useState("general");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const quickAddRef = useRef(null);
+  const [generalSettings, setGeneralSettings] = useState({});
+
+  // Fetch general settings so the Sale dropdown can react to "More Transactions" checkboxes
+  useEffect(() => {
+    let mounted = true;
+    fetchSettings().then((settings) => {
+      if (!mounted) return;
+      setGeneralSettings((settings && settings.general) || {});
+    });
+    const handleUpdate = (e) => {
+      if (!mounted) return;
+      const general = (e.detail && e.detail.general) || {};
+      setGeneralSettings(general);
+    };
+    window.addEventListener("company-settings-updated", handleUpdate);
+    return () => {
+      mounted = false;
+      window.removeEventListener("company-settings-updated", handleUpdate);
+    };
+  }, []);
 
   // Collapsible Sidebar state
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -170,6 +192,11 @@ export default function MainLayout() {
   };
 
   // 🔥 ROLE BASED MENU
+  // Sale submenu transaction items are driven by Settings > General >
+  // "More Transactions" checkboxes via the shared salesTransactionMap.
+  const saleSubItemsFromSettings = SALES_TRANSACTION_MENU_ITEMS.filter(
+    (item) => generalSettings[item.settingsKey] !== false
+  ).map((item) => ({ name: item.label, path: item.path }));
   const menuItems = [
     // COMMON FOR ALL ROLES
     { name: "Helpdesk Support", path: "/helpdesk", icon: <HelpCircle size={20} /> },
@@ -185,7 +212,8 @@ export default function MainLayout() {
             subItems: [
               { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/reports", "/sales/add"] },
               { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
-              { name: "Sale Return/ Credit Note", path: "/sales/credit-note" },
+              { name: "Sale Return/ Credit Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
+              ...saleSubItemsFromSettings,
             ]
           },
           { name: "Company", path: "/company", icon: <Building2 size={20} /> },

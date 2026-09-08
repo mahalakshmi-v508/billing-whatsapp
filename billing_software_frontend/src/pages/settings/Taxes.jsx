@@ -426,10 +426,11 @@ export default function Taxes() {
   const [state, setState] = useState(loadState);
   useBackendSync("taxes", state, setState);
   const [showTaxList, setShowTaxList] = useState(false);
-  const [rates, setRates] = useState(TAX_RATES);
-  const [groups, setGroups] = useState(TAX_GROUPS);
   const [editingRate, setEditingRate] = useState(null);
   const [editingGroup, setEditingGroup] = useState(null);
+
+  const rates = state.taxRates || TAX_RATES;
+  const groups = state.taxGroups || TAX_GROUPS;
 
   const set = (key) => (val) =>
     setState((s) => {
@@ -447,14 +448,14 @@ export default function Taxes() {
   const openEdit = (rate, index) => setEditingRate({ ...rate, index });
   const closeEditRate = () => setEditingRate(null);
   const saveEdit = (edited) => {
-    setRates((prev) => prev.map((r, i) => (i === editingRate.index ? { ...r, ...edited } : r)));
+    set("taxRates")((prev) => (prev || TAX_RATES).map((r, i) => (i === editingRate.index ? { ...r, ...edited } : r)));
     setEditingRate(null);
   };
 
   const openEditGroup = (group, index) => setEditingGroup({ ...group, index });
   const closeEditGroup = () => setEditingGroup(null);
   const saveEditGroup = (edited) => {
-    setGroups((prev) => prev.map((g, i) => (i === editingGroup.index ? { ...g, ...edited } : g)));
+    set("taxGroups")((prev) => (prev || TAX_GROUPS).map((g, i) => (i === editingGroup.index ? { ...g, ...edited } : g)));
     setEditingGroup(null);
   };
 
