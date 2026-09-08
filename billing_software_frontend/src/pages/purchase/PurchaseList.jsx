@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search, Phone, Mail, MapPin, Wallet } from "lucide-react";
+import { Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search, Phone, Mail, MapPin, Wallet, Plus } from "lucide-react";
+import AddSupplierModal from "../supplier/AddSupplierModal";
 
 export default function PurchaseList() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function PurchaseList() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
+  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
 
   // Payment Modal States
   const [showPayModal, setShowPayModal] = useState(false);
@@ -346,19 +348,53 @@ export default function PurchaseList() {
 
         {/* ── LEFT PANEL: Suppliers List ── */}
         <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column" }}>
-          {/* Supplier Search */}
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", position: "relative" }}>
-            <Search size={15} style={{ position: "absolute", top: "50%", left: 24, transform: "translateY(-50%)", color: "#94a3b8" }} />
-            <input
-              placeholder="Search supplier..."
-              value={supplierSearch}
-              onChange={(e) => setSupplierSearch(e.target.value)}
+          {/* Supplier Search & Add Button */}
+          <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ position: "relative" }}>
+              <Search size={15} style={{ position: "absolute", top: "50%", left: 12, transform: "translateY(-50%)", color: "#94a3b8" }} />
+              <input
+                placeholder="Search supplier..."
+                value={supplierSearch}
+                onChange={(e) => setSupplierSearch(e.target.value)}
+                style={{
+                  width: "100%", padding: "9px 12px 9px 34px",
+                  borderRadius: 10, border: "1px solid #e2e8f0",
+                  outline: "none", fontSize: 13, boxSizing: "border-box"
+                }}
+              />
+            </div>
+
+            {/* + Add Supplier Button (Like Product Page) */}
+            <button
+              onClick={() => setShowAddSupplierModal(true)}
               style={{
-                width: "100%", padding: "9px 12px 9px 34px",
-                borderRadius: 10, border: "1px solid #e2e8f0",
-                outline: "none", fontSize: 13, boxSizing: "border-box"
+                width: "100%",
+                padding: "9px 12px",
+                background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 10,
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                boxShadow: "0 2px 6px rgba(37,99,235,0.2)",
+                transition: "all 0.15s ease",
               }}
-            />
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "0.92";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = "1";
+                e.currentTarget.style.transform = "none";
+              }}
+            >
+              <Plus size={16} /> Add Supplier
+            </button>
           </div>
           {/* Suppliers List */}
           <div style={{ overflowY: "auto", flex: 1 }}>
@@ -1085,6 +1121,19 @@ export default function PurchaseList() {
           </div>
         </div>
       )}
+
+      {/* ADD SUPPLIER MODAL */}
+      <AddSupplierModal
+        isOpen={showAddSupplierModal}
+        onClose={() => setShowAddSupplierModal(false)}
+        companyId={selectedCompany}
+        onSupplierAdded={(newSupplier) => {
+          fetchPurchasesAndSuppliers(selectedCompany);
+          if (newSupplier && newSupplier.id) {
+            setSelectedSupplier(newSupplier);
+          }
+        }}
+      />
     </div>
   );
 }
