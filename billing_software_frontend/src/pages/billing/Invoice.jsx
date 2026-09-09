@@ -90,6 +90,13 @@ function numberToWordsINR(amount) {
   return (res.trim() || "Zero") + " Rupees only";
 }
 
+/* ─── INVOICE TYPE HELPER ─────────────────────────────────────────────────── */
+function getInvoiceType(invoice) {
+  if (invoice?.invoice_type) return invoice.invoice_type;
+  if (invoice?.gst_type === "without_gst") return "Bill of Supply";
+  return "Tax Invoice";
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    1. THEME: TALLY THEME (MATCHING SCREENSHOT 1 & 2)
 ═══════════════════════════════════════════════════════════════════════════ */
@@ -102,12 +109,13 @@ function ThemeTally({ invoice, company, color, logoUrl }) {
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = Math.max(0, totalAmount - paidAmount);
   const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
+  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#111827", fontSize: 12, lineHeight: 1.4 }}>
       {/* Title */}
       <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 800, margin: "0 0 10px 0", letterSpacing: 0.5, color: "#111827" }}>
-        Tax Invoice
+        {invoiceType}
       </h2>
 
       {/* Top Box: Company Header */}
@@ -141,6 +149,7 @@ function ThemeTally({ invoice, company, color, logoUrl }) {
           <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Invoice No.:</strong> {invoice.invoice_no}</div>
           <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Date:</strong> {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
           <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Payment Type:</strong> <span style={{ fontWeight: 700, color: color }}>{paymentType}</span></div>
+          <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Invoice Type:</strong> <span style={{ fontWeight: 700, color: "#1e293b" }}>{invoiceType}</span></div>
         </div>
       </div>
 
@@ -287,6 +296,7 @@ function ThemeGST1({ invoice, company, color, logoUrl }) {
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = Math.max(0, totalAmount - paidAmount);
+  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
@@ -310,7 +320,7 @@ function ThemeGST1({ invoice, company, color, logoUrl }) {
 
       {/* Centered Colored Title */}
       <h2 style={{ textAlign: "center", fontSize: 18, fontWeight: 900, color: color, margin: "0 0 14px 0" }}>
-        Tax Invoice
+        {invoiceType}
       </h2>
 
       {/* Bill To & Invoice Details */}
@@ -326,6 +336,7 @@ function ThemeGST1({ invoice, company, color, logoUrl }) {
           <div style={{ marginTop: 2 }}>Invoice No. : <strong>{invoice.invoice_no}</strong></div>
           <div style={{ marginTop: 2 }}>Date : {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
           <div style={{ marginTop: 2 }}>Payment : <strong style={{ color: color }}>{(invoice.payment_type || "Cash").toUpperCase()}</strong></div>
+          <div style={{ marginTop: 2 }}>Invoice Type : <strong>{invoiceType}</strong></div>
         </div>
       </div>
 
@@ -393,10 +404,11 @@ function ThemeGST3({ invoice, company, color, logoUrl }) {
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total) || 0;
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
-      <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 800, margin: "0 0 10px 0" }}>Tax Invoice</h2>
+      <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 800, margin: "0 0 10px 0" }}>{invoiceType}</h2>
 
       {/* Box Header */}
       <div style={{ border: "1px solid #cbd5e1", display: "flex", justifyContent: "space-between", padding: "12px 14px", background: "#ffffff" }}>
@@ -412,6 +424,8 @@ function ThemeGST3({ invoice, company, color, logoUrl }) {
         <div style={{ textAlign: "right", fontSize: 12 }}>
           <div>Invoice No. : <strong>{invoice.invoice_no}</strong></div>
           <div>Date : {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
+          <div>Payment : <strong style={{ color: color }}>{(invoice.payment_type || "Cash").toUpperCase()}</strong></div>
+          <div>Invoice Type : <strong>{invoiceType}</strong></div>
         </div>
       </div>
 
@@ -470,6 +484,7 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl }) {
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total) || 0;
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
@@ -502,7 +517,7 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl }) {
         </div>
 
         <div style={{ zIndex: 2, textAlign: "right" }}>
-          <div style={{ fontSize: 18, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>Tax Invoice</div>
+          <div style={{ fontSize: 18, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>{invoiceType}</div>
         </div>
       </div>
 
@@ -516,6 +531,8 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl }) {
         <div style={{ textAlign: "right", fontSize: 12 }}>
           <div>Invoice No.: <strong>{invoice.invoice_no}</strong></div>
           <div>Date: {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
+          <div>Payment: <strong style={{ color: color }}>{(invoice.payment_type || "Cash").toUpperCase()}</strong></div>
+          <div>Invoice Type: <strong>{invoiceType}</strong></div>
         </div>
       </div>
 
@@ -589,6 +606,7 @@ function ThemePOS({ invoice, company, color, logoUrl }) {
   const previousBalance = parseFloat(invoice.previous_balance) || 0;
   const currentBalance = parseFloat(invoice.current_balance) || (previousBalance + balanceAmount);
   const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+  const invoiceType = getInvoiceType(invoice);
 
   const S = {
     receipt: {
@@ -648,8 +666,9 @@ function ThemePOS({ invoice, company, color, logoUrl }) {
         <div style={{ marginBottom: 2 }}>
           Customer: {invoice.customer_name || "Customer"}
         </div>
-        <div>
-          Phone: {invoice.customer_phone || "-"}
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+          <span>Phone: {invoice.customer_phone || "-"}</span>
+          <span style={{ fontWeight: "bold" }}>{invoiceType}</span>
         </div>
       </div>
 
@@ -937,6 +956,18 @@ export default function InvoicePreview() {
     navigate("/sales/invoices");
   };
 
+  const totalAmountNum = parseFloat(invoice?.total_amount) || 0;
+  const paidAmountNum = parseFloat(invoice?.paid_amount) || 0;
+  const balanceAmountNum = Math.max(0, totalAmountNum - paidAmountNum);
+  const isPaid = balanceAmountNum <= 0 && totalAmountNum > 0;
+  const isPartial = paidAmountNum > 0 && balanceAmountNum > 0;
+  const statusInfo = isPaid
+    ? { label: "PAID", bg: "#dcfce7", text: "#15803d", border: "#86efac" }
+    : isPartial
+    ? { label: "PARTIAL", bg: "#fef3c7", text: "#b45309", border: "#fde68a" }
+    : { label: "UNPAID", bg: "#fee2e2", text: "#b91c1c", border: "#fca5a5" };
+  const invoiceType = getInvoiceType(invoice);
+
   return (
     <div style={{
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -1196,47 +1227,135 @@ export default function InvoicePreview() {
           </div>
         </main>
 
-        {/* ── RIGHT SIDEBAR: PROMO BANNER, SHARE & PRINT ACTIONS ── */}
-        {/* ── RIGHT SIDEBAR: SHARE & PRINT ACTIONS ── */}
+        {/* ── RIGHT SIDEBAR: INVOICE SUMMARY & ACTIONS ── */}
         <aside className="no-print" style={{
-          width: 250,
+          width: 260,
           background: "#ffffff",
           borderLeft: "1px solid #e2e8f0",
           display: "flex",
           flexDirection: "column",
-          padding: "20px 16px",
+          padding: "16px 14px",
           overflowY: "auto",
           boxSizing: "border-box",
           flexShrink: 0,
-          justifyContent: "space-between",
-          gap: 24
+          gap: 14
         }}>
-          {/* Top: Share Invoice Section (WhatsApp & Share Link Only) */}
+          {/* 1. Quick Invoice Summary Card */}
+          <div style={{
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 10,
+            padding: "12px",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
+          }}>
+            {/* Header: Invoice No + Status Badge */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <FileText size={15} color="#2563eb" />
+                <span style={{ fontSize: 13, fontWeight: 800, color: "#1e293b" }}>
+                  #{invoice.invoice_no}
+                </span>
+              </div>
+              <span style={{
+                fontSize: 10,
+                fontWeight: 700,
+                padding: "2px 7px",
+                borderRadius: 10,
+                background: statusInfo.bg,
+                color: statusInfo.text,
+                border: `1px solid ${statusInfo.border}`,
+                textTransform: "uppercase"
+              }}>
+                {statusInfo.label}
+              </span>
+            </div>
+
+            {/* Grand Total Amount Box */}
+            <div style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 8,
+              padding: "8px 10px",
+              marginBottom: 10
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                Grand Total
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>
+                ₹ {totalAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              {balanceAmountNum > 0 && (
+                <div style={{ fontSize: 10.5, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>
+                  Due: ₹ {balanceAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              )}
+            </div>
+
+            {/* Customer & Bill Details */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11, color: "#475569" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Customer:</span>
+                <span style={{ fontWeight: 700, color: "#1e293b", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={invoice.customer_name}>
+                  {invoice.customer_name || "Cash Customer"}
+                </span>
+              </div>
+
+              {invoice.customer_phone && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ color: "#64748b" }}>Phone:</span>
+                  <span style={{ fontWeight: 600, color: "#334155" }}>{invoice.customer_phone}</span>
+                </div>
+              )}
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Date:</span>
+                <span style={{ fontWeight: 600, color: "#334155" }}>
+                  {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Payment:</span>
+                <span style={{ fontWeight: 700, color: "#059669" }}>
+                  {(invoice.payment_type || invoice.payment_method || "Cash").toUpperCase()}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Invoice Type:</span>
+                <span style={{ fontWeight: 700, color: "#2563eb" }}>
+                  {invoiceType}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Share Invoice Section */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-              <Share2 size={16} color="#2563eb" />
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#334155", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, textTransform: "uppercase", letterSpacing: "0.3px" }}>
+              <Share2 size={13} color="#64748b" />
               <span>Share Invoice</span>
             </div>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {/* WhatsApp */}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {/* WhatsApp Action */}
               <button
                 onClick={shareWhatsApp}
                 disabled={waSending}
                 style={{
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  padding: "14px 8px",
+                  gap: 10,
+                  padding: "9px 10px",
                   background: "#f0fdf4",
                   border: "1px solid #bbf7d0",
-                  borderRadius: 10,
+                  borderRadius: 8,
                   cursor: "pointer",
                   color: "#15803d",
                   transition: "all 0.15s ease",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)"
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+                  width: "100%",
+                  textAlign: "left"
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background = "#dcfce7";
@@ -1248,109 +1367,91 @@ export default function InvoicePreview() {
                 }}
               >
                 <div style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: "50%",
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
                   background: "#22c55e",
                   color: "#fff",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "0 2px 6px rgba(34, 197, 94, 0.35)"
+                  flexShrink: 0
                 }}>
-                  <MessageCircle size={18} />
+                  <MessageCircle size={16} />
                 </div>
-                <span style={{ fontSize: 11.5, fontWeight: 700 }}>{waSending ? "Sending..." : "WhatsApp"}</span>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700 }}>
+                    {waSending ? "Sending PDF..." : "WhatsApp Share"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#16a34a", marginTop: 1 }}>
+                    {invoice.customer_phone ? `Send to ${invoice.customer_phone}` : "Send PDF to customer"}
+                  </div>
+                </div>
               </button>
 
-              {/* Share Link */}
+              {/* Share Link Action */}
               <button
                 onClick={copyInvoiceLink}
                 style={{
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  padding: "14px 8px",
-                  background: "#eff6ff",
-                  border: "1px solid #bfdbfe",
-                  borderRadius: 10,
+                  gap: 10,
+                  padding: "9px 10px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 8,
                   cursor: "pointer",
-                  color: "#1d4ed8",
+                  color: "#334155",
                   transition: "all 0.15s ease",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)"
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+                  width: "100%",
+                  textAlign: "left"
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.background = "#dbeafe";
+                  e.currentTarget.style.background = "#eff6ff";
+                  e.currentTarget.style.borderColor = "#bfdbfe";
                   e.currentTarget.style.transform = "translateY(-1px)";
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.background = "#eff6ff";
+                  e.currentTarget.style.background = "#f8fafc";
+                  e.currentTarget.style.borderColor = "#e2e8f0";
                   e.currentTarget.style.transform = "none";
                 }}
               >
                 <div style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: "50%",
-                  background: "#2563eb",
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  background: copyToast ? "#16a34a" : "#3b82f6",
                   color: "#fff",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "0 2px 6px rgba(37, 99, 235, 0.35)"
+                  flexShrink: 0,
+                  transition: "background 0.2s ease"
                 }}>
-                  {copyToast ? <Check size={18} /> : <Share2 size={17} />}
+                  {copyToast ? <Check size={15} /> : <Share2 size={15} />}
                 </div>
-                <span style={{ fontSize: 11.5, fontWeight: 700 }}>{copyToast ? "Copied!" : "Share Link"}</span>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: copyToast ? "#16a34a" : "#1e293b" }}>
+                    {copyToast ? "Link Copied!" : "Copy Invoice Link"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>
+                    Share online bill link
+                  </div>
+                </div>
               </button>
             </div>
           </div>
 
-          {/* Bottom Action Area: Download PDF & Print Icon */}
-          <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 8, paddingTop: 16, borderTop: "1px solid #f1f5f9" }}>
-            {/* Download PDF Button */}
-            <button
-              onClick={downloadPDF}
-              title="Download Invoice PDF"
-              style={{
-                flex: 1,
-                height: 44,
-                borderRadius: 8,
-                border: "1.5px solid #2563eb",
-                background: "#f0f7ff",
-                color: "#1d4ed8",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 7,
-                fontSize: 12.5,
-                fontWeight: 700,
-                transition: "all 0.15s ease",
-                boxShadow: "0 1px 2px rgba(37, 99, 235, 0.08)"
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = "#dbeafe";
-                e.currentTarget.style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = "#f0f7ff";
-                e.currentTarget.style.transform = "none";
-              }}
-            >
-              <Download size={16} strokeWidth={2.4} />
-              <span>Download PDF</span>
-            </button>
-
-            {/* Print Icon Button */}
+          {/* 3. Primary Actions: Print & Download */}
+          <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 7, paddingTop: 12, borderTop: "1px solid #f1f5f9" }}>
+            {/* Print Invoice Primary Button */}
             <button
               onClick={handlePrint}
-              title="Print Invoice"
               style={{
-                width: 44,
-                height: 44,
+                width: "100%",
+                height: 40,
                 borderRadius: 8,
                 border: "none",
                 background: "#2563eb",
@@ -1359,22 +1460,55 @@ export default function InvoicePreview() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                gap: 7,
+                fontSize: 12.5,
+                fontWeight: 700,
                 transition: "all 0.15s ease",
-                boxShadow: "0 2px 6px rgba(37, 99, 235, 0.35)",
-                flexShrink: 0
+                boxShadow: "0 2px 6px rgba(37, 99, 235, 0.35)"
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.background = "#1d4ed8";
                 e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow = "0 4px 10px rgba(37, 99, 235, 0.4)";
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.background = "#2563eb";
                 e.currentTarget.style.transform = "none";
-                e.currentTarget.style.boxShadow = "0 2px 6px rgba(37, 99, 235, 0.35)";
               }}
             >
-              <Printer size={19} strokeWidth={2.2} />
+              <Printer size={16} strokeWidth={2.2} />
+              <span>Print Invoice</span>
+            </button>
+
+            {/* Download PDF Button */}
+            <button
+              onClick={downloadPDF}
+              style={{
+                width: "100%",
+                height: 36,
+                borderRadius: 8,
+                border: "1.5px solid #cbd5e1",
+                background: "#ffffff",
+                color: "#334155",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                transition: "all 0.15s ease"
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "#f1f5f9";
+                e.currentTarget.style.borderColor = "#94a3b8";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "#ffffff";
+                e.currentTarget.style.borderColor = "#cbd5e1";
+              }}
+            >
+              <Download size={14} strokeWidth={2.2} />
+              <span>Download PDF</span>
             </button>
           </div>
         </aside>
