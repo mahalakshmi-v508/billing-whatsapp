@@ -364,7 +364,8 @@ class InvoiceController extends Controller
         $query = DB::table('invoices as i')
             ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
             ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
-            ->select('i.*', 'u.name as cashier_name', 'c.gstin')
+            ->leftJoin('customers as cust', 'i.customer_id', '=', 'cust.id')
+            ->select('i.*', 'u.name as cashier_name', 'c.gstin', 'cust.gst_no as customer_gst_no')
             ->where('i.company_id', $company_id);
 
         if ($from_date && $to_date) {

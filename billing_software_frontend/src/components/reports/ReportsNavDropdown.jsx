@@ -132,15 +132,16 @@ export default function ReportsNavDropdown() {
               </div>
             </div>
             <div style={{ maxHeight: 340, overflowY: "auto", padding: 6 }}>
-              <div style={listSectionLabel}>All Reports</div>
               {filtered.length === 0 ? (
                 <div style={{ padding: "18px 12px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
                   No reports match "{q.trim()}"
                 </div>
               ) : (
-                filtered.map((r) => (
-                  <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} />
-                ))
+                <ReportSections
+                  reports={filtered}
+                  activePath={activePath}
+                  onPick={go}
+                />
               )}
             </div>
           </div>
@@ -169,6 +170,37 @@ export default function ReportsNavDropdown() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Renders the report list. When the user is searching we collapse to a single
+ * flat "All Reports" list; otherwise we split into two sections — the existing
+ * "All Reports" group and a dedicated "GST Reports" group — so the new GST
+ * reports (GST R1 / GST R2) sit under their own clearly labelled heading.
+ */
+function ReportSections({ reports, activePath, onPick }) {
+  return (
+    <>
+      <div style={listSectionLabel}>All Reports</div>
+      {reports
+        .filter((r) => r.group !== "gst")
+        .map((r) => (
+          <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => onPick(r)} />
+        ))}
+
+      {/* Only show the GST Reports section when it has visible reports (no search, or a matching GST title). */}
+      {reports.some((r) => r.group === "gst") && (
+        <>
+          <div style={{ ...listSectionLabel, marginTop: 6, color: "#8b5cf6" }}>GST Reports</div>
+          {reports
+            .filter((r) => r.group === "gst")
+            .map((r) => (
+              <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => onPick(r)} />
+            ))}
+        </>
+      )}
+    </>
   );
 }
 
