@@ -245,6 +245,15 @@ export default function ProductList() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  useEffect(() => {
+    const modalOpen = showCatModal || showSubcatModal || showBrandModal || showUnitModal;
+    document.body.style.overflow = modalOpen ? "hidden" : "";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showCatModal, showSubcatModal, showBrandModal, showUnitModal]);
+
   const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
 
   const loadCompanies = async () => {
@@ -856,7 +865,7 @@ export default function ProductList() {
         </div>
 
         {/* ─── CONTENT AREA ─── */}
-        <div style={{ padding: "20px 24px 24px", height: "calc(100vh - 120px)" }}>
+        <div style={{ padding: "8px 24px 24px", height: "calc(100vh - 108px)" }}>
 
           {/* ─── PRODUCT TAB ─── */}
           {activeTab === "product" && (
@@ -871,6 +880,7 @@ export default function ProductList() {
                   display: "flex",
                   flexDirection: "column",
                   overflow: "hidden",
+                  overscrollBehavior: "contain",
                   boxShadow: SHADOW.card,
                 }}
               >
@@ -959,7 +969,7 @@ export default function ProductList() {
                 </div>
 
                 {/* Product List */}
-                <div style={{ overflowY: "auto", flex: 1, padding: "4px 0" }}>
+                <div style={{ overflowY: "auto", flex: 1, padding: "4px 0", overscrollBehavior: "contain" }}>
                   {loading ? (
                     <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>
                       {selectedCompany ? "Loading..." : "Select a company"}
@@ -2352,6 +2362,10 @@ export default function ProductList() {
               borderRadius: RADIUS.lg,
               width: "100%",
               maxWidth: 400,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
               boxShadow: SHADOW.modal,
               animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
             }}
@@ -2359,7 +2373,7 @@ export default function ProductList() {
             <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Category</h3>
             </div>
-            <div style={{ padding: "20px 24px" }}>
+            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
                 Category Name *
               </label>
@@ -2438,6 +2452,10 @@ export default function ProductList() {
               borderRadius: RADIUS.lg,
               width: "100%",
               maxWidth: 400,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
               boxShadow: SHADOW.modal,
               animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
             }}
@@ -2445,7 +2463,7 @@ export default function ProductList() {
             <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Subcategory</h3>
             </div>
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: 1 }}>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
                   Parent Category *
@@ -2550,6 +2568,10 @@ export default function ProductList() {
               borderRadius: RADIUS.lg,
               width: "100%",
               maxWidth: 400,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
               boxShadow: SHADOW.modal,
               animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
             }}
@@ -2557,7 +2579,7 @@ export default function ProductList() {
             <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Brand</h3>
             </div>
-            <div style={{ padding: "20px 24px" }}>
+            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
                 Brand Name *
               </label>
@@ -2636,6 +2658,10 @@ export default function ProductList() {
               borderRadius: RADIUS.lg,
               width: "100%",
               maxWidth: 400,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
               boxShadow: SHADOW.modal,
               animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
             }}
@@ -2643,7 +2669,7 @@ export default function ProductList() {
             <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Unit</h3>
             </div>
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: 1 }}>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
                   Full Name *

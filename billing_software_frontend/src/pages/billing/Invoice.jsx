@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
@@ -1418,6 +1419,8 @@ export const DESIGN_COMPONENTS = {
   gst3: ThemeGST3,
   double_divine: ThemeDoubleDivine,
   french_elite: ThemeTally,
+  vintage_classic: ThemeTally,
+  vintage_bold: ThemeTally,
 };
 
 export const DESIGNS = THEMES;

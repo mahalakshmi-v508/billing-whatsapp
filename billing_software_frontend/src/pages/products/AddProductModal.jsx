@@ -69,10 +69,16 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
   const set = (field, val) => setForm(p => ({ ...p, [field]: val }));
 
   useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+
     if (isOpen) {
       setForm({ name: "", product_code: "", price: "", stock: "", gst: "", barcode: "", unit: "", sale_price: "", purchase_price: "" });
       fetchCompanyGST();
     }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen]);
 
   const fetchCompanyGST = async () => {
