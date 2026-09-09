@@ -21,6 +21,10 @@ import TrialBalance from "../pages/reports/financial/TrialBalance";
 import BalanceSheet from "../pages/reports/financial/BalanceSheet";
 import GstR1 from "../pages/reports/GSTReports/GstR1";
 import GstR2 from "../pages/reports/GSTReports/GstR2";
+import Gstr3B from "../pages/reports/GSTReports/Gstr3B";
+import Gstr9 from "../pages/reports/GSTReports/Gstr9";
+import SaleSummaryByHSN from "../pages/reports/GSTReports/SaleSummaryByHSN";
+import SACReport from "../pages/reports/GSTReports/SACReport";
 import PartyStatement from "../pages/reports/party/PartyStatement";
 import PartyWiseProfitLoss from "../pages/reports/party/PartyWiseProfitLoss";
 import AllParties from "../pages/reports/party/AllParties";
@@ -185,6 +189,10 @@ export default function AppRoutes() {
               <Route path="payment-out" element={<PaymentOut />} />
               <Route path="gst-r1" element={<GstR1 />} />
               <Route path="gst-r2" element={<GstR2 />} />
+              <Route path="gstr-3b" element={<Gstr3B />} />
+              <Route path="gstr-9" element={<Gstr9 />} />
+              <Route path="sale-summary-by-hsn" element={<SaleSummaryByHSN />} />
+              <Route path="sac-report" element={<SACReport />} />
               <Route path="stock-summary" element={<StockSummary />} />
               <Route path="item-report-by-party" element={<ItemReportByParty />} />
               <Route path="item-wise-profit-and-loss" element={<ItemWiseProfitAndLoss />} />
