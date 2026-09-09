@@ -84,6 +84,7 @@ class WhatsAppManager {
         this.lidToPhone = new Map();
         this.removedSessions = new Set();
         this.creating = new Map();
+        this.pairRestarts = new Map();
         this.watchdog = null;
         this.syncInterval = null;
     }
@@ -244,6 +245,7 @@ class WhatsAppManager {
         this.clients.set(sessionId, sock);
 
         console.log(`[WA][${sessionId}] socket created`);
+        console.log('[BAILEYS] socket created');
 
         return sock;
     }
@@ -325,9 +327,14 @@ class WhatsAppManager {
 
             const { connection, lastDisconnect, qr } = update;
 
+            if (update.connection) {
+                console.log(`[BAILEYS] connection status=${update.connection}`);
+            }
+
             if (qr) {
 
                 console.log(`[WA][${sessionId}] qr_ready`);
+                console.log('[BAILEYS] QR received');
 
                 const qrDataUrl = await QRCode.toDataURL(qr, { margin: 2, scale: 8 });
 
@@ -354,6 +361,7 @@ class WhatsAppManager {
                 console.log(`[WA][${sessionId}] ready`);
 
                 this.reconnectAttempts.set(sessionId, 0);
+                this.pairRestarts.delete(sessionId);
 
                 const phone = sock?.user?.id
                     ? String(sock.user.id).split(':')[0].replace(/[^0-9]/g, '')
@@ -398,14 +406,73 @@ class WhatsAppManager {
 
                 if (loggedOut) {
 
+                    // WhatsApp no longer recognizes this device (logged out /
+                    // removed as a linked device). With these stale creds
+                    // Baileys keeps trying a full login and NEVER runs the
+                    // pairing flow — so no QR is ever emitted. Correct handling:
+                    // discard the stale auth state so the next session is a
+                    // fresh, unregistered one that produces a REAL QR — instead
+                    // of blindly creating another session on top of stale creds.
+                    try {
+
+                        const dir = this.baileysSessionPath(sessionId);
+
+                        if (fs.existsSync(dir)) {
+                            fs.rmSync(dir, { recursive: true, force: true });
+                        }
+
+                    } catch (cleanupError) {
+
+                        console.warn(
+                            `[WA][${sessionId}] failed to clear stale auth state:`,
+                            cleanupError.message
+                        );
+                    }
+
+                    this.authStates.delete(sessionId);
+                    this.lidToPhone.delete(sessionId);
+                    this.pendingAcks.delete(sessionId);
+
                     this.setState(sessionId, {
                         status: 'disconnected',
-                        qr: null
+                        qr: null,
+                        phone: null,
+                        name: null
                     });
 
                     await this.updateLaravel(sessionId, {
                         status: 'logged_out'
                     });
+
+                    // Automatically re-run the pairing flow with the now-fresh
+                    // identity so the existing "Click Connect → QR" flow
+                    // recovers on the very next attempt. Bounded, so a banned
+                    // number can never cause an infinite restart loop.
+                    const pairAttempts =
+                        (this.pairRestarts.get(sessionId) || 0) + 1;
+
+                    this.pairRestarts.set(sessionId, pairAttempts);
+
+                    if (pairAttempts <= 3) {
+
+                        console.log(
+                            `[WA][${sessionId}] stale session cleared, re-initializing for pairing`
+                        );
+
+                        this.createClient(sessionId).catch(err => {
+                            console.error(
+                                `[WA][${sessionId}] re-pair init failed:`,
+                                err.message
+                            );
+                        });
+
+                    } else {
+
+                        console.warn(
+                            `[WA][${sessionId}] repeated logouts, stopping auto ` +
+                            `re-pair; click Connect again (attempts=${pairAttempts})`
+                        );
+                    }
 
                     return;
                 }
@@ -1122,6 +1189,65 @@ class WhatsAppManager {
             console.error(
                 `[WA][${sessionId}] send image failed:`,
                 error.message
+            );
+
+            throw error;
+        }
+    }
+
+    // Send a REAL WhatsApp read receipt (blue ticks for the opponent) for the
+    // original incoming messages of a chat via Baileys. Uses each message's
+    // true key: remoteJid (contact JID), its own message id, fromMe=false.
+    // Only the actual OPPONENT-facing read receipt is sent — no new message.
+    async markMessagesRead(sessionId, phone, ids) {
+
+        const sock = this.clients.get(sessionId);
+
+        if (!sock) {
+            throw new Error('WhatsApp client not found');
+        }
+
+        const state = this.getState(sessionId);
+
+        if (state.status !== 'ready') {
+            throw new Error('WhatsApp is not connected');
+        }
+
+        const jid = this.resolveJid(sessionId, phone);
+
+        const uniqueIds = Array.from(new Set(
+            (ids || []).map(String).filter(Boolean)
+        ));
+
+        if (uniqueIds.length === 0) {
+            return { receipts_sent: 0 };
+        }
+
+        const keys = uniqueIds.map(id => ({
+            remoteJid: jid,
+            id,
+            fromMe: false
+        }));
+
+        for (const id of uniqueIds) {
+            console.log(
+                `[READ RECEIPT] remoteJid=${jid} messageId=${id} fromMe=false`
+            );
+        }
+
+        try {
+
+            await sock.readMessages(keys);
+
+            console.log('[READ RECEIPT] sent successfully');
+
+            return { receipts_sent: uniqueIds.length };
+
+        } catch (error) {
+
+            console.error(
+                `[WA][${sessionId}] read receipt failed remoteJid=${jid}:`,
+                error.message || error
             );
 
             throw error;

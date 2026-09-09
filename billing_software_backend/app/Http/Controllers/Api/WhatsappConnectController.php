@@ -865,7 +865,7 @@ class WhatsappConnectController extends Controller
     }
 
     // ── MARK INCOMING MESSAGES AS READ WHEN CHAT IS OPENED ──
-    public function markRead(Request $request)
+    public function markRead(Request $request, WhatsAppService $whatsapp)
     {
         $company_id = intval($request->input('company_id', 0));
         $phone = preg_replace('/[^0-9]/', '', (string) $request->input('phone', ''));
@@ -874,6 +874,24 @@ class WhatsappConnectController extends Controller
             return response()->json(["status" => false, "message" => "company_id and phone required"]);
         }
 
+        // normalize exactly like send_message: 10-digit → 91 prefix
+        if (strlen($phone) === 10) {
+            $phone = "91" . $phone;
+        }
+
+        // Collect the ORIGINAL incoming message IDs being marked read so the
+        // opponent can get a real WhatsApp read receipt (blue ticks) through
+        // Baileys. Only messages still in "received" state are included.
+        $incomingIds = DB::table('whatsapp_messages')
+            ->where('company_id', $company_id)
+            ->where('customer_phone', $phone)
+            ->where('direction', 'incoming')
+            ->where('status', 'received')
+            ->whereNotNull('whatsapp_message_id')
+            ->where('whatsapp_message_id', '!=', '')
+            ->pluck('whatsapp_message_id')
+            ->toArray();
+
         DB::table('whatsapp_messages')
             ->where('company_id', $company_id)
             ->where('customer_phone', $phone)
@@ -881,7 +899,31 @@ class WhatsappConnectController extends Controller
             ->where('status', 'received')
             ->update(['status' => 'read', 'updated_at' => now()]);
 
-        return response()->json(["status" => true, "message" => "Marked as read"]);
+        // Send the ACTUAL WhatsApp read receipt through Baileys so the opponent
+        // sees blue ticks. Uses each incoming message's own (remoteJid, id,
+        // fromMe=false) key. Best-effort: if the service is busy/down we keep
+        // the local read state and retry on the next chat open.
+        $receiptsSent = 0;
+        if (!empty($incomingIds)) {
+            $connection = WhatsAppConnection::where('company_id', $company_id)->first();
+
+            if ($connection && $connection->status === 'ready') {
+                try {
+                    $result = $whatsapp->sendReadReceipts($connection->session_id, $phone, $incomingIds);
+                    $receiptsSent = $result['result']['receipts_sent'] ?? count($incomingIds);
+                } catch (\Exception $e) {
+                    \Log::warning("WA read receipt failed for phone {$phone}: " . $e->getMessage());
+                }
+            }
+        }
+
+        return response()->json([
+            "status" => true,
+            "message" => "Marked as read",
+            "data" => [
+                "receipts_sent" => $receiptsSent
+            ]
+        ]);
     }
 
     // ── GET CONTACT'S REAL WHATSAPP PROFILE PICTURE (DP) ──

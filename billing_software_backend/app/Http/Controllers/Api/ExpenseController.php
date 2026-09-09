@@ -414,6 +414,8 @@ class ExpenseController extends Controller
             'is_deleted' => 0
         ]);
 
+        app(\App\Services\TransactionMessageService::class)->handleExpense($company_id, $expense);
+
         return response()->json([
             'status' => true,
             'message' => 'Expense created successfully',

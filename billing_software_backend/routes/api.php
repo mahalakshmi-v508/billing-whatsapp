@@ -28,7 +28,9 @@ use App\Http\Controllers\Api\DebitNoteController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ReportViewController;
 use App\Http\Controllers\Api\DayBookController;
+use App\Http\Controllers\Api\StockSummaryController;
 use App\Http\Controllers\Api\PartyStatementController;
+use App\Http\Controllers\Api\TransactionMessageController;
 use App\Http\Controllers\Api\InvoiceSettingController;
 
 // ── AI BILLING ROUTES ──
@@ -273,6 +275,16 @@ Route::post('internal/whatsapp/validate_sessions', [WhatsAppInternalController::
 // ── WHATSAPP WEBHOOK (MESSAGE STATUS UPDATES -> BROADCAST) ──
 Route::post('whatsapp/message-status', [WhatsAppWebhookController::class, 'updateStatus']);
 
+// ── TRANSACTION MESSAGE SETTINGS ──
+Route::prefix('transaction-messages')->group(function () {
+    Route::get('settings', [TransactionMessageController::class, 'index']);
+    Route::post('settings', [TransactionMessageController::class, 'save']);
+    Route::get('preview-data', [TransactionMessageController::class, 'previewData']);
+    Route::post('send', [TransactionMessageController::class, 'send']);
+    Route::get('attachment-status', [TransactionMessageController::class, 'attachmentStatus']);
+    Route::post('attach-pdf', [TransactionMessageController::class, 'attachPdf']);
+});
+
 // ── PURCHASE ROUTES ──
 Route::prefix('purchase')->group(function () {
     Route::post('validate_items', [PurchaseController::class, 'validateItems']);
@@ -327,6 +339,7 @@ Route::prefix('report')->group(function () {
     Route::post('remove_frequent', [ReportViewController::class, 'removeReport']);
     Route::get('frequently_used', [ReportViewController::class, 'getFrequentlyUsed']);
     Route::get('day-book', [DayBookController::class, 'index']);
+    Route::get('stock-summary', [StockSummaryController::class, 'index']);
     Route::get('party-statement/parties', [PartyStatementController::class, 'getParties']);
     Route::get('party-statement/statement', [PartyStatementController::class, 'getStatement']);
     Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);
