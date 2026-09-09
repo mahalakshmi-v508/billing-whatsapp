@@ -65,7 +65,7 @@ function createInitialRow() {
 }
 
 /* ── Factory to create a brand new independent Sale tab state ────────────── */
-function createNewSaleTab(id, index) {
+function createNewSaleTab(id, index, defaultInvNo = "") {
   return {
     id,
     label: `Sale #${index}`,
@@ -79,8 +79,9 @@ function createNewSaleTab(id, index) {
     creditDays: 30,
     customerPendingBalance: 0,
     customerCreditLimit: 0,
-    invoicePrefix: "ss",
-    invoiceNumber: index + 2,
+    invoicePrefix: "INV-",
+    invoiceNumber: defaultInvNo || "INV-0001",
+    formattedInvoiceNo: defaultInvNo || "INV-0001",
     invoiceDate: new Date().toISOString().split("T")[0],
     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     stateOfSupply: "Select",
@@ -500,11 +501,34 @@ export default function AddSale() {
     loadInvoiceToEdit();
   }, [invoiceNo]);
 
+  /* ── Load Next Invoice Number Preview from Dedicated Invoice Settings ── */
+  useEffect(() => {
+    if (isEditMode) return;
+    const companyId = parseInt(selectedCompany) || parseInt(user?.company_id) || (companies[0] ? parseInt(companies[0].id) : 1);
+    if (!companyId) return;
+
+    api.get(`/invoice-settings/next-number?company_id=${companyId}`)
+      .then((res) => {
+        if (res.data && res.data.status && res.data.invoice_no) {
+          const nextInvNo = res.data.invoice_no;
+          setSales((prev) =>
+            prev.map((tab) => ({
+              ...tab,
+              invoiceNumber: nextInvNo,
+              formattedInvoiceNo: nextInvNo,
+            }))
+          );
+        }
+      })
+      .catch((err) => console.error("Error fetching next invoice number:", err));
+  }, [selectedCompany, isEditMode, companies, user?.company_id]);
+
   /* ── Tab Management: Add / Close ── */
   const handleAddNewTab = () => {
     const nextNum = tabCounter + 1;
     const newId = Date.now();
-    const newTab = createNewSaleTab(newId, nextNum);
+    const currentInvNo = activeSale?.formattedInvoiceNo || "INV-0001";
+    const newTab = createNewSaleTab(newId, nextNum, currentInvNo);
     setSales(prev => [...prev, newTab]);
     setActiveTabId(newId);
     setTabCounter(nextNum);
@@ -1352,19 +1376,19 @@ export default function AddSale() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
               <span style={{ fontSize: 12.5, color: THEME.textMuted, fontWeight: 500 }}>Invoice Number</span>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ background: "#e0f2fe", borderRadius: 4, padding: "3px 6px", display: "flex", alignItems: "center", gap: 4 }}>
-                  <select
-                    value={activeSale.invoicePrefix}
-                    onChange={e => updateActiveSale({ invoicePrefix: e.target.value })}
-                    style={{ border: "none", background: "transparent", fontSize: 12, fontWeight: 700, color: "#0369a1", outline: "none", cursor: "pointer" }}
-                  >
-                    <option value="ss">ss</option>
-                    <option value="INV-">INV-</option>
-                    <option value="BILL-">BILL-</option>
-                  </select>
-                  <ChevronDown size={11} color="#0369a1" />
+                <div style={{
+                  background: "#eff6ff",
+                  borderRadius: 6,
+                  padding: "5px 12px",
+                  border: "1px solid #bfdbfe",
+                  display: "flex",
+                  alignItems: "center",
+                  boxShadow: "0 1px 2px rgba(37, 99, 235, 0.05)"
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#1d4ed8", letterSpacing: "0.03em" }}>
+                    {activeSale.formattedInvoiceNo || activeSale.invoiceNumber || "INV-0001"}
+                  </span>
                 </div>
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: THEME.textMain }}>{activeSale.invoiceNumber}</span>
               </div>
             </div>
 

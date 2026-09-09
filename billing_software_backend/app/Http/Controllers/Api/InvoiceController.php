@@ -8,12 +8,40 @@ use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Payment;
 use App\Models\Customer;
+use App\Models\InvoiceSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
 class InvoiceController extends Controller
 {
+    public function getNextInvoiceNo(Request $request)
+    {
+        $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        if (!$company_id) {
+            return response()->json(["status" => false, "message" => "company_id required"]);
+        }
+
+        $setting = InvoiceSetting::getForCompany($company_id);
+        $prefix  = $setting->prefix;
+        $seq     = max(1, intval($setting->next_number));
+        $padding = max(1, intval($setting->padding));
+
+        while (Invoice::where('company_id', $company_id)->where('invoice_no', InvoiceSetting::formatNumber($prefix, $seq, $padding))->exists()) {
+            $seq++;
+        }
+
+        $formattedInvoiceNo = InvoiceSetting::formatNumber($prefix, $seq, $padding);
+
+        return response()->json([
+            "status"     => true,
+            "invoice_no" => $formattedInvoiceNo,
+            "prefix"     => $prefix,
+            "sequence"   => $seq,
+            "padding"    => $padding
+        ]);
+    }
+
     public function createInvoice(Request $request)
     {
         $company_id     = intval($request->input('company_id', 0));
@@ -31,7 +59,27 @@ class InvoiceController extends Controller
         $payment_type   = trim($request->input('payment_type', 'cash'));
         $gst_type       = trim($request->input('gst_type', 'without_gst'));
         $gst_no         = trim($request->input('gst_no', ''));
-        $invoice_no     = "INV-" . time();
+        
+        /* SEQUENTIAL INVOICE NUMBER GENERATION (VIA INVOICE_SETTINGS TABLE) */
+        $custom_invoice_no = trim($request->input('invoice_no', ''));
+        $invSetting = InvoiceSetting::getForCompany($company_id);
+        $prefix  = $invSetting->prefix;
+        $nextSeq = max(1, intval($invSetting->next_number));
+        $padding = max(1, intval($invSetting->padding));
+
+        if (!empty($custom_invoice_no) && !Invoice::where('company_id', $company_id)->where('invoice_no', $custom_invoice_no)->exists()) {
+            $invoice_no = $custom_invoice_no;
+        } else {
+            while (Invoice::where('company_id', $company_id)->where('invoice_no', InvoiceSetting::formatNumber($prefix, $nextSeq, $padding))->exists()) {
+                $nextSeq++;
+            }
+            $invoice_no = InvoiceSetting::formatNumber($prefix, $nextSeq, $padding);
+            $nextSeq++;
+        }
+
+        // Increment sequence in invoice_settings table
+        $invSetting->next_number = $nextSeq;
+        $invSetting->save();
 
         /* VALIDATION */
         if (empty($customer_name) && empty($customer_phone)) {
