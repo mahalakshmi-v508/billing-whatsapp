@@ -642,6 +642,8 @@ class PurchaseController extends Controller
 
             DB::commit();
 
+            app(\App\Services\TransactionMessageService::class)->handlePurchase($companyId, $purchase);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Purchase submitted successfully. Stocks updated.',
@@ -1113,6 +1115,8 @@ class PurchaseController extends Controller
             }
 
             DB::commit();
+
+            app(\App\Services\TransactionMessageService::class)->handlePaymentOut($companyId, $supplierId, (float) $totalAmount, (string) $paymentMethod, (string) ($receiptNo ?: ''));
 
             return response()->json([
                 'status'           => true,

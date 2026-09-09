@@ -135,4 +135,16 @@ class WhatsAppService
             ->throw()
             ->json();
     }
+
+    public function sendReadReceipts(string $sessionId, string $phone, array $ids)
+    {
+        return $this->request()
+            ->post("{$this->url}/api/whatsapp/read-receipts", [
+                'session_id' => $sessionId,
+                'phone' => $phone,
+                'ids' => $ids
+            ])
+            ->throw()
+            ->json();
+    }
 }

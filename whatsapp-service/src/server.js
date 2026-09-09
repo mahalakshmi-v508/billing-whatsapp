@@ -60,6 +60,9 @@ app.post(
                 });
             }
 
+            console.log('[WHATSAPP CONNECT] connect requested');
+            console.log(`[WHATSAPP CONNECT] sessionId=${session_id}`);
+
             // respond immediately; QR arrives via events/polling
             manager.createClient(session_id)
                 .catch(error => {
@@ -418,6 +421,61 @@ app.post(
             return res.status(500).json({
                 success: false,
                 profile_picture: null,
+                message: error.message
+            });
+        }
+    }
+);
+
+
+// ── SEND REAL WHATSAPP READ RECEIPTS (BLUE TICKS FOR THE OPPONENT) ──
+app.post(
+    '/api/whatsapp/read-receipts',
+    internalAuth,
+    async (req, res) => {
+
+        try {
+
+            const {
+                session_id,
+                phone,
+                ids
+            } = req.body;
+
+            if (!session_id) {
+
+                return res.status(422).json({
+                    success: false,
+                    message: 'session_id is required'
+                });
+            }
+
+            if (!phone || !Array.isArray(ids) || ids.length === 0) {
+
+                return res.status(422).json({
+                    success: false,
+                    message: 'phone and a non-empty ids array are required'
+                });
+            }
+
+            const result =
+                await manager.markMessagesRead(
+                    session_id,
+                    phone,
+                    ids
+                );
+
+            return res.json({
+                success: true,
+                result
+            });
+
+        } catch (error) {
+
+            console.error('[read-receipts] failed:', error.stack || error.message);
+
+            return res.status(500).json({
+                success: false,
                 message: error.message
             });
         }

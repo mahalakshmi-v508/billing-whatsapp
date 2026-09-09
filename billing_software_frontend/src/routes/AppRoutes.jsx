@@ -21,12 +21,40 @@ import TrialBalance from "../pages/reports/financial/TrialBalance";
 import BalanceSheet from "../pages/reports/financial/BalanceSheet";
 import GstR1 from "../pages/reports/GSTReports/GstR1";
 import GstR2 from "../pages/reports/GSTReports/GstR2";
+import Gstr3B from "../pages/reports/GSTReports/Gstr3B";
+import Gstr9 from "../pages/reports/GSTReports/Gstr9";
+import SaleSummaryByHSN from "../pages/reports/GSTReports/SaleSummaryByHSN";
+import SACReport from "../pages/reports/GSTReports/SACReport";
 import PartyStatement from "../pages/reports/party/PartyStatement";
 import PartyWiseProfitLoss from "../pages/reports/party/PartyWiseProfitLoss";
 import AllParties from "../pages/reports/party/AllParties";
 import PartyReportByItem from "../pages/reports/party/PartyReportByItem";
 import SalePurchaseByParty from "../pages/reports/party/SalePurchaseByParty";
 import SalePurchaseByPartyGroup from "../pages/reports/party/SalePurchaseByPartyGroup";
+import StockSummary from "../pages/reports/stock/StockSummary";
+import ItemReportByParty from "../pages/reports/item-stock/ItemReportByParty";
+import ItemWiseProfitAndLoss from "../pages/reports/item-stock/ItemWiseProfitAndLoss";
+import ItemCategoryWiseProfitAndLoss from "../pages/reports/item-stock/ItemCategoryWiseProfitAndLoss";
+import LowStockSummary from "../pages/reports/item-stock/LowStockSummary";
+import StockDetail from "../pages/reports/item-stock/StockDetail";
+import ItemDetail from "../pages/reports/item-stock/ItemDetail";
+import SalePurchaseByItemCategory from "../pages/reports/item-stock/SalePurchaseByItemCategory";
+import StockSummaryByItemCategory from "../pages/reports/item-stock/StockSummaryByItemCategory";
+import ItemWiseDiscount from "../pages/reports/item-stock/ItemWiseDiscount";
+import BankStatement from "../pages/reports/business-status/BankStatement";
+import DiscountReport from "../pages/reports/business-status/DiscountReport";
+import GSTReport from "../pages/reports/taxes/GSTReport";
+import GSTRateReport from "../pages/reports/taxes/GSTRateReport";
+import FormNo27EQ from "../pages/reports/taxes/FormNo27EQ";
+import TCSReceivable from "../pages/reports/taxes/TCSReceivable";
+import TDSPayable from "../pages/reports/taxes/TDSPayable";
+import TDSReceivable from "../pages/reports/taxes/TDSReceivable";
+import ExpenseReport from "../pages/reports/expense/ExpenseReport";
+import ExpenseCategoryReport from "../pages/reports/expense/ExpenseCategoryReport";
+import ExpenseItemReport from "../pages/reports/expense/ExpenseItemReport";
+import SaleOrders from "../pages/reports/sale-order/SaleOrders";
+import SaleOrderItem from "../pages/reports/sale-order/SaleOrderItem";
+import LoanStatement from "../pages/reports/loan/LoanStatement";
 import MainLayout from "../layouts/MainLayout";
 import SelectItemsForReminder from "../pages/settings/SelectItemsForReminder";
 import CompanyList from "../pages/company/CompanyList";
@@ -161,6 +189,34 @@ export default function AppRoutes() {
               <Route path="payment-out" element={<PaymentOut />} />
               <Route path="gst-r1" element={<GstR1 />} />
               <Route path="gst-r2" element={<GstR2 />} />
+              <Route path="gstr-3b" element={<Gstr3B />} />
+              <Route path="gstr-9" element={<Gstr9 />} />
+              <Route path="sale-summary-by-hsn" element={<SaleSummaryByHSN />} />
+              <Route path="sac-report" element={<SACReport />} />
+              <Route path="stock-summary" element={<StockSummary />} />
+              <Route path="item-report-by-party" element={<ItemReportByParty />} />
+              <Route path="item-wise-profit-and-loss" element={<ItemWiseProfitAndLoss />} />
+              <Route path="item-category-wise-profit-and-loss" element={<ItemCategoryWiseProfitAndLoss />} />
+              <Route path="low-stock-summary" element={<LowStockSummary />} />
+              <Route path="stock-detail" element={<StockDetail />} />
+              <Route path="item-detail" element={<ItemDetail />} />
+              <Route path="sale-purchase-by-item-category" element={<SalePurchaseByItemCategory />} />
+              <Route path="stock-summary-by-item-category" element={<StockSummaryByItemCategory />} />
+              <Route path="item-wise-discount" element={<ItemWiseDiscount />} />
+              <Route path="bank-statement" element={<BankStatement />} />
+              <Route path="discount-report" element={<DiscountReport />} />
+              <Route path="gst-report" element={<GSTReport />} />
+              <Route path="gst-rate-report" element={<GSTRateReport />} />
+              <Route path="form-27eq" element={<FormNo27EQ />} />
+              <Route path="tcs-receivable" element={<TCSReceivable />} />
+              <Route path="tds-payable" element={<TDSPayable />} />
+              <Route path="tds-receivable" element={<TDSReceivable />} />
+              <Route path="expense" element={<ExpenseReport />} />
+              <Route path="expense-category-report" element={<ExpenseCategoryReport />} />
+              <Route path="expense-item-report" element={<ExpenseItemReport />} />
+              <Route path="sale-orders" element={<SaleOrders />} />
+              <Route path="sale-order-item" element={<SaleOrderItem />} />
+              <Route path="loan-statement" element={<LoanStatement />} />
             </Route>
 
             {/* Sales Management */}

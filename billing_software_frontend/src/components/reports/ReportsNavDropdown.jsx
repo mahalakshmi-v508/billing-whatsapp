@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, Search, Plus, FileText, X } from "lucide-react";
-import { reports, findReportByPath } from "./reportNavigation";
+import { ChevronDown, ChevronRight, Search, Plus, FileText, X } from "lucide-react";
+import { reports, reportSections, otherReports, findReportByPath } from "./reportNavigation";
 import { getFrequentlyUsedReports, removeFrequentReport } from "./reportUsage";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
@@ -10,15 +10,18 @@ const INDIGO = "#4338ca";
 /**
  * Report header used at the top of every report page:
  *
- *  FIRST ROW → "Current Report" — searchable list of ALL reports from the
- *              registry.
+ *  FIRST ROW → "Current Report" — a searchable dropdown listing all reports,
+ *              grouped into expandable/collapsible sections (Item / Stock
+ *              Report, Business Status, Taxes, Expense Report, Sale Order
+ *              Report, Loan Accounts) plus the flat "All Reports" group.
+ *              Each section heading expands/collapses its sub-items on click.
  *  SECOND ROW → small compact chips, one per frequently-used report (from the
  *              user's actual viewing history, see reportUsage.js). Each chip
  *              navigates to that report; its × removes ONLY that chip from
  *              Frequently Used (persisted on the backend).
  *
- * No "Frequently Used" title and no outer container — just the chips.
- * Group names are NEVER rendered — only actual report names.
+ * Group/section names ARE rendered here as headings (unlike the older flat
+ * dropdown), so navigation is organised while keeping active highlighting.
  */
 export default function ReportsNavDropdown() {
   const location = useLocation();
@@ -27,6 +30,7 @@ export default function ReportsNavDropdown() {
   const [leftOpen, setLeftOpen] = useState(false);
   const [q, setQ] = useState("");
   const [frequentlyUsed, setFrequentlyUsed] = useState([]);
+  const [openSections, setOpenSections] = useState(() => initialOpenSections());
 
   const leftRef = useRef(null);
   const inputRef = useRef(null);
@@ -56,11 +60,15 @@ export default function ReportsNavDropdown() {
     return () => { cancelled = true; };
   }, []);
 
-  const filtered = useMemo(() => {
+  /** Any report matching the current search term (used when searching). */
+  const searchMatches = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return reports;
+    if (!term) return [];
     return reports.filter((r) => r.title.toLowerCase().includes(term));
   }, [q]);
+
+  const toggleSection = (key) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // Navigate to a report; chip relies on the same go() so a route change
   // re-renders us with the panel closed.
@@ -70,40 +78,20 @@ export default function ReportsNavDropdown() {
     if (r.path !== location.pathname) navigate(r.path);
   };
 
-  // Remove ONLY this report from Frequently Used. Optimistic UI update; the
-  // backend DELETES its record so it stays gone after refresh, and the usage
-  // count restarts from 1 the next time the report is viewed.
+  // Remove ONLY this report from Frequently Used.
   const removeFrequent = (slug) => {
     setFrequentlyUsed((prev) => prev.filter((r) => r.slug !== slug));
     removeFrequentReport(slug);
   };
 
+  const searching = q.trim().length > 0;
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-        marginBottom: 18,
-        fontFamily: FONT,
-      }}
-    >
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18, fontFamily: FONT }}>
       {/* ── FIRST DROPDOWN: Current / all-reports selector ───────────── */}
       <div ref={leftRef} style={{ position: "relative", width: 320, maxWidth: "100%" }}>
         <button onClick={() => setLeftOpen((v) => !v)} style={triggerStyle}>
-          <span
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              background: "#eef2ff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: INDIGO,
-              flexShrink: 0,
-            }}
-          >
+          <span style={{ width: 30, height: 30, borderRadius: 8, background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center", color: INDIGO, flexShrink: 0 }}>
             <FileText size={16} />
           </span>
           <span style={triggerLabelStyle(active)}>
@@ -131,17 +119,44 @@ export default function ReportsNavDropdown() {
                 )}
               </div>
             </div>
-            <div style={{ maxHeight: 340, overflowY: "auto", padding: 6 }}>
-              {filtered.length === 0 ? (
-                <div style={{ padding: "18px 12px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
-                  No reports match "{q.trim()}"
-                </div>
+            <div style={{ maxHeight: 380, overflowY: "auto", padding: 6 }}>
+              {searching ? (
+                // Search mode: flat list of every matching report.
+                searchMatches.length === 0 ? (
+                  <div style={{ padding: "18px 12px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+                    No reports match "{q.trim()}"
+                  </div>
+                ) : (
+                  searchMatches.map((r) => (
+                    <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} />
+                  ))
+                )
               ) : (
-                <ReportSections
-                  reports={filtered}
-                  activePath={activePath}
-                  onPick={go}
-                />
+                <>
+                  {/* Flat "All Reports" group (reports not in a section) */}
+                  <div style={listSectionLabel}>All Reports</div>
+                  {otherReports.map((r) => (
+                    <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} />
+                  ))}
+
+                  {/* Expandable sections */}
+                  {reportSections.map((section) => {
+                    const open = !!openSections[section.key];
+                    return (
+                      <div key={section.key}>
+                        <SectionHeading
+                          label={section.label}
+                          open={open}
+                          onClick={() => toggleSection(section.key)}
+                        />
+                        {open &&
+                          section.reports.map((r) => (
+                            <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} indent />
+                          ))}
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </div>
           </div>
@@ -173,38 +188,37 @@ export default function ReportsNavDropdown() {
   );
 }
 
-/**
- * Renders the report list. When the user is searching we collapse to a single
- * flat "All Reports" list; otherwise we split into two sections — the existing
- * "All Reports" group and a dedicated "GST Reports" group — so the new GST
- * reports (GST R1 / GST R2) sit under their own clearly labelled heading.
- */
-function ReportSections({ reports, activePath, onPick }) {
+/** Section heading — click to expand/collapse its sub-items. */
+function SectionHeading({ label, open, onClick }) {
   return (
-    <>
-      <div style={listSectionLabel}>All Reports</div>
-      {reports
-        .filter((r) => r.group !== "gst")
-        .map((r) => (
-          <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => onPick(r)} />
-        ))}
-
-      {/* Only show the GST Reports section when it has visible reports (no search, or a matching GST title). */}
-      {reports.some((r) => r.group === "gst") && (
-        <>
-          <div style={{ ...listSectionLabel, marginTop: 6, color: "#8b5cf6" }}>GST Reports</div>
-          {reports
-            .filter((r) => r.group === "gst")
-            .map((r) => (
-              <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => onPick(r)} />
-            ))}
-        </>
-      )}
-    </>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        width: "100%",
+        background: "transparent",
+        border: "none",
+        padding: "10px 12px 4px",
+        cursor: "pointer",
+        fontFamily: FONT,
+        fontSize: 10,
+        fontWeight: 800,
+        letterSpacing: ".06em",
+        textTransform: "uppercase",
+        color: "#94a3b8",
+        textAlign: "left",
+      }}
+    >
+      <span>{label}</span>
+      {open ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#94a3b8" />}
+    </button>
   );
 }
 
-function Row({ title, active, onPick }) {
+function Row({ title, active, onPick, indent }) {
   return (
     <button
       onClick={onPick}
@@ -216,7 +230,7 @@ function Row({ title, active, onPick }) {
         gap: 10,
         width: "100%",
         textAlign: "left",
-        padding: "9px 12px",
+        padding: indent ? "9px 12px 9px 24px" : "9px 12px",
         borderRadius: 9,
         border: "none",
         cursor: "pointer",
@@ -231,6 +245,15 @@ function Row({ title, active, onPick }) {
       <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
     </button>
   );
+}
+
+/** Sections whose report set contains the currently active report start open. */
+function initialOpenSections() {
+  const init = {};
+  reportSections.forEach((s) => {
+    init[s.key] = s.reports.some((r) => r.path === window.location.pathname);
+  });
+  return init;
 }
 
 const triggerStyle = {
