@@ -39,6 +39,7 @@ export const reports = [
 
   { title: "GST R1", path: "/reports/gst-r1", group: "gst", slug: "GstR1" },
   { title: "GST R2", path: "/reports/gst-r2", group: "gst", slug: "GstR2" },
+
 ];
 
 /** Return the report (from the registry) whose path matches, if any. */
