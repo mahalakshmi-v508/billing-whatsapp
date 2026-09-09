@@ -272,31 +272,6 @@ function ThemeTally({ invoice, company, color, logoUrl }) {
           </div>
         </div>
       </div>
-
-      {/* Bottom Box: Bank Details (Left) + Authorized Signatory (Right) */}
-      <div style={{ border: "1px solid #94a3b8", borderTop: "none", display: "grid", gridTemplateColumns: "1fr 1fr", background: "#ffffff" }}>
-        {/* Left: Bank Details + QR Code */}
-        <div style={{ padding: "10px 14px", borderRight: "1px solid #94a3b8", display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ width: 62, height: 62, border: "1px solid #cbd5e1", padding: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <QrCode size={54} color="#1e293b" />
-            </div>
-            <div style={{ fontSize: 8.5, fontWeight: 700, color: "#059669", marginTop: 2, textTransform: "uppercase" }}>UPI Scan to Pay</div>
-          </div>
-          <div style={{ fontSize: 11, color: "#334155", lineHeight: 1.4 }}>
-            <div style={{ fontWeight: 700 }}>Bank Details:</div>
-            <div>Name : {company?.bank_name || "HDFC BANK"}</div>
-            <div>Account No. : {company?.account_no || "25445415145"}</div>
-            <div>IFSC code : {company?.ifsc_code || "HDFC0003542"}</div>
-          </div>
-        </div>
-
-        {/* Right: Authorized Signatory */}
-        <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between", textAlign: "right" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>For {company?.company_name || "My Company"}:</div>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: "#334155", marginTop: 36, textAlign: "center" }}>Authorized Signatory</div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1222,191 +1197,184 @@ export default function InvoicePreview() {
         </main>
 
         {/* ── RIGHT SIDEBAR: PROMO BANNER, SHARE & PRINT ACTIONS ── */}
+        {/* ── RIGHT SIDEBAR: SHARE & PRINT ACTIONS ── */}
         <aside className="no-print" style={{
           width: 250,
           background: "#ffffff",
           borderLeft: "1px solid #e2e8f0",
           display: "flex",
           flexDirection: "column",
-          padding: "16px 16px",
+          padding: "20px 16px",
           overflowY: "auto",
           boxSizing: "border-box",
           flexShrink: 0,
-          justifyContent: "space-between"
+          justifyContent: "space-between",
+          gap: 24
         }}>
-          {/* Top: Promo Card (Matching Screenshot 1-5) */}
+          {/* Top: Share Invoice Section (WhatsApp & Share Link Only) */}
           <div>
-            <div style={{
-              background: "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)",
-              borderRadius: 8,
-              padding: "14px 12px",
-              textAlign: "center",
-              marginBottom: 20,
-              border: "1px solid #7dd3fc"
-            }}>
-              <div style={{ display: "flex", justifyContent: "center", gap: 6, fontSize: 10, fontWeight: 700, color: "#0369a1", marginBottom: 6 }}>
-                <span>✦ BHIM UPI</span>
-                <span>✦ Cards</span>
-                <span>✦ Netbanking</span>
-              </div>
-              <div style={{ fontSize: 12.5, fontWeight: 800, color: "#0c4a6e", lineHeight: 1.3, marginBottom: 10 }}>
-                Accept Online Payments &amp; Reconcile with Vyapar
-              </div>
-              <button style={{
-                background: "#1f8cff",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 20,
-                padding: "6px 16px",
-                fontSize: 12,
-                fontWeight: 800,
-                cursor: "pointer",
-                boxShadow: "0 2px 6px rgba(31, 140, 255, 0.3)"
-              }}>
-                Start Now
-              </button>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <Share2 size={16} color="#2563eb" />
+              <span>Share Invoice</span>
             </div>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {/* WhatsApp */}
+              <button
+                onClick={shareWhatsApp}
+                disabled={waSending}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px 8px",
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  color: "#15803d",
+                  transition: "all 0.15s ease",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)"
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = "#dcfce7";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = "#f0fdf4";
+                  e.currentTarget.style.transform = "none";
+                }}
+              >
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "#22c55e",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 6px rgba(34, 197, 94, 0.35)"
+                }}>
+                  <MessageCircle size={18} />
+                </div>
+                <span style={{ fontSize: 11.5, fontWeight: 700 }}>{waSending ? "Sending..." : "WhatsApp"}</span>
+              </button>
 
-            {/* Share Invoice Section (Matching Screenshot) */}
-            <div>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 12 }}>Share Invoice</div>
-              
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {/* WhatsApp */}
-                <button
-                  onClick={shareWhatsApp}
-                  disabled={waSending}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                    borderRadius: 8, cursor: "pointer", color: "#334155"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#22c55e", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <MessageCircle size={16} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>{waSending ? "Sending..." : "Whatsapp"}</span>
-                </button>
-
-                {/* Gmail */}
-                <button
-                  onClick={shareEmail}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                    borderRadius: 8, cursor: "pointer", color: "#334155"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#ef4444", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Mail size={16} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>Gmail</span>
-                </button>
-
-                {/* Message (SMS) */}
-                <button
-                  onClick={shareSMS}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                    borderRadius: 8, cursor: "pointer", color: "#334155"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#10b981", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Smartphone size={16} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>Message</span>
-                </button>
-
-                {/* Copy Link */}
-                <button
-                  onClick={copyInvoiceLink}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                    borderRadius: 8, cursor: "pointer", color: "#334155"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e11d48", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Share2 size={15} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>{copyToast ? "Copied!" : "Share Link"}</span>
-                </button>
-              </div>
+              {/* Share Link */}
+              <button
+                onClick={copyInvoiceLink}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px 8px",
+                  background: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  color: "#1d4ed8",
+                  transition: "all 0.15s ease",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)"
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = "#dbeafe";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = "#eff6ff";
+                  e.currentTarget.style.transform = "none";
+                }}
+              >
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "#2563eb",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 6px rgba(37, 99, 235, 0.35)"
+                }}>
+                  {copyToast ? <Check size={18} /> : <Share2 size={17} />}
+                </div>
+                <span style={{ fontSize: 11.5, fontWeight: 700 }}>{copyToast ? "Copied!" : "Share Link"}</span>
+              </button>
             </div>
           </div>
 
-          {/* Bottom Action Buttons (Download, Secondary Print, Primary Print) */}
-          <div style={{ display: "flex", gap: 8, marginTop: 24 }}>
-            {/* Download */}
+          {/* Bottom Action Area: Download PDF & Print Icon */}
+          <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 8, paddingTop: 16, borderTop: "1px solid #f1f5f9" }}>
+            {/* Download PDF Button */}
             <button
               onClick={downloadPDF}
-              title="Download PDF"
+              title="Download Invoice PDF"
               style={{
                 flex: 1,
-                height: 42,
-                borderRadius: 6,
-                border: "1px solid #cbd5e1",
-                background: "#ffffff",
-                color: "#1e293b",
+                height: 44,
+                borderRadius: 8,
+                border: "1.5px solid #2563eb",
+                background: "#f0f7ff",
+                color: "#1d4ed8",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+                gap: 7,
+                fontSize: 12.5,
+                fontWeight: 700,
+                transition: "all 0.15s ease",
+                boxShadow: "0 1px 2px rgba(37, 99, 235, 0.08)"
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "#dbeafe";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "#f0f7ff";
+                e.currentTarget.style.transform = "none";
               }}
             >
-              <Download size={18} color="#1f8cff" />
+              <Download size={16} strokeWidth={2.4} />
+              <span>Download PDF</span>
             </button>
 
-            {/* Print Outline */}
-            <button
-              onClick={handlePrint}
-              title="Print Document"
-              style={{
-                flex: 1,
-                height: 42,
-                borderRadius: 6,
-                border: "1px solid #cbd5e1",
-                background: "#ffffff",
-                color: "#1e293b",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
-              }}
-            >
-              <FileText size={18} color="#1f8cff" />
-            </button>
-
-            {/* Print Filled Primary */}
+            {/* Print Icon Button */}
             <button
               onClick={handlePrint}
               title="Print Invoice"
               style={{
-                flex: 1,
-                height: 42,
-                borderRadius: 6,
+                width: 44,
+                height: 44,
+                borderRadius: 8,
                 border: "none",
-                background: "#1f8cff",
+                background: "#2563eb",
                 color: "#ffffff",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 2px 6px rgba(31, 140, 255, 0.35)"
+                transition: "all 0.15s ease",
+                boxShadow: "0 2px 6px rgba(37, 99, 235, 0.35)",
+                flexShrink: 0
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "#1d4ed8";
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "0 4px 10px rgba(37, 99, 235, 0.4)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "#2563eb";
+                e.currentTarget.style.transform = "none";
+                e.currentTarget.style.boxShadow = "0 2px 6px rgba(37, 99, 235, 0.35)";
               }}
             >
-              <Printer size={18} />
+              <Printer size={19} strokeWidth={2.2} />
             </button>
           </div>
         </aside>
