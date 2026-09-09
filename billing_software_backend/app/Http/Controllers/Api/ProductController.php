@@ -320,6 +320,41 @@ class ProductController extends Controller
         return response()->json(["status" => true, "message" => "Product updated successfully"]);
     }
 
+    public function move(Request $request)
+    {
+        $productIds = array_map('intval', (array) $request->input('product_ids', []));
+        $companyId = intval($request->input('company_id', 0));
+        $categoryId = $request->has('category_id') ? intval($request->input('category_id')) : null;
+        $subcategoryId = $request->has('subcategory_id') ? intval($request->input('subcategory_id')) : null;
+        $brandId = $request->has('brand_id') ? intval($request->input('brand_id')) : null;
+
+        if (!$companyId || !$productIds || ($categoryId === null && $subcategoryId === null && $brandId === null)) {
+            return response()->json(["status" => false, "message" => "Products and destination are required"]);
+        }
+
+        $updates = [];
+        if ($categoryId !== null) {
+            $updates['category_id'] = $categoryId;
+        }
+        if ($subcategoryId !== null) {
+            $updates['subcategory_id'] = $subcategoryId;
+        }
+        if ($brandId !== null) {
+            $updates['brand_id'] = $brandId;
+        }
+
+        $updated = Product::whereIn('id', $productIds)
+            ->where('company_id', $companyId)
+            ->where('is_deleted', 0)
+            ->update($updates);
+
+        return response()->json([
+            "status" => true,
+            "message" => "Products moved successfully",
+            "updated" => $updated
+        ]);
+    }
+
     public function getProductSaleHistory(Request $request)
     {
         $product_id = intval($request->query('product_id', 0));
