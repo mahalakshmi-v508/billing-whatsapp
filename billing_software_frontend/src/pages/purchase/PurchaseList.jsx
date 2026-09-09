@@ -275,7 +275,15 @@ export default function PurchaseList() {
   const selectedSupplierPendingTotal = selectedSupplier ? getSupplierPendingTotal(selectedSupplier.id) : 0;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f1f5f9", padding: 20, fontFamily: "Inter, sans-serif" }}>
+    <>
+      <style>{`
+        .supplier-sidebar-scroll { scrollbar-width: thin; scrollbar-color: #94a3b8 #e2e8f0; }
+        .supplier-sidebar-scroll::-webkit-scrollbar { width: 9px; }
+        .supplier-sidebar-scroll::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 10px; }
+        .supplier-sidebar-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 2px solid #e2e8f0; }
+        .supplier-sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
+      `}</style>
+      <div style={{ height: "100vh", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column", background: "#f1f5f9", padding: 20, fontFamily: "Inter, sans-serif" }}>
       
       {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
@@ -343,11 +351,12 @@ export default function PurchaseList() {
         display: "grid",
         gridTemplateColumns: "300px 1fr",
         gap: 16,
-        height: "calc(100vh - 150px)"
+        flex: 1,
+        minHeight: 0
       }}>
 
         {/* ── LEFT PANEL: Suppliers List ── */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column" }}>
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
           {/* Supplier Search & Add Button */}
           <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ position: "relative" }}>
@@ -438,7 +447,7 @@ export default function PurchaseList() {
         </div>
 
         {/* ── RIGHT PANEL: Invoice Table ── */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
           
           {selectedSupplier && (
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", flexShrink: 0 }}>
@@ -866,7 +875,7 @@ export default function PurchaseList() {
             </div>
 
             {/* Modal Body */}
-            <div style={{ overflowY: "auto", flex: 1 }}>
+<div className="supplier-sidebar-scroll" style={{ overflowY: "scroll", flex: 1, minHeight: 0 }}>
               {loadingHistory ? (
                 <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Loading payment records...</div>
               ) : paymentHistory.length === 0 ? (
@@ -1135,6 +1144,7 @@ export default function PurchaseList() {
           }
         }}
       />
-    </div>
+      </div>
+    </>
   );
 }
