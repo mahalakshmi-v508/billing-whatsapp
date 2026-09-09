@@ -8,12 +8,40 @@ use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Payment;
 use App\Models\Customer;
+use App\Models\InvoiceSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
 class InvoiceController extends Controller
 {
+    public function getNextInvoiceNo(Request $request)
+    {
+        $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        if (!$company_id) {
+            return response()->json(["status" => false, "message" => "company_id required"]);
+        }
+
+        $setting = InvoiceSetting::getForCompany($company_id);
+        $prefix  = $setting->prefix;
+        $seq     = max(1, intval($setting->next_number));
+        $padding = max(1, intval($setting->padding));
+
+        while (Invoice::where('company_id', $company_id)->where('invoice_no', InvoiceSetting::formatNumber($prefix, $seq, $padding))->exists()) {
+            $seq++;
+        }
+
+        $formattedInvoiceNo = InvoiceSetting::formatNumber($prefix, $seq, $padding);
+
+        return response()->json([
+            "status"     => true,
+            "invoice_no" => $formattedInvoiceNo,
+            "prefix"     => $prefix,
+            "sequence"   => $seq,
+            "padding"    => $padding
+        ]);
+    }
+
     public function createInvoice(Request $request)
     {
         $company_id     = intval($request->input('company_id', 0));
@@ -31,7 +59,27 @@ class InvoiceController extends Controller
         $payment_type   = trim($request->input('payment_type', 'cash'));
         $gst_type       = trim($request->input('gst_type', 'without_gst'));
         $gst_no         = trim($request->input('gst_no', ''));
-        $invoice_no     = "INV-" . time();
+        
+        /* SEQUENTIAL INVOICE NUMBER GENERATION (VIA INVOICE_SETTINGS TABLE) */
+        $custom_invoice_no = trim($request->input('invoice_no', ''));
+        $invSetting = InvoiceSetting::getForCompany($company_id);
+        $prefix  = $invSetting->prefix;
+        $nextSeq = max(1, intval($invSetting->next_number));
+        $padding = max(1, intval($invSetting->padding));
+
+        if (!empty($custom_invoice_no) && !Invoice::where('company_id', $company_id)->where('invoice_no', $custom_invoice_no)->exists()) {
+            $invoice_no = $custom_invoice_no;
+        } else {
+            while (Invoice::where('company_id', $company_id)->where('invoice_no', InvoiceSetting::formatNumber($prefix, $nextSeq, $padding))->exists()) {
+                $nextSeq++;
+            }
+            $invoice_no = InvoiceSetting::formatNumber($prefix, $nextSeq, $padding);
+            $nextSeq++;
+        }
+
+        // Increment sequence in invoice_settings table
+        $invSetting->next_number = $nextSeq;
+        $invSetting->save();
 
         /* VALIDATION */
         if (empty($customer_name) && empty($customer_phone)) {
@@ -136,16 +184,20 @@ class InvoiceController extends Controller
         /* DUE DATE */
         $due_date = null;
         if ($payment_type === "credit") {
-            $credit_days = 0;
-            if ($customer_id > 0) {
-                $cust = Customer::find($customer_id);
-                if ($cust) {
-                    $credit_days = intval($cust->credit_days);
+            if ($request->filled('due_date')) {
+                $due_date = $request->input('due_date');
+            } else {
+                $credit_days = 0;
+                if ($customer_id > 0) {
+                    $cust = Customer::find($customer_id);
+                    if ($cust) {
+                        $credit_days = intval($cust->credit_days);
+                    }
                 }
+                $due_date = $credit_days > 0
+                    ? date('Y-m-d', strtotime("+$credit_days days"))
+                    : date('Y-m-d');
             }
-            $due_date = $credit_days > 0
-                ? date('Y-m-d', strtotime("+$credit_days days"))
-                : date('Y-m-d');
         }
 
         /* STOCK CHECK (Only check stock for inventory-registered DB items) */
@@ -312,7 +364,8 @@ class InvoiceController extends Controller
         $query = DB::table('invoices as i')
             ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
             ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
-            ->select('i.*', 'u.name as cashier_name', 'c.gstin')
+            ->leftJoin('customers as cust', 'i.customer_id', '=', 'cust.id')
+            ->select('i.*', 'u.name as cashier_name', 'c.gstin', 'cust.gst_no as customer_gst_no')
             ->where('i.company_id', $company_id);
 
         if ($from_date && $to_date) {
@@ -1302,11 +1355,26 @@ class InvoiceController extends Controller
                 }
             }
 
-            // 3. Compute Paid & Balance
+            // 3. Compute Paid, Balance & Due Date
+            $due_date = null;
             if ($payment_type === "credit") {
                 $final_paid     = $paid_amount;
                 $balance_amount = max(0.0, $total_amount - $final_paid);
                 $payment_status = $balance_amount <= 0 ? "paid" : ($final_paid > 0 ? "partial" : "not_paid");
+                if ($request->filled('due_date')) {
+                    $due_date = $request->input('due_date');
+                } else {
+                    $credit_days = 0;
+                    if ($customer_id > 0) {
+                        $cust = Customer::find($customer_id);
+                        if ($cust) {
+                            $credit_days = intval($cust->credit_days);
+                        }
+                    }
+                    $due_date = $credit_days > 0
+                        ? date('Y-m-d', strtotime("+$credit_days days"))
+                        : date('Y-m-d');
+                }
             } else {
                 $final_paid     = $total_amount;
                 $balance_amount = 0;
@@ -1324,6 +1392,7 @@ class InvoiceController extends Controller
                 'total_amount'   => $total_amount,
                 'paid_amount'    => $final_paid,
                 'balance_amount' => $balance_amount,
+                'due_date'       => $due_date,
                 'payment_method' => $payment_method,
                 'payment_type'   => $payment_type,
                 'gst_type'       => $gst_type,

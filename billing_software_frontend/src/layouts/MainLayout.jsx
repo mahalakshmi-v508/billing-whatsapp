@@ -325,6 +325,8 @@ export default function MainLayout() {
             <nav className="space-y-0.5">
               {[
                 { id: "general", label: "General" },
+                { id: "invoice-numbering", label: "Invoice Numbering" },
+                { id: "invoice-design", label: "Invoice Design" },
                 { id: "transaction", label: "Transaction" },
                 { id: "print", label: "Print" },
                 { id: "taxes", label: "Taxes & GST" },
