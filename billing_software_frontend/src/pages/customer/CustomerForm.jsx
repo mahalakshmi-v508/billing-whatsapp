@@ -11,7 +11,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     name: "",
     phone: "",
     gst_no: "",
-    gst_type: "Unregistered",
+    gst_type: "Unregistered/Consumer",
     billing_address: "",
     address_line1: "",
     address_line2: "",
@@ -35,11 +35,14 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     account_number: "",
     pan_number: "",
     date_of_birth: "",
+    balance: "",
+    pending: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [errors, setErrors] = useState({});
 
   // ─── tab state ──────────────────────────────────────────────
   // NOTE: default tab is explicitly "gst". This is the ONLY place
@@ -60,16 +63,41 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   const [confirmAction, setConfirmAction] = useState(null);
 
   // ─── helpers ────────────────────────────────────────────────
+  const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+  const setErrorsField = (k, v) => {
+    setErrors((p) => ({ ...p, [k]: v }));
+  };
+
+  const validateField = (k, v) => {
+    let msg = "";
+    if (k === "email" && v.trim()) {
+      if (!EMAIL_REGEX.test(v.trim())) msg = "Enter a valid email address (e.g. user@gmail.com)";
+    } else if (k === "account_number" && v.trim()) {
+      if (!/^[0-9]{6,18}$/.test(v.trim())) msg = "Account number must be 6–18 digits";
+    } else if (k === "pan_number") {
+      if (v.length > 0 && v.length < 10) msg = "PAN must be 10 characters";
+      else if (v.length === 10 && !PAN_REGEX.test(v)) msg = "Invalid PAN format (e.g. ABCDE1234F)";
+    } else if (k === "date_of_birth" && v) {
+      const dob = new Date(v);
+      const now = new Date();
+      if (isNaN(dob.getTime()) || dob > now) msg = "Date of birth cannot be in the future";
+    }
+    setErrorsField(k, msg);
+    return msg;
+  };
+
   const set = (k, v) => {
     setForm((p) => ({ ...p, [k]: v }));
     setIsDirty(true);
+    validateField(k, v);
   };
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
   };
-
-  const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
   const isBillingFilled = () =>
     form.billing_address.trim() ||
@@ -243,7 +271,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       return;
     }
 
-    const isB2B = form.gst_type === "Registered";
+    const isB2B = form.gst_type.startsWith("Registered");
     if (isB2B) {
       if (!form.gst_no.trim()) {
         showToast("GSTIN is required for registered customers", false);
@@ -258,6 +286,22 @@ export default function CustomerForm({ onSuccess, onCancel }) {
         showToast("Invalid GSTIN format", false);
         return;
       }
+    }
+
+    const fieldChecks = [
+      ["email", form.email],
+      ["account_number", form.account_number],
+      ["pan_number", form.pan_number],
+      ["date_of_birth", form.date_of_birth],
+    ];
+    const validationMessages = {};
+    for (const [k, v] of fieldChecks) {
+      const msg = validateField(k, v);
+      if (msg) validationMessages[k] = msg;
+    }
+    if (Object.keys(validationMessages).length > 0) {
+      showToast(Object.values(validationMessages)[0], false);
+      return;
     }
 
     if (form.credit_enabled === 1 && !isCreditAuthorized) {
@@ -286,13 +330,15 @@ export default function CustomerForm({ onSuccess, onCancel }) {
         shipping_country: form.shipping_country,
         shipping_pincode: form.shipping_pincode,
         gst_no: form.gst_no,
-        type: isB2B ? "B2B" : "B2C",
+        type: form.gst_type,
         credit_enabled: form.credit_enabled,
         credit_limit: form.credit_enabled ? form.credit_limit : 0,
         credit_days: form.credit_enabled ? form.credit_days : 0,
         account_number: form.account_number,
         pan_number: form.pan_number,
         date_of_birth: form.date_of_birth,
+        advance_balance: form.balance || 0,
+        pending_amount: form.pending || 0,
       };
 
       const res = await api.post("/customer/create_customer", payload);
@@ -303,7 +349,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             name: "",
             phone: "",
             gst_no: "",
-            gst_type: "Unregistered",
+gst_type: "Unregistered/Consumer",
             billing_address: "",
             address_line1: "",
             address_line2: "",
@@ -327,10 +373,13 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             account_number: "",
             pan_number: "",
             date_of_birth: "",
+            balance: "",
+            pending: "",
           });
           setIsCreditAuthorized(false);
           setOtpSent(false);
           setEnteredOtp("");
+          setErrors({});
           setActiveTab("gst"); // reset back to default tab, never "credit"
           setIsDirty(false);
         } else if (onSuccess) {
@@ -697,10 +746,9 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                       value={form.gst_type}
                       onChange={(e) => set("gst_type", e.target.value)}
                     >
-                      <option value="Unregistered">Unregistered/Consumer</option>
-                      <option value="Registered">Registered Business - Regular</option>
-                      <option value="Registered">Registered Business - Composition</option>
-
+                      <option value="Unregistered/Consumer">Unregistered/Consumer</option>
+                      <option value="Registered Business - Regular">Registered Business - Regular</option>
+                      <option value="Registered Business - Composition">Registered Business - Composition</option>
                     </select>
                   </div>
                   <div style={{ marginBottom: 16 }}>
@@ -719,7 +767,13 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                       placeholder=""
                       value={form.email}
                       onChange={(e) => set("email", e.target.value)}
+                      style={errors.email ? { borderColor: "#ef4444" } : {}}
                     />
+                    {errors.email && (
+                      <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
+                        {errors.email}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1005,6 +1059,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                       </div>
                     ) : (
                       <>
+                      {/* Credit Authorized section*/}
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
                           <span style={{ color: "#10b981", fontWeight: 700, fontSize: 12.5 }}>✓ Credit Authorized</span>
                         </div>
@@ -1019,7 +1074,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                               onChange={(e) => set("credit_limit", e.target.value)}
                             />
                           </div>
-                          <div>
+                           <div>
                             <label className="cf-label" style={{ fontSize: 11 }}>Credit Days</label>
                             <input
                               type="number"
@@ -1027,6 +1082,28 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                               placeholder="Days"
                               value={form.credit_days}
                               onChange={(e) => set("credit_days", e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+                          <div>
+                            <label className="cf-label" style={{ fontSize: 11 }}>Balance (₹)</label>
+                            <input
+                              type="number"
+                              className="cf-input"
+                              placeholder="Balance"
+                              value={form.balance}
+                              onChange={(e) => set("balance", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="cf-label" style={{ fontSize: 11 }}>Pending (₹)</label>
+                            <input
+                              type="number"
+                              className="cf-input"
+                              placeholder="Pending"
+                              value={form.pending}
+                              onChange={(e) => set("pending", e.target.value)}
                             />
                           </div>
                         </div>
@@ -1045,8 +1122,14 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                     className="cf-input"
                     placeholder="Account Number"
                     value={form.account_number}
-                    onChange={(e) => set("account_number", e.target.value)}
+                    onChange={(e) => set("account_number", e.target.value.replace(/[^0-9]/g, "").slice(0, 18))}
+                    style={errors.account_number ? { borderColor: "#ef4444" } : {}}
                   />
+                  {errors.account_number && (
+                    <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
+                      {errors.account_number}
+                    </p>
+                  )}
                 </div>
                 <div style={{ marginBottom: 16 }}>
                   <label className="cf-label">PAN Number</label>
@@ -1056,7 +1139,13 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                     value={form.pan_number}
                     maxLength={10}
                     onChange={(e) => set("pan_number", e.target.value.toUpperCase().slice(0, 10))}
+                    style={errors.pan_number ? { borderColor: "#ef4444" } : {}}
                   />
+                  {errors.pan_number && (
+                    <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
+                      {errors.pan_number}
+                    </p>
+                  )}
                 </div>
                 <div style={{ marginBottom: 16 }}>
                   <label className="cf-label">Date of Birth</label>
@@ -1064,8 +1153,15 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                     type="date"
                     className="cf-input"
                     value={form.date_of_birth}
+                    max={new Date().toISOString().split("T")[0]}
                     onChange={(e) => set("date_of_birth", e.target.value)}
+                    style={errors.date_of_birth ? { borderColor: "#ef4444" } : {}}
                   />
+                  {errors.date_of_birth && (
+                    <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
+                      {errors.date_of_birth}
+                    </p>
+                  )}
                 </div>
               </div>
             )}

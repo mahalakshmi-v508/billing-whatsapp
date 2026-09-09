@@ -9,6 +9,11 @@ class CreditNote extends Model
     protected $table = 'credit_notes';
     protected $guarded = [];
 
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
     protected function casts(): array
     {
         return [

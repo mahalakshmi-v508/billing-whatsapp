@@ -196,7 +196,15 @@ class CreditNoteController extends Controller
             $query->where('company_id', $company_id);
         }
 
-        $list = $query->orderBy('id', 'desc')->get();
+        $list = $query->orderBy('id', 'desc')->with('customer:id,gst_no')->get();
+
+        // Attach each credit note's customer/party GST number (customer.gst_no
+        // via customer_id) as customer_gst_no for the GST R1 Sale Return view.
+        $list = $list->map(function ($cn) {
+            $cn->customer_gst_no = $cn->customer ? ($cn->customer->gst_no ?? null) : null;
+            unset($cn->customer);
+            return $cn;
+        });
 
         return response()->json([
             'status' => true,

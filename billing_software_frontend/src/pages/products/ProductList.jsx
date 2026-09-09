@@ -5,7 +5,7 @@ import {
   Search, Plus, ChevronDown, SlidersHorizontal,
   MoreVertical, FileSpreadsheet, ArrowUpRight, Filter, X,
   Package, MousePointerClick, Boxes, Tags, Ruler, Inbox,
-  ShoppingBag, Layers, Grid, List, BarChart3,
+  ShoppingBag, Layers, ListTree, Grid, List, BarChart3,
   ChevronRight, ChevronLeft, Star, Zap,
 } from "lucide-react";
 import AddProductModal from "./AddProductModal";
@@ -220,6 +220,13 @@ export default function ProductList() {
   const [moveCategorySearch, setMoveCategorySearch] = useState("");
   const [moveCategorySelected, setMoveCategorySelected] = useState([]);
   const [removeFromExistingCategory, setRemoveFromExistingCategory] = useState(false);
+  const [subcategories, setSubcategories] = useState([]);
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
+  const [subcategoryListSearch, setSubcategoryListSearch] = useState("");
+  const [subcategoryItemsSearch, setSubcategoryItemsSearch] = useState("");
+  const [showSubcatModal, setShowSubcatModal] = useState(false);
+  const [subcatForm, setSubcatForm] = useState("");
+  const [subcatCategoryId, setSubcatCategoryId] = useState("");
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [unitListSearch, setUnitListSearch] = useState("");
   const [conversionSearch, setConversionSearch] = useState("");
@@ -237,6 +244,15 @@ export default function ProductList() {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
   };
+
+  useEffect(() => {
+    const modalOpen = showCatModal || showSubcatModal || showBrandModal || showUnitModal;
+    document.body.style.overflow = modalOpen ? "hidden" : "";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showCatModal, showSubcatModal, showBrandModal, showUnitModal]);
 
   const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
 
@@ -291,6 +307,19 @@ export default function ProductList() {
     }
   };
 
+  const fetchSubcategories = async (company_id) => {
+    if (!company_id) {
+      setSubcategories([]);
+      return;
+    }
+    try {
+      const res = await api.get(`/subcategory/get_active_subcategory?company_id=${company_id}`);
+      if (res.data.status) setSubcategories(res.data.data);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   const fetchBrands = async (company_id) => {
     if (!company_id) {
       setBrands([]);
@@ -324,6 +353,7 @@ export default function ProductList() {
     if (!selectedCompany) return;
     fetchProducts(selectedCompany);
     fetchCategories(selectedCompany);
+    fetchSubcategories(selectedCompany);
     fetchBrands(selectedCompany);
   }, [selectedCompany]);
 
@@ -341,6 +371,7 @@ export default function ProductList() {
     }
     fetchProducts(companyId);
     fetchCategories(companyId);
+    fetchSubcategories(companyId);
     fetchBrands(companyId);
   };
 
@@ -420,6 +451,7 @@ export default function ProductList() {
     try {
       const res = await api.post("/brand/create", {
         name: brandForm,
+        category_id: selectedCategory?.id || 0,
         company_id: getCompanyId(),
       });
       if (res.data.status) {
@@ -427,6 +459,39 @@ export default function ProductList() {
         setBrandForm("");
         setShowBrandModal(false);
         fetchBrands(selectedCompany);
+      } else {
+        showToast(res.data.message || "Failed", false);
+      }
+    } catch (err) {
+      showToast("Server Error", false);
+    } finally {
+      setSavingSub(false);
+    }
+  };
+
+  const handleAddSubcategory = async () => {
+    if (!subcatForm.trim()) {
+      showToast("Enter a subcategory name", false);
+      return;
+    }
+    if (!subcatCategoryId) {
+      showToast("Please select a category", false);
+      return;
+    }
+    setSavingSub(true);
+    try {
+      const res = await api.post("/subcategory/create", {
+        name: subcatForm.trim(),
+        category_id: Number(subcatCategoryId),
+        company_id: getCompanyId(),
+      });
+      if (res.data.status) {
+        showToast("Subcategory added!");
+        setSubcatForm("");
+        setSubcatCategoryId("");
+        setShowSubcatModal(false);
+        fetchSubcategories(selectedCompany);
+        fetchCategories(selectedCompany);
       } else {
         showToast(res.data.message || "Failed", false);
       }
@@ -559,6 +624,7 @@ export default function ProductList() {
     { key: "product", label: "Products", icon: ShoppingBag },
     { key: "brand", label: "Brands", icon: Tags },
     { key: "category", label: "Categories", icon: Layers },
+    { key: "subcategory", label: "Sub Categories", icon: ListTree },
     { key: "unit", label: "Units", icon: Ruler },
   ];
 
@@ -799,7 +865,7 @@ export default function ProductList() {
         </div>
 
         {/* ─── CONTENT AREA ─── */}
-        <div style={{ padding: "20px 24px 24px", height: "calc(100vh - 120px)" }}>
+        <div style={{ padding: "8px 24px 24px", height: "calc(100vh - 108px)" }}>
 
           {/* ─── PRODUCT TAB ─── */}
           {activeTab === "product" && (
@@ -814,6 +880,7 @@ export default function ProductList() {
                   display: "flex",
                   flexDirection: "column",
                   overflow: "hidden",
+                  overscrollBehavior: "contain",
                   boxShadow: SHADOW.card,
                 }}
               >
@@ -902,7 +969,7 @@ export default function ProductList() {
                 </div>
 
                 {/* Product List */}
-                <div style={{ overflowY: "auto", flex: 1, padding: "4px 0" }}>
+                <div style={{ overflowY: "auto", flex: 1, padding: "4px 0", overscrollBehavior: "contain" }}>
                   {loading ? (
                     <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>
                       {selectedCompany ? "Loading..." : "Select a company"}
@@ -1459,6 +1526,218 @@ export default function ProductList() {
                               </div>
                             ))}
                           </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* ─── SUB CATEGORIES TAB ─── */}
+          {activeTab === "subcategory" && (
+            <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 20, height: "100%" }}>
+              <div
+                style={{
+                  background: COLORS.surface,
+                  borderRadius: RADIUS.lg,
+                  border: `1px solid ${COLORS.border}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                  boxShadow: SHADOW.card,
+                }}
+              >
+                <div style={{ padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
+                  <div style={{ position: "relative" }}>
+                    <Search size={15} style={{ position: "absolute", top: "50%", left: 11, transform: "translateY(-50%)", color: COLORS.textMuted }} />
+                    <input
+                      className="focus-ring"
+                      placeholder="Search sub categories..."
+                      value={subcategoryListSearch}
+                      onChange={(e) => setSubcategoryListSearch(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px 8px 34px",
+                        borderRadius: RADIUS.sm,
+                        border: `1.5px solid ${COLORS.border}`,
+                        outline: "none",
+                        fontSize: 13,
+                        background: COLORS.bg,
+                        transition: "all 0.15s",
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowSubcatModal(true)}
+                    style={{
+                      width: "100%",
+                      marginTop: 10,
+                      padding: "9px",
+                      background: COLORS.gradient,
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: RADIUS.sm,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      transition: "all 0.15s",
+                    }}
+                    className="hover-lift"
+                  >
+                    <Plus size={15} /> New Subcategory
+                  </button>
+                </div>
+
+                <div style={{ overflowY: "auto", flex: 1 }}>
+                  {(() => {
+                    const subRows = subcategories
+                      .filter((sc) => {
+                        const q = subcategoryListSearch.toLowerCase();
+                        if (!q) return true;
+                        const catName = categories.find(c => c.id === sc.category_id)?.name || "";
+                        return sc.name?.toLowerCase().includes(q) || catName.toLowerCase().includes(q);
+                      })
+                      .map((sc) => ({
+                        ...sc,
+                        categoryName: categories.find(c => c.id === sc.category_id)?.name || "",
+                        count: products.filter(p => Number(p.subcategory_id) === Number(sc.id)).length,
+                      }));
+
+                    if (subRows.length === 0) {
+                      return <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>No sub categories found</div>;
+                    }
+                    return subRows.map((sc) => {
+                      const isSelected = selectedSubcategory?.id === sc.id;
+                      return (
+                        <div
+                          key={sc.id}
+                          className="product-card"
+                          onClick={() => setSelectedSubcategory(sc)}
+                          style={{
+                            padding: "12px 16px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            borderLeft: isSelected ? `3px solid ${COLORS.primary}` : "3px solid transparent",
+                            borderBottom: `1px solid ${COLORS.border}`,
+                            background: isSelected ? COLORS.primaryTint : "transparent",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: isSelected ? 700 : 600, fontSize: 13.5, color: COLORS.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {sc.name}
+                            </div>
+                            {sc.categoryName && (
+                              <div style={{ fontSize: 11.5, color: COLORS.textMuted }}>{sc.categoryName}</div>
+                            )}
+                          </div>
+                          <span style={{ fontWeight: 600, fontSize: 13, color: COLORS.textMuted, marginLeft: 8 }}>{sc.count}</span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: COLORS.surface,
+                  borderRadius: RADIUS.lg,
+                  border: `1px solid ${COLORS.border}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                  boxShadow: SHADOW.card,
+                }}
+              >
+                {(() => {
+                  const items = selectedSubcategory
+                    ? products.filter(p => Number(p.subcategory_id) === Number(selectedSubcategory.id))
+                    : [];
+                  const filteredItems = items.filter(p =>
+                    p.product_name?.toLowerCase().includes(subcategoryItemsSearch.toLowerCase())
+                  );
+
+                  return (
+                    <>
+                      <div
+                        style={{
+                          padding: "16px 20px",
+                          borderBottom: `1px solid ${COLORS.border}`,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          background: COLORS.surfaceAlt,
+                        }}
+                      >
+                        <div>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>
+                            {selectedSubcategory ? selectedSubcategory.name : "Sub Categories"}
+                          </span>
+                          {selectedSubcategory && (
+                            <span style={{ marginLeft: 10, fontSize: 13, color: COLORS.textMuted }}>({items.length} items)</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+                        {!selectedSubcategory ? (
+                          <EmptyState icon={<ListTree size={28} color={COLORS.textMuted} />} title="Select a sub category" subtitle="Pick a subcategory from the left to see its items" />
+                        ) : (
+                          <>
+                            <div style={{ position: "relative", marginBottom: 14 }}>
+                              <Search size={14} style={{ position: "absolute", top: "50%", left: 11, transform: "translateY(-50%)", color: COLORS.textMuted }} />
+                              <input
+                                className="focus-ring"
+                                value={subcategoryItemsSearch}
+                                onChange={(e) => setSubcategoryItemsSearch(e.target.value)}
+                                placeholder="Search items..."
+                                style={{
+                                  width: "100%",
+                                  padding: "8px 12px 8px 34px",
+                                  borderRadius: RADIUS.sm,
+                                  border: `1.5px solid ${COLORS.border}`,
+                                  outline: "none",
+                                  fontSize: 13,
+                                  background: COLORS.bg,
+                                  transition: "all 0.15s",
+                                }}
+                              />
+                            </div>
+
+                            {filteredItems.length === 0 ? (
+                              <EmptyState icon={<Boxes size={28} color={COLORS.textMuted} />} title="No items" subtitle="This subcategory has no items" />
+                            ) : (
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                                {filteredItems.map((p) => (
+                                  <div
+                                    key={p.id}
+                                    style={{
+                                      padding: "12px 16px",
+                                      border: `1px solid ${COLORS.border}`,
+                                      borderRadius: RADIUS.sm,
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                      background: COLORS.surface,
+                                    }}
+                                  >
+                                    <span style={{ fontWeight: 500, fontSize: 13, color: COLORS.text }}>{p.product_name}</span>
+                                    <span style={{ fontWeight: 700, fontSize: 14, color: COLORS.success }}>
+                                      {Number(p.stock || 0)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </>
@@ -2083,6 +2362,10 @@ export default function ProductList() {
               borderRadius: RADIUS.lg,
               width: "100%",
               maxWidth: 400,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
               boxShadow: SHADOW.modal,
               animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
             }}
@@ -2090,7 +2373,7 @@ export default function ProductList() {
             <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Category</h3>
             </div>
-            <div style={{ padding: "20px 24px" }}>
+            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
                 Category Name *
               </label>
@@ -2152,6 +2435,122 @@ export default function ProductList() {
         </div>
       )}
 
+      {showSubcatModal && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSubcatModal(false); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(10,22,40,.5)",
+            backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            animation: "fadeIn 0.15s ease",
+          }}
+        >
+          <div
+            style={{
+              background: COLORS.surface,
+              borderRadius: RADIUS.lg,
+              width: "100%",
+              maxWidth: 400,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              boxShadow: SHADOW.modal,
+              animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
+            }}
+          >
+            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Subcategory</h3>
+            </div>
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: 1 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
+                  Parent Category *
+                </label>
+                <select
+                  value={subcatCategoryId}
+                  onChange={(e) => setSubcatCategoryId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: RADIUS.sm,
+                    border: `1.5px solid ${COLORS.border}`,
+                    outline: "none",
+                    fontSize: 14,
+                    background: COLORS.bg,
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">Select category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
+                  Subcategory Name *
+                </label>
+                <input
+                  className="focus-ring"
+                  value={subcatForm}
+                  onChange={(e) => setSubcatForm(e.target.value)}
+                  placeholder="e.g. Mobile Phones"
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: RADIUS.sm,
+                    border: `1.5px solid ${COLORS.border}`,
+                    outline: "none",
+                    fontSize: 14,
+                    transition: "all 0.15s",
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddSubcategory()}
+                />
+              </div>
+            </div>
+            <div style={{ padding: "16px 24px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setShowSubcatModal(false)}
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: RADIUS.sm,
+                  border: `1.5px solid ${COLORS.border}`,
+                  background: "transparent",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  color: COLORS.textSoft,
+                  transition: "all 0.15s",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddSubcategory}
+                disabled={savingSub}
+                style={{
+                  flex: 2,
+                  padding: "10px",
+                  borderRadius: RADIUS.sm,
+                  border: "none",
+                  background: savingSub ? COLORS.textMuted : COLORS.primary,
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: savingSub ? "not-allowed" : "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {savingSub ? "Saving..." : "Save Subcategory"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showBrandModal && (
         <div
           onClick={(e) => { if (e.target === e.currentTarget) setShowBrandModal(false); }}
@@ -2169,6 +2568,10 @@ export default function ProductList() {
               borderRadius: RADIUS.lg,
               width: "100%",
               maxWidth: 400,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
               boxShadow: SHADOW.modal,
               animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
             }}
@@ -2176,7 +2579,7 @@ export default function ProductList() {
             <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Brand</h3>
             </div>
-            <div style={{ padding: "20px 24px" }}>
+            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
                 Brand Name *
               </label>
@@ -2255,6 +2658,10 @@ export default function ProductList() {
               borderRadius: RADIUS.lg,
               width: "100%",
               maxWidth: 400,
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
               boxShadow: SHADOW.modal,
               animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
             }}
@@ -2262,7 +2669,7 @@ export default function ProductList() {
             <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Unit</h3>
             </div>
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: 1 }}>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
                   Full Name *

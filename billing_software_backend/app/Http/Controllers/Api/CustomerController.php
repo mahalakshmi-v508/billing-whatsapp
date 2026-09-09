@@ -191,7 +191,7 @@ class CustomerController extends Controller
                 $query->where('name', 'like', "%{$q}%")
                       ->orWhere('phone', 'like', "%{$q}%");
             })
-            ->select('id', 'name', 'phone', 'gst_no', 'credit_enabled', 'credit_limit', 'loyalty_points', 'advance_balance', 'pending_amount')
+            ->select('id', 'name', 'phone', 'gst_no', 'credit_enabled', 'credit_limit', 'credit_days', 'loyalty_points', 'advance_balance', 'pending_amount')
             ->orderBy('name', 'asc')
             ->limit(10)
             ->get();

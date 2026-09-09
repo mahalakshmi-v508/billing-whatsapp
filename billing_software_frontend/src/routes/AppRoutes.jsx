@@ -19,6 +19,8 @@ import BillWiseProfit from "../pages/reports/profit-loss/BillWiseProfit";
 import CashFlow from "../pages/reports/financial/CashFlow";
 import TrialBalance from "../pages/reports/financial/TrialBalance";
 import BalanceSheet from "../pages/reports/financial/BalanceSheet";
+import GstR1 from "../pages/reports/GSTReports/GstR1";
+import GstR2 from "../pages/reports/GSTReports/GstR2";
 import PartyStatement from "../pages/reports/party/PartyStatement";
 import PartyWiseProfitLoss from "../pages/reports/party/PartyWiseProfitLoss";
 import AllParties from "../pages/reports/party/AllParties";
@@ -157,6 +159,8 @@ export default function AppRoutes() {
               <Route path="sale-purchase-by-party-group" element={<SalePurchaseByPartyGroup />} />
               <Route path="payment-in" element={<PaymentIn />} />
               <Route path="payment-out" element={<PaymentOut />} />
+              <Route path="gst-r1" element={<GstR1 />} />
+              <Route path="gst-r2" element={<GstR2 />} />
             </Route>
 
             {/* Sales Management */}

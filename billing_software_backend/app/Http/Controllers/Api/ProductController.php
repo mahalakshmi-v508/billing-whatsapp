@@ -98,9 +98,9 @@ class ProductController extends Controller
         $product = Product::create([
             'product_name' => $product_name,
             'product_code' => $product_code ?: null,
-            'category_id' => $category_id ?: null,
-            'subcategory_id' => $subcategory_id ?: null,
-            'brand_id' => $brand_id ?: null,
+            'category_id' => $category_id,
+            'subcategory_id' => $subcategory_id,
+            'brand_id' => $brand_id,
             'price' => $price,
             'sale_price' => $sale_price ?: null,
             'purchase_price' => $purchase_price ?: null,
@@ -109,7 +109,7 @@ class ProductController extends Controller
             'unit' => $unit ?: null,
             'gst_percentage' => $gst_percentage,
             'company_id' => $company_id,
-            'supplier_id' => $supplier_id ?: null,
+            'supplier_id' => $supplier_id > 0 ? $supplier_id : null,
             'status' => 'active',
             'is_deleted' => 0
         ]);
@@ -302,15 +302,15 @@ class ProductController extends Controller
         $updateData = [
             'product_name' => $product_name,
             'product_code' => $product_code ?: null,
-            'category_id' => $category_id ?: null,
-            'subcategory_id' => $subcategory_id ?: null,
-            'brand_id' => $brand_id ?: null,
+            'category_id' => $category_id,
+            'subcategory_id' => $subcategory_id,
+            'brand_id' => $brand_id,
             'price' => $price,
             'stock' => $stock,
             'barcode' => $barcode ?: null,
             'unit' => $unit ?: null,
             'gst_percentage' => $gst_percentage,
-            'supplier_id' => $supplier_id ?: null,
+            'supplier_id' => $supplier_id > 0 ? $supplier_id : null,
             'sale_price' => $sale_price ?: null,
             'purchase_price' => $purchase_price ?: null,
         ];

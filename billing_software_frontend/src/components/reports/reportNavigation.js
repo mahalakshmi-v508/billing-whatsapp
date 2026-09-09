@@ -20,6 +20,7 @@ export const reportGroups = [
   { key: "profit-loss", label: "Profit & Loss", folder: "profit-loss" },
   { key: "financial", label: "Financial", folder: "financial" },
   { key: "party", label: "Party", folder: "party" },
+  { key: "gst", label: "GST Reports", folder: "GSTReports" },
 ];
 
 export const reports = [
@@ -35,6 +36,10 @@ export const reports = [
   { title: "Party Report By Item", path: "/reports/party-by-item", group: "party", slug: "PartyReportByItem" },
   { title: "Sale Purchase By Party", path: "/reports/sale-purchase-by-party", group: "party", slug: "SalePurchaseByParty" },
   { title: "Sale Purchase By Party Group", path: "/reports/sale-purchase-by-party-group", group: "party", slug: "SalePurchaseByPartyGroup" },
+
+  { title: "GST R1", path: "/reports/gst-r1", group: "gst", slug: "GstR1" },
+  { title: "GST R2", path: "/reports/gst-r2", group: "gst", slug: "GstR2" },
+
 ];
 
 /** Return the report (from the registry) whose path matches, if any. */

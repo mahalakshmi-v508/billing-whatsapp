@@ -69,10 +69,16 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
   const set = (field, val) => setForm(p => ({ ...p, [field]: val }));
 
   useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+
     if (isOpen) {
       setForm({ name: "", product_code: "", price: "", stock: "", gst: "", barcode: "", unit: "", sale_price: "", purchase_price: "" });
       fetchCompanyGST();
     }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen]);
 
   const fetchCompanyGST = async () => {
@@ -116,7 +122,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
         subcategory_id: 0,
         brand_id: 0,
         company_id: getCompanyId(),
-        price: form.price || 0,
+        price: Number(form.price !== "" ? form.price : form.sale_price || 0),
         sale_price: form.sale_price || 0,
         purchase_price: form.purchase_price || 0,
         stock: form.stock,

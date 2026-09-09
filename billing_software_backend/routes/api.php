@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\ReportViewController;
 use App\Http\Controllers\Api\DayBookController;
 use App\Http\Controllers\Api\PartyStatementController;
 use App\Http\Controllers\Api\TransactionMessageController;
+use App\Http\Controllers\Api\InvoiceSettingController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -143,6 +144,13 @@ Route::prefix('credit')->group(function () {
 Route::prefix('settings')->group(function () {
     Route::get('get', [SettingsController::class, 'get']);
     Route::post('save', [SettingsController::class, 'save']);
+});
+
+// ── INVOICE SETTINGS ROUTES ──
+Route::prefix('invoice-settings')->group(function () {
+    Route::get('get', [InvoiceSettingController::class, 'get']);
+    Route::post('save', [InvoiceSettingController::class, 'save']);
+    Route::get('next-number', [InvoiceSettingController::class, 'getNextNumber']);
 });
 
 // ── CUSTOMER ROUTES ──
