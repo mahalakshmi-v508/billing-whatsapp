@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\DebitNoteController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ReportViewController;
 use App\Http\Controllers\Api\DayBookController;
+use App\Http\Controllers\Api\StockSummaryController;
 use App\Http\Controllers\Api\PartyStatementController;
 use App\Http\Controllers\Api\TransactionMessageController;
 use App\Http\Controllers\Api\InvoiceSettingController;
@@ -337,6 +338,7 @@ Route::prefix('report')->group(function () {
     Route::post('remove_frequent', [ReportViewController::class, 'removeReport']);
     Route::get('frequently_used', [ReportViewController::class, 'getFrequentlyUsed']);
     Route::get('day-book', [DayBookController::class, 'index']);
+    Route::get('stock-summary', [StockSummaryController::class, 'index']);
     Route::get('party-statement/parties', [PartyStatementController::class, 'getParties']);
     Route::get('party-statement/statement', [PartyStatementController::class, 'getStatement']);
     Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);

@@ -21,6 +21,7 @@ export const reportGroups = [
   { key: "financial", label: "Financial", folder: "financial" },
   { key: "party", label: "Party", folder: "party" },
   { key: "gst", label: "GST Reports", folder: "GSTReports" },
+  { key: "stock", label: "Stock", folder: "stock" },
 ];
 
 export const reports = [
@@ -40,6 +41,7 @@ export const reports = [
   { title: "GST R1", path: "/reports/gst-r1", group: "gst", slug: "GstR1" },
   { title: "GST R2", path: "/reports/gst-r2", group: "gst", slug: "GstR2" },
 
+  { title: "Stock Summary", path: "/reports/stock-summary", group: "stock", slug: "StockSummary" },
 ];
 
 /** Return the report (from the registry) whose path matches, if any. */

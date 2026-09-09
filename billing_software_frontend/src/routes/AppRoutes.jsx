@@ -27,6 +27,7 @@ import AllParties from "../pages/reports/party/AllParties";
 import PartyReportByItem from "../pages/reports/party/PartyReportByItem";
 import SalePurchaseByParty from "../pages/reports/party/SalePurchaseByParty";
 import SalePurchaseByPartyGroup from "../pages/reports/party/SalePurchaseByPartyGroup";
+import StockSummary from "../pages/reports/stock/StockSummary";
 import MainLayout from "../layouts/MainLayout";
 import SelectItemsForReminder from "../pages/settings/SelectItemsForReminder";
 import CompanyList from "../pages/company/CompanyList";
@@ -161,6 +162,7 @@ export default function AppRoutes() {
               <Route path="payment-out" element={<PaymentOut />} />
               <Route path="gst-r1" element={<GstR1 />} />
               <Route path="gst-r2" element={<GstR2 />} />
+              <Route path="stock-summary" element={<StockSummary />} />
             </Route>
 
             {/* Sales Management */}
