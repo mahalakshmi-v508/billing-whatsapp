@@ -797,10 +797,20 @@ export default function InvoicePreview() {
 
   const [invoice, setInvoice] = useState(null);
   const [company, setCompany] = useState(null);
-  const [selectedTheme, setSelectedTheme] = useState("tally");
-  const [selectedColor, setSelectedColor] = useState("#6366f1");
-  const [classicOpen, setClassicOpen] = useState(true);
-  const [vintageOpen, setVintageOpen] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState(() => {
+    try {
+      return localStorage.getItem("invoice_default_theme") || "tally";
+    } catch {
+      return "tally";
+    }
+  });
+  const [selectedColor, setSelectedColor] = useState(() => {
+    try {
+      return localStorage.getItem("invoice_default_color") || "#2563eb";
+    } catch {
+      return "#2563eb";
+    }
+  });
   const [doNotShowAgain, setDoNotShowAgain] = useState(false);
   const [waSending, setWaSending] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
@@ -833,7 +843,7 @@ export default function InvoicePreview() {
     }).catch(err => console.error(err));
   }, [invoiceNo]);
 
-  /* Load print settings from the DB so the bill matches the company's saved theme */
+  /* Load print & invoice design settings from DB so the bill matches the company's saved default design */
   useEffect(() => {
     if (!invoice) return;
     const companyId = invoice.company_id;
@@ -841,8 +851,32 @@ export default function InvoicePreview() {
       .get("/settings/get", { params: { company_id: companyId } })
       .then((res) => {
         const data = (res.data && res.data.data) || {};
-        const print = data.print || {};
-        if (print && print.themeColor) setSelectedColor(print.themeColor);
+        const design = data.invoiceDesign || data.print || {};
+
+        // Load Default Saved Theme
+        if (design.theme) {
+          setSelectedTheme(design.theme);
+        } else if (design.template) {
+          const map = {
+            "Tally Theme": "tally",
+            "GST Theme 1": "gst1",
+            "GST Theme 2": "gst3",
+            "GST Theme 3": "gst3",
+            "Double Divine": "double_divine",
+            "Minimal Theme": "gst3",
+            "french_elite": "french_elite",
+            "pos": "pos",
+            "vintage_classic": "vintage_classic",
+            "vintage_bold": "vintage_bold"
+          };
+          const resolved = map[design.template] || design.template.toLowerCase().replace(/\s+/g, "_");
+          if (resolved) setSelectedTheme(resolved);
+        }
+
+        // Load Default Saved Color
+        if (design.themeColor) {
+          setSelectedColor(design.themeColor);
+        }
       })
       .catch(() => {});
   }, [invoice]);
@@ -1023,157 +1057,8 @@ export default function InvoicePreview() {
         </div>
       </header>
 
-      {/* ── 2. THREE-COLUMN BODY LAYOUT ── */}
+      {/* ── 2. TWO-COLUMN BODY LAYOUT: CENTER CANVAS & RIGHT ACTIONS ── */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-
-        {/* ── LEFT SIDEBAR: THEME SELECTOR & COLOR PALETTE ── */}
-        <aside className="no-print" style={{
-          width: 230,
-          background: "#ffffff",
-          borderRight: "1px solid #e2e8f0",
-          display: "flex",
-          flexDirection: "column",
-          padding: "16px 14px",
-          overflowY: "auto",
-          boxSizing: "border-box",
-          flexShrink: 0
-        }}>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: "#334155", margin: "0 0 12px 0" }}>Select Theme</h2>
-
-          {/* Classic Themes Accordion */}
-          <div style={{ marginBottom: 12 }}>
-            <div
-              onClick={() => setClassicOpen(!classicOpen)}
-              style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                fontSize: 12.5, fontWeight: 700, color: "#475569", cursor: "pointer",
-                padding: "6px 4px"
-              }}
-            >
-              <span>Classic Themes</span>
-              {classicOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-            </div>
-
-            {classicOpen && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}>
-                {THEMES.filter(t => t.category === "classic").map(t => {
-                  const isSelected = selectedTheme === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setSelectedTheme(t.id)}
-                      style={{
-                        padding: "8px 12px",
-                        textAlign: "left",
-                        borderRadius: 4,
-                        border: isSelected ? "1px solid #bfdbfe" : "1px solid transparent",
-                        background: isSelected ? "#e0f2fe" : "transparent",
-                        color: isSelected ? "#0369a1" : "#475569",
-                        fontWeight: isSelected ? 700 : 500,
-                        fontSize: 12.5,
-                        cursor: "pointer",
-                        transition: "all .12s"
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Vintage Themes Accordion */}
-          <div style={{ marginBottom: 16 }}>
-            <div
-              onClick={() => setVintageOpen(!vintageOpen)}
-              style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                fontSize: 12.5, fontWeight: 700, color: "#475569", cursor: "pointer",
-                padding: "6px 4px"
-              }}
-            >
-              <span>Vintage Themes</span>
-              {vintageOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-            </div>
-
-            {vintageOpen && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}>
-                {THEMES.filter(t => t.category === "vintage").map(t => {
-                  const isSelected = selectedTheme === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setSelectedTheme(t.id)}
-                      style={{
-                        padding: "8px 12px",
-                        textAlign: "left",
-                        borderRadius: 4,
-                        border: isSelected ? "1px solid #bfdbfe" : "1px solid transparent",
-                        background: isSelected ? "#e0f2fe" : "transparent",
-                        color: isSelected ? "#0369a1" : "#475569",
-                        fontWeight: isSelected ? 700 : 500,
-                        fontSize: 12.5,
-                        cursor: "pointer",
-                        transition: "all .12s"
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Color Palette (Matching Screenshot 3) */}
-          <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 8 }}>Select Color</div>
-            
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <div style={{ width: 22, height: 22, borderRadius: 3, background: selectedColor }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>Selected</span>
-            </div>
-
-            {/* 18 Color Swatches */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
-              {PALETTE_COLORS.map(c => (
-                <div
-                  key={c}
-                  onClick={() => setSelectedColor(c)}
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 3,
-                    background: c,
-                    cursor: "pointer",
-                    border: selectedColor === c ? "2px solid #0f172a" : "1px solid rgba(0,0,0,0.1)",
-                    transform: selectedColor === c ? "scale(1.15)" : "scale(1)",
-                    transition: "transform .1s"
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Tip Card (Matching Screenshot) */}
-          <div style={{
-            marginTop: "auto",
-            padding: "10px 12px",
-            background: "#fffbeb",
-            border: "1px solid #fef3c7",
-            borderRadius: 6,
-            display: "flex",
-            gap: 8,
-            alignItems: "flex-start",
-            fontSize: 11.5,
-            color: "#92400e",
-            lineHeight: 1.35
-          }}>
-            <span>💡</span>
-            <span>Use this theme for a clean and professional look</span>
-          </div>
-        </aside>
 
         {/* ── CENTER AREA: INVOICE PAPER CANVAS ── */}
         <main style={{
