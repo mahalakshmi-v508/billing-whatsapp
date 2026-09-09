@@ -1857,7 +1857,7 @@ import api from "../../services/api";
 import {
   FileText, Search, ChevronLeft, ChevronRight,
   Eye, Receipt, Download, Filter, X, FileDown, TrendingUp,
-  PackageX, Boxes, MoreVertical, Printer, Loader2,
+  PackageX, Boxes, MoreVertical, Printer, Loader2, MessageCircle,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 
@@ -2367,6 +2367,27 @@ allRows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, [menuOpenFor]);
+
+  /* Send the configured Transaction Message template (row menu, no PDF) */
+  const sendTransactionMsg = async (inv) => {
+    setMenuOpenFor(null);
+    setRowAction({ mode:"tm", phase:"sending", invoiceNo: inv.invoice_no, message:null });
+    try {
+      const res = await api.post("/transaction-messages/send", {
+        company_id:  inv.company_id,
+        transaction_type: "sales",
+        reference:   { invoice_no: inv.invoice_no },
+        phone:       inv.customer_phone || "",
+      });
+      setRowAction({ mode:"tm", phase:"done", invoiceNo: inv.invoice_no,
+        message: res.data?.message || "Transaction message sent" });
+      setTimeout(() => setRowAction(null), 4000);
+    } catch (err) {
+      setRowAction({ mode:"tm", phase:"error", invoiceNo: inv.invoice_no,
+        message: err.response?.data?.message || err.message || "Failed to send transaction message" });
+      setTimeout(() => setRowAction(null), 4500);
+    }
+  };
 
   /* step 1 — fetch the full invoice for the selected row */
   const startRowAction = async (inv, mode) => {
@@ -3128,6 +3149,20 @@ const downloadExcel = (rows, label) => {
                               onMouseOut={e => { e.currentTarget.style.background = "#fff"; }}
                             >
                               <FaWhatsapp size={16} /> Send via WhatsApp
+                            </button>
+                            <button onClick={() => sendTransactionMsg(inv)}
+                              style={{
+                                display:"flex", alignItems:"center", gap:10,
+                                width:"100%", padding:"11px 14px",
+                                border:"none", background:"#fff", cursor:"pointer",
+                                fontSize:12, fontWeight:600, fontFamily:FONT,
+                                color:INDIGO, textAlign:"left",
+                                borderBottom:"1px solid #eef2ff",
+                              }}
+                              onMouseOver={e => { e.currentTarget.style.background = "#eef2ff"; }}
+                              onMouseOut={e => { e.currentTarget.style.background = "#fff"; }}
+                            >
+                              <MessageCircle size={15} /> Transaction Message
                             </button>
                             <button onClick={() => startRowAction(inv, "print")}
                               style={{

@@ -240,6 +240,8 @@ class InvoiceController extends Controller
 
             DB::commit();
 
+            app(\App\Services\TransactionMessageService::class)->handleInvoice($company_id, $invoice);
+
             /* LAST INVOICE */
             $last_invoice = null;
             if ($customer_id > 0) {
@@ -987,7 +989,7 @@ class InvoiceController extends Controller
             $cust->save();
 
             // Create dedicated Payment-In voucher record
-            Payment::create([
+            $payment = Payment::create([
                 'company_id'      => $company_id ?: ($cust->company_id ?? 0),
                 'customer_id'     => $customer_id,
                 'invoice_no'      => $receipt_no,
@@ -1041,6 +1043,8 @@ class InvoiceController extends Controller
             }
 
             DB::commit();
+
+            app(\App\Services\TransactionMessageService::class)->handlePaymentIn($company_id, $payment);
 
             return response()->json([
                 'status'   => true,

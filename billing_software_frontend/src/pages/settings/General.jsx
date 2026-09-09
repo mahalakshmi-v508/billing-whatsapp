@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Crown, Pencil, ChevronDown, Settings, MessageSquareText } from "lucide-react";
+import { Crown, Pencil, ChevronDown, Settings } from "lucide-react";
 import Transaction from "./Transaction";
 import Print from "./Print";
 import Taxes from "./Taxes";
@@ -8,6 +8,7 @@ import Item from "./Item";
 import Accounting from "./Accounting";
 import MultiCurrency from "./MultiCurrency";
 import ServiceReminders from "./ServiceReminders";
+import TransactionMessage from "./TransactionMessage";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
 import { SettingsShell, SettingsCard, CheckRow, Badge, SectionHint, InfoIcon } from "./settingsUI";
@@ -250,68 +251,6 @@ function GeneralSettings() {
   );
 }
 
-function TransactionMessagesSettings() {
-  const { setSettingsTab } = useSettings();
-  const [msgs, setMsgs] = useState({
-    saleMsg: "",
-    paymentMsg: "",
-    purchaseMsg: "",
-    creditNoteMsg: "",
-  });
-  useBackendSync("transactionMessages", msgs, setMsgs);
-
-  const fields = [
-    { key: "saleMsg", label: "Sale Invoice Message" },
-    { key: "paymentMsg", label: "Payment Received Message" },
-    { key: "purchaseMsg", label: "Purchase Message" },
-    { key: "creditNoteMsg", label: "Credit Note Message" },
-  ];
-
-  const handleSave = () => {
-    setSettingsTab && setSettingsTab("general");
-  };
-
-  return (
-    <SettingsShell
-      title="Transaction Messages"
-      subtitle="WHATSAPP & SMS CONTENT"
-      icon={<MessageSquareText size={22} strokeWidth={2.2} />}
-      onClose={() => setSettingsTab && setSettingsTab("general")}
-      contentClassName="max-w-3xl"
-    >
-      <SettingsCard title="Transaction Messages">
-        <p className="text-[13px] text-slate-500 mb-3">Configure WhatsApp / SMS messages sent on transactions.</p>
-        <div className="space-y-4">
-          {fields.map((f) => (
-            <div key={f.key}>
-              <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">{f.label}</label>
-              <textarea
-                className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                rows={4}
-                value={msgs[f.key]}
-                onChange={(e) => setMsgs({ ...msgs, [f.key]: e.target.value })}
-                placeholder={`Enter ${f.label.toLowerCase()}`}
-              />
-            </div>
-          ))}
-        </div>
-        <button
-          onClick={handleSave}
-          className="mt-5 px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition"
-        >
-          Save
-        </button>
-      </SettingsCard>
-    </SettingsShell>
-  );
-}
-
-
-
-
-
-
-
 export default function General() {
   const { settingsTab = "general" } = useSettings();
 
@@ -321,7 +260,7 @@ export default function General() {
       {settingsTab === "transaction" && <Transaction />}
       {settingsTab === "print" && <Print />}
       {settingsTab === "taxes" && <Taxes />}
-      {settingsTab === "txn-messages" && <TransactionMessagesSettings />}
+      {settingsTab === "txn-messages" && <TransactionMessage />}
       {settingsTab === "party" && <Party />}
       {settingsTab === "item" && <Item />}
       {settingsTab === "service-reminders" && <ServiceReminders />}

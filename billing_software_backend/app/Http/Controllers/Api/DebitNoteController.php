@@ -154,6 +154,8 @@ class DebitNoteController extends Controller
 
             DB::commit();
 
+            app(\App\Services\TransactionMessageService::class)->handleDebitNote($company_id, $debitNote);
+
             return response()->json([
                 'status'     => true,
                 'message'    => 'Debit Note created successfully.',

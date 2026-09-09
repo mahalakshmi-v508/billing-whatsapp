@@ -328,7 +328,7 @@ export default function MainLayout() {
                 { id: "transaction", label: "Transaction" },
                 { id: "print", label: "Print" },
                 { id: "taxes", label: "Taxes & GST" },
-                { id: "txn-messages", label: "Transaction Messages" },
+                { id: "txn-messages", label: "Transaction Message" },
                 { id: "party", label: "Party" },
                 { id: "item", label: "Item" },
                 { id: "service-reminders", label: "Service Reminders" },

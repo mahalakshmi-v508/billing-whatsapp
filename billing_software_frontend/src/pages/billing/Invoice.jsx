@@ -809,7 +809,9 @@ export default function InvoicePreview() {
   const [vintageOpen, setVintageOpen] = useState(false);
   const [doNotShowAgain, setDoNotShowAgain] = useState(false);
   const [waSending, setWaSending] = useState(false);
+  const [tmSending, setTmSending] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
+  const tmAttachDone = useRef(false);
 
   /* Insert Print CSS */
   useEffect(() => {
@@ -838,6 +840,64 @@ export default function InvoicePreview() {
       }
     }).catch(err => console.error(err));
   }, [invoiceNo]);
+
+  /* ── AUTO-SEND: attach the invoice PDF after the transaction message was
+     auto-sent on creation. Reuses the SAME PDF generator (html2pdf) and the
+     SAME server document endpoint as the manual WhatsApp Share button. ── */
+  useEffect(() => {
+    if (!invoice?.invoice_no || tmAttachDone.current) return;
+    tmAttachDone.current = true;
+    let cancelled = false;
+
+    api
+      .get("/transaction-messages/attachment-status", {
+        params: {
+          company_id: invoice.company_id,
+          transaction_type: "sales",
+          txn_no: invoice.invoice_no,
+        },
+      })
+      .then(async (res) => {
+        if (cancelled || !res.data?.status || !res.data?.auto_sent) return;
+        const element = document.getElementById("invoice-print-area");
+        if (!element) return;
+
+        try {
+          await Promise.all(
+            [...element.querySelectorAll("img")].map(im =>
+              im.complete ? null : new Promise(r => { im.onload = r; im.onerror = r; })
+            )
+          );
+        } catch {
+          /* ignore image wait errors */
+        }
+
+        if (cancelled) return;
+        const pdf_base64 = await generateInvoicePdfBase64({
+          element,
+          invoiceNo: invoice.invoice_no,
+          isPOS,
+        });
+
+        return api.post("/transaction-messages/attach-pdf", {
+          company_id: invoice.company_id,
+          transaction_type: "sales",
+          txn_no: invoice.invoice_no,
+          pdf_base64,
+          filename: `${invoice.invoice_no}.pdf`,
+        });
+      })
+      .then((res) => {
+        if (res && !res.data?.status) {
+          console.warn("[AUTO SEND] PDF attach skipped:", res.data?.message);
+        }
+      })
+      .catch((err) => {
+        console.warn("[AUTO SEND] PDF attach failed:", err?.message || err);
+      });
+
+    return () => { cancelled = true; };
+  }, [invoice, isPOS]);
 
   /* Load print settings from the DB so the bill matches the company's saved theme */
   useEffect(() => {
@@ -932,6 +992,26 @@ export default function InvoicePreview() {
         alert(err.response?.data?.message || "Failed to send invoice via WhatsApp.");
       })
       .finally(() => setWaSending(false));
+  };
+
+  /* Transaction Message (configured template) via WhatsApp */
+  const sendTransactionMessage = () => {
+    if (!invoice?.invoice_no || tmSending) return;
+    setTmSending(true);
+    api
+      .post("/transaction-messages/send", {
+        company_id: invoice.company_id,
+        transaction_type: "sales",
+        reference: { invoice_no: invoice.invoice_no },
+        phone: invoice.customer_phone || "",
+      })
+      .then((res) => {
+        alert(res.data?.message || "Transaction message sent via WhatsApp!");
+      })
+      .catch((err) => {
+        alert(err.response?.data?.message || "Failed to send transaction message.");
+      })
+      .finally(() => setTmSending(false));
   };
 
   /* Gmail / Mail Share */
@@ -1288,6 +1368,25 @@ export default function InvoicePreview() {
                     <MessageCircle size={16} />
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 600 }}>{waSending ? "Sending..." : "Whatsapp"}</span>
+                </button>
+
+                {/* Transaction Message (configured template) */}
+                <button
+                  onClick={sendTransactionMessage}
+                  disabled={tmSending}
+                  title="Send the configured Transaction Message template"
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
+                    borderRadius: 8, cursor: "pointer", color: "#334155"
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
+                  onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
+                >
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <MessageCircle size={16} />
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 600 }}>{tmSending ? "Sending..." : "Wa Msg"}</span>
                 </button>
 
                 {/* Gmail */}

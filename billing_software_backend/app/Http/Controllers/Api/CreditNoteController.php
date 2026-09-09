@@ -163,6 +163,8 @@ class CreditNoteController extends Controller
 
             DB::commit();
 
+            app(\App\Services\TransactionMessageService::class)->handleCreditNote($company_id, $creditNote);
+
             return response()->json([
                 'status'      => true,
                 'message'     => 'Sale return / Credit note created successfully.',
