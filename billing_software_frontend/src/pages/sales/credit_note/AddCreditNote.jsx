@@ -338,6 +338,30 @@ export default function AddCreditNote() {
     };
   }, [activeTab]);
 
+  // Calculate real-time impact on Customer Debt & Advance Store Credit
+  const customerAdjustment = useMemo(() => {
+    if (!activeTab.selectedParty) return null;
+    const pending = parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0);
+    const advance = parseFloat(activeTab.selectedParty.advance_balance ?? 0);
+    const unpaidReturn = totals.balance;
+
+    if (unpaidReturn <= 0) return null;
+
+    const deductFromPending = Math.min(pending, unpaidReturn);
+    const remainingPending = Math.max(0, pending - deductFromPending);
+    const excessToAdvance = unpaidReturn - deductFromPending;
+    const newAdvance = advance + excessToAdvance;
+
+    return {
+      currentPending: pending,
+      currentAdvance: advance,
+      deductFromPending,
+      remainingPending,
+      excessToAdvance,
+      newAdvance,
+    };
+  }, [activeTab.selectedParty, totals.balance]);
+
   // Save or Update Credit Note
   const handleSave = async () => {
     const validRows = (activeTab.rows || []).filter((r) => r.item.trim() !== "");
@@ -523,6 +547,7 @@ export default function AddCreditNote() {
                 ) : (
                   partySuggestions.map((cust) => {
                     const bal = parseFloat(cust.pending_amount ?? cust.balance ?? 0);
+                    const adv = parseFloat(cust.advance_balance ?? 0);
                     return (
                       <div
                         key={cust.id}
@@ -534,14 +559,23 @@ export default function AddCreditNote() {
                           {cust.phone && <div className="text-[11px] text-slate-400">{cust.phone}</div>}
                         </div>
 
-                        {bal > 0 ? (
-                          <div className="text-right">
-                            <span className="text-[10px] text-slate-400 block">Pending Debt</span>
-                            <span className="text-xs font-bold text-red-600">₹{bal.toLocaleString()}</span>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-400">No pending</span>
-                        )}
+                        <div className="text-right flex items-center gap-2">
+                          {bal > 0 && (
+                            <div className="bg-red-50 border border-red-200 px-2 py-0.5 rounded text-right">
+                              <span className="text-[9px] text-red-500 uppercase font-semibold block">Pending Debt</span>
+                              <span className="text-xs font-bold text-red-700">₹{bal.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {adv > 0 && (
+                            <div className="bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-right">
+                              <span className="text-[9px] text-emerald-500 uppercase font-semibold block">Advance</span>
+                              <span className="text-xs font-bold text-emerald-700">₹{adv.toLocaleString()}</span>
+                            </div>
+                          )}
+                          {bal <= 0 && adv <= 0 && (
+                            <span className="text-[11px] text-slate-400 font-medium">Clear</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })
@@ -551,15 +585,27 @@ export default function AddCreditNote() {
 
             {/* Selected Party Summary Pill */}
             {activeTab.selectedParty && (
-              <div className="mt-1.5 text-xs text-slate-500 flex items-center justify-between px-1">
-                <span>
-                  Selected: <strong className="text-slate-800">{activeTab.selectedParty.name || activeTab.selectedParty.customer_name}</strong>
-                </span>
-                {parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0) > 0 && (
-                  <span className="text-red-600 font-semibold">
-                    Current Bal: ₹{parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0).toLocaleString()}
-                  </span>
-                )}
+              <div className="mt-2 text-xs bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-slate-600">Selected Party:</span>
+                  <span className="font-bold text-slate-900">{activeTab.selectedParty.name || activeTab.selectedParty.customer_name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0) > 0 && (
+                    <span className="px-2 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 font-bold text-[11px]">
+                      Pending Debt: ₹{parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0).toLocaleString()}
+                    </span>
+                  )}
+                  {parseFloat(activeTab.selectedParty.advance_balance ?? 0) > 0 && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold text-[11px]">
+                      Advance Balance: ₹{parseFloat(activeTab.selectedParty.advance_balance ?? 0).toLocaleString()}
+                    </span>
+                  )}
+                  {parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0) <= 0 &&
+                    parseFloat(activeTab.selectedParty.advance_balance ?? 0) <= 0 && (
+                      <span className="text-[11px] text-slate-500 italic">No previous balance</span>
+                    )}
+                </div>
               </div>
             )}
           </div>
@@ -843,7 +889,7 @@ export default function AddCreditNote() {
 
       {/* ── 5. BELOW TABLE DETAILS (Add Description/Image/Doc removed, Round off removed) ── */}
       <div className="p-8 pt-2 bg-white border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Left: Payment Type */}
+        {/* Left: Payment Type & Customer Ledger Impact */}
         <div className="space-y-4">
           <div className="relative">
             <div className="relative border border-slate-300 rounded-lg px-3 pt-3 pb-2 w-56">
@@ -879,6 +925,42 @@ export default function AddCreditNote() {
               </div>
             )}
           </div>
+
+          {/* Customer Account Impact Breakdown when Unpaid Return Amount > 0 */}
+          {customerAdjustment && (
+            <div className="max-w-md bg-gradient-to-br from-blue-50/90 to-indigo-50/70 border border-blue-200 rounded-xl p-3.5 space-y-2.5 text-xs shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-blue-950">
+                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                  <span>Customer Ledger Impact (Return Balance: ₹{totals.balance})</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="bg-white p-2.5 rounded-lg border border-blue-100 shadow-2xs">
+                  <span className="text-[11px] text-slate-500 font-medium block">Debt Deduction</span>
+                  <span className="text-sm font-black text-red-600 block mt-0.5">
+                    - ₹{customerAdjustment.deductFromPending.toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-1">
+                    Remaining Debt: <strong className="text-slate-700">₹{customerAdjustment.remainingPending.toFixed(2)}</strong>
+                  </span>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-lg border border-blue-100 shadow-2xs">
+                  <span className="text-[11px] text-slate-500 font-medium block">Advance Store Credit</span>
+                  <span className="text-sm font-black text-emerald-600 block mt-0.5">
+                    + ₹{customerAdjustment.excessToAdvance.toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-1">
+                    New Advance: <strong className="text-slate-700">₹{customerAdjustment.newAdvance.toFixed(2)}</strong>
+                  </span>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500 italic">
+                * Note: Advance store credit will automatically apply on the customer's next sales bill.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Right: Discount, Tax, Total, Paid amount, Balance */}

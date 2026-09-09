@@ -200,18 +200,6 @@ class InvoiceController extends Controller
             }
         }
 
-        /* STOCK CHECK (Only check stock for inventory-registered DB items) */
-        foreach ($products as $item) {
-            $product_id = intval($item['product_id'] ?? 0);
-            $qty        = floatval($item['qty'] ?? 1);
-            if ($product_id > 0) {
-                $prod = Product::where('id', $product_id)->where('company_id', $company_id)->where('is_deleted', 0)->first();
-                if ($prod && floatval($prod->stock) < $qty) {
-                    return response()->json(["status" => false, "message" => "Stock not enough for " . ($prod->product_name ?? 'product')]);
-                }
-            }
-        }
-
         /* PREVIOUS BALANCE */
         $previous_balance = 0;
         if ($customer_id > 0) {
@@ -223,6 +211,60 @@ class InvoiceController extends Controller
 
         DB::beginTransaction();
         try {
+            /* PROCESS PRODUCTS & AUTO-CREATE UNLISTED ITEMS WITH NEGATIVE STOCK */
+            $processedProducts = [];
+            foreach ($products as $item) {
+                $product_id = intval($item['product_id'] ?? 0);
+                $qty        = floatval($item['qty'] ?? 1);
+                $prodName   = trim($item['product_name'] ?? $item['name'] ?? '');
+
+                if ($product_id > 0) {
+                    $prod = Product::where('id', $product_id)->where('is_deleted', 0)->first();
+                    if ($prod) {
+                        $item['product_id'] = $prod->id;
+                        $item['product_name'] = $prod->product_name;
+                    }
+                } else if (!empty($prodName)) {
+                    // Check if existing product matches name for company
+                    $existingProd = Product::where('company_id', $company_id)
+                        ->where('is_deleted', 0)
+                        ->whereRaw('LOWER(product_name) = ?', [strtolower($prodName)])
+                        ->first();
+
+                    if ($existingProd) {
+                        $item['product_id'] = $existingProd->id;
+                        $item['product_name'] = $existingProd->product_name;
+                    } else {
+                        // AUTO-CREATE UNLISTED PRODUCT WITH INITIAL NEGATIVE STOCK (-$qty)
+                        $price = floatval($item['price'] ?? 0);
+                        $gstPct = floatval($item['gst'] ?? $item['tax_percent'] ?? 0);
+                        $unit = !empty($item['unit']) && $item['unit'] !== 'NONE' ? trim($item['unit']) : 'PCS';
+                        $code = !empty($item['product_code']) ? trim($item['product_code']) : null;
+
+                        $newProd = Product::create([
+                            'product_name'   => $prodName,
+                            'product_code'   => $code,
+                            'price'          => $price,
+                            'sale_price'     => $price,
+                            'purchase_price' => 0,
+                            'stock'          => -floatval($qty), // Automatically added with minus quantity
+                            'unit'           => $unit,
+                            'gst_percentage' => $gstPct,
+                            'company_id'     => $company_id,
+                            'status'         => 'active',
+                            'is_deleted'     => 0,
+                            'created_at'     => now(),
+                        ]);
+
+                        $item['product_id'] = $newProd->id;
+                        $item['product_name'] = $newProd->product_name;
+                        $item['auto_created'] = true;
+                    }
+                }
+                $processedProducts[] = $item;
+            }
+            $products = $processedProducts;
+
             /* INSERT INVOICE */
             $invoice = Invoice::create([
                 'invoice_no' => $invoice_no,
@@ -262,11 +304,11 @@ class InvoiceController extends Controller
                 'notes' => ''
             ]);
 
-            /* DEDUCT STOCK (Only for inventory-tracked DB items) */
+            /* DEDUCT STOCK (For existing items that were not already created with initial negative stock) */
             foreach ($products as $item) {
                 $pid = intval($item['product_id'] ?? 0);
                 $qty = floatval($item['qty'] ?? 1);
-                if ($pid > 0) {
+                if ($pid > 0 && empty($item['auto_created'])) {
                     Product::where('id', $pid)->decrement('stock', $qty);
                 }
             }
@@ -1341,19 +1383,58 @@ class InvoiceController extends Controller
                 }
             }
 
-            // 2. Reconcile Stock: Check and deduct new products stock
+            // 2. Process Products & Auto-create unlisted items with negative stock
+            $processedProducts = [];
             foreach ($products as $item) {
-                $pid = intval($item['product_id'] ?? 0);
-                $qty = floatval($item['qty'] ?? 1);
+                $pid     = intval($item['product_id'] ?? 0);
+                $qty     = floatval($item['qty'] ?? 1);
+                $prodName = trim($item['product_name'] ?? $item['name'] ?? '');
+
                 if ($pid > 0) {
                     $prod = Product::where('id', $pid)->where('is_deleted', 0)->first();
-                    if ($prod && floatval($prod->stock) < $qty) {
-                        DB::rollBack();
-                        return response()->json(["status" => false, "message" => "Stock not enough for " . ($prod->product_name ?? 'product')]);
+                    if ($prod) {
+                        $item['product_id'] = $prod->id;
+                        $item['product_name'] = $prod->product_name;
+                        Product::where('id', $pid)->decrement('stock', $qty);
                     }
-                    Product::where('id', $pid)->decrement('stock', $qty);
+                } else if (!empty($prodName)) {
+                    $existingProd = Product::where('company_id', $company_id)
+                        ->where('is_deleted', 0)
+                        ->whereRaw('LOWER(product_name) = ?', [strtolower($prodName)])
+                        ->first();
+
+                    if ($existingProd) {
+                        $item['product_id'] = $existingProd->id;
+                        $item['product_name'] = $existingProd->product_name;
+                        Product::where('id', $existingProd->id)->decrement('stock', $qty);
+                    } else {
+                        $price  = floatval($item['price'] ?? 0);
+                        $gstPct = floatval($item['gst'] ?? $item['tax_percent'] ?? 0);
+                        $unit   = !empty($item['unit']) && $item['unit'] !== 'NONE' ? trim($item['unit']) : 'PCS';
+                        $code   = !empty($item['product_code']) ? trim($item['product_code']) : null;
+
+                        $newProd = Product::create([
+                            'product_name'   => $prodName,
+                            'product_code'   => $code,
+                            'price'          => $price,
+                            'sale_price'     => $price,
+                            'purchase_price' => 0,
+                            'stock'          => -floatval($qty),
+                            'unit'           => $unit,
+                            'gst_percentage' => $gstPct,
+                            'company_id'     => $company_id,
+                            'status'         => 'active',
+                            'is_deleted'     => 0,
+                            'created_at'     => now(),
+                        ]);
+
+                        $item['product_id']   = $newProd->id;
+                        $item['product_name'] = $newProd->product_name;
+                    }
                 }
+                $processedProducts[] = $item;
             }
+            $products = $processedProducts;
 
             // 3. Compute Paid, Balance & Due Date
             $due_date = null;

@@ -46,6 +46,60 @@ class CreditNoteController extends Controller
         }
     }
 
+    /**
+     * Helper to apply unpaid return amount to customer:
+     * 1. Deduct from pending_amount first (if customer owes debt)
+     * 2. Add remaining excess to advance_balance
+     */
+    private function applyReturnToCustomer($customerId, $unpaidReturnAmount)
+    {
+        if ($customerId <= 0 || $unpaidReturnAmount <= 0) {
+            return;
+        }
+        $cust = Customer::find($customerId);
+        if (!$cust) {
+            return;
+        }
+
+        $currentPending = max(0.0, floatval($cust->pending_amount));
+        $deductFromPending = min($currentPending, $unpaidReturnAmount);
+        $newPending = $currentPending - $deductFromPending;
+
+        $excessToAdvance = $unpaidReturnAmount - $deductFromPending;
+        $newAdvance = max(0.0, floatval($cust->advance_balance) + $excessToAdvance);
+
+        $cust->pending_amount = $newPending;
+        $cust->advance_balance = $newAdvance;
+        $cust->save();
+    }
+
+    /**
+     * Helper to revert unpaid return amount from customer (for update / delete):
+     * 1. Deduct from advance_balance first
+     * 2. Add back to pending_amount if needed
+     */
+    private function revertReturnFromCustomer($customerId, $unpaidReturnAmount)
+    {
+        if ($customerId <= 0 || $unpaidReturnAmount <= 0) {
+            return;
+        }
+        $cust = Customer::find($customerId);
+        if (!$cust) {
+            return;
+        }
+
+        $currentAdvance = max(0.0, floatval($cust->advance_balance));
+        $deductFromAdvance = min($currentAdvance, $unpaidReturnAmount);
+        $newAdvance = $currentAdvance - $deductFromAdvance;
+
+        $remainingToPending = $unpaidReturnAmount - $deductFromAdvance;
+        $newPending = floatval($cust->pending_amount) + $remainingToPending;
+
+        $cust->advance_balance = $newAdvance;
+        $cust->pending_amount = $newPending;
+        $cust->save();
+    }
+
     public function createCreditNote(Request $request)
     {
         $this->ensureTableExists();
@@ -112,7 +166,7 @@ class CreditNoteController extends Controller
             }
         }
 
-        $balance_amount = ($payment_type === 'credit') ? 0 : max(0.0, $total_amount - $refund_amount);
+        $balance_amount = max(0.0, $total_amount - $refund_amount);
 
         DB::beginTransaction();
         try {
@@ -125,13 +179,10 @@ class CreditNoteController extends Controller
                 }
             }
 
-            // 2. If Credit Sale Return, adjust Customer's Pending Debt
-            if ($payment_type === 'credit' && $customer_id > 0) {
-                $cust = Customer::find($customer_id);
-                if ($cust) {
-                    $cust->pending_amount = max(0.0, floatval($cust->pending_amount) - $total_amount);
-                    $cust->save();
-                }
+            // 2. Adjust Customer Account for unpaid return amount (Deduct pending debt, add excess to advance)
+            $unpaidReturn = max(0.0, $total_amount - $refund_amount);
+            if ($unpaidReturn > 0 && $customer_id > 0) {
+                $this->applyReturnToCustomer($customer_id, $unpaidReturn);
             }
 
             // 3. Create Credit Note Record
@@ -152,7 +203,7 @@ class CreditNoteController extends Controller
                 'discount_total'  => $discount_total,
                 'round_off'       => $round_off,
                 'total_amount'    => $total_amount,
-                'refund_amount'   => $payment_type === 'cash' ? ($refund_amount ?: $total_amount) : 0,
+                'refund_amount'   => $refund_amount,
                 'balance_amount'  => $balance_amount,
                 'payment_type'    => $payment_type,
                 'state_of_supply' => $state_of_supply,
@@ -235,13 +286,10 @@ class CreditNoteController extends Controller
                 }
             }
 
-            // If credit note adjusted customer debt, restore it
-            if ($creditNote->payment_type === 'credit' && $creditNote->customer_id > 0) {
-                $cust = Customer::find($creditNote->customer_id);
-                if ($cust) {
-                    $cust->pending_amount = floatval($cust->pending_amount) + floatval($creditNote->total_amount);
-                    $cust->save();
-                }
+            // If credit note adjusted customer debt/advance, revert it
+            $oldUnpaid = max(0.0, floatval($creditNote->total_amount) - floatval($creditNote->refund_amount));
+            if ($oldUnpaid > 0 && $creditNote->customer_id > 0) {
+                $this->revertReturnFromCustomer($creditNote->customer_id, $oldUnpaid);
             }
 
             $creditNote->update(['is_deleted' => 1]);
@@ -326,13 +374,10 @@ class CreditNoteController extends Controller
                 }
             }
 
-            // 2. Revert old customer pending debt adjustment if it was credit
-            if ($creditNote->payment_type === 'credit' && $creditNote->customer_id > 0) {
-                $oldCust = Customer::find($creditNote->customer_id);
-                if ($oldCust) {
-                    $oldCust->pending_amount = floatval($oldCust->pending_amount) + floatval($creditNote->total_amount);
-                    $oldCust->save();
-                }
+            // 2. Revert old customer pending debt / advance adjustment
+            $oldUnpaid = max(0.0, floatval($creditNote->total_amount) - floatval($creditNote->refund_amount));
+            if ($oldUnpaid > 0 && $creditNote->customer_id > 0) {
+                $this->revertReturnFromCustomer($creditNote->customer_id, $oldUnpaid);
             }
 
             // 3. Apply new stock increment for updated products
@@ -344,13 +389,10 @@ class CreditNoteController extends Controller
                 }
             }
 
-            // 4. Apply new customer pending debt adjustment if it is credit
-            if ($payment_type === 'credit' && $customer_id > 0) {
-                $newCust = Customer::find($customer_id);
-                if ($newCust) {
-                    $newCust->pending_amount = max(0.0, floatval($newCust->pending_amount) - $total_amount);
-                    $newCust->save();
-                }
+            // 4. Apply new customer return adjustment (deduct pending, excess to advance)
+            $newUnpaid = max(0.0, $total_amount - $refund_amount);
+            if ($newUnpaid > 0 && $customer_id > 0) {
+                $this->applyReturnToCustomer($customer_id, $newUnpaid);
             }
 
             $balance_amount = max(0.0, $total_amount - $refund_amount);
