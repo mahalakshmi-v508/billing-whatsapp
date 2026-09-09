@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Crown, Pencil, ChevronDown, Settings, MessageSquareText } from "lucide-react";
 import Transaction from "./Transaction";
+import InvoiceSettings from "./InvoiceSettings";
+import InvoiceDesign from "./InvoiceDesign";
 import Print from "./Print";
 import Taxes from "./Taxes";
 import Party from "./Party";
@@ -13,31 +15,53 @@ import { useBackendSync } from "./useBackendSync";
 import { SettingsShell, SettingsCard, CheckRow, Badge, SectionHint, InfoIcon } from "./settingsUI";
 
 const blue = "#2563eb";
+const STORAGE_KEY = "general_settings";
+
+const GENERAL_DEFAULTS = {
+  passcode: false,
+  gstin: true,
+  negativeStock: false,
+  blockNewItems: false,
+  blockNewParties: false,
+  decimalPlaces: 2,
+  autoBackup: false,
+  auditTrail: true,
+  quotation: true,
+  proforma: true,
+  order: true,
+  otherIncome: false,
+  fixedAssets: false,
+  deliveryChallan: true,
+  challanReturn: true,
+  challanAmount: false,
+  godown: false,
+  selectedCompany: "My Company",
+  currency: "₹ Indian Rupee (INR)",
+  zoom: 100,
+};
+
+function loadGeneralState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return GENERAL_DEFAULTS;
+    return { ...GENERAL_DEFAULTS, ...JSON.parse(saved) };
+  } catch {
+    return GENERAL_DEFAULTS;
+  }
+}
 
 function GeneralSettings() {
-  const [state, setState] = useState({
-    passcode: false,
-    gstin: true,
-    negativeStock: false,
-    blockNewItems: false,
-    blockNewParties: false,
-    decimalPlaces: 2,
-    autoBackup: false,
-    auditTrail: true,
-    quotation: true,
-    proforma: true,
-    order: true,
-    otherIncome: false,
-    fixedAssets: false,
-    deliveryChallan: true,
-    challanReturn: true,
-    challanAmount: false,
-    godown: false,
-    selectedCompany: "My Company",
-    currency: "₹ Indian Rupee (INR)",
-    zoom: 100,
-  });
-  const set = (key) => (val) => setState((s) => ({ ...s, [key]: typeof val === "function" ? val(s[key]) : val }));
+  const [state, setState] = useState(loadGeneralState);
+  const set = (key) => (val) =>
+    setState((s) => {
+      const next = { ...s, [key]: typeof val === "function" ? val(s[key]) : val };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* best-effort */
+      }
+      return next;
+    });
   useBackendSync("general", state, setState);
 
   const scaleValues = [70, 80, 90, 100, 110, 115, 120, 130];
@@ -296,6 +320,8 @@ export default function General() {
   return (
     <div className="bg-transparent min-w-0 flex flex-col flex-1">
       {settingsTab === "general" && <GeneralSettings />}
+      {settingsTab === "invoice-numbering" && <InvoiceSettings />}
+      {settingsTab === "invoice-design" && <InvoiceDesign />}
       {settingsTab === "transaction" && <Transaction />}
       {settingsTab === "print" && <Print />}
       {settingsTab === "taxes" && <Taxes />}

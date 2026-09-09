@@ -722,19 +722,7 @@ function DashedLine() {
   );
 }
 
-function ThermalSettings() {
-  const [state, setState] = useState(loadState);
-
-  const set = (key) => (val) =>
-    setState((s) => {
-      const next = { ...s, [key]: typeof val === "function" ? val(s[key]) : val };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        /* best-effort */
-      }
-      return next;
-    });
+function ThermalSettings({ state, set }) {
 
   return (
     <div className="space-y-6 pb-4">
@@ -1080,7 +1068,7 @@ export default function Print() {
                   </div>
                 </>
               ) : (
-                <ThermalSettings />
+                <ThermalSettings state={state} set={set} />
               )}
             </div>
           </div>

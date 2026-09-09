@@ -696,9 +696,6 @@ export default function CustomerList() {
                           )}
                         </div>
                       </div>
-                      <div style={{ fontWeight:700, fontSize:13, color: pt > 0 ? "#ef4444" : "#94a3b8" }}>
-                        ₹{fmt(pt)}
-                      </div>
                     </div>
                   </div>
                 );

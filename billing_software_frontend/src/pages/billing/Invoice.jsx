@@ -90,6 +90,13 @@ function numberToWordsINR(amount) {
   return (res.trim() || "Zero") + " Rupees only";
 }
 
+/* ─── INVOICE TYPE HELPER ─────────────────────────────────────────────────── */
+function getInvoiceType(invoice) {
+  if (invoice?.invoice_type) return invoice.invoice_type;
+  if (invoice?.gst_type === "without_gst") return "Bill of Supply";
+  return "Tax Invoice";
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    1. THEME: TALLY THEME (MATCHING SCREENSHOT 1 & 2)
 ═══════════════════════════════════════════════════════════════════════════ */
@@ -102,12 +109,13 @@ function ThemeTally({ invoice, company, color, logoUrl }) {
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = Math.max(0, totalAmount - paidAmount);
   const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
+  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#111827", fontSize: 12, lineHeight: 1.4 }}>
       {/* Title */}
       <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 800, margin: "0 0 10px 0", letterSpacing: 0.5, color: "#111827" }}>
-        Tax Invoice
+        {invoiceType}
       </h2>
 
       {/* Top Box: Company Header */}
@@ -141,6 +149,7 @@ function ThemeTally({ invoice, company, color, logoUrl }) {
           <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Invoice No.:</strong> {invoice.invoice_no}</div>
           <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Date:</strong> {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
           <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Payment Type:</strong> <span style={{ fontWeight: 700, color: color }}>{paymentType}</span></div>
+          <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Invoice Type:</strong> <span style={{ fontWeight: 700, color: "#1e293b" }}>{invoiceType}</span></div>
         </div>
       </div>
 
@@ -272,31 +281,6 @@ function ThemeTally({ invoice, company, color, logoUrl }) {
           </div>
         </div>
       </div>
-
-      {/* Bottom Box: Bank Details (Left) + Authorized Signatory (Right) */}
-      <div style={{ border: "1px solid #94a3b8", borderTop: "none", display: "grid", gridTemplateColumns: "1fr 1fr", background: "#ffffff" }}>
-        {/* Left: Bank Details + QR Code */}
-        <div style={{ padding: "10px 14px", borderRight: "1px solid #94a3b8", display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ width: 62, height: 62, border: "1px solid #cbd5e1", padding: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <QrCode size={54} color="#1e293b" />
-            </div>
-            <div style={{ fontSize: 8.5, fontWeight: 700, color: "#059669", marginTop: 2, textTransform: "uppercase" }}>UPI Scan to Pay</div>
-          </div>
-          <div style={{ fontSize: 11, color: "#334155", lineHeight: 1.4 }}>
-            <div style={{ fontWeight: 700 }}>Bank Details:</div>
-            <div>Name : {company?.bank_name || "HDFC BANK"}</div>
-            <div>Account No. : {company?.account_no || "25445415145"}</div>
-            <div>IFSC code : {company?.ifsc_code || "HDFC0003542"}</div>
-          </div>
-        </div>
-
-        {/* Right: Authorized Signatory */}
-        <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between", textAlign: "right" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>For {company?.company_name || "My Company"}:</div>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: "#334155", marginTop: 36, textAlign: "center" }}>Authorized Signatory</div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -312,6 +296,7 @@ function ThemeGST1({ invoice, company, color, logoUrl }) {
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = Math.max(0, totalAmount - paidAmount);
+  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
@@ -335,7 +320,7 @@ function ThemeGST1({ invoice, company, color, logoUrl }) {
 
       {/* Centered Colored Title */}
       <h2 style={{ textAlign: "center", fontSize: 18, fontWeight: 900, color: color, margin: "0 0 14px 0" }}>
-        Tax Invoice
+        {invoiceType}
       </h2>
 
       {/* Bill To & Invoice Details */}
@@ -351,6 +336,7 @@ function ThemeGST1({ invoice, company, color, logoUrl }) {
           <div style={{ marginTop: 2 }}>Invoice No. : <strong>{invoice.invoice_no}</strong></div>
           <div style={{ marginTop: 2 }}>Date : {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
           <div style={{ marginTop: 2 }}>Payment : <strong style={{ color: color }}>{(invoice.payment_type || "Cash").toUpperCase()}</strong></div>
+          <div style={{ marginTop: 2 }}>Invoice Type : <strong>{invoiceType}</strong></div>
         </div>
       </div>
 
@@ -418,10 +404,11 @@ function ThemeGST3({ invoice, company, color, logoUrl }) {
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total) || 0;
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
-      <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 800, margin: "0 0 10px 0" }}>Tax Invoice</h2>
+      <h2 style={{ textAlign: "center", fontSize: 16, fontWeight: 800, margin: "0 0 10px 0" }}>{invoiceType}</h2>
 
       {/* Box Header */}
       <div style={{ border: "1px solid #cbd5e1", display: "flex", justifyContent: "space-between", padding: "12px 14px", background: "#ffffff" }}>
@@ -437,6 +424,8 @@ function ThemeGST3({ invoice, company, color, logoUrl }) {
         <div style={{ textAlign: "right", fontSize: 12 }}>
           <div>Invoice No. : <strong>{invoice.invoice_no}</strong></div>
           <div>Date : {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
+          <div>Payment : <strong style={{ color: color }}>{(invoice.payment_type || "Cash").toUpperCase()}</strong></div>
+          <div>Invoice Type : <strong>{invoiceType}</strong></div>
         </div>
       </div>
 
@@ -495,6 +484,7 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl }) {
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total) || 0;
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
@@ -527,7 +517,7 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl }) {
         </div>
 
         <div style={{ zIndex: 2, textAlign: "right" }}>
-          <div style={{ fontSize: 18, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>Tax Invoice</div>
+          <div style={{ fontSize: 18, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>{invoiceType}</div>
         </div>
       </div>
 
@@ -541,6 +531,8 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl }) {
         <div style={{ textAlign: "right", fontSize: 12 }}>
           <div>Invoice No.: <strong>{invoice.invoice_no}</strong></div>
           <div>Date: {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
+          <div>Payment: <strong style={{ color: color }}>{(invoice.payment_type || "Cash").toUpperCase()}</strong></div>
+          <div>Invoice Type: <strong>{invoiceType}</strong></div>
         </div>
       </div>
 
@@ -614,6 +606,7 @@ function ThemePOS({ invoice, company, color, logoUrl }) {
   const previousBalance = parseFloat(invoice.previous_balance) || 0;
   const currentBalance = parseFloat(invoice.current_balance) || (previousBalance + balanceAmount);
   const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+  const invoiceType = getInvoiceType(invoice);
 
   const S = {
     receipt: {
@@ -673,8 +666,9 @@ function ThemePOS({ invoice, company, color, logoUrl }) {
         <div style={{ marginBottom: 2 }}>
           Customer: {invoice.customer_name || "Customer"}
         </div>
-        <div>
-          Phone: {invoice.customer_phone || "-"}
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+          <span>Phone: {invoice.customer_phone || "-"}</span>
+          <span style={{ fontWeight: "bold" }}>{invoiceType}</span>
         </div>
       </div>
 
@@ -803,10 +797,20 @@ export default function InvoicePreview() {
 
   const [invoice, setInvoice] = useState(null);
   const [company, setCompany] = useState(null);
-  const [selectedTheme, setSelectedTheme] = useState("tally");
-  const [selectedColor, setSelectedColor] = useState("#6366f1");
-  const [classicOpen, setClassicOpen] = useState(true);
-  const [vintageOpen, setVintageOpen] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState(() => {
+    try {
+      return localStorage.getItem("invoice_default_theme") || "tally";
+    } catch {
+      return "tally";
+    }
+  });
+  const [selectedColor, setSelectedColor] = useState(() => {
+    try {
+      return localStorage.getItem("invoice_default_color") || "#2563eb";
+    } catch {
+      return "#2563eb";
+    }
+  });
   const [doNotShowAgain, setDoNotShowAgain] = useState(false);
   const [waSending, setWaSending] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
@@ -839,7 +843,7 @@ export default function InvoicePreview() {
     }).catch(err => console.error(err));
   }, [invoiceNo]);
 
-  /* Load print settings from the DB so the bill matches the company's saved theme */
+  /* Load print & invoice design settings from DB so the bill matches the company's saved default design */
   useEffect(() => {
     if (!invoice) return;
     const companyId = invoice.company_id;
@@ -847,8 +851,32 @@ export default function InvoicePreview() {
       .get("/settings/get", { params: { company_id: companyId } })
       .then((res) => {
         const data = (res.data && res.data.data) || {};
-        const print = data.print || {};
-        if (print && print.themeColor) setSelectedColor(print.themeColor);
+        const design = data.invoiceDesign || data.print || {};
+
+        // Load Default Saved Theme
+        if (design.theme) {
+          setSelectedTheme(design.theme);
+        } else if (design.template) {
+          const map = {
+            "Tally Theme": "tally",
+            "GST Theme 1": "gst1",
+            "GST Theme 2": "gst3",
+            "GST Theme 3": "gst3",
+            "Double Divine": "double_divine",
+            "Minimal Theme": "gst3",
+            "french_elite": "french_elite",
+            "pos": "pos",
+            "vintage_classic": "vintage_classic",
+            "vintage_bold": "vintage_bold"
+          };
+          const resolved = map[design.template] || design.template.toLowerCase().replace(/\s+/g, "_");
+          if (resolved) setSelectedTheme(resolved);
+        }
+
+        // Load Default Saved Color
+        if (design.themeColor) {
+          setSelectedColor(design.themeColor);
+        }
       })
       .catch(() => {});
   }, [invoice]);
@@ -962,6 +990,18 @@ export default function InvoicePreview() {
     navigate("/sales/invoices");
   };
 
+  const totalAmountNum = parseFloat(invoice?.total_amount) || 0;
+  const paidAmountNum = parseFloat(invoice?.paid_amount) || 0;
+  const balanceAmountNum = Math.max(0, totalAmountNum - paidAmountNum);
+  const isPaid = balanceAmountNum <= 0 && totalAmountNum > 0;
+  const isPartial = paidAmountNum > 0 && balanceAmountNum > 0;
+  const statusInfo = isPaid
+    ? { label: "PAID", bg: "#dcfce7", text: "#15803d", border: "#86efac" }
+    : isPartial
+    ? { label: "PARTIAL", bg: "#fef3c7", text: "#b45309", border: "#fde68a" }
+    : { label: "UNPAID", bg: "#fee2e2", text: "#b91c1c", border: "#fca5a5" };
+  const invoiceType = getInvoiceType(invoice);
+
   return (
     <div style={{
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -1017,157 +1057,8 @@ export default function InvoicePreview() {
         </div>
       </header>
 
-      {/* ── 2. THREE-COLUMN BODY LAYOUT ── */}
+      {/* ── 2. TWO-COLUMN BODY LAYOUT: CENTER CANVAS & RIGHT ACTIONS ── */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-
-        {/* ── LEFT SIDEBAR: THEME SELECTOR & COLOR PALETTE ── */}
-        <aside className="no-print" style={{
-          width: 230,
-          background: "#ffffff",
-          borderRight: "1px solid #e2e8f0",
-          display: "flex",
-          flexDirection: "column",
-          padding: "16px 14px",
-          overflowY: "auto",
-          boxSizing: "border-box",
-          flexShrink: 0
-        }}>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: "#334155", margin: "0 0 12px 0" }}>Select Theme</h2>
-
-          {/* Classic Themes Accordion */}
-          <div style={{ marginBottom: 12 }}>
-            <div
-              onClick={() => setClassicOpen(!classicOpen)}
-              style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                fontSize: 12.5, fontWeight: 700, color: "#475569", cursor: "pointer",
-                padding: "6px 4px"
-              }}
-            >
-              <span>Classic Themes</span>
-              {classicOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-            </div>
-
-            {classicOpen && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}>
-                {THEMES.filter(t => t.category === "classic").map(t => {
-                  const isSelected = selectedTheme === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setSelectedTheme(t.id)}
-                      style={{
-                        padding: "8px 12px",
-                        textAlign: "left",
-                        borderRadius: 4,
-                        border: isSelected ? "1px solid #bfdbfe" : "1px solid transparent",
-                        background: isSelected ? "#e0f2fe" : "transparent",
-                        color: isSelected ? "#0369a1" : "#475569",
-                        fontWeight: isSelected ? 700 : 500,
-                        fontSize: 12.5,
-                        cursor: "pointer",
-                        transition: "all .12s"
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Vintage Themes Accordion */}
-          <div style={{ marginBottom: 16 }}>
-            <div
-              onClick={() => setVintageOpen(!vintageOpen)}
-              style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                fontSize: 12.5, fontWeight: 700, color: "#475569", cursor: "pointer",
-                padding: "6px 4px"
-              }}
-            >
-              <span>Vintage Themes</span>
-              {vintageOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-            </div>
-
-            {vintageOpen && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}>
-                {THEMES.filter(t => t.category === "vintage").map(t => {
-                  const isSelected = selectedTheme === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setSelectedTheme(t.id)}
-                      style={{
-                        padding: "8px 12px",
-                        textAlign: "left",
-                        borderRadius: 4,
-                        border: isSelected ? "1px solid #bfdbfe" : "1px solid transparent",
-                        background: isSelected ? "#e0f2fe" : "transparent",
-                        color: isSelected ? "#0369a1" : "#475569",
-                        fontWeight: isSelected ? 700 : 500,
-                        fontSize: 12.5,
-                        cursor: "pointer",
-                        transition: "all .12s"
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Color Palette (Matching Screenshot 3) */}
-          <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 12, marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 8 }}>Select Color</div>
-            
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <div style={{ width: 22, height: 22, borderRadius: 3, background: selectedColor }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>Selected</span>
-            </div>
-
-            {/* 18 Color Swatches */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
-              {PALETTE_COLORS.map(c => (
-                <div
-                  key={c}
-                  onClick={() => setSelectedColor(c)}
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 3,
-                    background: c,
-                    cursor: "pointer",
-                    border: selectedColor === c ? "2px solid #0f172a" : "1px solid rgba(0,0,0,0.1)",
-                    transform: selectedColor === c ? "scale(1.15)" : "scale(1)",
-                    transition: "transform .1s"
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Tip Card (Matching Screenshot) */}
-          <div style={{
-            marginTop: "auto",
-            padding: "10px 12px",
-            background: "#fffbeb",
-            border: "1px solid #fef3c7",
-            borderRadius: 6,
-            display: "flex",
-            gap: 8,
-            alignItems: "flex-start",
-            fontSize: 11.5,
-            color: "#92400e",
-            lineHeight: 1.35
-          }}>
-            <span>💡</span>
-            <span>Use this theme for a clean and professional look</span>
-          </div>
-        </aside>
 
         {/* ── CENTER AREA: INVOICE PAPER CANVAS ── */}
         <main style={{
@@ -1221,192 +1112,288 @@ export default function InvoicePreview() {
           </div>
         </main>
 
-        {/* ── RIGHT SIDEBAR: PROMO BANNER, SHARE & PRINT ACTIONS ── */}
+        {/* ── RIGHT SIDEBAR: INVOICE SUMMARY & ACTIONS ── */}
         <aside className="no-print" style={{
-          width: 250,
+          width: 260,
           background: "#ffffff",
           borderLeft: "1px solid #e2e8f0",
           display: "flex",
           flexDirection: "column",
-          padding: "16px 16px",
+          padding: "16px 14px",
           overflowY: "auto",
           boxSizing: "border-box",
           flexShrink: 0,
-          justifyContent: "space-between"
+          gap: 14
         }}>
-          {/* Top: Promo Card (Matching Screenshot 1-5) */}
-          <div>
-            <div style={{
-              background: "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)",
-              borderRadius: 8,
-              padding: "14px 12px",
-              textAlign: "center",
-              marginBottom: 20,
-              border: "1px solid #7dd3fc"
-            }}>
-              <div style={{ display: "flex", justifyContent: "center", gap: 6, fontSize: 10, fontWeight: 700, color: "#0369a1", marginBottom: 6 }}>
-                <span>✦ BHIM UPI</span>
-                <span>✦ Cards</span>
-                <span>✦ Netbanking</span>
+          {/* 1. Quick Invoice Summary Card */}
+          <div style={{
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 10,
+            padding: "12px",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
+          }}>
+            {/* Header: Invoice No + Status Badge */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <FileText size={15} color="#2563eb" />
+                <span style={{ fontSize: 13, fontWeight: 800, color: "#1e293b" }}>
+                  #{invoice.invoice_no}
+                </span>
               </div>
-              <div style={{ fontSize: 12.5, fontWeight: 800, color: "#0c4a6e", lineHeight: 1.3, marginBottom: 10 }}>
-                Accept Online Payments &amp; Reconcile with Vyapar
-              </div>
-              <button style={{
-                background: "#1f8cff",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 20,
-                padding: "6px 16px",
-                fontSize: 12,
-                fontWeight: 800,
-                cursor: "pointer",
-                boxShadow: "0 2px 6px rgba(31, 140, 255, 0.3)"
+              <span style={{
+                fontSize: 10,
+                fontWeight: 700,
+                padding: "2px 7px",
+                borderRadius: 10,
+                background: statusInfo.bg,
+                color: statusInfo.text,
+                border: `1px solid ${statusInfo.border}`,
+                textTransform: "uppercase"
               }}>
-                Start Now
-              </button>
+                {statusInfo.label}
+              </span>
             </div>
 
-            {/* Share Invoice Section (Matching Screenshot) */}
-            <div>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#334155", marginBottom: 12 }}>Share Invoice</div>
-              
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {/* WhatsApp */}
-                <button
-                  onClick={shareWhatsApp}
-                  disabled={waSending}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                    borderRadius: 8, cursor: "pointer", color: "#334155"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#22c55e", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <MessageCircle size={16} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>{waSending ? "Sending..." : "Whatsapp"}</span>
-                </button>
+            {/* Grand Total Amount Box */}
+            <div style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 8,
+              padding: "8px 10px",
+              marginBottom: 10
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                Grand Total
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>
+                ₹ {totalAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              {balanceAmountNum > 0 && (
+                <div style={{ fontSize: 10.5, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>
+                  Due: ₹ {balanceAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              )}
+            </div>
 
-                {/* Gmail */}
-                <button
-                  onClick={shareEmail}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                    borderRadius: 8, cursor: "pointer", color: "#334155"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#ef4444", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Mail size={16} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>Gmail</span>
-                </button>
+            {/* Customer & Bill Details */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11, color: "#475569" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Customer:</span>
+                <span style={{ fontWeight: 700, color: "#1e293b", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={invoice.customer_name}>
+                  {invoice.customer_name || "Cash Customer"}
+                </span>
+              </div>
 
-                {/* Message (SMS) */}
-                <button
-                  onClick={shareSMS}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                    borderRadius: 8, cursor: "pointer", color: "#334155"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#10b981", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Smartphone size={16} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>Message</span>
-                </button>
+              {invoice.customer_phone && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ color: "#64748b" }}>Phone:</span>
+                  <span style={{ fontWeight: 600, color: "#334155" }}>{invoice.customer_phone}</span>
+                </div>
+              )}
 
-                {/* Copy Link */}
-                <button
-                  onClick={copyInvoiceLink}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                    borderRadius: 8, cursor: "pointer", color: "#334155"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e11d48", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Share2 size={15} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>{copyToast ? "Copied!" : "Share Link"}</span>
-                </button>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Date:</span>
+                <span style={{ fontWeight: 600, color: "#334155" }}>
+                  {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Payment:</span>
+                <span style={{ fontWeight: 700, color: "#059669" }}>
+                  {(invoice.payment_type || invoice.payment_method || "Cash").toUpperCase()}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Invoice Type:</span>
+                <span style={{ fontWeight: 700, color: "#2563eb" }}>
+                  {invoiceType}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Bottom Action Buttons (Download, Secondary Print, Primary Print) */}
-          <div style={{ display: "flex", gap: 8, marginTop: 24 }}>
-            {/* Download */}
-            <button
-              onClick={downloadPDF}
-              title="Download PDF"
-              style={{
-                flex: 1,
-                height: 42,
-                borderRadius: 6,
-                border: "1px solid #cbd5e1",
-                background: "#ffffff",
-                color: "#1e293b",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
-              }}
-            >
-              <Download size={18} color="#1f8cff" />
-            </button>
+          {/* 2. Share Invoice Section */}
+          <div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#334155", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, textTransform: "uppercase", letterSpacing: "0.3px" }}>
+              <Share2 size={13} color="#64748b" />
+              <span>Share Invoice</span>
+            </div>
 
-            {/* Print Outline */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {/* WhatsApp Action */}
+              <button
+                onClick={shareWhatsApp}
+                disabled={waSending}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "9px 10px",
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  color: "#15803d",
+                  transition: "all 0.15s ease",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+                  width: "100%",
+                  textAlign: "left"
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = "#dcfce7";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = "#f0fdf4";
+                  e.currentTarget.style.transform = "none";
+                }}
+              >
+                <div style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  background: "#22c55e",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0
+                }}>
+                  <MessageCircle size={16} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700 }}>
+                    {waSending ? "Sending PDF..." : "WhatsApp Share"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#16a34a", marginTop: 1 }}>
+                    {invoice.customer_phone ? `Send to ${invoice.customer_phone}` : "Send PDF to customer"}
+                  </div>
+                </div>
+              </button>
+
+              {/* Share Link Action */}
+              <button
+                onClick={copyInvoiceLink}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "9px 10px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  color: "#334155",
+                  transition: "all 0.15s ease",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+                  width: "100%",
+                  textAlign: "left"
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = "#eff6ff";
+                  e.currentTarget.style.borderColor = "#bfdbfe";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = "#f8fafc";
+                  e.currentTarget.style.borderColor = "#e2e8f0";
+                  e.currentTarget.style.transform = "none";
+                }}
+              >
+                <div style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  background: copyToast ? "#16a34a" : "#3b82f6",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  transition: "background 0.2s ease"
+                }}>
+                  {copyToast ? <Check size={15} /> : <Share2 size={15} />}
+                </div>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: copyToast ? "#16a34a" : "#1e293b" }}>
+                    {copyToast ? "Link Copied!" : "Copy Invoice Link"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>
+                    Share online bill link
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* 3. Primary Actions: Print & Download */}
+          <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 7, paddingTop: 12, borderTop: "1px solid #f1f5f9" }}>
+            {/* Print Invoice Primary Button */}
             <button
               onClick={handlePrint}
-              title="Print Document"
               style={{
-                flex: 1,
-                height: 42,
-                borderRadius: 6,
-                border: "1px solid #cbd5e1",
-                background: "#ffffff",
-                color: "#1e293b",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
-              }}
-            >
-              <FileText size={18} color="#1f8cff" />
-            </button>
-
-            {/* Print Filled Primary */}
-            <button
-              onClick={handlePrint}
-              title="Print Invoice"
-              style={{
-                flex: 1,
-                height: 42,
-                borderRadius: 6,
+                width: "100%",
+                height: 40,
+                borderRadius: 8,
                 border: "none",
-                background: "#1f8cff",
+                background: "#2563eb",
                 color: "#ffffff",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 2px 6px rgba(31, 140, 255, 0.35)"
+                gap: 7,
+                fontSize: 12.5,
+                fontWeight: 700,
+                transition: "all 0.15s ease",
+                boxShadow: "0 2px 6px rgba(37, 99, 235, 0.35)"
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "#1d4ed8";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "#2563eb";
+                e.currentTarget.style.transform = "none";
               }}
             >
-              <Printer size={18} />
+              <Printer size={16} strokeWidth={2.2} />
+              <span>Print Invoice</span>
+            </button>
+
+            {/* Download PDF Button */}
+            <button
+              onClick={downloadPDF}
+              style={{
+                width: "100%",
+                height: 36,
+                borderRadius: 8,
+                border: "1.5px solid #cbd5e1",
+                background: "#ffffff",
+                color: "#334155",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                transition: "all 0.15s ease"
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "#f1f5f9";
+                e.currentTarget.style.borderColor = "#94a3b8";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "#ffffff";
+                e.currentTarget.style.borderColor = "#cbd5e1";
+              }}
+            >
+              <Download size={14} strokeWidth={2.2} />
+              <span>Download PDF</span>
             </button>
           </div>
         </aside>

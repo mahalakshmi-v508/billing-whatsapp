@@ -11,7 +11,7 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
     name: "",
     phone: "",
     gst_no: "",
-    gst_type: "Unregistered",
+    gst_type: "Unregistered/Consumer",
     billing_address: "",
     address_line1: "",
     address_line2: "",
@@ -35,6 +35,8 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
     account_number: "",
     pan_number: "",
     date_of_birth: "",
+    advance_balance: "",
+    pending_amount: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -102,7 +104,13 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
             email: c.email || "",
             state: c.state || "",
             gst_no: c.gst_no || "",
-            gst_type: c.type === "B2B" ? "Registered" : "Unregistered",
+            gst_type:
+              c.type === "Unregistered/Consumer" ||
+              c.type === "B2C" ||
+              !c.type ||
+              c.type === "Unregistered"
+                ? "Unregistered/Consumer"
+                : c.type,
             billing_address: c.address || "",
             address_line1: c.address_line1 || "",
             address_line2: c.address_line2 || "",
@@ -119,6 +127,8 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
             credit_enabled: isEnabled ? 1 : 0,
             credit_limit: c.credit_limit || "",
             credit_days: c.credit_days || "",
+            advance_balance: c.advance_balance || "",
+            pending_amount: c.pending_amount || "",
             account_number: c.account_number || "",
             pan_number: c.pan_number || "",
             date_of_birth: c.date_of_birth || "",
@@ -289,7 +299,7 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
       return;
     }
 
-    const isB2B = form.gst_type === "Registered";
+    const isB2B = form.gst_type.startsWith("Registered");
     if (isB2B) {
       if (!form.gst_no.trim()) {
         showToast("GSTIN is required for registered customers", false);
@@ -332,10 +342,12 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
         shipping_country: form.shipping_country,
         shipping_pincode: form.shipping_pincode,
         gst_no: form.gst_no,
-        type: isB2B ? "B2B" : "B2C",
+        type: form.gst_type,
         credit_enabled: form.credit_enabled,
         credit_limit: form.credit_enabled ? form.credit_limit : 0,
         credit_days: form.credit_enabled ? form.credit_days : 0,
+        advance_balance: form.advance_balance || 0,
+        pending_amount: form.pending_amount || 0,
         account_number: form.account_number,
         pan_number: form.pan_number,
         date_of_birth: form.date_of_birth,
@@ -722,9 +734,9 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
                           value={form.gst_type}
                           onChange={(e) => set("gst_type", e.target.value)}
                         >
-                          <option value="Unregistered">Unregistered/Consumer</option>
-                          <option value="Registered">Registered Business - Regular</option>
-                          <option value="Registered">Registered Business - Composition</option>
+                          <option value="Unregistered/Consumer">Unregistered/Consumer</option>
+                          <option value="Registered Business - Regular">Registered Business - Regular</option>
+                          <option value="Registered Business - Composition">Registered Business - Composition</option>
                         </select>
                       </div>
                       <div style={{ marginBottom: 16 }}>
@@ -1051,6 +1063,28 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
                                   placeholder="Days"
                                   value={form.credit_days}
                                   onChange={(e) => set("credit_days", e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+                              <div>
+                                <label className="cf-label" style={{ fontSize: 11 }}>Balance (₹)</label>
+                                <input
+                                  type="number"
+                                  className="cf-input"
+                                  placeholder="advance_balance"
+                                  value={form.advance_balance}
+                                  onChange={(e) => set("advance_balance", e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className="cf-label" style={{ fontSize: 11 }}>Pending (₹)</label>
+                                <input
+                                  type="number"
+                                  className="cf-input"
+                                  placeholder="pending_amount"
+                                  value={form.pending_amount}
+                                  onChange={(e) => set("pending_amount", e.target.value)}
                                 />
                               </div>
                             </div>

@@ -26,6 +26,7 @@ function readCache() {
 function writeCache(data) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    window.dispatchEvent(new CustomEvent("company-settings-updated", { detail: data }));
   } catch {
     /* best-effort */
   }
