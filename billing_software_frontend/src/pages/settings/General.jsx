@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Crown, Pencil, ChevronDown, Settings, MessageSquareText } from "lucide-react";
 import Transaction from "./Transaction";
 import InvoiceSettings from "./InvoiceSettings";
+import InvoiceDesign from "./InvoiceDesign";
 import Print from "./Print";
 import Taxes from "./Taxes";
 import Party from "./Party";
@@ -320,6 +321,7 @@ export default function General() {
     <div className="bg-transparent min-w-0 flex flex-col flex-1">
       {settingsTab === "general" && <GeneralSettings />}
       {settingsTab === "invoice-numbering" && <InvoiceSettings />}
+      {settingsTab === "invoice-design" && <InvoiceDesign />}
       {settingsTab === "transaction" && <Transaction />}
       {settingsTab === "print" && <Print />}
       {settingsTab === "taxes" && <Taxes />}
