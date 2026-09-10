@@ -121,6 +121,50 @@ const THEME_OPTIONS = [
   },
 ];
 
+/* ─── THERMAL POS LAYOUT / THEME OPTIONS ──────────────────────────────────── */
+export const POS_LAYOUT_OPTIONS = [
+  {
+    id: "pos_classic",
+    label: "Classic POS",
+    category: "Classic Monospace",
+    badge: "Standard",
+    icon: "🧾",
+    desc: "Clean dot-matrix font, dashed dividers, compact table, standard retail receipt."
+  },
+  {
+    id: "pos_modern",
+    label: "Modern Retail POS",
+    category: "Contemporary",
+    badge: "Clean Sans",
+    icon: "🏷️",
+    desc: "Modern sans-serif typography, structured header, item code tags, bold total banner."
+  },
+  {
+    id: "pos_detailed",
+    label: "Detailed GST POS",
+    category: "Tax Invoice",
+    badge: "Full Tax Split",
+    icon: "📊",
+    desc: "HSN codes, rate breakdown, SGST & CGST split table, terms & conditions."
+  },
+  {
+    id: "pos_minimal",
+    label: "Quick Minimal POS",
+    category: "Fast Billing",
+    badge: "Express Token",
+    icon: "⚡",
+    desc: "High-speed token layout with big bold bill no., large total display."
+  },
+  {
+    id: "pos_vintage",
+    label: "Vintage Boutique POS",
+    category: "Boutique",
+    badge: "Decorative",
+    icon: "📜",
+    desc: "Double-line borders, store tagline, savings highlight, stylish thank you note."
+  }
+];
+
 /* ─── 18 VIBRANT COLOR SWATCHES ────────────────────────────────────────────── */
 const PALETTE_COLORS = [
   { hex: "#2563eb", name: "Royal Blue" },
@@ -170,6 +214,8 @@ export function normalizeThemeId(t) {
 const DEFAULT_STATE = {
   printer: "regular",
   mode: "colors",
+  thermalMode: "layout",
+  posLayout: "pos_classic",
 
   regularDefault: true,
   repeatHeader: true,
@@ -245,12 +291,14 @@ function loadState() {
     const saved = localStorage.getItem(STORAGE_KEY);
     const defaultTheme = localStorage.getItem("invoice_default_theme");
     const defaultColor = localStorage.getItem("invoice_default_color");
+    const defaultPosLayout = localStorage.getItem("thermal_pos_layout") || localStorage.getItem("invoice_pos_layout");
     const parsed = saved ? JSON.parse(saved) : {};
     return { 
       ...DEFAULT_STATE, 
       ...parsed,
       ...(defaultTheme ? { template: defaultTheme, theme: defaultTheme } : {}),
-      ...(defaultColor ? { themeColor: defaultColor } : {})
+      ...(defaultColor ? { themeColor: defaultColor } : {}),
+      ...(defaultPosLayout ? { posLayout: defaultPosLayout } : {})
     };
   } catch {
     return DEFAULT_STATE;
@@ -662,6 +710,35 @@ function ThermalSettings({ state, set, isOpen, toggle }) {
 
   return (
     <div className="space-y-4 pb-4">
+      <CollapsibleSection title="POS Receipt Layout" badge={POS_LAYOUT_OPTIONS.find(p => p.id === (state.posLayout || "pos_classic"))?.label || "Classic POS"} open={isOpen("thermalLayouts")} onToggle={() => toggle("thermalLayouts")}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+          {POS_LAYOUT_OPTIONS.map((posOpt) => {
+            const isSelected = (state.posLayout || "pos_classic") === posOpt.id;
+            return (
+              <button
+                key={posOpt.id}
+                type="button"
+                onClick={() => set("posLayout")(posOpt.id)}
+                className={`border rounded-xl p-2.5 text-left transition cursor-pointer flex items-center justify-between gap-2 ${
+                  isSelected
+                    ? "bg-blue-50/90 border-blue-600 shadow-sm ring-1 ring-blue-500/30"
+                    : "hover:bg-slate-50 border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg">{posOpt.icon}</span>
+                  <div className="min-w-0">
+                    <div className="text-[12px] font-bold text-slate-900 truncate">{posOpt.label}</div>
+                    <div className="text-[10px] text-slate-500">{posOpt.category}</div>
+                  </div>
+                </div>
+                {isSelected && <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      </CollapsibleSection>
+
       <CollapsibleSection title="Page Size" open={isOpen("thermalPageSize")} onToggle={() => toggle("thermalPageSize")}>
         <SelectRow 
           label="Page Size" 
@@ -780,11 +857,18 @@ export default function Print() {
       const next = { ...s, [key]: typeof val === "function" ? val(s[key]) : val };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        if (key === "printer") {
+          localStorage.setItem("invoice_printer_type", val);
+        }
         if (key === "template" || key === "theme") {
           localStorage.setItem("invoice_default_theme", val);
         }
         if (key === "themeColor") {
           localStorage.setItem("invoice_default_color", val);
+        }
+        if (key === "posLayout") {
+          localStorage.setItem("thermal_pos_layout", val);
+          localStorage.setItem("invoice_pos_layout", val);
         }
       } catch {
         /* best-effort */
@@ -795,7 +879,7 @@ export default function Print() {
   const ALL_SECTIONS = [
     "themeColor", "companyHeader", "printOptions", "itemTable", "totalsTaxes", "footer",
     "templates", "printSettings",
-    "thermalPageSize", "thermalPrintingOptions", "thermalPrintSettings", "thermalCompanyHeader",
+    "thermalLayouts", "thermalPageSize", "thermalPrintingOptions", "thermalPrintSettings", "thermalCompanyHeader",
     "changeTransactionNames", "thermalItemTable", "additionalItemDetails", "thermalTotalsTaxes", "thermalFooter",
     "billingPrinterSetup",
   ];
@@ -805,12 +889,17 @@ export default function Print() {
   const collapseAll = () => setOpenSections(Object.fromEntries(ALL_SECTIONS.map((id) => [id, false])));
   const expandAll = () => setOpenSections({});
 
-  // Resolve active theme
+  // Resolve active regular theme
   const activeThemeId = normalizeThemeId(state.template || state.theme);
   const activeThemeObj = THEME_OPTIONS.find((t) => t.id === activeThemeId) || THEME_OPTIONS[0];
   const DesignComponent = DESIGN_COMPONENTS[activeThemeId] || DESIGN_COMPONENTS.tally || DESIGN_COMPONENTS.classic;
   const isPOS = activeThemeId === "pos";
   const currentScale = isPOS ? 1.0 : zoomLevel / 100;
+
+  // Resolve active thermal POS layout
+  const activePosId = state.posLayout || "pos_classic";
+  const activePosObj = POS_LAYOUT_OPTIONS.find((p) => p.id === activePosId) || POS_LAYOUT_OPTIONS[0];
+  const PosComponent = DESIGN_COMPONENTS[activePosId] || DESIGN_COMPONENTS.pos || DESIGN_COMPONENTS.pos_classic;
 
   // Active Company Data from state inputs
   const dynamicCompany = {
@@ -837,6 +926,21 @@ export default function Print() {
         logoUrl={null}
       />
     );
+  };
+
+  const renderThermalPreview = () => {
+    if (PosComponent) {
+      return (
+        <PosComponent
+          invoice={SAMPLE_INVOICE}
+          company={dynamicCompany}
+          color={state.themeColor || "#2563eb"}
+          logoUrl={null}
+          layout={activePosId}
+        />
+      );
+    }
+    return <ThermalReceiptPreview state={state} />;
   };
 
   return (
@@ -897,7 +1001,7 @@ export default function Print() {
 
               {state.printer === "regular" ? (
                 <>
-                  {/* Secondary tabs */}
+                  {/* Secondary tabs for Regular Printer */}
                   <div className="flex gap-6 border-b border-gray-200 mb-6 flex-shrink-0">
                     {[
                       { id: "layout", label: "CHANGE LAYOUT" },
@@ -1036,7 +1140,117 @@ export default function Print() {
                   </div>
                 </>
               ) : (
-                <ThermalSettings state={state} set={set} isOpen={isOpen} toggle={toggle} />
+                <>
+                  {/* Secondary tabs for Thermal Printer */}
+                  <div className="flex gap-6 border-b border-gray-200 mb-6 flex-shrink-0">
+                    {[
+                      { id: "layout", label: "CHANGE POS LAYOUT" },
+                      { id: "settings", label: "THERMAL SETTINGS" },
+                    ].map((m) => (
+                      <div key={m.id} className="flex items-stretch relative">
+                        {(state.thermalMode || "layout") === m.id && (
+                          <span className="absolute top-0 left-0 right-0 h-[2px] bg-blue-600" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => set("thermalMode")(m.id)}
+                          className={`px-1 pt-2 pb-2 text-xs font-semibold tracking-wide transition cursor-pointer ${
+                            (state.thermalMode || "layout") === m.id ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                        {(state.thermalMode || "layout") === m.id && (
+                          <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-pink-500" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-6 pb-4">
+                    {(state.thermalMode || "layout") === "layout" && (
+                      <>
+                        {/* POS Layouts Selection Grid */}
+                        <CollapsibleSection title="POS Receipt Layouts" badge="5 Layouts" open={isOpen("thermalLayouts")} onToggle={() => toggle("thermalLayouts")}>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                            {POS_LAYOUT_OPTIONS.map((posOpt) => {
+                              const isSelected = activePosId === posOpt.id;
+                              return (
+                                <button
+                                  key={posOpt.id}
+                                  type="button"
+                                  onClick={() => set("posLayout")(posOpt.id)}
+                                  className={`border rounded-xl p-3 text-left transition cursor-pointer flex flex-col justify-between relative ${
+                                    isSelected
+                                      ? "bg-blue-50/90 border-blue-600 shadow-sm ring-2 ring-blue-500/30"
+                                      : "hover:bg-slate-50 border-gray-200 bg-white"
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-xl flex-shrink-0">
+                                      {posOpt.icon}
+                                    </div>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                      isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                                    }`}>
+                                      {posOpt.badge}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div className="text-[13px] font-bold text-slate-900 flex items-center gap-1.5">
+                                      {posOpt.label}
+                                      {isSelected && <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
+                                      {posOpt.desc}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </CollapsibleSection>
+
+                        {/* Page Size & Printing Type in Layout Mode */}
+                        <CollapsibleSection title="Page Size & Printer Config" open={isOpen("thermalPageSize")} onToggle={() => toggle("thermalPageSize")}>
+                          <SelectRow 
+                            label="Page Size" 
+                            value={state.pageSize} 
+                            onChange={set("pageSize")} 
+                            options={["2 Inch: 58mm", "3 Inch: 68mm", "4 Inch: 88mm", "Custom (Chars)"]} 
+                          />
+                          <SelectRow 
+                            label="Printing Type" 
+                            value={state.printingType} 
+                            onChange={set("printingType")} 
+                            options={["Text Printing", "Image Printing", "Both"]} 
+                          />
+                        </CollapsibleSection>
+
+                        {/* Print Company Info / Header in Layout Mode */}
+                        <CollapsibleSection title="Print Company Info / Header" badge="Thermal" open={isOpen("thermalCompanyHeader")} onToggle={() => toggle("thermalCompanyHeader")}>
+                          <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" />
+                          <div className="py-1.5 px-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2.5">
+                                <input type="checkbox" checked={state.companyLogo} onChange={(e) => set("companyLogo")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
+                                <span className="text-[13.5px] text-gray-700">Company Logo</span>
+                              </div>
+                            </div>
+                          </div>
+                          <LayerRow label="Address" checked={state.address} onChange={set("address")} input={state.addressText} onChangeText={set("addressText")} placeholder="Company address" />
+                          <LayerRow label="Email" checked={state.email} onChange={set("email")} input={state.emailText} onChangeText={set("emailText")} placeholder="Email" />
+                          <LayerRow label="Phone Number" checked={state.phone} onChange={set("phone")} input={state.phoneText} onChangeText={set("phoneText")} placeholder="Phone" />
+                          <LayerRow label="GSTIN on Sale" checked={state.gstin} onChange={set("gstin")} input={state.gstinText} onChangeText={set("gstinText")} placeholder="GSTIN" />
+                        </CollapsibleSection>
+                      </>
+                    )}
+
+                    {(state.thermalMode || "layout") === "settings" && (
+                      <ThermalSettings state={state} set={set} isOpen={isOpen} toggle={toggle} />
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -1052,7 +1266,7 @@ export default function Print() {
                 </span>
                 {state.printer === "thermal" ? (
                   <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-md text-white bg-slate-800 shadow-xs truncate hidden sm:inline-block">
-                    POS Receipt ({state.pageSize && state.pageSize.includes("58mm") ? "58mm Roll" : "80mm Roll"})
+                    {activePosObj?.label || "Classic POS"} ({state.pageSize && state.pageSize.includes("58mm") ? "58mm Roll" : "80mm Roll"})
                   </span>
                 ) : (
                   <span
@@ -1104,16 +1318,7 @@ export default function Print() {
                     maxWidth: "100%",
                   }}
                 >
-                  {DESIGN_COMPONENTS && DESIGN_COMPONENTS.pos ? (
-                    <DESIGN_COMPONENTS.pos
-                      invoice={SAMPLE_INVOICE}
-                      company={dynamicCompany}
-                      color={state.themeColor || "#2563eb"}
-                      logoUrl={null}
-                    />
-                  ) : (
-                    <ThermalReceiptPreview state={state} />
-                  )}
+                  {renderThermalPreview()}
                 </div>
               ) : (
                 <div
@@ -1140,7 +1345,9 @@ export default function Print() {
             {/* Bottom Status Bar */}
             <div className="px-4 py-2 bg-white border-t border-slate-200 text-center text-xs text-slate-500 flex-shrink-0">
               {state.printer === "thermal" ? (
-                <span>POS Thermal Receipt Format ({state.pageSize || "80mm / 58mm"})</span>
+                <span>
+                  Active Thermal Layout: <strong>{activePosObj?.label || "Classic POS"}</strong> ({state.pageSize || "80mm / 58mm"})
+                </span>
               ) : (
                 <span>
                   Showing <strong>{activeThemeObj.label}</strong> with accent <strong style={{ color: state.themeColor }}>{state.themeColor}</strong>
@@ -1157,13 +1364,13 @@ export default function Print() {
           {/* Top Floating Modal Bar */}
           <div className="max-w-4xl w-full mx-auto bg-white/95 backdrop-blur px-5 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-slate-200/80 mb-4 sticky top-0 z-20">
             <div className="flex items-center gap-3">
-              <span className="text-xl">{state.printer === "thermal" ? "🧾" : activeThemeObj.icon}</span>
+              <span className="text-xl">{state.printer === "thermal" ? (activePosObj?.icon || "🧾") : activeThemeObj.icon}</span>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  {state.printer === "thermal" ? "POS Thermal Receipt (Full Resolution)" : `${activeThemeObj.label} (Full Resolution)`}
+                  {state.printer === "thermal" ? `${activePosObj?.label || "POS Thermal Receipt"} (Full Resolution)` : `${activeThemeObj.label} (Full Resolution)`}
                 </h3>
                 <span className="text-xs text-slate-500">
-                  {state.printer === "thermal" ? `Format: POS Thermal ${state.pageSize || "80mm"}` : `Accent: ${state.themeColor} • Format: A4 Standard`}
+                  {state.printer === "thermal" ? `Layout: ${activePosObj?.label} • Roll: ${state.pageSize || "80mm"}` : `Accent: ${state.themeColor} • Format: A4 Standard`}
                 </span>
               </div>
             </div>
@@ -1189,13 +1396,8 @@ export default function Print() {
                 minHeight: state.printer === "thermal" ? "auto" : 950
               }}
             >
-              {state.printer === "thermal" && DESIGN_COMPONENTS && DESIGN_COMPONENTS.pos ? (
-                <DESIGN_COMPONENTS.pos
-                  invoice={SAMPLE_INVOICE}
-                  company={dynamicCompany}
-                  color={state.themeColor || "#2563eb"}
-                  logoUrl={null}
-                />
+              {state.printer === "thermal" ? (
+                renderThermalPreview()
               ) : (
                 renderThemePreview()
               )}
