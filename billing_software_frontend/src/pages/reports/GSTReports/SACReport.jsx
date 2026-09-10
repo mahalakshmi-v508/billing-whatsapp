@@ -142,8 +142,7 @@ const fmtMoney = (n) =>
     maximumFractionDigits: 2,
   });
 
-const taxCell = (v) =>
-  Math.abs(Number(v) || 0) < 0.005 ? "—" : fmtMoney(v);
+const taxCell = (v) => (Math.abs(Number(v) || 0) < 0.005 ? "—" : fmtMoney(v));
 
 const STATE_NAME_TO_CODE = {
   "jammu and kashmir": "01",
@@ -214,6 +213,49 @@ const getStateCodeFromName = (name) => {
   return "";
 };
 
+const calculateIgst = (taxAmount) => round2(getNumber(taxAmount));
+const calculateCgst = (taxAmount) => round2(getNumber(taxAmount) / 2);
+const calculateSgst = (taxAmount) => round2(getNumber(taxAmount) / 2);
+
+const resolveSaleInterState = (invoice, customerStateCode, sellerStateCode) => {
+  const custGstinCode = getStateCodeFromGstin(
+    invoice?.customer_gst_no || invoice?.gst_no
+  );
+  if (custGstinCode)
+    return String(sellerStateCode) !== String(custGstinCode) ? true : false;
+  const cs = getStateCodeFromName(customerStateCode);
+  if (cs) return String(sellerStateCode) !== String(cs) ? true : false;
+  return false;
+};
+
+/* Invoice-type terminology mirrors the app's own invoice print logic
+   (src/pages/billing/Invoice.jsx): explicit invoice_type when present,
+   otherwise "Bill of Supply" for non-GST invoices and "Tax Invoice" for GST. */
+const resolveInvoiceType = (inv) => {
+  if (inv?.invoice_type) return String(inv.invoice_type);
+  if (inv?.gst_type === "without_gst") return "Bill of Supply";
+  return "Tax Invoice";
+};
+
+/* Resolve the SAC/service code for a line item from every code field the
+   project stores. When no SAC/HSN field is present the code falls back to the
+   product code (the same fallback the existing HSN report / invoice print
+   use), else "-". `fallback` marks rows that were NOT resolved from a real
+   SAC/HSN value so the page can surface an honest notice. */
+const resolveSacCode = (line, prodMap) => {
+  const code =
+    String(line?.sac || "").trim() ||
+    String(line?.sac_code || "").trim() ||
+    String(line?.hsn || "").trim() ||
+    String(line?.hsn_code || "").trim() ||
+    String(line?.hsn_sac || "").trim();
+  if (code) return { code, fallback: false };
+  const prod =
+    String(line?.product_code || "").trim() ||
+    String(prodMap.get(String(line?.product_id || "")) || "").trim();
+  return { code: prod || "-", fallback: !prod };
+};
+
 const PERIODS = [
   { key: "today", label: "Today" },
   { key: "thisWeek", label: "This Week" },
@@ -276,7 +318,17 @@ const printElement = (content, title) => {
   }, 250);
 };
 
-export default function Purchase() {
+const sortSac = (a, b) => {
+  const na = Number(a);
+  const nb = Number(b);
+  if (na && nb) {
+    if (na !== nb) return na - nb;
+    return String(a).localeCompare(String(b));
+  }
+  return String(a).localeCompare(String(b));
+};
+
+export default function SACReport() {
   const adminId = ADMIN_ID();
 
   const defaultRange = useMemo(() => {
@@ -288,10 +340,9 @@ export default function Purchase() {
   const [fromDate, setFromDate] = useState(defaultRange.from);
   const [toDate, setToDate] = useState(defaultRange.to);
   const [selectedFirm, setSelectedFirm] = useState("all");
-  const [selectedSupplier, setSelectedSupplier] = useState("all");
   const [companies, setCompanies] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [purchases, setPurchases] = useState([]);
+  const [customersMap, setCustomersMap] = useState(new Map());
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [search, setSearch] = useState("");
@@ -302,16 +353,29 @@ export default function Purchase() {
     if (!adminId) return;
     const fetchMeta = async () => {
       try {
-        const compRes = await api.get("/company/get_companies_by_admin", {
-          params: { admin_id: adminId },
-        });
+        const [compRes, custRes] = await Promise.allSettled([
+          api.get("/company/get_companies_by_admin", {
+            params: { admin_id: adminId },
+          }),
+          api.get("/customer/get_all_customer", {
+            params: { admin_id: adminId },
+          }),
+        ]);
+        const compOk = compRes.status === "fulfilled" ? compRes.value : null;
+        const custOk = custRes.status === "fulfilled" ? custRes.value : null;
         const comps =
-          compRes?.data?.data?.length > 0
-            ? compRes.data.data
-            : compRes?.data?.companies?.length > 0
-            ? compRes.data.companies
+          compOk?.data?.data?.length > 0
+            ? compOk.data.data
+            : compOk?.data?.companies?.length > 0
+            ? compOk.data.companies
             : [];
         setCompanies(comps);
+        const cMap = new Map();
+        (custOk?.data?.data || []).forEach((c) => cMap.set(String(c.id), c));
+        (custOk?.data?.customers || []).forEach((c) =>
+          cMap.set(String(c.id), c)
+        );
+        setCustomersMap(cMap);
       } catch (err) {
         console.error(err);
       }
@@ -330,7 +394,7 @@ export default function Purchase() {
     if (!adminId) return;
     setLoading(true);
     setError(false);
-    setPurchases([]);
+    setInvoices([]);
     try {
       let comps = companies;
       if (selectedFirm === "all" && comps.length === 0) {
@@ -345,7 +409,7 @@ export default function Purchase() {
             : [];
           setCompanies(comps);
         } catch (err) {
-          console.error("Purchase Report · companies fallback failed:", err);
+          console.error("SAC Report · companies fallback failed:", err);
         }
       }
       let firmIds;
@@ -362,29 +426,40 @@ export default function Purchase() {
       const results = await Promise.all(
         firmIds.map(async (id) => {
           try {
-            const params = new URLSearchParams({ company_id: String(id) });
-            if (effectiveRange.from) params.append("start_date", effectiveRange.from);
-            if (effectiveRange.to) params.append("end_date", effectiveRange.to);
-            if (selectedSupplier !== "all") {
-              params.append("supplier_id", String(selectedSupplier));
-            }
-            const [purchRes, supRes] = await Promise.all([
-              api.get(`/purchase/get_purchases?${params.toString()}`),
-              api.get("/supplier/get_all", { params: { company_id: id } }),
+            const [invRes, prodRes] = await Promise.all([
+              api.get("/invoice/get_filtered_invoices", {
+                params: {
+                  company_id: id,
+                  ...(effectiveRange.from
+                    ? { from_date: effectiveRange.from }
+                    : {}),
+                  ...(effectiveRange.to
+                    ? { to_date: effectiveRange.to }
+                    : {}),
+                },
+              }),
+              api.get("/product/get_all", { params: { company_id: id } }),
             ]);
-            const list = Array.isArray(purchRes.data?.data)
-              ? purchRes.data.data
-              : Array.isArray(purchRes.data?.purchases)
-              ? purchRes.data.purchases
+            const prodMap = new Map();
+            const prodData = prodRes.data || {};
+            const prodList = Array.isArray(prodData)
+              ? prodData
+              : Array.isArray(prodData.data)
+              ? prodData.data
+              : Array.isArray(prodData.products)
+              ? prodData.products
               : [];
-            const supList = Array.isArray(supRes.data?.data)
-              ? supRes.data.data
-              : Array.isArray(supRes.data?.suppliers)
-              ? supRes.data.suppliers
+            prodList.forEach((p) =>
+              prodMap.set(String(p.id), p?.product_code || "")
+            );
+            const list = Array.isArray(invRes.data?.data)
+              ? invRes.data.data
+              : Array.isArray(invRes.data?.invoices)
+              ? invRes.data.invoices
               : [];
-            return { list, supList };
+            return { list, prodMap };
           } catch (err) {
-            console.error("Purchase Report · firm fetch failed:", id, err);
+            console.error("SAC Report · firm fetch failed:", id, err);
             return null;
           }
         })
@@ -392,13 +467,12 @@ export default function Purchase() {
 
       const fetched = results.filter(Boolean);
       const all = [];
-      const supMap = new Map();
+      const prodMapAll = new Map();
       fetched.forEach((r) => {
-        r.supList.forEach((s) => supMap.set(String(s.id), s));
+        r.prodMap.forEach((v, k) => prodMapAll.set(k, v));
         all.push(...r.list);
       });
-      setSuppliers([...supMap.values()]);
-      setPurchases(all);
+      setInvoices(all);
       if (all.length === 0 && fetched.length === 0 && results.length > 0) {
         setError(true);
       }
@@ -408,7 +482,7 @@ export default function Purchase() {
     } finally {
       setLoading(false);
     }
-  }, [adminId, selectedFirm, selectedSupplier, companies, effectiveRange.from, effectiveRange.to]);
+  }, [adminId, selectedFirm, companies, effectiveRange.from, effectiveRange.to]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -417,93 +491,126 @@ export default function Purchase() {
     return () => clearTimeout(t);
   }, [fetchReport]);
 
-  const companyState = useMemo(() => {
+  const productCodes = useMemo(() => {
     const m = new Map();
-    companies.forEach((c) =>
-      m.set(String(c.id), getStateCodeFromGstin(c?.gstin || ""))
-    );
+    invoices.forEach((inv) => {
+      const lines = Array.isArray(inv?.products) ? inv.products : [];
+      lines.forEach((line) => {
+        const pid = String(line?.product_id || "");
+        if (pid) m.set(pid, line?.product_code || "");
+      });
+    });
     return m;
-  }, [companies]);
+  }, [invoices]);
 
-  const rows = useMemo(() => {
-    return purchases
-      .map((p) => {
-        const total = round2(getNumber(p.total_amount));
-        const tax = round2(getNumber(p.gst_total));
-        const base = round2(total - tax);
-        const sellerState = companyState.get(String(p.company_id));
-        const supplier = suppliers.find(
-          (s) => String(s.id) === String(p.supplier_id)
+  const sacGroups = useMemo(() => {
+    const map = new Map();
+    invoices.forEach((inv) => {
+      const sellerState = getStateCodeFromGstin(inv?.gstin || inv?.gst_no);
+      const cust = customersMap.get(String(inv?.customer_id));
+      let inter = false;
+      if (sellerState) {
+        inter = resolveSaleInterState(
+          inv,
+          cust?.state || cust?.state_name || "",
+          sellerState
         );
+      } else {
+        const c = cust?.state || "";
+        const cs = getStateCodeFromName(c);
+        inter = cs ? String(cs) !== String(cust?.state || "") : false;
+      }
+      const invoiceType = resolveInvoiceType(inv);
+      const lines =
+        Array.isArray(inv?.products) && inv.products.length > 0
+          ? inv.products
+          : inv?.invoice_items || [];
+      lines.forEach((line) => {
+        if (!line) return;
+        const { code: sac, fallback } = resolveSacCode(line, productCodes);
+        const key = `${sac}|${invoiceType}`;
+        const tax = round2(
+          getNumber(line?.tax_amount ?? line?.gst_amount ?? 0)
+        );
+        const hasAmount =
+          line?.amount != null ||
+          line?.line_total != null ||
+          line?.total_amount != null;
+        const total = hasAmount
+          ? round2(getNumber(line?.amount ?? line?.line_total ?? 0))
+          : round2(
+              (getNumber(line?.qty) + getNumber(line?.free_qty)) *
+                (getNumber(line?.price) - getNumber(line?.discount))
+            );
+        const base = round2(total - tax);
         let igst = 0;
         let cgst = 0;
         let sgst = 0;
-        let inter = false;
-        if (sellerState) {
-          const buyerCode = getStateCodeFromGstin(
-            p?.supplier_gstin || supplier?.gst_number || ""
-          );
-          if (buyerCode) {
-            inter = String(sellerState) !== String(buyerCode);
-          } else {
-            const buyerFromName = getStateCodeFromName(
-              supplier?.state || p?.state_of_supply || ""
-            );
-            inter = buyerFromName
-              ? String(sellerState) !== String(buyerFromName)
-              : false;
-          }
-        }
         if (inter) {
-          igst = tax;
+          igst = calculateIgst(tax);
         } else {
-          cgst = round2(tax / 2);
-          sgst = round2(tax - cgst);
+          cgst = calculateCgst(tax);
+          sgst = calculateSgst(tax);
         }
-        return {
-          id: p.id,
-          date: p.purchase_date ? String(p.purchase_date) : "—",
-          purchaseNo: p.purchase_no ? String(p.purchase_no) : "—",
-          companyId: String(p.company_id || ""),
-          supplier:
-            p.supplier_name || supplier?.supplier_name || `Supplier ${p.supplier_id || ""}`,
-          total,
-          base,
-          igst,
-          cgst,
-          sgst,
-          cess: 0,
-        };
-      })
-      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id));
-  }, [purchases, suppliers, companyState]);
+        let entry = map.get(key);
+        if (!entry) {
+          entry = {
+            sac,
+            invoiceType,
+            invoicesNo: new Set(),
+            total: 0,
+            base: 0,
+            igst: 0,
+            cgst: 0,
+            sgst: 0,
+            cess: 0,
+            fallback,
+          };
+          map.set(key, entry);
+        } else {
+          entry.fallback = entry.fallback || fallback;
+        }
+        entry.invoicesNo.add(inv?.invoice_no || "");
+        entry.total = round2(entry.total + total);
+        entry.base = round2(entry.base + base);
+        entry.igst = round2(entry.igst + igst);
+        entry.cgst = round2(entry.cgst + cgst);
+        entry.sgst = round2(entry.sgst + sgst);
+        entry.cess = 0;
+      });
+    });
+    return [...map.values()].sort(
+      (a, b) =>
+        sortSac(a.sac, b.sac) || a.invoiceType.localeCompare(b.invoiceType)
+    );
+  }, [invoices, customersMap, productCodes]);
 
   const filtered = useMemo(() => {
     const q = String(search || "").trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
-      (r) =>
-        r.purchaseNo.toLowerCase().includes(q) ||
-        r.supplier.toLowerCase().includes(q) ||
-        r.date.toLowerCase().includes(q)
+    if (!q) return sacGroups;
+    return sacGroups.filter(
+      (g) =>
+        g.sac.toLowerCase().includes(q) ||
+        g.invoiceType.toLowerCase().includes(q) ||
+        [...g.invoicesNo].some((no) => no.toLowerCase().includes(q))
     );
-  }, [rows, search]);
+  }, [sacGroups, search]);
 
   const totals = useMemo(
     () =>
       filtered.reduce(
-        (acc, r) => {
-          acc.total = round2(acc.total + r.total);
-          acc.base = round2(acc.base + r.base);
-          acc.igst = round2(acc.igst + r.igst);
-          acc.cgst = round2(acc.cgst + r.cgst);
-          acc.sgst = round2(acc.sgst + r.sgst);
+        (acc, g) => {
+          acc.total = round2(acc.total + g.total);
+          acc.base = round2(acc.base + g.base);
           return acc;
         },
-        { total: 0, base: 0, igst: 0, cgst: 0, sgst: 0 }
+        { total: 0, base: 0 }
       ),
     [filtered]
   );
+
+  const hasFallback =
+    !loading && !error && sacGroups.length > 0 && sacGroups.some((g) => g.fallback);
 
   const onPeriodChange = (e) => {
     const key = e.target.value;
@@ -531,12 +638,6 @@ export default function Purchase() {
     return c?.company_name || c?.firm_name || selectedFirm;
   }, [selectedFirm, companies]);
 
-  const supplierLabel = useMemo(() => {
-    if (selectedSupplier === "all") return "ALL SUPPLIERS";
-    const s = suppliers.find((x) => String(x.id) === selectedSupplier);
-    return s?.supplier_name || selectedSupplier;
-  }, [selectedSupplier, suppliers]);
-
   const filterMeta = useMemo(() => {
     if (periodKey === "all") return "All Time";
     return `${fromDate.split("-").reverse().join("/") || "--"} to ${
@@ -546,36 +647,34 @@ export default function Purchase() {
 
   const exportXls = () => {
     try {
-      const rowsToExport = [
-        ...filtered.map((r, i) => ({
+      const rows = [
+        ...filtered.map((g, i) => ({
           "#": i + 1,
-          DATE: r.date,
-          "PURCHASE NO": r.purchaseNo,
-          SUPPLIER: r.supplier,
-          "TOTAL VALUE": round2(r.total),
-          "TAXABLE VALUE": round2(r.base),
-          "IGST AMOUNT": round2(r.igst),
-          "CGST AMOUNT": round2(r.cgst),
-          "SGST AMOUNT": round2(r.sgst),
-          "ADD. CESS": round2(r.cess),
+          SAC: g.sac,
+          "INVOICE TYPE": g.invoiceType,
+          "TOTAL VALUE": round2(g.total),
+          "TAXABLE VALUE": round2(g.base),
+          "IGST AMOUNT": round2(g.igst),
+          "CGST AMOUNT": round2(g.cgst),
+          "SGST AMOUNT": round2(g.sgst),
+          "ADD. CESS": round2(g.cess),
         })),
         {
           "#": "",
-          DATE: "",
-          "PURCHASE NO": "TOTAL",
-          SUPPLIER: "",
+          SAC: "TOTAL",
+          "INVOICE TYPE": "",
           "TOTAL VALUE": round2(totals.total),
           "TAXABLE VALUE": round2(totals.base),
-          "IGST AMOUNT": round2(totals.igst),
-          "CGST AMOUNT": round2(totals.cgst),
-          "SGST AMOUNT": round2(totals.sgst),
+          "IGST AMOUNT": round2(filtered.reduce((a, g) => a + g.igst, 0)),
+          "CGST AMOUNT": round2(filtered.reduce((a, g) => a + g.cgst, 0)),
+          "SGST AMOUNT": round2(filtered.reduce((a, g) => a + g.sgst, 0)),
           "ADD. CESS": 0,
         },
       ];
-      const ws = XLSX.utils.json_to_sheet(rowsToExport);
+      const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Purchase Report");
-      const fname = `Purchase_Report_${
+      XLSX.utils.book_append_sheet(wb, ws, "SAC Report");
+      const fname = `SAC_Report_${
         periodKey === "all" ? "all" : `${fromDate}_${toDate}`
       }.xlsx`;
       XLSX.writeFile(wb, fname);
@@ -592,12 +691,12 @@ export default function Purchase() {
       totals.total
     )} &nbsp;|&nbsp; Total Items: ${filtered.length}</p>`;
     printElement(
-      `<h1>Purchase Report</h1><div class="meta">${meta}</div>${extra}`,
-      "Purchase Report"
+      `<h1>SAC Report</h1><div class="meta">${meta}</div>${extra}`,
+      "SAC Report"
     );
   };
 
-  const colSpan = 10;
+  const colSpan = 8;
 
   return (
     <div
@@ -609,8 +708,7 @@ export default function Purchase() {
       }}
     >
       <div ref={printHeaderRef} style={{ display: "none" }}>
-        <b>Firm:</b> {firmLabel} | <b>Supplier:</b> {supplierLabel} |{" "}
-        <b>Period:</b> {filterMeta}
+        <b>Firm:</b> {firmLabel} | <b>Period:</b> {filterMeta}
         {search.trim() ? ` | Search: ${search.trim()}` : ""}
       </div>
 
@@ -624,7 +722,7 @@ export default function Purchase() {
             paddingBottom: 10,
           }}
         >
-          Purchase Report
+          SAC Report
         </h2>
 
         <div
@@ -688,22 +786,6 @@ export default function Purchase() {
             </select>
           </div>
 
-          <div>
-            <div style={labelStyle}>Supplier</div>
-            <select
-              style={{ ...selectStyle, minWidth: 160 }}
-              value={selectedSupplier}
-              onChange={(e) => setSelectedSupplier(e.target.value)}
-            >
-              <option value="all">ALL SUPPLIERS</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={String(s.id)}>
-                  {s.supplier_name || `Supplier ${s.id}`}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div style={{ flex: 1, minWidth: 20 }} />
 
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -740,7 +822,7 @@ export default function Purchase() {
             <Search size={14} color={GREY} />
             <input
               style={searchInputStyle}
-              placeholder="Search purchase no / supplier / date…"
+              placeholder="Search SAC / invoice type / invoice #…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -767,19 +849,32 @@ export default function Purchase() {
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "6px 16px 8px" }}>
+        {hasFallback && (
+          <div
+            style={{
+              fontSize: 10.5,
+              color: "#b45309",
+              marginBottom: 6,
+              fontFamily: FONT,
+            }}
+          >
+            SAC/service codes are not stored for some items in the current
+            data; those entries are grouped by product code (shown as "-" when
+            no code exists).
+          </div>
+        )}
         <div style={{ border: B, borderRadius: 8, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
             <table
-              style={{ borderCollapse: "collapse", width: "100%", minWidth: 1020 }}
+              style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}
             >
               <thead>
                 <tr>
                   <th style={{ ...thBase, width: 40, textAlign: "center" }}>
                     #
                   </th>
-                  <th style={{ ...thBase, minWidth: 110 }}>Date</th>
-                  <th style={{ ...thBase, minWidth: 140 }}>Purchase No</th>
-                  <th style={{ ...thBase, minWidth: 180 }}>Supplier</th>
+                  <th style={{ ...thBase, minWidth: 120 }}>Sac</th>
+                  <th style={{ ...thBase, minWidth: 150 }}>Invoice Type</th>
                   <th style={{ ...thBase, textAlign: "right", minWidth: 120 }}>
                     Total Value
                   </th>
@@ -832,7 +927,7 @@ export default function Purchase() {
                       >
                         <AlertTriangle size={22} />
                         <div style={{ fontSize: 13, fontWeight: 600 }}>
-                          Unable to load Purchase report. Please try again.
+                          Unable to load SAC report. Please try again.
                         </div>
                         <button
                           type="button"
@@ -867,7 +962,7 @@ export default function Purchase() {
                       >
                         <Search size={24} />
                         <div style={{ fontSize: 13.5, fontWeight: 600 }}>
-                          No data is available for Purchase Report.
+                          No data is available for SAC Wise Summary Report.
                         </div>
                         <div style={{ fontSize: 12 }}>
                           Please try again after making relevant changes.
@@ -876,34 +971,33 @@ export default function Purchase() {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((r, i) => (
+                  filtered.map((g, i) => (
                     <tr
-                      key={`${r.date}-${r.purchaseNo}-${i}`}
+                      key={`${g.sac}-${g.invoiceType}-${i}`}
                       style={{ background: i % 2 ? ALT_BG : "#fff" }}
                     >
-                      <td style={{ ...tdBase, textAlign: "center" }}>{i + 1}</td>
-                      <td style={{ ...tdBase }}>{r.date}</td>
-                      <td style={{ ...tdBase, fontWeight: 600 }}>
-                        {r.purchaseNo}
+                      <td style={{ ...tdBase, textAlign: "center" }}>
+                        {i + 1}
                       </td>
-                      <td style={{ ...tdBase }}>{r.supplier}</td>
+                      <td style={{ ...tdBase, fontWeight: 600 }}>{g.sac}</td>
+                      <td style={{ ...tdBase }}>{g.invoiceType}</td>
                       <td style={{ ...tdBase, ...tdNum }}>
-                        {fmtMoney(r.total)}
-                      </td>
-                      <td style={{ ...tdBase, ...tdNum }}>
-                        {fmtMoney(r.base)}
+                        {fmtMoney(g.total)}
                       </td>
                       <td style={{ ...tdBase, ...tdNum }}>
-                        {taxCell(r.igst)}
+                        {fmtMoney(g.base)}
                       </td>
                       <td style={{ ...tdBase, ...tdNum }}>
-                        {taxCell(r.cgst)}
+                        {taxCell(g.igst)}
                       </td>
                       <td style={{ ...tdBase, ...tdNum }}>
-                        {taxCell(r.sgst)}
+                        {taxCell(g.cgst)}
                       </td>
                       <td style={{ ...tdBase, ...tdNum }}>
-                        {taxCell(r.cess)}
+                        {taxCell(g.sgst)}
+                      </td>
+                      <td style={{ ...tdBase, ...tdNum }}>
+                        {taxCell(g.cess)}
                       </td>
                     </tr>
                   ))
@@ -919,9 +1013,8 @@ export default function Purchase() {
         <thead>
           <tr>
             <th>#</th>
-            <th>Date</th>
-            <th>Purchase No</th>
-            <th>Supplier</th>
+            <th>SAC</th>
+            <th>Invoice Type</th>
             <th>Total Value</th>
             <th>Taxable Value</th>
             <th>IGST Amount</th>
@@ -931,18 +1024,17 @@ export default function Purchase() {
           </tr>
         </thead>
         <tbody>
-          {filtered.map((r, i) => (
-            <tr key={`${r.date}-${r.purchaseNo}-${i}`}>
+          {filtered.map((g, i) => (
+            <tr key={`${g.sac}-${g.invoiceType}-${i}`}>
               <td>{i + 1}</td>
-              <td>{r.date}</td>
-              <td>{r.purchaseNo}</td>
-              <td>{r.supplier}</td>
-              <td class="num">{r.total.toFixed(2)}</td>
-              <td class="num">{r.base.toFixed(2)}</td>
-              <td class="num">{r.igst.toFixed(2)}</td>
-              <td class="num">{r.cgst.toFixed(2)}</td>
-              <td class="num">{r.sgst.toFixed(2)}</td>
-              <td class="num">{r.cess.toFixed(2)}</td>
+              <td>{g.sac}</td>
+              <td>{g.invoiceType}</td>
+              <td class="num">{g.total.toFixed(2)}</td>
+              <td class="num">{g.base.toFixed(2)}</td>
+              <td class="num">{g.igst.toFixed(2)}</td>
+              <td class="num">{g.cgst.toFixed(2)}</td>
+              <td class="num">{g.sgst.toFixed(2)}</td>
+              <td class="num">{g.cess.toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
@@ -964,21 +1056,12 @@ export default function Purchase() {
           <span style={{ color: GREY, fontWeight: 400, marginLeft: 12 }}>
             (Taxable: {fmtMoney(totals.base)})
           </span>
-          <span style={{ color: GREY, fontWeight: 400, marginLeft: 12 }}>
-            IGST: {fmtMoney(totals.igst)}
-          </span>
-          <span style={{ color: GREY, fontWeight: 400, marginLeft: 12 }}>
-            CGST: {fmtMoney(totals.cgst)}
-          </span>
-          <span style={{ color: GREY, fontWeight: 400, marginLeft: 12 }}>
-            SGST: {fmtMoney(totals.sgst)}
-          </span>
         </div>
         <div style={{ fontSize: 12.5, fontWeight: 600, color: NAVY }}>
           Total Items:{" "}
           <span style={{ fontWeight: 700 }}>{filtered.length}</span>
           <span style={{ color: GREY, fontWeight: 400, marginLeft: 12 }}>
-            ({firmLabel} · {supplierLabel} · {filterMeta})
+            ({firmLabel} · {filterMeta})
           </span>
         </div>
       </div>

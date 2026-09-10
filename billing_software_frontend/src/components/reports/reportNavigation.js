@@ -6,6 +6,9 @@
  * its sub-reports. Any report that isn't grouped into one of these sections
  * lives in `otherReports`, shown as a flat "All Reports" group.
  *
+ * The "GST reports" section is a dedicated sales/GST-return submenu:
+ *   GSTR 1, GSTR 2, GSTR 3 B, GSTR 9, Sale Summary By HSN, SAC Report
+ *
  * Each report entry carries:
  *   `path`  → the client route (rendered under <ReportsLayout/>)
  *   `title` → the report name shown in the UI
@@ -70,8 +73,18 @@ export const reportSections = [
       { title: "TCS Receivable", path: "/reports/tcs-receivable", slug: "TCSReceivable" },
       { title: "TDS Payable", path: "/reports/tds-payable", slug: "TDSPayable" },
       { title: "TDS Receivable", path: "/reports/tds-receivable", slug: "TDSReceivable" },
-      { title: "GST R1", path: "/reports/gst-r1", slug: "GstR1" },
-      { title: "GST R2", path: "/reports/gst-r2", slug: "GstR2" },
+    ],
+  },
+  {
+    key: "gst-reports",
+    label: "GST Reports",
+    reports: [
+      { title: "GSTR 1", path: "/reports/gst-r1", slug: "GstR1" },
+      { title: "GSTR 2", path: "/reports/gst-r2", slug: "GstR2" },
+      { title: "GSTR 3 B", path: "/reports/gstr-3b", slug: "Gstr3B" },
+      { title: "GSTR 9", path: "/reports/gstr-9", slug: "Gstr9" },
+      { title: "Sale Summary By HSN", path: "/reports/sale-summary-by-hsn", slug: "SaleSummaryByHSN" },
+      { title: "SAC Report", path: "/reports/sac-report", slug: "SACReport" },
     ],
   },
   {
@@ -103,7 +116,7 @@ export const reportSections = [
 /** Reports that are not grouped into a section — shown as a flat "All Reports" group. */
 export const otherReports = [
   { title: "Sale", path: "/reports/sale", slug: "Sale" },
-  { title: "Purchase Bills", path: "/reports/purchase", slug: "Purchase" },
+  { title: "Purchase", path: "/reports/purchase", slug: "Purchase" },
   { title: "Day Book", path: "/reports/day-book", slug: "DayBook" },
   { title: "All Transactions", path: "/reports/all-transactions", slug: "AllTransactions" },
   { title: "Payment In", path: "/reports/payment-in", slug: "PaymentIn" },

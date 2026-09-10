@@ -345,6 +345,7 @@ export default function AddSale() {
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const [unlistedProductsWarning, setUnlistedProductsWarning] = useState(null);
   const toastTimerRef = useRef(null);
 
   const showToast = (msg, ok = false) => {
@@ -420,10 +421,11 @@ export default function AddSale() {
   }, []);
 
   useEffect(() => {
-    if (!selectedCompany) return;
+    const compId = selectedCompany || user?.company_id || (companies[0] ? companies[0].id : "");
+    if (!compId) return;
     const loadProducts = async () => {
       try {
-        const res = await api.get(`/product/get?company_id=${selectedCompany}`);
+        const res = await api.get(`/product/get?company_id=${compId}`);
         if (res.data.status) {
           setProducts(res.data.data || []);
         }
@@ -432,7 +434,7 @@ export default function AddSale() {
       }
     };
     loadProducts();
-  }, [selectedCompany]);
+  }, [selectedCompany, user?.company_id, companies]);
 
   /* ── Load Existing Invoice when in Edit Mode ── */
   useEffect(() => {
@@ -764,8 +766,8 @@ export default function AddSale() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  /* ── Save Invoice ── */
-  const handleSave = async () => {
+  /* ── Save Invoice (With Unlisted Products Detection) ── */
+  const handleSave = async (bypassUnlistedCheck = false) => {
     if (!activeSale) return;
 
     /* Party Name Validation (Required ONLY for Credit Bills) */
@@ -778,6 +780,27 @@ export default function AddSale() {
     if (validItems.length === 0) {
       showToast("Please add at least one item to the sale.", false);
       return;
+    }
+
+    /* Check if any valid item is not in the product inventory list */
+    const isBypass = bypassUnlistedCheck === true;
+    if (!isBypass) {
+      const unlistedItems = validItems.filter(r => {
+        const pid = parseInt(r.product_id) || 0;
+        if (pid > 0) {
+          const found = products.some(p => parseInt(p.id) === pid);
+          if (found) return false;
+        }
+        const rowName = (r.item_name || "").trim().toLowerCase();
+        if (!rowName) return false;
+        const foundByName = products.some(p => (p.product_name || p.name || "").trim().toLowerCase() === rowName);
+        return !foundByName;
+      });
+
+      if (unlistedItems.length > 0) {
+        setUnlistedProductsWarning(unlistedItems);
+        return;
+      }
     }
 
     setSaving(true);
@@ -1976,7 +1999,7 @@ export default function AddSale() {
 
         {/* Right: Save Button */}
         <button
-          onClick={handleSave}
+          onClick={() => handleSave(false)}
           disabled={saving}
           style={{
             padding: "7px 28px", borderRadius: 6, border: "none",
@@ -2044,6 +2067,118 @@ export default function AddSale() {
 
       {/* Calculator Modal */}
       <CalculatorModal isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
+
+      {/* Unlisted Products Warning & Confirmation Modal */}
+      {unlistedProductsWarning && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 99999,
+          background: "rgba(15, 23, 42, 0.55)", backdropFilter: "blur(3px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "16px"
+        }} onClick={() => setUnlistedProductsWarning(null)}>
+          <div style={{
+            background: "#ffffff", borderRadius: 14, width: 460, maxWidth: "96vw",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)", overflow: "hidden",
+            border: "1px solid #e2e8f0"
+          }} onClick={e => e.stopPropagation()}>
+            
+            {/* Header */}
+            <div style={{
+              padding: "16px 20px", display: "flex", alignItems: "center", gap: 12,
+              borderBottom: "1px solid #f1f5f9", background: "#fefce8"
+            }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: 10, background: "#fef08a",
+                display: "flex", alignItems: "center", justifyContent: "center", color: "#854d0e", flexShrink: 0
+              }}>
+                <AlertCircle size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, color: "#854d0e" }}>
+                  Product Not in Inventory
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: "#a16207", fontWeight: 500 }}>
+                  Item not found in products list
+                </p>
+              </div>
+            </div>
+
+            {/* Content Body */}
+            <div style={{ padding: "18px 20px" }}>
+              {/* Product Info Box */}
+              <div style={{
+                background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0",
+                maxHeight: 160, overflowY: "auto", marginBottom: 14
+              }}>
+                {unlistedProductsWarning.map((item, idx) => (
+                  <div key={idx} style={{
+                    padding: "10px 14px", display: "flex", alignItems: "center",
+                    justifyContent: "space-between", borderBottom: idx < unlistedProductsWarning.length - 1 ? "1px solid #e2e8f0" : "none"
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13.5, color: "#0f172a" }}>
+                        {item.item_name}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>
+                        Rate: ₹{parseFloat(item.price || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <span style={{
+                        fontSize: 12, fontWeight: 700, background: "#fee2e2",
+                        color: "#991b1b", padding: "3px 9px", borderRadius: 6
+                      }}>
+                        Qty: {item.qty || 1} {item.unit !== "NONE" ? item.unit : ""}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Simple Clear English Message */}
+              <p style={{ fontSize: 13.5, color: "#334155", margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
+                This product is not in your inventory. Do you want to proceed with billing?
+              </p>
+            </div>
+
+            {/* Footer Buttons */}
+            <div style={{
+              padding: "12px 20px", display: "flex", justifyContent: "flex-end",
+              gap: 10, background: "#f8fafc", borderTop: "1px solid #e2e8f0"
+            }}>
+              <button
+                type="button"
+                onClick={() => setUnlistedProductsWarning(null)}
+                style={{
+                  padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1",
+                  background: "#ffffff", color: "#334155", fontWeight: 700, fontSize: 13,
+                  cursor: "pointer"
+                }}
+              >
+                Cancel / Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUnlistedProductsWarning(null);
+                  handleSave(true);
+                }}
+                disabled={saving}
+                style={{
+                  padding: "8px 20px", borderRadius: 8, border: "none",
+                  background: "#2563eb", color: "#ffffff", fontWeight: 700, fontSize: 13,
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+                  boxShadow: "0 2px 4px rgba(37, 99, 235, 0.25)"
+                }}
+              >
+                <Check size={16} strokeWidth={2.5} />
+                <span>Proceed to Bill</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* ── 6. TABLE COLUMN CUSTOMIZATION DRAWER (SIDEBAR) ── */}
       {showColumnDrawer && (
