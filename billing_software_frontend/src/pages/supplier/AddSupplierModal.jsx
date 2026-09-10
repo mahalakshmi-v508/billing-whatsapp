@@ -41,6 +41,16 @@ export default function AddSupplierModal({ isOpen, onClose, companyId, onSupplie
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (isOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleField = (key, value) => {
@@ -128,6 +138,14 @@ export default function AddSupplierModal({ isOpen, onClose, companyId, onSupplie
   };
 
   return (
+    <>
+      <style>{`
+        .asm-scroll { scrollbar-width: thin; scrollbar-color: #94a3b8 #e2e8f0; }
+        .asm-scroll::-webkit-scrollbar { width: 8px; }
+        .asm-scroll::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 10px; }
+        .asm-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 2px solid #e2e8f0; }
+        .asm-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
+      `}</style>
     <div
       style={{
         position: "fixed",
@@ -213,7 +231,7 @@ export default function AddSupplierModal({ isOpen, onClose, companyId, onSupplie
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ overflowY: "auto", padding: "20px 24px", flex: 1 }}>
+        <form onSubmit={handleSubmit} className="asm-scroll" style={{ overflowY: "scroll", padding: "20px 24px", flex: 1, minHeight: 0 }}>
           {error && (
             <div
               style={{
@@ -529,5 +547,6 @@ export default function AddSupplierModal({ isOpen, onClose, companyId, onSupplie
         </form>
       </div>
     </div>
+    </>
   );
 }

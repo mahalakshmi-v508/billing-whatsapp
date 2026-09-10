@@ -89,17 +89,26 @@ function loadState() {
   }
 }
 
-function SectionHeading({ title }) {
+function CollapsibleSection({ title, open, onToggle, children, badge }) {
   return (
-    <h4 className="flex items-center gap-2 text-[16px] font-bold text-slate-800 mb-2">
-      <span className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
-      {title}
-    </h4>
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-2 py-3 px-4 hover:bg-slate-50 transition-colors"
+      >
+        <span className="flex items-center gap-2 text-[14px] font-bold text-slate-800">
+          <span className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
+          {title}
+          {badge && (
+            <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2 py-0.5">{badge}</span>
+          )}
+        </span>
+        <ChevronDown size={17} className={`text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <div className="px-4 pb-4 border-t border-gray-100">{children}</div>}
+    </div>
   );
-}
-
-function Divider() {
-  return <div className="h-px bg-slate-200 my-3" />;
 }
 
 function LayerRow({ label, checked, onChange, input, onChangeText, info, placeholder }) {
@@ -229,12 +238,14 @@ function ColorSwatch({ hex, selected, onClick }) {
       onClick={onClick}
       title={hex}
       aria-label={`Color ${hex}`}
-      className="w-10 h-10 rounded-full flex-shrink-0 transition-transform hover:scale-110"
+      className="w-9 h-9 rounded-full flex-shrink-0 transition-transform hover:scale-110"
       style={{
         background: hex,
         boxShadow: selected
           ? "0 0 0 4px #c6f500, 0 0 0 6px #1e88e5"
-          : "inset 0 0 0 1px rgba(0,0,0,0.15)",
+          : hex === "#ffffff"
+            ? "inset 0 0 0 1.5px rgba(0,0,0,0.35)"
+            : "inset 0 0 0 1px rgba(0,0,0,0.15)",
       }}
     />
   );
@@ -243,7 +254,7 @@ function ColorSwatch({ hex, selected, onClick }) {
 function ColorPalette({ value, onChange }) {
   return (
     <div>
-      <div className="grid grid-cols-6 gap-x-5 gap-y-4 py-2 sm:grid-cols-8 lg:grid-cols-12">
+      <div className="grid grid-cols-6 gap-x-7 gap-y-5 py-3 sm:grid-cols-8"> 
         {COLOR_PALETTE.map((c) => (
           <ColorSwatch
             key={c.hex + c.label}
@@ -268,11 +279,9 @@ function LinkText({ children }) {
   );
 }
 
-function PrintCompanyHeader({ state, set }) {
+function PrintCompanyHeader({ state, set, open, onToggle }) {
   return (
-    <div>
-      <SectionHeading title="Print Company Info / Header" />
-      <Divider />
+    <CollapsibleSection title="Print Company Info / Header" open={open} onToggle={onToggle}>
       <CheckRow label="Make Regular Printer Default" checked={state.regularDefault} onChange={set("regularDefault")} info="Make regular printer the default" />
       <CheckRow label="Print repeat header in all pages" checked={state.repeatHeader} onChange={set("repeatHeader")} info="Repeat company header on every page" />
       <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" info="Company name printed on invoice" />
@@ -290,15 +299,13 @@ function PrintCompanyHeader({ state, set }) {
       <LayerRow label="Email" checked={state.email} onChange={set("email")} input={state.emailText} onChangeText={set("emailText")} placeholder="Email" info="Company email address" />
       <LayerRow label="Phone Number" checked={state.phone} onChange={set("phone")} input={state.phoneText} onChangeText={set("phoneText")} placeholder="9994789683" info="Company phone number" />
       <LayerRow label="GSTIN on Sale" checked={state.gstin} onChange={set("gstin")} input={state.gstinText} onChangeText={set("gstinText")} placeholder="GSTIN on Sale" info="Company GSTIN" />
-    </div>
+    </CollapsibleSection>
   );
 }
  
-function PrintOptions({ state, set }) {
+function PrintOptions({ state, set, open, onToggle }) {
   return (
-    <div>
-      <SectionHeading title="Print Options" />
-      <Divider />
+    <CollapsibleSection title="Print Options" open={open} onToggle={onToggle}>
       <SelectRow label="Paper Size" value={state.paperSize} onChange={set("paperSize")} options={["A4", "A5", "Legal"]} info="Paper size" />
       <SelectRow label="Orientation" value={state.orientation} onChange={set("orientation")} options={["Portrait", "Landscape"]} info="Page orientation" />
       <SelectRow label="Company Name Text Size" value={state.companyNameSize} onChange={set("companyNameSize")} options={["Small", "Medium", "Large"]} info="Company name text size" />
@@ -306,27 +313,23 @@ function PrintOptions({ state, set }) {
       <CheckRow label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} info="Print original/duplicate copies" />
       <NumberSpinner label="Extra space on Top of PDF" value={state.extraSpaceTop} onChange={set("extraSpaceTop")} info="Extra space at top of PDF" />
       <LinkText>Change Transaction Names &gt;</LinkText>
-    </div>
+    </CollapsibleSection>
   );
 }
 
-function ItemTableSection({ state, set }) {
+function ItemTableSection({ state, set, open, onToggle }) {
   return (
-    <div>
-      <SectionHeading title="Item Table" />
-      <Divider />
+    <CollapsibleSection title="Item Table" open={open} onToggle={onToggle}>
       <CheckRow label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} info="Expand item table to full width" />
       <NumberSpinner label="Min No. of Rows in Item Table" value={state.minRowsItemTable} onChange={set("minRowsItemTable")} info="Minimum rows in item table" />
       <LinkText>Item Table Customization &gt;</LinkText>
-    </div>
+    </CollapsibleSection>
   );
 }
 
-function TotalsAndTaxes({ state, set }) {
+function TotalsAndTaxes({ state, set, open, onToggle }) {
   return (
-    <div>
-      <SectionHeading title="Totals & Taxes" />
-      <Divider />
+    <CollapsibleSection title="Totals & Taxes" open={open} onToggle={onToggle}>
       <CheckRow label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} info="Print total item quantity" />
       <div className="py-1.5 px-1">
         <div className="flex items-center justify-between">
@@ -344,15 +347,13 @@ function TotalsAndTaxes({ state, set }) {
       <CheckRow label="You Saved" checked={state.youSaved} onChange={set("youSaved")} info="Print savings amount" />
       <CheckRow label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} info="Print grouped amount" />
       <SelectRow label="Amount in Words" value={state.amountInWords} onChange={set("amountInWords")} options={["Indian", "English", "International"]} info="Amount in words format" />
-    </div>
+    </CollapsibleSection>
   );
 }
 
-function FooterSection({ state, set }) {
+function FooterSection({ state, set, open, onToggle }) {
   return (
-    <div>
-      <SectionHeading title="Footer" />
-      <Divider />
+    <CollapsibleSection title="Footer" open={open} onToggle={onToggle}>
       <CheckRow label="Print Description" checked={state.printDescription} onChange={set("printDescription")} info="Print description footer" />
       <CheckRow label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} info="Print terms and conditions" />
       <CheckRow label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} info="Print received by" />
@@ -361,7 +362,7 @@ function FooterSection({ state, set }) {
       <LinkText>Change Signature</LinkText>
       <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} info="Print payment mode" />
       <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} info="Print acknowledgement" />
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -722,13 +723,11 @@ function DashedLine() {
   );
 }
 
-function ThermalSettings({ state, set }) {
+function ThermalSettings({ state, set, isOpen, toggle }) {
 
   return (
-    <div className="space-y-6 pb-4">
-      <div>
-        <SectionHeading title="Page Size" />
-        <Divider />
+    <div className="space-y-4 pb-4">
+      <CollapsibleSection title="Page Size" open={isOpen("thermalPageSize")} onToggle={() => toggle("thermalPageSize")}>
         <SelectRow 
           label="Page Size" 
           value={state.pageSize} 
@@ -741,26 +740,20 @@ function ThermalSettings({ state, set }) {
           onChange={set("printingType")} 
           options={["Text Printing", "Image Printing", "Both"]} 
         />
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <SectionHeading title="Printing Options" />
-        <Divider />
+      <CollapsibleSection title="Printing Options" open={isOpen("thermalPrintingOptions")} onToggle={() => toggle("thermalPrintingOptions")}>
         <CheckRow label="Use Text Styling (Bold)" checked={state.useTextStyling} onChange={set("useTextStyling")} />
         <CheckRow label="Auto Cut Paper After Printing" checked={state.autoCutPaper} onChange={set("autoCutPaper")} />
         <CheckRow label="Open Cash Drawer After Printing" checked={state.openCashDrawer} onChange={set("openCashDrawer")} />
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <SectionHeading title="Print Settings" />
-        <Divider />
+      <CollapsibleSection title="Print Settings" open={isOpen("thermalPrintSettings")} onToggle={() => toggle("thermalPrintSettings")}>
         <NumberSpinner label="Extra lines at the end" value={state.extraLinesEnd} onChange={set("extraLinesEnd")} />
         <NumberSpinner label="Number of copies" value={state.numberOfCopies} onChange={set("numberOfCopies")} />
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <SectionHeading title="Print Company Info / Header" />
-        <Divider />
+      <CollapsibleSection title="Print Company Info / Header" badge="Thermal" open={isOpen("thermalCompanyHeader")} onToggle={() => toggle("thermalCompanyHeader")}>
         <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" />
         <div className="py-1.5 px-1">
           <div className="flex items-center justify-between">
@@ -775,38 +768,30 @@ function ThermalSettings({ state, set }) {
         <LayerRow label="Email" checked={state.email} onChange={set("email")} input={state.emailText} onChangeText={set("emailText")} placeholder="Email" />
         <LayerRow label="Phone Number" checked={state.phone} onChange={set("phone")} input={state.phoneText} onChangeText={set("phoneText")} placeholder="Phone" />
         <LayerRow label="GSTIN on Sale" checked={state.gstin} onChange={set("gstin")} input={state.gstinText} onChangeText={set("gstinText")} placeholder="GSTIN" />
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <SectionHeading title="Change Transaction Names" />
-        <Divider />
+      <CollapsibleSection title="Change Transaction Names" open={isOpen("changeTransactionNames")} onToggle={() => toggle("changeTransactionNames")}>
         <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Change Transaction Names &gt;</button>
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <SectionHeading title="Item Table" />
-        <Divider />
+      <CollapsibleSection title="Item Table" open={isOpen("thermalItemTable")} onToggle={() => toggle("thermalItemTable")}>
         <CheckRow label="S.No" checked={state.showSNo} onChange={set("showSNo")} />
         <CheckRow label="HSN/SAC Code" checked={state.showHSNCode} onChange={set("showHSNCode")} />
         <CheckRow label="Units of Measurement" checked={state.showUnits} onChange={set("showUnits")} />
         <CheckRow label="MRP" checked={state.showMRP} onChange={set("showMRP")} />
         <CheckRow label="Description" checked={state.showDescription} onChange={set("showDescription")} />
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <SectionHeading title="Additional Item Details" />
-        <Divider />
+      <CollapsibleSection title="Additional Item Details" open={isOpen("additionalItemDetails")} onToggle={() => toggle("additionalItemDetails")}>
         <CheckRow label="Batch No." checked={state.showBatchNo} onChange={set("showBatchNo")} />
         <CheckRow label="Exp. Date" checked={state.showExpDate} onChange={set("showExpDate")} />
         <CheckRow label="Mfg. Date" checked={state.showMfgDate} onChange={set("showMfgDate")} />
         <CheckRow label="Size" checked={state.showSize} onChange={set("showSize")} />
         <CheckRow label="Model No." checked={state.showModelNo} onChange={set("showModelNo")} />
         <CheckRow label="Serial No." checked={state.showSerialNo} onChange={set("showSerialNo")} />
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <SectionHeading title="Totals & Taxes" />
-        <Divider />
+      <CollapsibleSection title="Totals & Taxes" open={isOpen("thermalTotalsTaxes")} onToggle={() => toggle("thermalTotalsTaxes")}>
         <CheckRow label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} />
         <CheckRow label="Amount with Decimal e.g. 0.00" checked={state.amountWithDecimal} onChange={set("amountWithDecimal")} />
         <CheckRow label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} />
@@ -816,11 +801,9 @@ function ThermalSettings({ state, set }) {
         <CheckRow label="You Saved" checked={state.youSaved} onChange={set("youSaved")} />
         <CheckRow label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} />
         <SelectRow label="Amount in Words" value={state.amountInWords} onChange={set("amountInWords")} options={["Indian", "English", "International"]} />
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <SectionHeading title="Footer" />
-        <Divider />
+      <CollapsibleSection title="Footer" open={isOpen("thermalFooter")} onToggle={() => toggle("thermalFooter")}>
         <CheckRow label="Print Description" checked={state.printDescription} onChange={set("printDescription")} />
         <CheckRow label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} />
         <CheckRow label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} />
@@ -828,11 +811,9 @@ function ThermalSettings({ state, set }) {
         <LayerRow label="Print Signature Text" checked={state.printSignatureText} onChange={set("printSignatureText")} input={state.signatureText} onChangeText={set("signatureText")} placeholder="Authorized Signatory" />
         <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} />
         <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} />
-      </div>
+      </CollapsibleSection>
 
-      <div>
-        <SectionHeading title="Billing Printer Setup" />
-        <Divider />
+      <CollapsibleSection title="Billing Printer Setup" open={isOpen("billingPrinterSetup")} onToggle={() => toggle("billingPrinterSetup")}>
         <div className="space-y-2">
           <div className="flex items-center justify-between p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
             <span className="text-sm text-gray-700">1. 2 Inch (VYPRTP2001) - Quick Setup</span>
@@ -847,7 +828,7 @@ function ThermalSettings({ state, set }) {
             <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Setup</button>
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }
@@ -868,6 +849,19 @@ export default function Print() {
       return next;
     });
 
+  const ALL_SECTIONS = [
+    "themeColor", "companyHeader", "printOptions", "itemTable", "totalsTaxes", "footer",
+    "templates", "printSettings",
+    "thermalPageSize", "thermalPrintingOptions", "thermalPrintSettings", "thermalCompanyHeader",
+    "changeTransactionNames", "thermalItemTable", "additionalItemDetails", "thermalTotalsTaxes", "thermalFooter",
+    "billingPrinterSetup",
+  ];
+  const [openSections, setOpenSections] = useState({});
+  const isOpen = (id) => openSections[id] !== false;
+  const toggle = (id) => setOpenSections((s) => ({ ...s, [id]: s[id] !== false ? false : true }));
+  const collapseAll = () => setOpenSections(Object.fromEntries(ALL_SECTIONS.map((id) => [id, false])));
+  const expandAll = () => setOpenSections({});
+
   return (
     <div className="overflow-hidden flex flex-col flex-1">
       <div className="flex flex-col flex-1">
@@ -884,24 +878,44 @@ export default function Print() {
           <div className="w-1/2 border-r border-gray-200 overflow-y-auto overflow-x-hidden bg-transparent">
             <div className="p-6">
               {/* Printer tabs */}
-              <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-6 flex-shrink-0">
-                {[
-                  { id: "regular", label: "REGULAR PRINTER" },
-                  { id: "thermal", label: "THERMAL PRINTER" },
-                ].map((t) => (
+              <div className="flex items-center gap-2 mb-6 flex-shrink-0">
+                <div className="flex gap-1 bg-gray-100 rounded-lg p-1 flex-1">
+                  {[
+                    { id: "regular", label: "REGULAR PRINTER" },
+                    { id: "thermal", label: "THERMAL PRINTER" },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => set("printer")(t.id)}
+                      className={`flex-1 px-4 py-2 text-xs font-semibold rounded-md transition ${
+                        state.printer === t.id
+                          ? "bg-white text-blue-600 shadow-sm"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <button
-                    key={t.id}
                     type="button"
-                    onClick={() => set("printer")(t.id)}
-                    className={`flex-1 px-4 py-2 text-xs font-semibold rounded-md transition ${
-                      state.printer === t.id
-                        ? "bg-white text-blue-600 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
+                    onClick={expandAll}
+                    title="Expand all sections"
+                    className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 transition"
                   >
-                    {t.label}
+                    Expand
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={collapseAll}
+                    title="Collapse all sections"
+                    className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  >
+                    Collapse
+                  </button>
+                </div>
               </div>
 
               {state.printer === "regular" ? (
@@ -936,36 +950,32 @@ export default function Print() {
                     {state.mode === "colors" && (
                       <>
                         {/* Color palette */}
-                        <div>
-                          <SectionHeading title="Theme Color" />
-                          <Divider />
+                        <CollapsibleSection title="Theme Color" open={isOpen("themeColor")} onToggle={() => toggle("themeColor")}>
                           <ColorPalette value={state.themeColor} onChange={set("themeColor")} />
                           <p className="text-xs text-gray-500 mt-2">Choose a theme color for the printed invoice.</p>
-                        </div>
+                        </CollapsibleSection>
 
                         {/* Print Company Info / Header */}
-                        <PrintCompanyHeader state={state} set={set} />
+                        <PrintCompanyHeader state={state} set={set} open={isOpen("companyHeader")} onToggle={() => toggle("companyHeader")} />
 
                         {/* Print Options */}
-                        <PrintOptions state={state} set={set} />
+                        <PrintOptions state={state} set={set} open={isOpen("printOptions")} onToggle={() => toggle("printOptions")} />
 
                         {/* Item Table */}
-                        <ItemTableSection state={state} set={set} />
+                        <ItemTableSection state={state} set={set} open={isOpen("itemTable")} onToggle={() => toggle("itemTable")} />
 
                         {/* Totals & Taxes */}
-                        <TotalsAndTaxes state={state} set={set} />
+                        <TotalsAndTaxes state={state} set={set} open={isOpen("totalsTaxes")} onToggle={() => toggle("totalsTaxes")} />
 
                         {/* Footer */}
-                        <FooterSection state={state} set={set} />
+                        <FooterSection state={state} set={set} open={isOpen("footer")} onToggle={() => toggle("footer")} />
                       </>
                     )}
 
                     {state.mode === "layout" && (
                       <>
                         {/* Templates */}
-                        <div>
-                          <SectionHeading title="Templates" />
-                          <Divider />
+                        <CollapsibleSection title="Templates" open={isOpen("templates")} onToggle={() => toggle("templates")}>
                           <div className="grid grid-cols-3 gap-3">
                             {TEMPLATES.map((tpl) => (
                               <button
@@ -985,12 +995,10 @@ export default function Print() {
                               </button>
                             ))}
                           </div>
-                        </div>
+                        </CollapsibleSection>
 
                         {/* Company Info */}
-                        <div>
-                          <SectionHeading title="Print Company Info / Header" />
-                          <Divider />
+                        <CollapsibleSection title="Print Company Info / Header" open={isOpen("companyHeader")} onToggle={() => toggle("companyHeader")}>
                           <CheckRow label="Make Regular Printer Default" checked={state.regularDefault} onChange={set("regularDefault")} />
                           <CheckRow label="Print repeat header in all pages" checked={state.repeatHeader} onChange={set("repeatHeader")} />
                           <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" />
@@ -1007,32 +1015,26 @@ export default function Print() {
                           <LayerRow label="Email" checked={state.email} onChange={set("email")} input={state.emailText} onChangeText={set("emailText")} placeholder="Email" />
                           <LayerRow label="Phone Number" checked={state.phone} onChange={set("phone")} input={state.phoneText} onChangeText={set("phoneText")} placeholder="Phone" />
                           <LayerRow label="GSTIN on Sale" checked={state.gstin} onChange={set("gstin")} input={state.gstinText} onChangeText={set("gstinText")} placeholder="GSTIN" />
-                        </div>
+                        </CollapsibleSection>
 
                         {/* Print Settings */}
-                        <div>
-                          <SectionHeading title="Print Settings" />
-                          <Divider />
+                        <CollapsibleSection title="Print Settings" open={isOpen("printSettings")} onToggle={() => toggle("printSettings")}>
                           <SelectRow label="Paper Size" value={state.paperSize} onChange={set("paperSize")} options={["A4", "A5", "Legal", "Thermal 80mm", "Thermal 58mm"]} />
                           <SelectRow label="Orientation" value={state.orientation} onChange={set("orientation")} options={["Portrait", "Landscape"]} />
                           <SelectRow label="Company Name Text Size" value={state.companyNameSize} onChange={set("companyNameSize")} options={["Small", "Medium", "Large"]} />
                           <SelectRow label="Invoice Text Size" value={state.invoiceTextSize} onChange={set("invoiceTextSize")} options={["Small", "Medium", "Large"]} />
                           <CheckRow label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} />
                           <NumberSpinner label="Extra space on Top of PDF" value={state.extraSpaceTop} onChange={set("extraSpaceTop")} />
-                        </div>
+                        </CollapsibleSection>
 
                         {/* Item Table */}
-                        <div>
-                          <SectionHeading title="Item Table" />
-                          <Divider />
+                        <CollapsibleSection title="Item Table" open={isOpen("itemTable")} onToggle={() => toggle("itemTable")}>
                           <CheckRow label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} />
                           <NumberSpinner label="Min No. of Rows in Item Table" value={state.minRowsItemTable} onChange={set("minRowsItemTable")} />
-                        </div>
+                        </CollapsibleSection>
 
                         {/* Totals & Taxes */}
-                        <div>
-                          <SectionHeading title="Totals & Taxes" />
-                          <Divider />
+                        <CollapsibleSection title="Totals & Taxes" open={isOpen("totalsTaxes")} onToggle={() => toggle("totalsTaxes")}>
                           <CheckRow label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} />
                           <div className="py-1.5 px-1">
                             <div className="flex items-center justify-between">
@@ -1049,12 +1051,10 @@ export default function Print() {
                           <CheckRow label="You Saved" checked={state.youSaved} onChange={set("youSaved")} />
                           <CheckRow label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} />
                           <SelectRow label="Amount in Words" value={state.amountInWords} onChange={set("amountInWords")} options={["Indian", "English", "International"]} />
-                        </div>
+                        </CollapsibleSection>
 
                         {/* Footer */}
-                        <div>
-                          <SectionHeading title="Footer" />
-                          <Divider />
+                        <CollapsibleSection title="Footer" open={isOpen("footer")} onToggle={() => toggle("footer")}>
                           <CheckRow label="Print Description" checked={state.printDescription} onChange={set("printDescription")} />
                           <CheckRow label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} />
                           <CheckRow label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} />
@@ -1062,13 +1062,13 @@ export default function Print() {
                           <LayerRow label="Print Signature Text" checked={state.printSignatureText} onChange={set("printSignatureText")} input={state.signatureText} onChangeText={set("signatureText")} placeholder="Authorized Signatory" />
                           <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} />
                           <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} />
-                        </div>
+                        </CollapsibleSection>
                       </>
                     )}
                   </div>
                 </>
               ) : (
-                <ThermalSettings state={state} set={set} />
+                <ThermalSettings state={state} set={set} isOpen={isOpen} toggle={toggle} />
               )}
             </div>
           </div>

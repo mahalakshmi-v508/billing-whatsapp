@@ -218,6 +218,7 @@ Route::prefix('product')->group(function () {
     Route::get('get_by_code', [ProductController::class, 'getByCode']);
     Route::post('toggle_status_product', [ProductController::class, 'toggleStatusProduct']);
     Route::post('update', [ProductController::class, 'update']);
+    Route::post('move', [ProductController::class, 'move']);
     Route::get('get_sale_history', [ProductController::class, 'getProductSaleHistory']);
 });
 
