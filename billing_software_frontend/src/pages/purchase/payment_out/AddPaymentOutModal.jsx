@@ -63,17 +63,22 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
       setPaymentDate(new Date().toISOString().split("T")[0]);
       setDescription("");
 
-      // Load next sequential receipt number for new payments
+      // Load next sequential receipt number for new payments from settings
       const loadReceiptNo = async () => {
         try {
+          const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_out`);
+          if (numRes.data?.status && numRes.data?.formatted_number) {
+            setReceiptNo(numRes.data.formatted_number);
+            return;
+          }
           const res = await api.get(`/purchase/get_payment_outs?company_id=${companyId}`);
           if (res.data?.data) {
-            setReceiptNo((res.data.data.length || 0) + 1);
+            setReceiptNo(`PAYOUT-${String((res.data.data.length || 0) + 1).padStart(4, "0")}`);
           } else {
-            setReceiptNo(Math.floor(Date.now() / 1000) % 10000);
+            setReceiptNo("PAYOUT-0001");
           }
         } catch {
-          setReceiptNo(Math.floor(Date.now() / 1000) % 10000);
+          setReceiptNo("PAYOUT-0001");
         }
       };
       loadReceiptNo();

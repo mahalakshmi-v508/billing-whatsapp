@@ -246,9 +246,17 @@ export default function AddDebitNote() {
   };
 
   // Add new tab
-  const handleAddTab = () => {
+  const handleAddTab = async () => {
     const nextIdx = tabs.length + 1;
-    const nextReturnNo = existingCount + tabs.length + 1;
+    let nextReturnNo = String(nextIdx);
+    try {
+      const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=debit_note`);
+      if (numRes.data?.status && numRes.data?.formatted_number) {
+        nextReturnNo = numRes.data.formatted_number;
+      }
+    } catch {
+      nextReturnNo = `DN-${String(nextIdx).padStart(4, "0")}`;
+    }
     const newId = Date.now();
     const newTab = createNewDebitNoteTab(newId, nextIdx, nextReturnNo);
     setTabs((prev) => [...prev, newTab]);
@@ -302,13 +310,24 @@ export default function AddDebitNote() {
         }
         setProductsCatalog(prodsList);
 
-        // 3. Count for return no
-        const countRes = await api.get(`/debit_note/list?company_id=${cid || 0}`);
-        if (countRes.data?.status) {
-          const cnt = countRes.data.count || 0;
-          setExistingCount(cnt);
+        // 3. Count & formatted number for return no from settings
+        try {
+          const numRes = await api.get(`/invoice-settings/next-number?company_id=${cid || 0}&type=debit_note`);
+          if (numRes.data?.status && numRes.data?.formatted_number) {
+            if (!isEditMode) {
+              updateActiveTab({ returnNo: numRes.data.formatted_number });
+            }
+          } else {
+            const countRes = await api.get(`/debit_note/list?company_id=${cid || 0}`);
+            const cnt = countRes.data?.count || 0;
+            setExistingCount(cnt);
+            if (!isEditMode) {
+              updateActiveTab({ returnNo: `DN-${String(cnt + 1).padStart(4, "0")}` });
+            }
+          }
+        } catch {
           if (!isEditMode) {
-            updateActiveTab({ returnNo: String(cnt + 1) });
+            updateActiveTab({ returnNo: "DN-0001" });
           }
         }
       } catch (err) {

@@ -47,23 +47,28 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     return recv + disc;
   }, [receivedAmount, discountAmount]);
 
-  // Load next receipt number
+  // Load next receipt number from settings
   useEffect(() => {
     if (!isOpen) return;
     const loadReceiptNo = async () => {
       try {
+        const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_in`);
+        if (numRes.data?.status && numRes.data?.formatted_number) {
+          setReceiptNo(numRes.data.formatted_number);
+          return;
+        }
         const res = await api.get(`/invoice/get_customer_payments?customer_id=0`);
         if (res.data?.data) {
-          setReceiptNo((res.data.data.length || 0) + 1);
+          setReceiptNo(`PAYIN-${String((res.data.data.length || 0) + 1).padStart(4, "0")}`);
         } else {
-          setReceiptNo(Math.floor(Date.now() / 1000) % 10000);
+          setReceiptNo(`PAYIN-0001`);
         }
       } catch {
-        setReceiptNo(Math.floor(Date.now() / 1000) % 10000);
+        setReceiptNo(`PAYIN-0001`);
       }
     };
     loadReceiptNo();
-  }, [isOpen]);
+  }, [isOpen, companyId]);
 
   // Load customer suggestions immediately when modal opens
   useEffect(() => {

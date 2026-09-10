@@ -1114,6 +1114,19 @@ class PurchaseController extends Controller
                 ]);
             }
 
+            // Auto-increment payment_out_next_number in invoice_settings
+            try {
+                if ($companyId > 0) {
+                    $invSetting = \App\Models\InvoiceSetting::getForCompany($companyId);
+                    if ($invSetting) {
+                        $invSetting->payment_out_next_number = max(1, intval($invSetting->payment_out_next_number)) + 1;
+                        $invSetting->save();
+                    }
+                }
+            } catch (\Exception $ex) {
+                \Log::warning("Could not increment payment_out_next_number: " . $ex->getMessage());
+            }
+
             DB::commit();
 
             app(\App\Services\TransactionMessageService::class)->handlePaymentOut($companyId, $supplierId, (float) $totalAmount, (string) $paymentMethod, (string) ($receiptNo ?: ''));
