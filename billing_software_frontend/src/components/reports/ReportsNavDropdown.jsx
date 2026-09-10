@@ -11,9 +11,11 @@ const INDIGO = "#4338ca";
  * Report header used at the top of every report page:
  *
  *  FIRST ROW → "Current Report" — a searchable dropdown listing all reports,
- *              grouped into expandable/collapsible sections (Item / Stock
- *              Report, Business Status, Taxes, Expense Report, Sale Order
- *              Report, Loan Accounts) plus the flat "All Reports" group.
+ *              grouped into expandable/collapsible sections (Transaction
+ *              report, Party report, GST reports, Item / Stock Report,
+ *              Business Status, Taxes, Expense Report, Sale Order Report,
+ *              Loan Accounts) followed by the trailing flat "All Reports"
+ *              group (Payment In / Payment Out).
  *              Each section heading expands/collapses its sub-items on click.
  *  SECOND ROW → small compact chips, one per frequently-used report (from the
  *              user's actual viewing history, see reportUsage.js). Each chip
@@ -133,13 +135,7 @@ export default function ReportsNavDropdown() {
                 )
               ) : (
                 <>
-                  {/* Flat "All Reports" group (reports not in a section) */}
-                  <div style={listSectionLabel}>All Reports</div>
-                  {otherReports.map((r) => (
-                    <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} />
-                  ))}
-
-                  {/* Expandable sections */}
+                  {/* Expandable sections (in the app's report-menu order) */}
                   {reportSections.map((section) => {
                     const open = !!openSections[section.key];
                     return (
@@ -156,6 +152,16 @@ export default function ReportsNavDropdown() {
                       </div>
                     );
                   })}
+
+                  {/* Trailing flat "All Reports" group (reports not in a section) */}
+                  {otherReports.length > 0 && (
+                    <>
+                      <div style={listSectionLabel}>All Reports</div>
+                      {otherReports.map((r) => (
+                        <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} />
+                      ))}
+                    </>
+                  )}
                 </>
               )}
             </div>
