@@ -327,7 +327,7 @@ export default function StockDetail() {
           3. REPORT TABLE — one table, exactly 7 columns
           ═══════════════════════════════════════════════════════════════ */}
       <div style={tableContainerStyle}>
-        <div style={{ overflowX: "auto", flex: 1 }}>
+        <div style={{ overflowX: "auto", flex: 1, padding: "0 14px" }}>
           <table style={{ ...tableStyle, minWidth: TABLE_MIN_WIDTH }}>
             <thead>
               <tr>
@@ -383,7 +383,7 @@ export default function StockDetail() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
-                    <td style={{ ...tdStyle, fontSize: 12.5, fontWeight: 600, color: NAVY }}>{r.item_name || "-"}</td>
+                    <td style={{ ...tdStyle, fontSize: 14, fontWeight: 600, color: NAVY }}>{r.item_name || "-"}</td>
                     {COLUMNS.slice(1).map((c) => (
                       <td key={c.key} style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: c.money ? "#334155" : "#475569" }}>
                         {c.money ? fmtINR(r[c.key]) : fmtQty(r[c.key])}
@@ -397,7 +397,7 @@ export default function StockDetail() {
               <tfoot>
                 <tr>
                   {COLUMNS.map((c) => (
-                    <td key={c.key} style={{ ...tdStyle, background: "#f2f4f7", fontWeight: 800, color: NAVY, fontSize: 12.5, textAlign: c.qty || c.money ? "right" : "left" }}>
+                    <td key={c.key} style={{ ...tdStyle, background: "#f2f4f7", fontWeight: 800, color: NAVY, fontSize: 14, textAlign: c.qty || c.money ? "right" : "left" }}>
                       {c.key === "item_name" ? "Total" : c.money ? fmtINR(totals[c.key]) : fmtQty(totals[c.key])}
                     </td>
                   ))}
@@ -533,6 +533,7 @@ const tableContainerStyle = {
   flex: 1,
   display: "flex",
   flexDirection: "column",
+  marginTop: 8,
   border: `1px solid ${LIGHT_BORDER}`,
   borderRadius: 6,
   overflow: "hidden",
@@ -549,7 +550,7 @@ const tableStyle = {
 
 const thStyle = {
   padding: "7px 8px",
-  fontSize: 10,
+  fontSize: 12.5,
   fontWeight: 700,
   color: "#475569",
   textTransform: "uppercase",
@@ -576,7 +577,7 @@ const tdStyle = {
   padding: "6px 8px",
   borderBottom: `1px solid ${LIGHT_BORDER}`,
   borderRight: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 12,
+  fontSize: 14,
   color: "#334155",
   verticalAlign: "middle",
 };
