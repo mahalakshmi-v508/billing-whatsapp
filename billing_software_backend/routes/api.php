@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\ItemWiseProfitLossController;
 use App\Http\Controllers\Api\PartyStatementController;
 use App\Http\Controllers\Api\TransactionMessageController;
 use App\Http\Controllers\Api\InvoiceSettingController;
+use App\Http\Controllers\Api\GstReportController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -348,5 +349,6 @@ Route::prefix('report')->group(function () {
     Route::get('item-wise-profit-loss', [ItemWiseProfitLossController::class, 'index']);
     Route::get('sale-purchase-by-party', [PartyStatementController::class, 'getSalePurchaseByParty']);
     Route::get('sale-purchase-by-party-group', [PartyStatementController::class, 'getSalePurchaseByPartyGroup']);
+    Route::get('gst-report', [GstReportController::class, 'index']);
 });
 
