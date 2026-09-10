@@ -40,6 +40,45 @@ export const reportGroups = [
  */
 export const reportSections = [
   {
+    key: "transaction",
+    label: "Transaction report",
+    reports: [
+      { title: "Sale", path: "/reports/sale", slug: "Sale" },
+      { title: "Purchase", path: "/reports/purchase", slug: "Purchase" },
+      { title: "Day Book", path: "/reports/day-book", slug: "DayBook" },
+      { title: "All Transactions", path: "/reports/all-transactions", slug: "AllTransactions" },
+      { title: "Profit And Loss", path: "/reports/profit-loss", slug: "ProfitAndLoss" },
+      { title: "Bill Wise Profit", path: "/reports/bill-wise-profit", slug: "BillWiseProfit" },
+      { title: "Cash flow", path: "/reports/cash-flow", slug: "CashFlow" },
+      { title: "Trial Balance Report", path: "/reports/trial-balance", slug: "TrialBalance" },
+      { title: "Balance Sheet", path: "/reports/balance-sheet", slug: "BalanceSheet" },
+    ],
+  },
+  {
+    key: "party",
+    label: "Party report",
+    reports: [
+      { title: "Party Statement", path: "/reports/party-statement", slug: "PartyStatement" },
+      { title: "Party wise Profit & Loss", path: "/reports/party-profit-loss", slug: "PartyWiseProfitLoss" },
+      { title: "All Parties", path: "/reports/all-parties", slug: "AllParties" },
+      { title: "Party Report By Item", path: "/reports/party-by-item", slug: "PartyReportByItem" },
+      { title: "Sale Purchase By Party", path: "/reports/sale-purchase-by-party", slug: "SalePurchaseByParty" },
+      { title: "Sale Purchase By Party Group", path: "/reports/sale-purchase-by-party-group", slug: "SalePurchaseByPartyGroup" },
+    ],
+  },
+  {
+    key: "gst-reports",
+    label: "GST Reports",
+    reports: [
+      { title: "GSTR 1", path: "/reports/gst-r1", slug: "GstR1" },
+      { title: "GSTR 2", path: "/reports/gst-r2", slug: "GstR2" },
+      { title: "GSTR 3 B", path: "/reports/gstr-3b", slug: "Gstr3B" },
+      { title: "GSTR 9", path: "/reports/gstr-9", slug: "Gstr9" },
+      { title: "Sale Summary By HSN", path: "/reports/sale-summary-by-hsn", slug: "SaleSummaryByHSN" },
+      { title: "SAC Report", path: "/reports/sac-report", slug: "SACReport" },
+    ],
+  },
+  {
     key: "item-stock",
     label: "Item / Stock Report",
     reports: [
@@ -76,18 +115,6 @@ export const reportSections = [
     ],
   },
   {
-    key: "gst-reports",
-    label: "GST Reports",
-    reports: [
-      { title: "GSTR 1", path: "/reports/gst-r1", slug: "GstR1" },
-      { title: "GSTR 2", path: "/reports/gst-r2", slug: "GstR2" },
-      { title: "GSTR 3 B", path: "/reports/gstr-3b", slug: "Gstr3B" },
-      { title: "GSTR 9", path: "/reports/gstr-9", slug: "Gstr9" },
-      { title: "Sale Summary By HSN", path: "/reports/sale-summary-by-hsn", slug: "SaleSummaryByHSN" },
-      { title: "SAC Report", path: "/reports/sac-report", slug: "SACReport" },
-    ],
-  },
-  {
     key: "expense",
     label: "Expense Report",
     reports: [
@@ -113,24 +140,14 @@ export const reportSections = [
   },
 ];
 
-/** Reports that are not grouped into a section — shown as a flat "All Reports" group. */
+/** Reports that are not grouped into a section — shown as a trailing "All Reports" group. */
 export const otherReports = [
-  { title: "Sale", path: "/reports/sale", slug: "Sale" },
-  { title: "Purchase", path: "/reports/purchase", slug: "Purchase" },
-  { title: "Day Book", path: "/reports/day-book", slug: "DayBook" },
-  { title: "All Transactions", path: "/reports/all-transactions", slug: "AllTransactions" },
   { title: "Payment In", path: "/reports/payment-in", slug: "PaymentIn" },
   { title: "Payment Out", path: "/reports/payment-out", slug: "PaymentOut" },
-
-  { title: "Party Statement", path: "/reports/party-statement", slug: "PartyStatement" },
-  { title: "All Parties", path: "/reports/all-parties", slug: "AllParties" },
-  { title: "Party Report By Item", path: "/reports/party-by-item", slug: "PartyReportByItem" },
-  { title: "Sale Purchase By Party", path: "/reports/sale-purchase-by-party", slug: "SalePurchaseByParty" },
-  { title: "Sale Purchase By Party Group", path: "/reports/sale-purchase-by-party-group", slug: "SalePurchaseByPartyGroup" },
 ];
 
-/** Flat list of every report (all sections + other reports). */
-export const reports = [...otherReports, ...reportSections.flatMap((s) => s.reports)];
+/** Flat list of every report (all sections + other reports), sections first. */
+export const reports = [...reportSections.flatMap((s) => s.reports), ...otherReports];
 
 /** Return the report (from the full registry) whose path matches, if any. */
 export function findReportByPath(pathname) {

@@ -65,7 +65,7 @@ const WhatsAppIcon = ({ size = 16 }) => (
   </svg>
 );
 
-export default function PurchaseList() {
+export default function Purchase() {
   const navigate = useNavigate();
 
   const [companies, setCompanies] = useState([]);
