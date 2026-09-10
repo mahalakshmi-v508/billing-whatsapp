@@ -19,6 +19,8 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  // Prevent UI from hanging on "Loading..." forever when the server is slow/down.
+  timeout: 30000,
 });
 
 // Interceptor to strip .php extension and adjust endpoints for the Laravel backend

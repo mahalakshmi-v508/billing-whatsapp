@@ -74,7 +74,7 @@ class DayBookController extends Controller
         } else {
             $salesQuery->whereIn('i.company_id', $companyIds);
         }
-        $sales = $salesQuery->get(['invoice_no', 'customer_name', 'total_amount', 'paid_amount', 'balance_amount', 'payment_method']);
+        $sales = $salesQuery->get(['invoice_no', 'company_id', 'customer_name', 'total_amount', 'paid_amount', 'balance_amount', 'payment_method']);
 
         foreach ($sales as $s) {
             $rows[] = [
@@ -82,6 +82,7 @@ class DayBookController extends Controller
                 'type'          => 'Sale',
                 'name'          => $s->customer_name,
                 'reference'     => $s->invoice_no,
+                'company_id'    => intval($s->company_id),
                 'payment_type'  => $this->paymentLabel($s->payment_method),
                 'total'         => round(floatval($s->total_amount), 2),
                 'money_in'      => round(floatval($s->paid_amount), 2),
@@ -106,7 +107,7 @@ class DayBookController extends Controller
             $purchaseQuery->whereIn('pp.company_id', $companyIds);
         }
         $purchases = $purchaseQuery->get([
-            'p.purchase_no', 's.supplier_name', 'pp.amount', 'pp.payment_method',
+            'p.purchase_no', 'pp.company_id', 's.supplier_name', 'pp.amount', 'pp.payment_method',
         ]);
 
         foreach ($purchases as $p) {
@@ -115,6 +116,7 @@ class DayBookController extends Controller
                 'type'          => 'Purchase',
                 'name'          => $p->supplier_name,
                 'reference'     => $p->purchase_no,
+                'company_id'    => intval($p->company_id),
                 'payment_type'  => $this->paymentLabel($p->payment_method),
                 'total'         => round(floatval($p->amount), 2),
                 'money_in'      => 0.00,
@@ -141,7 +143,7 @@ class DayBookController extends Controller
             } else {
                 $returnQuery->whereIn('company_id', $companyIds);
             }
-            $returns = $returnQuery->get(['return_no', 'invoice_no', 'customer_name', 'refund_amount', 'total_amount']);
+            $returns = $returnQuery->get(['return_no', 'invoice_no', 'company_id', 'customer_name', 'refund_amount', 'total_amount']);
         }
 
         foreach ($returns as $r) {
@@ -151,6 +153,7 @@ class DayBookController extends Controller
                 'type'          => 'Sales Return',
                 'name'          => $r->customer_name,
                 'reference'     => $r->return_no ?: $r->invoice_no,
+                'company_id'    => intval($r->company_id),
                 'payment_type'  => 'Cash',
                 'total'         => $refund,
                 'money_in'      => 0.00,
