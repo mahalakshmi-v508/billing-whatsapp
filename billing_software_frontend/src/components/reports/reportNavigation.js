@@ -116,7 +116,7 @@ export const reportSections = [
 /** Reports that are not grouped into a section — shown as a flat "All Reports" group. */
 export const otherReports = [
   { title: "Sale", path: "/reports/sale", slug: "Sale" },
-  { title: "Purchase Bills", path: "/reports/purchase", slug: "Purchase" },
+  { title: "Purchase", path: "/reports/purchase", slug: "Purchase" },
   { title: "Day Book", path: "/reports/day-book", slug: "DayBook" },
   { title: "All Transactions", path: "/reports/all-transactions", slug: "AllTransactions" },
   { title: "Payment In", path: "/reports/payment-in", slug: "PaymentIn" },
