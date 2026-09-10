@@ -650,39 +650,58 @@ class InvoiceController extends Controller
     // }
 
     public function getInvoiceById(Request $request)
-{
-    $idVal = $request->input('id') ?: $request->query('id', '');
+    {
+        $idVal = trim($request->input('id') ?: $request->query('id', ''));
 
-    $query = DB::table('invoices as i')
-        ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
-        ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
-        ->select(
-            'i.*',
-            'c.company_name',
-            'c.company_address',
-            'c.phone',
-            'c.gstin',
-            'c.logo',
-            'u.name as cashier_name'
-        );
+        if (empty($idVal)) {
+            return response()->json(["status" => false, "message" => "Invoice ID / Number is required"], 400);
+        }
 
-    if (is_numeric($idVal)) {
-        $invoice = (clone $query)->where('i.id', intval($idVal))->first();
-    } else {
-        $invoice = (clone $query)->where('i.invoice_no', $idVal)->first();
+        $query = DB::table('invoices as i')
+            ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
+            ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
+            ->select(
+                'i.*',
+                'c.company_name',
+                'c.company_address',
+                'c.phone',
+                'c.gstin',
+                'c.logo',
+                'c.bank_name',
+                'c.account_no',
+                'c.ifsc_code',
+                'u.name as cashier_name'
+            );
+
+        // Try exact match on invoice_no or id
+        $invoice = (clone $query)
+            ->where('i.invoice_no', $idVal)
+            ->orWhere('i.id', $idVal)
+            ->first();
+
+        // If not found and idVal has prefix like INV-0004, try stripping prefix / leading zeros
+        if (!$invoice) {
+            $numOnly = ltrim(preg_replace('/[^0-9]/', '', $idVal), '0');
+            if (!empty($numOnly)) {
+                $invoice = (clone $query)
+                    ->where('i.invoice_no', $numOnly)
+                    ->orWhere('i.id', intval($numOnly))
+                    ->orWhere('i.invoice_no', 'like', "%{$numOnly}")
+                    ->first();
+            }
+        }
+
+        if (!$invoice) {
+            return response()->json(["status" => false, "message" => "Invoice not found"]);
+        }
+
+        $data = (array) $invoice;
+        if (is_string($data['products'])) {
+            $data['products'] = json_decode($data['products'], true);
+        }
+
+        return response()->json(["status" => true, "data" => $data]);
     }
-
-    if (!$invoice) {
-        return response()->json(["status" => false, "message" => "Invoice not found"]);
-    }
-
-    $data = (array) $invoice;
-    if (is_string($data['products'])) {
-        $data['products'] = json_decode($data['products']);
-    }
-
-    return response()->json(["status" => true, "data" => $data]);
-}
 
     public function getPendingInvoice(Request $request)
     {

@@ -816,7 +816,12 @@ export default function InvoicePreview() {
   const [waSending, setWaSending] = useState(false);
   const [tmSending, setTmSending] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const tmAttachDone = useRef(false);
+
+  const isPOS = selectedTheme === "pos";
+  const logoUrl = getInvoiceLogoUrl(company?.logo);
 
   /* Insert Print CSS */
   useEffect(() => {
@@ -828,9 +833,15 @@ export default function InvoicePreview() {
 
   /* Load Invoice Data */
   useEffect(() => {
-    if (!invoiceNo) return;
+    if (!invoiceNo) {
+      setLoadError("Invoice number is missing.");
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
     api.get(`/invoice/get_invoice_by_id?id=${invoiceNo}`).then(res => {
-      if (res.data.status) {
+      if (res.data && res.data.status && res.data.data) {
         setInvoice(res.data.data);
         setCompany({
           company_name: res.data.data.company_name,
@@ -842,8 +853,15 @@ export default function InvoicePreview() {
           account_no: res.data.data.account_no,
           ifsc_code: res.data.data.ifsc_code,
         });
+      } else {
+        setLoadError(res.data?.message || `Invoice #${invoiceNo} not found.`);
       }
-    }).catch(err => console.error(err));
+    }).catch(err => {
+      console.error(err);
+      setLoadError(err.response?.data?.message || "Failed to load invoice details.");
+    }).finally(() => {
+      setLoading(false);
+    });
   }, [invoiceNo]);
 
 /* ── AUTO-SEND: attach the invoice PDF after the transaction message was
@@ -942,16 +960,37 @@ export default function InvoicePreview() {
       .catch(() => {});
   }, [invoice]);
 
-  if (!invoice) {
+  if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f8fafc", color: "#64748b", fontSize: 14 }}>
-        Loading invoice preview...
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f8fafc", color: "#475569", fontSize: 14, gap: 10 }}>
+        <div style={{ width: 28, height: 28, border: "3px solid #cbd5e1", borderTopColor: "#2563eb", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <span>Loading invoice #{invoiceNo}...</span>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  const logoUrl = getInvoiceLogoUrl(company?.logo);
-  const isPOS = selectedTheme === "pos";
+  if (loadError || !invoice) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f8fafc", color: "#1e293b", padding: 20 }}>
+        <div style={{ background: "#ffffff", padding: "32px 40px", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.06)", textAlign: "center", maxWidth: 420 }}>
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#fee2e2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px auto", fontSize: 24, fontWeight: "bold" }}>
+            !
+          </div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 8px 0" }}>Invoice Not Found</h2>
+          <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 20px 0" }}>
+            {loadError || `Could not find invoice #${invoiceNo}. It may have been deleted or the number is invalid.`}
+          </p>
+          <button
+            onClick={() => navigate("/sales/invoices")}
+            style={{ padding: "10px 20px", background: "#2563eb", color: "#ffffff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+          >
+            Go Back to Invoices
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   /* PDF Download */
   const downloadPDF = () => {
