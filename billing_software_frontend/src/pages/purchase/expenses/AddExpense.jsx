@@ -214,9 +214,17 @@ export default function AddExpense() {
   };
 
   // Add new tab
-  const handleAddTab = () => {
+  const handleAddTab = async () => {
     const nextIdx = tabs.length + 1;
-    const nextExpenseNo = existingCount + tabs.length + 1;
+    let nextExpenseNo = String(nextIdx);
+    try {
+      const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=expense`);
+      if (numRes.data?.status && numRes.data?.formatted_number) {
+        nextExpenseNo = numRes.data.formatted_number;
+      }
+    } catch {
+      nextExpenseNo = `EXP-${String(nextIdx).padStart(4, "0")}`;
+    }
     const newId = Date.now();
     const newTab = createNewExpenseTab(newId, nextIdx, nextExpenseNo);
     setTabs((prev) => [...prev, newTab]);
@@ -248,11 +256,20 @@ export default function AddExpense() {
 
       if (catRes.data?.status) setCategories(catRes.data.data || []);
       if (itemRes.data?.status) setExpenseItemsCatalog(itemRes.data.data || []);
-      if (countRes.data?.status) {
-        const cnt = countRes.data.count || 0;
-        setExistingCount(cnt);
-        if (!isEditMode) {
-          updateActiveTab({ expenseNo: String(cnt + 1) });
+      
+      const cnt = countRes.data?.count || 0;
+      setExistingCount(cnt);
+
+      if (!isEditMode) {
+        try {
+          const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=expense`);
+          if (numRes.data?.status && numRes.data?.formatted_number) {
+            updateActiveTab({ expenseNo: numRes.data.formatted_number });
+          } else {
+            updateActiveTab({ expenseNo: `EXP-${String(cnt + 1).padStart(4, "0")}` });
+          }
+        } catch {
+          updateActiveTab({ expenseNo: `EXP-${String(cnt + 1).padStart(4, "0")}` });
         }
       }
     } catch (err) {

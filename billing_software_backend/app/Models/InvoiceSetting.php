@@ -109,6 +109,15 @@ class InvoiceSetting extends Model
                 if (!Schema::hasColumn('invoice_settings', 'sale_order_padding')) {
                     $table->integer('sale_order_padding')->default(4);
                 }
+                if (!Schema::hasColumn('invoice_settings', 'expense_prefix')) {
+                    $table->string('expense_prefix', 50)->nullable()->default('EXP-');
+                }
+                if (!Schema::hasColumn('invoice_settings', 'expense_next_number')) {
+                    $table->bigInteger('expense_next_number')->default(1);
+                }
+                if (!Schema::hasColumn('invoice_settings', 'expense_padding')) {
+                    $table->integer('expense_padding')->default(4);
+                }
             });
         }
     }
@@ -154,6 +163,9 @@ class InvoiceSetting extends Model
                 'sale_order_prefix'            => 'SO-',
                 'sale_order_next_number'       => 1,
                 'sale_order_padding'           => 4,
+                'expense_prefix'               => 'EXP-',
+                'expense_next_number'          => 1,
+                'expense_padding'              => 4,
             ]);
         }
         return $setting;

@@ -53,6 +53,7 @@ class InvoiceSettingController extends Controller
             'delivery_challan_prefix', 'delivery_challan_next_number', 'delivery_challan_padding',
             'proforma_invoice_prefix', 'proforma_invoice_next_number', 'proforma_invoice_padding',
             'sale_order_prefix', 'sale_order_next_number', 'sale_order_padding',
+            'expense_prefix', 'expense_next_number', 'expense_padding',
         ];
 
         foreach ($fields as $field) {
@@ -177,6 +178,15 @@ class InvoiceSettingController extends Controller
                 $paddingField = 'sale_order_padding';
                 $tableName    = 'sale_orders';
                 $columnName   = 'order_no';
+                break;
+
+            case 'expense':
+            case 'expense_voucher':
+                $prefixField  = 'expense_prefix';
+                $seqField     = 'expense_next_number';
+                $paddingField = 'expense_padding';
+                $tableName    = 'expenses';
+                $columnName   = 'expense_no';
                 break;
 
             default:
