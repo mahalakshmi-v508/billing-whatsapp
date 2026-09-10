@@ -57,13 +57,15 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
   const [gstEnabled, setGstEnabled] = useState(false);
   const [gstLoading, setGstLoading] = useState(true);
   const [barcodeKey, setBarcodeKey] = useState(0);
+  const [showAdditional, setShowAdditional] = useState(false);
 
   const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
 
   const [form, setForm] = useState({
     name: "", product_code: "", price: "", stock: "",
     gst: "", barcode: "", unit: "",
-    sale_price: "", purchase_price: ""
+    sale_price: "", purchase_price: "",
+    category: "", subcategory: "", brand: ""
   });
 
   const set = (field, val) => setForm(p => ({ ...p, [field]: val }));
@@ -72,7 +74,8 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
     document.body.style.overflow = isOpen ? "hidden" : "";
 
     if (isOpen) {
-      setForm({ name: "", product_code: "", price: "", stock: "", gst: "", barcode: "", unit: "", sale_price: "", purchase_price: "" });
+      setForm({ name: "", product_code: "", price: "", stock: "", gst: "", barcode: "", unit: "", sale_price: "", purchase_price: "", category: "", subcategory: "", brand: "" });
+      setShowAdditional(false);
       fetchCompanyGST();
     }
 
@@ -121,6 +124,9 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
         category_id: 0,
         subcategory_id: 0,
         brand_id: 0,
+        new_category_name: form.category,
+        new_subcategory_name: form.subcategory,
+        new_brand_name: form.brand,
         company_id: getCompanyId(),
         price: Number(form.price !== "" ? form.price : form.sale_price || 0),
         sale_price: form.sale_price || 0,
@@ -437,6 +443,88 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
               }}>
                 <p style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", margin: "0 0 8px" }}>Barcode Preview</p>
                 <Barcode value={form.barcode} height={50} fontSize={12} margin={0} />
+              </div>
+            )}
+
+            {/* Additional Fields Toggle */}
+            <button
+              onClick={() => setShowAdditional(v => !v)}
+              style={{
+                width: "100%", padding: "12px 14px", borderRadius: 12,
+                border: "1.5px dashed #c7d2fe", background: showAdditional ? "#eef2ff" : "#f8faff",
+                color: "#4338ca", fontWeight: 700, fontSize: 13, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                transition: "all 0.2s", boxSizing: "border-box"
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 15 }}>{showAdditional ? "🔽" : "➕"}</span>
+                Additional Fields
+              </span>
+              <span style={{
+                fontSize: 10.5, background: showAdditional ? "#e0e7ff" : "#eef2ff",
+                color: "#4338ca", padding: "3px 9px", borderRadius: 99, fontWeight: 800
+              }}>
+                Optional
+              </span>
+            </button>
+
+            {showAdditional && (
+              <div style={{ animation: "apmFadeIn 0.25s ease both", marginTop: 12, paddingTop: 2 }}>
+                <p style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#3b82f6", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                  Category & Brand <span style={{ flex: 1, height: 1, background: "#e8f0fe" }} />
+                </p>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
+                    Category
+                  </label>
+                  <input
+                    className="apm-input"
+                    placeholder="e.g. Grocery"
+                    value={form.category}
+                    onChange={e => set("category", e.target.value)}
+                    style={{
+                      width: "100%", padding: "11px 14px", borderRadius: 10,
+                      border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
+                      fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
+                    Subcategory
+                  </label>
+                  <input
+                    className="apm-input"
+                    placeholder="e.g. Soft Drinks"
+                    value={form.subcategory}
+                    onChange={e => set("subcategory", e.target.value)}
+                    style={{
+                      width: "100%", padding: "11px 14px", borderRadius: 10,
+                      border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
+                      fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
+                    Brand
+                  </label>
+                  <input
+                    className="apm-input"
+                    placeholder="e.g. Coca-Cola"
+                    value={form.brand}
+                    onChange={e => set("brand", e.target.value)}
+                    style={{
+                      width: "100%", padding: "11px 14px", borderRadius: 10,
+                      border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
+                      fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
+                    }}
+                  />
+                </div>
               </div>
             )}
 

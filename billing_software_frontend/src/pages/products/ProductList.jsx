@@ -220,6 +220,9 @@ export default function ProductList() {
   const [moveCategorySearch, setMoveCategorySearch] = useState("");
   const [moveCategorySelected, setMoveCategorySelected] = useState([]);
   const [removeFromExistingCategory, setRemoveFromExistingCategory] = useState(false);
+  const [showMoveSubcategoryModal, setShowMoveSubcategoryModal] = useState(false);
+  const [moveSubcategorySearch, setMoveSubcategorySearch] = useState("");
+  const [moveSubcategorySelected, setMoveSubcategorySelected] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [subcategoryListSearch, setSubcategoryListSearch] = useState("");
@@ -578,34 +581,69 @@ export default function ProductList() {
     URL.revokeObjectURL(url);
   };
 
-  const handleMoveToCategory = () => {
+  const moveProducts = async (productIds, changes) => {
+    const res = await api.post("/product/move", {
+      product_ids: productIds,
+      company_id: getCompanyId(),
+      ...changes,
+    });
+
+    if (!res.data.status) {
+      throw new Error(res.data.message || "Failed to move products");
+    }
+  };
+
+  const handleMoveToCategory = async () => {
     if (!selectedCategory || moveCategorySelected.length === 0) return;
-    setProducts((prev) =>
-      prev.map((p) =>
-        moveCategorySelected.includes(p.id)
-          ? { ...p, category_name: selectedCategory.name, category_id: selectedCategory.id }
-          : p
-      )
-    );
-    showToast(`Moved ${moveCategorySelected.length} item(s) to ${selectedCategory.name}`);
+    try {
+      await moveProducts(moveCategorySelected, { category_id: selectedCategory.id });
+      setProducts((prev) => prev.map((p) => moveCategorySelected.includes(p.id)
+        ? { ...p, category_name: selectedCategory.name, category_id: selectedCategory.id }
+        : p));
+      showToast(`Moved ${moveCategorySelected.length} item(s) to ${selectedCategory.name}`);
+    } catch (err) {
+      showToast(err.message, false);
+      return;
+    }
     setShowMoveCategoryModal(false);
     setMoveCategorySelected([]);
     setMoveCategorySearch("");
     setRemoveFromExistingCategory(false);
   };
 
-  const handleMoveToBrand = () => {
+  const handleMoveToBrand = async () => {
     if (!selectedBrand || moveBrandSelected.length === 0) return;
-    setProducts((prev) =>
-      prev.map((p) =>
-        moveBrandSelected.includes(p.id) ? { ...p, brand_name: selectedBrand.name, brand_id: selectedBrand.id } : p
-      )
-    );
-    showToast(`Moved ${moveBrandSelected.length} item(s) to ${selectedBrand.name}`);
+    try {
+      await moveProducts(moveBrandSelected, { brand_id: selectedBrand.id });
+      setProducts((prev) => prev.map((p) => moveBrandSelected.includes(p.id)
+        ? { ...p, brand_name: selectedBrand.name, brand_id: selectedBrand.id }
+        : p));
+      showToast(`Moved ${moveBrandSelected.length} item(s) to ${selectedBrand.name}`);
+    } catch (err) {
+      showToast(err.message, false);
+      return;
+    }
     setShowMoveBrandModal(false);
     setMoveBrandSelected([]);
     setMoveBrandSearch("");
     setRemoveFromExistingBrand(false);
+  };
+
+  const handleMoveToSubcategory = async () => {
+    if (!selectedSubcategory || moveSubcategorySelected.length === 0) return;
+    try {
+      await moveProducts(moveSubcategorySelected, { subcategory_id: selectedSubcategory.id });
+      setProducts((prev) => prev.map((p) => moveSubcategorySelected.includes(p.id)
+        ? { ...p, subcategory_name: selectedSubcategory.name, subcategory_id: selectedSubcategory.id }
+        : p));
+      showToast(`Moved ${moveSubcategorySelected.length} item(s) to ${selectedSubcategory.name}`);
+    } catch (err) {
+      showToast(err.message, false);
+      return;
+    }
+    setShowMoveSubcategoryModal(false);
+    setMoveSubcategorySelected([]);
+    setMoveSubcategorySearch("");
   };
 
   const moveCategoryOptions = products.filter(
@@ -618,6 +656,12 @@ export default function ProductList() {
     (p) =>
       p.brand_id !== selectedBrand?.id &&
       p.product_name?.toLowerCase().includes(moveBrandSearch.toLowerCase())
+  );
+
+  const moveSubcategoryOptions = products.filter(
+    (p) =>
+      Number(p.subcategory_id) !== Number(selectedSubcategory?.id) &&
+      p.product_name?.toLowerCase().includes(moveSubcategorySearch.toLowerCase())
   );
 
   const TABS = [
@@ -1685,6 +1729,14 @@ export default function ProductList() {
                             <span style={{ marginLeft: 10, fontSize: 13, color: COLORS.textMuted }}>({items.length} items)</span>
                           )}
                         </div>
+                        {selectedSubcategory && (
+                          <button
+                            onClick={() => setShowMoveSubcategoryModal(true)}
+                            style={{ padding: "8px 14px", borderRadius: RADIUS.sm, border: "none", background: COLORS.primary, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}
+                          >
+                            Move Items Here
+                          </button>
+                        )}
                       </div>
 
                       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
@@ -3005,6 +3057,43 @@ export default function ProductList() {
               >
                 {savingConversion ? "Saving..." : "Save Conversion"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMoveSubcategoryModal && selectedSubcategory && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowMoveSubcategoryModal(false); }}
+          style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,22,40,.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <div style={{ background: COLORS.surface, borderRadius: RADIUS.lg, width: "100%", maxWidth: 560, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: SHADOW.modal }}>
+            <div style={{ padding: "18px 24px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Move Items to {selectedSubcategory.name}</h3>
+              <button onClick={() => setShowMoveSubcategoryModal(false)} style={{ background: "transparent", border: "none", cursor: "pointer", color: COLORS.textMuted, padding: 4 }}><X size={20} /></button>
+            </div>
+            <div style={{ padding: "16px 24px 0" }}>
+              <div style={{ position: "relative" }}>
+                <Search size={15} style={{ position: "absolute", top: "50%", left: 12, transform: "translateY(-50%)", color: COLORS.textMuted }} />
+                <input className="focus-ring" value={moveSubcategorySearch} onChange={(e) => setMoveSubcategorySearch(e.target.value)} placeholder="Search items..." style={{ width: "100%", padding: "9px 12px 9px 36px", borderRadius: RADIUS.sm, border: `1.5px solid ${COLORS.border}`, outline: "none", fontSize: 13 }} />
+              </div>
+            </div>
+            <div style={{ padding: "12px 24px", flex: 1, overflowY: "auto" }}>
+              {moveSubcategoryOptions.map((p) => {
+                const checked = moveSubcategorySelected.includes(p.id);
+                return (
+                  <div key={p.id} className="hover-bg" onClick={() => setMoveSubcategorySelected(prev => checked ? prev.filter(id => id !== p.id) : [...prev, p.id])} style={{ padding: "10px 12px", borderRadius: RADIUS.sm, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", borderBottom: `1px solid ${COLORS.border}` }}>
+                    <input type="checkbox" checked={checked} onChange={() => {}} />
+                    <span style={{ flex: 1, fontSize: 13.5, color: COLORS.text }}>{p.product_name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.textMuted }}>{Number(p.stock || 0)}</span>
+                  </div>
+                );
+              })}
+              {moveSubcategoryOptions.length === 0 && <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted }}>No items found</div>}
+            </div>
+            <div style={{ padding: "14px 24px", borderTop: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button onClick={() => setShowMoveSubcategoryModal(false)} style={{ padding: "8px 16px", borderRadius: RADIUS.sm, border: `1.5px solid ${COLORS.border}`, background: "transparent", fontWeight: 600, fontSize: 12, cursor: "pointer", color: COLORS.textSoft }}>Cancel</button>
+              <button onClick={handleMoveToSubcategory} disabled={moveSubcategorySelected.length === 0} style={{ padding: "8px 20px", borderRadius: RADIUS.sm, border: "none", background: moveSubcategorySelected.length === 0 ? COLORS.textMuted : COLORS.primary, color: "#fff", fontWeight: 700, fontSize: 12, cursor: moveSubcategorySelected.length === 0 ? "not-allowed" : "pointer" }}>Move ({moveSubcategorySelected.length})</button>
             </div>
           </div>
         </div>
