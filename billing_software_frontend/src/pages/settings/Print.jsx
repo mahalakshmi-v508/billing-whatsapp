@@ -1,11 +1,171 @@
-import { useState } from "react";
-import { ChevronDown, QrCode, Printer } from "lucide-react";
+import { useState, useEffect } from "react";
+import { 
+  ChevronDown, QrCode, Printer, Maximize2, X, Check, Palette, Sparkles 
+} from "lucide-react";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
 import { SettingsHeader, InfoIcon, CheckRow } from "./settingsUI";
-
+import { DESIGN_COMPONENTS } from "../billing/Invoice";
 const blue = "#2563eb";
 const STORAGE_KEY = "print_settings";
+
+/* ─── REALISTIC SAMPLE INVOICE DATA FOR LIVE PREVIEW ───────────────────────── */
+const SAMPLE_INVOICE = {
+  invoice_no: "INV-2026-0001",
+  created_at: new Date().toISOString(),
+  invoice_date: new Date().toISOString(),
+  due_date: new Date(Date.now() + 7 * 86400000).toISOString(),
+  customer_name: "Sri Murugan Traders",
+  customer_phone: "+91 98765 43210",
+  billing_address: "124, Cross Cut Road, Gandhipuram, Coimbatore - 641012",
+  customer_gstin: "33AAAAA0000A1Z5",
+  payment_type: "Cash",
+  payment_method: "Cash",
+  invoice_type: "Tax Invoice",
+  gst_type: "with_gst",
+  status: "paid",
+  products: [
+    {
+      product_name: "Premium Cotton Shirting Fabric",
+      name: "Premium Cotton Shirting Fabric",
+      product_code: "5208",
+      qty: 2,
+      price: 500,
+      gst: 18,
+      tax_percent: 18,
+      amount: 1000,
+      tax_amount: 180
+    },
+    {
+      product_name: "Silk Zari Border Dhotis (Pack of 2)",
+      name: "Silk Zari Border Dhotis (Pack of 2)",
+      product_code: "5007",
+      qty: 1,
+      price: 300,
+      gst: 12,
+      tax_percent: 12,
+      amount: 300,
+      tax_amount: 36
+    },
+    {
+      product_name: "Linen Formal Casual Material",
+      name: "Linen Formal Casual Material",
+      product_code: "5309",
+      qty: 1,
+      price: 200,
+      gst: 5,
+      tax_percent: 5,
+      amount: 200,
+      tax_amount: 10
+    }
+  ],
+  sub_total: 1500,
+  tax_amount: 226,
+  gst_total: 226,
+  total_amount: 1726,
+  paid_amount: 1726,
+  balance_amount: 0,
+  terms_conditions: "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged for delayed payments.\n3. Subject to Coimbatore Jurisdiction."
+};
+
+/* ─── THEME OPTIONS ────────────────────────────────────────────────────────── */
+const THEME_OPTIONS = [
+  {
+    id: "tally",
+    label: "Tally Theme",
+    category: "Classic",
+    badge: "Standard",
+    icon: "📄"
+  },
+  {
+    id: "gst1",
+    label: "GST Theme 1",
+    category: "Modern GST",
+    badge: "Corporate",
+    icon: "📊"
+  },
+  {
+    id: "gst3",
+    label: "GST Theme 3",
+    category: "Minimal GST",
+    badge: "Boxed",
+    icon: "📑"
+  },
+  {
+    id: "double_divine",
+    label: "Double Divine",
+    category: "Premium",
+    badge: "Curved Header",
+    icon: "🎨"
+  },
+  {
+    id: "french_elite",
+    label: "French Elite",
+    category: "Classic",
+    badge: "Clean",
+    icon: "🏛️"
+  },
+  {
+    id: "vintage_classic",
+    label: "Vintage Classic",
+    category: "Vintage",
+    badge: "Traditional",
+    icon: "📜"
+  },
+  {
+    id: "vintage_bold",
+    label: "Vintage Bold",
+    category: "Vintage",
+    badge: "High Contrast",
+    icon: "📜"
+  },
+];
+
+/* ─── 18 VIBRANT COLOR SWATCHES ────────────────────────────────────────────── */
+const PALETTE_COLORS = [
+  { hex: "#2563eb", name: "Royal Blue" },
+  { hex: "#1f8cff", name: "Bright Blue" },
+  { hex: "#0284c7", name: "Sky Blue" },
+  { hex: "#0d9488", name: "Teal" },
+  { hex: "#16a34a", name: "Emerald Green" },
+  { hex: "#65a30d", name: "Olive Green" },
+  { hex: "#84cc16", name: "Lime Green" },
+  { hex: "#6366f1", name: "Indigo" },
+  { hex: "#a855f7", name: "Violet" },
+  { hex: "#9333ea", name: "Purple" },
+  { hex: "#ec4899", name: "Hot Pink" },
+  { hex: "#f43f5e", name: "Rose" },
+  { hex: "#dc2626", name: "Crimson Red" },
+  { hex: "#d97706", name: "Warm Amber" },
+  { hex: "#b45309", name: "Ochre" },
+  { hex: "#78350f", name: "Warm Brown" },
+  { hex: "#4b5563", name: "Slate Gray" },
+  { hex: "#0f172a", name: "Midnight Navy" }
+];
+
+/* ─── THEME ID NORMALIZER ─────────────────────────────────────────────────── */
+export function normalizeThemeId(t) {
+  if (!t) return "tally";
+  const map = {
+    "Tally Theme": "tally",
+    "GST Theme 1": "gst1",
+    "GST Theme 2": "gst3",
+    "GST Theme 3": "gst3",
+    "Double Divine": "double_divine",
+    "French Elite": "french_elite",
+    "POS Receipt": "pos",
+    "POS Thermal Receipt": "pos",
+    "Minimal Theme": "gst3",
+    "Vintage Classic": "vintage_classic",
+    "Vintage Bold": "vintage_bold",
+    "Landscape Theme 1": "gst1",
+    "Landscape Theme 2": "gst3",
+  };
+  if (map[t]) return map[t];
+  const cleaned = String(t).toLowerCase().replace(/\s+/g, "_");
+  if (DESIGN_COMPONENTS && DESIGN_COMPONENTS[cleaned]) return cleaned;
+  return "tally";
+}
 
 const DEFAULT_STATE = {
   printer: "regular",
@@ -24,7 +184,7 @@ const DEFAULT_STATE = {
   phone: true,
   phoneText: "9994789683",
   gstin: true,
-  gstinText: "",
+  gstinText: "33AAAAA0000A1Z5",
 
   paperSize: "A4",
   orientation: "Portrait",
@@ -55,7 +215,8 @@ const DEFAULT_STATE = {
   paymentMode: false,
   printAcknowledgement: false,
 
-  template: "Tally Theme",
+  template: "tally",
+  theme: "tally",
   themeColor: "#2563eb",
 
   // Thermal printer settings
@@ -82,8 +243,15 @@ const DEFAULT_STATE = {
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return DEFAULT_STATE;
-    return { ...DEFAULT_STATE, ...JSON.parse(saved) };
+    const defaultTheme = localStorage.getItem("invoice_default_theme");
+    const defaultColor = localStorage.getItem("invoice_default_color");
+    const parsed = saved ? JSON.parse(saved) : {};
+    return { 
+      ...DEFAULT_STATE, 
+      ...parsed,
+      ...(defaultTheme ? { template: defaultTheme, theme: defaultTheme } : {}),
+      ...(defaultColor ? { themeColor: defaultColor } : {})
+    };
   } catch {
     return DEFAULT_STATE;
   }
@@ -95,7 +263,7 @@ function CollapsibleSection({ title, open, onToggle, children, badge }) {
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between gap-2 py-3 px-4 hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center justify-between gap-2 py-3 px-4 hover:bg-slate-50 transition-colors cursor-pointer"
       >
         <span className="flex items-center gap-2 text-[14px] font-bold text-slate-800">
           <span className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
@@ -153,7 +321,7 @@ function SelectRow({ label, value, onChange, options, info }) {
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-[13.5px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-[13.5px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
         >
           {options.map((o) => (
             <option key={o} value={o}>{o}</option>
@@ -176,7 +344,7 @@ function NumberSpinner({ label, value, onChange, info }) {
         <button
           type="button"
           onClick={() => onChange(Math.max(0, value - 1))}
-          className="px-3 py-2 text-gray-500 hover:bg-gray-100 text-sm"
+          className="px-3 py-2 text-gray-500 hover:bg-gray-100 text-sm cursor-pointer"
         >
           −
         </button>
@@ -193,7 +361,7 @@ function NumberSpinner({ label, value, onChange, info }) {
         <button
           type="button"
           onClick={() => onChange(value + 1)}
-          className="px-3 py-2 text-gray-500 hover:bg-gray-100 text-sm"
+          className="px-3 py-2 text-gray-500 hover:bg-gray-100 text-sm cursor-pointer"
         >
           +
         </button>
@@ -202,64 +370,33 @@ function NumberSpinner({ label, value, onChange, info }) {
   );
 }
 
-const TEMPLATES = ["Tally Theme", "Landscape Theme 1", "Landscape Theme 2", "GST Theme 1", "GST Theme 2", "Minimal Theme"];
-
-const COLOR_PALETTE = [
-  { hex: "#b39ddb", label: "Light Purple" },
-  { hex: "#009688", label: "Teal Blue" },
-  { hex: "#9e9e9e", label: "Gray" },
-  { hex: "#616161", label: "Dark Gray" },
-  { hex: "#9e9d24", label: "Olive" },
-  { hex: "#1e88e5", label: "Blue" },
-  { hex: "#00bcd4", label: "Cyan" },
-  { hex: "#43a047", label: "Green" },
-  { hex: "#7cb342", label: "Lime Green" },
-  { hex: "#795548", label: "Dark Brown" },
-  { hex: "#8e24aa", label: "Purple" },
-  { hex: "#c2185b", label: "Dark Pink" },
-  { hex: "#d84315", label: "Reddish Brown" },
-  { hex: "#f4511e", label: "Orange Brown" },
-  { hex: "#673ab7", label: "Violet" },
-  { hex: "#ec407a", label: "Magenta" },
-  { hex: "#ffb300", label: "Light Orange" },
-  { hex: "#f57c00", label: "Mustard/Orange" },
-  { hex: "#f06292", label: "Pink" },
-  { hex: "#fb8c00", label: "Orange" },
-  { hex: "#e53935", label: "Red" },
-  { hex: "#ff6d00", label: "Reddish Orange" },
-  { hex: "#6d4c41", label: "Dark Brown" },
-  { hex: "#ffffff", label: "White" },
-];
-
-function ColorSwatch({ hex, selected, onClick }) {
+function ColorSwatch({ hex, name, selected, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      title={hex}
-      aria-label={`Color ${hex}`}
-      className="w-9 h-9 rounded-full flex-shrink-0 transition-transform hover:scale-110"
-      style={{
-        background: hex,
-        boxShadow: selected
-          ? "0 0 0 4px #c6f500, 0 0 0 6px #1e88e5"
-          : hex === "#ffffff"
-            ? "inset 0 0 0 1.5px rgba(0,0,0,0.35)"
-            : "inset 0 0 0 1px rgba(0,0,0,0.15)",
-      }}
-    />
+      title={name || hex}
+      aria-label={`Color ${name || hex}`}
+      className={`w-8 h-8 rounded-lg flex-shrink-0 transition-all cursor-pointer relative flex items-center justify-center ${
+        selected ? "ring-2 ring-slate-900 ring-offset-2 scale-110 shadow-md z-10" : "hover:scale-105 border border-black/10 opacity-90 hover:opacity-100"
+      }`}
+      style={{ background: hex }}
+    >
+      {selected && <Check size={13} color="#ffffff" strokeWidth={3} />}
+    </button>
   );
 }
 
 function ColorPalette({ value, onChange }) {
   return (
     <div>
-      <div className="grid grid-cols-6 gap-x-7 gap-y-5 py-3 sm:grid-cols-8"> 
-        {COLOR_PALETTE.map((c) => (
+      <div className="grid grid-cols-6 gap-2.5 py-2"> 
+        {PALETTE_COLORS.map((c) => (
           <ColorSwatch
-            key={c.hex + c.label}
+            key={c.hex}
             hex={c.hex}
-            selected={value === c.hex}
+            name={c.name}
+            selected={(value || "").toLowerCase() === c.hex.toLowerCase()}
             onClick={() => onChange(c.hex)}
           />
         ))}
@@ -272,7 +409,7 @@ function LinkText({ children }) {
   return (
     <button
       type="button"
-      className="text-[13px] text-blue-600 hover:text-blue-800 font-medium mt-1.5"
+      className="text-[13px] text-blue-600 hover:text-blue-800 font-medium mt-1.5 cursor-pointer text-left"
     >
       {children}
     </button>
@@ -363,208 +500,6 @@ function FooterSection({ state, set, open, onToggle }) {
       <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} info="Print payment mode" />
       <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} info="Print acknowledgement" />
     </CollapsibleSection>
-  );
-}
-
-function InvoicePreview() {
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-5 text-gray-800 shadow-sm">
-      {/* Title */}
-      <div className="text-center border-b border-gray-200 pb-3 mb-3">
-        <h5 className="text-xl font-bold tracking-wide text-gray-900">Tax Invoice</h5>
-      </div>
-
-      {/* Company header */}
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-16 h-16 bg-gray-100 border border-gray-300 rounded flex items-center justify-center text-xs text-gray-400 flex-shrink-0">
-          Logo
-        </div>
-        <div>
-          <div className="text-lg font-bold text-gray-900">My Company</div>
-          <div className="text-xs text-gray-600">Phone: 9994789683</div>
-        </div>
-      </div>
-
-      {/* Bill To / Invoice Details grid */}
-      <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
-        <div className="space-y-1">
-          <div className="font-bold text-gray-800">Bill To:</div>
-          <div className="text-gray-700">Classic enterprises</div>
-          <div className="text-gray-700">Plot No. 1, Shop No. 8,</div>
-          <div className="text-gray-700">Koramangala, Bangalore,</div>
-          <div className="text-gray-700">560034</div>
-          <div className="font-bold text-gray-800 mt-2">Ship To:</div>
-          <div className="text-gray-700">Mehta Textiles, Marathalli Road,</div>
-          <div className="text-gray-700">Bangalore, Karnataka, 560034</div>
-        </div>
-        <div className="text-right space-y-1">
-          <div className="font-bold text-gray-800">Invoice Details:</div>
-          <div className="text-gray-700">Invoice No.: Inv. 101</div>
-          <div className="text-gray-700">Date: 02-07-2019</div>
-          <div className="text-gray-700">Time: 12:30 PM</div>
-          <div className="text-gray-700">Due Date: 17-07-2019</div>
-        </div>
-      </div>
-
-      {/* Items table */}
-      <div className="mb-4">
-        <table className="w-full border-collapse text-[10px]">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-2 py-1.5 font-semibold text-gray-700 text-left">#</th>
-              <th className="border border-gray-300 px-2 py-1.5 font-semibold text-gray-700 text-left">Item name</th>
-              <th className="border border-gray-300 px-2 py-1.5 font-semibold text-gray-700 text-left">HSC/SAC</th>
-              <th className="border border-gray-300 px-2 py-1.5 font-semibold text-gray-700 text-right">Qty</th>
-              <th className="border border-gray-300 px-2 py-1.5 font-semibold text-gray-700 text-right">Price/unit</th>
-              <th className="border border-gray-300 px-2 py-1.5 font-semibold text-gray-700 text-right">Discount</th>
-              <th className="border border-gray-300 px-2 py-1.5 font-semibold text-gray-700 text-right">GST</th>
-              <th className="border border-gray-300 px-2 py-1.5 font-semibold text-gray-700 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="border border-gray-300 px-2 py-1 text-gray-700">1</td>
-              <td className="border border-gray-300 px-2 py-1 text-gray-700">ITEM 1</td>
-              <td className="border border-gray-300 px-2 py-1 text-gray-700">1234</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">1+1</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹10.00</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹0.10 (1%)</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹0.50 (5%)</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700 font-medium">₹10.40</td>
-            </tr>
-            <tr>
-              <td className="border border-gray-300 px-2 py-1 text-gray-700">2</td>
-              <td className="border border-gray-300 px-2 py-1 text-gray-700">ITEM 2</td>
-              <td className="border border-gray-300 px-2 py-1 text-gray-700">6325</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">1</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹30.00</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹0.00 (0%)</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹5.40 (18%)</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700 font-medium">₹35.40</td>
-            </tr>
-            <tr className="bg-gray-50 font-semibold">
-              <td className="border border-gray-300 px-2 py-1 text-gray-700" colSpan={3}>TOTAL</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">2+1</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700" colSpan={2}>Discount: ₹0.10</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">GST: ₹5.90</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-800">₹45.80</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Tax Summary */}
-      <div className="mb-4">
-        <table className="w-full border-collapse text-[9px]">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-2 py-1 font-semibold text-gray-700 text-left">HSN/SAC</th>
-              <th className="border border-gray-300 px-2 py-1 font-semibold text-gray-700 text-right">Taxable Amt (₹)</th>
-              <th className="border border-gray-300 px-2 py-1 font-semibold text-gray-700 text-center" colSpan={2}>CGST</th>
-              <th className="border border-gray-300 px-2 py-1 font-semibold text-gray-700 text-center" colSpan={2}>SGST</th>
-              <th className="border border-gray-300 px-2 py-1 font-semibold text-gray-700 text-right">Total Tax (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="border border-gray-300 px-2 py-1 text-gray-600">-</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹50.20</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">2.5%</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹1.26</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">2.5%</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹1.26</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹5.40</td>
-            </tr>
-            <tr>
-              <td className="border border-gray-300 px-2 py-1 text-gray-600">-</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹30.00</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">9.0%</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹2.70</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">9.0%</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹2.70</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-700">₹5.40</td>
-            </tr>
-            <tr className="font-semibold bg-gray-50">
-              <td className="border border-gray-300 px-2 py-1 text-gray-800">Total</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-800">₹80.20</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-800"></td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-800">₹3.96</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-800"></td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-800">₹3.96</td>
-              <td className="border border-gray-300 px-2 py-1 text-right text-gray-800">₹9.92</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Totals */}
-      <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
-        <div className="space-y-1">
-          <div className="flex justify-between border-b border-gray-200 py-1">
-            <span className="text-gray-600">Sub Total</span>
-            <span className="font-medium text-gray-800">₹45.80</span>
-          </div>
-          <div className="flex justify-between border-b border-gray-200 py-1">
-            <span className="text-gray-600">Discount (12%)</span>
-            <span className="font-medium text-gray-800">₹5.50</span>
-          </div>
-          <div className="flex justify-between border-b border-gray-200 py-1">
-            <span className="text-gray-600">Tax (5%)</span>
-            <span className="font-medium text-gray-800">₹2.02</span>
-          </div>
-          <div className="flex justify-between border-b border-gray-200 py-1">
-            <span className="text-gray-600">TCS (1%)</span>
-            <span className="font-medium text-gray-800">₹0.42</span>
-          </div>
-          <div className="flex justify-between py-1 font-bold">
-            <span className="text-gray-800">Total</span>
-            <span className="text-gray-900">₹42.32</span>
-          </div>
-        </div>
-        <div className="space-y-1">
-          <div className="bg-gray-50 p-2 rounded border border-gray-200">
-            <div className="text-[9px] text-gray-500">Invoice Amount In Words</div>
-            <div className="text-[10px] font-medium text-gray-800">Forty Two Rupees and Thirty Two Paisa only</div>
-          </div>
-          <div className="flex justify-between py-1">
-            <span className="text-gray-600">Received</span>
-            <span className="text-gray-800">₹12.00</span>
-          </div>
-          <div className="flex justify-between py-1">
-            <span className="text-gray-600">Balance</span>
-            <span className="text-gray-800">₹30.32</span>
-          </div>
-          <div className="flex justify-between py-1 font-semibold">
-            <span className="text-gray-800">You Saved</span>
-            <span className="text-green-600">₹111.60</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="border-t border-gray-200 pt-3 grid grid-cols-2 gap-4 text-[9px]">
-        <div>
-          <div className="font-bold text-gray-800 mb-1">Description:</div>
-          <div className="text-gray-600">Sale Description</div>
-          <div className="mt-2">
-            <div className="inline-flex items-center gap-1 border border-gray-300 px-2 py-1 rounded">
-              <QrCode size={18} className="text-gray-600" />
-            </div>
-          </div>
-          <div className="font-bold text-gray-800 mt-2 mb-1">Bank Details:</div>
-          <div className="text-gray-600">Bank Name: 123123123123</div>
-          <div className="text-gray-600">Bank Account No.: 12312312312</div>
-          <div className="text-gray-600">Bank IFSC code: 123123123</div>
-        </div>
-        <div className="text-right">
-          <div className="font-bold text-gray-800 mb-1">Terms &amp; Conditions:</div>
-          <div className="text-gray-600">Thanks for doing business with us!</div>
-          <div className="font-bold text-gray-800 mt-2 mb-1">For: My Company:</div>
-          <div className="mt-4 mb-1 text-gray-400">[ Signature ]</div>
-          <div className="border-t border-gray-300 pt-1 inline-block text-gray-700">Authorized Signatory</div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -761,7 +696,6 @@ function ThermalSettings({ state, set, isOpen, toggle }) {
               <input type="checkbox" checked={state.companyLogo} onChange={(e) => set("companyLogo")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
               <span className="text-[13.5px] text-gray-700">Company Logo</span>
             </div>
-            <button type="button" className="text-xs text-blue-600 hover:text-blue-800 font-medium">Change</button>
           </div>
         </div>
         <LayerRow label="Address" checked={state.address} onChange={set("address")} input={state.addressText} onChangeText={set("addressText")} placeholder="Company address" />
@@ -771,7 +705,7 @@ function ThermalSettings({ state, set, isOpen, toggle }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Change Transaction Names" open={isOpen("changeTransactionNames")} onToggle={() => toggle("changeTransactionNames")}>
-        <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Change Transaction Names &gt;</button>
+        <button className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">Change Transaction Names &gt;</button>
       </CollapsibleSection>
 
       <CollapsibleSection title="Item Table" open={isOpen("thermalItemTable")} onToggle={() => toggle("thermalItemTable")}>
@@ -817,15 +751,15 @@ function ThermalSettings({ state, set, isOpen, toggle }) {
         <div className="space-y-2">
           <div className="flex items-center justify-between p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
             <span className="text-sm text-gray-700">1. 2 Inch (VYPRTP2001) - Quick Setup</span>
-            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Setup</button>
+            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">Setup</button>
           </div>
           <div className="flex items-center justify-between p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
             <span className="text-sm text-gray-700">2. 3 Inch (VYPRTP3001) - Quick Setup</span>
-            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Setup</button>
+            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">Setup</button>
           </div>
           <div className="flex items-center justify-between p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
             <span className="text-sm text-gray-700">3. 2 Inch (VYPRTP2002) - Quick Setup</span>
-            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Setup</button>
+            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">Setup</button>
           </div>
         </div>
       </CollapsibleSection>
@@ -838,11 +772,20 @@ export default function Print() {
   const [state, setState] = useState(loadState);
   useBackendSync("print", state, setState);
 
+  const [zoomLevel, setZoomLevel] = useState(68);
+  const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
+
   const set = (key) => (val) =>
     setState((s) => {
       const next = { ...s, [key]: typeof val === "function" ? val(s[key]) : val };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        if (key === "template" || key === "theme") {
+          localStorage.setItem("invoice_default_theme", val);
+        }
+        if (key === "themeColor") {
+          localStorage.setItem("invoice_default_color", val);
+        }
       } catch {
         /* best-effort */
       }
@@ -861,6 +804,40 @@ export default function Print() {
   const toggle = (id) => setOpenSections((s) => ({ ...s, [id]: s[id] !== false ? false : true }));
   const collapseAll = () => setOpenSections(Object.fromEntries(ALL_SECTIONS.map((id) => [id, false])));
   const expandAll = () => setOpenSections({});
+
+  // Resolve active theme
+  const activeThemeId = normalizeThemeId(state.template || state.theme);
+  const activeThemeObj = THEME_OPTIONS.find((t) => t.id === activeThemeId) || THEME_OPTIONS[0];
+  const DesignComponent = DESIGN_COMPONENTS[activeThemeId] || DESIGN_COMPONENTS.tally || DESIGN_COMPONENTS.classic;
+  const isPOS = activeThemeId === "pos";
+  const currentScale = isPOS ? 1.0 : zoomLevel / 100;
+
+  // Active Company Data from state inputs
+  const dynamicCompany = {
+    company_name: (state.companyName && state.companyNameText) ? state.companyNameText : "My Company",
+    company_address: (state.address && state.addressText) ? state.addressText : "Plot No. 1, Shop No. 8, Koramangala, Bangalore, 560034",
+    phone: (state.phone && state.phoneText) ? state.phoneText : "9994789683",
+    email: (state.email && state.emailText) ? state.emailText : "info@mycompany.com",
+    gstin: (state.gstin && state.gstinText) ? state.gstinText : "33AAAAA0000A1Z5",
+    bank_name: "State Bank of India",
+    account_no: "30294819284",
+    ifsc_code: "SBIN0001234",
+    branch_name: "Tirupur Main Branch",
+    signature: state.printSignatureText ? (state.signatureText || "Authorized Signatory") : "",
+    logo: state.companyLogo ? null : null,
+  };
+
+  const renderThemePreview = () => {
+    if (!DesignComponent) return null;
+    return (
+      <DesignComponent
+        invoice={SAMPLE_INVOICE}
+        company={dynamicCompany}
+        color={state.themeColor || "#2563eb"}
+        logoUrl={null}
+      />
+    );
+  };
 
   return (
     <div className="overflow-hidden flex flex-col flex-1">
@@ -888,7 +865,7 @@ export default function Print() {
                       key={t.id}
                       type="button"
                       onClick={() => set("printer")(t.id)}
-                      className={`flex-1 px-4 py-2 text-xs font-semibold rounded-md transition ${
+                      className={`flex-1 px-4 py-2 text-xs font-semibold rounded-md transition cursor-pointer ${
                         state.printer === t.id
                           ? "bg-white text-blue-600 shadow-sm"
                           : "text-gray-600 hover:text-gray-900"
@@ -903,7 +880,7 @@ export default function Print() {
                     type="button"
                     onClick={expandAll}
                     title="Expand all sections"
-                    className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 transition"
+                    className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 transition cursor-pointer"
                   >
                     Expand
                   </button>
@@ -911,7 +888,7 @@ export default function Print() {
                     type="button"
                     onClick={collapseAll}
                     title="Collapse all sections"
-                    className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 transition"
+                    className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 transition cursor-pointer"
                   >
                     Collapse
                   </button>
@@ -933,7 +910,7 @@ export default function Print() {
                         <button
                           type="button"
                           onClick={() => set("mode")(m.id)}
-                          className={`px-1 pt-2 pb-2 text-xs font-semibold tracking-wide transition ${
+                          className={`px-1 pt-2 pb-2 text-xs font-semibold tracking-wide transition cursor-pointer ${
                             state.mode === m.id ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
                           }`}
                         >
@@ -952,7 +929,7 @@ export default function Print() {
                         {/* Color palette */}
                         <CollapsibleSection title="Theme Color" open={isOpen("themeColor")} onToggle={() => toggle("themeColor")}>
                           <ColorPalette value={state.themeColor} onChange={set("themeColor")} />
-                          <p className="text-xs text-gray-500 mt-2">Choose a theme color for the printed invoice.</p>
+                          <p className="text-xs text-gray-500 mt-2">Choose an accent theme color for the printed invoice.</p>
                         </CollapsibleSection>
 
                         {/* Print Company Info / Header */}
@@ -974,50 +951,41 @@ export default function Print() {
 
                     {state.mode === "layout" && (
                       <>
-                        {/* Templates */}
+                        {/* Templates (Synchronized with InvoiceDesign themes) */}
                         <CollapsibleSection title="Templates" open={isOpen("templates")} onToggle={() => toggle("templates")}>
-                          <div className="grid grid-cols-3 gap-3">
-                            {TEMPLATES.map((tpl) => (
-                              <button
-                                key={tpl}
-                                type="button"
-                                onClick={() => set("template")(tpl)}
-                                className={`border rounded-lg p-2 text-center transition ${
-                                  state.template === tpl
-                                    ? "bg-blue-50 border-blue-300 shadow-sm"
-                                    : "hover:bg-gray-50 border-gray-200"
-                                }`}
-                              >
-                                <div className="h-12 bg-gray-100 rounded border border-gray-200 mb-1 flex items-center justify-center text-[8px] text-gray-400">
-                                  {tpl}
-                                </div>
-                                <span className="text-[10px] font-medium text-gray-700">{tpl}</span>
-                              </button>
-                            ))}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            {THEME_OPTIONS.map((tpl) => {
+                              const isSelected = activeThemeId === tpl.id;
+                              return (
+                                <button
+                                  key={tpl.id}
+                                  type="button"
+                                  onClick={() => {
+                                    set("template")(tpl.id);
+                                    set("theme")(tpl.id);
+                                  }}
+                                  className={`border rounded-xl p-2.5 text-center transition cursor-pointer flex flex-col items-center justify-between ${
+                                    isSelected
+                                      ? "bg-blue-50/80 border-blue-600 shadow-sm ring-1 ring-blue-500/30"
+                                      : "hover:bg-slate-50 border-gray-200 bg-white"
+                                  }`}
+                                >
+                                  <div className="w-full h-11 bg-slate-100 rounded-lg border border-slate-200/80 mb-1.5 flex items-center justify-center text-xl">
+                                    {tpl.icon || "📄"}
+                                  </div>
+                                  <span className="text-[11.5px] font-bold text-slate-900 block truncate w-full">{tpl.label}</span>
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <span className="text-[9.5px] font-semibold text-slate-400 uppercase tracking-wide">{tpl.category}</span>
+                                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" />}
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
                         </CollapsibleSection>
 
                         {/* Company Info */}
-                        <CollapsibleSection title="Print Company Info / Header" open={isOpen("companyHeader")} onToggle={() => toggle("companyHeader")}>
-                          <CheckRow label="Make Regular Printer Default" checked={state.regularDefault} onChange={set("regularDefault")} />
-                          <CheckRow label="Print repeat header in all pages" checked={state.repeatHeader} onChange={set("repeatHeader")} />
-                          <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" />
-                          <div className="py-1.5 px-1">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2.5">
-                                <input type="checkbox" checked={state.companyLogo} onChange={(e) => set("companyLogo")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
-                                <span className="text-[13.5px] text-gray-700">Company Logo</span>
-                              </div>
-                              <button type="button" className="text-xs text-blue-600 hover:text-blue-800 font-medium">Change</button>
-                            </div>
-                          </div>
-                          <LayerRow label="Address" checked={state.address} onChange={set("address")} input={state.addressText} onChangeText={set("addressText")} placeholder="Company address" />
-                          <LayerRow label="Email" checked={state.email} onChange={set("email")} input={state.emailText} onChangeText={set("emailText")} placeholder="Email" />
-                          <LayerRow label="Phone Number" checked={state.phone} onChange={set("phone")} input={state.phoneText} onChangeText={set("phoneText")} placeholder="Phone" />
-                          <LayerRow label="GSTIN on Sale" checked={state.gstin} onChange={set("gstin")} input={state.gstinText} onChangeText={set("gstinText")} placeholder="GSTIN" />
-                        </CollapsibleSection>
-
-                        {/* Print Settings */}
+                        <PrintCompanyHeader state={state} set={set} open={isOpen("companyHeader")} onToggle={() => toggle("companyHeader")} />
                         <CollapsibleSection title="Print Settings" open={isOpen("printSettings")} onToggle={() => toggle("printSettings")}>
                           <SelectRow label="Paper Size" value={state.paperSize} onChange={set("paperSize")} options={["A4", "A5", "Legal", "Thermal 80mm", "Thermal 58mm"]} />
                           <SelectRow label="Orientation" value={state.orientation} onChange={set("orientation")} options={["Portrait", "Landscape"]} />
@@ -1073,23 +1041,173 @@ export default function Print() {
             </div>
           </div>
 
-          {/* Right Panel - Preview with independent scroll */}
-          <div className="w-1/2 overflow-y-auto overflow-x-hidden bg-gray-50">
-            <div className="p-6 flex justify-center">
-              <div className="w-full flex justify-center">
+          {/* Right Panel - Dynamic Live Theme Preview */}
+          <div className="w-1/2 flex flex-col overflow-hidden bg-slate-100 border-l border-gray-200">
+            {/* Top Preview Control Bar */}
+            <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between gap-2 flex-shrink-0 shadow-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wide truncate">
+                  {state.printer === "thermal" ? "Thermal POS Live Preview" : "Live Bill Preview"}
+                </span>
                 {state.printer === "thermal" ? (
-                  <ThermalReceiptPreview state={state} />
+                  <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-md text-white bg-slate-800 shadow-xs truncate hidden sm:inline-block">
+                    POS Receipt ({state.pageSize && state.pageSize.includes("58mm") ? "58mm Roll" : "80mm Roll"})
+                  </span>
                 ) : (
-                  <div className="max-w-md w-full">
-                    <InvoicePreview />
-                  </div>
+                  <span
+                    className="text-[10.5px] font-bold px-2 py-0.5 rounded-md text-white shadow-xs truncate hidden sm:inline-block"
+                    style={{ background: state.themeColor || "#2563eb" }}
+                  >
+                    {activeThemeObj.label}
+                  </span>
                 )}
               </div>
-              <p className="text-center text-xs text-gray-400 mt-3">Live Preview</p>
-            </div>  
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {state.printer !== "thermal" && (
+                  <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-xs font-semibold text-slate-600 border border-slate-200">
+                    {[55, 68, 80].map((z) => (
+                      <button
+                        key={z}
+                        type="button"
+                        onClick={() => setZoomLevel(z)}
+                        className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
+                          zoomLevel === z ? "bg-slate-900 text-white font-bold" : "hover:bg-slate-200 text-slate-700"
+                        }`}
+                      >
+                        {z}%
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreenPreview(true)}
+                  className="text-xs font-semibold text-slate-700 hover:text-blue-600 bg-white hover:bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs transition flex items-center gap-1 cursor-pointer"
+                  title="Fullscreen Preview"
+                >
+                  <Maximize2 size={13} />
+                  <span className="hidden sm:inline">Fullscreen</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Preview Canvas Area */}
+            <div className="flex-1 p-4 bg-slate-100/90 flex justify-center items-start overflow-y-auto overflow-x-hidden relative">
+              {state.printer === "thermal" ? (
+                <div 
+                  className="bg-white p-4 sm:p-5 rounded-lg shadow-md border border-slate-200 mt-2 mb-6 transition-all"
+                  style={{
+                    width: state.pageSize && state.pageSize.includes("58mm") ? 270 : 310,
+                    maxWidth: "100%",
+                  }}
+                >
+                  {DESIGN_COMPONENTS && DESIGN_COMPONENTS.pos ? (
+                    <DESIGN_COMPONENTS.pos
+                      invoice={SAMPLE_INVOICE}
+                      company={dynamicCompany}
+                      color={state.themeColor || "#2563eb"}
+                      logoUrl={null}
+                    />
+                  ) : (
+                    <ThermalReceiptPreview state={state} />
+                  )}
+                </div>
+              ) : (
+                <div
+                  className="transition-all duration-200"
+                  style={{
+                    width: 794,
+                    background: "#ffffff",
+                    padding: "28px 32px",
+                    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06)",
+                    borderRadius: 4,
+                    transform: `scale(${currentScale})`,
+                    transformOrigin: "top center",
+                    marginBottom: `-${Math.round(1050 * (1 - currentScale))}px`,
+                    pointerEvents: "none",
+                    userSelect: "none",
+                    flexShrink: 0
+                  }}
+                >
+                  {renderThemePreview()}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Status Bar */}
+            <div className="px-4 py-2 bg-white border-t border-slate-200 text-center text-xs text-slate-500 flex-shrink-0">
+              {state.printer === "thermal" ? (
+                <span>POS Thermal Receipt Format ({state.pageSize || "80mm / 58mm"})</span>
+              ) : (
+                <span>
+                  Showing <strong>{activeThemeObj.label}</strong> with accent <strong style={{ color: state.themeColor }}>{state.themeColor}</strong>
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* ── FULL-SCREEN HIGH RESOLUTION PREVIEW MODAL ── */}
+      {isFullscreenPreview && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex flex-col justify-between p-4 sm:p-6 overflow-y-auto">
+          {/* Top Floating Modal Bar */}
+          <div className="max-w-4xl w-full mx-auto bg-white/95 backdrop-blur px-5 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-slate-200/80 mb-4 sticky top-0 z-20">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{state.printer === "thermal" ? "🧾" : activeThemeObj.icon}</span>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {state.printer === "thermal" ? "POS Thermal Receipt (Full Resolution)" : `${activeThemeObj.label} (Full Resolution)`}
+                </h3>
+                <span className="text-xs text-slate-500">
+                  {state.printer === "thermal" ? `Format: POS Thermal ${state.pageSize || "80mm"}` : `Accent: ${state.themeColor} • Format: A4 Standard`}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsFullscreenPreview(false)}
+              className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+              title="Close Full Preview"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Full Scale 100% Invoice Paper */}
+          <div className="flex justify-center items-start flex-1 py-4">
+            <div
+              style={{
+                width: state.printer === "thermal" ? 330 : 794,
+                background: "#ffffff",
+                padding: state.printer === "thermal" ? "18px 16px" : "32px 36px",
+                boxShadow: "0 12px 48px rgba(0,0,0,0.35)",
+                borderRadius: 4,
+                minHeight: state.printer === "thermal" ? "auto" : 950
+              }}
+            >
+              {state.printer === "thermal" && DESIGN_COMPONENTS && DESIGN_COMPONENTS.pos ? (
+                <DESIGN_COMPONENTS.pos
+                  invoice={SAMPLE_INVOICE}
+                  company={dynamicCompany}
+                  color={state.themeColor || "#2563eb"}
+                  logoUrl={null}
+                />
+              ) : (
+                renderThemePreview()
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="max-w-4xl w-full mx-auto text-center py-2 text-xs text-white/70">
+            Press Close to return
+          </div>
+        </div>
+      )}
     </div>
   );
 }
