@@ -657,50 +657,74 @@ class InvoiceController extends Controller
             return response()->json(["status" => false, "message" => "Invoice ID / Number is required"], 400);
         }
 
-        $query = DB::table('invoices as i')
-            ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
-            ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
-            ->select(
+        try {
+            $selectCols = [
                 'i.*',
-                'c.company_name',
-                'c.company_address',
-                'c.phone',
-                'c.gstin',
-                'c.logo',
-                'c.bank_name',
-                'c.account_no',
-                'c.ifsc_code',
                 'u.name as cashier_name'
-            );
+            ];
 
-        // Try exact match on invoice_no or id
-        $invoice = (clone $query)
-            ->where('i.invoice_no', $idVal)
-            ->orWhere('i.id', $idVal)
-            ->first();
-
-        // If not found and idVal has prefix like INV-0004, try stripping prefix / leading zeros
-        if (!$invoice) {
-            $numOnly = ltrim(preg_replace('/[^0-9]/', '', $idVal), '0');
-            if (!empty($numOnly)) {
-                $invoice = (clone $query)
-                    ->where('i.invoice_no', $numOnly)
-                    ->orWhere('i.id', intval($numOnly))
-                    ->orWhere('i.invoice_no', 'like', "%{$numOnly}")
-                    ->first();
+            if (Schema::hasTable('companies')) {
+                if (Schema::hasColumn('companies', 'company_name')) $selectCols[] = 'c.company_name';
+                if (Schema::hasColumn('companies', 'company_address')) $selectCols[] = 'c.company_address';
+                if (Schema::hasColumn('companies', 'phone')) $selectCols[] = 'c.phone';
+                if (Schema::hasColumn('companies', 'gstin')) $selectCols[] = 'c.gstin';
+                if (Schema::hasColumn('companies', 'logo')) $selectCols[] = 'c.logo';
+                if (Schema::hasColumn('companies', 'email')) $selectCols[] = 'c.email';
             }
-        }
 
-        if (!$invoice) {
-            return response()->json(["status" => false, "message" => "Invoice not found"]);
-        }
+            $query = DB::table('invoices as i')
+                ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
+                ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
+                ->select($selectCols);
 
-        $data = (array) $invoice;
-        if (is_string($data['products'])) {
-            $data['products'] = json_decode($data['products'], true);
-        }
+            // Try exact match on invoice_no or id
+            $invoice = (clone $query)
+                ->where('i.invoice_no', $idVal)
+                ->orWhere('i.id', $idVal)
+                ->first();
 
-        return response()->json(["status" => true, "data" => $data]);
+            // If not found and idVal has prefix like INV-0005, try stripping prefix / leading zeros
+            if (!$invoice) {
+                $numOnly = ltrim(preg_replace('/[^0-9]/', '', $idVal), '0');
+                if (!empty($numOnly)) {
+                    $invoice = (clone $query)
+                        ->where('i.invoice_no', $numOnly)
+                        ->orWhere('i.id', intval($numOnly))
+                        ->orWhere('i.invoice_no', 'like', "%{$numOnly}")
+                        ->first();
+                }
+            }
+
+            if (!$invoice) {
+                return response()->json(["status" => false, "message" => "Invoice not found"], 404);
+            }
+
+            $data = (array) $invoice;
+            if (is_string($data['products'])) {
+                $data['products'] = json_decode($data['products'], true);
+            }
+
+            // Merge company settings / bank details if available
+            if (!empty($data['company_id'])) {
+                try {
+                    $companySetting = \App\Models\CompanySetting::where('company_id', $data['company_id'])->first();
+                    if ($companySetting && is_array($companySetting->settings)) {
+                        $s = $companySetting->settings;
+                        $data['bank_name']   = $s['bank_name'] ?? $s['bankName'] ?? '';
+                        $data['account_no']  = $s['account_no'] ?? $s['accountNo'] ?? '';
+                        $data['ifsc_code']   = $s['ifsc_code'] ?? $s['ifscCode'] ?? '';
+                        $data['upi_id']      = $s['upi_id'] ?? $s['upiId'] ?? '';
+                        $data['branch_name'] = $s['branch_name'] ?? $s['branchName'] ?? '';
+                    }
+                } catch (\Exception $ex) {
+                    // Ignore settings merge errors
+                }
+            }
+
+            return response()->json(["status" => true, "data" => $data]);
+        } catch (\Exception $e) {
+            return response()->json(["status" => false, "message" => "Failed to load invoice: " . $e->getMessage()], 500);
+        }
     }
 
     public function getPendingInvoice(Request $request)
@@ -1118,6 +1142,20 @@ class InvoiceController extends Controller
                 'payment_date'    => $payment_date,
                 'notes'           => $notes
             ]);
+
+            // Auto-increment payment_in_next_number in invoice_settings
+            try {
+                $targetCid = $company_id ?: ($cust->company_id ?? 0);
+                if ($targetCid > 0) {
+                    $invSetting = \App\Models\InvoiceSetting::getForCompany($targetCid);
+                    if ($invSetting) {
+                        $invSetting->payment_in_next_number = max(1, intval($invSetting->payment_in_next_number)) + 1;
+                        $invSetting->save();
+                    }
+                }
+            } catch (\Exception $ex) {
+                \Log::warning("Could not increment payment_in_next_number: " . $ex->getMessage());
+            }
 
             // Auto record expense for Payment-in Discount if discount was given
             if ($discount_amount > 0) {

@@ -212,6 +212,19 @@ class CreditNoteController extends Controller
                 'is_deleted'      => 0,
             ]);
 
+            // Auto-increment credit_note_next_number in invoice_settings
+            try {
+                if ($company_id > 0) {
+                    $invSetting = \App\Models\InvoiceSetting::getForCompany($company_id);
+                    if ($invSetting) {
+                        $invSetting->credit_note_next_number = max(1, intval($invSetting->credit_note_next_number)) + 1;
+                        $invSetting->save();
+                    }
+                }
+            } catch (\Exception $ex) {
+                \Log::warning("Could not increment credit_note_next_number: " . $ex->getMessage());
+            }
+
             DB::commit();
 
             app(\App\Services\TransactionMessageService::class)->handleCreditNote($company_id, $creditNote);

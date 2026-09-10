@@ -1333,42 +1333,6 @@ export default function InvoicePreview() {
                 </span>
               </div>
             </div>
-
-            {/* Transaction Message (configured template) */}
-            <button
-              onClick={sendTransactionMessage}
-              disabled={tmSending}
-              title="Send the configured Transaction Message template"
-              style={{
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                borderRadius: 8, cursor: "pointer", color: "#334155"
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-              onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-            >
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <MessageCircle size={16} />
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600 }}>{tmSending ? "Sending..." : "Wa Msg"}</span>
-            </button>
-
-            {/* Gmail */}
-            <button
-              onClick={shareEmail}
-              style={{
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                gap: 6, padding: "10px 8px", background: "#f8fafc", border: "1px solid #e2e8f0",
-                borderRadius: 8, cursor: "pointer", color: "#334155"
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
-              onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}
-            >
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#ef4444", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Mail size={16} />
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600 }}>Gmail</span>
-            </button>
           </div>
 
           {/* 2. Share Invoice Section */}
