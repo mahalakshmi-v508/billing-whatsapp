@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ReportViewController;
 use App\Http\Controllers\Api\DayBookController;
 use App\Http\Controllers\Api\StockSummaryController;
+use App\Http\Controllers\Api\ItemWiseProfitLossController;
 use App\Http\Controllers\Api\PartyStatementController;
 use App\Http\Controllers\Api\TransactionMessageController;
 use App\Http\Controllers\Api\InvoiceSettingController;
@@ -343,6 +344,8 @@ Route::prefix('report')->group(function () {
     Route::get('party-statement/parties', [PartyStatementController::class, 'getParties']);
     Route::get('party-statement/statement', [PartyStatementController::class, 'getStatement']);
     Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);
+    Route::get('item-report-by-party', [PartyStatementController::class, 'getItemReportByParty']);
+    Route::get('item-wise-profit-loss', [ItemWiseProfitLossController::class, 'index']);
     Route::get('sale-purchase-by-party', [PartyStatementController::class, 'getSalePurchaseByParty']);
     Route::get('sale-purchase-by-party-group', [PartyStatementController::class, 'getSalePurchaseByPartyGroup']);
 });
