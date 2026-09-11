@@ -204,7 +204,7 @@ export default function MainLayout() {
   // Sale submenu transaction items are driven by Settings > General >
   // "More Transactions" checkboxes via the shared salesTransactionMap.
   const saleSubItemsFromSettings = SALES_TRANSACTION_MENU_ITEMS.filter(
-    (item) => generalSettings[item.settingsKey] !== false
+    (item) => generalSettings[item.settingsKey] !== false && item.settingsKey !== "quotation"
   ).map((item) => ({ name: item.label, path: item.path }));
   const menuItems = [
     // COMMON FOR ALL ROLES
