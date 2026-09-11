@@ -34,57 +34,61 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
   // Initialize or populate data when opening modal
   useEffect(() => {
     if (!isOpen) return;
-    setShowPartyDropdown(false);
-    setErrorMsg("");
+    let cancelled = false;
 
-    if (editPayment) {
-      setSelectedSupplier({
-        id: editPayment.supplier_id,
-        name: editPayment.supplier_name,
-        supplier_name: editPayment.supplier_name,
-        pending_balance: editPayment.invoice_balance
-      });
-      setPartyQuery(editPayment.supplier_name || "");
-      setPaidAmount(String(editPayment.amount || ""));
-      if (editPayment.payment_method) {
-        const pm = editPayment.payment_method.toLowerCase();
-        if (pm === "upi") setPaymentType("UPI");
-        else if (pm === "online") setPaymentType("Online");
-        else if (pm === "cheque") setPaymentType("Cheque");
-        else setPaymentType("Cash");
-      }
-      setPaymentDate(editPayment.payment_date || new Date().toISOString().split("T")[0]);
-      setReceiptNo(editPayment.receipt_no ? editPayment.receipt_no.replace("REC-", "") : String(editPayment.id));
-      setDescription(editPayment.notes || "");
-    } else {
-      setSelectedSupplier(initialSupplier || null);
-      setPartyQuery(initialSupplier ? (initialSupplier.supplier_name || initialSupplier.name || "") : "");
-      const initialDue = Number(initialSupplier?.pending_balance ?? 0);
-      setPaidAmount(initialDue > 0 ? String(initialDue) : "");
-      setPaymentType("Cash");
-      setPaymentDate(new Date().toISOString().split("T")[0]);
-      setDescription("");
+    const init = async () => {
+      setShowPartyDropdown(false);
+      setErrorMsg("");
 
-      // Load next sequential receipt number for new payments from settings
-      const loadReceiptNo = async () => {
+      if (editPayment) {
+        setSelectedSupplier({
+          id: editPayment.supplier_id,
+          name: editPayment.supplier_name,
+          supplier_name: editPayment.supplier_name,
+          pending_balance: editPayment.invoice_balance
+        });
+        setPartyQuery(editPayment.supplier_name || "");
+        setPaidAmount(String(editPayment.amount || ""));
+        if (editPayment.payment_method) {
+          const pm = editPayment.payment_method.toLowerCase();
+          if (pm === "upi") setPaymentType("UPI");
+          else if (pm === "online") setPaymentType("Online");
+          else if (pm === "cheque") setPaymentType("Cheque");
+          else setPaymentType("Cash");
+        }
+        setPaymentDate(editPayment.payment_date || new Date().toISOString().split("T")[0]);
+        setReceiptNo(editPayment.receipt_no ? editPayment.receipt_no.replace("REC-", "") : String(editPayment.id));
+        setDescription(editPayment.notes || "");
+      } else {
+        setSelectedSupplier(initialSupplier || null);
+        setPartyQuery(initialSupplier ? (initialSupplier.supplier_name || initialSupplier.name || "") : "");
+        const initialDue = Number(initialSupplier?.pending_balance ?? 0);
+        setPaidAmount(initialDue > 0 ? String(initialDue) : "");
+        setPaymentType("Cash");
+        setPaymentDate(new Date().toISOString().split("T")[0]);
+        setDescription("");
+
         try {
           const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_out`);
+          if (cancelled) return;
           if (numRes.data?.status && numRes.data?.formatted_number) {
             setReceiptNo(numRes.data.formatted_number);
             return;
           }
           const res = await api.get(`/purchase/get_payment_outs?company_id=${companyId}`);
+          if (cancelled) return;
           if (res.data?.data) {
             setReceiptNo(`PAYOUT-${String((res.data.data.length || 0) + 1).padStart(4, "0")}`);
           } else {
             setReceiptNo("PAYOUT-0001");
           }
         } catch {
-          setReceiptNo("PAYOUT-0001");
+          if (!cancelled) setReceiptNo("PAYOUT-0001");
         }
-      };
-      loadReceiptNo();
-    }
+      }
+    };
+    init();
+    return () => { cancelled = true; };
   }, [isOpen, editPayment, initialSupplier, companyId]);
 
   // Load suppliers list quietly on open without forcing dropdown open
@@ -116,9 +120,22 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
   };
 
   useEffect(() => {
-    if (isOpen && companyId) {
-      fetchSupplierSuggestions("");
-    }
+    if (!isOpen || !companyId) return;
+    let cancelled = false;
+    const loadSuppliers = async () => {
+      try {
+        const res = await api.get(`/supplier/get_all?company_id=${companyId}`);
+        if (cancelled) return;
+        if (res.data.status) {
+          const all = res.data.data || [];
+          setSupplierSuggestions(all.slice(0, 15));
+        }
+      } catch (err) {
+        console.error("Error loading suppliers:", err);
+      }
+    };
+    loadSuppliers();
+    return () => { cancelled = true; };
   }, [isOpen, companyId]);
 
   // Search Suppliers when typing

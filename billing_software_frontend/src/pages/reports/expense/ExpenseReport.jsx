@@ -380,13 +380,41 @@ export default function ExpenseReport() {
   };
 
   const handleOpenPdf = async (row) => {
+    /* Open the browser tab BEFORE the first await. This keeps the call inside the
+       original click gesture and prevents Chrome from replacing the PDF with a
+       blocked/blank tab after the async API request finishes. */
+    const tab = window.open("", "_blank");
+    if (!tab) {
+      alert("Please allow pop-ups for this site so the expense PDF can open in a new tab.");
+      closeAllMenus();
+      return;
+    }
+
     setDocBusy("open");
     try {
+      tab.document.open();
+      tab.document.write(
+        `<!DOCTYPE html><html><head><title>Expense</title></head>` +
+          `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#475569;font-size:15px;">` +
+          `Generating expense PDF&hellip;</body></html>`
+      );
+      tab.document.close();
+
       const ctx = await resolveExpenseContext(row);
-      await openPdfInTab(ctx);
+      await openPdfInTab(ctx, tab);
     } catch (err) {
       console.error(err);
-      alert("Unable to generate the expense PDF.");
+      try {
+        tab.document.open();
+        tab.document.write(
+          `<!DOCTYPE html><html><head><title>Error</title></head>` +
+            `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#991b1b;font-size:15px;text-align:center;padding:24px;box-sizing:border-box;">` +
+            `Unable to generate the expense PDF.<br/>Please close this tab and try again.</body></html>`
+        );
+        tab.document.close();
+      } catch {
+        // The browser tab may already have navigated or been closed.
+      }
     } finally {
       setDocBusy("");
       closeAllMenus();
@@ -460,35 +488,40 @@ export default function ExpenseReport() {
   /* Render the selected expense document to a PDF and open it in a new browser tab.
      A placeholder tab is opened synchronously (inside the click gesture) so pop-up
      blockers cannot swallow it, then it navigates to the generated PDF blob. */
-  const openPdfInTab = async (ctx) => {
+  const openPdfInTab = async (ctx, existingTab = null) => {
     const label = ctx.expense.expense_no || ctx.expense.id || "";
-    const tab = window.open("", "_blank");
+    const tab = existingTab || window.open("", "_blank");
     if (!tab) {
       alert("Please allow pop-ups for this site so the expense PDF can open in a new tab.");
       return;
     }
-    tab.document.open();
-    tab.document.write(
-      `<!DOCTYPE html><html><head><title>Expense ${String(label).replace(/[<>&"]/g, "")}</title></head>` +
-        `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#475569;font-size:15px;">` +
-        `Generating expense PDF&hellip;</body></html>`
-    );
-    tab.document.close();
+
     try {
+      /* Render the exact same document that the Preview/Print/Save actions use. */
       const doc = await renderExpensePdf(ctx);
       const blob = expensePdfBlob(doc);
+      if (!blob || blob.size === 0) throw new Error("Generated expense PDF is empty.");
+
       const blobUrl = URL.createObjectURL(blob);
-      tab.location.href = blobUrl;
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      tab.document.title = `Expense ${String(label).replace(/[<>&"]/g, "")}`;
+      tab.location.replace(blobUrl);
+
+      /* Keep the object URL alive long enough for Chrome's PDF viewer to load it. */
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5 * 60 * 1000);
     } catch (err) {
-      console.error(err);
-      tab.document.open();
-      tab.document.write(
-        `<!DOCTYPE html><html><head><title>Error</title></head>` +
-          `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#991b1b;font-size:15px;text-align:center;padding:24px;">` +
-          `Unable to generate the expense PDF.<br/>Please close this tab and try again.</body></html>`
-      );
-      tab.document.close();
+      console.error("Expense PDF generation error:", err);
+      try {
+        tab.document.open();
+        tab.document.write(
+          `<!DOCTYPE html><html><head><title>Error</title></head>` +
+            `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#991b1b;font-size:15px;text-align:center;padding:24px;box-sizing:border-box;">` +
+            `Unable to generate the expense PDF.<br/>Please close this tab and try again.</body></html>`
+        );
+        tab.document.close();
+      } catch {
+        // The tab may have been closed while the PDF was generating.
+      }
+      throw err;
     }
   };
 
@@ -1125,8 +1158,10 @@ export default function ExpenseReport() {
           border-radius: 10px;
           width: 100%;
           max-width: 560px;
-          max-height: 82vh;
-          overflow: auto;
+          max-height: calc(100vh - 24px);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
           box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
           border: 1px solid #e8edf3;
         }
@@ -1170,10 +1205,16 @@ export default function ExpenseReport() {
 
         .expense-modal-body {
           padding: 16px 18px;
+          min-height: 0;
+          flex: 1 1 auto;
+          overflow: auto;
         }
 
         .expense-modal-wide {
-          width: min(920px, 100%);
+          width: min(1400px, calc(100vw - 24px));
+          height: calc(100vh - 24px);
+          max-width: none;
+          max-height: none;
         }
 
         .expense-modal-sm {
@@ -1190,13 +1231,25 @@ export default function ExpenseReport() {
           border: 1px solid #e8edf3;
           border-radius: 6px;
           box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-          padding: 26px 28px;
-          min-height: 420px;
-          overflow-x: auto;
+          padding: 18px;
+          min-height: 100%;
+          box-sizing: border-box;
+          overflow: auto;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
         }
 
         .expense-pdf-sheet > div {
-          min-width: 620px;
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          box-sizing: border-box;
+          margin: 0 auto;
+        }
+
+        .expense-pdf-sheet table {
+          max-width: 100%;
         }
 
         .expense-modal-footer {
@@ -1205,12 +1258,12 @@ export default function ExpenseReport() {
           gap: 8px;
           justify-content: flex-end;
           align-items: center;
+          flex: 0 0 auto;
           padding: 12px 18px;
           border-top: 1px solid #eef2f7;
           background: #fbfcfe;
           border-radius: 0 0 10px 10px;
-          position: sticky;
-          bottom: 0;
+          position: relative;
           z-index: 2;
         }
 
@@ -1607,7 +1660,9 @@ export default function ExpenseReport() {
               ) : previewError ? (
                 <div style={{ padding: "34px 0", textAlign: "center", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>{previewError}</div>
               ) : previewHtml ? (
-                <div className="expense-pdf-sheet" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                <div className="expense-pdf-sheet" aria-label="Expense PDF preview">
+                  <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                </div>
               ) : null}
             </div>
             <div className="expense-modal-footer">
@@ -1693,16 +1748,25 @@ export default function ExpenseReport() {
   );
 }
 
-/* Position a fixed popover so it never leaves the viewport; prefers opening downward.
-   align "left" anchors the popover's left edge to the trigger, "right" anchors its right edge. */
+/* Fixed popover positioning. Action menus intentionally open DOWNWARD.
+   If there is not enough room below, the menu is constrained with max-height
+   instead of flipping upward. This matches the accounting-app interaction shown
+   in the reference screenshot. */
 const placePopover = (anchor, width, height, align = "left") => {
   const margin = 8;
   const gap = 6;
-  const fitsBelow = anchor.bottom + height + gap + margin <= window.innerHeight;
-  const fitsAbove = anchor.top - height - gap - margin >= margin;
-  const openUp = !fitsBelow && fitsAbove;
-  const top = openUp ? anchor.top - height - gap : anchor.bottom + gap;
+  const top = Math.max(margin, anchor.bottom + gap);
+  const availableBelow = Math.max(120, window.innerHeight - top - margin);
   const desiredLeft = align === "right" ? anchor.right - width : anchor.left;
-  const left = Math.min(Math.max(margin, desiredLeft), Math.max(margin, window.innerWidth - width - margin));
-  return { top: Math.max(margin, top), left };
+  const left = Math.min(
+    Math.max(margin, desiredLeft),
+    Math.max(margin, window.innerWidth - width - margin),
+  );
+
+  return {
+    top,
+    left,
+    maxHeight: Math.max(120, Math.min(height || availableBelow, availableBelow)),
+    overflowY: "auto",
+  };
 };
