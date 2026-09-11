@@ -6,7 +6,7 @@ import html2pdf from "html2pdf.js";
 import {
   Download, Printer, FileText, ChevronDown, ChevronUp,
   X, Maximize2, Minimize2, Check, Share2, MessageCircle, Mail,
-  Smartphone, Copy, ExternalLink, QrCode, Building2
+  Smartphone, Copy, ExternalLink, QrCode, Building2, Palette
 } from "lucide-react";
 import {
   generateInvoicePdfBase64,
@@ -1968,8 +1968,245 @@ export default function InvoicePreview() {
         </div>
       </header>
 
-      {/* ── 2. TWO-COLUMN BODY LAYOUT: CENTER CANVAS & RIGHT ACTIONS ── */}
+      {/* ── 2. THREE-COLUMN BODY LAYOUT: LEFT THEMES, CENTER CANVAS & RIGHT ACTIONS ── */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+
+        {/* ── LEFT SIDEBAR: THEME & COLOR CUSTOMIZATION ── */}
+        <aside className="no-print" style={{
+          width: 240,
+          background: "#ffffff",
+          borderRight: "1px solid #e2e8f0",
+          display: "flex",
+          flexDirection: "column",
+          padding: "16px 14px",
+          overflowY: "auto",
+          boxSizing: "border-box",
+          flexShrink: 0,
+          gap: 16
+        }}>
+          {/* Section: Printer / Format Type */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <Printer size={13} color="#64748b" />
+              <span>Format</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, background: "#f1f5f9", padding: 3, borderRadius: 8 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrinterType("regular");
+                  localStorage.setItem("invoice_printer_type", "regular");
+                }}
+                style={{
+                  padding: "7px 0",
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  background: !isPOS ? "#ffffff" : "transparent",
+                  color: !isPOS ? "#0f172a" : "#64748b",
+                  boxShadow: !isPOS ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                Regular (A4)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrinterType("thermal");
+                  localStorage.setItem("invoice_printer_type", "thermal");
+                }}
+                style={{
+                  padding: "7px 0",
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  background: isPOS ? "#ffffff" : "transparent",
+                  color: isPOS ? "#0f172a" : "#64748b",
+                  boxShadow: isPOS ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                Thermal (POS)
+              </button>
+            </div>
+          </div>
+
+          {/* Section: Regular Themes */}
+          {!isPOS ? (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <FileText size={13} color="#64748b" />
+                <span>Invoice Themes</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {THEMES.filter(t => t.id !== "pos").map((t) => {
+                  const isSelected = selectedTheme === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTheme(t.id);
+                        localStorage.setItem("invoice_default_theme", t.id);
+                      }}
+                      style={{
+                        padding: "9px 12px",
+                        fontSize: 12,
+                        fontWeight: isSelected ? 700 : 500,
+                        textAlign: "left",
+                        borderRadius: 8,
+                        border: isSelected ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
+                        background: isSelected ? "#eff6ff" : "#ffffff",
+                        color: isSelected ? "#1d4ed8" : "#334155",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <span>{t.label}</span>
+                      {isSelected && <Check size={14} color="#2563eb" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* Thermal POS Layouts */
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <FileText size={13} color="#64748b" />
+                <span>POS Receipt Layout</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {[
+                  { id: "pos_classic", label: "Classic POS" },
+                  { id: "pos_modern", label: "Modern Retail POS" },
+                  { id: "pos_detailed", label: "Detailed GST POS" },
+                  { id: "pos_minimal", label: "Minimal Slip POS" },
+                  { id: "pos_vintage", label: "Vintage Boutique POS" },
+                ].map((l) => {
+                  const isSelected = selectedPosLayout === l.id;
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPosLayout(l.id);
+                        localStorage.setItem("thermal_pos_layout", l.id);
+                      }}
+                      style={{
+                        padding: "9px 12px",
+                        fontSize: 12,
+                        fontWeight: isSelected ? 700 : 500,
+                        textAlign: "left",
+                        borderRadius: 8,
+                        border: isSelected ? "1.5px solid #d97706" : "1px solid #e2e8f0",
+                        background: isSelected ? "#fffbeb" : "#ffffff",
+                        color: isSelected ? "#b45309" : "#334155",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <span>{l.label}</span>
+                      {isSelected && <Check size={14} color="#d97706" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Page Size Option */}
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+                  Paper Width
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  {["2 Inch: 58mm", "3 Inch: 80mm"].map((sz) => {
+                    const isSelected = pageSize === sz;
+                    return (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => setPageSize(sz)}
+                        style={{
+                          padding: "6px 4px",
+                          fontSize: 10.5,
+                          fontWeight: isSelected ? 700 : 500,
+                          borderRadius: 6,
+                          border: isSelected ? "1.5px solid #d97706" : "1px solid #e2e8f0",
+                          background: isSelected ? "#fffbeb" : "#ffffff",
+                          color: isSelected ? "#b45309" : "#475569",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {sz}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Section: Accent Color Palette */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <Palette size={13} color="#64748b" />
+              <span>Theme Color</span>
+            </div>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(6, 1fr)",
+              gap: 7,
+              background: "#f8fafc",
+              padding: "9px",
+              borderRadius: 8,
+              border: "1px solid #e2e8f0"
+            }}>
+              {PALETTE_COLORS.map((c) => {
+                const isSelected = (selectedColor || "").toLowerCase() === c.toLowerCase();
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => {
+                      setSelectedColor(c);
+                      localStorage.setItem("invoice_default_color", c);
+                    }}
+                    title={c}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      background: c,
+                      border: isSelected ? "2px solid #0f172a" : "1px solid rgba(0,0,0,0.1)",
+                      outline: isSelected ? `2px solid ${c}` : "none",
+                      outlineOffset: 1,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                      transition: "transform 0.1s ease",
+                      transform: isSelected ? "scale(1.15)" : "scale(1)",
+                    }}
+                  >
+                    {isSelected && <Check size={12} color="#ffffff" strokeWidth={3} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
 
         {/* ── CENTER AREA: INVOICE PAPER CANVAS ── */}
         <main style={{
