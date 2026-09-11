@@ -1,91 +1,95 @@
-﻿import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPortal } from "react-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
-import {
-  buildExpenseDocumentHTML,
-  expensePdfBase64,
-  expensePdfBlob,
-  expensePdfFilename,
-  fetchCompanyById,
-  getCurrencySymbol,
-  parseRowItems,
-  printExpenseHTML,
-  renderExpensePdf,
-} from "../../../utils/expenseDocument";
+import { saveAs } from "file-saver";
+import html2pdf from "html2pdf.js";
 import {
   BarChart3,
-  ChevronDown,
   Copy,
   Eye,
   FileSpreadsheet,
   FileText,
-  Filter,
   History,
-  Mail,
-  MoreVertical,
+  Loader2,
+  MoreHorizontal,
   Pencil,
+  Plus,
   Printer,
   Search,
   Trash2,
   X,
 } from "lucide-react";
+import ExpenseDocument from "./ExpenseDocument";
 
-const today = () => new Date();
-const firstOfMonth = () => new Date(today().getFullYear(), today().getMonth(), 1);
-const toInputDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const PERIOD_OPTIONS = [
-  { value: "today", label: "Today" },
-  { value: "yesterday", label: "Yesterday" },
-  { value: "week", label: "This Week" },
-  { value: "last_week", label: "Last Week" },
-  { value: "month", label: "This Month" },
-  { value: "year", label: "This Year" },
-  { value: "custom", label: "Custom" },
-];
+const formatINDate = (dateStr) => {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
 
-const periodLabel = (value) => PERIOD_OPTIONS.find((option) => option.value === value)?.label || "This Month";
+const getTodayISO = () => new Date().toISOString().slice(0, 10);
 
-const getPeriodDates = (value) => {
-  const current = today();
-  const start = new Date(current);
-  const end = new Date(current);
+const getFirstDayOfMonthISO = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
+};
 
-  if (value === "yesterday") {
-    start.setDate(start.getDate() - 1);
-    end.setDate(end.getDate() - 1);
-  } else if (value === "week" || value === "last_week") {
-    const day = current.getDay();
-    const mondayOffset = day === 0 ? 6 : day - 1;
-    start.setDate(start.getDate() - mondayOffset - (value === "last_week" ? 7 : 0));
-    end.setDate(start.getDate() + 6);
-  } else if (value === "year") {
-    start.setMonth(0, 1);
-    end.setMonth(11, 31);
+const money = (n) =>
+  Number(n || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+/* Fixed dropdown geometry for smart auto-flip positioning (Purchase.jsx pattern) */
+const ACTION_MENU_WIDTH = 200;
+const ACTION_MENU_HEIGHT = 7 * 41 + 12; // 7 menu rows + padding
+const ROW_GAP = 6;
+
+/* Print a DOM node directly via a hidden iframe (no page navigation) */
+function printElement(element) {
+  const iframe = document.createElement("iframe");
+  Object.assign(iframe.style, {
+    position: "fixed",
+    width: "0",
+    height: "0",
+    border: "0",
+    visibility: "hidden",
+    right: "0",
+    bottom: "0",
+  });
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(
+    '<html><head><title>Expense Voucher</title></head>' +
+      '<body style="margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;">' +
+      element.innerHTML +
+      "</body></html>"
+  );
+  doc.close();
+
+  const win = iframe.contentWindow;
+  const fire = () => {
+    try {
+      win.focus();
+      win.print();
+    } finally {
+      setTimeout(() => iframe.remove(), 1500);
+    }
+  };
+
+  if (doc.readyState === "complete") {
+    fire();
   } else {
-    start.setDate(1);
+    win.addEventListener("load", fire);
   }
-
-  return { from: toInputDate(start), to: toInputDate(end) };
-};
-
-/* Columns that support inline header filtering (client-side, on already-loaded rows). */
-const FILTER_COLUMNS = [
-  { key: "PARTY", label: "Party", field: "party_name" },
-  { key: "CATEGORY NAME", label: "Category Name", field: "category_name" },
-  { key: "PAYMENT TYPE", label: "Payment Type", field: "payment_type" },
-];
-
-const fmtINR = (n) => `₹${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
-
-const fmtDate = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-};
-
+}
 export default function ExpenseReport() {
   const navigate = useNavigate();
   const user = useMemo(() => {
@@ -97,92 +101,65 @@ export default function ExpenseReport() {
   }, []);
 
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
-  const savedCompanyId = localStorage.getItem("selected_company_id") || user?.company_id || 0;
-
+  const [period, setPeriod] = useState("This Month");
+  const [fromDate, setFromDate] = useState(getFirstDayOfMonthISO());
+  const [toDate, setToDate] = useState(getTodayISO());
+  const [selectedFirm, setSelectedFirm] = useState("all");
   const [companies, setCompanies] = useState([]);
-  const [companyId, setCompanyId] = useState(savedCompanyId || 0);
   const [expenses, setExpenses] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [period, setPeriod] = useState("month");
-  const [fromDate, setFromDate] = useState(toInputDate(firstOfMonth()));
-  const [toDate, setToDate] = useState(toInputDate(today()));
-  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showGraph, setShowGraph] = useState(false);
 
-  const [periodMenuPosition, setPeriodMenuPosition] = useState(null);
-  const [activeTxnMenuId, setActiveTxnMenuId] = useState(null);
-  const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
-  const [actionMenuPos, setActionMenuPos] = useState(null);
-  const actionMenuRef = useRef(null);
+  /* Row Actions (Purchase.jsx pattern) */
+  const [actionMenu, setActionMenu] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
-  const [activeFilterCol, setActiveFilterCol] = useState("");
-  const [filterAnchor, setFilterAnchor] = useState(null);
-  const [filterPos, setFilterPos] = useState(null);
-  const filterRef = useRef(null);
-  const [colFilters, setColFilters] = useState({ PARTY: "", "CATEGORY NAME": "", "PAYMENT TYPE": "" });
-
-  const [previewExpense, setPreviewExpense] = useState(null);
-  const [previewContext, setPreviewContext] = useState(null);
-  const [previewHtml, setPreviewHtml] = useState(null);
+  const [previewDetail, setPreviewDetail] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
-  const [docBusy, setDocBusy] = useState("");
-  const [shareOpen, setShareOpen] = useState(false);
-  const [sharePhone, setSharePhone] = useState("");
-  const [shareBusy, setShareBusy] = useState(false);
-  const [shareMessage, setShareMessage] = useState("");
+
   const [historyExpense, setHistoryExpense] = useState(null);
-  const [duplicating, setDuplicating] = useState(false);
-  const [notice, setNotice] = useState("");
-  const noticeTimer = useRef(null);
+  const [historyRecord, setHistoryRecord] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
 
-  const showNotice = (msg) => {
-    setNotice(msg);
-    clearTimeout(noticeTimer.current);
-    noticeTimer.current = setTimeout(() => setNotice(""), 2600);
-  };
+  const [docBusyText, setDocBusyText] = useState("");
+  const [docAction, setDocAction] = useState(null);
 
-  const closeAllMenus = () => {
-    setPeriodMenuPosition(null);
-    setActiveTxnMenuId(null);
-    setActionMenuAnchor(null);
-    setActionMenuPos(null);
-    setActiveFilterCol("");
-    setFilterAnchor(null);
-    setFilterPos(null);
-  };
-
-  const fetchCompanies = async () => {
+  const loadCompanies = async () => {
     try {
-      const res = await api.get(`/company/get_companies_by_admin?admin_id=${adminId || 0}&role=${user?.role || "admin"}`);
-      const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
-      setCompanies(list);
-
-      if (!companyId && list.length > 0) {
-        const first = list[0];
-        setCompanyId(first.id);
-        localStorage.setItem("selected_company_id", String(first.id));
-      }
-    } catch (err) {
-      console.error("Company load error", err);
+      const res = await api.get(`/company/get_companies_by_admin?admin_id=${adminId}`);
+      const rows = Array.isArray(res?.data)
+        ? res.data
+        : res?.data?.data || res?.data?.companies || [];
+      setCompanies(rows);
+    } catch {
+      setError("Unable to load firms.");
     }
   };
 
-  const fetchExpenses = async () => {
+  const loadExpenses = async () => {
+    setLoading(true);
+    setError("");
     try {
-      setLoading(true);
-      const query = {
-        company_id: companyId || 0,
+      const params = {
         admin_id: adminId || 0,
-        from_date: fromDate,
-        to_date: toDate,
-        search: search.trim(),
+        company_id: selectedFirm === "all" ? 0 : selectedFirm,
+        from_date: period === "Between" ? fromDate : getFirstDayOfMonthISO(),
+        to_date: period === "Between" ? toDate : getTodayISO(),
+        search: searchTerm.trim(),
       };
 
-      const res = await api.get("/expense/list", { params: query });
-      const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
-      setExpenses(rows);
-    } catch (err) {
-      console.error("Expense report load error", err);
+      const res = await api.get("/expense/list", { params });
+      const rows = Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.data) ? res.data : [];
+      setExpenses(rows.filter((row) => !row.is_deleted));
+    } catch {
+      setError("Unable to fetch expense data. Please try again.");
       setExpenses([]);
     } finally {
       setLoading(false);
@@ -190,189 +167,116 @@ export default function ExpenseReport() {
   };
 
   useEffect(() => {
-    fetchCompanies();
-  }, [adminId, user?.role]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadCompanies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminId]);
 
   useEffect(() => {
-    fetchExpenses();
-  }, [companyId, fromDate, toDate, search]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadExpenses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, fromDate, toDate, selectedFirm, searchTerm, adminId]);
 
-  useEffect(() => {
-    const closeOnOutside = (event) => {
-      if (!event.target.closest("[data-expense-menu-container]")) closeAllMenus();
-    };
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") closeAllMenus();
-    };
+  /* current row's company object based on company_id (Purchase.jsx companyFor pattern) */
+  const companyFor = (expense) =>
+    companies.find((c) => String(c.id) === String(expense?.company_id)) || null;
 
-    document.addEventListener("mousedown", closeOnOutside);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", closeOnOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, []);
+  const loadExpenseDetail = async (expense) => {
+    const res = await api.get("/expense/get_by_id", {
+      params: { id: expense.id },
+    });
 
-  /* Measure popovers after mount so they always stay inside the viewport. */
-  useLayoutEffect(() => {
-    if (actionMenuRef.current && actionMenuAnchor) {
-      const { width, height } = actionMenuRef.current.getBoundingClientRect();
-      setActionMenuPos(placePopover(actionMenuAnchor, width, height, "right"));
+    if (res.data?.status === false) {
+      throw new Error(res.data.message || "Unable to load expense");
     }
-    if (filterRef.current && filterAnchor) {
-      const { width, height } = filterRef.current.getBoundingClientRect();
-      setFilterPos(placePopover(filterAnchor, width, height, "left"));
+
+    const data = res.data?.data ?? res.data;
+    if (!data || typeof data !== "object" || Array.isArray(data) || !data.id) {
+      throw new Error(res.data?.message || "Unable to load expense");
     }
-  }, [actionMenuAnchor, activeTxnMenuId, filterAnchor, activeFilterCol]);
+
+    return data;
+  };
+
+  const filteredExpenses = useMemo(() => expenses, [expenses]);
+
+  const graphData = useMemo(() => {
+    const map = new Map();
+    filteredExpenses.forEach((expense) => {
+      const key = (expense.expense_date || "").slice(5, 7) || "00";
+      map.set(key, (map.get(key) || 0) + Number(expense.total_amount || 0));
+    });
+    return Array.from(map.entries()).map(([month, amount]) => ({ month, amount }));
+  }, [filteredExpenses]);
 
   const handlePeriodChange = (value) => {
     setPeriod(value);
-    if (value !== "custom") {
-      const dates = getPeriodDates(value);
-      setFromDate(dates.from);
-      setToDate(dates.to);
+    if (value === "This Month") {
+      setFromDate(getFirstDayOfMonthISO());
+      setToDate(getTodayISO());
     }
-    setPeriodMenuPosition(null);
   };
 
-  const togglePeriodMenu = (event) => {
-    if (periodMenuPosition) {
-      setPeriodMenuPosition(null);
-      return;
-    }
-    const rect = event.currentTarget.getBoundingClientRect();
-    setPeriodMenuPosition({ top: rect.bottom + 4, left: rect.left, width: rect.width });
-  };
-
-  const toggleActionMenu = (event, rowId) => {
-    event.stopPropagation();
-    if (activeTxnMenuId === rowId) {
-      closeAllMenus();
-      return;
-    }
-    const rect = event.currentTarget.getBoundingClientRect();
-    setActiveFilterCol("");
-    setFilterAnchor(null);
-    setPeriodMenuPosition(null);
-    setActionMenuAnchor({ top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width });
-    setActionMenuPos(null);
-    setActiveTxnMenuId(rowId);
-  };
-
-  const toggleFilterMenu = (event, col) => {
-    event.stopPropagation();
-    if (activeFilterCol === col) {
-      setActiveFilterCol("");
-      setFilterAnchor(null);
-      setFilterPos(null);
-      return;
-    }
-    const rect = event.currentTarget.getBoundingClientRect();
-    closeAllMenus();
-    setFilterAnchor({ top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width });
-    setFilterPos(null);
-    setActiveFilterCol(col);
-  };
-
-  const filteredExpenses = useMemo(() => {
-    const q = (search || "").trim().toLowerCase();
-    if (!q) return expenses;
-
-    return expenses.filter((e) => {
-      return [
-        e.party_name,
-        e.expense_no,
-        e.category_name,
-        e.payment_type,
-        e.party_phone,
-        e.description,
-      ]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q));
-    });
-  }, [expenses, search]);
-
-  const displayedExpenses = useMemo(() => {
-    const active = FILTER_COLUMNS.filter((c) => (colFilters[c.key] || "").trim());
-    if (active.length === 0) return filteredExpenses;
-
-    return filteredExpenses.filter((row) =>
-      active.every((c) => {
-        const cell = String(row[c.field] || "");
-        return cell.toLowerCase().includes((colFilters[c.key] || "").trim().toLowerCase());
-      })
-    );
-  }, [filteredExpenses, colFilters]);
-
-  const handleExportExcel = () => {
-    if (!displayedExpenses.length) {
-      alert("No expense data available to export.");
+  /* 3-DOT MENU — fixed position + viewport auto-flip (Purchase.jsx pattern) */
+  const toggleActionMenu = (e, expense) => {
+    if (actionMenu && String(actionMenu.id) === String(expense.id)) {
+      setActionMenu(null);
       return;
     }
 
-    const rows = displayedExpenses.map((item, idx) => ({
-      "S.No": idx + 1,
-      Date: item.expense_date || "-",
-      "Exp. No.": item.expense_no || item.id,
-      Party: item.party_name || "-",
-      "Category Name": item.category_name || "-",
-      "Payment Type": item.payment_type || "Cash",
-      Amount: item.total_amount || 0,
-      "Balance Due": item.balance_amount || 0,
-    }));
+    const rect = e.currentTarget.getBoundingClientRect();
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Expense Report");
-    XLSX.writeFile(wb, `ExpenseReport_${companyId || "all"}.xlsx`);
+    let x = rect.right - ACTION_MENU_WIDTH;
+    if (x < 10) x = 10;
+
+    let y = rect.bottom + ROW_GAP;
+
+    if (y + ACTION_MENU_HEIGHT > window.innerHeight - 10) {
+      y = rect.top - ACTION_MENU_HEIGHT - ROW_GAP;
+      if (y < 10) y = 10;
+    }
+
+    setActionMenu({ id: expense.id, x, y, expense });
   };
 
-  const handleDelete = async (expense) => {
-    if (!window.confirm(`Delete expense ${expense.expense_no || expense.id}?`)) return;
+  const actionMenuExpense = actionMenu
+    ? actionMenu.expense ||
+      expenses.find((ex) => String(ex.id) === String(actionMenu.id)) ||
+      null
+    : null;
+
+  /* VIEW / EDIT — existing expense edit screen */
+  const handleViewEdit = (expense) => {
+    setActionMenu(null);
+    if (expense?.id) {
+      navigate(`/purchases/expenses/edit/${expense.id}`);
+    }
+  };
+
+  /* DELETE — real /expense/delete API with confirmation modal */
+  const confirmDelete = (expense) => {
+    setActionMenu(null);
+    setDeleteTarget(expense);
+  };
+
+  const performDelete = async () => {
+    if (!deleteTarget || deletingId) return;
+    setDeletingId(deleteTarget.id);
     try {
-      const res = await api.post("/expense/delete", { id: expense.id });
-      if (res.data.status) fetchExpenses();
-      else alert(res.data.message || "Unable to delete expense");
-    } catch (err) {
-      console.error(err);
-      alert("Unable to delete expense");
-    }
-  };
+      const res = await api.post("/expense/delete", {
+        id: deleteTarget.id,
+      });
 
-  const handleDuplicate = async (row) => {
-    if (!window.confirm(`Duplicate expense ${row.expense_no || row.id}? A new expense voucher will be created.`)) return;
-    setDuplicating(true);
-    try {
-      const payload = {
-        admin_id: adminId || 0,
-        company_id: row.company_id || companyId || 0,
-        expense_date: row.expense_date,
-        category_id: row.category_id || 0,
-        category_name: row.category_name || "",
-        party_name: row.party_name || "",
-        party_phone: row.party_phone || "",
-        is_gst: row.is_gst ? true : false,
-        items: parseRowItems(row.items),
-        sub_total: Number(row.sub_total || 0),
-        tax_total: Number(row.tax_total || 0),
-        discount_total: Number(row.discount_total || 0),
-        round_off: Number(row.round_off || 0),
-        total_amount: Number(row.total_amount || 0),
-        paid_amount: Number(row.paid_amount || 0),
-        balance_amount: Number(row.balance_amount || 0),
-        payment_type: row.payment_type || "Cash",
-        description: row.description || "",
-      };
-      const res = await api.post("/expense/create", payload);
-      if (res.data && res.data.status !== false) {
-        showNotice("Expense duplicated successfully.");
-        fetchExpenses();
+      if (res.data.status) {
+        setDeleteTarget(null);
+        loadExpenses();
       } else {
-        alert(res.data?.message || "Unable to duplicate expense.");
+        alert(res.data.message || "Unable to delete this expense");
       }
     } catch (err) {
       console.error(err);
-      alert("Unable to duplicate expense.");
+      alert("Error deleting expense");
     } finally {
       setDuplicating(false);
       closeAllMenus();
@@ -380,41 +284,13 @@ export default function ExpenseReport() {
   };
 
   const handleOpenPdf = async (row) => {
-    /* Open the browser tab BEFORE the first await. This keeps the call inside the
-       original click gesture and prevents Chrome from replacing the PDF with a
-       blocked/blank tab after the async API request finishes. */
-    const tab = window.open("", "_blank");
-    if (!tab) {
-      alert("Please allow pop-ups for this site so the expense PDF can open in a new tab.");
-      closeAllMenus();
-      return;
-    }
-
     setDocBusy("open");
     try {
-      tab.document.open();
-      tab.document.write(
-        `<!DOCTYPE html><html><head><title>Expense</title></head>` +
-          `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#475569;font-size:15px;">` +
-          `Generating expense PDF&hellip;</body></html>`
-      );
-      tab.document.close();
-
       const ctx = await resolveExpenseContext(row);
-      await openPdfInTab(ctx, tab);
+      await openPdfInTab(ctx);
     } catch (err) {
       console.error(err);
-      try {
-        tab.document.open();
-        tab.document.write(
-          `<!DOCTYPE html><html><head><title>Error</title></head>` +
-            `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#991b1b;font-size:15px;text-align:center;padding:24px;box-sizing:border-box;">` +
-            `Unable to generate the expense PDF.<br/>Please close this tab and try again.</body></html>`
-        );
-        tab.document.close();
-      } catch {
-        // The browser tab may already have navigated or been closed.
-      }
+      alert("Unable to generate the expense PDF.");
     } finally {
       setDocBusy("");
       closeAllMenus();
@@ -426,102 +302,89 @@ export default function ExpenseReport() {
       const ctx = await resolveExpenseContext(row);
       printExpenseHTML(`Expense ${ctx.expense.expense_no || ctx.expense.id}`, buildExpenseDocumentHTML(ctx));
     } catch (err) {
+      setDocBusyText("");
       console.error(err);
-      alert("Unable to print the expense document.");
-    } finally {
-      closeAllMenus();
+      alert("Error duplicating expense");
     }
   };
 
-  const openPreview = async (row) => {
-    setPreviewExpense(row);
-    setPreviewContext(null);
-    setPreviewHtml(null);
+  /* PREVIEW — inline modal fed by the real expense record */
+  const openPreview = (expense) => {
+    setActionMenu(null);
+    setPreviewDetail(null);
     setPreviewError("");
     setPreviewLoading(true);
-    try {
-      const ctx = await resolveExpenseContext(row);
-      setPreviewContext(ctx);
-      setPreviewHtml(buildExpenseDocumentHTML(ctx));
-    } catch (err) {
-      console.error(err);
-      setPreviewError("Unable to load the expense preview. Please try again.");
-    } finally {
-      setPreviewLoading(false);
-      closeAllMenus();
-    }
+
+    loadExpenseDetail(expense)
+      .then(setPreviewDetail)
+      .catch((err) =>
+        setPreviewError(err.message || "Could not load expense")
+      )
+      .finally(() => setPreviewLoading(false));
   };
 
-  const closePreview = () => {
-    setPreviewExpense(null);
-    setPreviewContext(null);
-    setPreviewHtml(null);
-    setPreviewError("");
+  /* OPEN PDF — fetch + render off-screen, then html2pdf -> blob url -> new tab */
+  const openExpensePdf = (expense) => {
+    if (docBusyText) return;
+    setActionMenu(null);
+    setDocBusyText("Generating PDF…");
+    setDocAction(null);
+
+    loadExpenseDetail(expense)
+      .then((detail) => setDocAction({ mode: "pdf", detail }))
+      .catch((err) => {
+        setDocBusyText("");
+        alert(err.message);
+      });
   };
 
-  const openHistory = (row) => {
-    setHistoryExpense(row);
-    closeAllMenus();
-  };
+  /* PRINT — fetch + render off-screen, then hidden-iframe print dialog */
+  const printExpenseRow = (expense) => {
+    if (docBusyText) return;
+    setActionMenu(null);
+    setDocBusyText("Preparing print…");
+    setDocAction(null);
 
-  /* Resolve the full, real-data context (expense detail + company + currency symbol)
-     that every document action (Open PDF / Preview / Print / Save / Email) uses,
-     so all of them read the same selected expense record. */
-  const resolveCompanyFor = async (id) => {
-    if (!id) return null;
-    const fromList = companies.find((c) => Number(c.id) === Number(id));
-    if (fromList) return fromList;
-    return fetchCompanyById(id);
-  };
-
-  const resolveExpenseContext = async (row) => {
-    const cid = Number(row?.company_id || companyId || 0);
-    const [detailRes, currency] = await Promise.all([
-      api.get("/expense/get_by_id", { params: { id: row?.id } }).catch(() => null),
-      getCurrencySymbol(cid),
-    ]);
-    const expense = detailRes?.data?.data || row;
-    const company = await resolveCompanyFor(Number(expense?.company_id || cid));
-    return { expense, company, currency };
+    loadExpenseDetail(expense)
+      .then((detail) => setDocAction({ mode: "print", detail }))
+      .catch((err) => {
+        setDocBusyText("");
+        alert(err.message);
+      });
   };
 
   /* Render the selected expense document to a PDF and open it in a new browser tab.
      A placeholder tab is opened synchronously (inside the click gesture) so pop-up
      blockers cannot swallow it, then it navigates to the generated PDF blob. */
-  const openPdfInTab = async (ctx, existingTab = null) => {
+  const openPdfInTab = async (ctx) => {
     const label = ctx.expense.expense_no || ctx.expense.id || "";
-    const tab = existingTab || window.open("", "_blank");
+    const tab = window.open("", "_blank");
     if (!tab) {
       alert("Please allow pop-ups for this site so the expense PDF can open in a new tab.");
       return;
     }
-
+    tab.document.open();
+    tab.document.write(
+      `<!DOCTYPE html><html><head><title>Expense ${String(label).replace(/[<>&"]/g, "")}</title></head>` +
+        `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#475569;font-size:15px;">` +
+        `Generating expense PDF&hellip;</body></html>`
+    );
+    tab.document.close();
     try {
-      /* Render the exact same document that the Preview/Print/Save actions use. */
       const doc = await renderExpensePdf(ctx);
       const blob = expensePdfBlob(doc);
-      if (!blob || blob.size === 0) throw new Error("Generated expense PDF is empty.");
-
       const blobUrl = URL.createObjectURL(blob);
-      tab.document.title = `Expense ${String(label).replace(/[<>&"]/g, "")}`;
-      tab.location.replace(blobUrl);
-
-      /* Keep the object URL alive long enough for Chrome's PDF viewer to load it. */
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 5 * 60 * 1000);
+      tab.location.href = blobUrl;
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     } catch (err) {
-      console.error("Expense PDF generation error:", err);
-      try {
-        tab.document.open();
-        tab.document.write(
-          `<!DOCTYPE html><html><head><title>Error</title></head>` +
-            `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#991b1b;font-size:15px;text-align:center;padding:24px;box-sizing:border-box;">` +
-            `Unable to generate the expense PDF.<br/>Please close this tab and try again.</body></html>`
-        );
-        tab.document.close();
-      } catch {
-        // The tab may have been closed while the PDF was generating.
-      }
-      throw err;
+      console.error(err);
+      tab.document.open();
+      tab.document.write(
+        `<!DOCTYPE html><html><head><title>Error</title></head>` +
+          `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#991b1b;font-size:15px;text-align:center;padding:24px;">` +
+          `Unable to generate the expense PDF.<br/>Please close this tab and try again.</body></html>`
+      );
+      tab.document.close();
     }
   };
 
@@ -571,597 +434,286 @@ export default function ExpenseReport() {
     setShareMessage("");
   };
 
-  const sendSharedPdf = async () => {
-    const phone = (sharePhone || "").trim();
-    if (!phone) {
-      alert("Please enter the recipient phone number.");
+  /* EXCEL EXPORT — real filtered rows for the selected range/firm */
+  const handleDownloadExcel = () => {
+    if (!filteredExpenses.length) {
+      alert("No data available to export");
       return;
     }
-    if (!previewContext) return;
-    setShareBusy(true);
-    setShareMessage("");
-    try {
-      const ctx = previewContext;
-      const fileBase64 = await expensePdfBase64(ctx);
-      const res = await api.post("/whatsapp/send_file", {
-        company_id: ctx.expense?.company_id || companyId || 0,
-        phone,
-        file_base64: fileBase64,
-        mimetype: "application/pdf",
-        filename: expensePdfFilename(ctx.expense),
-        caption: `Expense ${ctx.expense?.expense_no || ctx.expense?.id || ""}`,
-      });
-      if (res.data?.status) {
-        setShareMessage("Expense PDF sent successfully.");
-      } else {
-        alert(res.data?.message || "Unable to send the expense PDF.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Unable to send the expense PDF.");
-    } finally {
-      setShareBusy(false);
-    }
+
+    const firmName =
+      companies.find((c) => String(c.id) === String(selectedFirm))?.company_name ||
+      "All Firms";
+
+    const rows = filteredExpenses.map((e, i) => ({
+      "Sl No": i + 1,
+      Date: formatINDate(e.expense_date),
+      "Exp No": e.expense_no,
+      Party: e.party_name,
+      "Category Name": e.category_name,
+      "Payment Type": e.payment_type,
+      "Amount (₹)": Number(e.total_amount || 0),
+      "Paid (₹)": Number(e.paid_amount || 0),
+      "Balance Due (₹)": Number(e.balance_amount || 0),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Expenses");
+
+    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([buf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    saveAs(
+      blob,
+      `Expense_Report_${firmName}_${fromDate || "all"}_to_${toDate || "all"}.xlsx`
+    );
   };
 
-  /* Lock page scroll while a modal is open and close it with the Escape key. */
-  useEffect(() => {
-    if (!previewExpense && !shareOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onEscape = (event) => {
-      if (event.key !== "Escape") return;
-      if (shareOpen) {
-        setShareOpen(false);
-        setShareMessage("");
-      } else if (previewExpense) {
-        setPreviewExpense(null);
-        setPreviewContext(null);
-        setPreviewHtml(null);
-        setPreviewError("");
-      }
-    };
-    document.addEventListener("keydown", onEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", onEscape);
-    };
-  }, [previewExpense, shareOpen]);
+  const handlePrintReport = () => {
+    window.print();
+  };
+
+  const menuItemStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "9px 12px",
+    borderRadius: "8px",
+    fontSize: "13.5px",
+    fontWeight: "600",
+    cursor: "pointer",
+  };
 
   return (
-    <div className="expense-report-root">
+    <div className="expense-report-page">
       <style>{`
-        .expense-report-root {
-          min-width: 100%;
+        * { box-sizing: border-box; }
+        .expense-report-page {
+          min-height: 100vh;
+          background: #eef2f6;
+          color: #293855;
+          font-family: Arial, Helvetica, sans-serif;
+        }
+        .expense-report-shell {
+          max-width: 1200px;
+          margin: 0 auto;
           background: #f8fafc;
-          color: #334155;
-          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+          min-height: 760px;
+          box-shadow: 0 0 16px rgba(0,0,0,.08);
+          border-left: 1px solid #dde2ea;
+          border-right: 1px solid #dde2ea;
+          padding: 16px 24px 32px;
         }
-
-        .expense-report-card {
-          min-height: 520px;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-          padding: 0;
-          overflow: hidden;
-        }
-
         .expense-report-topbar {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          min-height: 58px;
-          padding: 9px 16px;
-          background: #fff;
-          border-bottom: 1px solid #e8edf3;
-          gap: 20px;
-          flex-wrap: nowrap;
+          gap: 12px;
+          min-height: 56px;
+          flex-wrap: wrap;
         }
-
-        .expense-filter-strip {
+        .report-title {
+          font-size: 22px;
+          font-weight: 700;
+          color: #304254;
+          margin: 0;
+        }
+        .date-range-row {
           display: flex;
           align-items: center;
-          gap: 10px;
-          flex-wrap: nowrap;
-          min-width: 0;
-          flex: 1 1 auto;
+          gap: 12px;
+          flex-wrap: wrap;
         }
-
-        .expense-filter-title {
+        .control-box {
+          height: 36px;
+          border: 1px solid #ccd4dc;
+          border-radius: 6px;
+          background: #fff;
+          display: flex;
+          align-items: center;
+          padding: 0 12px;
+          color: #63748d;
+          font-weight: 700;
+          min-width: 160px;
+        }
+        .control-box select,
+        .control-box input {
+          border: none;
+          background: transparent;
+          outline: none;
+          width: 100%;
+          color: #304254;
+          font-weight: 700;
+        }
+        .between-label {
+          color: #66768a;
+          font-weight: 700;
+          margin: 0 8px;
+        }
+        .report-actions {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          margin-left: auto;
+          flex-wrap: wrap;
+        }
+        .graph-action,
+        .excel-action,
+        .print-action {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #40536b;
+          font-weight: 700;
+          font-size: 14px;
+          cursor: pointer;
+          background: transparent;
+          border: none;
+        }
+        .graph-action svg,
+        .excel-action svg,
+        .print-action svg { width: 17px; height: 17px; }
+        .heading-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 16px;
+        }
+        .heading-row h2 {
+          font-size: 22px;
+          font-weight: 800;
+          margin: 0;
+          color: #344258;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+.add-expense-button {
+          background: linear-gradient(135deg, #e72a48, #d82727);
+          color: #fff;
+          border: none;
+          border-radius: 28px;
+          padding: 11px 22px;
+          font-weight: 800;
+          font-size: 14px;
           display: flex;
           align-items: center;
           gap: 8px;
-          min-width: fit-content;
-          white-space: nowrap;
-          font-size: 14px;
-          font-weight: 700;
-          color: #1e293b;
-          background: #f1f5f9;
-          border-radius: 6px;
-          padding: 7px 12px;
-          height: 36px;
-          box-shadow: inset 0 0 0 1px rgba(15,23,42,0.04);
-          border: 1px solid #d8e0ea;
           cursor: pointer;
-          position: relative;
-          font-family: inherit;
+          box-shadow: 0 3px 10px rgba(210,39,39,.25);
         }
-
-        .expense-filter-title:hover {
-          background: #e9eef4;
+        .search-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 12px;
         }
-
-        .expense-period-menu,
-        .expense-action-menu,
-        .expense-filter-pop {
-          position: fixed;
-          z-index: 10000;
+        .search-box {
+          width: 320px;
+          height: 40px;
           background: #fff;
-          border: 1px solid #d8e0ea;
-          border-radius: 8px;
-          box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
-          overflow: hidden;
-        }
-
-        .expense-period-menu {
-          min-width: 150px;
-          padding: 4px;
-        }
-
-        .expense-period-menu button {
-          display: block;
-          width: 100%;
-          padding: 8px 12px;
-          border: none;
-          background: #fff;
-          color: #334155;
-          font-size: 12px;
-          font-weight: 600;
-          text-align: left;
-          cursor: pointer;
+          display: flex;
+          align-items: center;
+          border: 1px solid #ccd6df;
           border-radius: 5px;
+          padding: 0 10px;
+          gap: 8px;
         }
-
-        .expense-period-menu button:hover {
-          background: #f1f5f9;
-        }
-
-        .expense-filter-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: #64748b;
-          white-space: nowrap;
-          min-width: fit-content;
-          line-height: 1;
-        }
-
-        .expense-date-input,
-        .expense-company-select {
-          width: 145px;
-          height: 36px;
-          padding: 6px 10px;
-          font-size: 13px;
-          line-height: 1.2;
-          border-radius: 6px;
-          border: 1px solid #d8e0ea;
-          background: #fff;
-          color: #475569;
-          outline: none;
-          box-shadow: none;
-        }
-
-        .expense-company-select {
-          width: 150px;
-          cursor: pointer;
-        }
-
-        .expense-actions {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          flex-wrap: nowrap;
-          flex-shrink: 0;
-          justify-content: flex-end;
-        }
-
-        .expense-action {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 3px;
+        .search-box input {
           border: none;
           background: transparent;
-          color: #475569;
-          font-size: 11px;
-          font-weight: 700;
-          padding: 5px 8px;
-          min-width: 54px;
-          cursor: pointer;
-          white-space: nowrap;
-          height: 42px;
-        }
-
-        .expense-action svg {
-          width: 19px;
-          height: 19px;
-          color: #475569;
-        }
-
-        .expense-action:hover {
-          color: #1e293b;
-          background: #f1f5f9;
-          border-radius: 8px;
-        }
-
-        .expense-content {
-          padding: 14px 16px 16px;
-        }
-
-        .expense-transactions-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          padding: 0 0 10px;
-        }
-
-        .expense-transactions-title {
-          font-size: 13px;
-          font-weight: 800;
-          color: #1e293b;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          white-space: nowrap;
-        }
-
-        .expense-transactions-count {
-          color: #94a3b8;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          text-transform: uppercase;
-        }
-
-        .expense-transactions-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 14px;
-          padding: 0 0 12px;
-        }
-
-        .expense-search-wrap {
-          position: relative;
-          width: 280px;
-          max-width: 100%;
-        }
-
-        .expense-search-wrap > svg {
-          position: absolute;
-          left: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #94a3b8;
-          width: 15px;
-          height: 15px;
-          pointer-events: none;
-        }
-
-        .expense-search {
-          width: 100%;
-          height: 36px;
-          padding: 7px 12px 7px 32px;
-          border: 1px solid #d8e0ea;
-          border-radius: 6px;
-          background: #fff;
-          color: #334155;
-          font-size: 13px;
           outline: none;
-        }
-
-        .expense-search:focus {
-          border-color: #c3cdd9;
-          box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.06);
-        }
-
-        .expense-add-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          height: 34px;
-          padding: 0 14px;
-          background: linear-gradient(135deg, #ee3444 0%, #cc1f2c 100%);
-          color: #fff;
-          font-size: 12.5px;
-          font-weight: 800;
-          border-radius: 6px;
-          border: none;
-          cursor: pointer;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          white-space: nowrap;
-          font-family: inherit;
-        }
-
-        .expense-add-button:hover {
-          background: linear-gradient(135deg, #d72734 0%, #b91c28 100%);
-        }
-
-        .expense-add-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .expense-table-scroll {
           width: 100%;
-          overflow-x: auto;
-          border: 1px solid #e8edf3;
-          border-radius: 8px;
-          background: #fff;
+          color: #304254;
         }
-
+        .trans-table-wrap {
+          width: 100%;
+          border: 1px solid #b9c3d2;
+          border-radius: 4px;
+          background: #fff;
+          margin-top: 12px;
+          overflow-x: auto;
+          box-shadow: 0 1px 2px rgba(0,0,0,.04);
+        }
         .expense-table {
           width: 100%;
-          border-collapse: separate;
-          border-spacing: 0;
-          min-width: 860px;
+          border-collapse: collapse;
+          table-layout: fixed;
         }
-
-        .expense-table thead th {
-          height: 34px;
-          padding: 7px 12px;
-          border-bottom: 1px solid #e8edf3;
-          color: #64748b;
-          background: #f8fafc;
-          font-size: 10.5px;
-          font-weight: 800;
-          line-height: 1.1;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          vertical-align: middle;
-          white-space: nowrap;
-        }
-
-        .expense-table thead th.is-left { text-align: left; }
-        .expense-table thead th.is-center { text-align: center; }
-        .expense-table thead th.is-right { text-align: right; }
-
-        .expense-th-inner {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-        }
-
-        .expense-filter-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 20px;
-          height: 20px;
-          border: none;
-          background: transparent;
-          border-radius: 4px;
-          cursor: pointer;
-          padding: 0;
-          color: #cbd5e1;
-        }
-
-        .expense-filter-btn:hover {
-          background: #e9eef4;
-          color: #64748b;
-        }
-
-        .expense-filter-btn.is-active {
-          color: #ee3444;
-        }
-
-        .expense-table tbody td {
-          height: 38px;
-          padding: 7px 12px;
-          border-bottom: 1px solid #f1f5f9;
-          background: #fff;
-          color: #334155;
-          font-size: 12.5px;
-          line-height: 1.3;
-          vertical-align: middle;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 220px;
-        }
-
-        .expense-table tbody td.is-left { text-align: left; }
-        .expense-table tbody td.is-center { text-align: center; }
-        .expense-table tbody td.is-right {
-          text-align: right;
-          font-variant-numeric: tabular-nums;
-        }
-
-        .expense-table tbody tr {
-          background: #fff;
-        }
-
-        .expense-table tbody tr:hover td {
-          background: #f8fafc;
-        }
-
-        .expense-table tbody tr:last-child td {
-          border-bottom: none;
-        }
-
-        .expense-table tbody td.party-cell {
-          font-weight: 600;
-          color: #1e293b;
-        }
-
-        .expense-table tbody td.amount-cell,
-        .expense-table tbody td.balance-cell {
-          font-weight: 700;
-          color: #1e293b;
-        }
-
-        .expense-table tbody td.balance-cell.has-balance {
-          color: #dc2626;
-        }
-
-        .expense-table tbody td.exp-no-cell {
-          font-weight: 600;
-          color: #475569;
-        }
-
-        .expense-table tbody .actions-cell {
-          padding: 4px 8px;
-          text-align: center;
-          width: 56px;
-        }
-
-        .expense-row-dot {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border: none;
-          background: transparent;
-          border-radius: 6px;
-          color: #94a3b8;
-          cursor: pointer;
-          padding: 0;
-        }
-
-        .expense-row-dot:hover,
-        .expense-row-dot.is-open {
-          color: #334155;
-          background: #eef2f7;
-        }
-
-        .expense-empty-cell {
-          padding: 40px 12px !important;
-          text-align: center !important;
-          color: #94a3b8;
-          font-size: 13px;
-          font-weight: 600;
-          max-width: none !important;
-          overflow: visible !important;
-          white-space: normal !important;
-        }
-
-        .expense-action-menu {
-          min-width: 208px;
-          padding: 5px;
-        }
-
-        .expense-action-menu-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          width: 100%;
-          padding: 8px 11px;
-          background: #fff;
-          color: #334155;
-          border: none;
-          border-radius: 5px;
-          font-size: 12.5px;
-          font-weight: 600;
-          text-align: left;
-          cursor: pointer;
-          font-family: inherit;
-          white-space: nowrap;
-        }
-
-        .expense-action-menu-item svg {
-          width: 14px;
-          height: 14px;
-          color: #64748b;
-          flex-shrink: 0;
-        }
-
-        .expense-action-menu-item:hover {
-          background: #f1f5f9;
-          color: #111827;
-        }
-
-        .expense-action-menu-item.danger {
-          color: #dc2626;
-        }
-
-        .expense-action-menu-item.danger svg {
-          color: #dc2626;
-        }
-
-        .expense-action-menu-item.danger:hover {
-          background: #fef2f2;
-        }
-
-        .expense-filter-pop {
-          width: 216px;
-          padding: 8px;
-        }
-
-        .expense-filter-input {
-          width: 100%;
-          height: 32px;
-          padding: 6px 10px;
-          font-size: 12.5px;
-          border: 1px solid #d8e0ea;
-          border-radius: 5px;
-          background: #fff;
-          color: #334155;
-          outline: none;
-        }
-
-        .expense-filter-input:focus {
-          border-color: #c3cdd9;
-          box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.06);
-        }
-
-        .expense-filter-pop-actions {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 8px;
-          margin-top: 8px;
-        }
-
-        .expense-filter-pop-actions button {
-          border: none;
-          background: transparent;
+        .expense-table th {
+          background: #eef2f8;
+          border-bottom: 1px solid #aebbd1;
+          color: #526174;
           font-size: 12px;
-          font-weight: 700;
-          color: #64748b;
+          font-weight: 800;
+          text-transform: uppercase;
+          height: 44px;
+          text-align: left;
+          padding: 0 12px;
+          white-space: nowrap;
+        }
+        .expense-table td {
+          height: 50px;
+          padding: 12px 14px;
+          border-bottom: 1px solid #dde4ec;
+          color: #304254;
+          font-size: 13px;
+          background: #fdfefe;
+          vertical-align: middle;
+        }
+        .expense-table tbody tr:nth-child(even) td {
+          background: #eef6f8;
+        }
+        .expense-table tbody tr:hover td {
+          background: #eaf7f9;
+        }
+        .expense-table th:nth-child(1), .expense-table td:nth-child(1) { width: 11%; }
+        .expense-table th:nth-child(2), .expense-table td:nth-child(2) { width: 9%; }
+        .expense-table th:nth-child(3), .expense-table td:nth-child(3) { width: 11%; }
+        .expense-table th:nth-child(4), .expense-table td:nth-child(4) { width: 14%; }
+        .expense-table th:nth-child(5), .expense-table td:nth-child(5) { width: 12%; }
+        .expense-table th:nth-child(6), .expense-table td:nth-child(6) { width: 11%; text-align: right; }
+        .expense-table th:nth-child(7), .expense-table td:nth-child(7) { width: 11%; text-align: right; }
+        .expense-table th:nth-child(8), .expense-table td:nth-child(8) { width: 7%; text-align: center; }
+        .money-align { text-align: right !important; }
+        .row-menu {
+          position: relative;
+        }
+        .row-menu-button {
+          border: none;
+          background: transparent;
           cursor: pointer;
-          padding: 3px 6px;
-          border-radius: 4px;
+          color: #526174;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
-
-        .expense-filter-pop-actions button:hover {
-          background: #f1f5f9;
-          color: #111827;
+        .no-data {
+          padding: 50px 20px;
+          text-align: center;
+          color: #65748b;
+          font-size: 18px;
+          font-weight: 700;
         }
-
-        .expense-modal-overlay {
+        .loading { padding: 50px; text-align: center; color: #65748b; }
+        .modal-backdrop {
           position: fixed;
           inset: 0;
-          z-index: 100000;
+          background: rgba(15,23,42,.45);
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(15, 23, 42, 0.45);
-          padding: 16px;
+          z-index: 1000;
         }
-
-        .expense-modal {
+        .preview-modal {
+          width: min(980px, calc(100vw - 30px));
           background: #fff;
           border-radius: 10px;
           width: 100%;
           max-width: 560px;
-          max-height: calc(100vh - 24px);
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
+          max-height: 82vh;
+          overflow: auto;
           box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
           border: 1px solid #e8edf3;
         }
@@ -1205,16 +757,10 @@ export default function ExpenseReport() {
 
         .expense-modal-body {
           padding: 16px 18px;
-          min-height: 0;
-          flex: 1 1 auto;
-          overflow: auto;
         }
 
         .expense-modal-wide {
-          width: min(1400px, calc(100vw - 24px));
-          height: calc(100vh - 24px);
-          max-width: none;
-          max-height: none;
+          width: min(920px, 100%);
         }
 
         .expense-modal-sm {
@@ -1231,25 +777,13 @@ export default function ExpenseReport() {
           border: 1px solid #e8edf3;
           border-radius: 6px;
           box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-          padding: 18px;
-          min-height: 100%;
-          box-sizing: border-box;
-          overflow: auto;
-          display: flex;
-          justify-content: center;
-          align-items: flex-start;
+          padding: 26px 28px;
+          min-height: 420px;
+          overflow-x: auto;
         }
 
         .expense-pdf-sheet > div {
-          width: 100% !important;
-          min-width: 0 !important;
-          max-width: 100% !important;
-          box-sizing: border-box;
-          margin: 0 auto;
-        }
-
-        .expense-pdf-sheet table {
-          max-width: 100%;
+          min-width: 620px;
         }
 
         .expense-modal-footer {
@@ -1258,12 +792,12 @@ export default function ExpenseReport() {
           gap: 8px;
           justify-content: flex-end;
           align-items: center;
-          flex: 0 0 auto;
           padding: 12px 18px;
           border-top: 1px solid #eef2f7;
           background: #fbfcfe;
           border-radius: 0 0 10px 10px;
-          position: relative;
+          position: sticky;
+          bottom: 0;
           z-index: 2;
         }
 
@@ -1386,272 +920,288 @@ export default function ExpenseReport() {
 
         .expense-preview-items th {
           background: #f8fafc;
-          font-size: 10.5px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: #64748b;
-        }
-
-        .expense-notice {
-          position: fixed;
-          left: 50%;
-          bottom: 26px;
-          transform: translateX(-50%);
-          z-index: 100001;
-          background: #1e293b;
-          color: #fff;
-          font-size: 12.5px;
-          font-weight: 700;
-          padding: 9px 16px;
+          padding: 12px;
           border-radius: 8px;
-          box-shadow: 0 8px 22px rgba(15, 23, 42, 0.25);
-          opacity: 0;
-          transition: opacity 0.18s ease;
-          pointer-events: none;
+          border: 1px solid #dde4ec;
         }
-
-        .expense-notice.is-visible {
-          opacity: 1;
+        .preview-content table { width: 100%; border-collapse: collapse; }
+        .preview-content th, .preview-content td { padding: 8px; border: 1px solid #cbd5e1; }
+        @media (max-width: 760px) {
+          .expense-report-shell { padding: 12px; }
+          .report-actions { margin-left: 0; }
+          .search-box { width: 100%; }
+          .expense-table { min-width: 760px; }
         }
-
-        @media (max-width: 900px) {
-          .expense-report-topbar {
-            flex-wrap: wrap;
-            gap: 12px;
-          }
-          .expense-filter-strip {
-            flex-wrap: wrap;
-          }
-          .expense-actions {
+        @media print {
+          body * { visibility: hidden; }
+          #expense-report-print-area,
+          #expense-report-print-area * { visibility: visible; }
+          #expense-report-print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
             width: 100%;
-            justify-content: flex-start;
+            padding: 16px;
           }
-          .expense-transactions-toolbar {
-            flex-wrap: wrap;
-          }
-          .expense-search-wrap {
-            width: 100%;
-          }
+          .expense-report-no-print { display: none !important; }
+        }
+        @keyframes er-spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
 
-      <div className="expense-report-card">
-        <div className="expense-report-topbar">
-          <div className="expense-filter-strip">
-            <button type="button" className="expense-filter-title" data-expense-menu-container onClick={togglePeriodMenu}>
-              <span>{periodLabel(period)}</span>
-              <ChevronDown size={14} style={{ color: "#64748b" }} />
-            </button>
-
-            <span className="expense-filter-label">Between</span>
-            <input type="date" className="expense-date-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-
-            <span className="expense-filter-label">To</span>
-            <input type="date" className="expense-date-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-
-            <select className="expense-company-select" value={companyId} onChange={(e) => {
-              const v = e.target.value;
-              setCompanyId(v);
-              localStorage.setItem("selected_company_id", String(v));
-            }}>
-              <option value="0">All Firms</option>
-              {companies.map((c) => <option key={c.id} value={c.id}>{c.name || c.company_name}</option>)}
-            </select>
-          </div>
-
-          <div className="expense-actions">
-            <button className="expense-action">
-              <BarChart3 size={18} />
-              <span>Graph</span>
-            </button>
-            <button className="expense-action" onClick={handleExportExcel}>
-              <FileSpreadsheet size={18} />
-              <span>Excel Report</span>
-            </button>
-            <button className="expense-action" onClick={() => window.print()}>
-              <Printer size={18} />
-              <span>Print</span>
-            </button>
-          </div>
-        </div>
-
-        {periodMenuPosition && createPortal(
-          <div className="expense-period-menu" data-expense-menu-container style={periodMenuPosition}>
-            {PERIOD_OPTIONS.map((option) => (
-              <button key={option.value} type="button" onClick={() => handlePeriodChange(option.value)}>
-                {option.label}
-              </button>
-            ))}
-          </div>,
-          document.body,
-        )}
-
-        <div className="expense-content">
-          <div className="expense-transactions-head">
-            <span className="expense-transactions-title">Transactions</span>
-            <span className="expense-transactions-count">{displayedExpenses.length} records</span>
-          </div>
-
-          <div className="expense-transactions-toolbar">
-            <div className="expense-search-wrap">
-              <Search size={15} />
-              <input value={search} placeholder="Search expense" onChange={(e) => setSearch(e.target.value)} className="expense-search" />
+      <div className="expense-report-shell">
+        <div className="expense-report-topbar expense-report-no-print">
+          <div className="report-title">This Month</div>
+          <div className="date-range-row">
+            <div className="control-box">
+              <select value={period} onChange={(e) => handlePeriodChange(e.target.value)}>
+                <option>This Month</option>
+                <option>Between</option>
+              </select>
             </div>
 
-            <button className="expense-add-button" onClick={() => navigate("/purchases/expenses/add")}>+ Add Expense</button>
+            <span className="between-label">Between</span>
+            <div className="control-box">
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+            <span className="between-label">To</span>
+            <div className="control-box">
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </div>
+
+            <div className="control-box" style={{ minWidth: 160 }}>
+              <select value={selectedFirm} onChange={(e) => setSelectedFirm(e.target.value)}>
+                <option value="all">ALL FIRMS</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>{company.company_name || company.name || `Firm ${company.id}`}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="expense-table-scroll">
-            <table className="expense-table">
-              <thead>
-                <tr>
-                  <th className="is-left">Date</th>
-                  <th className="is-left">Exp. No.</th>
-                  <th className="is-left">
-                    <span className="expense-th-inner">
-                      Party
-                      <button
-                        type="button"
-                        className={`expense-filter-btn ${(colFilters.PARTY || "").trim() ? "is-active" : ""}`}
-                        data-expense-menu-container
-                        onClick={(e) => toggleFilterMenu(e, "PARTY")}
-                        title="Filter party"
-                      >
-                        <Filter size={11} />
-                      </button>
-                    </span>
-                  </th>
-                  <th className="is-left">
-                    <span className="expense-th-inner">
-                      Category Name
-                      <button
-                        type="button"
-                        className={`expense-filter-btn ${(colFilters["CATEGORY NAME"] || "").trim() ? "is-active" : ""}`}
-                        data-expense-menu-container
-                        onClick={(e) => toggleFilterMenu(e, "CATEGORY NAME")}
-                        title="Filter category"
-                      >
-                        <Filter size={11} />
-                      </button>
-                    </span>
-                  </th>
-                  <th className="is-left">
-                    <span className="expense-th-inner">
-                      Payment Type
-                      <button
-                        type="button"
-                        className={`expense-filter-btn ${(colFilters["PAYMENT TYPE"] || "").trim() ? "is-active" : ""}`}
-                        data-expense-menu-container
-                        onClick={(e) => toggleFilterMenu(e, "PAYMENT TYPE")}
-                        title="Filter payment type"
-                      >
-                        <Filter size={11} />
-                      </button>
-                    </span>
-                  </th>
-                  <th className="is-right">Amount</th>
-                  <th className="is-right">Balance Due</th>
-                  <th className="is-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="8" className="expense-empty-cell">Loading...</td></tr>
-                ) : displayedExpenses.length === 0 ? (
-                  <tr><td colSpan="8" className="expense-empty-cell">No expense records found.</td></tr>
-                ) : displayedExpenses.map((row) => (
-                  <tr key={row.id}>
-                    <td className="is-left">{fmtDate(row.expense_date)}</td>
-                    <td className="is-left exp-no-cell">{row.expense_no || row.id}</td>
-                    <td className="is-left party-cell" title={row.party_name || ""}>{row.party_name || "-"}</td>
-                    <td className="is-left" title={row.category_name || ""}>{row.category_name || "-"}</td>
-                    <td className="is-left" title={row.payment_type || "Cash"}>{row.payment_type || "Cash"}</td>
-                    <td className="is-right amount-cell">{fmtINR(row.total_amount)}</td>
-                    <td className={`is-right balance-cell ${Number(row.balance_amount || 0) > 0 ? "has-balance" : ""}`}>{fmtINR(row.balance_amount)}</td>
-                    <td className="actions-cell">
-                      <button
-                        type="button"
-                        className={`expense-row-dot ${activeTxnMenuId === row.id ? "is-open" : ""}`}
-                        data-expense-menu-container
-                        onClick={(e) => toggleActionMenu(e, row.id)}
-                        title="Expense actions"
-                        aria-label="Expense actions"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="report-actions">
+            <button className="graph-action" onClick={() => setShowGraph(true)}>
+              <BarChart3 /> <span>Graph</span>
+            </button>
+            <button className="excel-action" onClick={handleDownloadExcel}>
+              <FileSpreadsheet /> <span>Excel Report</span>
+            </button>
+            <button className="print-action" onClick={handlePrintReport}>
+              <Printer /> <span>Print</span>
+            </button>
           </div>
         </div>
+
+        <div id="expense-report-print-area">
+          <div className="heading-row">
+            <h2>Transactions</h2>
+            <button className="add-expense-button expense-report-no-print" onClick={() => navigate("/purchases/expenses/add")}>
+              <Plus size={16} /> Add Expense
+            </button>
+          </div>
+
+          <div className="search-row expense-report-no-print">
+            <div className="search-box">
+              <Search size={16} />
+              <input placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="loading">Loading expenses...</div>
+          ) : error ? (
+            <div className="no-data">{error}</div>
+          ) : filteredExpenses.length === 0 ? (
+            <div className="no-data">No transactions found</div>
+          ) : (
+            <div className="trans-table-wrap">
+              <table className="expense-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Exp. No.</th>
+                    <th>Party</th>
+                    <th>Category Name</th>
+                    <th>Payment Type</th>
+                    <th>Amount</th>
+                    <th>Balance Due</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredExpenses.map((expense) => (
+                    <tr key={expense.id}>
+                      <td>{formatINDate(expense.expense_date)}</td>
+                      <td>{expense.expense_no || expense.id}</td>
+                      <td>{expense.party_name || "-"}</td>
+                      <td title={expense.category_name || "-"}>{expense.category_name || "-"}</td>
+                      <td>{expense.payment_type || "Cash"}</td>
+                      <td className="money-align">{money(expense.total_amount || 0)}</td>
+                      <td className="money-align">{money(expense.balance_amount || 0)}</td>
+                      <td className="row-menu">
+                        <button
+                          className="row-menu-button"
+                          title="More actions"
+                          onClick={(e) => toggleActionMenu(e, expense)}
+                        >
+                          <MoreHorizontal size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
+{/* ── 3-DOT ACTIONS DROPDOWN (fixed, never clipped by the table scroll) ── */}
+      {actionMenu && actionMenuExpense && (
+        <>
+          {/* Click-outside to close */}
+          <div
+            onClick={() => setActionMenu(null)}
+            style={{ position: "fixed", inset: 0, zIndex: 55 }}
+          />
+          <div
+            className="row-menu"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              left: actionMenu.x,
+              top: actionMenu.y,
+              zIndex: 60,
+              width: ACTION_MENU_WIDTH,
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "10px",
+              boxShadow: "0 8px 24px rgba(15,23,42,0.14)",
+              padding: "6px",
+            }}
+          >
+            {/* VIEW / EDIT */}
+            <div
+              onClick={() => handleViewEdit(actionMenuExpense)}
+              style={{ ...menuItemStyle, color: "#334155" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <Pencil size={15} style={{ color: "#2563eb" }} />
+              View / Edit
+            </div>
 
-      {activeTxnMenuId && (() => {
-        const row = expenses.find((e) => e.id === activeTxnMenuId);
-        if (!row) return null;
-        return createPortal(
-          <div ref={actionMenuRef} className="expense-action-menu" data-expense-menu-container style={actionMenuPos || { visibility: "hidden", top: 0, left: 0 }}>
-            <button className="expense-action-menu-item" onClick={() => { navigate(`/purchases/expenses/edit/${row.id}`); closeAllMenus(); }}>
-              <Pencil size={14} /> <span>View/Edit</span>
-            </button>
-            <button className="expense-action-menu-item danger" disabled={duplicating} onClick={() => { handleDelete(row); closeAllMenus(); }}>
-              <Trash2 size={14} /> <span>Delete</span>
-            </button>
-            <button className="expense-action-menu-item" disabled={duplicating} onClick={() => handleDuplicate(row)}>
-              <Copy size={14} /> <span>{duplicating ? "Duplicating..." : "Duplicate"}</span>
-            </button>
-            <button className="expense-action-menu-item" disabled={!!docBusy} onClick={() => handleOpenPdf(row)}>
-              <FileText size={14} /> <span>Open PDF</span>
-            </button>
-            <button className="expense-action-menu-item" onClick={() => openPreview(row)}>
-              <Eye size={14} /> <span>Preview</span>
-            </button>
-            <button className="expense-action-menu-item" onClick={() => handlePrintRow(row)}>
-              <Printer size={14} /> <span>Print</span>
-            </button>
-            <button className="expense-action-menu-item" onClick={() => openHistory(row)}>
-              <History size={14} /> <span>View History</span>
-            </button>
-          </div>,
-          document.body,
-        );
-      })()}
+            {/* DELETE */}
+            <div
+              onClick={() => confirmDelete(actionMenuExpense)}
+              style={{ ...menuItemStyle, color: "#e11d48" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <Trash2 size={15} style={{ color: "#e11d48" }} />
+              Delete
+            </div>
 
-      {activeFilterCol && createPortal(
-        <div ref={filterRef} className="expense-filter-pop" data-expense-menu-container style={filterPos || { visibility: "hidden", top: 0, left: 0 }}>
-          {(() => {
-            const col = FILTER_COLUMNS.find((c) => c.key === activeFilterCol);
-            if (!col) return null;
-            return (
-              <>
-                <input
-                  autoFocus
-                  className="expense-filter-input"
-                  placeholder={`Filter ${col.label.toLowerCase()}...`}
-                  value={colFilters[col.key] || ""}
-                  onChange={(e) => setColFilters((p) => ({ ...p, [col.key]: e.target.value }))}
-                />
-                <div className="expense-filter-pop-actions">
-                  <button type="button" onClick={() => { setColFilters((p) => ({ ...p, [col.key]: "" })); setActiveFilterCol(""); }}>Clear</button>
-                  <button type="button" onClick={() => setActiveFilterCol("")}>Done</button>
-                </div>
-              </>
-            );
-          })()}
-        </div>,
-        document.body,
+            {/* DUPLICATE */}
+            <div
+              onClick={() => duplicateExpenseRow(actionMenuExpense)}
+              style={{ ...menuItemStyle, color: "#334155" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <Copy size={15} style={{ color: "#64748b" }} />
+              Duplicate
+            </div>
+
+            {/* OPEN PDF */}
+            <div
+              onClick={() => openExpensePdf(actionMenuExpense)}
+              style={{ ...menuItemStyle, color: "#334155" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <FileText size={15} style={{ color: "#2563eb" }} />
+              Open PDF
+            </div>
+
+            {/* PREVIEW */}
+            <div
+              onClick={() => openPreview(actionMenuExpense)}
+              style={{ ...menuItemStyle, color: "#334155" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <Eye size={15} style={{ color: "#0891b2" }} />
+              Preview
+            </div>
+
+            {/* PRINT */}
+            <div
+              onClick={() => printExpenseRow(actionMenuExpense)}
+              style={{ ...menuItemStyle, color: "#334155" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <Printer size={15} style={{ color: "#64748b" }} />
+              Print
+            </div>
+
+            {/* VIEW HISTORY */}
+            <div
+              onClick={() => openHistory(actionMenuExpense)}
+              style={{ ...menuItemStyle, color: "#334155" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <History size={15} style={{ color: "#64748b" }} />
+              View History
+            </div>
+          </div>
+        </>
       )}
-
-      {previewExpense && (
-        <div className="expense-modal-overlay" onClick={closePreview}>
-          <div className="expense-modal expense-modal-wide" onClick={(e) => e.stopPropagation()}>
-            <div className="expense-modal-header">
-              <span className="expense-modal-title">Preview {previewExpense.expense_no ? `#${previewExpense.expense_no}` : ""}</span>
-              <button className="expense-modal-close" onClick={closePreview} aria-label="Close">
-                <X size={16} />
+{/* ── DELETE CONFIRMATION MODAL ── */}
+      {deleteTarget && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(15,23,42,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            className="expense-report-no-print"
+            style={{
+              width: "min(92vw, 460px)",
+              background: "#fff",
+              borderRadius: "14px",
+              overflow: "hidden",
+              boxShadow: "0 20px 50px rgba(15,23,42,0.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "15px 18px",
+                borderBottom: "1px solid #e2e8f0",
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#17243a" }}>
+                Delete Expense
+              </h3>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={!!deletingId}
+                style={{ border: "none", background: "transparent", color: "#64748b", cursor: "pointer" }}
+              >
+                <X size={18} />
               </button>
             </div>
             <div className="expense-modal-body">
@@ -1660,113 +1210,413 @@ export default function ExpenseReport() {
               ) : previewError ? (
                 <div style={{ padding: "34px 0", textAlign: "center", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>{previewError}</div>
               ) : previewHtml ? (
-                <div className="expense-pdf-sheet" aria-label="Expense PDF preview">
-                  <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                </div>
+                <div className="expense-pdf-sheet" dangerouslySetInnerHTML={{ __html: previewHtml }} />
               ) : null}
             </div>
             <div className="expense-modal-footer">
               <button className="expense-btn-primary" disabled={!!docBusy || !previewContext} onClick={openPreviewPdf}>
                 {docBusy === "open" ? "Opening..." : "Open PDF"}
               </button>
-              <button className="expense-btn-ghost" disabled={!previewContext} onClick={printPreviewPdf}>
-                <Printer size={14} /> Print
+              <button
+                onClick={performDelete}
+                disabled={!!deletingId}
+                style={{
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "9px 16px",
+                  background: "#e11d48",
+                  color: "#fff",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  opacity: deletingId ? 0.6 : 1,
+                }}
+              >
+                {deletingId && (
+                  <Loader2 size={14} style={{ animation: "er-spin 1s linear infinite" }} />
+                )}
+                {deletingId ? "Deleting..." : "Delete"}
               </button>
-              <button className="expense-btn-ghost" disabled={!!docBusy || !previewContext} onClick={savePreviewPdf}>
-                {docBusy === "save" ? "Saving..." : "Save PDF"}
-              </button>
-              <button className="expense-btn-ghost" disabled={!previewContext} onClick={openSharePdf}>
-                <Mail size={14} /> Email PDF
-              </button>
-              <button className="expense-btn-ghost expense-btn-close" onClick={closePreview}>Close</button>
             </div>
           </div>
         </div>
       )}
-
-      {shareOpen && (
-        <div className="expense-modal-overlay" onClick={closeSharePdf}>
-          <div className="expense-modal expense-modal-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="expense-modal-header">
-              <span className="expense-modal-title">Email / Share PDF</span>
-              <button className="expense-modal-close" onClick={closeSharePdf} aria-label="Close">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="expense-modal-body">
-              <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "#64748b", lineHeight: 1.55 }}>
-                Sends the generated expense PDF to a WhatsApp number using the firm&apos;s connected WhatsApp account.
-              </p>
-              <label style={{ display: "block", marginBottom: 6, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#64748b" }}>Recipient phone number</label>
-              <input
-                className="expense-share-input"
-                type="tel"
-                placeholder="9876543210"
-                value={sharePhone}
-                onChange={(e) => setSharePhone(e.target.value)}
-              />
-              {shareMessage && <p style={{ margin: "14px 0 0", fontSize: 12.5, fontWeight: 700, color: "#15803d" }}>{shareMessage}</p>}
-            </div>
-            <div className="expense-modal-footer">
-              <button className="expense-btn-primary" disabled={shareBusy} onClick={sendSharedPdf}>
-                {shareBusy ? "Sending..." : "Send PDF"}
-              </button>
-              <button className="expense-btn-ghost expense-btn-close" onClick={closeSharePdf}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {historyExpense && (
-        <div className="expense-modal-overlay" onClick={() => setHistoryExpense(null)}>
-          <div className="expense-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="expense-modal-header">
-              <span className="expense-modal-title">Expense History</span>
-              <button className="expense-modal-close" onClick={() => setHistoryExpense(null)} aria-label="Close">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="expense-modal-body">
-              <div className="expense-detail-grid">
-                <div><div className="field-label">Expense No.</div><div className="field-value">#{historyExpense.expense_no || historyExpense.id}</div></div>
-                <div><div className="field-label">Party</div><div className="field-value">{historyExpense.party_name || "-"}</div></div>
-                <div><div className="field-label">Category</div><div className="field-value">{historyExpense.category_name || "-"}</div></div>
-                <div><div className="field-label">Total Amount</div><div className="field-value">{fmtINR(historyExpense.total_amount)}</div></div>
-                <div><div className="field-label">Record Created</div><div className="field-value">{historyExpense.created_at ? fmtDate(historyExpense.created_at) : "Not recorded"}</div></div>
-                <div><div className="field-label">Last Updated</div><div className="field-value">{historyExpense.updated_at ? fmtDate(historyExpense.updated_at) : "Not recorded"}</div></div>
+{/* ── PREVIEW MODAL (real expense document) ── */}
+      {(previewLoading || previewDetail || previewError) && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 110,
+            background: "rgba(15,23,42,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            className="expense-report-no-print"
+            style={{
+              width: "min(94vw, 960px)",
+              maxHeight: "90vh",
+              background: "#fff",
+              borderRadius: "14px",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 50px rgba(15,23,42,0.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "14px 18px",
+                borderBottom: "1px solid #e2e8f0",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#17243a" }}>
+                  Expense Preview
+                </h3>
+                <div style={{ marginTop: "2px", fontSize: "12px", color: "#64748b" }}>
+                  {previewDetail
+                    ? `${previewDetail.expense_no || `#${previewDetail.id}`} · ${previewDetail.party_name || "-"}`
+                    : "\u00A0"}
+                </div>
               </div>
-              <p style={{ marginTop: 16, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                Detailed change history is not recorded for expenses.
-              </p>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {previewDetail && (
+                  <button
+                    onClick={() => printExpenseRow(previewDetail)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "8px 14px",
+                      background: "#2563eb",
+                      color: "#fff",
+                      fontSize: "12.5px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Printer size={14} />
+                    Print
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setPreviewDetail(null);
+                    setPreviewError("");
+                    setPreviewLoading(false);
+                  }}
+                  disabled={previewLoading}
+                  style={{ border: "none", background: "transparent", color: "#64748b", cursor: "pointer" }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ overflow: "auto", padding: "20px", background: "#f1f5f9", flex: 1 }}>
+              {previewLoading ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "10px",
+                    padding: "60px 0",
+                    color: "#64748b",
+                    fontSize: "13.5px",
+                    fontWeight: "600",
+                  }}
+                >
+                  <Loader2 size={18} style={{ animation: "er-spin 1s linear infinite", color: "#2563eb" }} />
+                  Loading expense…
+                </div>
+              ) : previewError ? (
+                <div
+                  style={{
+                    padding: "60px 0",
+                    textAlign: "center",
+                    color: "#e11d48",
+                    fontSize: "13.5px",
+                    fontWeight: "600",
+                  }}
+                >
+                  {previewError}
+                </div>
+              ) : (
+                <div
+                  id="preview-expense-document"
+                  style={{
+                    background: "#fff",
+                    borderRadius: "6px",
+                    border: "1px solid #e2e8f0",
+                    overflow: "hidden",
+                  }}
+                >
+                  <ExpenseDocument
+                    expense={previewDetail}
+                    company={companyFor(previewDetail)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+{/* ── VIEW HISTORY MODAL (real expense record + timestamps) ── */}
+      {historyExpense && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 120,
+            background: "rgba(15,23,42,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            className="expense-report-no-print"
+            style={{
+              width: "min(92vw, 560px)",
+              maxHeight: "88vh",
+              background: "#fff",
+              borderRadius: "14px",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 50px rgba(15,23,42,0.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "15px 18px",
+                borderBottom: "1px solid #e2e8f0",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#17243a" }}>
+                  Expense History
+                </h3>
+                <div style={{ marginTop: "2px", fontSize: "12px", color: "#64748b" }}>
+                  {historyExpense.expense_no || `#${historyExpense.id}`} ·{" "}
+                  {historyExpense.party_name || "-"}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setHistoryExpense(null)}
+                style={{ border: "none", background: "transparent", color: "#64748b", cursor: "pointer" }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ overflow: "auto", flex: 1 }}>
+              {historyLoading ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "10px",
+                    padding: "50px 0",
+                    color: "#64748b",
+                    fontSize: "13.5px",
+                    fontWeight: "600",
+                  }}
+                >
+                  <Loader2 size={18} style={{ animation: "er-spin 1s linear infinite", color: "#2563eb" }} />
+                  Loading expense history…
+                </div>
+              ) : historyError ? (
+                <div
+                  style={{
+                    padding: "40px 20px",
+                    textAlign: "center",
+                    color: "#e11d48",
+                    fontSize: "13.5px",
+                    fontWeight: "600",
+                  }}
+                >
+                  {historyError}
+                </div>
+              ) : historyRecord ? (
+                <div style={{ padding: "8px 18px" }}>
+                  <div
+                    style={{
+                      padding: "9px 14px",
+                      fontSize: "12px",
+                      fontStyle: "normal",
+                      color: "#94a3b8",
+                      background: "#f1f5f9",
+                      borderRadius: "8px",
+                    }}
+                  >
+                    Record timeline built from the actual expense record
+                    returned by the expense detail API for this voucher.
+                  </div>
+
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", marginTop: "10px" }}>
+                    <tbody>
+                      {[
+                        ["Expense #", historyRecord.expense_no || `#${historyRecord.id}`],
+                        ["Date", formatINDate(historyRecord.expense_date)],
+                        ["Party", historyRecord.party_name || "-"],
+                        ["Category", historyRecord.category_name || "-"],
+                        ["Payment Type", historyRecord.payment_type || "Cash"],
+                        ["Total Amount", money(historyRecord.total_amount || 0)],
+                        ["Paid", money(historyRecord.paid_amount || 0)],
+                        ["Balance", money(historyRecord.balance_amount || 0)],
+                        ["Created At", historyRecord.created_at
+                          ? new Date(historyRecord.created_at).toLocaleString("en-IN")
+                          : "-"],
+                        ["Last Updated", historyRecord.updated_at
+                          ? new Date(historyRecord.updated_at).toLocaleString("en-IN")
+                          : "-"],
+                      ].map(([k, v], i) => (
+                        <tr
+                          key={k}
+                          style={{ borderBottom: "1px solid #eef2f6", background: i % 2 === 0 ? "#ffffff" : "#f8fafc" }}
+                        >
+                          <td style={{ padding: "9px 12px", color: "#64748b", fontWeight: "600", width: "42%" }}>
+                            {k}
+                          </td>
+                          <td style={{ padding: "9px 12px", color: "#334155", fontWeight: "600" }}>
+                            {v}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ padding: "50px 20px", textAlign: "center", color: "#94a3b8", fontSize: "13px", fontWeight: "600" }}>
+                  No history recorded for this expense yet
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+{/* ── EXPENSE GRAPH MODAL ── */}
+      {showGraph && (
+        <div className="modal-backdrop">
+          <div className="preview-modal">
+            <div className="preview-head">
+              <h3>Expense Graph</h3>
+              <button className="row-menu-button" onClick={() => setShowGraph(false)}><X /></button>
+            </div>
+            <div className="preview-content">
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, minHeight: 190 }}>
+                {graphData.length === 0 ? <div>No data</div> : graphData.map((row) => {
+                  const barHeight = Math.max(10, Math.min(180, Number(row.amount || 0) / Math.max(...graphData.map((r) => Number(r.amount || 0)), 1) * 180));
+                  return (
+                    <div key={row.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: '50px', height: `${barHeight}px`, background: '#4f8bf9', borderRadius: '4px 4px 0 0', display: 'flex', alignItems: 'end' }}>{}</div>
+                      <span style={{ fontSize: 11, color: '#40536b' }}>{row.month}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className={`expense-notice ${notice ? "is-visible" : ""}`}>{notice}</div>
+      {/* =====================================================
+          OFF-SCREEN EXPENSE DOCUMENT used by Open PDF / Print
+          (kept off the painted viewport with negative z-index,
+           exactly like the proven Purchase.jsx implementation —
+           never display:none / visibility:hidden so html2canvas
+           can still rasterise it)
+      ===================================================== */}
+      {docAction && (
+        <div
+          aria-hidden
+          style={{
+            position: "fixed",
+            top: 0,
+            left: "-10000px",
+            width: 794,
+            background: "#fff",
+            zIndex: -1,
+          }}
+        >
+          <div
+            id="row-action-expense"
+            style={{
+              background: "#fff",
+              width: 794,
+            }}
+          >
+            <ExpenseDocument
+              expense={docAction.detail}
+              company={companyFor(docAction.detail)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          DOC ACTION BUSY TOAST
+      ===================================================== */}
+      {docBusyText && (
+        <div
+          className="expense-report-no-print"
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            background: "#fff",
+            border: "1.5px solid #bfdbfe",
+            borderRadius: 14,
+            padding: "12px 18px",
+            boxShadow: "0 12px 30px rgba(15,23,42,0.18)",
+            fontSize: 12.5,
+            fontWeight: 600,
+          }}
+        >
+          <Loader2 size={17} color="#2563eb" style={{ animation: "er-spin 1s linear infinite" }} />
+          <span style={{ color: "#334155" }}>{docBusyText}</span>
+        </div>
+      )}
     </div>
   );
 }
 
-/* Fixed popover positioning. Action menus intentionally open DOWNWARD.
-   If there is not enough room below, the menu is constrained with max-height
-   instead of flipping upward. This matches the accounting-app interaction shown
-   in the reference screenshot. */
+/* Position a fixed popover so it never leaves the viewport; prefers opening downward.
+   align "left" anchors the popover's left edge to the trigger, "right" anchors its right edge. */
 const placePopover = (anchor, width, height, align = "left") => {
   const margin = 8;
   const gap = 6;
-  const top = Math.max(margin, anchor.bottom + gap);
-  const availableBelow = Math.max(120, window.innerHeight - top - margin);
+  const fitsBelow = anchor.bottom + height + gap + margin <= window.innerHeight;
+  const fitsAbove = anchor.top - height - gap - margin >= margin;
+  const openUp = !fitsBelow && fitsAbove;
+  const top = openUp ? anchor.top - height - gap : anchor.bottom + gap;
   const desiredLeft = align === "right" ? anchor.right - width : anchor.left;
-  const left = Math.min(
-    Math.max(margin, desiredLeft),
-    Math.max(margin, window.innerWidth - width - margin),
-  );
-
-  return {
-    top,
-    left,
-    maxHeight: Math.max(120, Math.min(height || availableBelow, availableBelow)),
-    overflowY: "auto",
-  };
+  const left = Math.min(Math.max(margin, desiredLeft), Math.max(margin, window.innerWidth - width - margin));
+  return { top: Math.max(margin, top), left };
 };

@@ -179,6 +179,8 @@ Route::prefix('customer')->group(function () {
     Route::get('get_customer_by_id', [CustomerController::class, 'getCustomerById']);
     Route::post('toggle_status_customer', [CustomerController::class, 'toggleStatusCustomer']);
     Route::post('update', [CustomerController::class, 'update']);
+    Route::get('getCaptcha', [CustomerController::class, 'getCaptcha']);
+    Route::post('getGSTDetails', [CustomerController::class, 'getGSTDetails']);
 });
 
 // ── DASHBOARD ROUTES ──
