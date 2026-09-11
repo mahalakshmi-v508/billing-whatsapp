@@ -647,7 +647,9 @@ class PurchaseController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Purchase submitted successfully. Stocks updated.',
-                'purchase_id' => $purchase->id
+                'purchase_id' => $purchase->id,
+                'purchase_no' => $purchase->purchase_no ?: $purchase->id,
+                'invoice_no' => $purchase->purchase_no ?: $purchase->id,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -745,6 +747,111 @@ class PurchaseController extends Controller
             'status' => true,
             'message' => 'Purchase draft deleted successfully'
         ]);
+    }
+
+    /**
+     * Duplicate a purchase record (real copy with a fresh, non-duplicate
+     * purchase/reference number and a brand new primary id).
+     */
+    public function duplicatePurchase(Request $request)
+    {
+        $id = intval($request->input('id', 0));
+
+        if ($id <= 0) {
+            return response()->json(['status' => false, 'message' => 'Invalid Purchase ID']);
+        }
+
+        $purchase = Purchase::with('items')->find($id);
+
+        if (!$purchase) {
+            return response()->json(['status' => false, 'message' => 'Purchase record not found']);
+        }
+
+        // New purchase number following the existing application numbering logic
+        // (same prefix/sequence/padding used by /invoice-settings/next-number?type=purchase).
+        $companyId = intval($purchase->company_id);
+        $setting = \App\Models\InvoiceSetting::getForCompany($companyId > 0 ? $companyId : 1);
+        $prefix = $setting->purchase_order_prefix ?? 'PO-';
+        $seq = max(1, intval($setting->purchase_order_next_number ?? 1));
+        $padding = max(1, intval($setting->purchase_order_padding ?? 4));
+
+        $existsNo = function ($num) use ($companyId) {
+            return DB::table('purchases')
+                ->when($companyId > 0 && Schema::hasColumn('purchases', 'company_id'), fn ($q) => $q->where('company_id', $companyId))
+                ->whereIn('purchase_no', [$num, '#' . $num, ltrim($num, '#')])
+                ->exists();
+        };
+
+        $formattedNo = \App\Models\InvoiceSetting::formatNumber($prefix, $seq, $padding);
+        while ($existsNo($formattedNo)) {
+            $seq++;
+            $formattedNo = \App\Models\InvoiceSetting::formatNumber($prefix, $seq, $padding);
+        }
+
+        DB::beginTransaction();
+        try {
+            $dup = Purchase::create([
+                'purchase_no'       => $formattedNo,
+                'supplier_id'       => $purchase->supplier_id,
+                'company_id'        => $purchase->company_id,
+                'purchase_date'     => $purchase->purchase_date ?: date('Y-m-d'),
+                'sub_total'         => $purchase->sub_total,
+                'gst_total'         => $purchase->gst_total,
+                'discount_total'    => $purchase->discount_total ?? 0,
+                'round_off'         => $purchase->round_off ?? 0,
+                'total_amount'      => $purchase->total_amount,
+                'paid_amount'       => 0,
+                'balance_amount'    => $purchase->total_amount,
+                'payment_type'      => $purchase->payment_type ?? 'Cash',
+                'state_of_supply'   => $purchase->state_of_supply,
+                'terms_conditions'  => $purchase->terms_conditions,
+                'description'       => $purchase->description,
+                'bill_attachment'   => $purchase->bill_attachment,
+                'status'            => 'draft',
+            ]);
+
+            foreach ($purchase->items as $item) {
+                PurchaseItem::create([
+                    'purchase_id'           => $dup->id,
+                    'product_id'            => $item->product_id,
+                    'product_name'          => $item->product_name,
+                    'product_code'          => $item->product_code,
+                    'barcode'               => $item->barcode,
+                    'category_name'         => $item->category_name,
+                    'subcategory_name'      => $item->subcategory_name,
+                    'brand_name'            => $item->brand_name,
+                    'category_id'           => $item->category_id,
+                    'subcategory_id'        => $item->subcategory_id,
+                    'brand_id'              => $item->brand_id,
+                    'price'                 => $item->price,
+                    'tax_mode'              => $item->tax_mode ?? 'without_tax',
+                    'discount_percent'      => $item->discount_percent ?? 0,
+                    'discount_amount'       => $item->discount_amount ?? 0,
+                    'selling_price'         => $item->selling_price ?? 0,
+                    'selling_price_per_unit' => $item->selling_price_per_unit,
+                    'quantity'              => $item->quantity,
+                    'unit'                  => $item->unit ?? 'Piece',
+                    'gst_percentage'        => $item->gst_percentage ?? 0,
+                    'tax_amount'            => $item->tax_amount ?? 0,
+                    'total_amount'          => $item->total_amount ?? 0,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'      => true,
+                'message'     => 'Purchase duplicated successfully',
+                'purchase_id' => $dup->id,
+                'purchase_no' => $dup->purchase_no,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error duplicating purchase: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -1134,6 +1241,8 @@ class PurchaseController extends Controller
             return response()->json([
                 'status'           => true,
                 'message'          => 'Payment-Out recorded successfully',
+                'invoice_no'       => $receiptNo ?: ('REC-' . time()),
+                'receipt_no'       => $receiptNo ?: ('REC-' . time()),
                 'applied'          => $applied,
                 'leftover_advance' => $remaining
             ]);

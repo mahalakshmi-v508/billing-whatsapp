@@ -54,26 +54,122 @@ const THEMES = [
   { id: "vintage_bold", label: "Vintage Bold", category: "vintage" },
 ];
 
+/* ─── VOUCHER LABELS & LAYOUT HELPER ─────────────────────────────────────────────── */
+function getVoucherConfig(invoice) {
+  const vType = invoice?.voucher_type || (
+    invoice?.invoice_type?.toLowerCase().includes("payment receipt") ? "payment_in" :
+    invoice?.invoice_type?.toLowerCase().includes("payment out") ? "payment_out" :
+    invoice?.invoice_type?.toLowerCase().includes("credit") ? "credit_note" :
+    invoice?.invoice_type?.toLowerCase().includes("debit") ? "debit_note" :
+    invoice?.invoice_type?.toLowerCase().includes("expense") ? "expense" :
+    invoice?.invoice_type?.toLowerCase().includes("purchase") ? "purchase" : "sale"
+  );
+
+  let title = "Tax Invoice";
+  let partyLabel = "Bill To:";
+  let docNoLabel = "Invoice No.:";
+  let dateLabel = "Date:";
+  let isPaymentVoucher = false;
+
+  switch (vType) {
+    case "payment_in":
+      title = "Payment Receipt";
+      partyLabel = "Received From:";
+      docNoLabel = "Receipt No.:";
+      isPaymentVoucher = true;
+      break;
+    case "payment_out":
+      title = "Payment Out";
+      partyLabel = "Paid To:";
+      docNoLabel = "Receipt No.:";
+      isPaymentVoucher = true;
+      break;
+    case "credit_note":
+      title = "Credit Note";
+      partyLabel = "Return From:";
+      docNoLabel = "Return No.:";
+      break;
+    case "debit_note":
+      title = "Debit Note";
+      partyLabel = "Return To:";
+      docNoLabel = "Return No.:";
+      break;
+    case "expense":
+      title = "Expense";
+      partyLabel = "Expense For:";
+      docNoLabel = "Expense No.:";
+      break;
+    case "purchase":
+      title = "Purchase Invoice";
+      partyLabel = "Supplier / Bill From:";
+      docNoLabel = "Bill No.:";
+      break;
+    case "sale":
+    default:
+      title = invoice?.invoice_type || (invoice?.gst_type === "without_gst" ? "Bill of Supply" : "Tax Invoice");
+      partyLabel = "Bill To:";
+      docNoLabel = "Invoice No.:";
+      break;
+  }
+
+  if (invoice?.invoice_type) {
+    title = invoice.invoice_type;
+  }
+
+  return { vType, title, partyLabel, docNoLabel, dateLabel, isPaymentVoucher };
+}
+
 /* ─── INVOICE TYPE HELPER ─────────────────────────────────────────────────── */
 function getInvoiceType(invoice) {
-  if (invoice?.invoice_type) return invoice.invoice_type;
-  if (invoice?.gst_type === "without_gst") return "Bill of Supply";
-  return "Tax Invoice";
+  return getVoucherConfig(invoice).title;
+}
+
+/* ─── VOUCHER LIST BACK ROUTE HELPER ─────────────────────────────────────── */
+function getVoucherBackRoute(invoice) {
+  const { vType } = getVoucherConfig(invoice);
+  switch (vType) {
+    case "payment_in":
+      return "/sales/payment-in";
+    case "payment_out":
+      return "/purchases/payment-out";
+    case "credit_note":
+      return "/sales/credit-note";
+    case "debit_note":
+      return "/purchases/debit-note";
+    case "expense":
+      return "/purchases/expenses";
+    case "purchase":
+      return "/purchases/bills";
+    case "sale":
+    default:
+      return "/sales/invoices";
+  }
+}
+
+/* ─── PRODUCT ITEM HELPERS ────────────────────────────────────────────────── */
+function getItemName(p) {
+  if (!p) return "Item";
+  return p.item_name || p.product_name || p.name || p.item || p.title || p.product || p.description || "Item";
+}
+
+function getItemHSN(p) {
+  if (!p) return "-";
+  return p.hsn_code || p.hsn_sac || p.hsn || p.product_code || "-";
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    1. THEME: TALLY THEME (MATCHING SCREENSHOT 1 & 2)
 ═══════════════════════════════════════════════════════════════════════════ */
 function ThemeTally({ invoice, company, color, logoUrl }) {
+  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalQty = products.reduce((s, p) => s + (parseFloat(p.qty) || 0), 0);
-  const totalGst = parseFloat(invoice.gst_total) || 0;
+  const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = Math.max(0, totalAmount - paidAmount);
   const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
-  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#111827", fontSize: 12, lineHeight: 1.4 }}>
@@ -103,148 +199,145 @@ function ThemeTally({ invoice, company, color, logoUrl }) {
       {/* Bill To & Invoice Details Box */}
       <div style={{ border: "1px solid #94a3b8", borderTop: "none", display: "grid", gridTemplateColumns: "1fr 1fr", background: "#ffffff" }}>
         <div style={{ padding: "10px 14px", borderRight: "1px solid #94a3b8" }}>
-          <div style={{ fontWeight: 700, fontSize: 12, color: "#334155" }}>Bill To:</div>
-          <div style={{ fontWeight: 800, fontSize: 13, color: "#0f172a", marginTop: 2 }}>{invoice.customer_name || "Cash Customer"}</div>
+          <div style={{ fontWeight: 700, fontSize: 12, color: "#334155" }}>{partyLabel}</div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "#0f172a", marginTop: 2 }}>{invoice.customer_name || invoice.party_name || "Cash Customer"}</div>
           {invoice.customer_phone && <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>Contact No: {invoice.customer_phone}</div>}
           {invoice.billing_address && <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>{invoice.billing_address}</div>}
         </div>
         <div style={{ padding: "10px 14px" }}>
-          <div style={{ fontWeight: 700, fontSize: 12, color: "#334155" }}>Invoice Details:</div>
-          <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Invoice No.:</strong> {invoice.invoice_no}</div>
+          <div style={{ fontWeight: 700, fontSize: 12, color: "#334155" }}>Details:</div>
+          <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>{docNoLabel}</strong> {invoice.invoice_no || invoice.receipt_no}</div>
           <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Date:</strong> {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
           <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Payment Type:</strong> <span style={{ fontWeight: 700, color: color }}>{paymentType}</span></div>
-          <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Invoice Type:</strong> <span style={{ fontWeight: 700, color: "#1e293b" }}>{invoiceType}</span></div>
+          {invoice.original_invoice_no && <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Ref Bill No.:</strong> {invoice.original_invoice_no}</div>}
+          <div style={{ fontSize: 12, color: "#0f172a", marginTop: 2 }}><strong>Voucher Type:</strong> <span style={{ fontWeight: 700, color: "#1e293b" }}>{invoiceType}</span></div>
         </div>
       </div>
 
-      {/* Products Table with Vertical Border Lines */}
-      <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #94a3b8", borderTop: "none", fontSize: 11.5 }}>
-        <thead>
-          <tr style={{ background: "#ffffff", borderBottom: "1px solid #94a3b8", height: 32 }}>
-            <th style={{ width: 32, padding: "6px 4px", borderRight: "1px solid #94a3b8", textAlign: "center" }}>#</th>
-            <th style={{ padding: "6px 10px", borderRight: "1px solid #94a3b8", textAlign: "left" }}>Item name</th>
-            <th style={{ width: 80, padding: "6px 4px", borderRight: "1px solid #94a3b8", textAlign: "center" }}>HSN/ SAC</th>
-            <th style={{ width: 68, padding: "6px 4px", borderRight: "1px solid #94a3b8", textAlign: "center" }}>Quantity</th>
-            <th style={{ width: 90, padding: "6px 6px", borderRight: "1px solid #94a3b8", textAlign: "right" }}>Price/ Unit(₹)</th>
-            <th style={{ width: 95, padding: "6px 6px", borderRight: "1px solid #94a3b8", textAlign: "right" }}>GST(₹)</th>
-            <th style={{ width: 95, padding: "6px 10px", textAlign: "right" }}>Amount(₹)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.map((p, idx) => {
-            const qty = parseFloat(p.qty) || 1;
-            const price = parseFloat(p.price) || 0;
-            const gstPct = parseFloat(p.gst || p.tax_percent) || 0;
-            const lineAmt = parseFloat(p.amount) || (qty * price);
-            const gstAmt = parseFloat(p.tax_amount) || ((lineAmt * gstPct) / 100);
-
-            return (
-              <tr key={idx} style={{ height: 28, borderBottom: idx === products.length - 1 ? "1px solid #94a3b8" : "none" }}>
-                <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "4px" }}>{idx + 1}</td>
-                <td style={{ padding: "4px 10px", borderRight: "1px solid #94a3b8", fontWeight: 600 }}>{p.product_name || p.name}</td>
-                <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "4px", color: "#64748b" }}>{p.product_code || p.hsn_code || "-"}</td>
-                <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "4px", fontWeight: 600 }}>{qty}</td>
-                <td style={{ textAlign: "right", borderRight: "1px solid #94a3b8", padding: "4px 6px" }}>₹ {price.toFixed(2)}</td>
-                <td style={{ textAlign: "right", borderRight: "1px solid #94a3b8", padding: "4px 6px" }}>
-                  ₹ {gstAmt.toFixed(2)} {gstPct > 0 ? `(${gstPct}%)` : ""}
-                </td>
-                <td style={{ textAlign: "right", padding: "4px 10px", fontWeight: 700 }}>₹ {lineAmt.toFixed(2)}</td>
-              </tr>
-            );
-          })}
-
-          {/* Spacer row to give professional document height */}
-          <tr style={{ height: 60, borderBottom: "1px solid #94a3b8" }}>
-            <td style={{ borderRight: "1px solid #94a3b8" }}></td>
-            <td style={{ borderRight: "1px solid #94a3b8" }}></td>
-            <td style={{ borderRight: "1px solid #94a3b8" }}></td>
-            <td style={{ borderRight: "1px solid #94a3b8" }}></td>
-            <td style={{ borderRight: "1px solid #94a3b8" }}></td>
-            <td style={{ borderRight: "1px solid #94a3b8" }}></td>
-            <td></td>
-          </tr>
-
-          {/* Table Total Row */}
-          <tr style={{ background: "#ffffff", fontWeight: 700, height: 30, borderBottom: "1px solid #94a3b8" }}>
-            <td colSpan={3} style={{ padding: "6px 10px", borderRight: "1px solid #94a3b8", fontWeight: 800 }}>Total</td>
-            <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "6px 4px", fontWeight: 800 }}>{totalQty}</td>
-            <td style={{ borderRight: "1px solid #94a3b8" }}></td>
-            <td style={{ textAlign: "right", borderRight: "1px solid #94a3b8", padding: "6px 6px", fontWeight: 800 }}>₹ {totalGst.toFixed(2)}</td>
-            <td style={{ textAlign: "right", padding: "6px 10px", fontWeight: 800 }}>₹ {totalAmount.toFixed(2)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* Tax Summary Table (Left) + Final Totals Breakdown (Right) */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", border: "1px solid #94a3b8", borderTop: "none", background: "#ffffff" }}>
-        {/* Left: Tax Summary Breakdown */}
-        <div style={{ borderRight: "1px solid #94a3b8", padding: "8px 10px" }}>
-          <div style={{ fontWeight: 700, fontSize: 11.5, marginBottom: 4, color: "#334155" }}>Tax Summary:</div>
-          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #cbd5e1", fontSize: 10.5 }}>
+      {isPaymentVoucher ? (
+        /* ── Payment In / Payment Out Voucher Layout (Screenshot 1 & 3) ── */
+        <div style={{ border: "1px solid #94a3b8", borderTop: "none", background: "#ffffff" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #94a3b8", fontSize: 13 }}>
+            <span style={{ fontWeight: 700, color: "#334155" }}>{vType === "payment_out" ? "Paid :" : "Received :"}</span>
+            <span style={{ fontWeight: 800, fontSize: 15, color: color }}>₹ {paidAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #94a3b8" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#475569" }}>Amount in Words:</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginTop: 3 }}>
+              {numberToWordsINR(paidAmount)}
+            </div>
+          </div>
+          {invoice.notes && (
+            <div style={{ padding: "10px 16px", borderBottom: "1px solid #94a3b8", fontSize: 11.5, color: "#475569" }}>
+              <strong>Notes / Remarks:</strong> {invoice.notes}
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", padding: "24px 16px 14px 16px" }}>
+            <div style={{ fontSize: 11, color: "#64748b" }}>
+              {balanceAmount > 0 && <span>Remaining Balance: <strong>₹ {balanceAmount.toFixed(2)}</strong></span>}
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: "#334155" }}>For : {company?.company_name || "My Company"}</div>
+              <div style={{ height: 40 }} />
+              <div style={{ fontSize: 10.5, color: "#64748b", borderTop: "1px dashed #94a3b8", paddingTop: 2 }}>Authorized Signatory</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ── Itemized Table for Sale, Purchase, Returns, Expenses ── */
+        <>
+          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #94a3b8", borderTop: "none", fontSize: 11.5 }}>
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #cbd5e1" }}>
-                <th style={{ padding: "4px", borderRight: "1px solid #cbd5e1", textAlign: "left" }}>HSN/ SAC</th>
-                <th style={{ padding: "4px", borderRight: "1px solid #cbd5e1", textAlign: "right" }}>Taxable amount (₹)</th>
-                <th style={{ padding: "4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>CGST (Rate / Amt)</th>
-                <th style={{ padding: "4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>SGST (Rate / Amt)</th>
-                <th style={{ padding: "4px", textAlign: "right" }}>Total Tax (₹)</th>
+              <tr style={{ background: "#ffffff", borderBottom: "1px solid #94a3b8", height: 32 }}>
+                <th style={{ width: 32, padding: "6px 4px", borderRight: "1px solid #94a3b8", textAlign: "center" }}>#</th>
+                <th style={{ padding: "6px 10px", borderRight: "1px solid #94a3b8", textAlign: "left" }}>Item name</th>
+                {vType !== "expense" && <th style={{ width: 80, padding: "6px 4px", borderRight: "1px solid #94a3b8", textAlign: "center" }}>HSN/ SAC</th>}
+                <th style={{ width: 68, padding: "6px 4px", borderRight: "1px solid #94a3b8", textAlign: "center" }}>Quantity</th>
+                <th style={{ width: 90, padding: "6px 6px", borderRight: "1px solid #94a3b8", textAlign: "right" }}>Price/ Unit(₹)</th>
+                {vType !== "expense" && <th style={{ width: 95, padding: "6px 6px", borderRight: "1px solid #94a3b8", textAlign: "right" }}>GST(₹)</th>}
+                <th style={{ width: 95, padding: "6px 10px", textAlign: "right" }}>Amount(₹)</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((p, i) => {
-                const gstPct = parseFloat(p.gst || p.tax_percent) || 0;
-                const halfRate = gstPct / 2;
-                const lineAmt = parseFloat(p.amount) || 0;
-                const lineTax = parseFloat(p.tax_amount) || ((lineAmt * gstPct) / 100);
-                const halfTax = lineTax / 2;
+              {products.map((p, idx) => {
+                const qty = parseFloat(p.qty || p.quantity) || 1;
+                const price = parseFloat(p.price || p.unit_price) || 0;
+                const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
+                const lineAmt = parseFloat(p.amount || p.total) || (qty * price);
+                const gstAmt = parseFloat(p.tax_amount || p.tax_amt) || ((lineAmt * gstPct) / 100);
 
                 return (
-                  <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "3px 4px", borderRight: "1px solid #cbd5e1" }}>{p.product_code || "-"}</td>
-                    <td style={{ padding: "3px 4px", borderRight: "1px solid #cbd5e1", textAlign: "right" }}>{lineAmt.toFixed(2)}</td>
-                    <td style={{ padding: "3px 4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>{halfRate}% / {halfTax.toFixed(2)}</td>
-                    <td style={{ padding: "3px 4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>{halfRate}% / {halfTax.toFixed(2)}</td>
-                    <td style={{ padding: "3px 4px", textAlign: "right", fontWeight: 600 }}>{lineTax.toFixed(2)}</td>
+                  <tr key={idx} style={{ height: 28, borderBottom: idx === products.length - 1 ? "1px solid #94a3b8" : "none" }}>
+                    <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "4px" }}>{idx + 1}</td>
+                    <td style={{ padding: "4px 10px", borderRight: "1px solid #94a3b8", fontWeight: 600 }}>{getItemName(p)}</td>
+                    {vType !== "expense" && <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "4px", color: "#64748b" }}>{getItemHSN(p)}</td>}
+                    <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "4px", fontWeight: 600 }}>{qty}</td>
+                    <td style={{ textAlign: "right", borderRight: "1px solid #94a3b8", padding: "4px 6px" }}>₹ {price.toFixed(2)}</td>
+                    {vType !== "expense" && (
+                      <td style={{ textAlign: "right", borderRight: "1px solid #94a3b8", padding: "4px 6px" }}>
+                        ₹ {gstAmt.toFixed(2)} {gstPct > 0 ? `(${gstPct}%)` : ""}
+                      </td>
+                    )}
+                    <td style={{ textAlign: "right", padding: "4px 10px", fontWeight: 700 }}>₹ {lineAmt.toFixed(2)}</td>
                   </tr>
                 );
               })}
-              <tr style={{ background: "#f8fafc", fontWeight: 700, borderTop: "1px solid #cbd5e1" }}>
-                <td style={{ padding: "4px", borderRight: "1px solid #cbd5e1" }}>TOTAL</td>
-                <td style={{ padding: "4px", borderRight: "1px solid #cbd5e1", textAlign: "right" }}>{subTotal.toFixed(2)}</td>
-                <td style={{ padding: "4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>{(totalGst / 2).toFixed(2)}</td>
-                <td style={{ padding: "4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>{(totalGst / 2).toFixed(2)}</td>
-                <td style={{ padding: "4px", textAlign: "right" }}>{totalGst.toFixed(2)}</td>
+
+              {/* Table Total Row */}
+              <tr style={{ background: "#ffffff", fontWeight: 700, height: 30, borderTop: "1px solid #94a3b8", borderBottom: "1px solid #94a3b8" }}>
+                <td colSpan={vType === "expense" ? 2 : 3} style={{ padding: "6px 10px", borderRight: "1px solid #94a3b8", fontWeight: 800 }}>Total</td>
+                <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "6px 4px", fontWeight: 800 }}>{totalQty}</td>
+                <td style={{ borderRight: "1px solid #94a3b8" }}></td>
+                {vType !== "expense" && <td style={{ textAlign: "right", borderRight: "1px solid #94a3b8", padding: "6px 6px", fontWeight: 800 }}>₹ {totalGst.toFixed(2)}</td>}
+                <td style={{ textAlign: "right", padding: "6px 10px", fontWeight: 800 }}>₹ {totalAmount.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
-        </div>
 
-        {/* Right: Sub Total, Total, Amount in Words, Received, Balance */}
-        <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
-            <span style={{ color: "#475569" }}>Sub Total :</span>
-            <span style={{ fontWeight: 700 }}>₹ {subTotal.toFixed(2)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, borderTop: "1px solid #e2e8f0", paddingTop: 3 }}>
-            <span style={{ fontWeight: 800 }}>Total :</span>
-            <span style={{ fontWeight: 800 }}>₹ {totalAmount.toFixed(2)}</span>
-          </div>
-          <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 4, lineHeight: 1.3 }}>
-            <strong>Invoice Amount in Words:</strong><br />
-            {numberToWordsINR(totalAmount)}
-          </div>
-          <div style={{ borderTop: "1px solid #e2e8f0", marginTop: 4, paddingTop: 4 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
-              <span style={{ color: "#475569" }}>Received :</span>
-              <span>₹ {paidAmount.toFixed(2)}</span>
+          {/* Totals Breakdown Box */}
+          <div style={{ display: "grid", gridTemplateColumns: totalGst > 0 ? "1fr 260px" : "1fr 260px", border: "1px solid #94a3b8", borderTop: "none", background: "#ffffff" }}>
+            {/* Left: Amount in Words */}
+            <div style={{ borderRight: "1px solid #94a3b8", padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>Amount in Words:</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", marginTop: 2 }}>{numberToWordsINR(totalAmount)}</div>
+                {invoice.notes && <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}><strong>Remarks:</strong> {invoice.notes}</div>}
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#334155" }}>For : {company?.company_name || "My Company"}</div>
+              </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, fontWeight: 700, color: balanceAmount > 0 ? "#dc2626" : "#16a34a" }}>
-              <span>Balance :</span>
-              <span>₹ {balanceAmount.toFixed(2)}</span>
+
+            {/* Right: Sub Total, Total, Paid, Balance */}
+            <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
+                <span style={{ color: "#475569" }}>Sub Total :</span>
+                <span style={{ fontWeight: 700 }}>₹ {subTotal.toFixed(2)}</span>
+              </div>
+              {totalGst > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
+                  <span style={{ color: "#475569" }}>GST Total :</span>
+                  <span>₹ {totalGst.toFixed(2)}</span>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, borderTop: "1px solid #e2e8f0", paddingTop: 4 }}>
+                <span style={{ fontWeight: 800 }}>Total Amount :</span>
+                <span style={{ fontWeight: 800, color: color }}>₹ {totalAmount.toFixed(2)}</span>
+              </div>
+              <div style={{ borderTop: "1px solid #e2e8f0", marginTop: 4, paddingTop: 4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                  <span style={{ color: "#475569" }}>Paid / Received :</span>
+                  <span>₹ {paidAmount.toFixed(2)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, fontWeight: 700, color: balanceAmount > 0 ? "#dc2626" : "#16a34a" }}>
+                  <span>Balance :</span>
+                  <span>₹ {balanceAmount.toFixed(2)}</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -253,14 +346,14 @@ function ThemeTally({ invoice, company, color, logoUrl }) {
    2. THEME: GST THEME 1 (MATCHING SCREENSHOT 3)
 ═══════════════════════════════════════════════════════════════════════════ */
 function ThemeGST1({ invoice, company, color, logoUrl }) {
+  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalQty = products.reduce((s, p) => s + (parseFloat(p.qty) || 0), 0);
   const totalAmount = parseFloat(invoice.total_amount) || 0;
-  const totalGst = parseFloat(invoice.gst_total) || 0;
+  const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = Math.max(0, totalAmount - paidAmount);
-  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
@@ -287,75 +380,112 @@ function ThemeGST1({ invoice, company, color, logoUrl }) {
         {invoiceType}
       </h2>
 
-      {/* Bill To & Invoice Details */}
+      {/* Bill To / Party & Invoice Details */}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14, fontSize: 12.5 }}>
         <div>
-          <div style={{ fontWeight: 700, color: "#475569" }}>Bill To</div>
-          <div style={{ fontWeight: 800, fontSize: 14, color: "#0f172a", marginTop: 2 }}>{invoice.customer_name || "Cash Customer"}</div>
+          <div style={{ fontWeight: 700, color: "#475569" }}>{partyLabel}</div>
+          <div style={{ fontWeight: 800, fontSize: 14, color: "#0f172a", marginTop: 2 }}>{invoice.customer_name || invoice.party_name || "Cash Customer"}</div>
           {invoice.customer_phone && <div style={{ color: "#475569", marginTop: 2 }}>Contact No. : {invoice.customer_phone}</div>}
           {invoice.billing_address && <div style={{ color: "#64748b", marginTop: 2 }}>{invoice.billing_address}</div>}
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontWeight: 700, color: "#475569" }}>Invoice Details</div>
-          <div style={{ marginTop: 2 }}>Invoice No. : <strong>{invoice.invoice_no}</strong></div>
+          <div style={{ fontWeight: 700, color: "#475569" }}>Details</div>
+          <div style={{ marginTop: 2 }}>{docNoLabel} <strong>{invoice.invoice_no || invoice.receipt_no}</strong></div>
           <div style={{ marginTop: 2 }}>Date : {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
-          <div style={{ marginTop: 2 }}>Payment : <strong style={{ color: color }}>{(invoice.payment_type || "Cash").toUpperCase()}</strong></div>
-          <div style={{ marginTop: 2 }}>Invoice Type : <strong>{invoiceType}</strong></div>
+          <div style={{ marginTop: 2 }}>Payment : <strong style={{ color: color }}>{(invoice.payment_type || invoice.payment_method || "Cash").toUpperCase()}</strong></div>
+          {invoice.original_invoice_no && <div style={{ marginTop: 2 }}>Ref Bill : <strong>{invoice.original_invoice_no}</strong></div>}
         </div>
       </div>
 
-      {/* Table with Colored Header */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-        <thead>
-          <tr style={{ background: color, color: "#ffffff", height: 34 }}>
-            <th style={{ width: 34, padding: "6px 4px", textAlign: "center" }}>#</th>
-            <th style={{ padding: "6px 10px", textAlign: "left" }}>Item name</th>
-            <th style={{ width: 80, padding: "6px 4px", textAlign: "center" }}>HSN/ SAC</th>
-            <th style={{ width: 68, padding: "6px 4px", textAlign: "center" }}>Quantity</th>
-            <th style={{ width: 90, padding: "6px 6px", textAlign: "right" }}>Price/ Unit</th>
-            <th style={{ width: 95, padding: "6px 6px", textAlign: "right" }}>GST</th>
-            <th style={{ width: 95, padding: "6px 10px", textAlign: "right" }}>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.map((p, idx) => {
-            const qty = parseFloat(p.qty) || 1;
-            const price = parseFloat(p.price) || 0;
-            const gstPct = parseFloat(p.gst || p.tax_percent) || 0;
-            const lineAmt = parseFloat(p.amount) || (qty * price);
-            const gstAmt = parseFloat(p.tax_amount) || ((lineAmt * gstPct) / 100);
-
-            return (
-              <tr key={idx} style={{ borderBottom: "1px solid #e2e8f0", height: 32, background: idx % 2 === 0 ? "#ffffff" : "#f8fafc" }}>
-                <td style={{ textAlign: "center", padding: "4px" }}>{idx + 1}</td>
-                <td style={{ padding: "4px 10px", fontWeight: 600 }}>{p.product_name || p.name}</td>
-                <td style={{ textAlign: "center", color: "#64748b" }}>{p.product_code || "-"}</td>
-                <td style={{ textAlign: "center", fontWeight: 600 }}>{qty}</td>
-                <td style={{ textAlign: "right", padding: "4px 6px" }}>₹ {price.toFixed(2)}</td>
-                <td style={{ textAlign: "right", padding: "4px 6px" }}>₹ {gstAmt.toFixed(2)} ({gstPct}%)</td>
-                <td style={{ textAlign: "right", padding: "4px 10px", fontWeight: 700 }}>₹ {lineAmt.toFixed(2)}</td>
+      {isPaymentVoucher ? (
+        /* ── Payment In / Payment Out Voucher Box ── */
+        <div style={{ border: `1px solid ${color}`, borderRadius: 6, overflow: "hidden", background: "#ffffff" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "#334155" }}>{vType === "payment_out" ? "Paid :" : "Received :"}</span>
+            <span style={{ fontWeight: 900, fontSize: 18, color: color }}>₹ {paidAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ padding: "14px 18px", borderBottom: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#64748b" }}>Amount in Words:</div>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: "#0f172a", marginTop: 3 }}>
+              {numberToWordsINR(paidAmount)}
+            </div>
+          </div>
+          {invoice.notes && (
+            <div style={{ padding: "10px 18px", borderBottom: "1px solid #e2e8f0", fontSize: 12, color: "#475569" }}>
+              <strong>Notes:</strong> {invoice.notes}
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", padding: "28px 18px 16px 18px" }}>
+            <div style={{ fontSize: 11.5, color: "#64748b" }}>
+              {balanceAmount > 0 && <span>Remaining Balance: <strong style={{ color: "#dc2626" }}>₹ {balanceAmount.toFixed(2)}</strong></span>}
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 12, fontWeight: 700 }}>For : {company?.company_name || "My Company"}</div>
+              <div style={{ height: 40 }} />
+              <div style={{ fontSize: 10.5, color: "#64748b", borderTop: "1px dashed #cbd5e1", paddingTop: 2 }}>Authorized Signatory</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ── Itemized Table for Invoices & Returns ── */
+        <>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: color, color: "#ffffff", height: 34 }}>
+                <th style={{ width: 34, padding: "6px 4px", textAlign: "center" }}>#</th>
+                <th style={{ padding: "6px 10px", textAlign: "left" }}>Item name</th>
+                {vType !== "expense" && <th style={{ width: 80, padding: "6px 4px", textAlign: "center" }}>HSN/ SAC</th>}
+                <th style={{ width: 68, padding: "6px 4px", textAlign: "center" }}>Quantity</th>
+                <th style={{ width: 90, padding: "6px 6px", textAlign: "right" }}>Price/ Unit</th>
+                {vType !== "expense" && <th style={{ width: 95, padding: "6px 6px", textAlign: "right" }}>GST</th>}
+                <th style={{ width: 95, padding: "6px 10px", textAlign: "right" }}>Amount</th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {products.map((p, idx) => {
+                const qty = parseFloat(p.qty || p.quantity) || 1;
+                const price = parseFloat(p.price || p.unit_price) || 0;
+                const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
+                const lineAmt = parseFloat(p.amount || p.total) || (qty * price);
+                const gstAmt = parseFloat(p.tax_amount || p.tax_amt) || ((lineAmt * gstPct) / 100);
 
-      {/* Summary Row */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-        <div style={{ width: 260, display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5 }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Sub Total :</span><span style={{ fontWeight: 700 }}>₹ {subTotal.toFixed(2)}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>GST Total :</span><span>₹ {totalGst.toFixed(2)}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between", background: color, color: "#fff", padding: "6px 10px", borderRadius: 4, fontWeight: 800, fontSize: 14 }}>
-            <span>Total Amount :</span>
-            <span>₹ {totalAmount.toFixed(2)}</span>
+                return (
+                  <tr key={idx} style={{ borderBottom: "1px solid #e2e8f0", height: 32, background: idx % 2 === 0 ? "#ffffff" : "#f8fafc" }}>
+                    <td style={{ textAlign: "center", padding: "4px" }}>{idx + 1}</td>
+                    <td style={{ padding: "4px 10px", fontWeight: 600 }}>{getItemName(p)}</td>
+                    {vType !== "expense" && <td style={{ textAlign: "center", color: "#64748b" }}>{getItemHSN(p)}</td>}
+                    <td style={{ textAlign: "center", fontWeight: 600 }}>{qty}</td>
+                    <td style={{ textAlign: "right", padding: "4px 6px" }}>₹ {price.toFixed(2)}</td>
+                    {vType !== "expense" && <td style={{ textAlign: "right", padding: "4px 6px" }}>₹ {gstAmt.toFixed(2)} ({gstPct}%)</td>}
+                    <td style={{ textAlign: "right", padding: "4px 10px", fontWeight: 700 }}>₹ {lineAmt.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Summary Row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 16 }}>
+            <div style={{ maxWidth: 300 }}>
+              <div style={{ fontSize: 11, color: "#64748b" }}><strong>Amount in Words:</strong></div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b", marginTop: 2 }}>{numberToWordsINR(totalAmount)}</div>
+            </div>
+            <div style={{ width: 260, display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Sub Total :</span><span style={{ fontWeight: 700 }}>₹ {subTotal.toFixed(2)}</span></div>
+              {totalGst > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>GST Total :</span><span>₹ {totalGst.toFixed(2)}</span></div>}
+              <div style={{ display: "flex", justifyContent: "space-between", background: color, color: "#fff", padding: "6px 10px", borderRadius: 4, fontWeight: 800, fontSize: 14 }}>
+                <span>Total Amount :</span>
+                <span>₹ {totalAmount.toFixed(2)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>Paid / Received :</span><span>₹ {paidAmount.toFixed(2)}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 700, color: balanceAmount > 0 ? "#dc2626" : "#16a34a" }}>
+                <span>Balance Due :</span>
+                <span>₹ {balanceAmount.toFixed(2)}</span>
+              </div>
+            </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>Received :</span><span>₹ {paidAmount.toFixed(2)}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 700, color: balanceAmount > 0 ? "#dc2626" : "#16a34a" }}>
-            <span>Balance Due :</span>
-            <span>₹ {balanceAmount.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -364,11 +494,13 @@ function ThemeGST1({ invoice, company, color, logoUrl }) {
    3. THEME: GST THEME 3 (MATCHING SCREENSHOT 4)
 ═══════════════════════════════════════════════════════════════════════════ */
 function ThemeGST3({ invoice, company, color, logoUrl }) {
+  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
-  const totalGst = parseFloat(invoice.gst_total) || 0;
+  const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
-  const invoiceType = getInvoiceType(invoice);
+  const paidAmount = parseFloat(invoice.paid_amount) || 0;
+  const balanceAmount = Math.max(0, totalAmount - paidAmount);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
@@ -386,56 +518,73 @@ function ThemeGST3({ invoice, company, color, logoUrl }) {
           </div>
         </div>
         <div style={{ textAlign: "right", fontSize: 12 }}>
-          <div>Invoice No. : <strong>{invoice.invoice_no}</strong></div>
+          <div>{docNoLabel} <strong>{invoice.invoice_no || invoice.receipt_no}</strong></div>
           <div>Date : {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
-          <div>Payment : <strong style={{ color: color }}>{(invoice.payment_type || "Cash").toUpperCase()}</strong></div>
-          <div>Invoice Type : <strong>{invoiceType}</strong></div>
+          <div>Payment : <strong style={{ color: color }}>{(invoice.payment_type || invoice.payment_method || "Cash").toUpperCase()}</strong></div>
+          <div>Type : <strong>{invoiceType}</strong></div>
         </div>
       </div>
 
       <div style={{ border: "1px solid #cbd5e1", borderTop: "none", padding: "10px 14px", background: "#ffffff" }}>
-        <div style={{ fontWeight: 700 }}>Bill To:</div>
-        <div style={{ fontWeight: 800, fontSize: 13, marginTop: 2 }}>{invoice.customer_name || "Cash Customer"}</div>
+        <div style={{ fontWeight: 700 }}>{partyLabel}</div>
+        <div style={{ fontWeight: 800, fontSize: 13, marginTop: 2 }}>{invoice.customer_name || invoice.party_name || "Cash Customer"}</div>
         {invoice.customer_phone && <div style={{ fontSize: 11.5, color: "#64748b" }}>Contact No.: {invoice.customer_phone}</div>}
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #cbd5e1", borderTop: "none" }}>
-        <thead>
-          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #cbd5e1", height: 32, fontSize: 11.5 }}>
-            <th style={{ width: 32, padding: "6px 4px", borderRight: "1px solid #cbd5e1" }}>#</th>
-            <th style={{ padding: "6px 10px", borderRight: "1px solid #cbd5e1", textAlign: "left" }}>Item name</th>
-            <th style={{ width: 80, padding: "6px 4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>HSN/ SAC</th>
-            <th style={{ width: 68, padding: "6px 4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>Quantity</th>
-            <th style={{ width: 90, padding: "6px 6px", borderRight: "1px solid #cbd5e1", textAlign: "right" }}>Price/ Unit</th>
-            <th style={{ width: 95, padding: "6px 6px", borderRight: "1px solid #cbd5e1", textAlign: "right" }}>GST</th>
-            <th style={{ width: 95, padding: "6px 10px", textAlign: "right" }}>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.map((p, idx) => (
-            <tr key={idx} style={{ height: 28, borderBottom: "1px solid #f1f5f9" }}>
-              <td style={{ textAlign: "center", borderRight: "1px solid #cbd5e1" }}>{idx + 1}</td>
-              <td style={{ padding: "4px 10px", borderRight: "1px solid #cbd5e1", fontWeight: 600 }}>{p.product_name || p.name}</td>
-              <td style={{ textAlign: "center", borderRight: "1px solid #cbd5e1", color: "#64748b" }}>{p.product_code || "-"}</td>
-              <td style={{ textAlign: "center", borderRight: "1px solid #cbd5e1", fontWeight: 600 }}>{p.qty}</td>
-              <td style={{ textAlign: "right", borderRight: "1px solid #cbd5e1", padding: "4px 6px" }}>₹ {parseFloat(p.price || 0).toFixed(2)}</td>
-              <td style={{ textAlign: "right", borderRight: "1px solid #cbd5e1", padding: "4px 6px" }}>₹ {parseFloat(p.tax_amount || 0).toFixed(2)}</td>
-              <td style={{ textAlign: "right", padding: "4px 10px", fontWeight: 700 }}>₹ {parseFloat(p.amount || 0).toFixed(2)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-        <div style={{ width: 240, display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Sub Total:</span><span>₹ {subTotal.toFixed(2)}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Total Tax:</span><span>₹ {totalGst.toFixed(2)}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #cbd5e1", paddingTop: 4, fontWeight: 800, fontSize: 13.5 }}>
-            <span>Grand Total:</span>
-            <span style={{ color: color }}>₹ {totalAmount.toFixed(2)}</span>
+      {isPaymentVoucher ? (
+        <div style={{ border: "1px solid #cbd5e1", borderTop: "none", padding: "14px", background: "#ffffff" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 800, paddingBottom: 10, borderBottom: "1px solid #e2e8f0" }}>
+            <span>{vType === "payment_out" ? "Paid Amount:" : "Received Amount:"}</span>
+            <span style={{ color: color }}>₹ {paidAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12 }}>
+            <strong>Amount in Words:</strong> {numberToWordsINR(paidAmount)}
+          </div>
+          <div style={{ marginTop: 24, textAlign: "right", fontSize: 11.5 }}>
+            <strong>For : {company?.company_name || "My Company"}</strong>
           </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #cbd5e1", borderTop: "none" }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #cbd5e1", height: 32, fontSize: 11.5 }}>
+                <th style={{ width: 32, padding: "6px 4px", borderRight: "1px solid #cbd5e1" }}>#</th>
+                <th style={{ padding: "6px 10px", borderRight: "1px solid #cbd5e1", textAlign: "left" }}>Item name</th>
+                {vType !== "expense" && <th style={{ width: 80, padding: "6px 4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>HSN/ SAC</th>}
+                <th style={{ width: 68, padding: "6px 4px", borderRight: "1px solid #cbd5e1", textAlign: "center" }}>Quantity</th>
+                <th style={{ width: 90, padding: "6px 6px", borderRight: "1px solid #cbd5e1", textAlign: "right" }}>Price/ Unit</th>
+                {vType !== "expense" && <th style={{ width: 95, padding: "6px 6px", borderRight: "1px solid #cbd5e1", textAlign: "right" }}>GST</th>}
+                <th style={{ width: 95, padding: "6px 10px", textAlign: "right" }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p, idx) => (
+                <tr key={idx} style={{ height: 28, borderBottom: "1px solid #f1f5f9" }}>
+                  <td style={{ textAlign: "center", borderRight: "1px solid #cbd5e1" }}>{idx + 1}</td>
+                  <td style={{ padding: "4px 10px", borderRight: "1px solid #cbd5e1", fontWeight: 600 }}>{getItemName(p)}</td>
+                  {vType !== "expense" && <td style={{ textAlign: "center", borderRight: "1px solid #cbd5e1", color: "#64748b" }}>{getItemHSN(p)}</td>}
+                  <td style={{ textAlign: "center", borderRight: "1px solid #cbd5e1", fontWeight: 600 }}>{p.qty || p.quantity || 1}</td>
+                  <td style={{ textAlign: "right", borderRight: "1px solid #cbd5e1", padding: "4px 6px" }}>₹ {parseFloat(p.price || p.unit_price || 0).toFixed(2)}</td>
+                  {vType !== "expense" && <td style={{ textAlign: "right", borderRight: "1px solid #cbd5e1", padding: "4px 6px" }}>₹ {parseFloat(p.tax_amount || p.tax_amt || 0).toFixed(2)}</td>}
+                  <td style={{ textAlign: "right", padding: "4px 10px", fontWeight: 700 }}>₹ {parseFloat(p.amount || p.total || 0).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+            <div style={{ width: 240, display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Sub Total:</span><span>₹ {subTotal.toFixed(2)}</span></div>
+              {totalGst > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Total Tax:</span><span>₹ {totalGst.toFixed(2)}</span></div>}
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #cbd5e1", paddingTop: 4, fontWeight: 800, fontSize: 13.5 }}>
+                <span>Grand Total:</span>
+                <span style={{ color: color }}>₹ {totalAmount.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -444,11 +593,13 @@ function ThemeGST3({ invoice, company, color, logoUrl }) {
    4. THEME: DOUBLE DIVINE (MATCHING SCREENSHOT 5)
 ═══════════════════════════════════════════════════════════════════════════ */
 function ThemeDoubleDivine({ invoice, company, color, logoUrl }) {
+  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
-  const totalGst = parseFloat(invoice.gst_total) || 0;
+  const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
-  const invoiceType = getInvoiceType(invoice);
+  const paidAmount = parseFloat(invoice.paid_amount) || 0;
+  const balanceAmount = Math.max(0, totalAmount - paidAmount);
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
@@ -488,57 +639,72 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl }) {
       {/* Bill To & Invoice Info */}
       <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 14px", border: "1px solid #e2e8f0", borderTop: "none", background: "#ffffff" }}>
         <div>
-          <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>Bill To:</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>{invoice.customer_name || "Cash Customer"}</div>
+          <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>{partyLabel}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>{invoice.customer_name || invoice.party_name || "Cash Customer"}</div>
           {invoice.customer_phone && <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>Contact No: {invoice.customer_phone}</div>}
         </div>
         <div style={{ textAlign: "right", fontSize: 12 }}>
-          <div>Invoice No.: <strong>{invoice.invoice_no}</strong></div>
+          <div>{docNoLabel} <strong>{invoice.invoice_no || invoice.receipt_no}</strong></div>
           <div>Date: {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}</div>
-          <div>Payment: <strong style={{ color: color }}>{(invoice.payment_type || "Cash").toUpperCase()}</strong></div>
-          <div>Invoice Type: <strong>{invoiceType}</strong></div>
+          <div>Payment: <strong style={{ color: color }}>{(invoice.payment_type || invoice.payment_method || "Cash").toUpperCase()}</strong></div>
+          <div>Type: <strong>{invoiceType}</strong></div>
         </div>
       </div>
 
-      {/* Table with Colored Header matching screenshot */}
-      <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #e2e8f0", borderTop: "none" }}>
-        <thead>
-          <tr style={{ background: color, color: "#ffffff", height: 32, fontSize: 11.5 }}>
-            <th style={{ width: 32, padding: "6px 4px", textAlign: "center" }}>#</th>
-            <th style={{ padding: "6px 10px", textAlign: "left" }}>Item name</th>
-            <th style={{ width: 80, padding: "6px 4px", textAlign: "center" }}>HSN/ SAC</th>
-            <th style={{ width: 68, padding: "6px 4px", textAlign: "center" }}>Quantity</th>
-            <th style={{ width: 90, padding: "6px 6px", textAlign: "right" }}>Price/ Unit</th>
-            <th style={{ width: 95, padding: "6px 6px", textAlign: "right" }}>GST</th>
-            <th style={{ width: 95, padding: "6px 10px", textAlign: "right" }}>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.map((p, idx) => (
-            <tr key={idx} style={{ height: 28, borderBottom: "1px solid #e2e8f0" }}>
-              <td style={{ textAlign: "center", borderRight: "1px solid #e2e8f0" }}>{idx + 1}</td>
-              <td style={{ padding: "4px 10px", borderRight: "1px solid #e2e8f0", fontWeight: 600 }}>{p.product_name || p.name}</td>
-              <td style={{ textAlign: "center", borderRight: "1px solid #e2e8f0", color: "#64748b" }}>{p.product_code || "-"}</td>
-              <td style={{ textAlign: "center", borderRight: "1px solid #e2e8f0", fontWeight: 600 }}>{p.qty}</td>
-              <td style={{ textAlign: "right", borderRight: "1px solid #e2e8f0", padding: "4px 6px" }}>₹ {parseFloat(p.price || 0).toFixed(2)}</td>
-              <td style={{ textAlign: "right", borderRight: "1px solid #e2e8f0", padding: "4px 6px" }}>₹ {parseFloat(p.tax_amount || 0).toFixed(2)}</td>
-              <td style={{ textAlign: "right", padding: "4px 10px", fontWeight: 700 }}>₹ {parseFloat(p.amount || 0).toFixed(2)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Summary */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-        <div style={{ width: 240, display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Sub Total:</span><span>₹ {subTotal.toFixed(2)}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>GST:</span><span>₹ {totalGst.toFixed(2)}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 14, color: color, borderTop: `2px solid ${color}`, paddingTop: 4 }}>
-            <span>Grand Total:</span>
-            <span>₹ {totalAmount.toFixed(2)}</span>
+      {isPaymentVoucher ? (
+        <div style={{ border: "1px solid #e2e8f0", borderTop: "none", padding: "16px", background: "#ffffff" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 800, paddingBottom: 10, borderBottom: "1px solid #e2e8f0" }}>
+            <span>{vType === "payment_out" ? "Paid :" : "Received :"}</span>
+            <span style={{ color: color, fontSize: 16 }}>₹ {paidAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <strong>Amount in Words:</strong> {numberToWordsINR(paidAmount)}
+          </div>
+          <div style={{ marginTop: 24, textAlign: "right" }}>
+            <div style={{ fontWeight: 700 }}>For : {company?.company_name || "My Company"}</div>
           </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #e2e8f0", borderTop: "none" }}>
+            <thead>
+              <tr style={{ background: color, color: "#ffffff", height: 32, fontSize: 11.5 }}>
+                <th style={{ width: 32, padding: "6px 4px", textAlign: "center" }}>#</th>
+                <th style={{ padding: "6px 10px", textAlign: "left" }}>Item name</th>
+                {vType !== "expense" && <th style={{ width: 80, padding: "6px 4px", textAlign: "center" }}>HSN/ SAC</th>}
+                <th style={{ width: 68, padding: "6px 4px", textAlign: "center" }}>Quantity</th>
+                <th style={{ width: 90, padding: "6px 6px", textAlign: "right" }}>Price/ Unit</th>
+                {vType !== "expense" && <th style={{ width: 95, padding: "6px 6px", textAlign: "right" }}>GST</th>}
+                <th style={{ width: 95, padding: "6px 10px", textAlign: "right" }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p, idx) => (
+                <tr key={idx} style={{ height: 28, borderBottom: "1px solid #e2e8f0" }}>
+                  <td style={{ textAlign: "center", borderRight: "1px solid #e2e8f0" }}>{idx + 1}</td>
+                  <td style={{ padding: "4px 10px", borderRight: "1px solid #e2e8f0", fontWeight: 600 }}>{getItemName(p)}</td>
+                  {vType !== "expense" && <td style={{ textAlign: "center", borderRight: "1px solid #e2e8f0", color: "#64748b" }}>{getItemHSN(p)}</td>}
+                  <td style={{ textAlign: "center", borderRight: "1px solid #e2e8f0", fontWeight: 600 }}>{p.qty || p.quantity || 1}</td>
+                  <td style={{ textAlign: "right", borderRight: "1px solid #e2e8f0", padding: "4px 6px" }}>₹ {parseFloat(p.price || p.unit_price || 0).toFixed(2)}</td>
+                  {vType !== "expense" && <td style={{ textAlign: "right", borderRight: "1px solid #e2e8f0", padding: "4px 6px" }}>₹ {parseFloat(p.tax_amount || p.tax_amt || 0).toFixed(2)}</td>}
+                  <td style={{ textAlign: "right", padding: "4px 10px", fontWeight: 700 }}>₹ {parseFloat(p.amount || p.total || 0).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+            <div style={{ width: 240, display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Sub Total:</span><span>₹ {subTotal.toFixed(2)}</span></div>
+              {totalGst > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>GST:</span><span>₹ {totalGst.toFixed(2)}</span></div>}
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 14, color: color, borderTop: `2px solid ${color}`, paddingTop: 4 }}>
+                <span>Grand Total:</span>
+                <span>₹ {totalAmount.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -560,17 +726,18 @@ function formatPOSDateTime(dateStr) {
   return `${day}-${month}-${year} ${strHours}:${minutes} ${ampm}`;
 }
 
-function ThemePOS({ invoice, company, color, logoUrl }) {
+/* ─── 5.1 POS LAYOUT: CLASSIC MONOSPACE (STANDARD THERMAL) ─── */
+export function ThemePOSClassic({ invoice, company, color, logoUrl }) {
+  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
-  const totalGst = parseFloat(invoice.gst_total) || 0;
+  const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
   const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const previousBalance = parseFloat(invoice.previous_balance) || 0;
   const currentBalance = parseFloat(invoice.current_balance) || (previousBalance + balanceAmount);
   const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
-  const invoiceType = getInvoiceType(invoice);
 
   const S = {
     receipt: {
@@ -606,17 +773,19 @@ function ThemePOS({ invoice, company, color, logoUrl }) {
       {/* Company Info */}
       <div style={{ textAlign: "center", marginBottom: 4 }}>
         <div style={{ fontSize: 13.5, fontWeight: "bold", letterSpacing: 0.2 }}>
-          {company?.company_name || "Apex Digital Solutions"}
+          {company?.company_name || "My Company"}
         </div>
         <div style={{ fontSize: 10.5, margin: "2px 0", lineHeight: 1.25 }}>
-          {company?.company_address || "12/4, 2nd Cross Street, Tech Park Phase 1, Electronic City, Bengaluru, Karnataka"}
+          {company?.company_address || ""}
         </div>
         <div style={{ fontSize: 11 }}>
-          Ph: {company?.phone || "9876543210"}
+          Ph: {company?.phone || "-"}
         </div>
-        <div style={{ fontSize: 11 }}>
-          GSTIN: {company?.gstin || "-"}
-        </div>
+        {company?.gstin && (
+          <div style={{ fontSize: 11 }}>
+            GSTIN: {company.gstin}
+          </div>
+        )}
       </div>
 
       <div style={S.divider} />
@@ -624,11 +793,11 @@ function ThemePOS({ invoice, company, color, logoUrl }) {
       {/* Bill & Customer Details */}
       <div style={{ fontSize: 11 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-          <span>Bill {invoice.invoice_no || "INV-1787654896"}</span>
+          <span>{docNoLabel} {invoice.invoice_no || invoice.receipt_no}</span>
           <span>{formatPOSDateTime(invoice.created_at)}</span>
         </div>
         <div style={{ marginBottom: 2 }}>
-          Customer: {invoice.customer_name || "Customer"}
+          {partyLabel} {invoice.customer_name || invoice.party_name || "Party"}
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
           <span>Phone: {invoice.customer_phone || "-"}</span>
@@ -638,118 +807,767 @@ function ThemePOS({ invoice, company, color, logoUrl }) {
 
       <div style={S.divider} />
 
-      {/* Item Table (Table layout is 100% compatible with html2canvas and print) */}
-      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
-        <thead>
-          <tr style={{ borderBottom: "1px dashed #000000" }}>
-            <th style={{ textAlign: "left", width: "42%", paddingBottom: 3, fontWeight: "bold" }}>Item</th>
-            <th style={{ textAlign: "right", width: "20%", paddingBottom: 3, fontWeight: "bold" }}>Rate</th>
-            <th style={{ textAlign: "center", width: "15%", paddingBottom: 3, fontWeight: "bold" }}>Qty</th>
-            <th style={{ textAlign: "right", width: "23%", paddingBottom: 3, fontWeight: "bold" }}>Amt</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.map((p, i) => {
-            const qty = parseFloat(p.qty) || 1;
-            const price = parseFloat(p.price) || 0;
-            const amt = parseFloat(p.amount) || (qty * price);
-            const gstPct = parseFloat(p.gst || p.tax_percent) || 0;
-            const gstAmt = parseFloat(p.tax_amount) || ((amt * gstPct) / 100);
-
-            return (
-              <tr key={i} style={{ verticalAlign: "top" }}>
-                <td style={{ textAlign: "left", padding: "3px 2px 3px 0", wordBreak: "break-word" }}>
-                  <div>{p.product_name || p.name}</div>
-                  {p.product_code && (
-                    <div style={{ fontSize: 9.5, color: "#222", marginTop: 1 }}>{p.product_code}</div>
-                  )}
-                  {gstPct > 0 && (
-                    <div style={{ fontSize: 9.5, color: "#222", marginTop: 1 }}>
-                      GST @{gstPct}% : ₹{gstAmt.toFixed(2)}
-                    </div>
-                  )}
-                </td>
-                <td style={{ textAlign: "right", padding: "3px 2px" }}>{price.toFixed(0)}</td>
-                <td style={{ textAlign: "center", padding: "3px 2px" }}>{qty}</td>
-                <td style={{ textAlign: "right", padding: "3px 0" }}>{amt.toFixed(0)}</td>
+      {isPaymentVoucher ? (
+        <div style={{ padding: "4px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: "bold", marginBottom: 4 }}>
+            <span>{vType === "payment_out" ? "AMOUNT PAID:" : "AMOUNT RECEIVED:"}</span>
+            <span>₹ {paidAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ fontSize: 10, margin: "4px 0" }}>
+            <strong>In Words:</strong> {numberToWordsINR(paidAmount)}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginTop: 4 }}>
+            <span>Payment Mode:</span>
+            <span style={{ fontWeight: "bold" }}>{paymentMethod}</span>
+          </div>
+          <div style={S.divider} />
+          <div style={{ textAlign: "right", marginTop: 12, fontSize: 10, fontWeight: "bold" }}>
+            For: {company?.company_name || "My Company"}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Item Table */}
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px dashed #000000" }}>
+                <th style={{ textAlign: "left", width: "42%", paddingBottom: 3, fontWeight: "bold" }}>Item</th>
+                <th style={{ textAlign: "right", width: "20%", paddingBottom: 3, fontWeight: "bold" }}>Rate</th>
+                <th style={{ textAlign: "center", width: "15%", paddingBottom: 3, fontWeight: "bold" }}>Qty</th>
+                <th style={{ textAlign: "right", width: "23%", paddingBottom: 3, fontWeight: "bold" }}>Amt</th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {products.map((p, i) => {
+                const qty = parseFloat(p.qty || p.quantity) || 1;
+                const price = parseFloat(p.price || p.unit_price) || 0;
+                const amt = parseFloat(p.amount || p.total) || (qty * price);
+                const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
+                const gstAmt = parseFloat(p.tax_amount || p.tax_amt) || ((amt * gstPct) / 100);
 
-      <div style={S.divider} />
+                return (
+                  <tr key={i} style={{ verticalAlign: "top" }}>
+                    <td style={{ textAlign: "left", padding: "3px 2px 3px 0", wordBreak: "break-word" }}>
+                      <div>{getItemName(p)}</div>
+                      {p.product_code && (
+                        <div style={{ fontSize: 9.5, color: "#222", marginTop: 1 }}>{p.product_code}</div>
+                      )}
+                      {gstPct > 0 && (
+                        <div style={{ fontSize: 9.5, color: "#222", marginTop: 1 }}>
+                          GST @{gstPct}% : ₹{gstAmt.toFixed(2)}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "right", padding: "3px 2px" }}>{price.toFixed(0)}</td>
+                    <td style={{ textAlign: "center", padding: "3px 2px" }}>{qty}</td>
+                    <td style={{ textAlign: "right", padding: "3px 0" }}>{amt.toFixed(0)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
-      {/* Summary Table */}
-      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
-        <tbody>
-          <tr>
-            <td style={{ textAlign: "left", width: "55%", padding: "2px 0" }}>Total Items</td>
-            <td style={{ textAlign: "right", width: "45%", padding: "2px 0" }}>{products.length}</td>
-          </tr>
-          <tr>
-            <td style={{ textAlign: "left", padding: "2px 0" }}>Subtotal</td>
-            <td style={{ textAlign: "right", padding: "2px 0" }}>₹{subTotal.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style={{ textAlign: "left", padding: "2px 0" }}>Tax</td>
-            <td style={{ textAlign: "right", padding: "2px 0" }}>₹{totalGst.toFixed(2)}</td>
-          </tr>
-        </tbody>
-      </table>
+          <div style={S.divider} />
 
-      <div style={S.divider} />
+          {/* Summary Table */}
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
+            <tbody>
+              <tr>
+                <td style={{ textAlign: "left", width: "55%", padding: "2px 0" }}>Total Items</td>
+                <td style={{ textAlign: "right", width: "45%", padding: "2px 0" }}>{products.length}</td>
+              </tr>
+              <tr>
+                <td style={{ textAlign: "left", padding: "2px 0" }}>Subtotal</td>
+                <td style={{ textAlign: "right", padding: "2px 0" }}>₹{subTotal.toFixed(2)}</td>
+              </tr>
+              {totalGst > 0 && (
+                <tr>
+                  <td style={{ textAlign: "left", padding: "2px 0" }}>Tax</td>
+                  <td style={{ textAlign: "right", padding: "2px 0" }}>₹{totalGst.toFixed(2)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
 
-      {/* Total Amount (Prominent Bold) */}
-      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 13.5, fontWeight: "bold" }}>
-        <tbody>
-          <tr>
-            <td style={{ textAlign: "left", width: "55%", padding: "2px 0" }}>Total Amount</td>
-            <td style={{ textAlign: "right", width: "45%", padding: "2px 0" }}>₹{totalAmount.toFixed(2)}</td>
-          </tr>
-        </tbody>
-      </table>
+          <div style={S.divider} />
 
-      <div style={S.divider} />
+          {/* Total Amount */}
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 13.5, fontWeight: "bold" }}>
+            <tbody>
+              <tr>
+                <td style={{ textAlign: "left", width: "55%", padding: "2px 0" }}>Total Amount</td>
+                <td style={{ textAlign: "right", width: "45%", padding: "2px 0" }}>₹{totalAmount.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
 
-      {/* Payment & Balance Breakdown */}
-      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
-        <tbody>
-          <tr>
-            <td style={{ textAlign: "left", width: "55%", padding: "2px 0" }}>Payment Method</td>
-            <td style={{ textAlign: "right", width: "45%", padding: "2px 0", fontWeight: "bold" }}>{paymentMethod}</td>
-          </tr>
-          <tr>
-            <td style={{ textAlign: "left", padding: "2px 0" }}>Total</td>
-            <td style={{ textAlign: "right", padding: "2px 0" }}>₹{totalAmount.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style={{ textAlign: "left", padding: "2px 0" }}>Paid</td>
-            <td style={{ textAlign: "right", padding: "2px 0" }}>₹{paidAmount.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style={{ textAlign: "left", padding: "2px 0" }}>Balance</td>
-            <td style={{ textAlign: "right", padding: "2px 0" }}>₹{balanceAmount.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style={{ textAlign: "left", padding: "2px 0" }}>Previous Balance</td>
-            <td style={{ textAlign: "right", padding: "2px 0" }}>₹{previousBalance.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style={{ textAlign: "left", padding: "2px 0" }}>Current Balance</td>
-            <td style={{ textAlign: "right", padding: "2px 0" }}>₹{currentBalance.toFixed(2)}</td>
-          </tr>
-        </tbody>
-      </table>
+          <div style={S.divider} />
+
+          {/* Payment & Balance Breakdown */}
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
+            <tbody>
+              <tr>
+                <td style={{ textAlign: "left", width: "55%", padding: "2px 0" }}>Payment Method</td>
+                <td style={{ textAlign: "right", width: "45%", padding: "2px 0", fontWeight: "bold" }}>{paymentMethod}</td>
+              </tr>
+              <tr>
+                <td style={{ textAlign: "left", padding: "2px 0" }}>Paid</td>
+                <td style={{ textAlign: "right", padding: "2px 0" }}>₹{paidAmount.toFixed(2)}</td>
+              </tr>
+              {balanceAmount > 0 && (
+                <tr>
+                  <td style={{ textAlign: "left", padding: "2px 0" }}>Balance Due</td>
+                  <td style={{ textAlign: "right", padding: "2px 0" }}>₹{balanceAmount.toFixed(2)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
 
       <div style={S.divider} />
 
       {/* Footer Note */}
       <div style={{ textAlign: "center", fontSize: 9, letterSpacing: 0.2, marginTop: 4, paddingBottom: 2 }}>
-        PLEASE NOTE - EXCHANGES ALLOWED ONLY WITHIN 3 DAYS
+        THANK YOU FOR YOUR BUSINESS
       </div>
     </div>
   );
+}
+
+/* ─── 5.2 POS LAYOUT: MODERN RETAIL (CLEAN SANS-SERIF & HIGH CONTRAST) ─── */
+export function ThemePOSModern({ invoice, company, color, logoUrl }) {
+  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
+  const products = Array.isArray(invoice.products) ? invoice.products : [];
+  const totalAmount = parseFloat(invoice.total_amount) || 0;
+  const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
+  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const paidAmount = parseFloat(invoice.paid_amount) || 0;
+  const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
+  const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+
+  return (
+    <div style={{
+      fontFamily: "'Segoe UI', system-ui, -apple-system, Roboto, sans-serif",
+      fontSize: 11,
+      color: "#0f172a",
+      width: "100%",
+      maxWidth: 275,
+      margin: "0 auto",
+      lineHeight: 1.35,
+      background: "#ffffff",
+      boxSizing: "border-box"
+    }}>
+      {/* Modern Header */}
+      <div style={{ textAlign: "center", marginBottom: 6 }}>
+        {logoUrl ? (
+          <img src={logoUrl} alt="Logo" style={{ width: 38, height: 38, objectFit: "contain", margin: "0 auto 4px auto" }} />
+        ) : (
+          <div style={{ display: "inline-block", background: "#0f172a", color: "#ffffff", fontWeight: 800, fontSize: 10, padding: "2px 8px", borderRadius: 4, marginBottom: 4, letterSpacing: 0.5 }}>
+            {invoiceType.toUpperCase()}
+          </div>
+        )}
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", letterSpacing: -0.2 }}>
+          {company?.company_name || "My Company"}
+        </div>
+        <div style={{ fontSize: 10, color: "#475569", margin: "2px 0", lineHeight: 1.3 }}>
+          {company?.company_address || ""}
+        </div>
+        <div style={{ fontSize: 10.5, color: "#334155", fontWeight: 500 }}>
+          Ph: {company?.phone || "-"} {company?.gstin ? `• GST: ${company.gstin}` : ""}
+        </div>
+      </div>
+
+      <div style={{ borderBottom: "1.5px solid #0f172a", margin: "6px 0" }} />
+
+      {/* Bill Meta Pill Card */}
+      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "5px 7px", fontSize: 10.5, marginBottom: 6 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>
+          <span>{docNoLabel} #{invoice.invoice_no || invoice.receipt_no}</span>
+          <span>{formatPOSDateTime(invoice.created_at)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
+          <span>{partyLabel} <strong style={{ color: "#0f172a" }}>{invoice.customer_name || invoice.party_name || "Party"}</strong></span>
+          <span style={{ fontWeight: 600, color: color }}>{invoiceType}</span>
+        </div>
+        {invoice.customer_phone && (
+          <div style={{ color: "#64748b", marginTop: 1 }}>Phone: {invoice.customer_phone}</div>
+        )}
+      </div>
+
+      {isPaymentVoucher ? (
+        <div style={{ padding: "6px 0" }}>
+          <div style={{
+            background: "#0f172a",
+            color: "#ffffff",
+            borderRadius: 6,
+            padding: "8px 10px",
+            margin: "6px 0",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>{vType === "payment_out" ? "Paid Amount" : "Received Amount"}</span>
+            <span style={{ fontSize: 15, fontWeight: 900 }}>₹{paidAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ fontSize: 10, margin: "4px 0", color: "#475569" }}>
+            <strong>In Words:</strong> {numberToWordsINR(paidAmount)}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#334155", background: "#f8fafc", padding: "4px 6px", borderRadius: 4, border: "1px solid #e2e8f0", marginTop: 6 }}>
+            <span>Payment: <strong>{paymentMethod}</strong></span>
+            <span>Status: <strong style={{ color: "#16a34a" }}>CONFIRMED</strong></span>
+          </div>
+          <div style={{ textAlign: "right", marginTop: 16, fontSize: 10, fontWeight: 700 }}>
+            For: {company?.company_name || "My Company"}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Modern Items List */}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.5, marginBottom: 4 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #cbd5e1", background: "#f1f5f9" }}>
+                <th style={{ textAlign: "left", padding: "4px 3px", fontWeight: 700, color: "#334155" }}>ITEM</th>
+                <th style={{ textAlign: "center", padding: "4px 2px", fontWeight: 700, color: "#334155" }}>QTY</th>
+                <th style={{ textAlign: "right", padding: "4px 2px", fontWeight: 700, color: "#334155" }}>PRICE</th>
+                <th style={{ textAlign: "right", padding: "4px 3px", fontWeight: 700, color: "#334155" }}>AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p, i) => {
+                const qty = parseFloat(p.qty || p.quantity) || 1;
+                const price = parseFloat(p.price || p.unit_price) || 0;
+                const amt = parseFloat(p.amount || p.total) || (qty * price);
+                const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
+
+                return (
+                  <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ textAlign: "left", padding: "4px 2px", wordBreak: "break-word" }}>
+                      <div style={{ fontWeight: 600, color: "#0f172a" }}>{getItemName(p)}</div>
+                      {p.product_code && (
+                        <div style={{ fontSize: 9, color: "#64748b" }}>Code: {p.product_code} {gstPct > 0 ? `• GST ${gstPct}%` : ""}</div>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "center", padding: "4px 2px", color: "#334155" }}>{qty}</td>
+                    <td style={{ textAlign: "right", padding: "4px 2px", color: "#334155" }}>{price.toFixed(0)}</td>
+                    <td style={{ textAlign: "right", padding: "4px 2px", fontWeight: 700, color: "#0f172a" }}>{amt.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Summary Box */}
+          <div style={{ borderTop: "1px dashed #cbd5e1", paddingTop: 4, fontSize: 10.5 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "1.5px 0", color: "#475569" }}>
+              <span>Items / Qty: {products.length} items</span>
+              <span>Subtotal: ₹{subTotal.toFixed(2)}</span>
+            </div>
+            {totalGst > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "1.5px 0", color: "#475569" }}>
+                <span>GST Tax (Included)</span>
+                <span>₹{totalGst.toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Prominent High Contrast Total Banner */}
+          <div style={{
+            background: "#0f172a",
+            color: "#ffffff",
+            borderRadius: 6,
+            padding: "6px 8px",
+            margin: "6px 0",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.3, textTransform: "uppercase" }}>Total Payable</span>
+            <span style={{ fontSize: 14, fontWeight: 900 }}>₹{totalAmount.toFixed(2)}</span>
+          </div>
+
+          {/* Payment Status Bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#334155", background: "#f8fafc", padding: "4px 6px", borderRadius: 4, border: "1px solid #e2e8f0" }}>
+            <span>Payment: <strong>{paymentMethod}</strong></span>
+            <span>Status: <strong style={{ color: balanceAmount > 0 ? "#dc2626" : "#16a34a" }}>{balanceAmount > 0 ? `Due ₹${balanceAmount.toFixed(2)}` : "PAID FULL"}</strong></span>
+          </div>
+        </>
+      )}
+
+      {/* Modern Footer Note */}
+      <div style={{ textAlign: "center", fontSize: 9.5, color: "#64748b", marginTop: 8, lineHeight: 1.3 }}>
+        <div>★ ★ ★ THANK YOU FOR YOUR BUSINESS ★ ★ ★</div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 5.3 POS LAYOUT: DETAILED GST TAX INVOICE (FULL GST TAX SPLIT) ─── */
+export function ThemePOSDetailed({ invoice, company, color, logoUrl }) {
+  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
+  const products = Array.isArray(invoice.products) ? invoice.products : [];
+  const totalAmount = parseFloat(invoice.total_amount) || 0;
+  const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
+  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const paidAmount = parseFloat(invoice.paid_amount) || 0;
+  const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
+  const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+
+  const halfGst = totalGst / 2;
+
+  return (
+    <div style={{
+      fontFamily: "'Segoe UI', Arial, sans-serif",
+      fontSize: 10.5,
+      color: "#111827",
+      width: "100%",
+      maxWidth: 280,
+      margin: "0 auto",
+      lineHeight: 1.3,
+      background: "#ffffff",
+      boxSizing: "border-box"
+    }}>
+      {/* Heading */}
+      <div style={{ textAlign: "center", borderBottom: "1px solid #000000", paddingBottom: 4, marginBottom: 4 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 0.5 }}>{invoiceType.toUpperCase()}</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#111827", marginTop: 1 }}>
+          {company?.company_name || "My Company"}
+        </div>
+        <div style={{ fontSize: 9.5, color: "#374151" }}>
+          {company?.company_address || ""}
+        </div>
+        {company?.gstin && (
+          <div style={{ fontSize: 10, fontWeight: 600 }}>
+            GSTIN: {company.gstin}
+          </div>
+        )}
+        <div style={{ fontSize: 9.5 }}>Phone: {company?.phone || "-"}</div>
+      </div>
+
+      {/* Bill & Party Details */}
+      <table style={{ width: "100%", fontSize: 9.5, borderCollapse: "collapse", marginBottom: 4 }}>
+        <tbody>
+          <tr>
+            <td style={{ width: "50%", padding: "1px 0" }}><strong>{docNoLabel}:</strong> {invoice.invoice_no || invoice.receipt_no}</td>
+            <td style={{ width: "50%", textAlign: "right", padding: "1px 0" }}><strong>Date:</strong> {formatPOSDateTime(invoice.created_at)}</td>
+          </tr>
+          <tr>
+            <td style={{ padding: "1px 0" }} colSpan={2}><strong>{partyLabel}:</strong> {invoice.customer_name || invoice.party_name || "Party"}</td>
+          </tr>
+          {invoice.customer_gstin && (
+            <tr>
+              <td style={{ padding: "1px 0" }} colSpan={2}><strong>Party GSTIN:</strong> {invoice.customer_gstin}</td>
+            </tr>
+          )}
+          <tr>
+            <td style={{ padding: "1px 0" }}><strong>Payment Mode:</strong> {paymentMethod}</td>
+            <td style={{ textAlign: "right", padding: "1px 0" }}><strong>Type:</strong> {invoiceType}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style={{ borderBottom: "1px dashed #000", margin: "3px 0" }} />
+
+      {isPaymentVoucher ? (
+        <div style={{ padding: "4px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: "bold", padding: "4px 0" }}>
+            <span>{vType === "payment_out" ? "PAID AMOUNT:" : "RECEIVED AMOUNT:"}</span>
+            <span>₹ {paidAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ fontSize: 9, margin: "3px 0", color: "#374151" }}>
+            <strong>In Words:</strong> {numberToWordsINR(paidAmount)}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, marginTop: 4 }}>
+            <span>Mode: {paymentMethod}</span>
+            <span>Status: PAID</span>
+          </div>
+          <div style={{ marginTop: 14, textAlign: "right", fontSize: 9, fontWeight: "bold" }}>
+            For: {company?.company_name || "My Company"}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Item Table with HSN & GST % */}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9.5 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #000000" }}>
+                <th style={{ textAlign: "left", padding: "2px 0", fontWeight: "bold" }}>Item</th>
+                {vType !== "expense" && <th style={{ textAlign: "center", padding: "2px 0", fontWeight: "bold" }}>HSN</th>}
+                <th style={{ textAlign: "center", padding: "2px 0", fontWeight: "bold" }}>Qty</th>
+                <th style={{ textAlign: "right", padding: "2px 0", fontWeight: "bold" }}>Rate</th>
+                <th style={{ textAlign: "right", padding: "2px 0", fontWeight: "bold" }}>Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p, i) => {
+                const qty = parseFloat(p.qty || p.quantity) || 1;
+                const price = parseFloat(p.price || p.unit_price) || 0;
+                const amt = parseFloat(p.amount || p.total) || (qty * price);
+                const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
+
+                return (
+                  <tr key={i} style={{ borderBottom: "1px dotted #e5e7eb" }}>
+                    <td style={{ textAlign: "left", padding: "2px 0", wordBreak: "break-word" }}>
+                      <div>{getItemName(p)}</div>
+                      {gstPct > 0 && <div style={{ fontSize: 8.5, color: "#4b5563" }}>GST @{gstPct}%</div>}
+                    </td>
+                    {vType !== "expense" && <td style={{ textAlign: "center", padding: "2px 0", fontSize: 9 }}>{getItemHSN(p)}</td>}
+                    <td style={{ textAlign: "center", padding: "2px 0" }}>{qty}</td>
+                    <td style={{ textAlign: "right", padding: "2px 0" }}>{price.toFixed(0)}</td>
+                    <td style={{ textAlign: "right", padding: "2px 0", fontWeight: "bold" }}>{amt.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div style={{ borderBottom: "1px dashed #000", margin: "4px 0" }} />
+
+          {/* GST Split Breakdown Table */}
+          {totalGst > 0 && (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9, marginBottom: 4, background: "#f9fafb" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #d1d5db" }}>
+                  <th style={{ textAlign: "left", padding: "2px" }}>Tax Split</th>
+                  <th style={{ textAlign: "right", padding: "2px" }}>CGST</th>
+                  <th style={{ textAlign: "right", padding: "2px" }}>SGST</th>
+                  <th style={{ textAlign: "right", padding: "2px" }}>Total Tax</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: "2px" }}>GST (Standard)</td>
+                  <td style={{ textAlign: "right", padding: "2px" }}>₹{halfGst.toFixed(2)}</td>
+                  <td style={{ textAlign: "right", padding: "2px" }}>₹{halfGst.toFixed(2)}</td>
+                  <td style={{ textAlign: "right", padding: "2px", fontWeight: "bold" }}>₹{totalGst.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+
+          {/* Summary Totals */}
+          <table style={{ width: "100%", fontSize: 10, borderCollapse: "collapse" }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: "1px 0" }}>Sub Total (Taxable)</td>
+                <td style={{ textAlign: "right", padding: "1px 0" }}>₹{subTotal.toFixed(2)}</td>
+              </tr>
+              {totalGst > 0 && (
+                <tr>
+                  <td style={{ padding: "1px 0" }}>Total Tax</td>
+                  <td style={{ textAlign: "right", padding: "1px 0" }}>₹{totalGst.toFixed(2)}</td>
+                </tr>
+              )}
+              <tr style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", fontWeight: "bold", fontSize: 12 }}>
+                <td style={{ padding: "3px 0" }}>NET AMOUNT</td>
+                <td style={{ textAlign: "right", padding: "3px 0" }}>₹{totalAmount.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "1px 0", fontSize: 9.5 }}>Paid: ₹{paidAmount.toFixed(2)}</td>
+                <td style={{ textAlign: "right", padding: "1px 0", fontSize: 9.5, color: balanceAmount > 0 ? "#dc2626" : "#059669", fontWeight: "bold" }}>
+                  Balance: ₹{balanceAmount.toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style={{ fontSize: 8.5, marginTop: 4, color: "#374151" }}>
+            <strong>In Words:</strong> {numberToWordsINR(totalAmount)}
+          </div>
+        </>
+      )}
+
+      {/* Signatory */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 8, paddingTop: 4, borderTop: "1px dotted #9ca3af", fontSize: 8.5 }}>
+        <div>
+          <div>Thank you for your visit!</div>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontWeight: "bold" }}>Authorized Signatory</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 5.4 POS LAYOUT: QUICK MINIMAL / FAST BILLING TOKEN ─── */
+export function ThemePOSMinimal({ invoice, company, color, logoUrl }) {
+  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
+  const products = Array.isArray(invoice.products) ? invoice.products : [];
+  const totalAmount = parseFloat(invoice.total_amount) || 0;
+  const paidAmount = parseFloat(invoice.paid_amount) || 0;
+  const totalQty = products.reduce((s, p) => s + (parseFloat(p.qty || p.quantity) || 0), 0);
+  const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+
+  return (
+    <div style={{
+      fontFamily: "'Courier New', Courier, monospace",
+      fontSize: 11,
+      color: "#000000",
+      width: "100%",
+      maxWidth: 270,
+      margin: "0 auto",
+      lineHeight: 1.3,
+      background: "#ffffff",
+      boxSizing: "border-box"
+    }}>
+      {/* Big Token Number Header Box */}
+      <div style={{ border: "2px solid #000000", padding: "6px 4px", textAlign: "center", marginBottom: 6 }}>
+        <div style={{ fontSize: 10, fontWeight: "bold", letterSpacing: 0.5 }}>{invoiceType.toUpperCase()}</div>
+        <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: 1, margin: "2px 0" }}>
+          #{invoice.invoice_no || invoice.receipt_no}
+        </div>
+        <div style={{ fontSize: 9.5 }}>{company?.company_name || "Express Billing"} • {company?.phone || "-"}</div>
+      </div>
+
+      {/* Time & Counter */}
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, borderBottom: "1px dashed #000", paddingBottom: 3, marginBottom: 4 }}>
+        <span>Date: {formatPOSDateTime(invoice.created_at)}</span>
+        <span>Type: {paymentMethod}</span>
+      </div>
+
+      <div style={{ fontSize: 9.5, marginBottom: 4 }}>
+        <span>{partyLabel} <strong>{invoice.customer_name || invoice.party_name || "Party"}</strong></span>
+      </div>
+
+      {isPaymentVoucher ? (
+        <div style={{ padding: "4px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "4px 0" }}>
+            <span style={{ fontSize: 11, fontWeight: "bold" }}>{vType === "payment_out" ? "PAID:" : "RECEIVED:"}</span>
+            <span style={{ fontSize: 16, fontWeight: 900 }}>₹{paidAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ fontSize: 9, margin: "3px 0" }}>
+            <strong>In Words:</strong> {numberToWordsINR(paidAmount)}
+          </div>
+          <div style={{ borderTop: "2px solid #000", borderBottom: "2px solid #000", padding: "3px 0", textAlign: "center", fontWeight: "bold", fontSize: 10, margin: "4px 0" }}>
+            PAID BY {paymentMethod} • THANK YOU!
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Streamlined Fast Item List */}
+          <div style={{ fontSize: 11, marginBottom: 4 }}>
+            {products.map((p, i) => {
+              const qty = parseFloat(p.qty || p.quantity) || 1;
+              const price = parseFloat(p.price || p.unit_price) || 0;
+              const amt = parseFloat(p.amount || p.total) || (qty * price);
+
+              return (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                  <span style={{ fontWeight: "bold", flex: 1, paddingRight: 4, wordBreak: "break-word" }}>
+                    {qty} x {getItemName(p)}
+                  </span>
+                  <span style={{ fontWeight: "bold", whiteSpace: "nowrap" }}>
+                    ₹{amt.toFixed(0)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />
+
+          {/* Large Bold Total */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "4px 0" }}>
+            <span style={{ fontSize: 11, fontWeight: "bold" }}>ITEMS: {products.length} (QTY {totalQty})</span>
+            <span style={{ fontSize: 16, fontWeight: 900 }}>TOTAL: ₹{totalAmount.toFixed(0)}</span>
+          </div>
+
+          <div style={{ borderTop: "2px solid #000", borderBottom: "2px solid #000", padding: "3px 0", textAlign: "center", fontWeight: "bold", fontSize: 10, margin: "4px 0" }}>
+            PAID BY {paymentMethod} • THANK YOU!
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─── 5.5 POS LAYOUT: VINTAGE BOUTIQUE (DECORATIVE BORDERS & STORE STORY) ─── */
+export function ThemePOSVintage({ invoice, company, color, logoUrl }) {
+  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
+  const products = Array.isArray(invoice.products) ? invoice.products : [];
+  const totalAmount = parseFloat(invoice.total_amount) || 0;
+  const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
+  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const paidAmount = parseFloat(invoice.paid_amount) || 0;
+  const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
+  const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+
+  return (
+    <div style={{
+      fontFamily: "'Courier New', Courier, monospace",
+      fontSize: 10.5,
+      color: "#18181b",
+      width: "100%",
+      maxWidth: 275,
+      margin: "0 auto",
+      lineHeight: 1.35,
+      background: "#ffffff",
+      boxSizing: "border-box"
+    }}>
+      {/* Decorative Vintage Banner */}
+      <div style={{ textAlign: "center", marginBottom: 6 }}>
+        <div style={{ fontSize: 11, fontWeight: "bold", letterSpacing: 1 }}>═════════════════════════════</div>
+        <div style={{ fontSize: 13.5, fontWeight: 900, letterSpacing: 0.5, margin: "2px 0" }}>
+          * {company?.company_name || "Apex Heritage & Boutique"} *
+        </div>
+        <div style={{ fontSize: 11, fontWeight: "bold", letterSpacing: 1 }}>═════════════════════════════</div>
+        <div style={{ fontSize: 10, marginTop: 2 }}>{company?.company_address || ""}</div>
+        <div style={{ fontSize: 10 }}>Ph: {company?.phone || "-"} {company?.gstin ? `| GST: ${company.gstin}` : ""}</div>
+      </div>
+
+      <div style={{ borderBottom: "1px dashed #000", margin: "4px 0" }} />
+
+      {/* Bill Info */}
+      <div style={{ fontSize: 10, marginBottom: 4 }}>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span>{docNoLabel} #{invoice.invoice_no || invoice.receipt_no}</span>
+          <span>{formatPOSDateTime(invoice.created_at)}</span>
+        </div>
+        <div>{partyLabel} {invoice.customer_name || invoice.party_name || "Valued Patron"}</div>
+      </div>
+
+      <div style={{ borderBottom: "1px solid #000", margin: "4px 0" }} />
+
+      {isPaymentVoucher ? (
+        <div style={{ padding: "4px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: "bold" }}>
+            <span>{vType === "payment_out" ? "AMOUNT PAID:" : "AMOUNT RECEIVED:"}</span>
+            <span>₹ {paidAmount.toFixed(2)}</span>
+          </div>
+          <div style={{ fontSize: 9.5, margin: "4px 0" }}>
+            <strong>In Words:</strong> {numberToWordsINR(paidAmount)}
+          </div>
+          <div style={{ fontSize: 9.5, marginTop: 4 }}>
+            <span>Payment: <strong>{paymentMethod}</strong></span>
+          </div>
+          <div style={{ borderBottom: "1px solid #000", margin: "6px 0" }} />
+          <div style={{ textAlign: "right", marginTop: 10, fontSize: 9.5, fontWeight: "bold" }}>
+            For: {company?.company_name || "My Company"}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Items List */}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px dashed #71717a" }}>
+                <th style={{ textAlign: "left", paddingBottom: 2, fontWeight: "bold" }}>ITEM DESCRIPTION</th>
+                <th style={{ textAlign: "center", paddingBottom: 2, fontWeight: "bold" }}>QTY</th>
+                <th style={{ textAlign: "right", paddingBottom: 2, fontWeight: "bold" }}>PRICE</th>
+                <th style={{ textAlign: "right", paddingBottom: 2, fontWeight: "bold" }}>TOTAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p, i) => {
+                const qty = parseFloat(p.qty || p.quantity) || 1;
+                const price = parseFloat(p.price || p.unit_price) || 0;
+                const amt = parseFloat(p.amount || p.total) || (qty * price);
+
+                return (
+                  <tr key={i} style={{ verticalAlign: "top" }}>
+                    <td style={{ textAlign: "left", padding: "2.5px 0", wordBreak: "break-word" }}>
+                      * {getItemName(p)}
+                    </td>
+                    <td style={{ textAlign: "center", padding: "2.5px 2px" }}>{qty}</td>
+                    <td style={{ textAlign: "right", padding: "2.5px 2px" }}>{price.toFixed(0)}</td>
+                    <td style={{ textAlign: "right", padding: "2.5px 0", fontWeight: "bold" }}>{amt.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div style={{ borderBottom: "1px solid #000", margin: "4px 0" }} />
+
+          {/* Summary */}
+          <table style={{ width: "100%", fontSize: 10.5, borderCollapse: "collapse" }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: "1px 0" }}>SUB TOTAL</td>
+                <td style={{ textAlign: "right", padding: "1px 0" }}>₹{subTotal.toFixed(2)}</td>
+              </tr>
+              {totalGst > 0 && (
+                <tr>
+                  <td style={{ padding: "1px 0" }}>ESTIMATED GST</td>
+                  <td style={{ textAlign: "right", padding: "1px 0" }}>₹{totalGst.toFixed(2)}</td>
+                </tr>
+              )}
+              <tr style={{ fontWeight: 900, fontSize: 12.5 }}>
+                <td style={{ padding: "3px 0" }}>GRAND TOTAL</td>
+                <td style={{ textAlign: "right", padding: "3px 0" }}>₹{totalAmount.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "1px 0", fontSize: 10 }}>PAYMENT ({paymentMethod})</td>
+                <td style={{ textAlign: "right", padding: "1px 0", fontSize: 10 }}>₹{paidAmount.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </>
+      )}
+
+      <div style={{ borderBottom: "1px dashed #000", margin: "5px 0" }} />
+
+      {/* Vintage Footer */}
+      <div style={{ textAlign: "center", fontSize: 9.5, lineHeight: 1.35, paddingBottom: 2 }}>
+        <div>~ Thank you for your business! ~</div>
+        <div style={{ fontSize: 10, fontWeight: "bold", letterSpacing: 1, marginTop: 2 }}>═════════════════════════════</div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── MAIN POS RECEIPT THEME DISPATCHER ─── */
+function ThemePOS({ invoice, company, color, logoUrl, layout }) {
+  const activeLayout = layout || invoice?.pos_layout || (() => {
+    try {
+      return localStorage.getItem("thermal_pos_layout") || "pos_classic";
+    } catch {
+      return "pos_classic";
+    }
+  })();
+
+  if (activeLayout === "pos_modern") {
+    return <ThemePOSModern invoice={invoice} company={company} color={color} logoUrl={logoUrl} />;
+  }
+  if (activeLayout === "pos_detailed") {
+    return <ThemePOSDetailed invoice={invoice} company={company} color={color} logoUrl={logoUrl} />;
+  }
+  if (activeLayout === "pos_minimal") {
+    return <ThemePOSMinimal invoice={invoice} company={company} color={color} logoUrl={logoUrl} />;
+  }
+  if (activeLayout === "pos_vintage") {
+    return <ThemePOSVintage invoice={invoice} company={company} color={color} logoUrl={logoUrl} />;
+  }
+  return <ThemePOSClassic invoice={invoice} company={company} color={color} logoUrl={logoUrl} />;
+}
+
+/* ─── INITIAL SETTINGS LOADER FROM LOCALSTORAGE ───────────────────────────── */
+function getInitialPrintSettings() {
+  try {
+    const printSettings = JSON.parse(localStorage.getItem("print_settings") || "{}");
+    const defaultPrinter = localStorage.getItem("invoice_printer_type") || printSettings.printer || "regular";
+    const defaultTheme = localStorage.getItem("invoice_default_theme") || printSettings.template || printSettings.theme || "tally";
+    const defaultColor = localStorage.getItem("invoice_default_color") || printSettings.themeColor || "#2563eb";
+    const defaultPosLayout = localStorage.getItem("thermal_pos_layout") || localStorage.getItem("invoice_pos_layout") || printSettings.posLayout || "pos_classic";
+    const defaultPageSize = printSettings.pageSize || "2 Inch: 58mm";
+
+    return {
+      printer: defaultPrinter,
+      theme: defaultTheme,
+      color: defaultColor,
+      posLayout: defaultPosLayout,
+      pageSize: defaultPageSize,
+    };
+  } catch {
+    return {
+      printer: "regular",
+      theme: "tally",
+      color: "#2563eb",
+      posLayout: "pos_classic",
+      pageSize: "2 Inch: 58mm",
+    };
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -759,22 +1577,14 @@ export default function InvoicePreview() {
   const { invoiceNo } = useParams();
   const navigate = useNavigate();
 
+  const initialSettings = getInitialPrintSettings();
   const [invoice, setInvoice] = useState(null);
   const [company, setCompany] = useState(null);
-  const [selectedTheme, setSelectedTheme] = useState(() => {
-    try {
-      return localStorage.getItem("invoice_default_theme") || "tally";
-    } catch {
-      return "tally";
-    }
-  });
-  const [selectedColor, setSelectedColor] = useState(() => {
-    try {
-      return localStorage.getItem("invoice_default_color") || "#2563eb";
-    } catch {
-      return "#2563eb";
-    }
-  });
+  const [printerType, setPrinterType] = useState(() => initialSettings.printer);
+  const [selectedTheme, setSelectedTheme] = useState(() => initialSettings.theme);
+  const [selectedColor, setSelectedColor] = useState(() => initialSettings.color);
+  const [selectedPosLayout, setSelectedPosLayout] = useState(() => initialSettings.posLayout);
+  const [pageSize, setPageSize] = useState(() => initialSettings.pageSize);
   const [doNotShowAgain, setDoNotShowAgain] = useState(false);
   const [waSending, setWaSending] = useState(false);
   const [tmSending, setTmSending] = useState(false);
@@ -783,7 +1593,7 @@ export default function InvoicePreview() {
   const [loadError, setLoadError] = useState(null);
   const tmAttachDone = useRef(false);
 
-  const isPOS = selectedTheme === "pos";
+  const isPOS = printerType === "thermal" || selectedTheme === "pos";
   const logoUrl = getInvoiceLogoUrl(company?.logo);
 
   /* Insert Print CSS */
@@ -893,12 +1703,16 @@ export default function InvoicePreview() {
       .get("/settings/get", { params: { company_id: companyId } })
       .then((res) => {
         const data = (res.data && res.data.data) || {};
-        const design = data.invoiceDesign || data.print || {};
+        const printSettings = data.print || {};
+        const designSettings = data.invoiceDesign || {};
 
-        // Load Default Saved Theme
-        if (design.theme) {
-          setSelectedTheme(design.theme);
-        } else if (design.template) {
+        // 1. Printer Type: 'regular' | 'thermal'
+        const activePrinter = printSettings.printer || (designSettings.theme === "pos" ? "thermal" : "regular");
+        if (activePrinter) setPrinterType(activePrinter);
+
+        // 2. Regular Theme
+        const themeCandidate = printSettings.template || printSettings.theme || designSettings.template || designSettings.theme;
+        if (themeCandidate) {
           const map = {
             "Tally Theme": "tally",
             "GST Theme 1": "gst1",
@@ -911,13 +1725,25 @@ export default function InvoicePreview() {
             "vintage_classic": "vintage_classic",
             "vintage_bold": "vintage_bold"
           };
-          const resolved = map[design.template] || design.template.toLowerCase().replace(/\s+/g, "_");
+          const resolved = map[themeCandidate] || themeCandidate.toLowerCase().replace(/\s+/g, "_");
           if (resolved) setSelectedTheme(resolved);
         }
 
-        // Load Default Saved Color
-        if (design.themeColor) {
-          setSelectedColor(design.themeColor);
+        // 3. Theme Accent Color
+        const colorCandidate = printSettings.themeColor || designSettings.themeColor;
+        if (colorCandidate) {
+          setSelectedColor(colorCandidate);
+        }
+
+        // 4. POS Layout (Thermal)
+        const posLayoutCandidate = printSettings.posLayout || designSettings.posLayout;
+        if (posLayoutCandidate) {
+          setSelectedPosLayout(posLayoutCandidate);
+        }
+
+        // 5. Page Size (Thermal)
+        if (printSettings.pageSize) {
+          setPageSize(printSettings.pageSize);
         }
       })
       .catch(() => {});
@@ -945,10 +1771,10 @@ export default function InvoicePreview() {
             {loadError || `Could not find invoice #${invoiceNo}. It may have been deleted or the number is invalid.`}
           </p>
           <button
-            onClick={() => navigate("/sales/invoices")}
+            onClick={() => navigate(getVoucherBackRoute(invoice || { invoice_no: invoiceNo }))}
             style={{ padding: "10px 20px", background: "#2563eb", color: "#ffffff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
           >
-            Go Back to Invoices
+            Go Back
           </button>
         </div>
       </div>
@@ -1070,7 +1896,8 @@ export default function InvoicePreview() {
     if (doNotShowAgain) {
       localStorage.setItem("skip_invoice_preview", "true");
     }
-    navigate("/sales/invoices");
+    const targetRoute = getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
+    navigate(targetRoute);
   };
 
   const totalAmountNum = parseFloat(invoice?.total_amount) || 0;
@@ -1158,9 +1985,10 @@ export default function InvoicePreview() {
             id="invoice-print-area"
             style={{
               background: "#ffffff",
-              width: isPOS ? 280 : 794,
+              width: isPOS ? (pageSize && pageSize.includes("58mm") ? 270 : 310) : 794,
+              maxWidth: "100%",
               minHeight: isPOS ? "auto" : 1050,
-              padding: isPOS ? "12px 6px" : "28px 32px",
+              padding: isPOS ? "16px 12px" : "28px 32px",
               boxShadow: "0 6px 24px rgba(15, 23, 42, 0.09)",
               borderRadius: 2,
               boxSizing: "border-box",
@@ -1169,28 +1997,33 @@ export default function InvoicePreview() {
             }}
           >
             {/* Top Right Zoom / Expand Icon (Matching Screenshot) */}
-            <div className="no-print" style={{ position: "absolute", top: 12, right: 12, color: "#94a3b8", cursor: "pointer" }}>
-              <Maximize2 size={15} />
-            </div>
+            {!isPOS && (
+              <div className="no-print" style={{ position: "absolute", top: 12, right: 12, color: "#94a3b8", cursor: "pointer" }}>
+                <Maximize2 size={15} />
+              </div>
+            )}
 
-            {/* Dynamic Active Theme Component */}
-            {selectedTheme === "tally" && (
-              <ThemeTally invoice={invoice} company={company} color={selectedColor} logoUrl={logoUrl} />
-            )}
-            {selectedTheme === "gst1" && (
-              <ThemeGST1 invoice={invoice} company={company} color={selectedColor} logoUrl={logoUrl} />
-            )}
-            {selectedTheme === "gst3" && (
-              <ThemeGST3 invoice={invoice} company={company} color={selectedColor} logoUrl={logoUrl} />
-            )}
-            {selectedTheme === "double_divine" && (
-              <ThemeDoubleDivine invoice={invoice} company={company} color={selectedColor} logoUrl={logoUrl} />
-            )}
-            {(selectedTheme === "french_elite" || selectedTheme === "vintage_classic" || selectedTheme === "vintage_bold") && (
-              <ThemeTally invoice={invoice} company={company} color={selectedColor} logoUrl={logoUrl} />
-            )}
-            {selectedTheme === "pos" && (
-              <ThemePOS invoice={invoice} company={company} color={selectedColor} logoUrl={logoUrl} />
+            {/* Dynamic Active Theme / Layout Component */}
+            {isPOS ? (
+              <ThemePOS
+                invoice={invoice}
+                company={company}
+                color={selectedColor}
+                logoUrl={logoUrl}
+                layout={selectedPosLayout}
+              />
+            ) : (
+              (() => {
+                const Component = DESIGN_COMPONENTS[selectedTheme] || DESIGN_COMPONENTS.tally || ThemeTally;
+                return (
+                  <Component
+                    invoice={invoice}
+                    company={company}
+                    color={selectedColor}
+                    logoUrl={logoUrl}
+                  />
+                );
+              })()
             )}
           </div>
         </main>
@@ -1259,7 +2092,7 @@ export default function InvoicePreview() {
               )}
             </div>
 
-{/* Customer & Bill Details */}
+            {/* Customer & Bill Details */}
             <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11, color: "#475569" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ color: "#64748b" }}>Customer:</span>
@@ -1293,6 +2126,13 @@ export default function InvoicePreview() {
                 <span style={{ color: "#64748b" }}>Invoice Type:</span>
                 <span style={{ fontWeight: 700, color: "#2563eb" }}>
                   {invoiceType}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4, paddingTop: 4, borderTop: "1px dashed #e2e8f0" }}>
+                <span style={{ color: "#64748b" }}>Format:</span>
+                <span style={{ fontWeight: 700, color: isPOS ? "#d97706" : "#2563eb", fontSize: 10.5 }}>
+                  {isPOS ? `Thermal POS (${(selectedPosLayout || "pos_classic").replace("pos_", "").toUpperCase()})` : `Regular (${(selectedTheme || "tally").toUpperCase()})`}
                 </span>
               </div>
             </div>
@@ -1496,6 +2336,11 @@ export const DESIGN_COMPONENTS = {
   corporate: ThemeTally,
   stripe: ThemeGST1,
   pos: ThemePOS,
+  pos_classic: ThemePOSClassic,
+  pos_modern: ThemePOSModern,
+  pos_detailed: ThemePOSDetailed,
+  pos_minimal: ThemePOSMinimal,
+  pos_vintage: ThemePOSVintage,
   tally: ThemeTally,
   gst1: ThemeGST1,
   gst3: ThemeGST3,

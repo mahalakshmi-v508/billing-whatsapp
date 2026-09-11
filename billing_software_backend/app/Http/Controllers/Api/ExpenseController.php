@@ -414,12 +414,27 @@ class ExpenseController extends Controller
             'is_deleted' => 0
         ]);
 
+        // Auto-increment expense_next_number in invoice_settings
+        try {
+            if ($company_id > 0) {
+                $invSetting = \App\Models\InvoiceSetting::getForCompany($company_id);
+                if ($invSetting) {
+                    $invSetting->expense_next_number = max(1, intval($invSetting->expense_next_number)) + 1;
+                    $invSetting->save();
+                }
+            }
+        } catch (\Exception $ex) {
+            \Log::warning("Could not increment expense_next_number: " . $ex->getMessage());
+        }
+
         app(\App\Services\TransactionMessageService::class)->handleExpense($company_id, $expense);
 
         return response()->json([
-            'status' => true,
-            'message' => 'Expense created successfully',
-            'data' => $expense
+            'status'     => true,
+            'message'    => 'Expense created successfully',
+            'expense_no' => $expense_no,
+            'invoice_no' => $expense_no,
+            'data'       => $expense
         ]);
     }
 

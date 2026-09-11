@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 
 export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initialSupplier = null, editPayment = null }) {
+  const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
 
@@ -36,6 +38,9 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
   // Initialize or populate data when opening modal
   useEffect(() => {
     if (!isOpen) return;
+    setShowPartyDropdown(false);
+    setErrorMsg("");
+
     if (editPayment) {
       setSelectedSupplier({
         id: editPayment.supplier_id,
@@ -85,17 +90,9 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
     }
   }, [isOpen, editPayment, initialSupplier, companyId]);
 
-  // Load suppliers list on open
-  useEffect(() => {
-    if (isOpen && companyId) {
-      handleSearchSuppliers("");
-    }
-  }, [isOpen, companyId]);
-
-  // Search Suppliers
-  const handleSearchSuppliers = async (q) => {
-    setPartyQuery(q);
-    setShowPartyDropdown(true);
+  // Load suppliers list quietly on open without forcing dropdown open
+  const fetchSupplierSuggestions = async (q = "") => {
+    if (!companyId) return;
     setSearchingParty(true);
     try {
       const res = await api.get(`/supplier/get_all?company_id=${companyId}`);
@@ -119,6 +116,19 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
     } finally {
       setSearchingParty(false);
     }
+  };
+
+  useEffect(() => {
+    if (isOpen && companyId) {
+      fetchSupplierSuggestions("");
+    }
+  }, [isOpen, companyId]);
+
+  // Search Suppliers when typing
+  const handleSearchSuppliers = (q) => {
+    setPartyQuery(q);
+    setShowPartyDropdown(true);
+    fetchSupplierSuggestions(q);
   };
 
   const selectSupplier = (sup) => {
@@ -174,8 +184,10 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
 
         const res = await api.post("/purchase/update_payment_out", payload);
         if (res.data.status) {
-          if (onSuccess) onSuccess();
+          const savedReceiptNo = res.data.receipt_no || res.data.invoice_no || String(receiptNo);
+          if (onSuccess) onSuccess(savedReceiptNo);
           onClose();
+          navigate(`/invoice/${savedReceiptNo}`);
         } else {
           setErrorMsg(res.data.message || "Failed to update payment-out.");
         }
@@ -194,8 +206,10 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
 
         const res = await api.post("/purchase/create_payment_out", payload);
         if (res.data.status) {
-          if (onSuccess) onSuccess();
+          const savedReceiptNo = res.data.receipt_no || res.data.invoice_no || String(receiptNo);
+          if (onSuccess) onSuccess(savedReceiptNo);
           onClose();
+          navigate(`/invoice/${savedReceiptNo}`);
         } else {
           setErrorMsg(res.data.message || "Failed to record payment-out.");
         }
