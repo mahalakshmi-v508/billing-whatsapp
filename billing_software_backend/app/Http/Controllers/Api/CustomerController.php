@@ -5,7 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Customer;
+use GuzzleHttp\Client;
+use GuzzleHttp\Cookie\CookieJar;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class CustomerController extends Controller
 {
@@ -331,5 +336,125 @@ class CustomerController extends Controller
         ]);
 
         return response()->json(["status" => true, "message" => "Customer updated successfully"]);
+    }
+
+    /**
+     * Get Captcha Endpoint
+     * GET /api/v1/getCaptcha
+     */
+    public function getCaptcha(Request $request)
+    {
+        try {
+            $sessionId = Str::uuid()->toString();
+            $cookieJar = new CookieJar();
+
+            $client = new Client([
+                'verify'  => false,
+                'cookies' => $cookieJar,
+                'timeout' => 15,
+                'headers' => [
+                    'User-Agent'      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept'          => 'application/json, text/plain, */*',
+                    'Accept-Language' => 'en-US,en;q=0.9',
+                ],
+            ]);
+
+            // Step 1: Visit search page to initialize session cookies
+            $client->get('https://services.gst.gov.in/services/searchtp');
+
+            // Step 2: Fetch the captcha image
+            $captchaResponse = $client->get('https://services.gst.gov.in/services/captcha', [
+                'headers' => [
+                    'Accept' => 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                ],
+            ]);
+
+            $captchaBase64 = base64_encode($captchaResponse->getBody()->getContents());
+
+            // Serialize cookies for later use by getGSTDetails
+            $cookiesData = [];
+            foreach ($cookieJar as $cookie) {
+                $cookiesData[] = [
+                    'name'   => $cookie->getName(),
+                    'value'  => $cookie->getValue(),
+                    'domain' => $cookie->getDomain(),
+                    'path'   => $cookie->getPath(),
+                ];
+            }
+
+            Cache::put('gst_cookies_' . $sessionId, $cookiesData, 600);
+
+            return response()->json([
+                'status'    => true,
+                'sessionId' => $sessionId,
+                'image'     => 'data:image/png;base64,' . $captchaBase64,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error fetching captcha: ' . $e->getMessage());
+            return response()->json(['status' => false, 'message' => 'Error in fetching captcha'], 500);
+        }
+    }
+
+    /**
+     * Get GST Details Endpoint
+     * POST /api/v1/getGSTDetails
+     * Body: { sessionId: "...", GSTIN: "...", captcha: "..." }
+     */
+    public function getGSTDetails(Request $request)
+    {
+        try {
+            $sessionId = trim($request->input('sessionId', ''));
+            $gstin     = strtoupper(trim($request->input('GSTIN', '')));
+            $captcha   = trim($request->input('captcha', ''));
+
+            if (!$sessionId || !$gstin || !$captcha) {
+                return response()->json(['status' => false, 'message' => 'sessionId, GSTIN, and captcha are required'], 400);
+            }
+
+            $cookiesData = Cache::get('gst_cookies_' . $sessionId);
+            if (!$cookiesData) {
+                return response()->json(['status' => false, 'message' => 'Invalid or expired session id'], 400);
+            }
+
+            // Rebuild cookie jar from cached cookies
+            $cookieJar = new CookieJar();
+            foreach ($cookiesData as $c) {
+                $cookieJar->setCookie(new \GuzzleHttp\Cookie\SetCookie([
+                    'Name'    => $c['name'],
+                    'Value'   => $c['value'],
+                    'Domain'  => $c['domain'],
+                    'Path'    => $c['path'],
+                    'Secure'  => false,
+                ]));
+            }
+
+            $client = new Client([
+                'verify'  => false,
+                'cookies' => $cookieJar,
+                'timeout' => 15,
+                'headers' => [
+                    'User-Agent'      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept'          => 'application/json, text/plain, */*',
+                    'Accept-Language' => 'en-US,en;q=0.9',
+                    'Content-Type'    => 'application/json;charset=UTF-8',
+                    'Referer'         => 'https://services.gst.gov.in/services/searchtp',
+                ],
+            ]);
+
+            // Step 3: Request taxpayer details
+            $response = $client->post(
+                'https://services.gst.gov.in/services/api/search/taxpayerDetails',
+                ['json' => ['gstin' => $gstin, 'captcha' => $captcha]]
+            );
+
+            $body = json_decode($response->getBody()->getContents(), true);
+
+            Cache::forget('gst_cookies_' . $sessionId);
+
+            return response()->json($body);
+        } catch (\Throwable $e) {
+            Log::error('Error fetching GST Details: ' . $e->getMessage());
+            return response()->json(['status' => false, 'message' => 'Error in fetching GST Details'], 500);
+        }
     }
 }
