@@ -173,6 +173,8 @@ class DebitNoteController extends Controller
                 'status'     => true,
                 'message'    => 'Debit Note created successfully.',
                 'debit_note' => $debitNote,
+                'return_no'  => $return_no,
+                'invoice_no' => $return_no,
                 'id'         => $debitNote->id,
             ]);
         } catch (\Exception $e) {

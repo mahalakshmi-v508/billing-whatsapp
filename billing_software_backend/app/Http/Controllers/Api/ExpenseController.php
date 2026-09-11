@@ -430,9 +430,11 @@ class ExpenseController extends Controller
         app(\App\Services\TransactionMessageService::class)->handleExpense($company_id, $expense);
 
         return response()->json([
-            'status' => true,
-            'message' => 'Expense created successfully',
-            'data' => $expense
+            'status'     => true,
+            'message'    => 'Expense created successfully',
+            'expense_no' => $expense_no,
+            'invoice_no' => $expense_no,
+            'data'       => $expense
         ]);
     }
 

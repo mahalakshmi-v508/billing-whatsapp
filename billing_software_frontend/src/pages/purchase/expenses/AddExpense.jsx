@@ -465,7 +465,8 @@ export default function AddExpense() {
       const res = await api.post(url, payload);
 
       if (res.data?.status) {
-        navigate("/purchases/expenses");
+        const savedExpenseNo = res.data.expense_no || res.data.invoice_no || activeTab.expenseNo;
+        navigate(`/invoice/${savedExpenseNo}`);
       } else {
         alert(res.data?.message || "Failed to save expense");
       }

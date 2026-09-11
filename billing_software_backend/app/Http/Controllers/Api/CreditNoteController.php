@@ -234,6 +234,7 @@ class CreditNoteController extends Controller
                 'message'     => 'Sale return / Credit note created successfully.',
                 'credit_note' => $creditNote,
                 'return_no'   => $return_no,
+                'invoice_no'  => $return_no,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
