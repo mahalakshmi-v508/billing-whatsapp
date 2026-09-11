@@ -59,8 +59,8 @@ export default function EwayBills() {
       </div>
 
       {/* ── 2. SEARCH / FILTER CARD ── */}
-      <div className="mt-5 bg-white border border-slate-200 rounded-2xl shadow-sm p-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
+      <div className="mt-5 bg-white border border-slate-200 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
+        <div className="relative flex-1 min-w-0 sm:min-w-[220px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
             type="text"
@@ -76,7 +76,7 @@ export default function EwayBills() {
           <button
             type="button"
             onClick={() => setFilterOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-600 text-[13px] font-semibold hover:bg-slate-50 transition cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-600 text-[13px] font-semibold hover:bg-slate-50 transition cursor-pointer"
           >
             <SlidersHorizontal size={15} />
             <span className="hidden sm:inline">Filter</span>
@@ -105,7 +105,7 @@ export default function EwayBills() {
         <button
           type="button"
           onClick={handleSearch}
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold shadow-sm cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold shadow-sm cursor-pointer"
         >
           <Search size={15} />
           Search
