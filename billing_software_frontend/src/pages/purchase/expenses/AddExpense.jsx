@@ -22,7 +22,8 @@ import {
   Tag,
   CreditCard,
   Percent,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2
 } from "lucide-react";
 
 const gstSlabs = [
@@ -198,6 +199,8 @@ export default function AddExpense() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const categoryRef = useRef(null);
   const itemSuggestRef = useRef(null);
@@ -214,9 +217,17 @@ export default function AddExpense() {
   };
 
   // Add new tab
-  const handleAddTab = () => {
+  const handleAddTab = async () => {
     const nextIdx = tabs.length + 1;
-    const nextExpenseNo = existingCount + tabs.length + 1;
+    let nextExpenseNo = String(nextIdx);
+    try {
+      const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=expense`);
+      if (numRes.data?.status && numRes.data?.formatted_number) {
+        nextExpenseNo = numRes.data.formatted_number;
+      }
+    } catch {
+      nextExpenseNo = `EXP-${String(nextIdx).padStart(4, "0")}`;
+    }
     const newId = Date.now();
     const newTab = createNewExpenseTab(newId, nextIdx, nextExpenseNo);
     setTabs((prev) => [...prev, newTab]);
@@ -248,11 +259,20 @@ export default function AddExpense() {
 
       if (catRes.data?.status) setCategories(catRes.data.data || []);
       if (itemRes.data?.status) setExpenseItemsCatalog(itemRes.data.data || []);
-      if (countRes.data?.status) {
-        const cnt = countRes.data.count || 0;
-        setExistingCount(cnt);
-        if (!isEditMode) {
-          updateActiveTab({ expenseNo: String(cnt + 1) });
+      
+      const cnt = countRes.data?.count || 0;
+      setExistingCount(cnt);
+
+      if (!isEditMode) {
+        try {
+          const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=expense`);
+          if (numRes.data?.status && numRes.data?.formatted_number) {
+            updateActiveTab({ expenseNo: numRes.data.formatted_number });
+          } else {
+            updateActiveTab({ expenseNo: `EXP-${String(cnt + 1).padStart(4, "0")}` });
+          }
+        } catch {
+          updateActiveTab({ expenseNo: `EXP-${String(cnt + 1).padStart(4, "0")}` });
         }
       }
     } catch (err) {
@@ -409,14 +429,15 @@ export default function AddExpense() {
 
   // Save Expense Voucher
   const handleSaveExpense = async () => {
+    setErrorMsg("");
     const validRows = activeTab.rows.filter((r) => r.item_name && (parseFloat(r.price) || 0) >= 0);
     if (validRows.length === 0 && !activeTab.categoryName) {
-      alert("Please select a Category or enter an item name with price.");
+      setErrorMsg("Please select a Category or enter an item name with price.");
       return;
     }
 
     if (!activeTab.categoryName) {
-      alert("Please select or enter an Expense Category.");
+      setErrorMsg("Please select or enter an Expense Category.");
       return;
     }
 
@@ -448,13 +469,47 @@ export default function AddExpense() {
       const res = await api.post(url, payload);
 
       if (res.data?.status) {
-        navigate("/purchases/expenses");
+        const savedExpenseNo = res.data.expense_no || res.data.invoice_no || activeTab.expenseNo;
+        if (isEditMode) {
+          setToast(`Expense #${savedExpenseNo} updated successfully!`);
+          setTimeout(() => navigate("/purchases/expenses"), 1500);
+        } else {
+          const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+          if (shouldSkipPreview) {
+            setToast(`Expense #${savedExpenseNo} recorded successfully!`);
+            setTimeout(() => setToast(null), 4000);
+
+            // Fetch next sequential expense number from settings
+            let nextExpenseNo = "";
+            try {
+              const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=expense`);
+              if (numRes.data?.status && numRes.data?.formatted_number) {
+                nextExpenseNo = numRes.data.formatted_number;
+              } else {
+                nextExpenseNo = `EXP-${String(existingCount + 2).padStart(4, "0")}`;
+              }
+            } catch (e) {
+              nextExpenseNo = `EXP-${String(existingCount + 2).padStart(4, "0")}`;
+            }
+
+            // Reset active tab for continuous next expense data entry
+            setTabs((prev) =>
+              prev.map((tab) =>
+                tab.id === activeTabId
+                  ? createNewExpenseTab(tab.id, 1, nextExpenseNo)
+                  : tab
+              )
+            );
+          } else {
+            navigate(`/invoice/${savedExpenseNo}`);
+          }
+        }
       } else {
-        alert(res.data?.message || "Failed to save expense");
+        setErrorMsg(res.data?.message || "Failed to save expense");
       }
     } catch (err) {
       console.error("Error saving expense:", err);
-      alert("Failed to save expense");
+      setErrorMsg("Failed to save expense");
     } finally {
       setSaving(false);
     }
@@ -571,7 +626,31 @@ export default function AddExpense() {
 
       {/* ── 2. FORM WORKSPACE CONTAINER ── */}
       <main className="flex-1 max-w-[1520px] w-full mx-auto p-4 sm:p-6 space-y-5">
-        
+        {/* Success Toast & Error Alerts */}
+        {toast && (
+          <div className="px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={15} className="text-rose-600 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            <button onClick={() => setErrorMsg("")} className="text-rose-500 hover:text-rose-700 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* ── SECTION 1: EXPENSE CATEGORY & VOUCHER DETAILS CARD ── */}
         <section className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
           <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">

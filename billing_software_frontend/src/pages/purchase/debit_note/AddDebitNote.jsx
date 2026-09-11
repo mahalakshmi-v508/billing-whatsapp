@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
@@ -30,7 +30,8 @@ import {
   CreditCard,
   CornerUpLeft,
   Save,
-  Clock
+  Clock,
+  CheckCircle2
 } from "lucide-react";
 
 const unitOptions = [
@@ -212,6 +213,8 @@ export default function AddDebitNote() {
   const navigate = useNavigate();
   const { id: editId } = useParams();
   const isEditMode = Boolean(editId);
+  const [searchParams] = useSearchParams();
+  const purchaseId = searchParams.get("purchase_id");
 
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
@@ -230,6 +233,8 @@ export default function AddDebitNote() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const partyRef = useRef(null);
   const productSuggestRef = useRef(null);
@@ -400,6 +405,91 @@ export default function AddDebitNote() {
         .catch(console.error);
     }
   }, [isEditMode, editId]);
+
+  // If opened from Reports → Purchase → "Convert To Return" (?purchase_id=X),
+  // prefill the first tab from the real purchase record (supplier, bill ref,
+  // items, payment type and state of supply are all transferred).
+  useEffect(() => {
+    if (isEditMode || !purchaseId) return;
+
+    let cancelled = false;
+
+    api
+      .get("/purchase/get_purchase_by_id", {
+        params: { id: purchaseId },
+      })
+      .then((res) => {
+        if (cancelled) return;
+
+        if (!res.data?.status || !res.data.data) return;
+
+        const d = res.data.data;
+        const sup = d.supplier || {};
+
+        const rows = Array.isArray(d.items)
+          ? d.items.map((it, i) => ({
+              id: i + 1,
+              product_id: it.product_id || null,
+              product_name: it.product_name || it.item || "",
+              product_code: it.product_code || "",
+              barcode: it.barcode || "",
+              quantity: it.quantity || "",
+              unit: it.unit && it.unit !== "NONE" ? it.unit : "NONE",
+              price: it.price || 0,
+              discount_percent:
+                Number(it.discount_percent) > 0
+                  ? String(it.discount_percent)
+                  : "",
+              discount_amount: "",
+              gst_percentage:
+                Number(it.gst_percentage) || 0,
+              tax_amount: 0,
+              amount: Number(it.total_amount) || 0,
+            }))
+          : [];
+
+        setTabs((prev) =>
+          prev.map((tab, ti) => {
+            if (ti !== 0) return tab;
+
+            return {
+              ...tab,
+              title: `Return of ${d.purchase_no || "Purchase"}`,
+              partyInput: d.supplier_name || sup.supplier_name || "",
+              selectedSupplier: d.supplier_id
+                ? {
+                    id: d.supplier_id,
+                    supplier_name:
+                      d.supplier_name || sup.supplier_name || "",
+                    phone: sup.mobile_number || "",
+                    pending_balance: 0,
+                  }
+                : null,
+              supplierPhone: sup.mobile_number || "",
+              billNo: d.purchase_no || "",
+              billDate: d.purchase_date || "",
+              stateOfSupply: d.state_of_supply || "Tamil Nadu",
+              paymentType: d.payment_type || "Cash",
+              items: [
+                createEmptyRow(true),
+                ...rows,
+                createEmptyRow(false),
+              ],
+            };
+          })
+        );
+      })
+      .catch((err) =>
+        console.error(
+          "Error prefilling debit note from purchase:",
+          err
+        )
+      );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [purchaseId, isEditMode]);
 
   // Click outside listener for dropdowns
   useEffect(() => {
@@ -609,16 +699,17 @@ export default function AddDebitNote() {
 
   // Save Debit Note
   const handleSaveDebitNote = async () => {
+    setErrorMsg("");
     const validItems = activeTab.items
       .filter((r, idx) => (idx > 0 || r.product_name) && r.product_name && (parseFloat(r.quantity) || 0) > 0);
 
     if (validItems.length === 0) {
-      alert("Please enter at least one item with a valid product name and quantity.");
+      setErrorMsg("Please enter at least one item with a valid product name and quantity.");
       return;
     }
 
     if (!activeTab.partyInput && !activeTab.selectedSupplier) {
-      alert("Please select or enter a Supplier (Party).");
+      setErrorMsg("Please select or enter a Supplier (Party).");
       return;
     }
 
@@ -664,13 +755,47 @@ export default function AddDebitNote() {
       const res = await api.post(url, payload);
 
       if (res.data.status) {
-        navigate("/purchases/return");
+        const savedReturnNo = res.data.return_no || res.data.invoice_no || activeTab.returnNo;
+        if (isEditMode) {
+          setToast(`Debit Note #${savedReturnNo} updated successfully!`);
+          setTimeout(() => navigate("/purchases/debit-note"), 1500);
+        } else {
+          const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+          if (shouldSkipPreview) {
+            setToast(`Debit Note #${savedReturnNo} saved successfully!`);
+            setTimeout(() => setToast(null), 4000);
+
+            // Fetch next sequential debit note number from settings
+            let nextReturnNo = "";
+            try {
+              const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=debit_note`);
+              if (numRes.data?.status && numRes.data?.formatted_number) {
+                nextReturnNo = numRes.data.formatted_number;
+              } else {
+                nextReturnNo = `DN-${String(existingCount + 2).padStart(4, "0")}`;
+              }
+            } catch (e) {
+              nextReturnNo = `DN-${String(existingCount + 2).padStart(4, "0")}`;
+            }
+
+            // Reset active tab for continuous next debit note data entry
+            setTabs((prev) =>
+              prev.map((tab) =>
+                tab.id === activeTabId
+                  ? createNewDebitNoteTab(tab.id, 1, nextReturnNo)
+                  : tab
+              )
+            );
+          } else {
+            navigate(`/invoice/${savedReturnNo}`);
+          }
+        }
       } else {
-        alert(res.data.message || "Failed to save Debit Note.");
+        setErrorMsg(res.data.message || "Failed to save Debit Note.");
       }
     } catch (err) {
       console.error("Error saving debit note:", err);
-      alert("Failed to save Debit Note.");
+      setErrorMsg("Failed to save Debit Note.");
     } finally {
       setSaving(false);
     }
@@ -781,6 +906,31 @@ export default function AddDebitNote() {
 
       {/* ── 2. MAIN FORM BODY ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex-1 w-full space-y-6">
+
+        {/* Success Toast & Error Alerts */}
+        {toast && (
+          <div className="px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={15} className="text-rose-600 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            <button onClick={() => setErrorMsg("")} className="text-rose-500 hover:text-rose-700 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* ── SECTION 1: SUPPLIER & RETURN DETAILS ── */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">

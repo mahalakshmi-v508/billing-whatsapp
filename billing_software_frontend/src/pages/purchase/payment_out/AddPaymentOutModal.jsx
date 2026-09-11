@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
@@ -8,10 +9,12 @@ import {
   CreditCard,
   Building2,
   Calendar,
-  DollarSign
+  DollarSign,
+  CheckCircle2
 } from "lucide-react";
 
 export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initialSupplier = null, editPayment = null }) {
+  const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
 
@@ -27,75 +30,76 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [paidAmount, setPaidAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [attachment, setAttachment] = useState("");
+  const attachment = "";
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [toast, setToast] = useState(null);
 
   const partyRef = useRef(null);
 
   // Initialize or populate data when opening modal
   useEffect(() => {
     if (!isOpen) return;
-    if (editPayment) {
-      setSelectedSupplier({
-        id: editPayment.supplier_id,
-        name: editPayment.supplier_name,
-        supplier_name: editPayment.supplier_name,
-        pending_balance: editPayment.invoice_balance
-      });
-      setPartyQuery(editPayment.supplier_name || "");
-      setPaidAmount(String(editPayment.amount || ""));
-      if (editPayment.payment_method) {
-        const pm = editPayment.payment_method.toLowerCase();
-        if (pm === "upi") setPaymentType("UPI");
-        else if (pm === "online") setPaymentType("Online");
-        else if (pm === "cheque") setPaymentType("Cheque");
-        else setPaymentType("Cash");
-      }
-      setPaymentDate(editPayment.payment_date || new Date().toISOString().split("T")[0]);
-      setReceiptNo(editPayment.receipt_no ? editPayment.receipt_no.replace("REC-", "") : String(editPayment.id));
-      setDescription(editPayment.notes || "");
-    } else {
-      setSelectedSupplier(initialSupplier || null);
-      setPartyQuery(initialSupplier ? (initialSupplier.supplier_name || initialSupplier.name || "") : "");
-      setPaidAmount("");
-      setPaymentType("Cash");
-      setPaymentDate(new Date().toISOString().split("T")[0]);
-      setDescription("");
+    let cancelled = false;
 
-      // Load next sequential receipt number for new payments from settings
-      const loadReceiptNo = async () => {
+    const init = async () => {
+      setShowPartyDropdown(false);
+      setErrorMsg("");
+
+      if (editPayment) {
+        setSelectedSupplier({
+          id: editPayment.supplier_id,
+          name: editPayment.supplier_name,
+          supplier_name: editPayment.supplier_name,
+          pending_balance: editPayment.invoice_balance
+        });
+        setPartyQuery(editPayment.supplier_name || "");
+        setPaidAmount(String(editPayment.amount || ""));
+        if (editPayment.payment_method) {
+          const pm = editPayment.payment_method.toLowerCase();
+          if (pm === "upi") setPaymentType("UPI");
+          else if (pm === "online") setPaymentType("Online");
+          else if (pm === "cheque") setPaymentType("Cheque");
+          else setPaymentType("Cash");
+        }
+        setPaymentDate(editPayment.payment_date || new Date().toISOString().split("T")[0]);
+        setReceiptNo(editPayment.receipt_no ? editPayment.receipt_no.replace("REC-", "") : String(editPayment.id));
+        setDescription(editPayment.notes || "");
+      } else {
+        setSelectedSupplier(initialSupplier || null);
+        setPartyQuery(initialSupplier ? (initialSupplier.supplier_name || initialSupplier.name || "") : "");
+        const initialDue = Number(initialSupplier?.pending_balance ?? 0);
+        setPaidAmount(initialDue > 0 ? String(initialDue) : "");
+        setPaymentType("Cash");
+        setPaymentDate(new Date().toISOString().split("T")[0]);
+        setDescription("");
+
         try {
           const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_out`);
+          if (cancelled) return;
           if (numRes.data?.status && numRes.data?.formatted_number) {
             setReceiptNo(numRes.data.formatted_number);
             return;
           }
           const res = await api.get(`/purchase/get_payment_outs?company_id=${companyId}`);
+          if (cancelled) return;
           if (res.data?.data) {
             setReceiptNo(`PAYOUT-${String((res.data.data.length || 0) + 1).padStart(4, "0")}`);
           } else {
             setReceiptNo("PAYOUT-0001");
           }
         } catch {
-          setReceiptNo("PAYOUT-0001");
+          if (!cancelled) setReceiptNo("PAYOUT-0001");
         }
-      };
-      loadReceiptNo();
-    }
+      }
+    };
+    init();
+    return () => { cancelled = true; };
   }, [isOpen, editPayment, initialSupplier, companyId]);
 
-  // Load suppliers list on open
-  useEffect(() => {
-    if (isOpen && companyId) {
-      handleSearchSuppliers("");
-    }
-  }, [isOpen, companyId]);
-
-  // Search Suppliers
-  const handleSearchSuppliers = async (q) => {
-    setPartyQuery(q);
-    setShowPartyDropdown(true);
+  // Load suppliers list quietly on open without forcing dropdown open
+  const fetchSupplierSuggestions = async (q = "") => {
+    if (!companyId) return;
     setSearchingParty(true);
     try {
       const res = await api.get(`/supplier/get_all?company_id=${companyId}`);
@@ -119,6 +123,32 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
     } finally {
       setSearchingParty(false);
     }
+  };
+
+  useEffect(() => {
+    if (!isOpen || !companyId) return;
+    let cancelled = false;
+    const loadSuppliers = async () => {
+      try {
+        const res = await api.get(`/supplier/get_all?company_id=${companyId}`);
+        if (cancelled) return;
+        if (res.data.status) {
+          const all = res.data.data || [];
+          setSupplierSuggestions(all.slice(0, 15));
+        }
+      } catch (err) {
+        console.error("Error loading suppliers:", err);
+      }
+    };
+    loadSuppliers();
+    return () => { cancelled = true; };
+  }, [isOpen, companyId]);
+
+  // Search Suppliers when typing
+  const handleSearchSuppliers = (q) => {
+    setPartyQuery(q);
+    setShowPartyDropdown(true);
+    fetchSupplierSuggestions(q);
   };
 
   const selectSupplier = (sup) => {
@@ -174,8 +204,10 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
 
         const res = await api.post("/purchase/update_payment_out", payload);
         if (res.data.status) {
-          if (onSuccess) onSuccess();
+          const savedReceiptNo = res.data.receipt_no || res.data.invoice_no || String(receiptNo);
+          if (onSuccess) onSuccess(savedReceiptNo);
           onClose();
+          navigate(`/invoice/${savedReceiptNo}`);
         } else {
           setErrorMsg(res.data.message || "Failed to update payment-out.");
         }
@@ -194,8 +226,37 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
 
         const res = await api.post("/purchase/create_payment_out", payload);
         if (res.data.status) {
-          if (onSuccess) onSuccess();
-          onClose();
+          const savedReceiptNo = res.data.receipt_no || res.data.invoice_no || String(receiptNo);
+          if (onSuccess) onSuccess(savedReceiptNo);
+
+          const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+          if (shouldSkipPreview) {
+            setToast(`Payment-Out #${savedReceiptNo} recorded successfully!`);
+            setTimeout(() => setToast(null), 4000);
+
+            // Reset fields for continuous data entry
+            setSelectedSupplier(null);
+            setPartyQuery("");
+            setPaidAmount("");
+            setPaymentType("Cash");
+            setPaymentDate(new Date().toISOString().split("T")[0]);
+            setDescription("");
+
+            // Fetch / increment next receipt number
+            try {
+              const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_out`);
+              if (numRes.data?.status && numRes.data?.formatted_number) {
+                setReceiptNo(numRes.data.formatted_number);
+              } else {
+                setReceiptNo((prev) => (typeof prev === "number" ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : "PAYOUT-0001"));
+              }
+            } catch (e) {
+              setReceiptNo((prev) => (typeof prev === "number" ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : "PAYOUT-0001"));
+            }
+          } else {
+            onClose();
+            navigate(`/invoice/${savedReceiptNo}`);
+          }
         } else {
           setErrorMsg(res.data.message || "Failed to record payment-out.");
         }
@@ -240,6 +301,19 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
             <X size={16} />
           </button>
         </div>
+
+        {/* Success Toast */}
+        {toast && (
+          <div className="mx-6 mt-3 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+              <X size={13} />
+            </button>
+          </div>
+        )}
 
         {/* Form Body */}
         <div className="p-6 space-y-4">

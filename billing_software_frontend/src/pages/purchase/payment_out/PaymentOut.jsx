@@ -13,7 +13,10 @@ import {
   FileSpreadsheet,
   MoreVertical,
   Trash2,
+  Edit,
   Edit3,
+  Eye,
+  Share2,
   AlertTriangle,
   X,
   RefreshCw,
@@ -795,23 +798,32 @@ export default function PaymentOut() {
                       </td>
 
                       {/* ACTIONS */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1">
-                          {/* Print POS */}
+                      <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1.5 text-slate-400">
+                          {/* Print POS / Preview */}
                           <button
-                            onClick={() => window.print()}
-                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                            title="Print Voucher"
+                            onClick={() => navigate(`/invoice/${p.receipt_no || p.id}`)}
+                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                            title="Print"
                           >
-                            <Printer size={14} />
+                            <Printer size={15} />
                           </button>
 
-                          {/* 3-Dots More Menu */}
+                          {/* Share Icon */}
+                          <button
+                            onClick={() => navigate(`/invoice/${p.receipt_no || p.id}`)}
+                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                            title="Share"
+                          >
+                            <Share2 size={15} />
+                          </button>
+
+                          {/* 3-Dot More Menu */}
                           <div className="relative">
                             <button
                               onClick={() => setActiveMenuId(isMenuOpen ? null : p.id)}
-                              className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                              title="More options"
+                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              title="More actions"
                             >
                               <MoreVertical size={15} />
                             </button>
@@ -819,26 +831,38 @@ export default function PaymentOut() {
                             {isMenuOpen && (
                               <div
                                 ref={menuRef}
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 top-full mt-1 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                               >
                                 <button
                                   onClick={() => {
+                                    setActiveMenuId(null);
                                     setEditingPayment(p);
                                     setIsAddModalOpen(true);
-                                    setActiveMenuId(null);
                                   }}
-                                  className="w-full px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
                                 >
-                                  <Edit3 size={14} className="text-blue-600" />
+                                  <Edit size={14} className="text-blue-600" />
                                   <span>Edit</span>
                                 </button>
-
                                 <button
-                                  onClick={() => handleDeletePayment(p.id)}
-                                  className="w-full px-3.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-slate-100 mt-1 pt-1.5"
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    navigate(`/invoice/${p.receipt_no || p.id}`);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
                                 >
-                                  <Trash2 size={14} />
+                                  <Eye size={14} className="text-slate-600" />
+                                  <span>View Receipt</span>
+                                </button>
+                                <div className="border-t border-slate-100 my-1" />
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    handleDeletePayment(p.id);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
+                                >
+                                  <Trash2 size={14} className="text-red-600" />
                                   <span>Delete</span>
                                 </button>
                               </div>

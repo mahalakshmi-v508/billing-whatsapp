@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
-import { ArrowLeft, Save, UploadCloud, Plus, Trash2, HelpCircle } from "lucide-react";
+import { ArrowLeft, Save, UploadCloud, Plus, Trash2, HelpCircle, CheckCircle2, X } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const unitOptions = [
@@ -27,6 +27,7 @@ export default function PurchaseForm() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
   const [isLocked, setIsLocked] = useState(false); // Locked if submitted
 
   // Category, Subcategory, and Brand Cache states
@@ -753,8 +754,36 @@ export default function PurchaseForm() {
         }))
       });
       if (res.data.status) {
-        alert(res.data.message);
-        navigate("/purchases");
+        const savedPurchaseNo = res.data.purchase_no || res.data.invoice_no || purchaseNo;
+        if (id) {
+          setToast(`Purchase Bill #${savedPurchaseNo} updated successfully!`);
+          setTimeout(() => navigate("/purchases"), 1500);
+        } else {
+          const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+          if (shouldSkipPreview) {
+            setToast(`Purchase Bill #${savedPurchaseNo} saved successfully!`);
+            setTimeout(() => setToast(null), 4500);
+
+            // Reset form for next purchase entry
+            setSelectedSupplier("");
+            setPaidAmount(0);
+            setItems([]);
+
+            // Fetch next purchase number
+            try {
+              const nextRes = await api.get(`/invoice-settings/next-number?company_id=${selectedCompany}&type=purchase_order`);
+              if (nextRes.data?.status && nextRes.data?.formatted_number) {
+                setPurchaseNo(nextRes.data.formatted_number);
+              } else {
+                setPurchaseNo(`PO-${Date.now()}`);
+              }
+            } catch {
+              setPurchaseNo(`PO-${Date.now()}`);
+            }
+          } else {
+            navigate(`/invoice/${savedPurchaseNo}`);
+          }
+        }
       } else {
         alert(res.data.message);
       }
@@ -818,6 +847,39 @@ export default function PurchaseForm() {
           background: #94a3b8;
         }
       `}</style>
+
+      {/* Floating Success Toast */}
+      {toast && (
+        <div style={{
+          position: "fixed",
+          top: 24,
+          right: 28,
+          zIndex: 99999,
+          minWidth: 320,
+          maxWidth: 420,
+          background: "#10b981",
+          color: "#ffffff",
+          borderRadius: 8,
+          padding: "12px 18px",
+          boxShadow: "0 6px 20px rgba(16, 185, 129, 0.35)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 14,
+          animation: "fadeIn 0.2s ease",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <CheckCircle2 size={20} color="#ffffff" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 13.5, fontWeight: 700 }}>{toast}</span>
+          </div>
+          <button
+            onClick={() => setToast(null)}
+            style={{ background: "transparent", border: "none", color: "#ffffff", cursor: "pointer", display: "flex" }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "25px" }}>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
@@ -13,9 +14,11 @@ import {
   Search,
   User,
   RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialParty = null }) {
+  const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
   const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
@@ -37,6 +40,7 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [toast, setToast] = useState(null);
 
   const partyRef = useRef(null);
 
@@ -70,17 +74,9 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     loadReceiptNo();
   }, [isOpen, companyId]);
 
-  // Load customer suggestions immediately when modal opens
-  useEffect(() => {
-    if (isOpen && adminId) {
-      handleSearchParty("");
-    }
-  }, [isOpen, adminId]);
-
-  // Search Customer Parties
-  const handleSearchParty = async (q) => {
-    setPartyQuery(q);
-    setShowPartyDropdown(true);
+  // Fetch customer suggestions helper without forcing dropdown open
+  const fetchCustomerSuggestions = async (q = "") => {
+    if (!adminId) return;
     setSearchingParty(true);
     try {
       const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${encodeURIComponent(q || "")}`);
@@ -92,6 +88,30 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     } finally {
       setSearchingParty(false);
     }
+  };
+
+  // Reset states and preload customer list quietly on modal open
+  useEffect(() => {
+    if (isOpen && adminId) {
+      setShowPartyDropdown(false);
+      setShowPaymentTypeDropdown(false);
+      setErrorMsg("");
+      fetchCustomerSuggestions("");
+      if (initialParty) {
+        setSelectedParty(initialParty);
+        setPartyQuery(initialParty.name || initialParty.customer_name || "");
+      } else {
+        setSelectedParty(null);
+        setPartyQuery("");
+      }
+    }
+  }, [isOpen, adminId, initialParty]);
+
+  // Search Customer Parties when user types
+  const handleSearchParty = (q) => {
+    setPartyQuery(q);
+    setShowPartyDropdown(true);
+    fetchCustomerSuggestions(q);
   };
 
   const selectParty = (cust) => {
@@ -120,12 +140,12 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
   // Submit Handler
   const handleSavePaymentIn = async () => {
     if (!selectedParty) {
-      setErrorMsg("Please select a Party / Customer.");
+      setErrorMsg("Please select a customer.");
       return;
     }
-    const amountNum = parseFloat(receivedAmount);
-    if (!amountNum || amountNum <= 0) {
-      setErrorMsg("Please enter a valid received amount.");
+    const amountNum = parseFloat(receivedAmount) || 0;
+    if (amountNum <= 0) {
+      setErrorMsg("Please enter a valid received amount greater than 0.");
       return;
     }
 
@@ -134,10 +154,11 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
 
     try {
       const discNum = parseFloat(discountAmount) || 0;
+      const finalReceiptNo = String(receiptNo || "").trim() || `PAYIN-${Date.now()}`;
       const payload = {
         company_id: parseInt(companyId) || 0,
         customer_id: selectedParty.id,
-        receipt_no: String(receiptNo),
+        receipt_no: finalReceiptNo,
         amount: amountNum,
         discount_amount: discNum,
         payment_method: paymentType.toLowerCase(),
@@ -147,8 +168,37 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
 
       const res = await api.post("/invoice/pay_customer_bulk", payload);
       if (res.data.status) {
-        if (onSuccess) onSuccess();
-        onClose();
+        const savedReceiptNo = res.data.invoice_no || res.data.receipt_no || finalReceiptNo;
+        if (onSuccess) onSuccess(savedReceiptNo);
+
+        const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+        if (shouldSkipPreview) {
+          setToast(`Payment-In #${savedReceiptNo} recorded successfully!`);
+          setTimeout(() => setToast(null), 4000);
+
+          // Reset form for next payment entry
+          setSelectedParty(null);
+          setPartyQuery("");
+          setReceivedAmount("");
+          setDiscountAmount("");
+          setDescription("");
+          setShowDescription(false);
+
+          // Fetch / increment next receipt number
+          try {
+            const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_in`);
+            if (numRes.data?.status && numRes.data?.formatted_number) {
+              setReceiptNo(numRes.data.formatted_number);
+            } else {
+              setReceiptNo(prev => typeof prev === 'number' ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : 1);
+            }
+          } catch (e) {
+            setReceiptNo(prev => typeof prev === 'number' ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : 1);
+          }
+        } else {
+          onClose();
+          navigate(`/invoice/${savedReceiptNo}`);
+        }
       } else {
         setErrorMsg(res.data.message || "Failed to record payment.");
       }
@@ -205,7 +255,19 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
           </div>
         </div>
 
-        {/* ── 2. ERROR ALERT ── */}
+        {/* ── 2. SUCCESS TOAST & ERROR ALERT ── */}
+        {toast && (
+          <div className="mx-6 mt-3 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+              <X size={13} />
+            </button>
+          </div>
+        )}
+
         {errorMsg && (
           <div className="mx-6 mt-3 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-lg flex items-center justify-between">
             <span>{errorMsg}</span>
@@ -222,23 +284,42 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
             {/* Party Selection (Floating Label Box) */}
             <div ref={partyRef} className="relative">
               <div
-                className={`relative border rounded-lg px-3 pt-3 pb-2 transition ${
-                  showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/20" : "border-blue-500"
+                className={`relative border rounded-lg px-3 pt-3 pb-2 transition cursor-pointer ${
+                  showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-300 hover:border-blue-400"
                 }`}
+                onClick={() => {
+                  setShowPartyDropdown(true);
+                  if (partySuggestions.length === 0) {
+                    fetchCustomerSuggestions(partyQuery);
+                  }
+                }}
               >
-                <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-semibold text-blue-600">
+                <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-semibold text-blue-600 pointer-events-none">
                   Party *
                 </label>
                 <div className="flex items-center justify-between">
                   <input
                     type="text"
                     value={partyQuery}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowPartyDropdown(true);
+                      if (partySuggestions.length === 0) {
+                        fetchCustomerSuggestions(partyQuery);
+                      }
+                    }}
                     onChange={(e) => handleSearchParty(e.target.value)}
-                    onFocus={() => handleSearchParty(partyQuery)}
                     placeholder="Search or select party..."
                     className="w-full bg-transparent text-sm text-slate-800 font-medium outline-none"
                   />
-                  <ChevronDown size={16} className="text-slate-400 pointer-events-none" />
+                  <ChevronDown
+                    size={16}
+                    className="text-slate-400 hover:text-slate-600 transition cursor-pointer ml-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowPartyDropdown((prev) => !prev);
+                    }}
+                  />
                 </div>
               </div>
 

@@ -1,23 +1,32 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
+import html2pdf from "html2pdf.js";
 import {
   Calendar,
   ChevronDown,
+  Copy,
   CreditCard,
   Eye,
   FileSpreadsheet,
   FileText,
+  History,
+  Loader2,
   MoreVertical,
   Pencil,
   Plus,
   Printer,
   Search,
+  Share2,
   Trash2,
+  Undo2,
   Upload,
   X,
 } from "lucide-react";
+import PurchaseDocument from "./PurchaseDocument";
+import AddPaymentOutModal from "../../purchase/payment_out/AddPaymentOutModal";
+import { generateInvoicePdfBase64 } from "../../../utils/invoiceShare";
 
 const toInputDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
@@ -41,6 +50,52 @@ const COLUMNS = [
   { key: "balance", label: "BALANCE" },
   { key: "actions", label: "ACTIONS" },
 ];
+
+/* Fixed dropdown geometry used for smart auto-flip positioning */
+const ACTION_MENU_WIDTH = 200;
+const SHARE_MENU_WIDTH = 120;
+const ROW_GAP = 6;
+
+/* Print a DOM node directly via a hidden iframe (no page navigation) */
+function printElement(element) {
+  const iframe = document.createElement("iframe");
+  Object.assign(iframe.style, {
+    position: "fixed",
+    width: "0",
+    height: "0",
+    border: "0",
+    visibility: "hidden",
+    right: "0",
+    bottom: "0",
+  });
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(
+    '<html><head><title>Purchase Invoice</title></head>' +
+      '<body style="margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;">' +
+      element.innerHTML +
+      "</body></html>"
+  );
+  doc.close();
+
+  const win = iframe.contentWindow;
+  const fire = () => {
+    try {
+      win.focus();
+      win.print();
+    } finally {
+      setTimeout(() => iframe.remove(), 1500);
+    }
+  };
+
+  if (doc.readyState === "complete") {
+    fire();
+  } else {
+    win.addEventListener("load", fire);
+  }
+}
 
 const PERIODS = [
   { value: "custom", label: "Custom" },
@@ -84,13 +139,31 @@ export default function Purchase() {
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const [actionMenu, setActionMenu] = useState(null);
+  const [shareMenu, setShareMenu] = useState(null);
+  const actionMenuRef = useRef(null);
+  const shareMenuRef = useRef(null);
 
-  const [payPurchase, setPayPurchase] = useState(null);
-  const [payAmount, setPayAmount] = useState("");
-  const [payMethod, setPayMethod] = useState("cash");
-  const [payDate, setPayDate] = useState(toInputDate(today()));
-  const [payNotes, setPayNotes] = useState("");
-  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const closeMenus = () => {
+    setActionMenu(null);
+    setShareMenu(null);
+  };
+
+  const [payOutSupplier, setPayOutSupplier] = useState(null);
+
+  const [previewDetail, setPreviewDetail] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+
+  const [historyPurchase, setHistoryPurchase] = useState(null);
+  const [historyList, setHistoryList] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+
+  const [docBusyText, setDocBusyText] = useState("");
+  const [docAction, setDocAction] = useState(null);
 
   const fetchToken = useRef(0);
 
@@ -451,97 +524,37 @@ export default function Purchase() {
   ========================================================= */
 
   const openPayModal = (p) => {
-    setPayPurchase(p);
-    setPayAmount("");
-    setPayMethod("cash");
-    setPayDate(toInputDate(today()));
-    setPayNotes("");
-  };
-
-  const submitPayment = async (e) => {
-    e.preventDefault();
-
-    const amount = Number(payAmount);
-
-    if (!amount || amount <= 0) {
-      alert("Please enter a valid amount!");
-      return;
-    }
-
-    if (
-      amount >
-      Number(payPurchase.balance_amount)
-    ) {
-      alert(
-        `Payment amount cannot exceed the pending balance of ${fmtMoney(
-          payPurchase.balance_amount
-        )}`
-      );
-
-      return;
-    }
-
-    setSubmittingPayment(true);
-
-    try {
-      const res = await api.post(
-        "/purchase/pay_purchase",
-        {
-          purchase_id: payPurchase.id,
-          amount,
-          payment_method: payMethod,
-          payment_date: payDate,
-          notes: payNotes,
-        }
-      );
-
-      if (res.data.status) {
-        alert("Payment recorded successfully");
-
-        setPayPurchase(null);
-
-        retry();
-      } else {
-        alert(
-          res.data.message ||
-            "Unable to record payment"
-        );
-      }
-    } catch (err) {
-      console.error(err);
-
-      alert("Error recording payment");
-    } finally {
-      setSubmittingPayment(false);
-    }
+    setPayOutSupplier({
+      id: p.supplier_id || 0,
+      supplier_name: p.supplier_name || "Party",
+      pending_balance: Number(p.balance_amount || 0),
+    });
   };
 
   /* =========================================================
-     DELETE
+     DELETE (styled confirm, no window.confirm)
   ========================================================= */
 
-  const handleDelete = async (p) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete this draft purchase?"
-      )
-    ) {
-      return;
-    }
+  const confirmDelete = (p) => {
+    setActionMenu(null);
+    setDeleteTarget(p);
+  };
+
+  const performDelete = async () => {
+    if (!deleteTarget) return;
+
+    setDeletingId(deleteTarget.id);
 
     try {
       const res = await api.post(
         "/purchase/delete_purchase",
         {
-          id: p.id,
+          id: deleteTarget.id,
         }
       );
 
       if (res.data.status) {
-        alert(
-          res.data.message ||
-            "Purchase draft deleted successfully"
-        );
+        setDeleteTarget(null);
 
         retry();
       } else {
@@ -554,42 +567,426 @@ export default function Purchase() {
       console.error(err);
 
       alert("Error deleting purchase");
+    } finally {
+      setDeletingId(null);
     }
   };
 
   /* =========================================================
-     WHATSAPP SHARE + ACTION MENU
+     PURCHASE DOCUMENT (preview / print / pdf)
   ========================================================= */
 
-  const sharePurchaseWhatsApp = (p) => {
-    const message = [
-      `Purchase Invoice: ${p.purchase_no || "-"}`,
-      `Party: ${p.supplier_name || "-"}`,
-      `Amount: ${fmtMoney(p.total_amount)}`,
-      `Balance: ${fmtMoney(p.balance_amount)}`,
-    ].join("\n");
+  const companyFor = (p) =>
+    companies.find(
+      (c) => String(c.id) === String(p.company_id)
+    ) || null;
 
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(message)}`,
-      "_blank"
+  const loadPurchaseDetail = async (p) => {
+    const res = await api.get(
+      "/purchase/get_purchase_by_id",
+      {
+        params: { id: p.id },
+      }
+    );
+
+    if (res.data.status) return res.data.data;
+
+    throw new Error(
+      res.data.message || "Unable to load purchase"
     );
   };
 
+  /* PREVIEW — inline modal fed by the real purchase record */
+  const openPreview = (p) => {
+    setActionMenu(null);
+
+    setPreviewDetail(null);
+    setPreviewError("");
+    setPreviewLoading(true);
+
+    loadPurchaseDetail(p)
+      .then(setPreviewDetail)
+      .catch((err) =>
+        setPreviewError(
+          err.message || "Could not load purchase"
+        )
+      )
+      .finally(() => setPreviewLoading(false));
+  };
+
+  /* OPEN PDF — fetch + render off-screen, then html2pdf -> blob url -> new tab */
+  const openPurchasePdf = (p) => {
+    if (docBusyText) return;
+
+    setActionMenu(null);
+
+    setDocBusyText("Generating PDF…");
+    setDocAction(null);
+
+    loadPurchaseDetail(p)
+      .then((detail) => setDocAction({ mode: "pdf", detail }))
+      .catch((err) => {
+        setDocBusyText("");
+        alert(err.message);
+      });
+  };
+
+  /* PRINT — fetch + render off-screen, then hidden-iframe print dialog */
+  const printPurchase = (p) => {
+    if (docBusyText) return;
+
+    setActionMenu(null);
+
+    setDocBusyText("Preparing print…");
+    setDocAction(null);
+
+    loadPurchaseDetail(p)
+      .then((detail) => setDocAction({ mode: "print", detail }))
+      .catch((err) => {
+        setDocBusyText("");
+        alert(err.message);
+      });
+  };
+
+  /* Once the off-screen purchase has painted:
+       print -> hidden iframe print dialog
+       pdf   -> html2pdf -> open the generated blob url in a new tab */
+  useEffect(() => {
+    if (!docAction) return;
+
+    const mode = docAction.mode;
+
+    const timer = setTimeout(async () => {
+      const element =
+        document.getElementById(
+          "row-action-purchase"
+        );
+
+      if (!element) return;
+
+      /* wait for the logo/images inside the document before capture */
+      try {
+        await Promise.all(
+          [
+            ...element.querySelectorAll("img"),
+          ].map((im) =>
+            im.complete
+              ? null
+              : new Promise((resolve) => {
+                  im.onload = resolve;
+                  im.onerror = resolve;
+                })
+          )
+        );
+      } catch {
+        /* ignore image wait errors */
+      }
+
+      if (mode === "print") {
+        printElement(element);
+      } else if (mode === "whatsapp") {
+        try {
+          const pdfBase64 = await generateInvoicePdfBase64({
+            element,
+            invoiceNo: docAction.detail?.purchase_no || "purchase",
+            isPOS: false,
+          });
+
+          const phone = String(docAction.phone || "").replace(/[^0-9]/g, "");
+          const normalizedPhone = phone.length === 10 ? `91${phone}` : phone;
+
+          const res = await api.post("/whatsapp/send_file", {
+            company_id: docAction.detail?.company_id || companyFilter || 0,
+            phone: normalizedPhone,
+            file_base64: pdfBase64,
+            mimetype: "application/pdf",
+            filename: `${docAction.detail?.purchase_no || "purchase"}.pdf`,
+            caption: `Purchase ${docAction.detail?.purchase_no || ""}`,
+          });
+
+          if (res.data?.status) {
+            alert(res.data.message || "Purchase invoice sent via WhatsApp!");
+          } else {
+            alert(res.data?.message || "Unable to send purchase via WhatsApp.");
+          }
+        } catch (err) {
+          console.error(err);
+          alert(err.response?.data?.message || "Failed to send purchase via WhatsApp.");
+        }
+      } else {
+        const opt = {
+          margin: [8, 8, 8, 8],
+          filename: `purchase-${
+            docAction.detail.purchase_no || ""
+          }.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+          },
+          jsPDF: {
+            unit: "mm",
+            format: "a4",
+            orientation: "portrait",
+          },
+        };
+
+        try {
+          const url = await html2pdf()
+            .set(opt)
+            .from(element)
+            .output("bloburl");
+
+          window.open(url, "_blank");
+        } catch (err) {
+          console.error(err);
+
+          alert("Could not generate the PDF");
+        }
+      }
+
+      setDocAction(null);
+      setDocBusyText("");
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [docAction, companyFilter]);
+
+  /* DUPLICATE — new backend endpoint performs a real record duplicate */
+  const duplicatePurchaseRow = async (p) => {
+    if (docBusyText) return;
+
+    setActionMenu(null);
+    setDocBusyText("Duplicating purchase…");
+
+    try {
+      const res = await api.post(
+        "/purchase/duplicate_purchase",
+        {
+          id: p.id,
+        }
+      );
+
+      if (res.data.status) {
+        setDocBusyText("");
+
+        retry();
+
+        alert(
+          `Purchase duplicated as ${res.data.purchase_no || "Draft"}`
+        );
+      } else {
+        setDocBusyText("");
+
+        alert(
+          res.data.message ||
+            "Unable to duplicate purchase"
+        );
+      }
+    } catch (err) {
+      setDocBusyText("");
+
+      console.error(err);
+
+      alert("Error duplicating purchase");
+    }
+  };
+
+  /* VIEW HISTORY — real payment records for this purchase */
+  const openHistory = (p) => {
+    setActionMenu(null);
+
+    setHistoryPurchase(p);
+    setHistoryList([]);
+    setHistoryError("");
+    setHistoryLoading(true);
+
+    api
+      .get("/purchase/get_payments", {
+        params: { purchase_id: p.id },
+      })
+      .then((res) => {
+        if (res.data.status) {
+          setHistoryList(
+            Array.isArray(res.data.data)
+              ? res.data.data
+              : []
+          );
+        } else {
+          setHistoryError(
+            res.data.message ||
+              "Unable to load payment history"
+          );
+        }
+      })
+      .catch(() =>
+        setHistoryError(
+          "Could not load payment history"
+        )
+      )
+      .finally(() => setHistoryLoading(false));
+  };
+
+  /* =========================================================
+     WHATSAPP SHARE
+  ========================================================= */
+
+  const sendPurchaseWhatsApp = async (p) => {
+    try {
+      const detail = await loadPurchaseDetail(p);
+      const supplierPhone =
+        detail?.supplier?.mobile_number ||
+        detail?.supplier?.phone ||
+        detail?.supplier_phone ||
+        detail?.supplier?.alt_mobile ||
+        "";
+
+      const cleanedPhone = String(supplierPhone || "").replace(/[^0-9]/g, "");
+
+      if (!cleanedPhone) {
+        alert("This purchase has no supplier phone number for WhatsApp.");
+        return;
+      }
+
+      const element = document.getElementById("row-action-purchase");
+      if (!element) {
+        alert("Unable to prepare the purchase invoice for WhatsApp.");
+        return;
+      }
+
+      const pdfBase64 = await generateInvoicePdfBase64({
+        element,
+        invoiceNo: detail?.purchase_no || "purchase",
+        isPOS: false,
+      });
+
+      const phone = cleanedPhone.length === 10 ? `91${cleanedPhone}` : cleanedPhone;
+      const res = await api.post("/whatsapp/send_file", {
+        company_id: detail?.company_id || companyFilter || 0,
+        phone,
+        file_base64: pdfBase64,
+        mimetype: "application/pdf",
+        filename: `${detail?.purchase_no || "purchase"}.pdf`,
+        caption: `Purchase ${detail?.purchase_no || ""}`,
+      });
+
+      if (res.data?.status) {
+        alert(res.data.message || "Purchase invoice sent via WhatsApp!");
+      } else {
+        alert(res.data?.message || "Unable to send purchase via WhatsApp.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to send purchase via WhatsApp.");
+    } finally {
+      setShareMenu(null);
+    }
+  };
+
   const toggleActionMenu = (e, p) => {
+    e.stopPropagation();
+
     if (actionMenu && actionMenu.id === p.id) {
       setActionMenu(null);
-
       return;
     }
 
+    setShareMenu(null);
+
     const rect = e.currentTarget.getBoundingClientRect();
+    let x = rect.right - ACTION_MENU_WIDTH;
+    if (x < 10) x = 10;
 
     setActionMenu({
       id: p.id,
-      x: rect.right,
-      y: rect.bottom,
+      x,
+      y: rect.bottom + ROW_GAP,
     });
   };
+
+  const toggleShareMenu = (e, p) => {
+    e.stopPropagation();
+
+    if (shareMenu && shareMenu.id === p.id) {
+      setShareMenu(null);
+      return;
+    }
+
+    setActionMenu(null);
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    let x = rect.right - SHARE_MENU_WIDTH;
+    if (x < 10) x = 10;
+
+    setShareMenu({
+      id: p.id,
+      x,
+      y: rect.bottom + ROW_GAP,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (actionMenu && actionMenuRef.current) {
+      const el = actionMenuRef.current;
+      const maxTop = window.innerHeight - el.offsetHeight - 8;
+      const top = Math.min(Math.max(8, actionMenu.y), maxTop);
+      const maxX = window.innerWidth - el.offsetWidth - 8;
+      let left = actionMenu.x;
+      if (left > maxX) left = Math.max(8, maxX);
+
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+    }
+
+    if (shareMenu && shareMenuRef.current) {
+      const el = shareMenuRef.current;
+      const maxTop = window.innerHeight - el.offsetHeight - 8;
+      const top = Math.min(Math.max(8, shareMenu.y), maxTop);
+      const maxX = window.innerWidth - el.offsetWidth - 8;
+      let left = shareMenu.x;
+      if (left > maxX) left = Math.max(8, maxX);
+
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+    }
+  }, [actionMenu, shareMenu]);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      const clickedInsideAction =
+        actionMenuRef.current &&
+        actionMenuRef.current.contains(event.target);
+      const clickedInsideShare =
+        shareMenuRef.current &&
+        shareMenuRef.current.contains(event.target);
+
+      if (
+        !clickedInsideAction &&
+        !clickedInsideShare &&
+        !(event.target instanceof HTMLElement &&
+          event.target.closest("[data-action-trigger]")) &&
+        !(event.target instanceof HTMLElement &&
+          event.target.closest("[data-share-trigger]"))
+      ) {
+        closeMenus();
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeMenus();
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [actionMenu, shareMenu]);
 
   /* =========================================================
      EXCEL EXPORT
@@ -705,6 +1102,12 @@ export default function Purchase() {
       ) || null
     : null;
 
+  const shareMenuRow = shareMenu
+    ? purchases.find(
+        (pp) => pp.id === shareMenu.id
+      ) || null
+    : null;
+
   const menuItemStyle = {
     display: "flex",
     alignItems: "center",
@@ -726,13 +1129,65 @@ export default function Purchase() {
         color: "#26364d",
       }}
     >
+      {/* SHARE DROPDOWN */}
+      {shareMenu && shareMenuRow && (
+        <>
+          <div
+            onClick={() => {
+              setShareMenu(null);
+              setActionMenu(null);
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 55,
+            }}
+          />
+          <div
+            ref={shareMenuRef}
+            style={{
+              position: "fixed",
+              left: shareMenu.x,
+              top: shareMenu.y,
+              zIndex: 60,
+              width: SHARE_MENU_WIDTH,
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "10px",
+              boxShadow: "0 8px 24px rgba(15,23,42,0.14)",
+              padding: "6px",
+            }}
+          >
+            <div
+              onClick={() => {
+                setShareMenu(null);
+                sendPurchaseWhatsApp(shareMenuRow);
+              }}
+              title="Send purchase via WhatsApp"
+              style={{
+                ...menuItemStyle,
+                color: "#334155",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <WhatsAppIcon size={15} />
+              WhatsApp
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ACTIONS DROPDOWN (fixed, so it never gets clipped by the table scroll) */}
       {actionMenu &&
         actionMenuRow && (
           <>
             {/* Click-outside to close */}
             <div
-              onClick={() => setActionMenu(null)}
+              onClick={() => {
+                setActionMenu(null);
+                setShareMenu(null);
+              }}
               style={{
                 position: "fixed",
                 inset: 0,
@@ -740,13 +1195,13 @@ export default function Purchase() {
               }}
             />
             <div
+              ref={actionMenuRef}
               style={{
                 position: "fixed",
                 left: actionMenu.x,
-                top: actionMenu.y + 6,
-                transform: "translateX(-100%)",
+                top: actionMenu.y,
                 zIndex: 60,
-                minWidth: "150px",
+                width: ACTION_MENU_WIDTH,
                 background: "#ffffff",
                 border: "1px solid #e2e8f0",
                 borderRadius: "10px",
@@ -755,36 +1210,7 @@ export default function Purchase() {
                 padding: "6px",
               }}
             >
-              {/* VIEW */}
-              <div
-                onClick={() => {
-                  setActionMenu(null);
-
-                  navigate(
-                    `/purchases/edit/${actionMenuRow.id}`
-                  );
-                }}
-                style={{
-                  ...menuItemStyle,
-                  color: "#334155",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "#f1f5f9")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
-                }
-              >
-                <Eye
-                  size={15}
-                  style={{ color: "#475569" }}
-                />
-                View
-              </div>
-
-              {/* EDIT */}
+              {/* VIEW / EDIT */}
               <div
                 onClick={() => {
                   setActionMenu(null);
@@ -810,69 +1236,255 @@ export default function Purchase() {
                   size={15}
                   style={{ color: "#2563eb" }}
                 />
-                Edit
+                View / Edit
               </div>
 
-              {/* DELETE (drafts only) */}
-              {actionMenuRow.status === "draft" && (
-                <div
-                  onClick={() => {
+              {/* MAKE PAYMENT (submitted bills only) */}
+              <div
+                onClick={() => {
+                  if (
+                    actionMenuRow.status !== "draft" &&
+                    Number(
+                      actionMenuRow.balance_amount ||
+                        0
+                    ) > 0
+                  ) {
                     setActionMenu(null);
 
-                    handleDelete(actionMenuRow);
-                  }}
-                  style={{
-                    ...menuItemStyle,
-                    color: "#e11d48",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background =
-                      "#f1f5f9")
+                    openPayModal(actionMenuRow);
                   }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background =
-                      "transparent")
-                  }
-                >
-                  <Trash2
-                    size={15}
-                    style={{ color: "#e11d48" }}
-                  />
-                  Delete
-                </div>
-              )}
-
-              {/* PAY (unpaid submitted bills only) */}
-              {actionMenuRow.status !== "draft" &&
-                Number(
-                  actionMenuRow.balance_amount || 0
-                ) > 0 && (
-                  <div
-                    onClick={() => {
-                      setActionMenu(null);
-
-                      openPayModal(actionMenuRow);
-                    }}
-                    style={{
-                      ...menuItemStyle,
-                      color: "#334155",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background =
+                }}
+                title={
+                  actionMenuRow.status === "draft"
+                    ? "Draft purchases have no pending balance"
+                    : "Record a payment against this purchase"
+                }
+                style={{
+                  ...menuItemStyle,
+                  color:
+                    actionMenuRow.status !== "draft" &&
+                    Number(
+                      actionMenuRow.balance_amount ||
+                        0
+                    ) > 0
+                      ? "#334155"
+                      : "#94a3b8",
+                  opacity:
+                    actionMenuRow.status !== "draft" &&
+                    Number(
+                      actionMenuRow.balance_amount ||
+                        0
+                    ) > 0
+                      ? 1
+                      : 0.45,
+                  cursor:
+                    actionMenuRow.status !== "draft" &&
+                    Number(
+                      actionMenuRow.balance_amount ||
+                        0
+                    ) > 0
+                      ? "pointer"
+                      : "not-allowed",
+                }}
+                onMouseEnter={(e) =>
+                  (actionMenuRow.status !== "draft" &&
+                  Number(
+                    actionMenuRow.balance_amount ||
+                      0
+                  ) > 0
+                    ? (e.currentTarget.style.background =
                         "#f1f5f9")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background =
-                        "transparent")
-                    }
-                  >
-                    <CreditCard
-                      size={15}
-                      style={{ color: "#10b981" }}
-                    />
-                    Record Payment
-                  </div>
-                )}
+                    : null)
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "transparent")
+                }
+              >
+                <CreditCard
+                  size={15}
+                  style={{ color: "#10b981" }}
+                />
+                Make Payment
+              </div>
+
+              {/* CONVERT TO RETURN */}
+              <div
+                onClick={() => {
+                  setActionMenu(null);
+
+                  navigate(
+                    `/purchases/debit-note/add?purchase_id=${actionMenuRow.id}`
+                  );
+                }}
+                style={{
+                  ...menuItemStyle,
+                  color: "#334155",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background =
+                    "#f1f5f9")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "transparent")
+                }
+              >
+                <Undo2
+                  size={15}
+                  style={{ color: "#f59e0b" }}
+                />
+                Convert To Return
+              </div>
+
+              {/* DELETE */}
+              <div
+                onClick={() => {
+                  confirmDelete(actionMenuRow);
+                }}
+                title="Delete this purchase"
+                style={{
+                  ...menuItemStyle,
+                  color: "#e11d48",
+                  opacity: 1,
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background =
+                    "#f1f5f9")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "transparent")
+                }
+              >
+                <Trash2
+                  size={15}
+                  style={{ color: "#e11d48" }}
+                />
+                Delete
+              </div>
+
+              {/* DUPLICATE */}
+              <div
+                onClick={() =>
+                  duplicatePurchaseRow(actionMenuRow)
+                }
+                style={{
+                  ...menuItemStyle,
+                  color: "#334155",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background =
+                    "#f1f5f9")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "transparent")
+                }
+              >
+                <Copy
+                  size={15}
+                  style={{ color: "#64748b" }}
+                />
+                Duplicate
+              </div>
+
+              {/* OPEN PDF */}
+              <div
+                onClick={() =>
+                  openPurchasePdf(actionMenuRow)
+                }
+                style={{
+                  ...menuItemStyle,
+                  color: "#334155",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background =
+                    "#f1f5f9")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "transparent")
+                }
+              >
+                <FileText
+                  size={15}
+                  style={{ color: "#2563eb" }}
+                />
+                Open PDF
+              </div>
+
+              {/* PREVIEW */}
+              <div
+                onClick={() => openPreview(actionMenuRow)}
+                style={{
+                  ...menuItemStyle,
+                  color: "#334155",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background =
+                    "#f1f5f9")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "transparent")
+                }
+              >
+                <Eye
+                  size={15}
+                  style={{ color: "#0891b2" }}
+                />
+                Preview
+              </div>
+
+              {/* PRINT */}
+              <div
+                onClick={() =>
+                  printPurchase(actionMenuRow)
+                }
+                style={{
+                  ...menuItemStyle,
+                  color: "#334155",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background =
+                    "#f1f5f9")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "transparent")
+                }
+              >
+                <Printer
+                  size={15}
+                  style={{ color: "#7c3aed" }}
+                />
+                Print
+              </div>
+
+              {/* VIEW HISTORY */}
+              <div
+                onClick={() => openHistory(actionMenuRow)}
+                style={{
+                  ...menuItemStyle,
+                  color: "#334155",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background =
+                    "#f1f5f9")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "transparent")
+                }
+              >
+                <History
+                  size={15}
+                  style={{ color: "#0d9488" }}
+                />
+                View History
+              </div>
             </div>
           </>
         )}
@@ -1021,6 +1633,12 @@ export default function Purchase() {
 
           .pb-no-print {
             display: none !important;
+          }
+        }
+
+        @keyframes pb-spin {
+          to {
+            transform: rotate(360deg);
           }
         }
       `}</style>
@@ -2119,13 +2737,13 @@ export default function Purchase() {
                             gap: "5px",
                           }}
                         >
-                          {/* WHATSAPP SHARE */}
                           <button
-                            title="Share on WhatsApp"
-                            onClick={() =>
-                              sharePurchaseWhatsApp(
-                                p
-                              )
+                            data-share-trigger
+                            data-purchase-id={p.id}
+                            title="Share"
+                            aria-label="Share purchase"
+                            onClick={(e) =>
+                              toggleShareMenu(e, p)
                             }
                             style={{
                               width:
@@ -2145,18 +2763,18 @@ export default function Purchase() {
                               background:
                                 "#fff",
                               color:
-                                "#25D366",
+                                "#475569",
                               cursor:
                                 "pointer",
                             }}
                           >
-                            <WhatsAppIcon
-                              size={15}
-                            />
+                            <Share2 size={15} />
                           </button>
 
                           {/* THREE DOT MENU */}
                           <button
+                            data-action-trigger
+                            data-purchase-id={p.id}
                             title="More actions"
                             onClick={(e) =>
                               toggleActionMenu(
@@ -2206,12 +2824,25 @@ export default function Purchase() {
           PAYMENT MODAL
       ===================================================== */}
 
-      {payPurchase && (
+      <AddPaymentOutModal
+        isOpen={!!payOutSupplier}
+        onClose={() => setPayOutSupplier(null)}
+        onSuccess={() => {
+          setPayOutSupplier(null);
+          retry();
+        }}
+        initialSupplier={payOutSupplier}
+      />
+
+      {/* =====================================================
+          DELETE CONFIRM MODAL (styled, replaces window.confirm)
+      ===================================================== */}
+      {deleteTarget && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 100,
+            zIndex: 110,
             background:
               "rgba(15,23,42,0.45)",
             display: "flex",
@@ -2224,7 +2855,7 @@ export default function Purchase() {
             className="pb-no-print"
             style={{
               width: "100%",
-              maxWidth: "420px",
+              maxWidth: "400px",
               background: "#fff",
               borderRadius: "14px",
               overflow: "hidden",
@@ -2238,8 +2869,7 @@ export default function Purchase() {
                 alignItems: "center",
                 justifyContent:
                   "space-between",
-                padding:
-                  "15px 18px",
+                padding: "15px 18px",
                 borderBottom:
                   "1px solid #e2e8f0",
               }}
@@ -2252,345 +2882,622 @@ export default function Purchase() {
                   color: "#17243a",
                 }}
               >
-                Record Payment
+                Delete Purchase
               </h3>
 
               <button
                 onClick={() =>
-                  setPayPurchase(null)
+                  setDeleteTarget(null)
                 }
+                disabled={!!deletingId}
                 style={{
                   border: "none",
                   background:
                     "transparent",
                   color: "#64748b",
-                  cursor:
-                    "pointer",
+                  cursor: "pointer",
                 }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form
-              onSubmit={submitPayment}
+            <div
               style={{
-                padding: "20px",
+                padding: "22px 20px",
+                fontSize: "13.5px",
+                color: "#475569",
+                lineHeight: "1.55",
+              }}
+            >
+              Are you sure you want to delete{" "}
+              <strong>
+                {deleteTarget.purchase_no ||
+                  `#${deleteTarget.id}`}
+              </strong>
+              ?
+              <div
+                style={{
+                  marginTop: "6px",
+                  fontSize: "12.5px",
+                  color: "#94a3b8",
+                }}
+              >
+                The draft purchase record and its
+                item lines will be permanently
+                removed.
+              </div>
+            </div>
+
+            <div
+              style={{
                 display: "flex",
-                flexDirection:
-                  "column",
-                gap: "14px",
+                justifyContent:
+                  "flex-end",
+                gap: "9px",
+                padding: "0 20px 20px",
+              }}
+            >
+              <button
+                onClick={() =>
+                  setDeleteTarget(null)
+                }
+                disabled={!!deletingId}
+                style={{
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "9px 16px",
+                  background: "#f1f5f9",
+                  color: "#475569",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={performDelete}
+                disabled={!!deletingId}
+                style={{
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "9px 16px",
+                  background: "#e11d48",
+                  color: "#fff",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  opacity: deletingId ? 0.6 : 1,
+                }}
+              >
+                {deletingId && (
+                  <Loader2
+                    size={14}
+                    style={{
+                      animation:
+                        "pb-spin 1s linear infinite",
+                    }}
+                  />
+                )}
+                {deletingId
+                  ? "Deleting..."
+                  : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          PREVIEW MODAL
+      ===================================================== */}
+      {(previewLoading ||
+        previewDetail ||
+        previewError) && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 110,
+            background:
+              "rgba(15,23,42,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            className="pb-no-print"
+            style={{
+              width: "min(96vw, 860px)",
+              maxHeight: "90vh",
+              background: "#fff",
+              borderRadius: "14px",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow:
+                "0 20px 50px rgba(15,23,42,0.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent:
+                  "space-between",
+                padding: "13px 18px",
+                borderBottom:
+                  "1px solid #e2e8f0",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "15px",
+                  fontWeight: "700",
+                  color: "#17243a",
+                }}
+              >
+                Preview &nbsp;•&nbsp;
+                {previewDetail?.purchase_no || "-"}
+              </h3>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                {previewDetail && (
+                  <button
+                    onClick={() => {
+                      const el =
+                        document.getElementById(
+                          "preview-purchase-document"
+                        );
+
+                      if (el) printElement(el);
+                    }}
+                    title="Print this purchase"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      border:
+                        "1px solid #dce3ec",
+                      borderRadius: "8px",
+                      padding: "6px 11px",
+                      background: "#fff",
+                      color: "#7c3aed",
+                      fontSize: "12.5px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Printer size={14} />
+                    Print
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    setPreviewDetail(null);
+                    setPreviewError("");
+                  }}
+                  disabled={previewLoading}
+                  style={{
+                    border: "none",
+                    background:
+                      "transparent",
+                    color: "#64748b",
+                    cursor: "pointer",
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                overflow: "auto",
+                padding: "20px",
+                background: "#f1f5f9",
+                flex: 1,
+              }}
+            >
+              {previewLoading ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent:
+                      "center",
+                    gap: "10px",
+                    padding: "60px 0",
+                    color: "#64748b",
+                    fontSize: "13.5px",
+                    fontWeight: "600",
+                  }}
+                >
+                  <Loader2
+                    size={18}
+                    style={{
+                      animation:
+                        "pb-spin 1s linear infinite",
+                      color: "#2563eb",
+                    }}
+                  />
+                  Loading purchase…
+                </div>
+              ) : previewError ? (
+                <div
+                  style={{
+                    padding: "60px 0",
+                    textAlign: "center",
+                    color: "#e11d48",
+                    fontSize: "13.5px",
+                    fontWeight: "600",
+                  }}
+                >
+                  {previewError}
+                </div>
+              ) : (
+                <div
+                  id="preview-purchase-document"
+                  style={{
+                    background: "#fff",
+                    borderRadius: "6px",
+                    border:
+                      "1px solid #e2e8f0",
+                    overflow: "hidden",
+                  }}
+                >
+                  <PurchaseDocument
+                    purchase={previewDetail}
+                    company={companyFor(
+                      previewDetail
+                    )}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          VIEW HISTORY MODAL (real payment records)
+      ===================================================== */}
+      {historyPurchase && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 110,
+            background:
+              "rgba(15,23,42,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            className="pb-no-print"
+            style={{
+              width: "min(92vw, 560px)",
+              maxHeight: "88vh",
+              background: "#fff",
+              borderRadius: "14px",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow:
+                "0 20px 50px rgba(15,23,42,0.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent:
+                  "space-between",
+                padding: "15px 18px",
+                borderBottom:
+                  "1px solid #e2e8f0",
               }}
             >
               <div>
-                <div
+                <h3
                   style={{
-                    fontSize: "13px",
-                    color: "#334155",
+                    margin: 0,
+                    fontSize: "16px",
+                    fontWeight: "700",
+                    color: "#17243a",
                   }}
                 >
-                  {payPurchase.purchase_no}{" "}
+                  Payment History
+                </h3>
+                <div
+                  style={{
+                    marginTop: "2px",
+                    fontSize: "12px",
+                    color: "#64748b",
+                  }}
+                >
+                  {historyPurchase.purchase_no ||
+                    `#${historyPurchase.id}`}{" "}
                   ·{" "}
-                  {payPurchase.supplier_name ||
-                    "Party"}
-                </div>
-
-                <div
-                  style={{
-                    fontSize: "12.5px",
-                    color: "#94a3b8",
-                    marginTop:
-                      "3px",
-                  }}
-                >
-                  Balance outstanding:{" "}
-                  <strong>
-                    {fmtMoney(
-                      payPurchase.balance_amount
-                    )}
-                  </strong>
+                  {historyPurchase.supplier_name ||
+                    "-"}
                 </div>
               </div>
 
-              <div
+              <button
+                onClick={() =>
+                  setHistoryPurchase(null)
+                }
                 style={{
-                  display: "flex",
-                  flexDirection:
-                    "column",
-                  gap: "6px",
+                  border: "none",
+                  background:
+                    "transparent",
+                  color: "#64748b",
+                  cursor: "pointer",
                 }}
               >
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    color: "#475569",
-                  }}
-                >
-                  Amount (₹)
-                </label>
+                <X size={18} />
+              </button>
+            </div>
 
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder={Number(
-                    payPurchase.balance_amount
-                  ).toFixed(2)}
-                  value={payAmount}
-                  onChange={(e) =>
-                    setPayAmount(
-                      e.target.value
-                    )
-                  }
-                  style={{
-                    padding:
-                      "10px 12px",
-                    border:
-                      "1px solid #dce3ec",
-                    borderRadius:
-                      "8px",
-                    fontSize:
-                      "14px",
-                    outline:
-                      "none",
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection:
-                    "column",
-                  gap: "6px",
-                }}
-              >
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    color: "#475569",
-                  }}
-                >
-                  Payment Method
-                </label>
-
-                <select
-                  value={payMethod}
-                  onChange={(e) =>
-                    setPayMethod(
-                      e.target.value
-                    )
-                  }
-                  style={{
-                    padding:
-                      "10px 12px",
-                    border:
-                      "1px solid #dce3ec",
-                    borderRadius:
-                      "8px",
-                    fontSize:
-                      "14px",
-                    background:
-                      "#fff",
-                    outline:
-                      "none",
-                  }}
-                >
-                  <option value="cash">
-                    Cash
-                  </option>
-                  <option value="bank">
-                    Bank Transfer
-                  </option>
-                  <option value="upi">
-                    UPI
-                  </option>
-                  <option value="card">
-                    Card
-                  </option>
-                  <option value="cheque">
-                    Cheque
-                  </option>
-                </select>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection:
-                    "column",
-                  gap: "6px",
-                }}
-              >
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    color: "#475569",
-                  }}
-                >
-                  Payment Date
-                </label>
-
+            <div
+              style={{
+                overflow: "auto",
+                flex: 1,
+              }}
+            >
+              {historyLoading ? (
                 <div
                   style={{
-                    position:
-                      "relative",
-                    display:
-                      "flex",
-                    alignItems:
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent:
                       "center",
+                    gap: "10px",
+                    padding: "50px 0",
+                    color: "#64748b",
+                    fontSize: "13.5px",
+                    fontWeight: "600",
                   }}
                 >
-                  <Calendar
-                    size={15}
+                  <Loader2
+                    size={18}
                     style={{
-                      position:
-                        "absolute",
-                      left: "10px",
-                      color:
-                        "#94a3b8",
+                      animation:
+                        "pb-spin 1s linear infinite",
+                      color: "#0d9488",
                     }}
                   />
-
-                  <input
-                    type="date"
-                    value={payDate}
-                    onChange={(e) =>
-                      setPayDate(
-                        e.target.value
-                      )
-                    }
-                    style={{
-                      width: "100%",
-                      padding:
-                        "10px 10px 10px 32px",
-                      border:
-                        "1px solid #dce3ec",
-                      borderRadius:
-                        "8px",
-                      fontSize:
-                        "14px",
-                      outline:
-                        "none",
-                    }}
-                  />
+                  Loading payments…
                 </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection:
-                    "column",
-                  gap: "6px",
-                }}
-              >
-                <label
+              ) : historyError ? (
+                <div
                   style={{
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    color: "#475569",
+                    padding: "40px 20px",
+                    textAlign: "center",
+                    color: "#e11d48",
+                    fontSize: "13.5px",
+                    fontWeight: "600",
                   }}
                 >
-                  Notes (optional)
-                </label>
-
-                <input
-                  value={payNotes}
-                  onChange={(e) =>
-                    setPayNotes(
-                      e.target.value
-                    )
-                  }
-                  placeholder="Reference / remark"
+                  {historyError}
+                </div>
+              ) : historyList.length === 0 ? (
+                <div
                   style={{
-                    padding:
-                      "10px 12px",
-                    border:
-                      "1px solid #dce3ec",
-                    borderRadius:
-                      "8px",
-                    fontSize:
-                      "14px",
-                    outline:
-                      "none",
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent:
-                    "flex-end",
-                  gap: "9px",
-                  marginTop:
-                    "4px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPayPurchase(null)
-                  }
-                  style={{
-                    border: "none",
-                    borderRadius:
-                      "8px",
-                    padding:
-                      "9px 16px",
-                    background:
-                      "#f1f5f9",
-                    color:
-                      "#475569",
-                    fontSize:
-                      "13px",
-                    fontWeight:
-                      "600",
-                    cursor:
-                      "pointer",
+                    padding: "50px 20px",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                    fontSize: "13px",
+                    fontWeight: "600",
                   }}
                 >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={
-                    submittingPayment
-                  }
+                  No payments recorded yet
+                </div>
+              ) : (
+                <table
                   style={{
-                    border: "none",
-                    borderRadius:
-                      "8px",
-                    padding:
-                      "9px 16px",
-                    background:
-                      "#10b981",
-                    color:
-                      "#fff",
-                    fontSize:
-                      "13px",
-                    fontWeight:
-                      "600",
-                    cursor:
-                      "pointer",
-                    opacity:
-                      submittingPayment
-                        ? 0.6
-                        : 1,
+                    width: "100%",
+                    borderCollapse:
+                      "collapse",
+                    fontSize: "13px",
                   }}
                 >
-                  {submittingPayment
-                    ? "Saving..."
-                    : "Save Payment"}
-                </button>
-              </div>
-            </form>
+                  <thead>
+                    <tr>
+                      {[
+                        "#",
+                        "DATE",
+                        "METHOD",
+                        "AMOUNT",
+                        "NOTES",
+                      ].map((h, i) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding:
+                              "10px 16px",
+                            textAlign:
+                              i === 0
+                                ? "center"
+                                : "left",
+                            background:
+                              "#f8fafc",
+                            fontSize:
+                              "10.5px",
+                            fontWeight: "700",
+                            color: "#64748b",
+                            textTransform:
+                              "uppercase",
+                            letterSpacing:
+                              "0.03em",
+                            whiteSpace:
+                              "nowrap",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyList.map((pm, i) => (
+                      <tr
+                        key={pm.id || i}
+                        style={{
+                          borderBottom:
+                            "1px solid #eef2f6",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: "10px 16px",
+                            textAlign:
+                              "center",
+                            color: "#94a3b8",
+                          }}
+                        >
+                          {i + 1}
+                        </td>
+                        <td
+                          style={{
+                            padding: "10px 16px",
+                            whiteSpace:
+                              "nowrap",
+                            color: "#334155",
+                            fontWeight: "600",
+                          }}
+                        >
+                          {displayDate(
+                            (pm.payment_date ||
+                              "")
+                            .split(" ")[0]
+                          )}
+                        </td>
+                        <td
+                          style={{
+                            padding: "10px 16px",
+                            color: "#475569",
+                            textTransform:
+                              "capitalize",
+                          }}
+                        >
+                          {pm.payment_method ||
+                            "-"}
+                        </td>
+                        <td
+                          style={{
+                            padding: "10px 16px",
+                            textAlign:
+                              "right",
+                            fontWeight: "700",
+                            color: "#0f766e",
+                            whiteSpace:
+                              "nowrap",
+                          }}
+                        >
+                          {fmtMoney(pm.amount)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "10px 16px",
+                            color: "#64748b",
+                          }}
+                        >
+                          {pm.notes || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          OFF-SCREEN PURCHASE used by Open PDF / Print
+      ===================================================== */}
+      {docAction && (
+        <div
+          aria-hidden
+          style={{
+            position: "fixed",
+            top: 0,
+            left: "-10000px",
+            width: 794,
+            background: "#fff",
+            zIndex: -1,
+          }}
+        >
+          <div
+            id="row-action-purchase"
+            style={{
+              background: "#fff",
+              width: 794,
+            }}
+          >
+            <PurchaseDocument
+              purchase={docAction.detail}
+              company={companyFor(docAction.detail)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          DOC ACTION BUSY TOAST
+      ===================================================== */}
+      {docBusyText && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            background: "#fff",
+            border: "1.5px solid #bfdbfe",
+            borderRadius: 14,
+            padding: "12px 18px",
+            boxShadow:
+              "0 12px 30px rgba(15,23,42,0.18)",
+            fontSize: 12.5,
+            fontWeight: 600,
+          }}
+        >
+          <Loader2
+            size={17}
+            color="#2563eb"
+            style={{
+              animation:
+                "pb-spin 1s linear infinite",
+            }}
+          />
+          <span style={{ color: "#334155" }}>
+            {docBusyText}
+          </span>
         </div>
       )}
     </div>

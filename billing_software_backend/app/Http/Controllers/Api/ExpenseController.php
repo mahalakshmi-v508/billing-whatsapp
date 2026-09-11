@@ -117,6 +117,8 @@ class ExpenseController extends Controller
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
         $admin_id = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+        $from_date = trim($request->input('from_date') ?: $request->query('from_date', ''));
+        $to_date = trim($request->input('to_date') ?: $request->query('to_date', ''));
 
         $query = DB::table('expense_categories as ec')
             ->where('ec.is_deleted', 0);
@@ -127,10 +129,26 @@ class ExpenseController extends Controller
             });
         }
 
+        // Optional date range applied to the aggregated expense totals below.
+        $dateSql = '';
+        $dateBindings = [];
+        if (!empty($from_date)) {
+            $dateSql .= ' AND e.expense_date >= ?';
+            $dateBindings[] = $from_date;
+        }
+        if (!empty($to_date)) {
+            $dateSql .= ' AND e.expense_date <= ?';
+            $dateBindings[] = $to_date;
+        }
+
+        $totalSql = '(SELECT COALESCE(SUM(e.total_amount), 0) FROM expenses e WHERE e.category_id = ec.id AND e.is_deleted = 0' . $dateSql . ')';
+        $balanceSql = '(SELECT COALESCE(SUM(e.balance_amount), 0) FROM expenses e WHERE e.category_id = ec.id AND e.is_deleted = 0' . $dateSql . ')';
+        $countSql = '(SELECT COUNT(e.id) FROM expenses e WHERE e.category_id = ec.id AND e.is_deleted = 0' . $dateSql . ')';
+
         $categories = $query->select('ec.*')
-            ->selectRaw('(SELECT COALESCE(SUM(e.total_amount), 0) FROM expenses e WHERE e.category_id = ec.id AND e.is_deleted = 0) as total_amount')
-            ->selectRaw('(SELECT COALESCE(SUM(e.balance_amount), 0) FROM expenses e WHERE e.category_id = ec.id AND e.is_deleted = 0) as total_balance')
-            ->selectRaw('(SELECT COUNT(e.id) FROM expenses e WHERE e.category_id = ec.id AND e.is_deleted = 0) as tx_count')
+            ->selectRaw($totalSql . ' as total_amount', $dateBindings)
+            ->selectRaw($balanceSql . ' as total_balance', $dateBindings)
+            ->selectRaw($countSql . ' as tx_count', $dateBindings)
             ->orderBy('ec.id', 'asc')
             ->get();
 
@@ -414,12 +432,27 @@ class ExpenseController extends Controller
             'is_deleted' => 0
         ]);
 
+        // Auto-increment expense_next_number in invoice_settings
+        try {
+            if ($company_id > 0) {
+                $invSetting = \App\Models\InvoiceSetting::getForCompany($company_id);
+                if ($invSetting) {
+                    $invSetting->expense_next_number = max(1, intval($invSetting->expense_next_number)) + 1;
+                    $invSetting->save();
+                }
+            }
+        } catch (\Exception $ex) {
+            \Log::warning("Could not increment expense_next_number: " . $ex->getMessage());
+        }
+
         app(\App\Services\TransactionMessageService::class)->handleExpense($company_id, $expense);
 
         return response()->json([
-            'status' => true,
-            'message' => 'Expense created successfully',
-            'data' => $expense
+            'status'     => true,
+            'message'    => 'Expense created successfully',
+            'expense_no' => $expense_no,
+            'invoice_no' => $expense_no,
+            'data'       => $expense
         ]);
     }
 

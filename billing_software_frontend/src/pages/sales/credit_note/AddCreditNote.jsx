@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ArrowLeft,
   Pencil,
+  CheckCircle2,
 } from "lucide-react";
 
 function createInitialRow(id = null) {
@@ -128,6 +129,7 @@ export default function AddCreditNote() {
   const [showPaymentTypeDropdown, setShowPaymentTypeDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [toast, setToast] = useState(null);
 
   // Load products list & prefetch customer list & initialize return no
   useEffect(() => {
@@ -419,7 +421,41 @@ export default function AddCreditNote() {
       }
 
       if (res.data.status) {
-        navigate("/sales/credit-note");
+        const savedReturnNo = res.data.return_no || res.data.invoice_no || activeTab.returnNo;
+        if (isEditMode) {
+          setToast(`Credit Note #${savedReturnNo} updated successfully!`);
+          setTimeout(() => navigate("/sales/credit-note"), 1500);
+        } else {
+          const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+          if (shouldSkipPreview) {
+            setToast(`Credit Note #${savedReturnNo} created successfully!`);
+            setTimeout(() => setToast(null), 4000);
+
+            // Fetch next return number from settings
+            let nextReturnNo = "";
+            try {
+              const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=credit_note`);
+              if (numRes.data?.status && numRes.data?.formatted_number) {
+                nextReturnNo = numRes.data.formatted_number;
+              } else {
+                nextReturnNo = `CN-${String(tabs.length + 1).padStart(4, "0")}`;
+              }
+            } catch (e) {
+              nextReturnNo = `CN-${String(tabs.length + 1).padStart(4, "0")}`;
+            }
+
+            // Reset active tab for next credit note entry
+            setTabs((prev) =>
+              prev.map((tab) =>
+                tab.id === activeTabId
+                  ? createNewCreditNoteTab(tab.id, 1, nextReturnNo)
+                  : tab
+              )
+            );
+          } else {
+            navigate(`/invoice/${savedReturnNo}`);
+          }
+        }
       } else {
         setErrorMsg(res.data.message || "Failed to save credit note.");
       }
@@ -504,7 +540,19 @@ export default function AddCreditNote() {
         </div>
       </div>
 
-      {/* Error alert */}
+      {/* Success Toast & Error alert */}
+      {toast && (
+        <div className="mx-8 mt-3 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span>{toast}</span>
+          </div>
+          <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {errorMsg && (
         <div className="mx-8 mt-3 px-4 py-2.5 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-lg flex items-center justify-between">
           <span>{errorMsg}</span>

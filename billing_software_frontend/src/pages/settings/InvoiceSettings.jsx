@@ -157,6 +157,19 @@ const DOCUMENT_TYPES = [
     presets: ["SO-", "ORD-", "SO/2026/"],
     defaultPrefix: "SO-",
   },
+  {
+    key: "expense",
+    prefixKey: "expense_prefix",
+    numKey: "expense_next_number",
+    padKey: "expense_padding",
+    title: "Expense Voucher",
+    category: "Accounts",
+    badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+    icon: Receipt,
+    desc: "Used for tracking daily business overheads, rent, fuel, and operational expenses",
+    presets: ["EXP-", "VOUCH-", "EXP/2026/", "BILL/"],
+    defaultPrefix: "EXP-",
+  },
 ];
 
 export default function InvoiceSettings() {
@@ -211,6 +224,9 @@ export default function InvoiceSettings() {
     sale_order_prefix: "SO-",
     sale_order_next_number: 1,
     sale_order_padding: 4,
+    expense_prefix: "EXP-",
+    expense_next_number: 1,
+    expense_padding: 4,
   });
 
   // Load companies for admin
@@ -270,6 +286,9 @@ export default function InvoiceSettings() {
             sale_order_prefix: d.sale_order_prefix ?? "SO-",
             sale_order_next_number: d.sale_order_next_number ?? 1,
             sale_order_padding: d.sale_order_padding ?? 4,
+            expense_prefix: d.expense_prefix ?? "EXP-",
+            expense_next_number: d.expense_next_number ?? 1,
+            expense_padding: d.expense_padding ?? 4,
           }));
         }
       })
@@ -345,6 +364,10 @@ export default function InvoiceSettings() {
         sale_order_prefix: formData.sale_order_prefix === "None" ? "" : formData.sale_order_prefix,
         sale_order_next_number: Math.max(1, parseInt(formData.sale_order_next_number) || 1),
         sale_order_padding: Math.max(1, parseInt(formData.sale_order_padding) || 1),
+
+        expense_prefix: formData.expense_prefix === "None" ? "" : formData.expense_prefix,
+        expense_next_number: Math.max(1, parseInt(formData.expense_next_number) || 1),
+        expense_padding: Math.max(1, parseInt(formData.expense_padding) || 1),
       };
 
       const res = await api.post("/invoice-settings/save", payload);
