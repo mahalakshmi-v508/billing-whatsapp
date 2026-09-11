@@ -30,7 +30,10 @@ import {
   Sparkles,
   CheckCircle2,
   Clock,
-  CircleDot
+  CircleDot,
+  Share2,
+  Edit,
+  Eye
 } from "lucide-react";
 
 export default function DebitNoteList() {
@@ -903,23 +906,74 @@ export default function DebitNoteList() {
                       </td>
 
                       {/* ACTIONS */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1">
+                      <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1.5 text-slate-400">
+                          {/* Print POS / Preview */}
                           <button
-                            onClick={() => navigate(`/purchases/debit-note/edit/${item.id}`)}
-                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                            title="Edit Debit Note"
+                            onClick={() => navigate(`/invoice/${item.return_no || item.id}`)}
+                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                            title="Print"
                           >
-                            <Pencil size={14} />
+                            <Printer size={15} />
                           </button>
 
+                          {/* Share Icon */}
                           <button
-                            onClick={() => setDeleteTarget(item)}
-                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                            title="Delete Debit Note"
+                            onClick={() => navigate(`/invoice/${item.return_no || item.id}`)}
+                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                            title="Share"
                           >
-                            <Trash2 size={14} />
+                            <Share2 size={15} />
                           </button>
+
+                          {/* 3-Dot More Menu */}
+                          <div data-dropdown-container className="relative">
+                            <button
+                              onClick={() => setActiveMenuId(isMenuOpen ? null : item.id)}
+                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              title="More actions"
+                            >
+                              <MoreVertical size={15} />
+                            </button>
+
+                            {isMenuOpen && (
+                              <div
+                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                              >
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    navigate(`/purchases/debit-note/edit/${item.id}`);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                >
+                                  <Edit size={14} className="text-blue-600" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    navigate(`/invoice/${item.return_no || item.id}`);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
+                                >
+                                  <Eye size={14} className="text-slate-600" />
+                                  <span>View Receipt</span>
+                                </button>
+                                <div className="border-t border-slate-100 my-1" />
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    setDeleteTarget(item);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
+                                >
+                                  <Trash2 size={14} className="text-red-600" />
+                                  <span className="text-red-600">Delete</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
