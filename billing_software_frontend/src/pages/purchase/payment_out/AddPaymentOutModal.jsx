@@ -6,6 +6,14 @@ import {
   ChevronDown,
   Truck,
   AlertCircle,
+<<<<<<< HEAD
+=======
+  CreditCard,
+  Building2,
+  Calendar,
+  DollarSign,
+  CheckCircle2
+>>>>>>> 065bd5e (invoice  update)
 } from "lucide-react";
 
 export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initialSupplier = null, editPayment = null }) {
@@ -28,6 +36,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
   const attachment = "";
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [toast, setToast] = useState(null);
 
   const partyRef = useRef(null);
 
@@ -222,8 +231,35 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
         if (res.data.status) {
           const savedReceiptNo = res.data.receipt_no || res.data.invoice_no || String(receiptNo);
           if (onSuccess) onSuccess(savedReceiptNo);
-          onClose();
-          navigate(`/invoice/${savedReceiptNo}`);
+
+          const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+          if (shouldSkipPreview) {
+            setToast(`Payment-Out #${savedReceiptNo} recorded successfully!`);
+            setTimeout(() => setToast(null), 4000);
+
+            // Reset fields for continuous data entry
+            setSelectedSupplier(null);
+            setPartyQuery("");
+            setPaidAmount("");
+            setPaymentType("Cash");
+            setPaymentDate(new Date().toISOString().split("T")[0]);
+            setDescription("");
+
+            // Fetch / increment next receipt number
+            try {
+              const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_out`);
+              if (numRes.data?.status && numRes.data?.formatted_number) {
+                setReceiptNo(numRes.data.formatted_number);
+              } else {
+                setReceiptNo((prev) => (typeof prev === "number" ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : "PAYOUT-0001"));
+              }
+            } catch (e) {
+              setReceiptNo((prev) => (typeof prev === "number" ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : "PAYOUT-0001"));
+            }
+          } else {
+            onClose();
+            navigate(`/invoice/${savedReceiptNo}`);
+          }
         } else {
           setErrorMsg(res.data.message || "Failed to record payment-out.");
         }
@@ -268,6 +304,19 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
             <X size={16} />
           </button>
         </div>
+
+        {/* Success Toast */}
+        {toast && (
+          <div className="mx-6 mt-3 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+              <X size={13} />
+            </button>
+          </div>
+        )}
 
         {/* Form Body */}
         <div className="p-6 space-y-4">

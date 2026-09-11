@@ -1585,7 +1585,7 @@ export default function InvoicePreview() {
   const [selectedColor, setSelectedColor] = useState(() => initialSettings.color);
   const [selectedPosLayout, setSelectedPosLayout] = useState(() => initialSettings.posLayout);
   const [pageSize, setPageSize] = useState(() => initialSettings.pageSize);
-  const [doNotShowAgain, setDoNotShowAgain] = useState(false);
+  const [doNotShowAgain, setDoNotShowAgain] = useState(() => localStorage.getItem("skip_invoice_preview") === "true");
   const [waSending, setWaSending] = useState(false);
   const [tmSending, setTmSending] = useState(false);
   const [copyToast, setCopyToast] = useState(false);
@@ -1893,9 +1893,7 @@ export default function InvoicePreview() {
 
   /* Save & Close Navigation */
   const handleSaveAndClose = () => {
-    if (doNotShowAgain) {
-      localStorage.setItem("skip_invoice_preview", "true");
-    }
+    localStorage.setItem("skip_invoice_preview", doNotShowAgain ? "true" : "false");
     const targetRoute = getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
     navigate(targetRoute);
   };
@@ -1944,7 +1942,10 @@ export default function InvoicePreview() {
             <input
               type="checkbox"
               checked={doNotShowAgain}
-              onChange={e => setDoNotShowAgain(e.target.checked)}
+              onChange={e => {
+                setDoNotShowAgain(e.target.checked);
+                localStorage.setItem("skip_invoice_preview", e.target.checked ? "true" : "false");
+              }}
               style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#1f8cff" }}
             />
             <span>Do not show invoice preview again</span>
