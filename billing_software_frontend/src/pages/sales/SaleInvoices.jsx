@@ -34,6 +34,7 @@ import {
   RotateCcw,
   Check,
 } from "lucide-react";
+import ShareTransactionPopover from "../../components/ShareTransactionPopover";
 
 // Table columns list for customization drawer with rich icons and colors
 const DEFAULT_COLUMNS = [
@@ -119,6 +120,7 @@ export default function SaleInvoices() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
+  const [activeShareId, setActiveShareId] = useState(null);
 
   // Delete modal & action toast
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -843,14 +845,25 @@ export default function SaleInvoices() {
                               <Printer size={15} />
                             </button>
 
-                            {/* Share Icon Button */}
-                            <button
-                              onClick={() => navigate(`/invoice/${inv.invoice_no}`)}
-                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                              title="Share Invoice"
-                            >
-                              <Share2 size={15} />
-                            </button>
+                            {/* Share Icon Button with Popover */}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveShareId(activeShareId === inv.invoice_no ? null : inv.invoice_no);
+                                }}
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                                title="Share Invoice"
+                              >
+                                <Share2 size={15} />
+                              </button>
+                              <ShareTransactionPopover
+                                isOpen={activeShareId === inv.invoice_no}
+                                onClose={() => setActiveShareId(null)}
+                                transaction={inv}
+                                type="Invoice"
+                              />
+                            </div>
 
                             {/* 3-Dot More Menu */}
                             <div className="relative">
