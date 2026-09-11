@@ -304,6 +304,7 @@ Route::prefix('purchase')->group(function () {
     Route::get('get_purchases', [PurchaseController::class, 'getPurchases']);
     Route::get('get_purchase_by_id', [PurchaseController::class, 'getPurchaseById']);
     Route::post('delete_purchase', [PurchaseController::class, 'deletePurchase']);
+    Route::post('duplicate_purchase', [PurchaseController::class, 'duplicatePurchase']);
     Route::post('pay_purchase', [PurchaseController::class, 'payPurchase']);
     Route::get('get_payments', [PurchaseController::class, 'getPurchasePayments']);
     Route::get('get_supplier_payments', [PurchaseController::class, 'getSupplierPayments']);

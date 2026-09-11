@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
@@ -212,6 +212,8 @@ export default function AddDebitNote() {
   const navigate = useNavigate();
   const { id: editId } = useParams();
   const isEditMode = Boolean(editId);
+  const [searchParams] = useSearchParams();
+  const purchaseId = searchParams.get("purchase_id");
 
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
@@ -400,6 +402,91 @@ export default function AddDebitNote() {
         .catch(console.error);
     }
   }, [isEditMode, editId]);
+
+  // If opened from Reports → Purchase → "Convert To Return" (?purchase_id=X),
+  // prefill the first tab from the real purchase record (supplier, bill ref,
+  // items, payment type and state of supply are all transferred).
+  useEffect(() => {
+    if (isEditMode || !purchaseId) return;
+
+    let cancelled = false;
+
+    api
+      .get("/purchase/get_purchase_by_id", {
+        params: { id: purchaseId },
+      })
+      .then((res) => {
+        if (cancelled) return;
+
+        if (!res.data?.status || !res.data.data) return;
+
+        const d = res.data.data;
+        const sup = d.supplier || {};
+
+        const rows = Array.isArray(d.items)
+          ? d.items.map((it, i) => ({
+              id: i + 1,
+              product_id: it.product_id || null,
+              product_name: it.product_name || it.item || "",
+              product_code: it.product_code || "",
+              barcode: it.barcode || "",
+              quantity: it.quantity || "",
+              unit: it.unit && it.unit !== "NONE" ? it.unit : "NONE",
+              price: it.price || 0,
+              discount_percent:
+                Number(it.discount_percent) > 0
+                  ? String(it.discount_percent)
+                  : "",
+              discount_amount: "",
+              gst_percentage:
+                Number(it.gst_percentage) || 0,
+              tax_amount: 0,
+              amount: Number(it.total_amount) || 0,
+            }))
+          : [];
+
+        setTabs((prev) =>
+          prev.map((tab, ti) => {
+            if (ti !== 0) return tab;
+
+            return {
+              ...tab,
+              title: `Return of ${d.purchase_no || "Purchase"}`,
+              partyInput: d.supplier_name || sup.supplier_name || "",
+              selectedSupplier: d.supplier_id
+                ? {
+                    id: d.supplier_id,
+                    supplier_name:
+                      d.supplier_name || sup.supplier_name || "",
+                    phone: sup.mobile_number || "",
+                    pending_balance: 0,
+                  }
+                : null,
+              supplierPhone: sup.mobile_number || "",
+              billNo: d.purchase_no || "",
+              billDate: d.purchase_date || "",
+              stateOfSupply: d.state_of_supply || "Tamil Nadu",
+              paymentType: d.payment_type || "Cash",
+              items: [
+                createEmptyRow(true),
+                ...rows,
+                createEmptyRow(false),
+              ],
+            };
+          })
+        );
+      })
+      .catch((err) =>
+        console.error(
+          "Error prefilling debit note from purchase:",
+          err
+        )
+      );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [purchaseId, isEditMode]);
 
   // Click outside listener for dropdowns
   useEffect(() => {
