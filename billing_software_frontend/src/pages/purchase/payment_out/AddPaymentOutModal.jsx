@@ -6,10 +6,6 @@ import {
   ChevronDown,
   Truck,
   AlertCircle,
-  CreditCard,
-  Building2,
-  Calendar,
-  DollarSign
 } from "lucide-react";
 
 export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initialSupplier = null, editPayment = null }) {
@@ -29,7 +25,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [paidAmount, setPaidAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [attachment, setAttachment] = useState("");
+  const attachment = "";
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -63,7 +59,8 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
     } else {
       setSelectedSupplier(initialSupplier || null);
       setPartyQuery(initialSupplier ? (initialSupplier.supplier_name || initialSupplier.name || "") : "");
-      setPaidAmount("");
+      const initialDue = Number(initialSupplier?.pending_balance ?? 0);
+      setPaidAmount(initialDue > 0 ? String(initialDue) : "");
       setPaymentType("Cash");
       setPaymentDate(new Date().toISOString().split("T")[0]);
       setDescription("");
