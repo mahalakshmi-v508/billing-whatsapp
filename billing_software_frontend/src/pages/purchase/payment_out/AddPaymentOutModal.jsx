@@ -6,14 +6,11 @@ import {
   ChevronDown,
   Truck,
   AlertCircle,
-<<<<<<< HEAD
-=======
   CreditCard,
   Building2,
   Calendar,
   DollarSign,
   CheckCircle2
->>>>>>> 065bd5e (invoice  update)
 } from "lucide-react";
 
 export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initialSupplier = null, editPayment = null }) {
