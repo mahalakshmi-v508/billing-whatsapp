@@ -83,9 +83,17 @@ export default function AddCreditNote() {
   };
 
   // Add new tab (Credit Note #2, #3...) with auto-incremented return no
-  const handleAddTab = () => {
+  const handleAddTab = async () => {
     const nextIdx = tabs.length + 1;
-    const nextReturnNo = existingCount + tabs.length + 1;
+    let nextReturnNo = String(nextIdx);
+    try {
+      const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=credit_note`);
+      if (numRes.data?.status && numRes.data?.formatted_number) {
+        nextReturnNo = numRes.data.formatted_number;
+      }
+    } catch {
+      nextReturnNo = `CN-${String(nextIdx).padStart(4, "0")}`;
+    }
     const newId = Date.now();
     const newTab = createNewCreditNoteTab(newId, nextIdx, nextReturnNo);
     setTabs((prev) => [...prev, newTab]);
@@ -138,13 +146,18 @@ export default function AddCreditNote() {
           }
         }
 
-        // Fetch credit notes count to compute sequential Return No
-        const cnRes = await api.get(`/credit_note/list?company_id=${companyId}&admin_id=${adminId}`);
-        const count = cnRes.data?.data?.length || 0;
-        setExistingCount(count);
-
         if (!isEditMode) {
-          updateActiveTab({ returnNo: String(count + 1) });
+          // Fetch credit note next formatted number from settings
+          try {
+            const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=credit_note`);
+            if (numRes.data?.status && numRes.data?.formatted_number) {
+              updateActiveTab({ returnNo: numRes.data.formatted_number });
+            } else {
+              updateActiveTab({ returnNo: "CN-0001" });
+            }
+          } catch (e) {
+            updateActiveTab({ returnNo: "CN-0001" });
+          }
         } else {
           // If in Edit Mode, fetch the existing record
           const editRes = await api.get(`/credit_note/get_by_id?id=${editId}`);
@@ -406,7 +419,8 @@ export default function AddCreditNote() {
       }
 
       if (res.data.status) {
-        navigate("/sales/credit-note");
+        const savedReturnNo = res.data.return_no || res.data.invoice_no || activeTab.returnNo;
+        navigate(`/invoice/${savedReturnNo}`);
       } else {
         setErrorMsg(res.data.message || "Failed to save credit note.");
       }

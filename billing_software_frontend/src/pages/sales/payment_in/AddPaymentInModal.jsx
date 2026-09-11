@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 
 export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialParty = null }) {
+  const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
   const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
@@ -47,35 +49,32 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     return recv + disc;
   }, [receivedAmount, discountAmount]);
 
-  // Load next receipt number
+  // Load next receipt number from settings
   useEffect(() => {
     if (!isOpen) return;
     const loadReceiptNo = async () => {
       try {
+        const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_in`);
+        if (numRes.data?.status && numRes.data?.formatted_number) {
+          setReceiptNo(numRes.data.formatted_number);
+          return;
+        }
         const res = await api.get(`/invoice/get_customer_payments?customer_id=0`);
         if (res.data?.data) {
-          setReceiptNo((res.data.data.length || 0) + 1);
+          setReceiptNo(`PAYIN-${String((res.data.data.length || 0) + 1).padStart(4, "0")}`);
         } else {
-          setReceiptNo(Math.floor(Date.now() / 1000) % 10000);
+          setReceiptNo(`PAYIN-0001`);
         }
       } catch {
-        setReceiptNo(Math.floor(Date.now() / 1000) % 10000);
+        setReceiptNo(`PAYIN-0001`);
       }
     };
     loadReceiptNo();
-  }, [isOpen]);
+  }, [isOpen, companyId]);
 
-  // Load customer suggestions immediately when modal opens
-  useEffect(() => {
-    if (isOpen && adminId) {
-      handleSearchParty("");
-    }
-  }, [isOpen, adminId]);
-
-  // Search Customer Parties
-  const handleSearchParty = async (q) => {
-    setPartyQuery(q);
-    setShowPartyDropdown(true);
+  // Fetch customer suggestions helper without forcing dropdown open
+  const fetchCustomerSuggestions = async (q = "") => {
+    if (!adminId) return;
     setSearchingParty(true);
     try {
       const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${encodeURIComponent(q || "")}`);
@@ -87,6 +86,30 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     } finally {
       setSearchingParty(false);
     }
+  };
+
+  // Reset states and preload customer list quietly on modal open
+  useEffect(() => {
+    if (isOpen && adminId) {
+      setShowPartyDropdown(false);
+      setShowPaymentTypeDropdown(false);
+      setErrorMsg("");
+      fetchCustomerSuggestions("");
+      if (initialParty) {
+        setSelectedParty(initialParty);
+        setPartyQuery(initialParty.name || initialParty.customer_name || "");
+      } else {
+        setSelectedParty(null);
+        setPartyQuery("");
+      }
+    }
+  }, [isOpen, adminId, initialParty]);
+
+  // Search Customer Parties when user types
+  const handleSearchParty = (q) => {
+    setPartyQuery(q);
+    setShowPartyDropdown(true);
+    fetchCustomerSuggestions(q);
   };
 
   const selectParty = (cust) => {
@@ -129,10 +152,11 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
 
     try {
       const discNum = parseFloat(discountAmount) || 0;
+      const finalReceiptNo = String(receiptNo || "").trim() || `PAYIN-${Date.now()}`;
       const payload = {
         company_id: parseInt(companyId) || 0,
         customer_id: selectedParty.id,
-        receipt_no: String(receiptNo),
+        receipt_no: finalReceiptNo,
         amount: amountNum,
         discount_amount: discNum,
         payment_method: paymentType.toLowerCase(),
@@ -142,8 +166,10 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
 
       const res = await api.post("/invoice/pay_customer_bulk", payload);
       if (res.data.status) {
-        if (onSuccess) onSuccess();
+        const savedReceiptNo = res.data.invoice_no || res.data.receipt_no || finalReceiptNo;
+        if (onSuccess) onSuccess(savedReceiptNo);
         onClose();
+        navigate(`/invoice/${savedReceiptNo}`);
       } else {
         setErrorMsg(res.data.message || "Failed to record payment.");
       }
@@ -217,23 +243,42 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
             {/* Party Selection (Floating Label Box) */}
             <div ref={partyRef} className="relative">
               <div
-                className={`relative border rounded-lg px-3 pt-3 pb-2 transition ${
-                  showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/20" : "border-blue-500"
+                className={`relative border rounded-lg px-3 pt-3 pb-2 transition cursor-pointer ${
+                  showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-300 hover:border-blue-400"
                 }`}
+                onClick={() => {
+                  setShowPartyDropdown(true);
+                  if (partySuggestions.length === 0) {
+                    fetchCustomerSuggestions(partyQuery);
+                  }
+                }}
               >
-                <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-semibold text-blue-600">
+                <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-semibold text-blue-600 pointer-events-none">
                   Party *
                 </label>
                 <div className="flex items-center justify-between">
                   <input
                     type="text"
                     value={partyQuery}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowPartyDropdown(true);
+                      if (partySuggestions.length === 0) {
+                        fetchCustomerSuggestions(partyQuery);
+                      }
+                    }}
                     onChange={(e) => handleSearchParty(e.target.value)}
-                    onFocus={() => handleSearchParty(partyQuery)}
                     placeholder="Search or select party..."
                     className="w-full bg-transparent text-sm text-slate-800 font-medium outline-none"
                   />
-                  <ChevronDown size={16} className="text-slate-400 pointer-events-none" />
+                  <ChevronDown
+                    size={16}
+                    className="text-slate-400 hover:text-slate-600 transition cursor-pointer ml-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowPartyDropdown((prev) => !prev);
+                    }}
+                  />
                 </div>
               </div>
 

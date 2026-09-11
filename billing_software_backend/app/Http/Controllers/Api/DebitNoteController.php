@@ -152,6 +152,19 @@ class DebitNoteController extends Controller
                 'is_deleted'      => 0,
             ]);
 
+            // Auto-increment debit_note_next_number in invoice_settings
+            try {
+                if ($company_id > 0) {
+                    $invSetting = \App\Models\InvoiceSetting::getForCompany($company_id);
+                    if ($invSetting) {
+                        $invSetting->debit_note_next_number = max(1, intval($invSetting->debit_note_next_number)) + 1;
+                        $invSetting->save();
+                    }
+                }
+            } catch (\Exception $ex) {
+                \Log::warning("Could not increment debit_note_next_number: " . $ex->getMessage());
+            }
+
             DB::commit();
 
             app(\App\Services\TransactionMessageService::class)->handleDebitNote($company_id, $debitNote);
@@ -160,6 +173,8 @@ class DebitNoteController extends Controller
                 'status'     => true,
                 'message'    => 'Debit Note created successfully.',
                 'debit_note' => $debitNote,
+                'return_no'  => $return_no,
+                'invoice_no' => $return_no,
                 'id'         => $debitNote->id,
             ]);
         } catch (\Exception $e) {

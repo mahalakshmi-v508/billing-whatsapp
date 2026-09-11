@@ -28,6 +28,13 @@ const BORDER = "#e2e8f0";
 const MONEY_IN = "#15803d";
 const MONEY_OUT = "#dc2626";
 
+/* Official WhatsApp logo glyph (same mark used elsewhere in the app) */
+const WhatsAppIcon = ({ size = 24, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+  </svg>
+);
+
 const methodBadge = (m) => {
   const map = {
     cash: { bg: "#f0fdf4", color: "#15803d" },
@@ -138,13 +145,23 @@ export default function DayBook() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+  const [sharingNo, setSharingNo] = useState(null);
+  const [shareOpen, setShareOpen] = useState(null);
+  const [sharePos, setSharePos] = useState(null);
+  const [shareTarget, setShareTarget] = useState(null);
   const menuRef = useRef(null);
+  const shareRef = useRef(null);
 
-  /* close the 3-dot menu on outside click */
+  /* close the 3-dot menu and the Share dropdown on outside click */
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setActiveMenu(null);
+      }
+      if (shareRef.current && !shareRef.current.contains(e.target)) {
+        setShareOpen(null);
+        setSharePos(null);
+        setShareTarget(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -163,6 +180,23 @@ export default function DayBook() {
     const rect = btn.getBoundingClientRect();
     setMenuPos({ right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.top, top: rect.bottom });
     setActiveMenu(reference);
+  };
+
+  /* open the compact Share dropdown anchored just below the clicked Share icon.
+     Also closes it when the same Share icon is clicked again. Sends nothing here. */
+  const toggleShare = (e, t) => {
+    e.stopPropagation();
+    if (shareOpen === t.reference) {
+      setShareOpen(null);
+      setSharePos(null);
+      setShareTarget(null);
+      return;
+    }
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    setSharePos({ right: window.innerWidth - rect.right, top: rect.bottom });
+    setShareTarget(t);
+    setShareOpen(t.reference);
   };
 
   /* delete a sale invoice on this day book row */
@@ -360,29 +394,58 @@ export default function DayBook() {
     printElement(el, "Day Book Transaction");
   };
 
+  /* Day Book row kind → Transaction Message type */
+  const KIND_TO_TYPE = {
+    sale: "sales",
+    purchase: "purchase",
+    sales_return: "sales_return",
+  };
+
+  /* Send the selected Day Book transaction via the existing Personal WhatsApp
+     flow (POST /transaction-messages/send). The server resolves the party's
+     real WhatsApp number from the row's transaction record and sends the
+     configured template on the connected Personal WhatsApp. Triggered ONLY by
+     the WhatsApp button inside the Share dropdown — never by the Share icon. */
   const shareRow = async (t) => {
-    const prettyDate = new Date(date + "T00:00:00").toLocaleDateString("en-IN", {
-      day: "2-digit", month: "short", year: "numeric",
-    });
-    const text = [
-      `Day Book — ${firmNameRef.current} | ${prettyDate}`,
-      `Name: ${t.name || "-"}`,
-      `Ref. No: ${t.reference || "-"}`,
-      `Type: ${t.type || "-"}`,
-      `Payment: ${t.payment_type || "-"}`,
-      `Total: ${fmtINR(t.total)}`,
-      `Money In: ${fmtINR(t.money_in)}`,
-      `Money Out: ${fmtINR(t.money_out)}`,
-    ].join("\n");
+    if (sharingNo === t.reference) return;
+    const type = KIND_TO_TYPE[t.kind];
+    if (!type || !t.company_id) {
+      setShareOpen(null);
+      setSharePos(null);
+      setShareTarget(null);
+      setActionToast({ msg: "This transaction cannot be shared via WhatsApp.", ok: false });
+      setTimeout(() => setActionToast(null), 3500);
+      return;
+    }
+
+    const reference =
+      type === "sales" ? { invoice_no: t.reference } :
+      type === "purchase" ? { purchase_no: t.reference } :
+      { return_no: t.reference };
+
+    setSharingNo(t.reference);
+    setShareOpen(null);
+    setSharePos(null);
+    setShareTarget(null);
+    setActionToast({ msg: `Sending ${t.reference} via WhatsApp…`, ok: true });
     try {
-      await navigator.clipboard.writeText(text);
-      if (navigator.share) {
-        await navigator.share({ title: "Day Book Transaction", text }).catch(() => {});
-      } else {
-        alert("Transaction copied to clipboard:\n\n" + text);
-      }
-    } catch {
-      alert(text);
+      const res = await api.post("/transaction-messages/send", {
+        company_id: t.company_id,
+        transaction_type: type,
+        reference,
+      });
+      setActionToast({
+        msg: res.data?.status ? (res.data?.message || "Message sent via WhatsApp.") : (res.data?.message || "Could not send via WhatsApp."),
+        ok: !!res.data?.status,
+      });
+    } catch (err) {
+      setActionToast({
+        msg: err.response?.data?.message || err.message || "Failed to send via WhatsApp.",
+        ok: false,
+      });
+    } finally {
+      setSharingNo(null);
+      setTimeout(() => setActionToast(null), 4000);
     }
   };
 
@@ -566,7 +629,45 @@ export default function DayBook() {
                   <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: MONEY_OUT }}>{fmtINR(t.money_out)}</td>
                   <td style={{ padding: "10px 12px", textAlign: "center", whiteSpace: "nowrap" }}>
                     <button onClick={() => printSingleRow(t)} title="Print" style={rowIconBtn("#4338ca")}><Printer size={13} /></button>
-                    <button onClick={() => shareRow(t)} title="Share" style={rowIconBtn("#0891b2")}><Share2 size={13} /></button>
+                    <div style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}>
+                      <button onClick={(e) => toggleShare(e, t)} title="Share" disabled={sharingNo === t.reference} style={rowIconBtn("#0891b2")}><Share2 size={13} /></button>
+
+                      {shareOpen === t.reference && sharePos && (
+                        <div
+                          ref={shareRef}
+                          style={{
+                            position: "fixed", right: sharePos.right, top: sharePos.top, marginTop: 6, minWidth: 92,
+                            background: "#fff", borderRadius: 10, border: "1px solid " + BORDER,
+                            boxShadow: "0 8px 30px rgba(30, 27, 75, 0.14)", padding: "8px 10px",
+                            zIndex: 99999, textAlign: "center", fontFamily: FONT,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            title="WhatsApp"
+                            aria-label="WhatsApp"
+                            disabled={sharingNo === shareTarget.reference}
+                            onClick={() => shareRow(shareTarget)}
+                            style={{
+                              width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
+                              background: "#25D366", color: "#fff", display: "inline-flex", alignItems: "center",
+                              justifyContent: "center", boxShadow: "0 8px 20px rgba(37, 211, 102, 0.4)",
+                              transition: "transform 0.15s ease", opacity: sharingNo === shareTarget.reference ? 0.6 : 1,
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                          >
+                            <WhatsAppIcon size={17} />
+                          </button>
+                          <div
+                            onClick={() => shareRow(shareTarget)}
+                            style={{ marginTop: 4, fontSize: 10, fontWeight: 600, color: "#475569", cursor: "pointer" }}
+                          >
+                            WhatsApp
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <div style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}>
                       <button
                         onClick={(e) => toggleMenu(e, t.reference)}

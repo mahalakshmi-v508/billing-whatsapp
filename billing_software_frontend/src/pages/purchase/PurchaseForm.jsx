@@ -139,6 +139,14 @@ export default function PurchaseForm() {
           console.error(err);
           setLoading(false);
         });
+    } else if (!id && selectedCompany) {
+      api.get(`/invoice-settings/next-number?company_id=${selectedCompany}&type=purchase_order`)
+        .then(res => {
+          if (res.data?.status && res.data?.formatted_number) {
+            setPurchaseNo(prev => prev || res.data.formatted_number);
+          }
+        })
+        .catch(() => {});
     }
   }, [selectedCompany, id]);
 
@@ -745,8 +753,8 @@ export default function PurchaseForm() {
         }))
       });
       if (res.data.status) {
-        alert(res.data.message);
-        navigate("/purchases");
+        const savedPurchaseNo = res.data.purchase_no || res.data.invoice_no || purchaseNo;
+        navigate(`/invoice/${savedPurchaseNo}`);
       } else {
         alert(res.data.message);
       }

@@ -650,39 +650,826 @@ class InvoiceController extends Controller
     // }
 
     public function getInvoiceById(Request $request)
-{
-    $idVal = $request->input('id') ?: $request->query('id', '');
+    {
+        $idVal = trim($request->input('id') ?: $request->query('id', ''));
 
-    $query = DB::table('invoices as i')
-        ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
-        ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
-        ->select(
-            'i.*',
+        if (empty($idVal)) {
+            return response()->json(["status" => false, "message" => "Invoice ID / Number is required"], 400);
+        }
+
+        try {
+            $idTrim = trim($idVal);
+            $idUpper = strtoupper($idTrim);
+            $numOnly = ltrim(preg_replace('/[^0-9]/', '', $idTrim), '0');
+
+            $invoice = null;
+
+            // 1. Prefix-based routing (HIGH PRIORITY: prevents PAY-0003 from ever matching invoices.id = 3)
+            if (str_starts_with($idUpper, 'PAY-') || str_starts_with($idUpper, 'PAYIN-') || str_starts_with($idUpper, 'REC-')) {
+                $invoice = $this->findPaymentVoucher($idTrim, $numOnly) ?: $this->findPurchasePaymentVoucher($idTrim, $numOnly);
+            } elseif (str_starts_with($idUpper, 'PAYOUT-')) {
+                $invoice = $this->findPurchasePaymentVoucher($idTrim, $numOnly) ?: $this->findPaymentVoucher($idTrim, $numOnly);
+            } elseif (str_starts_with($idUpper, 'CN-') || str_starts_with($idUpper, 'CR-') || str_starts_with($idUpper, 'RET-')) {
+                $invoice = $this->findCreditNoteVoucher($idTrim, $numOnly);
+            } elseif (str_starts_with($idUpper, 'DN-') || str_starts_with($idUpper, 'DR-')) {
+                $invoice = $this->findDebitNoteVoucher($idTrim, $numOnly);
+            } elseif (str_starts_with($idUpper, 'EXP-')) {
+                $invoice = $this->findExpenseVoucher($idTrim, $numOnly);
+            } elseif (str_starts_with($idUpper, 'PUR-') || str_starts_with($idUpper, 'BILL-') || str_starts_with($idUpper, 'PO-')) {
+                $invoice = $this->findPurchaseVoucher($idTrim, $numOnly);
+            } elseif (str_starts_with($idUpper, 'INV-') || str_starts_with($idUpper, 'SALE-') || str_starts_with($idUpper, 'TAX-') || str_starts_with($idUpper, 'BOS-') || str_starts_with($idUpper, 'IMPORT-')) {
+                $invoice = $this->findSaleInvoiceVoucher($idTrim, $numOnly);
+            }
+
+            // 2. Exact string match across all tables (if prefix didn't match or table didn't have it)
+            if (!$invoice) {
+                $invoice = $this->findPaymentVoucher($idTrim, '')
+                    ?: ($this->findPurchasePaymentVoucher($idTrim, '')
+                    ?: ($this->findCreditNoteVoucher($idTrim, '')
+                    ?: ($this->findDebitNoteVoucher($idTrim, '')
+                    ?: ($this->findExpenseVoucher($idTrim, '')
+                    ?: ($this->findPurchaseVoucher($idTrim, '')
+                    ?: ($this->findSaleInvoiceVoucher($idTrim, '')))))));
+            }
+
+            // 3. Fallback: Pure numeric ID match ONLY if purely numeric
+            if (!$invoice && ctype_digit($idTrim)) {
+                $intId = intval($idTrim);
+                $invoice = $this->findSaleInvoiceVoucherById($intId)
+                    ?: ($this->findPaymentVoucherById($intId)
+                    ?: ($this->findPurchasePaymentVoucherById($intId)
+                    ?: ($this->findCreditNoteVoucherById($intId)
+                    ?: ($this->findDebitNoteVoucherById($intId)
+                    ?: ($this->findExpenseVoucherById($intId)
+                    ?: ($this->findPurchaseVoucherById($intId)))))));
+            }
+
+            if (!$invoice) {
+                return response()->json(["status" => false, "message" => "Invoice not found"], 404);
+            }
+
+            $data = (array) $invoice;
+            if (is_string($data['products'] ?? null)) {
+                $data['products'] = json_decode($data['products'], true);
+            }
+
+            // Merge company settings / bank details if available
+            if (!empty($data['company_id'])) {
+                try {
+                    $companySetting = \App\Models\CompanySetting::where('company_id', $data['company_id'])->first();
+                    if ($companySetting && is_array($companySetting->settings)) {
+                        $s = $companySetting->settings;
+                        $data['bank_name']   = $s['bank_name'] ?? $s['bankName'] ?? '';
+                        $data['account_no']  = $s['account_no'] ?? $s['accountNo'] ?? '';
+                        $data['ifsc_code']   = $s['ifsc_code'] ?? $s['ifscCode'] ?? '';
+                        $data['upi_id']      = $s['upi_id'] ?? $s['upiId'] ?? '';
+                        $data['branch_name'] = $s['branch_name'] ?? $s['branchName'] ?? '';
+                    }
+                } catch (\Exception $ex) {
+                    // Ignore settings merge errors
+                }
+            }
+
+            return response()->json(["status" => true, "data" => $data]);
+        } catch (\Exception $e) {
+            return response()->json(["status" => false, "message" => "Failed to load invoice: " . $e->getMessage()], 500);
+        }
+    }
+
+    private function findSaleInvoiceVoucher($idVal, $numOnly = '')
+    {
+        $selectCols = ['i.*', 'u.name as cashier_name'];
+        if (Schema::hasTable('companies')) {
+            if (Schema::hasColumn('companies', 'company_name')) $selectCols[] = 'c.company_name';
+            if (Schema::hasColumn('companies', 'company_address')) $selectCols[] = 'c.company_address';
+            if (Schema::hasColumn('companies', 'phone')) $selectCols[] = 'c.phone';
+            if (Schema::hasColumn('companies', 'gstin')) $selectCols[] = 'c.gstin';
+            if (Schema::hasColumn('companies', 'logo')) $selectCols[] = 'c.logo';
+            if (Schema::hasColumn('companies', 'email')) $selectCols[] = 'c.email';
+        }
+
+        $query = DB::table('invoices as i')
+            ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
+            ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
+            ->select($selectCols);
+
+        $invoice = (clone $query)->where('i.invoice_no', $idVal)->first();
+        if (!$invoice && !empty($numOnly)) {
+            $invoice = (clone $query)->where('i.invoice_no', $numOnly)->orWhere('i.invoice_no', 'like', "%{$numOnly}")->first();
+        }
+
+        if ($invoice) {
+            $invData = (array) $invoice;
+            $invData['voucher_type'] = 'sale';
+            if (empty($invData['invoice_type'])) {
+                $invData['invoice_type'] = ($invData['gst_type'] ?? '') === 'without_gst' ? 'Bill of Supply' : 'Tax Invoice';
+            }
+            return (object) $invData;
+        }
+        return null;
+    }
+
+    private function findSaleInvoiceVoucherById($intId)
+    {
+        $selectCols = ['i.*', 'u.name as cashier_name'];
+        if (Schema::hasTable('companies')) {
+            if (Schema::hasColumn('companies', 'company_name')) $selectCols[] = 'c.company_name';
+            if (Schema::hasColumn('companies', 'company_address')) $selectCols[] = 'c.company_address';
+            if (Schema::hasColumn('companies', 'phone')) $selectCols[] = 'c.phone';
+            if (Schema::hasColumn('companies', 'gstin')) $selectCols[] = 'c.gstin';
+            if (Schema::hasColumn('companies', 'logo')) $selectCols[] = 'c.logo';
+            if (Schema::hasColumn('companies', 'email')) $selectCols[] = 'c.email';
+        }
+
+        $invoice = DB::table('invoices as i')
+            ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
+            ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
+            ->select($selectCols)
+            ->where('i.id', $intId)
+            ->first();
+
+        if ($invoice) {
+            $invData = (array) $invoice;
+            $invData['voucher_type'] = 'sale';
+            if (empty($invData['invoice_type'])) {
+                $invData['invoice_type'] = ($invData['gst_type'] ?? '') === 'without_gst' ? 'Bill of Supply' : 'Tax Invoice';
+            }
+            return (object) $invData;
+        }
+        return null;
+    }
+
+    private function findPaymentVoucher($idVal, $numOnly = '')
+    {
+        if (!Schema::hasTable('payments')) return null;
+
+        $selectCols = [
+            'p.*',
+            'cust.name as customer_name',
+            'cust.phone as customer_phone',
+            'cust.address as customer_address',
             'c.company_name',
             'c.company_address',
-            'c.phone',
-            'c.gstin',
-            'c.logo',
-            'u.name as cashier_name'
-        );
+            'c.phone as company_phone',
+            'c.logo'
+        ];
+        if (Schema::hasColumn('customers', 'gst_no')) $selectCols[] = 'cust.gst_no as customer_gstin';
+        elseif (Schema::hasColumn('customers', 'gstin')) $selectCols[] = 'cust.gstin as customer_gstin';
 
-    if (is_numeric($idVal)) {
-        $invoice = (clone $query)->where('i.id', intval($idVal))->first();
-    } else {
-        $invoice = (clone $query)->where('i.invoice_no', $idVal)->first();
+        if (Schema::hasColumn('companies', 'gstin')) $selectCols[] = 'c.gstin as company_gstin';
+        if (Schema::hasColumn('companies', 'owner_email')) $selectCols[] = 'c.owner_email as email';
+        elseif (Schema::hasColumn('companies', 'email')) $selectCols[] = 'c.email';
+
+        $payQuery = DB::table('payments as p')
+            ->leftJoin('companies as c', 'p.company_id', '=', 'c.id')
+            ->leftJoin('customers as cust', 'p.customer_id', '=', 'cust.id')
+            ->select($selectCols);
+
+        $paymentRec = (clone $payQuery)
+            ->where('p.receipt_no', $idVal)
+            ->orWhere('p.invoice_no', $idVal)
+            ->first();
+
+        if (!$paymentRec && !empty($numOnly)) {
+            $paymentRec = (clone $payQuery)
+                ->where('p.receipt_no', $numOnly)
+                ->orWhere('p.invoice_no', $numOnly)
+                ->orWhere('p.receipt_no', 'like', "%{$numOnly}")
+                ->orWhere('p.invoice_no', 'like', "%{$numOnly}")
+                ->first();
+        }
+
+        if ($paymentRec) {
+            $pData = (array) $paymentRec;
+            $isOut = ($pData['payment_type'] ?? '') === 'payment_out';
+            $rNo = !empty($pData['receipt_no']) ? $pData['receipt_no'] : (!empty($pData['invoice_no']) ? $pData['invoice_no'] : ('REC-' . $pData['id']));
+            $payAmt = floatval($pData['paid_amount'] ?? $pData['total_amount'] ?? 0);
+            $discAmt = floatval($pData['discount_amount'] ?? 0);
+            $itemDesc = ($isOut ? 'Payment Made' : 'Payment Received') . (!empty($pData['notes']) ? ' (' . $pData['notes'] . ')' : '');
+
+            return (object) [
+                'id'               => $pData['id'],
+                'voucher_type'     => $isOut ? 'payment_out' : 'payment_in',
+                'invoice_no'       => $rNo,
+                'receipt_no'       => $rNo,
+                'invoice_type'     => $isOut ? 'Payment Out' : 'Payment Receipt',
+                'company_id'       => $pData['company_id'] ?? 0,
+                'company_name'     => $pData['company_name'] ?? '',
+                'company_address'  => $pData['company_address'] ?? '',
+                'phone'            => $pData['company_phone'] ?? '',
+                'gstin'            => $pData['company_gstin'] ?? '',
+                'logo'             => $pData['logo'] ?? '',
+                'email'            => $pData['email'] ?? '',
+                'customer_id'      => $pData['customer_id'] ?? null,
+                'customer_name'    => $pData['customer_name'] ?? 'Party',
+                'customer_phone'   => $pData['customer_phone'] ?? '',
+                'customer_address' => $pData['customer_address'] ?? '',
+                'billing_address'  => $pData['customer_address'] ?? '',
+                'customer_gstin'   => $pData['customer_gstin'] ?? '',
+                'payment_type'     => strtoupper($pData['payment_method'] ?? 'CASH'),
+                'payment_method'   => strtoupper($pData['payment_method'] ?? 'CASH'),
+                'payment_status'   => $pData['payment_status'] ?? 'paid',
+                'total_amount'     => floatval($pData['total_amount'] ?? $payAmt),
+                'paid_amount'      => $payAmt,
+                'balance_amount'   => floatval($pData['balance_amount'] ?? 0),
+                'discount_amount'  => $discAmt,
+                'tax_amount'       => 0,
+                'subtotal'         => $payAmt,
+                'notes'            => $pData['notes'] ?? '',
+                'created_at'       => $pData['payment_date'] ?? $pData['created_at'] ?? now(),
+                'invoice_date'     => $pData['payment_date'] ?? substr($pData['created_at'] ?? date('Y-m-d'), 0, 10),
+                'products'         => [
+                    [
+                        'item_name'   => $itemDesc,
+                        'name'        => $itemDesc,
+                        'quantity'    => 1,
+                        'qty'         => 1,
+                        'price'       => $payAmt,
+                        'unit_price'  => $payAmt,
+                        'total'       => $payAmt,
+                        'amount'      => $payAmt,
+                        'tax_rate'    => 0,
+                        'tax_amt'     => 0,
+                        'discount'    => $discAmt
+                    ]
+                ]
+            ];
+        }
+        return null;
     }
 
-    if (!$invoice) {
-        return response()->json(["status" => false, "message" => "Invoice not found"]);
+    private function findPaymentVoucherById($intId)
+    {
+        if (!Schema::hasTable('payments')) return null;
+        return $this->findPaymentVoucher(strval($intId), '');
     }
 
-    $data = (array) $invoice;
-    if (is_string($data['products'])) {
-        $data['products'] = json_decode($data['products']);
+    private function findPurchasePaymentVoucher($idVal, $numOnly = '')
+    {
+        if (!Schema::hasTable('purchase_payments')) return null;
+
+        $selectCols = [
+            'pp.*',
+            's.supplier_name',
+            's.address as supplier_address',
+            'c.company_name',
+            'c.company_address',
+            'c.phone as company_phone',
+            'c.logo'
+        ];
+        if (Schema::hasColumn('suppliers', 'mobile_number')) $selectCols[] = 's.mobile_number as supplier_phone';
+        elseif (Schema::hasColumn('suppliers', 'phone')) $selectCols[] = 's.phone as supplier_phone';
+
+        if (Schema::hasColumn('suppliers', 'gst_number')) $selectCols[] = 's.gst_number as supplier_gstin';
+        elseif (Schema::hasColumn('suppliers', 'gstin')) $selectCols[] = 's.gstin as supplier_gstin';
+
+        if (Schema::hasColumn('companies', 'gstin')) $selectCols[] = 'c.gstin as company_gstin';
+        if (Schema::hasColumn('companies', 'owner_email')) $selectCols[] = 'c.owner_email as email';
+        elseif (Schema::hasColumn('companies', 'email')) $selectCols[] = 'c.email';
+
+        $ppQuery = DB::table('purchase_payments as pp')
+            ->leftJoin('companies as c', 'pp.company_id', '=', 'c.id')
+            ->leftJoin('suppliers as s', 'pp.supplier_id', '=', 's.id')
+            ->select($selectCols);
+
+        $ppRec = (clone $ppQuery)->where('pp.receipt_no', $idVal)->first();
+        if (!$ppRec && !empty($numOnly)) {
+            $ppRec = (clone $ppQuery)->where('pp.receipt_no', $numOnly)->orWhere('pp.receipt_no', 'like', "%{$numOnly}")->first();
+        }
+
+        if ($ppRec) {
+            $ppData = (array) $ppRec;
+            $rNo = !empty($ppData['receipt_no']) ? $ppData['receipt_no'] : ('PAYOUT-' . $ppData['id']);
+            $payAmt = floatval($ppData['amount'] ?? 0);
+            $itemDesc = 'Payment to Supplier' . (!empty($ppData['notes']) ? ' (' . $ppData['notes'] . ')' : '');
+
+            return (object) [
+                'id'               => $ppData['id'],
+                'voucher_type'     => 'payment_out',
+                'invoice_no'       => $rNo,
+                'receipt_no'       => $rNo,
+                'invoice_type'     => 'Payment Out',
+                'company_id'       => $ppData['company_id'] ?? 0,
+                'company_name'     => $ppData['company_name'] ?? '',
+                'company_address'  => $ppData['company_address'] ?? '',
+                'phone'            => $ppData['company_phone'] ?? '',
+                'gstin'            => $ppData['company_gstin'] ?? '',
+                'logo'             => $ppData['logo'] ?? '',
+                'email'            => $ppData['email'] ?? '',
+                'customer_id'      => $ppData['supplier_id'] ?? null,
+                'customer_name'    => $ppData['supplier_name'] ?? 'Supplier',
+                'customer_phone'   => $ppData['supplier_phone'] ?? '',
+                'customer_address' => $ppData['supplier_address'] ?? '',
+                'billing_address'  => $ppData['supplier_address'] ?? '',
+                'customer_gstin'   => $ppData['supplier_gstin'] ?? '',
+                'payment_type'     => strtoupper($ppData['payment_method'] ?? 'CASH'),
+                'payment_method'   => strtoupper($ppData['payment_method'] ?? 'CASH'),
+                'payment_status'   => 'paid',
+                'total_amount'     => $payAmt,
+                'paid_amount'      => $payAmt,
+                'balance_amount'   => 0,
+                'discount_amount'  => 0,
+                'tax_amount'       => 0,
+                'subtotal'         => $payAmt,
+                'notes'            => $ppData['notes'] ?? '',
+                'created_at'       => $ppData['payment_date'] ?? $ppData['created_at'] ?? now(),
+                'invoice_date'     => $ppData['payment_date'] ?? substr($ppData['created_at'] ?? date('Y-m-d'), 0, 10),
+                'products'         => [
+                    [
+                        'item_name'   => $itemDesc,
+                        'name'        => $itemDesc,
+                        'quantity'    => 1,
+                        'qty'         => 1,
+                        'price'       => $payAmt,
+                        'unit_price'  => $payAmt,
+                        'total'       => $payAmt,
+                        'amount'      => $payAmt,
+                        'tax_rate'    => 0,
+                        'tax_amt'     => 0,
+                        'discount'    => 0
+                    ]
+                ]
+            ];
+        }
+        return null;
     }
 
-    return response()->json(["status" => true, "data" => $data]);
-}
+    private function findPurchasePaymentVoucherById($intId)
+    {
+        if (!Schema::hasTable('purchase_payments')) return null;
+        return $this->findPurchasePaymentVoucher(strval($intId), '');
+    }
+
+    private function findCreditNoteVoucher($idVal, $numOnly = '')
+    {
+        if (!Schema::hasTable('credit_notes')) return null;
+
+        $selectCols = [
+            'cn.*',
+            'cust.address as customer_address',
+            'c.company_name',
+            'c.company_address',
+            'c.phone as company_phone',
+            'c.logo'
+        ];
+        if (Schema::hasColumn('customers', 'gst_no')) $selectCols[] = 'cust.gst_no as customer_gstin';
+        elseif (Schema::hasColumn('customers', 'gstin')) $selectCols[] = 'cust.gstin as customer_gstin';
+
+        if (Schema::hasColumn('companies', 'gstin')) $selectCols[] = 'c.gstin as company_gstin';
+        if (Schema::hasColumn('companies', 'owner_email')) $selectCols[] = 'c.owner_email as email';
+        elseif (Schema::hasColumn('companies', 'email')) $selectCols[] = 'c.email';
+
+        $cnQuery = DB::table('credit_notes as cn')
+            ->leftJoin('companies as c', 'cn.company_id', '=', 'c.id')
+            ->leftJoin('customers as cust', 'cn.customer_id', '=', 'cust.id')
+            ->select($selectCols);
+
+        $cnRec = (clone $cnQuery)->where('cn.return_no', $idVal)->first();
+        if (!$cnRec && !empty($numOnly)) {
+            $cnRec = (clone $cnQuery)->where('cn.return_no', $numOnly)->orWhere('cn.return_no', 'like', "%{$numOnly}")->first();
+        }
+
+        if ($cnRec) {
+            $cnData = (array) $cnRec;
+            $rNo = !empty($cnData['return_no']) ? $cnData['return_no'] : ('CN-' . $cnData['id']);
+            $rawItems = is_string($cnData['products']) ? json_decode($cnData['products'], true) : ($cnData['products'] ?? []);
+
+            $items = [];
+            foreach ((array)$rawItems as $it) {
+                if (is_object($it)) $it = (array) $it;
+                if (!is_array($it)) continue;
+                $iName = $it['item_name'] ?? $it['product_name'] ?? $it['name'] ?? $it['item'] ?? $it['product'] ?? 'Item';
+                $iQty = floatval($it['qty'] ?? $it['quantity'] ?? 1);
+                $iPrice = floatval($it['price'] ?? $it['unit_price'] ?? $it['rate'] ?? 0);
+                $iAmount = floatval($it['amount'] ?? $it['total'] ?? ($iQty * $iPrice));
+                $iHsn = $it['hsn_code'] ?? $it['hsn_sac'] ?? $it['hsn'] ?? $it['product_code'] ?? '';
+                $iTaxRate = floatval($it['tax_rate'] ?? $it['gst_rate'] ?? $it['tax_pct'] ?? $it['gst_percentage'] ?? 0);
+                $iTaxAmt = floatval($it['tax_amt'] ?? $it['tax_amount'] ?? $it['gst_amount'] ?? 0);
+                $iDiscount = floatval($it['discount'] ?? $it['discount_amt'] ?? $it['discount_amount'] ?? 0);
+
+                $items[] = [
+                    'item_name'    => $iName,
+                    'product_name' => $iName,
+                    'name'         => $iName,
+                    'item'         => $iName,
+                    'qty'          => $iQty,
+                    'quantity'     => $iQty,
+                    'unit'         => $it['unit'] ?? '',
+                    'price'        => $iPrice,
+                    'unit_price'   => $iPrice,
+                    'rate'         => $iPrice,
+                    'hsn_code'     => $iHsn,
+                    'hsn_sac'      => $iHsn,
+                    'hsn'          => $iHsn,
+                    'product_code' => $iHsn,
+                    'tax_rate'     => $iTaxRate,
+                    'tax_amt'      => $iTaxAmt,
+                    'tax_amount'   => $iTaxAmt,
+                    'discount'     => $iDiscount,
+                    'amount'       => $iAmount,
+                    'total'        => $iAmount,
+                ];
+            }
+
+            return (object) [
+                'id'               => $cnData['id'],
+                'voucher_type'     => 'credit_note',
+                'invoice_no'       => $rNo,
+                'return_no'        => $rNo,
+                'original_invoice_no' => $cnData['invoice_no'] ?? '',
+                'invoice_type'     => 'Credit Note',
+                'company_id'       => $cnData['company_id'] ?? 0,
+                'company_name'     => $cnData['company_name'] ?? '',
+                'company_address'  => $cnData['company_address'] ?? '',
+                'phone'            => $cnData['company_phone'] ?? '',
+                'gstin'            => $cnData['company_gstin'] ?? '',
+                'logo'             => $cnData['logo'] ?? '',
+                'email'            => $cnData['email'] ?? '',
+                'customer_id'      => $cnData['customer_id'] ?? null,
+                'customer_name'    => $cnData['customer_name'] ?? 'Customer',
+                'customer_phone'   => $cnData['customer_phone'] ?? '',
+                'customer_address' => $cnData['customer_address'] ?? '',
+                'billing_address'  => $cnData['customer_address'] ?? '',
+                'customer_gstin'   => $cnData['customer_gstin'] ?? '',
+                'payment_type'     => strtoupper($cnData['payment_type'] ?? 'CASH'),
+                'payment_method'   => strtoupper($cnData['payment_type'] ?? 'CASH'),
+                'payment_status'   => floatval($cnData['balance_amount'] ?? 0) <= 0 ? 'paid' : 'partial',
+                'sub_total'        => floatval($cnData['sub_total'] ?? 0),
+                'gst_total'        => floatval($cnData['tax_total'] ?? 0),
+                'tax_amount'       => floatval($cnData['tax_total'] ?? 0),
+                'discount_total'   => floatval($cnData['discount_total'] ?? 0),
+                'discount_amount'  => floatval($cnData['discount_total'] ?? 0),
+                'round_off'        => floatval($cnData['round_off'] ?? 0),
+                'total_amount'     => floatval($cnData['total_amount'] ?? 0),
+                'paid_amount'      => floatval($cnData['refund_amount'] ?? 0),
+                'balance_amount'   => floatval($cnData['balance_amount'] ?? 0),
+                'notes'            => $cnData['description'] ?? '',
+                'created_at'       => $cnData['return_date'] ?? $cnData['created_at'] ?? now(),
+                'invoice_date'     => $cnData['return_date'] ?? substr($cnData['created_at'] ?? date('Y-m-d'), 0, 10),
+                'products'         => $items ?: []
+            ];
+        }
+        return null;
+    }
+
+    private function findCreditNoteVoucherById($intId)
+    {
+        if (!Schema::hasTable('credit_notes')) return null;
+        return $this->findCreditNoteVoucher(strval($intId), '');
+    }
+
+    private function findDebitNoteVoucher($idVal, $numOnly = '')
+    {
+        if (!Schema::hasTable('debit_notes')) return null;
+
+        $selectCols = [
+            'dn.*',
+            's.address as supplier_address',
+            'c.company_name',
+            'c.company_address',
+            'c.phone as company_phone',
+            'c.logo'
+        ];
+        if (Schema::hasColumn('suppliers', 'mobile_number')) $selectCols[] = 's.mobile_number as supplier_phone';
+        elseif (Schema::hasColumn('suppliers', 'phone')) $selectCols[] = 's.phone as supplier_phone';
+
+        if (Schema::hasColumn('suppliers', 'gst_number')) $selectCols[] = 's.gst_number as supplier_gstin';
+        elseif (Schema::hasColumn('suppliers', 'gstin')) $selectCols[] = 's.gstin as supplier_gstin';
+
+        if (Schema::hasColumn('companies', 'gstin')) $selectCols[] = 'c.gstin as company_gstin';
+        if (Schema::hasColumn('companies', 'owner_email')) $selectCols[] = 'c.owner_email as email';
+        elseif (Schema::hasColumn('companies', 'email')) $selectCols[] = 'c.email';
+
+        $dnQuery = DB::table('debit_notes as dn')
+            ->leftJoin('companies as c', 'dn.company_id', '=', 'c.id')
+            ->leftJoin('suppliers as s', 'dn.supplier_id', '=', 's.id')
+            ->select($selectCols);
+
+        $dnRec = (clone $dnQuery)->where('dn.return_no', $idVal)->first();
+        if (!$dnRec && !empty($numOnly)) {
+            $dnRec = (clone $dnQuery)->where('dn.return_no', $numOnly)->orWhere('dn.return_no', 'like', "%{$numOnly}")->first();
+        }
+
+        if ($dnRec) {
+            $dnData = (array) $dnRec;
+            $rNo = !empty($dnData['return_no']) ? $dnData['return_no'] : ('DN-' . $dnData['id']);
+            $rawItems = is_string($dnData['products']) ? json_decode($dnData['products'], true) : ($dnData['products'] ?? []);
+
+            $items = [];
+            foreach ((array)$rawItems as $it) {
+                if (is_object($it)) $it = (array) $it;
+                if (!is_array($it)) continue;
+                $iName = $it['item_name'] ?? $it['product_name'] ?? $it['name'] ?? $it['item'] ?? $it['product'] ?? 'Item';
+                $iQty = floatval($it['qty'] ?? $it['quantity'] ?? 1);
+                $iPrice = floatval($it['price'] ?? $it['unit_price'] ?? $it['rate'] ?? 0);
+                $iAmount = floatval($it['amount'] ?? $it['total'] ?? ($iQty * $iPrice));
+                $iHsn = $it['hsn_code'] ?? $it['hsn_sac'] ?? $it['hsn'] ?? $it['product_code'] ?? '';
+                $iTaxRate = floatval($it['tax_rate'] ?? $it['gst_rate'] ?? $it['tax_pct'] ?? $it['gst_percentage'] ?? 0);
+                $iTaxAmt = floatval($it['tax_amt'] ?? $it['tax_amount'] ?? $it['gst_amount'] ?? 0);
+                $iDiscount = floatval($it['discount'] ?? $it['discount_amt'] ?? $it['discount_amount'] ?? 0);
+
+                $items[] = [
+                    'item_name'    => $iName,
+                    'product_name' => $iName,
+                    'name'         => $iName,
+                    'item'         => $iName,
+                    'qty'          => $iQty,
+                    'quantity'     => $iQty,
+                    'unit'         => $it['unit'] ?? '',
+                    'price'        => $iPrice,
+                    'unit_price'   => $iPrice,
+                    'rate'         => $iPrice,
+                    'hsn_code'     => $iHsn,
+                    'hsn_sac'      => $iHsn,
+                    'hsn'          => $iHsn,
+                    'product_code' => $iHsn,
+                    'tax_rate'     => $iTaxRate,
+                    'tax_amt'      => $iTaxAmt,
+                    'tax_amount'   => $iTaxAmt,
+                    'discount'     => $iDiscount,
+                    'amount'       => $iAmount,
+                    'total'        => $iAmount,
+                ];
+            }
+
+            return (object) [
+                'id'               => $dnData['id'],
+                'voucher_type'     => 'debit_note',
+                'invoice_no'       => $rNo,
+                'return_no'        => $rNo,
+                'original_invoice_no' => $dnData['bill_no'] ?? '',
+                'invoice_type'     => 'Debit Note',
+                'company_id'       => $dnData['company_id'] ?? 0,
+                'company_name'     => $dnData['company_name'] ?? '',
+                'company_address'  => $dnData['company_address'] ?? '',
+                'phone'            => $dnData['company_phone'] ?? '',
+                'gstin'            => $dnData['company_gstin'] ?? '',
+                'logo'             => $dnData['logo'] ?? '',
+                'email'            => $dnData['email'] ?? '',
+                'customer_id'      => $dnData['supplier_id'] ?? null,
+                'customer_name'    => $dnData['supplier_name'] ?? 'Supplier',
+                'customer_phone'   => $dnData['supplier_phone'] ?? '',
+                'customer_address' => $dnData['supplier_address'] ?? '',
+                'billing_address'  => $dnData['supplier_address'] ?? '',
+                'customer_gstin'   => $dnData['supplier_gstin'] ?? '',
+                'payment_type'     => strtoupper($dnData['payment_type'] ?? 'CASH'),
+                'payment_method'   => strtoupper($dnData['payment_type'] ?? 'CASH'),
+                'payment_status'   => floatval($dnData['balance_amount'] ?? 0) <= 0 ? 'paid' : 'partial',
+                'sub_total'        => floatval($dnData['sub_total'] ?? 0),
+                'gst_total'        => floatval($dnData['tax_total'] ?? 0),
+                'tax_amount'       => floatval($dnData['tax_total'] ?? 0),
+                'discount_total'   => floatval($dnData['discount_total'] ?? 0),
+                'discount_amount'  => floatval($dnData['discount_total'] ?? 0),
+                'round_off'        => floatval($dnData['round_off'] ?? 0),
+                'total_amount'     => floatval($dnData['total_amount'] ?? 0),
+                'paid_amount'      => floatval($dnData['refund_amount'] ?? 0),
+                'balance_amount'   => floatval($dnData['balance_amount'] ?? 0),
+                'notes'            => $dnData['description'] ?? '',
+                'created_at'       => $dnData['return_date'] ?? $dnData['created_at'] ?? now(),
+                'invoice_date'     => $dnData['return_date'] ?? substr($dnData['created_at'] ?? date('Y-m-d'), 0, 10),
+                'products'         => $items ?: []
+            ];
+        }
+        return null;
+    }
+
+    private function findDebitNoteVoucherById($intId)
+    {
+        if (!Schema::hasTable('debit_notes')) return null;
+        return $this->findDebitNoteVoucher(strval($intId), '');
+    }
+
+    private function findExpenseVoucher($idVal, $numOnly = '')
+    {
+        if (!Schema::hasTable('expenses')) return null;
+
+        $selectCols = [
+            'e.*',
+            'c.company_name',
+            'c.company_address',
+            'c.phone as company_phone',
+            'c.logo'
+        ];
+        if (Schema::hasColumn('companies', 'gstin')) $selectCols[] = 'c.gstin as company_gstin';
+        if (Schema::hasColumn('companies', 'owner_email')) $selectCols[] = 'c.owner_email as email';
+        elseif (Schema::hasColumn('companies', 'email')) $selectCols[] = 'c.email';
+
+        $expQuery = DB::table('expenses as e')
+            ->leftJoin('companies as c', 'e.company_id', '=', 'c.id')
+            ->select($selectCols);
+
+        $expRec = (clone $expQuery)->where('e.expense_no', $idVal)->first();
+        if (!$expRec && !empty($numOnly)) {
+            $expRec = (clone $expQuery)->where('e.expense_no', $numOnly)->orWhere('e.expense_no', 'like', "%{$numOnly}")->first();
+        }
+
+        if ($expRec) {
+            $eData = (array) $expRec;
+            $rNo = !empty($eData['expense_no']) ? $eData['expense_no'] : ('EXP-' . $eData['id']);
+            $rawItems = is_string($eData['items']) ? json_decode($eData['items'], true) : ($eData['items'] ?? []);
+
+            $items = [];
+            foreach ((array)$rawItems as $it) {
+                if (is_object($it)) $it = (array) $it;
+                if (!is_array($it)) continue;
+                $iName = $it['item_name'] ?? $it['product_name'] ?? $it['name'] ?? $it['item'] ?? $it['product'] ?? 'Expense Item';
+                $iQty = floatval($it['qty'] ?? $it['quantity'] ?? 1);
+                $iPrice = floatval($it['price'] ?? $it['unit_price'] ?? $it['rate'] ?? 0);
+                $iAmount = floatval($it['amount'] ?? $it['total'] ?? ($iQty * $iPrice));
+                $iHsn = $it['hsn_code'] ?? $it['hsn_sac'] ?? $it['hsn'] ?? $it['product_code'] ?? '';
+                $iTaxRate = floatval($it['tax_rate'] ?? $it['gst_rate'] ?? $it['tax_pct'] ?? $it['gst_percentage'] ?? 0);
+                $iTaxAmt = floatval($it['tax_amt'] ?? $it['tax_amount'] ?? $it['gst_amount'] ?? 0);
+                $iDiscount = floatval($it['discount'] ?? $it['discount_amt'] ?? $it['discount_amount'] ?? 0);
+
+                $items[] = [
+                    'item_name'    => $iName,
+                    'product_name' => $iName,
+                    'name'         => $iName,
+                    'item'         => $iName,
+                    'qty'          => $iQty,
+                    'quantity'     => $iQty,
+                    'unit'         => $it['unit'] ?? '',
+                    'price'        => $iPrice,
+                    'unit_price'   => $iPrice,
+                    'rate'         => $iPrice,
+                    'hsn_code'     => $iHsn,
+                    'hsn_sac'      => $iHsn,
+                    'hsn'          => $iHsn,
+                    'product_code' => $iHsn,
+                    'tax_rate'     => $iTaxRate,
+                    'tax_amt'      => $iTaxAmt,
+                    'tax_amount'   => $iTaxAmt,
+                    'discount'     => $iDiscount,
+                    'amount'       => $iAmount,
+                    'total'        => $iAmount,
+                ];
+            }
+
+            return (object) [
+                'id'               => $eData['id'],
+                'voucher_type'     => 'expense',
+                'invoice_no'       => $rNo,
+                'expense_no'       => $rNo,
+                'invoice_type'     => 'Expense',
+                'company_id'       => $eData['company_id'] ?? 0,
+                'company_name'     => $eData['company_name'] ?? '',
+                'company_address'  => $eData['company_address'] ?? '',
+                'phone'            => $eData['company_phone'] ?? '',
+                'gstin'            => $eData['company_gstin'] ?? '',
+                'logo'             => $eData['logo'] ?? '',
+                'email'            => $eData['email'] ?? '',
+                'customer_id'      => $eData['category_id'] ?? null,
+                'customer_name'    => $eData['category_name'] ?: ($eData['party_name'] ?: 'Expense'),
+                'category_name'    => $eData['category_name'] ?? '',
+                'party_name'       => $eData['party_name'] ?? '',
+                'customer_phone'   => $eData['party_phone'] ?? '',
+                'customer_address' => '',
+                'billing_address'  => '',
+                'customer_gstin'   => '',
+                'payment_type'     => strtoupper($eData['payment_type'] ?? 'CASH'),
+                'payment_method'   => strtoupper($eData['payment_type'] ?? 'CASH'),
+                'payment_status'   => floatval($eData['balance_amount'] ?? 0) <= 0 ? 'paid' : 'partial',
+                'sub_total'        => floatval($eData['sub_total'] ?? 0),
+                'gst_total'        => floatval($eData['tax_total'] ?? 0),
+                'tax_amount'       => floatval($eData['tax_total'] ?? 0),
+                'discount_total'   => floatval($eData['discount_total'] ?? 0),
+                'discount_amount'  => floatval($eData['discount_total'] ?? 0),
+                'round_off'        => floatval($eData['round_off'] ?? 0),
+                'total_amount'     => floatval($eData['total_amount'] ?? 0),
+                'paid_amount'      => floatval($eData['paid_amount'] ?? 0),
+                'balance_amount'   => floatval($eData['balance_amount'] ?? 0),
+                'notes'            => $eData['description'] ?? '',
+                'created_at'       => $eData['expense_date'] ?? $eData['created_at'] ?? now(),
+                'invoice_date'     => $eData['expense_date'] ?? substr($eData['created_at'] ?? date('Y-m-d'), 0, 10),
+                'products'         => $items ?: []
+            ];
+        }
+        return null;
+    }
+
+    private function findExpenseVoucherById($intId)
+    {
+        if (!Schema::hasTable('expenses')) return null;
+        return $this->findExpenseVoucher(strval($intId), '');
+    }
+
+    private function findPurchaseVoucher($idVal, $numOnly = '')
+    {
+        if (!Schema::hasTable('purchases')) return null;
+
+        $hasPurchaseNo = Schema::hasColumn('purchases', 'purchase_no');
+        $hasBillNo = Schema::hasColumn('purchases', 'bill_no');
+
+        $selectCols = [
+            'p.*',
+            's.supplier_name',
+            's.address as supplier_address',
+            'c.company_name',
+            'c.company_address',
+            'c.phone as company_phone',
+            'c.logo'
+        ];
+        if (Schema::hasColumn('suppliers', 'mobile_number')) $selectCols[] = 's.mobile_number as supplier_phone';
+        elseif (Schema::hasColumn('suppliers', 'phone')) $selectCols[] = 's.phone as supplier_phone';
+
+        if (Schema::hasColumn('suppliers', 'gst_number')) $selectCols[] = 's.gst_number as supplier_gstin';
+        elseif (Schema::hasColumn('suppliers', 'gstin')) $selectCols[] = 's.gstin as supplier_gstin';
+
+        if (Schema::hasColumn('companies', 'gstin')) $selectCols[] = 'c.gstin as company_gstin';
+        if (Schema::hasColumn('companies', 'owner_email')) $selectCols[] = 'c.owner_email as email';
+        elseif (Schema::hasColumn('companies', 'email')) $selectCols[] = 'c.email';
+
+        $purQuery = DB::table('purchases as p')
+            ->leftJoin('companies as c', 'p.company_id', '=', 'c.id')
+            ->leftJoin('suppliers as s', 'p.supplier_id', '=', 's.id')
+            ->select($selectCols);
+
+        $purRec = (clone $purQuery)->where(function ($q) use ($idVal, $hasPurchaseNo, $hasBillNo) {
+            if ($hasPurchaseNo) $q->orWhere('p.purchase_no', $idVal);
+            if ($hasBillNo) $q->orWhere('p.bill_no', $idVal);
+        })->first();
+
+        if (!$purRec && !empty($numOnly)) {
+            $purRec = (clone $purQuery)->where(function ($q) use ($numOnly, $hasPurchaseNo, $hasBillNo) {
+                if ($hasPurchaseNo) {
+                    $q->orWhere('p.purchase_no', $numOnly)->orWhere('p.purchase_no', 'like', "%{$numOnly}");
+                }
+                if ($hasBillNo) {
+                    $q->orWhere('p.bill_no', $numOnly)->orWhere('p.bill_no', 'like', "%{$numOnly}");
+                }
+            })->first();
+        }
+
+        if ($purRec) {
+            $pData = (array) $purRec;
+            $rNo = !empty($pData['purchase_no']) ? $pData['purchase_no'] : (!empty($pData['bill_no']) ? $pData['bill_no'] : ('PUR-' . $pData['id']));
+
+            $pItems = DB::table('purchase_items')->where('purchase_id', $pData['id'])->get()->map(function ($it) {
+                return [
+                    'item_name'    => $it->product_name ?? 'Item',
+                    'name'         => $it->product_name ?? 'Item',
+                    'product_name' => $it->product_name ?? 'Item',
+                    'product_code' => $it->product_code ?? '',
+                    'hsn_code'     => $it->hsn_code ?? $it->product_code ?? '',
+                    'qty'          => floatval($it->quantity ?? $it->qty ?? 1),
+                    'quantity'     => floatval($it->quantity ?? $it->qty ?? 1),
+                    'price'        => floatval($it->price ?? 0),
+                    'unit_price'   => floatval($it->price ?? 0),
+                    'amount'       => floatval($it->total_amount ?? ($it->quantity ?? $it->qty ?? 1) * ($it->price ?? 0)),
+                    'total'        => floatval($it->total_amount ?? ($it->quantity ?? $it->qty ?? 1) * ($it->price ?? 0)),
+                    'tax_rate'     => floatval($it->gst_percentage ?? $it->tax_rate ?? 0),
+                    'tax_amt'      => floatval($it->tax_amount ?? 0),
+                    'discount'     => floatval($it->discount_amount ?? 0)
+                ];
+            })->toArray();
+
+            return (object) [
+                'id'               => $pData['id'],
+                'voucher_type'     => 'purchase',
+                'invoice_no'       => $rNo,
+                'bill_no'          => $rNo,
+                'purchase_no'      => $rNo,
+                'invoice_type'     => 'Purchase Invoice',
+                'company_id'       => $pData['company_id'] ?? 0,
+                'company_name'     => $pData['company_name'] ?? '',
+                'company_address'  => $pData['company_address'] ?? '',
+                'phone'            => $pData['company_phone'] ?? '',
+                'gstin'            => $pData['company_gstin'] ?? '',
+                'logo'             => $pData['logo'] ?? '',
+                'email'            => $pData['email'] ?? '',
+                'customer_id'      => $pData['supplier_id'] ?? null,
+                'customer_name'    => $pData['supplier_name'] ?? 'Supplier',
+                'supplier_name'    => $pData['supplier_name'] ?? 'Supplier',
+                'customer_phone'   => $pData['supplier_phone'] ?? '',
+                'customer_address' => $pData['supplier_address'] ?? '',
+                'billing_address'  => $pData['supplier_address'] ?? '',
+                'customer_gstin'   => $pData['supplier_gstin'] ?? '',
+                'payment_type'     => strtoupper($pData['payment_type'] ?? 'CASH'),
+                'payment_method'   => strtoupper($pData['payment_type'] ?? 'CASH'),
+                'payment_status'   => floatval($pData['balance_amount'] ?? 0) <= 0 ? 'paid' : 'partial',
+                'sub_total'        => floatval($pData['sub_total'] ?? 0),
+                'gst_total'        => floatval($pData['gst_total'] ?? 0),
+                'tax_amount'       => floatval($pData['gst_total'] ?? 0),
+                'discount_total'   => floatval($pData['discount_total'] ?? 0),
+                'discount_amount'  => floatval($pData['discount_total'] ?? 0),
+                'round_off'        => floatval($pData['round_off'] ?? 0),
+                'total_amount'     => floatval($pData['total_amount'] ?? 0),
+                'paid_amount'      => floatval($pData['paid_amount'] ?? 0),
+                'balance_amount'   => floatval($pData['balance_amount'] ?? 0),
+                'notes'            => $pData['description'] ?? '',
+                'created_at'       => $pData['purchase_date'] ?? $pData['created_at'] ?? now(),
+                'invoice_date'     => $pData['purchase_date'] ?? substr($pData['created_at'] ?? date('Y-m-d'), 0, 10),
+                'products'         => $pItems
+            ];
+        }
+        return null;
+    }
+
+    private function findPurchaseVoucherById($intId)
+    {
+        if (!Schema::hasTable('purchases')) return null;
+        return $this->findPurchaseVoucher(strval($intId), '');
+    }
 
     public function getPendingInvoice(Request $request)
     {
@@ -1100,6 +1887,20 @@ class InvoiceController extends Controller
                 'notes'           => $notes
             ]);
 
+            // Auto-increment payment_in_next_number in invoice_settings
+            try {
+                $targetCid = $company_id ?: ($cust->company_id ?? 0);
+                if ($targetCid > 0) {
+                    $invSetting = \App\Models\InvoiceSetting::getForCompany($targetCid);
+                    if ($invSetting) {
+                        $invSetting->payment_in_next_number = max(1, intval($invSetting->payment_in_next_number)) + 1;
+                        $invSetting->save();
+                    }
+                }
+            } catch (\Exception $ex) {
+                \Log::warning("Could not increment payment_in_next_number: " . $ex->getMessage());
+            }
+
             // Auto record expense for Payment-in Discount if discount was given
             if ($discount_amount > 0) {
                 try {
@@ -1142,10 +1943,12 @@ class InvoiceController extends Controller
             app(\App\Services\TransactionMessageService::class)->handlePaymentIn($company_id, $payment);
 
             return response()->json([
-                'status'   => true,
-                'message'  => 'Bulk payment recorded successfully. Distributed: ₹' . number_format($distributed, 2) . ($remaining > 0 ? ', Leftover stored as advance: ₹' . number_format($remaining, 2) : ''),
-                'applied'  => $applied,
-                'leftover' => max(0.0, $remaining)
+                'status'     => true,
+                'message'    => 'Bulk payment recorded successfully. Distributed: ₹' . number_format($distributed, 2) . ($remaining > 0 ? ', Leftover stored as advance: ₹' . number_format($remaining, 2) : ''),
+                'invoice_no' => $receipt_no,
+                'receipt_no' => $receipt_no,
+                'applied'    => $applied,
+                'leftover'   => max(0.0, $remaining)
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
