@@ -6,7 +6,6 @@ import ProductList from "../pages/products/ProductList";
 import ProductForm from "../pages/products/ProductForm";
 import Billing from "../pages/billing/Billing";
 import AddSale from "../pages/sales/AddSale";
-import Reports from "../pages/reports/SalesReport";
 import General from "../pages/settings/General";
 import ReportsLayout from "../components/reports/ReportsLayout";
 import { defaultReportPath } from "../components/reports/reportNavigation";
@@ -87,6 +86,8 @@ import EditCustomer from "../pages/customer/EditCustomer";
 import CreditSettings from "../pages/billing/CreditSettings";
 import SaleSubmenuView from "../pages/sales/SaleSubmenuView";
 import SaleInvoices from "../pages/sales/SaleInvoices";
+import EstimateQuotation from "../pages/sales/estimate-quotation/EstimateQuotation";
+import EstimateForm from "../pages/sales/estimate-quotation/EstimateForm";
 import PaymentIn from "../pages/sales/payment_in/PaymentIn";
 import CreditNoteList from "../pages/sales/credit_note/CreditNoteList";
 import AddCreditNote from "../pages/sales/credit_note/AddCreditNote";
@@ -144,6 +145,8 @@ export default function AppRoutes() {
           <Route path="/sales/edit/:invoiceNo" element={<AddSale />} />
           <Route path="/sales/credit-note/add" element={<AddCreditNote />} />
           <Route path="/sales/credit-note/edit/:id" element={<AddCreditNote />} />
+          <Route path="/sales/estimate-quotation/add" element={<EstimateForm />} />
+          <Route path="/sales/estimate-quotation/add/:id" element={<EstimateForm />} />
           <Route path="/purchases/new" element={<PurchaseForm />} />
           <Route path="/purchases/edit/:id" element={<PurchaseForm />} />
           <Route path="/purchases/debit-note/add" element={<AddDebitNote />} />
@@ -221,6 +224,7 @@ export default function AppRoutes() {
 
             {/* Sales Management */}
             <Route path="/sales/invoices" element={<SaleInvoices />} />
+            <Route path="/sales/estimate-quotation" element={<EstimateQuotation />} />
             <Route path="/sales/quotations" element={<SaleSubmenuView type="quotation" title="Estimate / Quotation" />} />
             <Route path="/sales/proforma" element={<SaleSubmenuView type="proforma" title="Proforma Invoice" />} />
             <Route path="/sales/order" element={<SaleSubmenuView type="order" title="Sale Order" />} />
