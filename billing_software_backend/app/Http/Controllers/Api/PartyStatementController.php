@@ -363,6 +363,149 @@ class PartyStatementController extends Controller
     }
 
     /**
+     * Item Report By Party — per-item aggregation of sale & purchase
+     * quantities/amounts within a date range, optionally scoped to ONE party
+     * (role=customer → sales to that customer; role=supplier → purchases from
+     * that supplier; no role + no party_id → all parties).
+     *
+     * Each returned row is one item (product):
+     *   id, item_name, sale_qty, sale_amt, purchase_qty, purchase_amt
+     *
+     * Sales come from invoice `products` JSON; purchases from purchase_items.
+     * No hardcoded values — everything is derived from the real tables.
+     */
+    public function getItemReportByParty(Request $request)
+    {
+        $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        $admin_id   = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+        $from       = $request->input('from_date') ?: $request->query('from_date', '');
+        $to         = $request->input('to_date') ?: $request->query('to_date', '');
+        $party_id   = intval($request->input('party_id') ?: $request->query('party_id', 0));
+        $role       = strtolower(trim($request->input('role') ?: $request->query('role', '')));
+
+        if (!$company_id) {
+            return response()->json(['status' => false, 'message' => 'company_id required']);
+        }
+        if (!$from || !$to) {
+            return response()->json(['status' => false, 'message' => 'from_date and to_date required']);
+        }
+        $from = date('Y-m-d', strtotime($from));
+        $to   = date('Y-m-d', strtotime($to));
+        if ($to < $from) { [$from, $to] = [$to, $from]; }
+
+        // Resolve product names (company-scoped) for invoice JSON lines.
+        $prodNames = [];
+        foreach (DB::table('products')
+            ->where('company_id', $company_id)
+            ->where('is_deleted', 0)
+            ->get(['id', 'product_name']) as $prod) {
+            $prodNames[(int)$prod->id] = trim((string)$prod->product_name);
+        }
+
+        $scopeSales    = ($role === '' || $role === 'customer');
+        $scopePurchase = ($role === '' || $role === 'supplier');
+
+        $rowsKeyed = [];
+
+        if ($scopeSales) {
+            // ── SALES: invoices → products JSON ──
+            $invQuery = DB::table('invoices')
+                ->where('company_id', $company_id)
+                ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
+                ->whereNotNull('customer_id')
+                ->where('customer_id', '>', 0);
+            if ($party_id > 0) {
+                $invQuery->where('customer_id', $party_id);
+            }
+            foreach ($invQuery->get(['id', 'customer_id', 'products']) as $inv) {
+                $decoded = json_decode($inv->products, true);
+                if (!is_array($decoded)) { $decoded = []; }
+                foreach ($decoded as $line) {
+                    if (!is_array($line)) { continue; }
+                    $pid = intval($line['product_id'] ?? 0);
+                    if ($pid <= 0) { continue; }
+                    $qty = floatval($line['qty'] ?? $line['quantity'] ?? 0);
+                    $amt = $line['amount'] ?? null;
+                    if ($amt === null || $amt === '') {
+                        $price = floatval($line['price'] ?? 0);
+                        $amt   = $price * $qty;
+                    }
+                    $amt = floatval($amt);
+
+                    if (!isset($rowsKeyed[$pid])) {
+                        $rowsKeyed[$pid] = [
+                            'id' => $pid, 'item_name' => $prodNames[$pid] ?? '',
+                            'sale_qty' => 0.0, 'sale_amt' => 0.0,
+                            'purchase_qty' => 0.0, 'purchase_amt' => 0.0,
+                        ];
+                    }
+                    $rowsKeyed[$pid]['sale_qty'] += $qty;
+                    $rowsKeyed[$pid]['sale_amt'] += $amt;
+                }
+            }
+        }
+
+        if ($scopePurchase) {
+            // ── PURCHASES: purchases → purchase_items ──
+            $purQuery = DB::table('purchases as p')
+                ->join('purchase_items as pi', 'pi.purchase_id', '=', 'p.id')
+                ->where('p.company_id', $company_id)
+                ->where('p.status', 'submitted')
+                ->whereBetween('p.purchase_date', [$from, $to]);
+            if ($party_id > 0) {
+                $purQuery->where('p.supplier_id', $party_id);
+            }
+            foreach ($purQuery->get(['pi.product_id', 'pi.product_name', 'pi.quantity', 'pi.price']) as $pi) {
+                $pid = intval($pi->product_id);
+                if ($pid <= 0) { continue; }
+                if (!isset($rowsKeyed[$pid])) {
+                    $rowsKeyed[$pid] = [
+                        'id'         => $pid,
+                        'item_name'  => trim((string)$pi->product_name) ?: ($prodNames[$pid] ?? ''),
+                        'sale_qty'   => 0.0, 'sale_amt' => 0.0,
+                        'purchase_qty' => 0.0, 'purchase_amt' => 0.0,
+                    ];
+                } elseif ($rowsKeyed[$pid]['item_name'] === '' && trim((string)$pi->product_name) !== '') {
+                    $rowsKeyed[$pid]['item_name'] = trim((string)$pi->product_name);
+                }
+                $rowsKeyed[$pid]['purchase_qty'] += floatval($pi->quantity);
+                $rowsKeyed[$pid]['purchase_amt'] += floatval($pi->quantity) * floatval($pi->price);
+            }
+        }
+
+        $rows = array_values($rowsKeyed);
+        foreach ($rows as &$r) {
+            $r['item_name'] = $r['item_name'] !== '' ? $r['item_name'] : ('Item #' . $r['id']);
+            $r['sale_qty']      = round(floatval($r['sale_qty']), 2);
+            $r['sale_amt']      = round(floatval($r['sale_amt']), 2);
+            $r['purchase_qty']  = round(floatval($r['purchase_qty']), 2);
+            $r['purchase_amt']  = round(floatval($r['purchase_amt']), 2);
+        }
+        unset($r);
+        usort($rows, fn($a, $b) => strcasecmp($a['item_name'], $b['item_name']));
+
+        $totals = ['sale_qty' => 0.0, 'sale_amt' => 0.0, 'purchase_qty' => 0.0, 'purchase_amt' => 0.0];
+        foreach ($rows as $r) {
+            $totals['sale_qty']     += $r['sale_qty'];
+            $totals['sale_amt']     += $r['sale_amt'];
+            $totals['purchase_qty'] += $r['purchase_qty'];
+            $totals['purchase_amt'] += $r['purchase_amt'];
+        }
+        $totals['sale_qty']     = round($totals['sale_qty'], 2);
+        $totals['sale_amt']     = round($totals['sale_amt'], 2);
+        $totals['purchase_qty'] = round($totals['purchase_qty'], 2);
+        $totals['purchase_amt'] = round($totals['purchase_amt'], 2);
+
+        return response()->json([
+            'status'    => true,
+            'from_date' => $from,
+            'to_date'   => $to,
+            'data'      => $rows,
+            'totals'    => $totals,
+        ]);
+    }
+
+    /**
      * Sale Purchase By Party — a per-party aggregation of Sale Amount
      * (customers) and Purchase Amount (suppliers) within a date range.
      *

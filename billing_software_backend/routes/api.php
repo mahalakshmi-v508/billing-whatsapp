@@ -29,9 +29,23 @@ use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ReportViewController;
 use App\Http\Controllers\Api\DayBookController;
 use App\Http\Controllers\Api\StockSummaryController;
+use App\Http\Controllers\Api\StockSummaryByItemCategoryController;
+use App\Http\Controllers\Api\StockDetailController;
+use App\Http\Controllers\Api\ItemDetailController;
+use App\Http\Controllers\Api\LowStockSummaryController;
+use App\Http\Controllers\Api\ItemWiseProfitLossController;
+use App\Http\Controllers\Api\ItemCategoryWiseProfitLossController;
+use App\Http\Controllers\Api\SalePurchaseByItemCategoryController;
+use App\Http\Controllers\Api\ItemWiseDiscountController;
+use App\Http\Controllers\Api\GstRateReportController;
+use App\Http\Controllers\Api\FormNo27EQController;
+use App\Http\Controllers\Api\TCSReceivableController;
+use App\Http\Controllers\Api\TDSPayableController;
+use App\Http\Controllers\Api\TDSReceivableController;
 use App\Http\Controllers\Api\PartyStatementController;
 use App\Http\Controllers\Api\TransactionMessageController;
 use App\Http\Controllers\Api\InvoiceSettingController;
+use App\Http\Controllers\Api\GstReportController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -340,10 +354,25 @@ Route::prefix('report')->group(function () {
     Route::get('frequently_used', [ReportViewController::class, 'getFrequentlyUsed']);
     Route::get('day-book', [DayBookController::class, 'index']);
     Route::get('stock-summary', [StockSummaryController::class, 'index']);
+    Route::get('stock-summary-by-item-category', [StockSummaryByItemCategoryController::class, 'index']);
+    Route::get('stock-detail', [StockDetailController::class, 'index']);
+    Route::get('item-detail', [ItemDetailController::class, 'index']);
+    Route::get('low-stock-summary', [LowStockSummaryController::class, 'index']);
     Route::get('party-statement/parties', [PartyStatementController::class, 'getParties']);
     Route::get('party-statement/statement', [PartyStatementController::class, 'getStatement']);
     Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);
+    Route::get('item-report-by-party', [PartyStatementController::class, 'getItemReportByParty']);
+    Route::get('item-wise-profit-loss', [ItemWiseProfitLossController::class, 'index']);
+    Route::get('item-category-wise-profit-loss', [ItemCategoryWiseProfitLossController::class, 'index']);
+    Route::get('sale-purchase-by-item-category', [SalePurchaseByItemCategoryController::class, 'index']);
+    Route::get('item-wise-discount', [ItemWiseDiscountController::class, 'index']);
+    Route::get('gst-rate-report', [GstRateReportController::class, 'index']);
+    Route::get('form-27eq', [FormNo27EQController::class, 'index']);
+    Route::get('tcs-receivable', [TCSReceivableController::class, 'index']);
+    Route::get('tds-payable', [TDSPayableController::class, 'index']);
+    Route::get('tds-receivable', [TDSReceivableController::class, 'index']);
     Route::get('sale-purchase-by-party', [PartyStatementController::class, 'getSalePurchaseByParty']);
     Route::get('sale-purchase-by-party-group', [PartyStatementController::class, 'getSalePurchaseByPartyGroup']);
+    Route::get('gst-report', [GstReportController::class, 'index']);
 });
 
