@@ -28,6 +28,9 @@ const GENERAL_DEFAULTS = {
   autoBackup: false,
   auditTrail: true,
   quotation: true,
+  saleInvoices: true,
+  paymentIn: true,
+  saleReturn: true,
   proforma: true,
   order: true,
   otherIncome: false,
@@ -187,14 +190,10 @@ function GeneralSettings() {
 
       {/* ── Row 2: More Transactions ── */}
       <SettingsCard title="More Transactions">
+        <CheckRow label="Sale Invoices" checked={state.saleInvoices} onChange={set("saleInvoices")} />
         <CheckRow label="Estimate/Quotation" checked={state.quotation} onChange={set("quotation")} />
-        <CheckRow label="Proforma Invoice" checked={state.proforma} onChange={set("proforma")} />
-        <CheckRow label="Sale/Purchase Order" checked={state.order} onChange={set("order")} />
-        <CheckRow label="Other Income" checked={state.otherIncome} onChange={set("otherIncome")} info="Record non-sale income" />
-        <CheckRow label="Fixed Assets (FA)" checked={state.fixedAssets} onChange={set("fixedAssets")} info="Track fixed assets" />
-        <CheckRow label="Delivery Challan" checked={state.deliveryChallan} onChange={set("deliveryChallan")} />
-        <CheckRow label="Goods return on Delivery Challan" checked={state.challanReturn} onChange={set("challanReturn")} />
-        <CheckRow label="Print amount in Delivery Challan" checked={state.challanAmount} onChange={set("challanAmount")} />
+        <CheckRow label="Payment-In" checked={state.paymentIn} onChange={set("paymentIn")} />
+        <CheckRow label="Sale Return / Credit Note" checked={state.saleReturn} onChange={set("saleReturn")} />
       </SettingsCard>
 
       {/* ── Row 2: Stock Transfer Between Godowns ── */}
