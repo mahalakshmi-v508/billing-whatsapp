@@ -737,15 +737,11 @@ class PurchaseController extends Controller
             return response()->json(['status' => false, 'message' => 'Purchase not found']);
         }
 
-        if ($purchase->status === 'submitted') {
-            return response()->json(['status' => false, 'message' => 'Cannot delete a submitted purchase invoice']);
-        }
-
         $purchase->delete();
 
         return response()->json([
             'status' => true,
-            'message' => 'Purchase draft deleted successfully'
+            'message' => 'Purchase deleted successfully'
         ]);
     }
 

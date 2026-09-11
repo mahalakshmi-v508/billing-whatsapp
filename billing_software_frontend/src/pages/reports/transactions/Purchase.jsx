@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
@@ -18,13 +18,15 @@ import {
   Plus,
   Printer,
   Search,
+  Share2,
   Trash2,
   Undo2,
   Upload,
   X,
 } from "lucide-react";
 import PurchaseDocument from "./PurchaseDocument";
-import { getInvoiceLogoUrl } from "../../../utils/invoiceShare";
+import AddPaymentOutModal from "../../purchase/payment_out/AddPaymentOutModal";
+import { generateInvoicePdfBase64 } from "../../../utils/invoiceShare";
 
 const toInputDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
@@ -51,7 +53,7 @@ const COLUMNS = [
 
 /* Fixed dropdown geometry used for smart auto-flip positioning */
 const ACTION_MENU_WIDTH = 200;
-const ACTION_MENU_HEIGHT = 9 * 41 + 12; // 9 rows + padding
+const SHARE_MENU_WIDTH = 120;
 const ROW_GAP = 6;
 
 /* Print a DOM node directly via a hidden iframe (no page navigation) */
@@ -137,16 +139,19 @@ export default function Purchase() {
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const [actionMenu, setActionMenu] = useState(null);
+  const [shareMenu, setShareMenu] = useState(null);
+  const actionMenuRef = useRef(null);
+  const shareMenuRef = useRef(null);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  const [payPurchase, setPayPurchase] = useState(null);
-  const [payAmount, setPayAmount] = useState("");
-  const [payMethod, setPayMethod] = useState("cash");
-  const [payDate, setPayDate] = useState(toInputDate(today()));
-  const [payNotes, setPayNotes] = useState("");
-  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const closeMenus = () => {
+    setActionMenu(null);
+    setShareMenu(null);
+  };
+
+  const [payOutSupplier, setPayOutSupplier] = useState(null);
 
   const [previewDetail, setPreviewDetail] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -519,69 +524,11 @@ export default function Purchase() {
   ========================================================= */
 
   const openPayModal = (p) => {
-    setPayPurchase(p);
-    setPayAmount("");
-    setPayMethod("cash");
-    setPayDate(toInputDate(today()));
-    setPayNotes("");
-  };
-
-  const submitPayment = async (e) => {
-    e.preventDefault();
-
-    const amount = Number(payAmount);
-
-    if (!amount || amount <= 0) {
-      alert("Please enter a valid amount!");
-      return;
-    }
-
-    if (
-      amount >
-      Number(payPurchase.balance_amount)
-    ) {
-      alert(
-        `Payment amount cannot exceed the pending balance of ${fmtMoney(
-          payPurchase.balance_amount
-        )}`
-      );
-
-      return;
-    }
-
-    setSubmittingPayment(true);
-
-    try {
-      const res = await api.post(
-        "/purchase/pay_purchase",
-        {
-          purchase_id: payPurchase.id,
-          amount,
-          payment_method: payMethod,
-          payment_date: payDate,
-          notes: payNotes,
-        }
-      );
-
-      if (res.data.status) {
-        alert("Payment recorded successfully");
-
-        setPayPurchase(null);
-
-        retry();
-      } else {
-        alert(
-          res.data.message ||
-            "Unable to record payment"
-        );
-      }
-    } catch (err) {
-      console.error(err);
-
-      alert("Error recording payment");
-    } finally {
-      setSubmittingPayment(false);
-    }
+    setPayOutSupplier({
+      id: p.supplier_id || 0,
+      supplier_name: p.supplier_name || "Party",
+      pending_balance: Number(p.balance_amount || 0),
+    });
   };
 
   /* =========================================================
@@ -737,6 +684,35 @@ export default function Purchase() {
 
       if (mode === "print") {
         printElement(element);
+      } else if (mode === "whatsapp") {
+        try {
+          const pdfBase64 = await generateInvoicePdfBase64({
+            element,
+            invoiceNo: docAction.detail?.purchase_no || "purchase",
+            isPOS: false,
+          });
+
+          const phone = String(docAction.phone || "").replace(/[^0-9]/g, "");
+          const normalizedPhone = phone.length === 10 ? `91${phone}` : phone;
+
+          const res = await api.post("/whatsapp/send_file", {
+            company_id: docAction.detail?.company_id || companyFilter || 0,
+            phone: normalizedPhone,
+            file_base64: pdfBase64,
+            mimetype: "application/pdf",
+            filename: `${docAction.detail?.purchase_no || "purchase"}.pdf`,
+            caption: `Purchase ${docAction.detail?.purchase_no || ""}`,
+          });
+
+          if (res.data?.status) {
+            alert(res.data.message || "Purchase invoice sent via WhatsApp!");
+          } else {
+            alert(res.data?.message || "Unable to send purchase via WhatsApp.");
+          }
+        } catch (err) {
+          console.error(err);
+          alert(err.response?.data?.message || "Failed to send purchase via WhatsApp.");
+        }
       } else {
         const opt = {
           margin: [8, 8, 8, 8],
@@ -775,8 +751,7 @@ export default function Purchase() {
     }, 350);
 
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docAction]);
+  }, [docAction, companyFilter]);
 
   /* DUPLICATE — new backend endpoint performs a real record duplicate */
   const duplicatePurchaseRow = async (p) => {
@@ -857,50 +832,161 @@ export default function Purchase() {
      WHATSAPP SHARE
   ========================================================= */
 
-  const sharePurchaseWhatsApp = (p) => {
-    const message = [
-      `Purchase Invoice: ${p.purchase_no || "-"}`,
-      `Party: ${p.supplier_name || "-"}`,
-      `Amount: ${fmtMoney(p.total_amount)}`,
-      `Balance: ${fmtMoney(p.balance_amount)}`,
-    ].join("\n");
+  const sendPurchaseWhatsApp = async (p) => {
+    try {
+      const detail = await loadPurchaseDetail(p);
+      const supplierPhone =
+        detail?.supplier?.mobile_number ||
+        detail?.supplier?.phone ||
+        detail?.supplier_phone ||
+        detail?.supplier?.alt_mobile ||
+        "";
 
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(message)}`,
-      "_blank"
-    );
+      const cleanedPhone = String(supplierPhone || "").replace(/[^0-9]/g, "");
+
+      if (!cleanedPhone) {
+        alert("This purchase has no supplier phone number for WhatsApp.");
+        return;
+      }
+
+      const element = document.getElementById("row-action-purchase");
+      if (!element) {
+        alert("Unable to prepare the purchase invoice for WhatsApp.");
+        return;
+      }
+
+      const pdfBase64 = await generateInvoicePdfBase64({
+        element,
+        invoiceNo: detail?.purchase_no || "purchase",
+        isPOS: false,
+      });
+
+      const phone = cleanedPhone.length === 10 ? `91${cleanedPhone}` : cleanedPhone;
+      const res = await api.post("/whatsapp/send_file", {
+        company_id: detail?.company_id || companyFilter || 0,
+        phone,
+        file_base64: pdfBase64,
+        mimetype: "application/pdf",
+        filename: `${detail?.purchase_no || "purchase"}.pdf`,
+        caption: `Purchase ${detail?.purchase_no || ""}`,
+      });
+
+      if (res.data?.status) {
+        alert(res.data.message || "Purchase invoice sent via WhatsApp!");
+      } else {
+        alert(res.data?.message || "Unable to send purchase via WhatsApp.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to send purchase via WhatsApp.");
+    } finally {
+      setShareMenu(null);
+    }
   };
 
   const toggleActionMenu = (e, p) => {
+    e.stopPropagation();
+
     if (actionMenu && actionMenu.id === p.id) {
       setActionMenu(null);
-
       return;
     }
 
-    const rect =
-      e.currentTarget.getBoundingClientRect();
+    setShareMenu(null);
 
+    const rect = e.currentTarget.getBoundingClientRect();
     let x = rect.right - ACTION_MENU_WIDTH;
     if (x < 10) x = 10;
-
-    let y = rect.bottom + ROW_GAP;
-
-    if (
-      y + ACTION_MENU_HEIGHT >
-      window.innerHeight - 10
-    ) {
-      y = rect.top - ACTION_MENU_HEIGHT - ROW_GAP;
-
-      if (y < 10) y = 10;
-    }
 
     setActionMenu({
       id: p.id,
       x,
-      y,
+      y: rect.bottom + ROW_GAP,
     });
   };
+
+  const toggleShareMenu = (e, p) => {
+    e.stopPropagation();
+
+    if (shareMenu && shareMenu.id === p.id) {
+      setShareMenu(null);
+      return;
+    }
+
+    setActionMenu(null);
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    let x = rect.right - SHARE_MENU_WIDTH;
+    if (x < 10) x = 10;
+
+    setShareMenu({
+      id: p.id,
+      x,
+      y: rect.bottom + ROW_GAP,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (actionMenu && actionMenuRef.current) {
+      const el = actionMenuRef.current;
+      const maxTop = window.innerHeight - el.offsetHeight - 8;
+      const top = Math.min(Math.max(8, actionMenu.y), maxTop);
+      const maxX = window.innerWidth - el.offsetWidth - 8;
+      let left = actionMenu.x;
+      if (left > maxX) left = Math.max(8, maxX);
+
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+    }
+
+    if (shareMenu && shareMenuRef.current) {
+      const el = shareMenuRef.current;
+      const maxTop = window.innerHeight - el.offsetHeight - 8;
+      const top = Math.min(Math.max(8, shareMenu.y), maxTop);
+      const maxX = window.innerWidth - el.offsetWidth - 8;
+      let left = shareMenu.x;
+      if (left > maxX) left = Math.max(8, maxX);
+
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+    }
+  }, [actionMenu, shareMenu]);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      const clickedInsideAction =
+        actionMenuRef.current &&
+        actionMenuRef.current.contains(event.target);
+      const clickedInsideShare =
+        shareMenuRef.current &&
+        shareMenuRef.current.contains(event.target);
+
+      if (
+        !clickedInsideAction &&
+        !clickedInsideShare &&
+        !(event.target instanceof HTMLElement &&
+          event.target.closest("[data-action-trigger]")) &&
+        !(event.target instanceof HTMLElement &&
+          event.target.closest("[data-share-trigger]"))
+      ) {
+        closeMenus();
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeMenus();
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [actionMenu, shareMenu]);
 
   /* =========================================================
      EXCEL EXPORT
@@ -1016,6 +1102,12 @@ export default function Purchase() {
       ) || null
     : null;
 
+  const shareMenuRow = shareMenu
+    ? purchases.find(
+        (pp) => pp.id === shareMenu.id
+      ) || null
+    : null;
+
   const menuItemStyle = {
     display: "flex",
     alignItems: "center",
@@ -1037,13 +1129,65 @@ export default function Purchase() {
         color: "#26364d",
       }}
     >
+      {/* SHARE DROPDOWN */}
+      {shareMenu && shareMenuRow && (
+        <>
+          <div
+            onClick={() => {
+              setShareMenu(null);
+              setActionMenu(null);
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 55,
+            }}
+          />
+          <div
+            ref={shareMenuRef}
+            style={{
+              position: "fixed",
+              left: shareMenu.x,
+              top: shareMenu.y,
+              zIndex: 60,
+              width: SHARE_MENU_WIDTH,
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "10px",
+              boxShadow: "0 8px 24px rgba(15,23,42,0.14)",
+              padding: "6px",
+            }}
+          >
+            <div
+              onClick={() => {
+                setShareMenu(null);
+                sendPurchaseWhatsApp(shareMenuRow);
+              }}
+              title="Send purchase via WhatsApp"
+              style={{
+                ...menuItemStyle,
+                color: "#334155",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <WhatsAppIcon size={15} />
+              WhatsApp
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ACTIONS DROPDOWN (fixed, so it never gets clipped by the table scroll) */}
       {actionMenu &&
         actionMenuRow && (
           <>
             {/* Click-outside to close */}
             <div
-              onClick={() => setActionMenu(null)}
+              onClick={() => {
+                setActionMenu(null);
+                setShareMenu(null);
+              }}
               style={{
                 position: "fixed",
                 inset: 0,
@@ -1051,6 +1195,7 @@ export default function Purchase() {
               }}
             />
             <div
+              ref={actionMenuRef}
               style={{
                 position: "fixed",
                 left: actionMenu.x,
@@ -1192,38 +1337,21 @@ export default function Purchase() {
                 Convert To Return
               </div>
 
-              {/* DELETE (drafts only) */}
+              {/* DELETE */}
               <div
                 onClick={() => {
-                  if (actionMenuRow.status === "draft") {
-                    confirmDelete(actionMenuRow);
-                  }
+                  confirmDelete(actionMenuRow);
                 }}
-                title={
-                  actionMenuRow.status !== "draft"
-                    ? "Only draft purchases can be deleted"
-                    : undefined
-                }
+                title="Delete this purchase"
                 style={{
                   ...menuItemStyle,
-                  color:
-                    actionMenuRow.status === "draft"
-                      ? "#e11d48"
-                      : "#94a3b8",
-                  opacity:
-                    actionMenuRow.status === "draft"
-                      ? 1
-                      : 0.45,
-                  cursor:
-                    actionMenuRow.status === "draft"
-                      ? "pointer"
-                      : "not-allowed",
+                  color: "#e11d48",
+                  opacity: 1,
+                  cursor: "pointer",
                 }}
                 onMouseEnter={(e) =>
-                  (actionMenuRow.status === "draft"
-                    ? (e.currentTarget.style.background =
-                        "#f1f5f9")
-                    : null)
+                  (e.currentTarget.style.background =
+                    "#f1f5f9")
                 }
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.background =
@@ -1232,12 +1360,7 @@ export default function Purchase() {
               >
                 <Trash2
                   size={15}
-                  style={{
-                    color:
-                      actionMenuRow.status === "draft"
-                        ? "#e11d48"
-                        : "#94a3b8",
-                  }}
+                  style={{ color: "#e11d48" }}
                 />
                 Delete
               </div>
@@ -2614,13 +2737,13 @@ export default function Purchase() {
                             gap: "5px",
                           }}
                         >
-                          {/* WHATSAPP SHARE */}
                           <button
-                            title="Share on WhatsApp"
-                            onClick={() =>
-                              sharePurchaseWhatsApp(
-                                p
-                              )
+                            data-share-trigger
+                            data-purchase-id={p.id}
+                            title="Share"
+                            aria-label="Share purchase"
+                            onClick={(e) =>
+                              toggleShareMenu(e, p)
                             }
                             style={{
                               width:
@@ -2640,18 +2763,18 @@ export default function Purchase() {
                               background:
                                 "#fff",
                               color:
-                                "#25D366",
+                                "#475569",
                               cursor:
                                 "pointer",
                             }}
                           >
-                            <WhatsAppIcon
-                              size={15}
-                            />
+                            <Share2 size={15} />
                           </button>
 
                           {/* THREE DOT MENU */}
                           <button
+                            data-action-trigger
+                            data-purchase-id={p.id}
                             title="More actions"
                             onClick={(e) =>
                               toggleActionMenu(
@@ -2701,393 +2824,15 @@ export default function Purchase() {
           PAYMENT MODAL
       ===================================================== */}
 
-      {payPurchase && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            background:
-              "rgba(15,23,42,0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-        >
-          <div
-            className="pb-no-print"
-            style={{
-              width: "100%",
-              maxWidth: "420px",
-              background: "#fff",
-              borderRadius: "14px",
-              overflow: "hidden",
-              boxShadow:
-                "0 20px 50px rgba(15,23,42,0.25)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent:
-                  "space-between",
-                padding:
-                  "15px 18px",
-                borderBottom:
-                  "1px solid #e2e8f0",
-              }}
-            >
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "16px",
-                  fontWeight: "700",
-                  color: "#17243a",
-                }}
-              >
-                Record Payment
-              </h3>
-
-              <button
-                onClick={() =>
-                  setPayPurchase(null)
-                }
-                style={{
-                  border: "none",
-                  background:
-                    "transparent",
-                  color: "#64748b",
-                  cursor:
-                    "pointer",
-                }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form
-              onSubmit={submitPayment}
-              style={{
-                padding: "20px",
-                display: "flex",
-                flexDirection:
-                  "column",
-                gap: "14px",
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    color: "#334155",
-                  }}
-                >
-                  {payPurchase.purchase_no}{" "}
-                  ·{" "}
-                  {payPurchase.supplier_name ||
-                    "Party"}
-                </div>
-
-                <div
-                  style={{
-                    fontSize: "12.5px",
-                    color: "#94a3b8",
-                    marginTop:
-                      "3px",
-                  }}
-                >
-                  Balance outstanding:{" "}
-                  <strong>
-                    {fmtMoney(
-                      payPurchase.balance_amount
-                    )}
-                  </strong>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection:
-                    "column",
-                  gap: "6px",
-                }}
-              >
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    color: "#475569",
-                  }}
-                >
-                  Amount (₹)
-                </label>
-
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder={Number(
-                    payPurchase.balance_amount
-                  ).toFixed(2)}
-                  value={payAmount}
-                  onChange={(e) =>
-                    setPayAmount(
-                      e.target.value
-                    )
-                  }
-                  style={{
-                    padding:
-                      "10px 12px",
-                    border:
-                      "1px solid #dce3ec",
-                    borderRadius:
-                      "8px",
-                    fontSize:
-                      "14px",
-                    outline:
-                      "none",
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection:
-                    "column",
-                  gap: "6px",
-                }}
-              >
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    color: "#475569",
-                  }}
-                >
-                  Payment Method
-                </label>
-
-                <select
-                  value={payMethod}
-                  onChange={(e) =>
-                    setPayMethod(
-                      e.target.value
-                    )
-                  }
-                  style={{
-                    padding:
-                      "10px 12px",
-                    border:
-                      "1px solid #dce3ec",
-                    borderRadius:
-                      "8px",
-                    fontSize:
-                      "14px",
-                    background:
-                      "#fff",
-                    outline:
-                      "none",
-                  }}
-                >
-                  <option value="cash">
-                    Cash
-                  </option>
-                  <option value="bank">
-                    Bank Transfer
-                  </option>
-                  <option value="upi">
-                    UPI
-                  </option>
-                  <option value="card">
-                    Card
-                  </option>
-                  <option value="cheque">
-                    Cheque
-                  </option>
-                </select>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection:
-                    "column",
-                  gap: "6px",
-                }}
-              >
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    color: "#475569",
-                  }}
-                >
-                  Payment Date
-                </label>
-
-                <div
-                  style={{
-                    position:
-                      "relative",
-                    display:
-                      "flex",
-                    alignItems:
-                      "center",
-                  }}
-                >
-                  <Calendar
-                    size={15}
-                    style={{
-                      position:
-                        "absolute",
-                      left: "10px",
-                      color:
-                        "#94a3b8",
-                    }}
-                  />
-
-                  <input
-                    type="date"
-                    value={payDate}
-                    onChange={(e) =>
-                      setPayDate(
-                        e.target.value
-                      )
-                    }
-                    style={{
-                      width: "100%",
-                      padding:
-                        "10px 10px 10px 32px",
-                      border:
-                        "1px solid #dce3ec",
-                      borderRadius:
-                        "8px",
-                      fontSize:
-                        "14px",
-                      outline:
-                        "none",
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection:
-                    "column",
-                  gap: "6px",
-                }}
-              >
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    color: "#475569",
-                  }}
-                >
-                  Notes (optional)
-                </label>
-
-                <input
-                  value={payNotes}
-                  onChange={(e) =>
-                    setPayNotes(
-                      e.target.value
-                    )
-                  }
-                  placeholder="Reference / remark"
-                  style={{
-                    padding:
-                      "10px 12px",
-                    border:
-                      "1px solid #dce3ec",
-                    borderRadius:
-                      "8px",
-                    fontSize:
-                      "14px",
-                    outline:
-                      "none",
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent:
-                    "flex-end",
-                  gap: "9px",
-                  marginTop:
-                    "4px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPayPurchase(null)
-                  }
-                  style={{
-                    border: "none",
-                    borderRadius:
-                      "8px",
-                    padding:
-                      "9px 16px",
-                    background:
-                      "#f1f5f9",
-                    color:
-                      "#475569",
-                    fontSize:
-                      "13px",
-                    fontWeight:
-                      "600",
-                    cursor:
-                      "pointer",
-                  }}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={
-                    submittingPayment
-                  }
-                  style={{
-                    border: "none",
-                    borderRadius:
-                      "8px",
-                    padding:
-                      "9px 16px",
-                    background:
-                      "#10b981",
-                    color:
-                      "#fff",
-                    fontSize:
-                      "13px",
-                    fontWeight:
-                      "600",
-                    cursor:
-                      "pointer",
-                    opacity:
-                      submittingPayment
-                        ? 0.6
-                        : 1,
-                  }}
-                >
-                  {submittingPayment
-                    ? "Saving..."
-                    : "Save Payment"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddPaymentOutModal
+        isOpen={!!payOutSupplier}
+        onClose={() => setPayOutSupplier(null)}
+        onSuccess={() => {
+          setPayOutSupplier(null);
+          retry();
+        }}
+        initialSupplier={payOutSupplier}
+      />
 
       {/* =====================================================
           DELETE CONFIRM MODAL (styled, replaces window.confirm)
