@@ -5,6 +5,7 @@ import InvoiceSettings from "./InvoiceSettings";
 import InvoiceDesign from "./InvoiceDesign";
 import Print from "./Print";
 import Taxes from "./Taxes";
+import EwayBill from "./EwayBill";
 import Party from "./Party";
 import Item from "./Item";
 import Accounting from "./Accounting";
@@ -263,6 +264,7 @@ export default function General() {
       {settingsTab === "transaction" && <Transaction />}
       {settingsTab === "print" && <Print />}
       {settingsTab === "taxes" && <Taxes />}
+      {settingsTab === "eway-bill" && <EwayBill />}
       {settingsTab === "txn-messages" && <TransactionMessage />}
       {settingsTab === "party" && <Party />}
       {settingsTab === "item" && <Item />}

@@ -237,6 +237,7 @@ export default function MainLayout() {
               ...saleSubItemsFromSettings,
             ]
           },
+          { name: "E-Way", path: "/e-way", icon: <Truck size={20} /> },
           { name: "Products", path: "/products", icon: <PackageSearch size={20} /> },
           {
             name: "Purchase & Expense",
@@ -331,6 +332,7 @@ export default function MainLayout() {
                 { id: "transaction", label: "Transaction" },
                 { id: "print", label: "Print" },
                 { id: "taxes", label: "Taxes & GST" },
+                { id: "eway-bill", label: "E-Way Bill", icon: <Truck size={18} /> },
                 { id: "txn-messages", label: "Transaction Message" },
                 { id: "party", label: "Party" },
                 { id: "item", label: "Item" },
@@ -347,7 +349,14 @@ export default function MainLayout() {
                       : "text-slate-300 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  {tab.label}
+                  {tab.icon ? (
+                    <span className="flex items-center gap-2.5">
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </span>
+                  ) : (
+                    tab.label
+                  )}
                 </button>
               ))}
             </nav>
