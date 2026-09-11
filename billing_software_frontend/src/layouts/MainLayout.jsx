@@ -231,6 +231,7 @@ export default function MainLayout() {
             dropdownKey: "sale",
             subItems: [
               { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/sales/add", "/sales/edit"] },
+              { name: "Estimate/Quotation", path: "/sales/estimate-quotation", altPaths: ["/sales/estimate-quotation"] },
               { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
               { name: "Sale Return/ Credit Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
               ...saleSubItemsFromSettings,
