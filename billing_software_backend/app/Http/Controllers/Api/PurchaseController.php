@@ -647,7 +647,9 @@ class PurchaseController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Purchase submitted successfully. Stocks updated.',
-                'purchase_id' => $purchase->id
+                'purchase_id' => $purchase->id,
+                'purchase_no' => $purchase->purchase_no ?: $purchase->id,
+                'invoice_no' => $purchase->purchase_no ?: $purchase->id,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1239,6 +1241,8 @@ class PurchaseController extends Controller
             return response()->json([
                 'status'           => true,
                 'message'          => 'Payment-Out recorded successfully',
+                'invoice_no'       => $receiptNo ?: ('REC-' . time()),
+                'receipt_no'       => $receiptNo ?: ('REC-' . time()),
                 'applied'          => $applied,
                 'leftover_advance' => $remaining
             ]);

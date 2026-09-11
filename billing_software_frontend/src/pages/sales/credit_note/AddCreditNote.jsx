@@ -419,7 +419,8 @@ export default function AddCreditNote() {
       }
 
       if (res.data.status) {
-        navigate("/sales/credit-note");
+        const savedReturnNo = res.data.return_no || res.data.invoice_no || activeTab.returnNo;
+        navigate(`/invoice/${savedReturnNo}`);
       } else {
         setErrorMsg(res.data.message || "Failed to save credit note.");
       }

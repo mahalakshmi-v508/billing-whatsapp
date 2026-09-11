@@ -751,7 +751,8 @@ export default function AddDebitNote() {
       const res = await api.post(url, payload);
 
       if (res.data.status) {
-        navigate("/purchases/return");
+        const savedReturnNo = res.data.return_no || res.data.invoice_no || activeTab.returnNo;
+        navigate(`/invoice/${savedReturnNo}`);
       } else {
         alert(res.data.message || "Failed to save Debit Note.");
       }

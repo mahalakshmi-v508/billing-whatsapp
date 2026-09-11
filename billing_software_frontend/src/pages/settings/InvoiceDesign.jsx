@@ -10,7 +10,7 @@ import { SettingsShell, SettingsCard } from "./settingsUI";
 import { DESIGN_COMPONENTS } from "../billing/Invoice";
 
 /* ─── REALISTIC SAMPLE INVOICE DATA FOR LIVE PREVIEW ───────────────────────── */
-const SAMPLE_INVOICE = {
+export const SAMPLE_INVOICE = {
   invoice_no: "INV-2026-0001",
   created_at: new Date().toISOString(),
   invoice_date: new Date().toISOString(),
@@ -69,7 +69,7 @@ const SAMPLE_INVOICE = {
 };
 
 /* ─── THEME OPTIONS (SIMPLIFIED & CLEAN) ──────────────────────────────────── */
-const THEME_OPTIONS = [
+export const THEME_OPTIONS = [
   {
     id: "tally",
     label: "Tally Theme",
@@ -129,7 +129,7 @@ const THEME_OPTIONS = [
 ];
 
 /* ─── 18 VIBRANT COLOR SWATCHES ────────────────────────────────────────────── */
-const PALETTE_COLORS = [
+export const PALETTE_COLORS = [
   { hex: "#2563eb", name: "Royal Blue" },
   { hex: "#1f8cff", name: "Bright Blue" },
   { hex: "#0284c7", name: "Sky Blue" },
