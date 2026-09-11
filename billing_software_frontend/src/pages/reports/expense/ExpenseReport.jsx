@@ -278,29 +278,65 @@ export default function ExpenseReport() {
       console.error(err);
       alert("Error deleting expense");
     } finally {
-      setDuplicating(false);
-      closeAllMenus();
+      setDeletingId(null);
     }
   };
 
-  const handleOpenPdf = async (row) => {
-    setDocBusy("open");
-    try {
-      const ctx = await resolveExpenseContext(row);
-      await openPdfInTab(ctx);
-    } catch (err) {
-      console.error(err);
-      alert("Unable to generate the expense PDF.");
-    } finally {
-      setDocBusy("");
-      closeAllMenus();
-    }
-  };
+  /* DUPLICATE — real new expense created from the fetched record (no fake state) */
+  const duplicateExpenseRow = async (expense) => {
+    if (docBusyText) return;
+    setActionMenu(null);
+    setDocBusyText("Duplicating expense…");
 
-  const handlePrintRow = async (row) => {
     try {
-      const ctx = await resolveExpenseContext(row);
-      printExpenseHTML(`Expense ${ctx.expense.expense_no || ctx.expense.id}`, buildExpenseDocumentHTML(ctx));
+      const detail = await loadExpenseDetail(expense);
+      let items = [];
+      try {
+        items = Array.isArray(detail.items)
+          ? detail.items
+          : typeof detail.items === "string"
+            ? JSON.parse(detail.items || "[]")
+            : [];
+      } catch {
+        items = [];
+      }
+
+      const expenseDate = String(detail.expense_date || getTodayISO()).slice(0, 10);
+
+      const payload = {
+        admin_id: adminId || detail.admin_id,
+        company_id: detail.company_id || (selectedFirm === "all" ? 0 : Number(selectedFirm)),
+        cashier_id: detail.cashier_id || null,
+        expense_no: "",
+        expense_date: expenseDate,
+        category_id: detail.category_id || null,
+        category_name: detail.category_name,
+        party_name: detail.party_name,
+        party_phone: detail.party_phone,
+        is_gst: Boolean(detail.is_gst),
+        items,
+        sub_total: detail.sub_total,
+        tax_total: detail.tax_total,
+        discount_total: detail.discount_total,
+        round_off: detail.round_off,
+        total_amount: detail.total_amount,
+        paid_amount: detail.paid_amount,
+        balance_amount: detail.balance_amount,
+        payment_type: detail.payment_type,
+        description: detail.description,
+      };
+
+      const res = await api.post("/expense/create", payload);
+      if (res.data.status) {
+        setDocBusyText("");
+        loadExpenses();
+        alert(
+          `Expense duplicated as ${res.data.expense_no || res.data.invoice_no || "New"}`
+        );
+      } else {
+        setDocBusyText("");
+        alert(res.data.message || "Unable to duplicate expense");
+      }
     } catch (err) {
       setDocBusyText("");
       console.error(err);
@@ -353,85 +389,94 @@ export default function ExpenseReport() {
       });
   };
 
-  /* Render the selected expense document to a PDF and open it in a new browser tab.
-     A placeholder tab is opened synchronously (inside the click gesture) so pop-up
-     blockers cannot swallow it, then it navigates to the generated PDF blob. */
-  const openPdfInTab = async (ctx) => {
-    const label = ctx.expense.expense_no || ctx.expense.id || "";
-    const tab = window.open("", "_blank");
-    if (!tab) {
-      alert("Please allow pop-ups for this site so the expense PDF can open in a new tab.");
-      return;
-    }
-    tab.document.open();
-    tab.document.write(
-      `<!DOCTYPE html><html><head><title>Expense ${String(label).replace(/[<>&"]/g, "")}</title></head>` +
-        `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#475569;font-size:15px;">` +
-        `Generating expense PDF&hellip;</body></html>`
-    );
-    tab.document.close();
-    try {
-      const doc = await renderExpensePdf(ctx);
-      const blob = expensePdfBlob(doc);
-      const blobUrl = URL.createObjectURL(blob);
-      tab.location.href = blobUrl;
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-    } catch (err) {
-      console.error(err);
-      tab.document.open();
-      tab.document.write(
-        `<!DOCTYPE html><html><head><title>Error</title></head>` +
-          `<body style="margin:0;font-family:Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;color:#991b1b;font-size:15px;text-align:center;padding:24px;">` +
-          `Unable to generate the expense PDF.<br/>Please close this tab and try again.</body></html>`
-      );
-      tab.document.close();
-    }
-  };
+  /* Once the off-screen expense has painted:
+       print -> hidden iframe print dialog
+       pdf   -> html2pdf -> open the generated blob url in a new tab */
+  useEffect(() => {
+    if (!docAction) return;
 
-  /* ─── Preview footer actions (reuse the already-loaded context) ─── */
-  const openPreviewPdf = async () => {
-    if (!previewContext || docBusy) return;
-    setDocBusy("open");
-    try {
-      await openPdfInTab(previewContext);
-    } catch (err) {
-      console.error(err);
-      alert("Unable to generate the expense PDF.");
-    } finally {
-      setDocBusy("");
-    }
-  };
+    const mode = docAction.mode;
 
-  const savePreviewPdf = async () => {
-    if (!previewContext || docBusy) return;
-    setDocBusy("save");
-    try {
-      const doc = await renderExpensePdf(previewContext);
-      doc.save(expensePdfFilename(previewContext.expense));
-    } catch (err) {
-      console.error(err);
-      alert("Unable to save the expense PDF.");
-    } finally {
-      setDocBusy("");
-    }
-  };
+    const timer = setTimeout(async () => {
+      const element = document.getElementById("row-action-expense");
+      if (!element) {
+        setDocAction(null);
+        setDocBusyText("");
+        alert("Could not prepare the expense document");
+        return;
+      }
 
-  const printPreviewPdf = () => {
-    if (!previewContext) return;
-    printExpenseHTML(`Expense ${previewContext.expense.expense_no || previewContext.expense.id}`, buildExpenseDocumentHTML(previewContext));
-  };
+      /* wait for the logo/images inside the document before capture */
+      try {
+        await Promise.all(
+          [...element.querySelectorAll("img")].map((im) =>
+            im.complete
+              ? null
+              : new Promise((resolve) => {
+                  im.onload = resolve;
+                  im.onerror = resolve;
+                })
+          )
+        );
+      } catch {
+        /* ignore image wait errors */
+      }
 
-  /* ─── Email / Share PDF (uses the app's existing WhatsApp file-send sharing) ─── */
-  const openSharePdf = () => {
-    if (!previewContext) return;
-    setSharePhone(previewContext.expense?.party_phone || "");
-    setShareMessage("");
-    setShareOpen(true);
-  };
+      if (mode === "print") {
+        printElement(element);
+      } else {
+        const opt = {
+          margin: [8, 8, 8, 8],
+          filename: `expense-${docAction.detail.expense_no || docAction.detail.id || ""}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: "#ffffff",
+          },
+          jsPDF: {
+            unit: "mm",
+            format: "a4",
+            orientation: "portrait",
+          },
+        };
 
-  const closeSharePdf = () => {
-    setShareOpen(false);
-    setShareMessage("");
+        try {
+          const url = await html2pdf()
+            .set(opt)
+            .from(element)
+            .output("bloburl");
+
+          window.open(url, "_blank");
+        } catch (err) {
+          console.error(err);
+          alert("Could not generate the PDF");
+        }
+      }
+
+      setDocAction(null);
+      setDocBusyText("");
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [docAction]);
+
+  /* VIEW HISTORY — real expense record from /expense/get_by_id presented in a modal */
+  const openHistory = (expense) => {
+    setActionMenu(null);
+
+    setHistoryExpense(expense);
+    setHistoryRecord(null);
+    setHistoryError("");
+    setHistoryLoading(true);
+
+    loadExpenseDetail(expense)
+      .then(setHistoryRecord)
+      .catch((err) =>
+        setHistoryError(err.message || "Could not load expense history")
+      )
+      .finally(() => setHistoryLoading(false));
   };
 
   /* EXCEL EXPORT — real filtered rows for the selected range/firm */
@@ -709,216 +754,21 @@ export default function ExpenseReport() {
         .preview-modal {
           width: min(980px, calc(100vw - 30px));
           background: #fff;
-          border-radius: 10px;
-          width: 100%;
-          max-width: 560px;
-          max-height: 82vh;
-          overflow: auto;
-          box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
-          border: 1px solid #e8edf3;
+          border-radius: 12px;
+          border: 1px solid #cbd5e1;
+          padding: 18px;
+          box-shadow: 0 16px 40px rgba(0,0,0,.28);
         }
-
-        .expense-modal-header {
+        .preview-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 14px 18px;
-          border-bottom: 1px solid #eef2f7;
-          position: sticky;
-          top: 0;
-          background: #fff;
+          margin-bottom: 12px;
         }
-
-        .expense-modal-title {
-          font-size: 14px;
-          font-weight: 800;
-          color: #1e293b;
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-        }
-
-        .expense-modal-close {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border: none;
-          background: transparent;
-          border-radius: 6px;
-          color: #94a3b8;
-          cursor: pointer;
-        }
-
-        .expense-modal-close:hover {
-          background: #f1f5f9;
-          color: #334155;
-        }
-
-        .expense-modal-body {
-          padding: 16px 18px;
-        }
-
-        .expense-modal-wide {
-          width: min(920px, 100%);
-        }
-
-        .expense-modal-sm {
-          width: min(440px, 100%);
-        }
-
-        .expense-modal-sm .expense-modal-body {
-          padding-bottom: 6px;
-        }
-
-        /* A4-like document sheet shown inside the Preview modal. */
-        .expense-pdf-sheet {
-          background: #ffffff;
-          border: 1px solid #e8edf3;
-          border-radius: 6px;
-          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-          padding: 26px 28px;
-          min-height: 420px;
-          overflow-x: auto;
-        }
-
-        .expense-pdf-sheet > div {
-          min-width: 620px;
-        }
-
-        .expense-modal-footer {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          justify-content: flex-end;
-          align-items: center;
-          padding: 12px 18px;
-          border-top: 1px solid #eef2f7;
-          background: #fbfcfe;
-          border-radius: 0 0 10px 10px;
-          position: sticky;
-          bottom: 0;
-          z-index: 2;
-        }
-
-        .expense-btn-primary,
-        .expense-btn-ghost {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          border-radius: 6px;
-          font-size: 12.5px;
-          font-weight: 700;
-          padding: 8px 14px;
-          cursor: pointer;
-          border: 1px solid transparent;
-          transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-        }
-
-        .expense-btn-primary {
-          background: linear-gradient(135deg, #ee3444 0%, #cc1f2c 100%);
-          color: #ffffff;
-        }
-
-        .expense-btn-primary:hover:not(:disabled) {
-          filter: brightness(1.05);
-        }
-
-        .expense-btn-primary:disabled,
-        .expense-btn-ghost:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-
-        .expense-btn-ghost {
-          background: #ffffff;
-          border-color: #dbe2ec;
-          color: #475569;
-        }
-
-        .expense-btn-ghost:hover:not(:disabled) {
-          background: #f1f5f9;
-          color: #111827;
-        }
-
-        .expense-btn-ghost.expense-btn-close {
-          color: #64748b;
-        }
-
-        .expense-share-input {
-          width: 100%;
-          box-sizing: border-box;
-          border: 1px solid #dbe2ec;
-          border-radius: 6px;
-          padding: 9px 12px;
-          font-size: 13px;
-          color: #111827;
-          outline: none;
-        }
-
-        .expense-share-input:focus {
-          border-color: #ee3444;
-          box-shadow: 0 0 0 3px rgba(238, 52, 68, 0.12);
-        }
-
-        .expense-detail-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px 20px;
-          font-size: 12.5px;
-        }
-
-        .expense-detail-grid .field-label {
-          font-size: 10.5px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: #94a3b8;
-          margin-bottom: 2px;
-        }
-
-        .expense-detail-grid .field-value {
-          font-weight: 600;
-          color: #1e293b;
-          word-break: break-word;
-        }
-
-        .expense-detail-grid .col-span-2 {
-          grid-column: span 2;
-        }
-
-        .expense-preview-items {
-          margin-top: 14px;
-        }
-
-        .expense-preview-items-title {
-          font-size: 10.5px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: #94a3b8;
-          margin-bottom: 8px;
-        }
-
-        .expense-preview-items table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 12px;
-        }
-
-        .expense-preview-items th,
-        .expense-preview-items td {
-          border: 1px solid #eef2f7;
-          padding: 6px 8px;
-          text-align: left;
-        }
-
-        .expense-preview-items td.num,
-        .expense-preview-items th.num {
-          text-align: right;
-        }
-
-        .expense-preview-items th {
+        .preview-head h3 { margin: 0; font-size: 18px; }
+        .preview-content {
+          max-height: 70vh;
+          overflow: auto;
           background: #f8fafc;
           padding: 12px;
           border-radius: 8px;
@@ -1204,18 +1054,45 @@ export default function ExpenseReport() {
                 <X size={18} />
               </button>
             </div>
-            <div className="expense-modal-body">
-              {previewLoading ? (
-                <div style={{ padding: "34px 0", textAlign: "center", color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>Loading expense document...</div>
-              ) : previewError ? (
-                <div style={{ padding: "34px 0", textAlign: "center", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>{previewError}</div>
-              ) : previewHtml ? (
-                <div className="expense-pdf-sheet" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-              ) : null}
+
+            <div
+              style={{
+                padding: "22px 20px",
+                fontSize: "13.5px",
+                color: "#475569",
+                lineHeight: "1.55",
+              }}
+            >
+              Are you sure you want to delete{" "}
+              <strong>{deleteTarget.expense_no || `#${deleteTarget.id}`}</strong>?
+              <div style={{ marginTop: "6px", fontSize: "12.5px", color: "#94a3b8" }}>
+                The expense voucher record will be permanently removed.
+              </div>
             </div>
-            <div className="expense-modal-footer">
-              <button className="expense-btn-primary" disabled={!!docBusy || !previewContext} onClick={openPreviewPdf}>
-                {docBusy === "open" ? "Opening..." : "Open PDF"}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "9px",
+                padding: "0 20px 20px",
+              }}
+            >
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={!!deletingId}
+                style={{
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "9px 16px",
+                  background: "#f1f5f9",
+                  color: "#475569",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
               </button>
               <button
                 onClick={performDelete}
@@ -1606,17 +1483,3 @@ export default function ExpenseReport() {
     </div>
   );
 }
-
-/* Position a fixed popover so it never leaves the viewport; prefers opening downward.
-   align "left" anchors the popover's left edge to the trigger, "right" anchors its right edge. */
-const placePopover = (anchor, width, height, align = "left") => {
-  const margin = 8;
-  const gap = 6;
-  const fitsBelow = anchor.bottom + height + gap + margin <= window.innerHeight;
-  const fitsAbove = anchor.top - height - gap - margin >= margin;
-  const openUp = !fitsBelow && fitsAbove;
-  const top = openUp ? anchor.top - height - gap : anchor.bottom + gap;
-  const desiredLeft = align === "right" ? anchor.right - width : anchor.left;
-  const left = Math.min(Math.max(margin, desiredLeft), Math.max(margin, window.innerWidth - width - margin));
-  return { top: Math.max(margin, top), left };
-};
