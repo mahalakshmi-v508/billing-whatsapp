@@ -21,6 +21,7 @@ import {
   MoreVertical,
   Share2,
   Pencil,
+  Edit,
 } from "lucide-react";
 
 export default function CreditNoteList() {
@@ -464,19 +465,13 @@ export default function CreditNoteList() {
                 </th>
                 <th className="py-3 px-3.5 border-r border-slate-200 text-right whitespace-nowrap">
                   <div className="flex items-center justify-end gap-1.5">
-                    <span>REF NO.</span>
+                    <span>RETURN NO.</span>
                     <Filter size={10} className="text-slate-400" />
                   </div>
                 </th>
                 <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <span>PARTY NAME</span>
-                    <Filter size={10} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>CATEGORY ...</span>
                     <Filter size={10} className="text-slate-400" />
                   </div>
                 </th>
@@ -510,14 +505,14 @@ export default function CreditNoteList() {
                     <Filter size={10} className="text-slate-400" />
                   </div>
                 </th>
-                <th className="py-3 px-3.5 text-center whitespace-nowrap">PRINT / ...</th>
+                <th className="py-3 px-3.5 text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="py-14 text-center text-slate-400">
+                  <td colSpan={10} className="py-14 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-blue-500 mx-auto mb-2" />
                     <span>Loading Credit Notes...</span>
                   </td>
@@ -525,7 +520,7 @@ export default function CreditNoteList() {
               ) : filteredNotes.length === 0 ? (
                 /* ── EMPTY STATE MATCHING media_1787843153565.png ── */
                 <tr>
-                  <td colSpan={11} className="py-16 text-center">
+                  <td colSpan={10} className="py-16 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <div className="w-20 h-20 mb-4 flex items-center justify-center rounded-2xl bg-slate-50 border border-slate-100 text-slate-300">
                         <FileText size={40} strokeWidth={1.2} />
@@ -564,11 +559,6 @@ export default function CreditNoteList() {
                         {n.customer_name || "Cash Customer"}
                       </td>
 
-                      {/* Category ... */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 text-slate-400 text-center">
-                        -
-                      </td>
-
                       {/* Type */}
                       <td className="py-3.5 px-3.5 border-r border-slate-200 text-slate-700 whitespace-nowrap">
                         Credit Note
@@ -600,44 +590,76 @@ export default function CreditNoteList() {
                         )}
                       </td>
 
-                      {/* Actions: Print, Edit, Delete, Share */}
+                      {/* Actions Column */}
                       <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-2.5 text-slate-400">
-                          {/* Print */}
+                        <div className="flex items-center justify-center gap-1.5 text-slate-400">
+                          {/* Print POS / Preview */}
                           <button
-                            onClick={() => window.print()}
-                            className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition cursor-pointer"
-                            title="Print"
+                            onClick={() => navigate(`/invoice/${n.return_no || n.id}`)}
+                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                            title="Print / View Invoice"
                           >
                             <Printer size={15} />
                           </button>
 
-                          {/* Edit Icon */}
+                          {/* Share Icon */}
                           <button
-                            onClick={() => navigate(`/sales/credit-note/edit/${n.id}`)}
-                            className="p-1 rounded hover:bg-blue-50 text-blue-600 hover:text-blue-800 transition cursor-pointer"
-                            title="Edit Credit Note"
-                          >
-                            <Pencil size={15} />
-                          </button>
-
-                          {/* Delete Icon */}
-                          <button
-                            onClick={() => setDeleteTarget(n)}
-                            className="p-1 rounded hover:bg-red-50 text-red-500 hover:text-red-700 transition cursor-pointer"
-                            title="Delete Credit Note"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-
-                          {/* Share */}
-                          <button
-                            onClick={() => {}}
-                            className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition cursor-pointer"
+                            onClick={() => navigate(`/invoice/${n.return_no || n.id}`)}
+                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
                             title="Share"
                           >
                             <Share2 size={15} />
                           </button>
+
+                          {/* 3-Dot More Menu */}
+                          <div className="relative">
+                            <button
+                              onClick={() => setActiveMenuId(isMenuOpen ? null : n.id)}
+                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              title="More actions"
+                            >
+                              <MoreVertical size={15} />
+                            </button>
+
+                            {isMenuOpen && (
+                              <div
+                                ref={menuRef}
+                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                              >
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    navigate(`/sales/credit-note/edit/${n.id}`);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                >
+                                  <Edit size={14} className="text-blue-600" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    navigate(`/invoice/${n.return_no || n.id}`);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
+                                >
+                                  <Eye size={14} className="text-slate-600" />
+                                  <span>View Receipt</span>
+                                </button>
+                                <div className="border-t border-slate-100 my-1" />
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    setDeleteTarget(n);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
+                                >
+                                  <Trash2 size={14} className="text-red-600" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>

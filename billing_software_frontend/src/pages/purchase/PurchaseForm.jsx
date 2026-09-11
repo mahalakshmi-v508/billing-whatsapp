@@ -753,8 +753,8 @@ export default function PurchaseForm() {
         }))
       });
       if (res.data.status) {
-        alert(res.data.message);
-        navigate("/purchases");
+        const savedPurchaseNo = res.data.purchase_no || res.data.invoice_no || purchaseNo;
+        navigate(`/invoice/${savedPurchaseNo}`);
       } else {
         alert(res.data.message);
       }
