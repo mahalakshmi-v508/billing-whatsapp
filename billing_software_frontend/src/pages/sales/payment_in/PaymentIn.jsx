@@ -23,6 +23,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import AddPaymentInModal from "./AddPaymentInModal";
+import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
 
 export default function PaymentIn() {
   const navigate = useNavigate();
@@ -52,6 +53,7 @@ export default function PaymentIn() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
+  const [activeShareId, setActiveShareId] = useState(null);
 
   // Modals & toast states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -753,14 +755,25 @@ export default function PaymentIn() {
                             <Printer size={15} />
                           </button>
 
-                          {/* Share Icon */}
-                          <button
-                            onClick={() => navigate(`/invoice/${p.invoice_no}`)}
-                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                            title="Share"
-                          >
-                            <Share2 size={15} />
-                          </button>
+                          {/* Share Icon with Popover */}
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveShareId(activeShareId === p.id ? null : p.id);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              title="Share"
+                            >
+                              <Share2 size={15} />
+                            </button>
+                            <ShareTransactionPopover
+                              isOpen={activeShareId === p.id}
+                              onClose={() => setActiveShareId(null)}
+                              transaction={p}
+                              type="Payment-In"
+                            />
+                          </div>
 
                           {/* 3-Dot More Menu */}
                           <div className="relative">

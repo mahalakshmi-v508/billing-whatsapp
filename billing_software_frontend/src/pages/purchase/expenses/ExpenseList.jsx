@@ -30,6 +30,7 @@ import {
   Edit,
   Eye
 } from "lucide-react";
+import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
 
 export default function ExpenseList() {
   const navigate = useNavigate();
@@ -57,6 +58,7 @@ export default function ExpenseList() {
   // Menus & Modals
   const [activeTxMenuId, setActiveTxMenuId] = useState(null);
   const [activeCatMenuId, setActiveCatMenuId] = useState(null);
+  const [activeShareId, setActiveShareId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -732,14 +734,25 @@ export default function ExpenseList() {
                                 <Printer size={15} />
                               </button>
 
-                              {/* Share Icon */}
-                              <button
-                                onClick={() => navigate(`/invoice/${item.expense_no || item.id}`)}
-                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                                title="Share"
-                              >
-                                <Share2 size={15} />
-                              </button>
+                              {/* Share Icon with Popover */}
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveShareId(activeShareId === item.id ? null : item.id);
+                                  }}
+                                  className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                                  title="Share"
+                                >
+                                  <Share2 size={15} />
+                                </button>
+                                <ShareTransactionPopover
+                                  isOpen={activeShareId === item.id}
+                                  onClose={() => setActiveShareId(null)}
+                                  transaction={item}
+                                  type="Expense"
+                                />
+                              </div>
 
                               {/* 3-Dot More Menu */}
                               <div data-menu-container className="relative">

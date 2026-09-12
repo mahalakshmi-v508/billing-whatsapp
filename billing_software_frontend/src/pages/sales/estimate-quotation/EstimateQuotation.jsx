@@ -15,6 +15,7 @@ import {
   MoreVertical,
   Pencil,
 } from "lucide-react";
+import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
 
 const PERIOD_LABELS = {
   today: "Today",
@@ -31,24 +32,28 @@ export default function EstimateQuotation() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "admin" ? user?.id : user?.admin_id;
+  const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
 
-  // Header title switcher (Estimate / Quotation / Proforma)
-  const [docType, setDocType] = useState("Estimate");
-  const [typeOpen, setTypeOpen] = useState(false);
-  const typeRef = useRef(null);
-  const docTypeOptions = ["Estimate", "Quotation", "Proforma", "Sale Order"];
-
-  // Filter states
+  // Header filters
   const [period, setPeriod] = useState("this_month");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [firmOpen, setFirmOpen] = useState(false);
   const [companies, setCompanies] = useState([]);
+  const [docType, setDocType] = useState("Estimate");
+  const [typeOpen, setTypeOpen] = useState(false);
+  const docTypeOptions = ["Estimate", "Quotation"];
+  const typeRef = useRef(null);
 
-  // Saved estimates (localStorage persistence)
+  // Search & view
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchInput, setShowSearchInput] = useState(false);
+
+  // Actions & Modals
   const [actionToast, setActionToast] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [menuAnchor, setMenuAnchor] = useState(null); // { id, x, y } for the fixed 3-dot popup
+  const [activeShareId, setActiveShareId] = useState(null);
   const menuRef = useRef(null);
 
   const MORE_MENU_WIDTH = 176;
@@ -562,14 +567,32 @@ export default function EstimateQuotation() {
                         <Printer size={15} />
                       </button>
 
-                      {/* Share */}
-                      <button
-                        onClick={() => shareEstimate(est)}
-                        className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                        title="Share"
-                      >
-                        <Share2 size={15} />
-                      </button>
+                      {/* Share with Popover */}
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveShareId(activeShareId === est.id ? null : est.id);
+                          }}
+                          className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                          title="Share"
+                        >
+                          <Share2 size={15} />
+                        </button>
+                        <ShareTransactionPopover
+                          isOpen={activeShareId === est.id}
+                          onClose={() => setActiveShareId(null)}
+                          transaction={{
+                            refNo: est.refNo,
+                            customer_name: est.customer_name,
+                            customer_phone: est.customer_phone,
+                            date: est.invoiceDate,
+                            total_amount: est.total_amount,
+                            payment_type: "Estimate",
+                          }}
+                          type="Estimate"
+                        />
+                      </div>
 
                       {/* 3-Dot More Menu */}
                       <div className="relative">
