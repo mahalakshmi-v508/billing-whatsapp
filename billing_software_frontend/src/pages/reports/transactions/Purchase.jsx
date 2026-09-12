@@ -53,7 +53,7 @@ const COLUMNS = [
 
 /* Fixed dropdown geometry used for smart auto-flip positioning */
 const ACTION_MENU_WIDTH = 200;
-const SHARE_MENU_WIDTH = 120;
+const SHARE_MENU_WIDTH = 72;
 const ROW_GAP = 6;
 
 /* Print a DOM node directly via a hidden iframe (no page navigation) */
@@ -74,9 +74,9 @@ function printElement(element) {
   doc.open();
   doc.write(
     '<html><head><title>Purchase Invoice</title></head>' +
-      '<body style="margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;">' +
-      element.innerHTML +
-      "</body></html>"
+    '<body style="margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;">' +
+    element.innerHTML +
+    "</body></html>"
   );
   doc.close();
 
@@ -108,16 +108,28 @@ const PERIODS = [
 
 /* Official WhatsApp logo glyph (same path used by the sidebar/MainLayout) */
 const WhatsAppIcon = ({ size = 16 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    color="#25D366"
-    aria-hidden="true"
+  <span
+    style={{
+      width: `${size}px`,
+      height: `${size}px`,
+      borderRadius: "50%",
+      background: "#25D366",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    }}
   >
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-  </svg>
+    <svg
+      width={Math.round(size * 0.62)}
+      height={Math.round(size * 0.62)}
+      viewBox="0 0 24 24"
+      fill="#ffffff"
+      aria-hidden="true"
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+    </svg>
+  </span>
 );
 
 export default function Purchase() {
@@ -364,14 +376,14 @@ export default function Purchase() {
 
         const initial =
           saved &&
-          list.some(
-            (c) =>
-              String(c.id) === String(saved)
-          )
+            list.some(
+              (c) =>
+                String(c.id) === String(saved)
+            )
             ? saved
             : list.length
-            ? String(list[0].id)
-            : "all";
+              ? String(list[0].id)
+              : "all";
 
         setCompanyFilter(initial);
 
@@ -560,7 +572,7 @@ export default function Purchase() {
       } else {
         alert(
           res.data.message ||
-            "Unable to delete this purchase"
+          "Unable to delete this purchase"
         );
       }
     } catch (err) {
@@ -650,26 +662,27 @@ export default function Purchase() {
 
   /* Once the off-screen purchase has painted:
        print -> hidden iframe print dialog
-       pdf   -> html2pdf -> open the generated blob url in a new tab */
+       pdf   -> html2pdf -> open the generated blob url in a new tab
+
+       IMPORTANT:
+       The purchase document can be wider than the 794px A4 CSS canvas.
+       Capture the COMPLETE rendered width and let jsPDF scale it down to
+       the A4 printable area. This prevents the right side of the invoice
+       (amount/total columns, supplier details, etc.) from being cropped. */
   useEffect(() => {
     if (!docAction) return;
 
     const mode = docAction.mode;
 
     const timer = setTimeout(async () => {
-      const element =
-        document.getElementById(
-          "row-action-purchase"
-        );
+      const element = document.getElementById("row-action-purchase");
 
       if (!element) return;
 
       /* wait for the logo/images inside the document before capture */
       try {
         await Promise.all(
-          [
-            ...element.querySelectorAll("img"),
-          ].map((im) =>
+          [...element.querySelectorAll("img")].map((im) =>
             im.complete
               ? null
               : new Promise((resolve) => {
@@ -711,28 +724,76 @@ export default function Purchase() {
           }
         } catch (err) {
           console.error(err);
-          alert(err.response?.data?.message || "Failed to send purchase via WhatsApp.");
+          alert(
+            err.response?.data?.message ||
+              "Failed to send purchase via WhatsApp."
+          );
         }
       } else {
-        const opt = {
-          margin: [8, 8, 8, 8],
-          filename: `purchase-${
-            docAction.detail.purchase_no || ""
-          }.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-          },
-          jsPDF: {
-            unit: "mm",
-            format: "a4",
-            orientation: "portrait",
-          },
-        };
+        /*
+         * FIX PDF HORIZONTAL CROPPING
+         *
+         * Measure the real rendered invoice width instead of forcing
+         * html2canvas to capture only 794px. If PurchaseDocument/table
+         * is wider than the A4 CSS width, html2canvas captures that full
+         * width and jsPDF scales the complete image to A4.
+         */
+        const originalWidth = element.style.width;
+        const originalMaxWidth = element.style.maxWidth;
+        const originalOverflow = element.style.overflow;
+        const originalBoxSizing = element.style.boxSizing;
+
+        const contentWidth = Math.max(
+          element.scrollWidth || 0,
+          element.offsetWidth || 0,
+          element.clientWidth || 0,
+          794
+        );
 
         try {
+          element.style.width = `${contentWidth}px`;
+          element.style.maxWidth = "none";
+          element.style.overflow = "visible";
+          element.style.boxSizing = "border-box";
+
+          /* Give the browser one frame to recalculate layout after resizing. */
+          await new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve))
+          );
+
+          const captureWidth = Math.max(
+            element.scrollWidth || 0,
+            element.offsetWidth || 0,
+            contentWidth
+          );
+
+          const opt = {
+            margin: [6, 6, 6, 6],
+            filename: `purchase-${docAction.detail.purchase_no || "purchase"}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: {
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              backgroundColor: "#ffffff",
+              scrollX: 0,
+              scrollY: 0,
+              windowWidth: captureWidth,
+              width: captureWidth,
+              x: 0,
+              y: 0,
+            },
+            pagebreak: {
+              mode: ["css", "legacy"],
+            },
+            jsPDF: {
+              unit: "mm",
+              format: "a4",
+              orientation: "portrait",
+              compress: true,
+            },
+          };
+
           const url = await html2pdf()
             .set(opt)
             .from(element)
@@ -741,8 +802,13 @@ export default function Purchase() {
           window.open(url, "_blank");
         } catch (err) {
           console.error(err);
-
           alert("Could not generate the PDF");
+        } finally {
+          /* Restore the hidden render container so other actions are unaffected. */
+          element.style.width = originalWidth;
+          element.style.maxWidth = originalMaxWidth;
+          element.style.overflow = originalOverflow;
+          element.style.boxSizing = originalBoxSizing;
         }
       }
 
@@ -781,7 +847,7 @@ export default function Purchase() {
 
         alert(
           res.data.message ||
-            "Unable to duplicate purchase"
+          "Unable to duplicate purchase"
         );
       }
     } catch (err) {
@@ -816,7 +882,7 @@ export default function Purchase() {
         } else {
           setHistoryError(
             res.data.message ||
-              "Unable to load payment history"
+            "Unable to load payment history"
           );
         }
       })
@@ -849,33 +915,15 @@ export default function Purchase() {
         return;
       }
 
-      const element = document.getElementById("row-action-purchase");
-      if (!element) {
-        alert("Unable to prepare the purchase invoice for WhatsApp.");
-        return;
-      }
-
-      const pdfBase64 = await generateInvoicePdfBase64({
-        element,
-        invoiceNo: detail?.purchase_no || "purchase",
-        isPOS: false,
+      // Do not query #row-action-purchase here. It is rendered only after
+      // docAction is set. The existing docAction effect waits for the
+      // off-screen PurchaseDocument to render and then generates the PDF.
+      setDocBusyText("Generating PDF…");
+      setDocAction({
+        mode: "whatsapp",
+        detail,
+        phone: cleanedPhone,
       });
-
-      const phone = cleanedPhone.length === 10 ? `91${cleanedPhone}` : cleanedPhone;
-      const res = await api.post("/whatsapp/send_file", {
-        company_id: detail?.company_id || companyFilter || 0,
-        phone,
-        file_base64: pdfBase64,
-        mimetype: "application/pdf",
-        filename: `${detail?.purchase_no || "purchase"}.pdf`,
-        caption: `Purchase ${detail?.purchase_no || ""}`,
-      });
-
-      if (res.data?.status) {
-        alert(res.data.message || "Purchase invoice sent via WhatsApp!");
-      } else {
-        alert(res.data?.message || "Unable to send purchase via WhatsApp.");
-      }
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || "Failed to send purchase via WhatsApp.");
@@ -1060,8 +1108,7 @@ export default function Purchase() {
 
     XLSX.writeFile(
       wb,
-      `Purchase_Bills_${firmName}_${fromDate || "all"}_to_${
-        toDate || "all"
+      `Purchase_Bills_${firmName}_${fromDate || "all"}_to_${toDate || "all"
       }.xlsx`
     );
   };
@@ -1098,14 +1145,14 @@ export default function Purchase() {
   /* Row currently open in the Actions 3-dot menu */
   const actionMenuRow = actionMenu
     ? purchases.find(
-        (pp) => pp.id === actionMenu.id
-      ) || null
+      (pp) => pp.id === actionMenu.id
+    ) || null
     : null;
 
   const shareMenuRow = shareMenu
     ? purchases.find(
-        (pp) => pp.id === shareMenu.id
-      ) || null
+      (pp) => pp.id === shareMenu.id
+    ) || null
     : null;
 
   const menuItemStyle = {
@@ -1155,7 +1202,7 @@ export default function Purchase() {
               border: "1px solid #e2e8f0",
               borderRadius: "10px",
               boxShadow: "0 8px 24px rgba(15,23,42,0.14)",
-              padding: "6px",
+              padding: "7px 6px 6px",
             }}
           >
             <div
@@ -1165,14 +1212,30 @@ export default function Purchase() {
               }}
               title="Send purchase via WhatsApp"
               style={{
-                ...menuItemStyle,
-                color: "#334155",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "5px",
+                padding: "2px 3px 3px",
+                borderRadius: "8px",
+                cursor: "pointer",
+                background: "#ffffff",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
             >
-              <WhatsAppIcon size={15} />
-              WhatsApp
+              <WhatsAppIcon size={34} />
+              <span
+                style={{
+                  fontSize: "9px",
+                  lineHeight: "1",
+                  fontWeight: "600",
+                  color: "#475569",
+                }}
+              >
+                WhatsApp
+              </span>
             </div>
           </div>
         </>
@@ -1224,12 +1287,12 @@ export default function Purchase() {
                   color: "#334155",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "#f1f5f9")
+                (e.currentTarget.style.background =
+                  "#f1f5f9")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
+                (e.currentTarget.style.background =
+                  "transparent")
                 }
               >
                 <Pencil
@@ -1246,7 +1309,7 @@ export default function Purchase() {
                     actionMenuRow.status !== "draft" &&
                     Number(
                       actionMenuRow.balance_amount ||
-                        0
+                      0
                     ) > 0
                   ) {
                     setActionMenu(null);
@@ -1263,42 +1326,42 @@ export default function Purchase() {
                   ...menuItemStyle,
                   color:
                     actionMenuRow.status !== "draft" &&
-                    Number(
-                      actionMenuRow.balance_amount ||
+                      Number(
+                        actionMenuRow.balance_amount ||
                         0
-                    ) > 0
+                      ) > 0
                       ? "#334155"
                       : "#94a3b8",
                   opacity:
                     actionMenuRow.status !== "draft" &&
-                    Number(
-                      actionMenuRow.balance_amount ||
+                      Number(
+                        actionMenuRow.balance_amount ||
                         0
-                    ) > 0
+                      ) > 0
                       ? 1
                       : 0.45,
                   cursor:
                     actionMenuRow.status !== "draft" &&
-                    Number(
-                      actionMenuRow.balance_amount ||
+                      Number(
+                        actionMenuRow.balance_amount ||
                         0
-                    ) > 0
+                      ) > 0
                       ? "pointer"
                       : "not-allowed",
                 }}
                 onMouseEnter={(e) =>
-                  (actionMenuRow.status !== "draft" &&
+                (actionMenuRow.status !== "draft" &&
                   Number(
                     actionMenuRow.balance_amount ||
-                      0
+                    0
                   ) > 0
-                    ? (e.currentTarget.style.background =
-                        "#f1f5f9")
-                    : null)
+                  ? (e.currentTarget.style.background =
+                    "#f1f5f9")
+                  : null)
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
+                (e.currentTarget.style.background =
+                  "transparent")
                 }
               >
                 <CreditCard
@@ -1322,12 +1385,12 @@ export default function Purchase() {
                   color: "#334155",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "#f1f5f9")
+                (e.currentTarget.style.background =
+                  "#f1f5f9")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
+                (e.currentTarget.style.background =
+                  "transparent")
                 }
               >
                 <Undo2
@@ -1350,12 +1413,12 @@ export default function Purchase() {
                   cursor: "pointer",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "#f1f5f9")
+                (e.currentTarget.style.background =
+                  "#f1f5f9")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
+                (e.currentTarget.style.background =
+                  "transparent")
                 }
               >
                 <Trash2
@@ -1375,12 +1438,12 @@ export default function Purchase() {
                   color: "#334155",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "#f1f5f9")
+                (e.currentTarget.style.background =
+                  "#f1f5f9")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
+                (e.currentTarget.style.background =
+                  "transparent")
                 }
               >
                 <Copy
@@ -1400,12 +1463,12 @@ export default function Purchase() {
                   color: "#334155",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "#f1f5f9")
+                (e.currentTarget.style.background =
+                  "#f1f5f9")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
+                (e.currentTarget.style.background =
+                  "transparent")
                 }
               >
                 <FileText
@@ -1423,12 +1486,12 @@ export default function Purchase() {
                   color: "#334155",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "#f1f5f9")
+                (e.currentTarget.style.background =
+                  "#f1f5f9")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
+                (e.currentTarget.style.background =
+                  "transparent")
                 }
               >
                 <Eye
@@ -1448,12 +1511,12 @@ export default function Purchase() {
                   color: "#334155",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "#f1f5f9")
+                (e.currentTarget.style.background =
+                  "#f1f5f9")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
+                (e.currentTarget.style.background =
+                  "transparent")
                 }
               >
                 <Printer
@@ -1471,12 +1534,12 @@ export default function Purchase() {
                   color: "#334155",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "#f1f5f9")
+                (e.currentTarget.style.background =
+                  "#f1f5f9")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "transparent")
+                (e.currentTarget.style.background =
+                  "transparent")
                 }
               >
                 <History
@@ -2549,7 +2612,7 @@ export default function Purchase() {
                   const isPaidFully =
                     Number(
                       p.balance_amount ||
-                        0
+                      0
                     ) <= 0;
 
                   return (
@@ -2763,7 +2826,7 @@ export default function Purchase() {
                               background:
                                 "#fff",
                               color:
-                                "#475569",
+                                "#2563eb",
                               cursor:
                                 "pointer",
                             }}
@@ -2999,180 +3062,180 @@ export default function Purchase() {
       {(previewLoading ||
         previewDetail ||
         previewError) && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 110,
-            background:
-              "rgba(15,23,42,0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-        >
           <div
-            className="pb-no-print"
             style={{
-              width: "min(96vw, 860px)",
-              maxHeight: "90vh",
-              background: "#fff",
-              borderRadius: "14px",
-              overflow: "hidden",
+              position: "fixed",
+              inset: 0,
+              zIndex: 110,
+              background:
+                "rgba(15,23,42,0.45)",
               display: "flex",
-              flexDirection: "column",
-              boxShadow:
-                "0 20px 50px rgba(15,23,42,0.25)",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "16px",
             }}
           >
             <div
+              className="pb-no-print"
               style={{
+                width: "min(96vw, 860px)",
+                maxHeight: "90vh",
+                background: "#fff",
+                borderRadius: "14px",
+                overflow: "hidden",
                 display: "flex",
-                alignItems: "center",
-                justifyContent:
-                  "space-between",
-                padding: "13px 18px",
-                borderBottom:
-                  "1px solid #e2e8f0",
+                flexDirection: "column",
+                boxShadow:
+                  "0 20px 50px rgba(15,23,42,0.25)",
               }}
             >
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "15px",
-                  fontWeight: "700",
-                  color: "#17243a",
-                }}
-              >
-                Preview &nbsp;•&nbsp;
-                {previewDetail?.purchase_no || "-"}
-              </h3>
-
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
+                  justifyContent:
+                    "space-between",
+                  padding: "13px 18px",
+                  borderBottom:
+                    "1px solid #e2e8f0",
                 }}
               >
-                {previewDetail && (
-                  <button
-                    onClick={() => {
-                      const el =
-                        document.getElementById(
-                          "preview-purchase-document"
-                        );
-
-                      if (el) printElement(el);
-                    }}
-                    title="Print this purchase"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      border:
-                        "1px solid #dce3ec",
-                      borderRadius: "8px",
-                      padding: "6px 11px",
-                      background: "#fff",
-                      color: "#7c3aed",
-                      fontSize: "12.5px",
-                      fontWeight: "600",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Printer size={14} />
-                    Print
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    setPreviewDetail(null);
-                    setPreviewError("");
-                  }}
-                  disabled={previewLoading}
+                <h3
                   style={{
-                    border: "none",
-                    background:
-                      "transparent",
-                    color: "#64748b",
-                    cursor: "pointer",
+                    margin: 0,
+                    fontSize: "15px",
+                    fontWeight: "700",
+                    color: "#17243a",
                   }}
                 >
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
+                  Preview &nbsp;•&nbsp;
+                  {previewDetail?.purchase_no || "-"}
+                </h3>
 
-            <div
-              style={{
-                overflow: "auto",
-                padding: "20px",
-                background: "#f1f5f9",
-                flex: 1,
-              }}
-            >
-              {previewLoading ? (
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent:
-                      "center",
-                    gap: "10px",
-                    padding: "60px 0",
-                    color: "#64748b",
-                    fontSize: "13.5px",
-                    fontWeight: "600",
+                    gap: "8px",
                   }}
                 >
-                  <Loader2
-                    size={18}
-                    style={{
-                      animation:
-                        "pb-spin 1s linear infinite",
-                      color: "#2563eb",
+                  {previewDetail && (
+                    <button
+                      onClick={() => {
+                        const el =
+                          document.getElementById(
+                            "preview-purchase-document"
+                          );
+
+                        if (el) printElement(el);
+                      }}
+                      title="Print this purchase"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        border:
+                          "1px solid #dce3ec",
+                        borderRadius: "8px",
+                        padding: "6px 11px",
+                        background: "#fff",
+                        color: "#7c3aed",
+                        fontSize: "12.5px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Printer size={14} />
+                      Print
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setPreviewDetail(null);
+                      setPreviewError("");
                     }}
-                  />
-                  Loading purchase…
+                    disabled={previewLoading}
+                    style={{
+                      border: "none",
+                      background:
+                        "transparent",
+                      color: "#64748b",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
-              ) : previewError ? (
-                <div
-                  style={{
-                    padding: "60px 0",
-                    textAlign: "center",
-                    color: "#e11d48",
-                    fontSize: "13.5px",
-                    fontWeight: "600",
-                  }}
-                >
-                  {previewError}
-                </div>
-              ) : (
-                <div
-                  id="preview-purchase-document"
-                  style={{
-                    background: "#fff",
-                    borderRadius: "6px",
-                    border:
-                      "1px solid #e2e8f0",
-                    overflow: "hidden",
-                  }}
-                >
-                  <PurchaseDocument
-                    purchase={previewDetail}
-                    company={companyFor(
-                      previewDetail
-                    )}
-                  />
-                </div>
-              )}
+              </div>
+
+              <div
+                style={{
+                  overflow: "auto",
+                  padding: "20px",
+                  background: "#f1f5f9",
+                  flex: 1,
+                }}
+              >
+                {previewLoading ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent:
+                        "center",
+                      gap: "10px",
+                      padding: "60px 0",
+                      color: "#64748b",
+                      fontSize: "13.5px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    <Loader2
+                      size={18}
+                      style={{
+                        animation:
+                          "pb-spin 1s linear infinite",
+                        color: "#2563eb",
+                      }}
+                    />
+                    Loading purchase…
+                  </div>
+                ) : previewError ? (
+                  <div
+                    style={{
+                      padding: "60px 0",
+                      textAlign: "center",
+                      color: "#e11d48",
+                      fontSize: "13.5px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {previewError}
+                  </div>
+                ) : (
+                  <div
+                    id="preview-purchase-document"
+                    style={{
+                      background: "#fff",
+                      borderRadius: "6px",
+                      border:
+                        "1px solid #e2e8f0",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <PurchaseDocument
+                      purchase={previewDetail}
+                      company={companyFor(
+                        previewDetail
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* =====================================================
           VIEW HISTORY MODAL (real payment records)
@@ -3389,7 +3452,7 @@ export default function Purchase() {
                           {displayDate(
                             (pm.payment_date ||
                               "")
-                            .split(" ")[0]
+                              .split(" ")[0]
                           )}
                         </td>
                         <td
@@ -3444,16 +3507,22 @@ export default function Purchase() {
             position: "fixed",
             top: 0,
             left: "-10000px",
-            width: 794,
+            width: "max-content",
+            minWidth: 794,
             background: "#fff",
             zIndex: -1,
+            overflow: "visible",
           }}
         >
           <div
             id="row-action-purchase"
             style={{
               background: "#fff",
-              width: 794,
+              width: "max-content",
+              minWidth: 794,
+              maxWidth: "none",
+              overflow: "visible",
+              boxSizing: "border-box",
             }}
           >
             <PurchaseDocument
