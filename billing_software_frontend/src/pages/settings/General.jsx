@@ -11,6 +11,7 @@ import Accounting from "./Accounting";
 import MultiCurrency from "./MultiCurrency";
 import ServiceReminders from "./ServiceReminders";
 import TransactionMessage from "./TransactionMessage";
+import EwayBill from "./EwayBill";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
 import { SettingsShell, SettingsCard, CheckRow, Badge, SectionHint, InfoIcon } from "./settingsUI";
@@ -270,6 +271,7 @@ export default function General() {
       {settingsTab === "service-reminders" && <ServiceReminders />}
       {settingsTab === "accounting" && <Accounting />}
       {settingsTab === "multi-currency" && <MultiCurrency />}
+      {settingsTab === "eway-bill" && <EwayBill />}
     </div>
   );
 }

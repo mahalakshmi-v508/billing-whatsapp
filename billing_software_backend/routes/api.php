@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\CashierController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\BillWiseProfitController;
 use App\Http\Controllers\Api\CreditController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
@@ -46,6 +47,7 @@ use App\Http\Controllers\Api\PartyStatementController;
 use App\Http\Controllers\Api\TransactionMessageController;
 use App\Http\Controllers\Api\InvoiceSettingController;
 use App\Http\Controllers\Api\GstReportController;
+use App\Http\Controllers\Api\EwayBillController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -159,6 +161,20 @@ Route::prefix('credit')->group(function () {
 Route::prefix('settings')->group(function () {
     Route::get('get', [SettingsController::class, 'get']);
     Route::post('save', [SettingsController::class, 'save']);
+});
+
+// ── E-WAY BILL ROUTES ──
+Route::prefix('eway-bill')->group(function () {
+    Route::get('settings', [EwayBillController::class, 'getSettings']);
+    Route::post('settings', [EwayBillController::class, 'saveSettings']);
+    Route::post('settings/save', [EwayBillController::class, 'saveSettings']);
+    Route::post('test-connection', [EwayBillController::class, 'testConnection']);
+    Route::get('list', [EwayBillController::class, 'list']);
+    Route::get('invoices', [EwayBillController::class, 'invoiceOptions']);
+    Route::post('create', [EwayBillController::class, 'create']);
+    Route::post('update', [EwayBillController::class, 'update']);
+    Route::post('cancel', [EwayBillController::class, 'cancel']);
+    Route::post('delete', [EwayBillController::class, 'delete']);
 });
 
 // ── INVOICE SETTINGS ROUTES ──
@@ -366,6 +382,7 @@ Route::prefix('report')->group(function () {
     Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);
     Route::get('item-report-by-party', [PartyStatementController::class, 'getItemReportByParty']);
     Route::get('item-wise-profit-loss', [ItemWiseProfitLossController::class, 'index']);
+    Route::get('bill-wise-profit', [BillWiseProfitController::class, 'index']);
     Route::get('item-category-wise-profit-loss', [ItemCategoryWiseProfitLossController::class, 'index']);
     Route::get('sale-purchase-by-item-category', [SalePurchaseByItemCategoryController::class, 'index']);
     Route::get('item-wise-discount', [ItemWiseDiscountController::class, 'index']);

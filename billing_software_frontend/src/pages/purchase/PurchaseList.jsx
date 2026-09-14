@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search, Phone, Mail, MapPin, Wallet, Plus, Share2 } from "lucide-react";
 import AddSupplierModal from "../supplier/AddSupplierModal";
+import ShareTransactionPopover from "../../components/ShareTransactionPopover";
 
 export default function PurchaseList() {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ export default function PurchaseList() {
   const [search, setSearch] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
+  const [activeShareId, setActiveShareId] = useState(null);
 
   // Payment Modal States
   const [showPayModal, setShowPayModal] = useState(false);
@@ -663,16 +665,27 @@ export default function PurchaseList() {
                             >
                               <Eye size={14} />
                             </button>
-                            <button
-                              onClick={() => navigate(`/invoice/${p.purchase_no || p.invoice_no || p.id}`)}
-                              title="Share / View Invoice"
-                              style={{
-                                border: "none", background: "#f1f5f9", color: "#475569",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Share2 size={14} />
-                            </button>
+                            <div style={{ position: "relative" }}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveShareId(activeShareId === p.id ? null : p.id);
+                                }}
+                                title="Share Invoice"
+                                style={{
+                                  border: "none", background: "#f1f5f9", color: "#475569",
+                                  padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
+                                }}
+                              >
+                                <Share2 size={14} />
+                              </button>
+                              <ShareTransactionPopover
+                                isOpen={activeShareId === p.id}
+                                onClose={() => setActiveShareId(null)}
+                                transaction={p}
+                                type="Purchase Bill"
+                              />
+                            </div>
                             {Number(p.balance_amount) > 0 && (
                               <button
                                 onClick={() => openPayModal(p)}

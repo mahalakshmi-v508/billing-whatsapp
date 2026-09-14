@@ -23,6 +23,7 @@ import {
   Pencil,
   Edit,
 } from "lucide-react";
+import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
 
 export default function CreditNoteList() {
   const navigate = useNavigate();
@@ -54,6 +55,7 @@ export default function CreditNoteList() {
   // Search & Actions
   const [searchQuery, setSearchQuery] = useState("");
   const [activeMenuId, setActiveMenuId] = useState(null);
+  const [activeShareId, setActiveShareId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
@@ -602,14 +604,25 @@ export default function CreditNoteList() {
                             <Printer size={15} />
                           </button>
 
-                          {/* Share Icon */}
-                          <button
-                            onClick={() => navigate(`/invoice/${n.return_no || n.id}`)}
-                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                            title="Share"
-                          >
-                            <Share2 size={15} />
-                          </button>
+                          {/* Share Icon with Popover */}
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveShareId(activeShareId === n.id ? null : n.id);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              title="Share"
+                            >
+                              <Share2 size={15} />
+                            </button>
+                            <ShareTransactionPopover
+                              isOpen={activeShareId === n.id}
+                              onClose={() => setActiveShareId(null)}
+                              transaction={n}
+                              type="Credit Note"
+                            />
+                          </div>
 
                           {/* 3-Dot More Menu */}
                           <div className="relative">
