@@ -238,6 +238,7 @@ export default function MainLayout() {
             ]
           },
           { name: "Products", path: "/products", icon: <PackageSearch size={20} /> },
+          { name: "E-Way", path: "/e-way", icon: <Truck size={20} /> },
           {
             name: "Purchase & Expense",
             icon: <ShoppingCart size={20} />,
@@ -337,6 +338,7 @@ export default function MainLayout() {
                 { id: "service-reminders", label: "Service Reminders" },
                 { id: "accounting", label: "Accounting" },
                 { id: "multi-currency", label: "Multi Currency" },
+                { id: "eway-bill", label: "E-Way Bill" },
               ].map((tab) => (
                 <button
                   key={tab.id}

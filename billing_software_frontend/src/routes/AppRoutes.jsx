@@ -120,6 +120,7 @@ import TicketList from "../pages/helpdesk/TicketList";
 import TicketDetails from "../pages/helpdesk/TicketDetails";
 import HelpdeskDashboard from "../pages/helpdesk/HelpdeskDashboard";
 import WhatsAppChat from "../pages/whatsapp/WhatsAppChat";
+import EwayBills from "../pages/eway-bills/EwayBills";
 
 export default function AppRoutes() {
   return (
@@ -261,6 +262,7 @@ export default function AppRoutes() {
             {/* Settings & Configuration */}
             <Route path="/settings" element={<General />} />
             <Route path="/settings/service-reminders/select-items" element={<SelectItemsForReminder />} />
+            <Route path="/e-way" element={<EwayBills />} />
             
             {/* Company & Customer */}
             <Route path="/company" element={<CompanyList />} />

@@ -37,10 +37,16 @@ export function generateInvoicePdfBase64({ element, invoiceNo, isPOS }) {
 
   return html2pdf()
     .set({
-      margin: [8, 8, 8, 8],
+      margin: [6, 6, 6, 6],
       filename: `invoice-${invoiceNo}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+      },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
     })
     .from(element)

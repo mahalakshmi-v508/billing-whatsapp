@@ -12,6 +12,7 @@ const STORAGE_KEY = "print_settings";
 /* ─── REALISTIC SAMPLE INVOICE DATA FOR LIVE PREVIEW ───────────────────────── */
 const SAMPLE_INVOICE = {
   invoice_no: "INV-2026-0001",
+  receipt_no: "INV-2026-0001",
   created_at: new Date().toISOString(),
   invoice_date: new Date().toISOString(),
   due_date: new Date(Date.now() + 7 * 86400000).toISOString(),
@@ -24,39 +25,77 @@ const SAMPLE_INVOICE = {
   invoice_type: "Tax Invoice",
   gst_type: "with_gst",
   status: "paid",
+  notes: "Thank you for shopping with us! Have a pleasant day.",
+  terms_conditions: "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged for delayed payments.\n3. Subject to Coimbatore Jurisdiction.",
+  savings_amount: 150,
+  previous_balance: 500,
+  current_balance: 500,
   products: [
     {
       product_name: "Premium Cotton Shirting Fabric",
       name: "Premium Cotton Shirting Fabric",
       product_code: "5208",
+      hsn_code: "5208",
+      hsn: "5208",
       qty: 2,
+      unit: "Mtr",
       price: 500,
+      mrp: 600,
       gst: 18,
       tax_percent: 18,
       amount: 1000,
-      tax_amount: 180
+      tax_amount: 180,
+      description: "100% Giza Cotton, 60s Count High Thread",
+      batch_no: "B-2026-89",
+      exp_date: "12/2028",
+      mfg_date: "01/2026",
+      size: "XL / 42",
+      model_no: "CTN-PREM-01",
+      serial_no: "SN-982341"
     },
     {
       product_name: "Silk Zari Border Dhotis (Pack of 2)",
       name: "Silk Zari Border Dhotis (Pack of 2)",
       product_code: "5007",
+      hsn_code: "5007",
+      hsn: "5007",
       qty: 1,
+      unit: "Pcs",
       price: 300,
+      mrp: 350,
       gst: 12,
       tax_percent: 12,
       amount: 300,
-      tax_amount: 36
+      tax_amount: 36,
+      description: "Pure Kanchipuram Silk border dhotis",
+      batch_no: "B-2026-92",
+      exp_date: "N/A",
+      mfg_date: "02/2026",
+      size: "Free Size (8 Mulam)",
+      model_no: "SLK-ZAR-02",
+      serial_no: "SN-982342"
     },
     {
       product_name: "Linen Formal Casual Material",
       name: "Linen Formal Casual Material",
       product_code: "5309",
+      hsn_code: "5309",
+      hsn: "5309",
       qty: 1,
+      unit: "Mtr",
       price: 200,
+      mrp: 250,
       gst: 5,
       tax_percent: 5,
       amount: 200,
-      tax_amount: 10
+      tax_amount: 10,
+      description: "French Flax Linen blend",
+      batch_no: "B-2026-95",
+      exp_date: "N/A",
+      mfg_date: "03/2026",
+      size: "L / 40",
+      model_no: "LIN-FML-03",
+      serial_no: "SN-982343"
     }
   ],
   sub_total: 1500,
@@ -65,7 +104,6 @@ const SAMPLE_INVOICE = {
   total_amount: 1726,
   paid_amount: 1726,
   balance_amount: 0,
-  terms_conditions: "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged for delayed payments.\n3. Subject to Coimbatore Jurisdiction."
 };
 
 /* ─── THEME OPTIONS ────────────────────────────────────────────────────────── */
@@ -901,19 +939,19 @@ export default function Print() {
   const activePosObj = POS_LAYOUT_OPTIONS.find((p) => p.id === activePosId) || POS_LAYOUT_OPTIONS[0];
   const PosComponent = DESIGN_COMPONENTS[activePosId] || DESIGN_COMPONENTS.pos || DESIGN_COMPONENTS.pos_classic;
 
-  // Active Company Data from state inputs
+  // Active Company Data from state inputs (Respects checkboxes)
   const dynamicCompany = {
-    company_name: (state.companyName && state.companyNameText) ? state.companyNameText : "My Company",
-    company_address: (state.address && state.addressText) ? state.addressText : "Plot No. 1, Shop No. 8, Koramangala, Bangalore, 560034",
-    phone: (state.phone && state.phoneText) ? state.phoneText : "9994789683",
-    email: (state.email && state.emailText) ? state.emailText : "info@mycompany.com",
-    gstin: (state.gstin && state.gstinText) ? state.gstinText : "33AAAAA0000A1Z5",
+    company_name: state.companyName !== false ? (state.companyNameText || "My Company") : "",
+    company_address: state.address !== false ? (state.addressText || "Plot No. 1, Shop No. 8, Koramangala, Bangalore, 560034") : "",
+    phone: state.phone !== false ? (state.phoneText || "9994789683") : "",
+    email: state.email !== false ? (state.emailText || "info@mycompany.com") : "",
+    gstin: state.gstin !== false ? (state.gstinText || "33AAAAA0000A1Z5") : "",
     bank_name: "State Bank of India",
     account_no: "30294819284",
     ifsc_code: "SBIN0001234",
     branch_name: "Tirupur Main Branch",
-    signature: state.printSignatureText ? (state.signatureText || "Authorized Signatory") : "",
-    logo: state.companyLogo ? null : null,
+    signature: state.printSignatureText !== false ? (state.signatureText || "Authorized Signatory") : "",
+    logo: state.companyLogo !== false ? (state.logoUrl || null) : null,
   };
 
   const renderThemePreview = () => {
@@ -923,7 +961,8 @@ export default function Print() {
         invoice={SAMPLE_INVOICE}
         company={dynamicCompany}
         color={state.themeColor || "#2563eb"}
-        logoUrl={null}
+        logoUrl={state.companyLogo !== false ? (state.logoUrl || null) : null}
+        printSettings={state}
       />
     );
   };
@@ -935,8 +974,9 @@ export default function Print() {
           invoice={SAMPLE_INVOICE}
           company={dynamicCompany}
           color={state.themeColor || "#2563eb"}
-          logoUrl={null}
+          logoUrl={state.companyLogo !== false ? (state.logoUrl || null) : null}
           layout={activePosId}
+          printSettings={state}
         />
       );
     }
