@@ -540,6 +540,23 @@ export default function DayBook() {
           </select>
         </div>
 
+        {/* search — same row as Date and Company */}
+        <div style={{ flex: "1 1 240px", maxWidth: 420, minWidth: 200 }}>
+          <div style={{ position: "relative" }}>
+            <Search size={15} color="#64748b" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} />
+            <input
+              value={search}
+              onChange={onSearchChange}
+              placeholder="Search"
+              style={{
+                width: "100%", padding: "8px 12px 8px 34px",
+                border: "1.5px solid " + BORDER, borderRadius: 8, fontSize: 12,
+                fontFamily: FONT, outline: "none", background: "#fff", color: "#1e293b",
+              }}
+            />
+          </div>
+        </div>
+
         {/* actions on the right */}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={handleExcel} style={actionBtn("#16a34a")}>
@@ -548,23 +565,6 @@ export default function DayBook() {
           <button onClick={handlePrint} style={actionBtn("#dc2626")}>
             <Printer size={15} /> Print
           </button>
-        </div>
-      </div>
-
-      {/* ── SEARCH ── */}
-      <div style={{ marginBottom: 12, maxWidth: 420 }}>
-        <div style={{ position: "relative" }}>
-          <Search size={15} color="#64748b" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} />
-          <input
-            value={search}
-            onChange={onSearchChange}
-            placeholder="Search"
-            style={{
-              width: "100%", padding: "8px 12px 8px 34px",
-              border: "1.5px solid " + BORDER, borderRadius: 8, fontSize: 12,
-              fontFamily: FONT, outline: "none", background: "#fff", color: "#1e293b",
-            }}
-          />
         </div>
       </div>
 
