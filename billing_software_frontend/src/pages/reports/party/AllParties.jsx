@@ -10,6 +10,7 @@ import {
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -111,6 +112,9 @@ export default function AllParties() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const typeRef = useRef(null);
 
   useEffect(() => {
@@ -192,6 +196,11 @@ export default function AllParties() {
 
   const prettyFrom = startDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  const totalRows = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = filtered.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   const handleSelectType = (v) => {
     setPartyType(v);
@@ -396,7 +405,7 @@ export default function AllParties() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((p, i) => (
+                pagedRows.map((p, i) => (
                   <tr key={p.role + "-" + p.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
                     <td style={tdStyle}>{i + 1}</td>
                     <td style={{ ...tdStyle, fontSize: 13, fontWeight: 600, color: NAVY }}>{p.name || "-"}</td>
@@ -418,6 +427,14 @@ export default function AllParties() {
             </tbody>
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
     </div>
   );

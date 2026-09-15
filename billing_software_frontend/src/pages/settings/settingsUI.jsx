@@ -135,7 +135,7 @@ export function SettingsCard({ title, crown, badge, children, className = "" }) 
 }
 
 /** Page header shell */
-export function SettingsHeader({ title, subtitle, icon, onClose }) {
+export function SettingsHeader({ title, subtitle, icon, onClose, actions }) {
   return (
     <div className="settings-header bg-white/80 backdrop-blur border-b border-slate-200/70 px-8 py-5 flex items-center justify-between gap-4 rounded-t-2xl">
       <div className="flex items-center gap-4 min-w-0">
@@ -156,6 +156,7 @@ export function SettingsHeader({ title, subtitle, icon, onClose }) {
           )}
         </div>
       </div>
+      {actions}
       {onClose && (
         <button
           type="button"
@@ -171,10 +172,10 @@ export function SettingsHeader({ title, subtitle, icon, onClose }) {
 }
 
 /** Full page layout: header + scrollable content area */
-export function SettingsShell({ title, subtitle, icon, onClose, children, contentClassName = "" }) {
+export function SettingsShell({ title, subtitle, icon, onClose, children, contentClassName = "", actions }) {
   return (
     <div className="overflow-hidden flex flex-col flex-1 bg-slate-50">
-      <SettingsHeader title={title} subtitle={subtitle} icon={icon} onClose={onClose} />
+      <SettingsHeader title={title} subtitle={subtitle} icon={icon} onClose={onClose} actions={actions} />
       <div className={`flex-1 overflow-y-auto px-10 py-9 ${contentClassName}`}>{children}</div>
     </div>
   );

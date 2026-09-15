@@ -20,6 +20,7 @@ import {
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 /* ─── Styling constants (reuse the app's report theme) ─────────────── */
 const FONT = "'Plus Jakarta Sans', sans-serif";
@@ -151,6 +152,9 @@ export default function DayBook() {
   const [shareTarget, setShareTarget] = useState(null);
   const menuRef = useRef(null);
   const shareRef = useRef(null);
+
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   /* close the 3-dot menu and the Share dropdown on outside click */
   useEffect(() => {
@@ -500,6 +504,11 @@ export default function DayBook() {
     </th>
   );
 
+  const totalRows = displayed.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = displayed.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
   return (
     <div style={{ fontFamily: FONT, padding: "8px 18px 20px" }}>
       {/* ── TOP CONTROL ROW ── */}
@@ -610,7 +619,7 @@ export default function DayBook() {
                     </div>
                   </td>
                 </tr>
-              ) : displayed.length > 0 ? displayed.map((t, i) => (
+              ) : displayed.length > 0 ? pagedRows.map((t, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                   <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1e293b" }}>{t.name || "-"}</td>
                   <td style={{ padding: "10px 12px", color: "#64748b" }}>{t.reference || "-"}</td>
@@ -628,6 +637,7 @@ export default function DayBook() {
                   <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: MONEY_IN }}>{fmtINR(t.money_in)}</td>
                   <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: MONEY_OUT }}>{fmtINR(t.money_out)}</td>
                   <td style={{ padding: "10px 12px", textAlign: "center", whiteSpace: "nowrap" }}>
+                    {/* eslint-disable-next-line react-hooks/refs -- false positive: printSingleRow is a plain function, not a ref */}
                     <button onClick={() => printSingleRow(t)} title="Print" style={rowIconBtn("#4338ca")}><Printer size={13} /></button>
                     <div style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}>
                       <button onClick={(e) => toggleShare(e, t)} title="Share" disabled={sharingNo === t.reference} style={rowIconBtn("#0891b2")}><Share2 size={13} /></button>
@@ -730,6 +740,14 @@ export default function DayBook() {
             </tbody>
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
 
       {/* ── DELETE CONFIRMATION MODAL ── */}

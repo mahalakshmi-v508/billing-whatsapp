@@ -345,11 +345,7 @@
 
 import { useEffect, useState } from "react";
 import api from "../../services/api";
-
-import {
-  ChevronLeft,
-  ChevronRight
-} from "lucide-react";
+import ReportPagination from "../../components/reports/ReportPagination";
 
 export default function PaymentPendingHistory() {
 
@@ -407,18 +403,7 @@ export default function PaymentPendingHistory() {
     indexOfFirst + recordsPerPage
   );
 
-  const goTo = (p) => {
 
-    setCurrentPage(
-      Math.max(1, Math.min(p, totalPages))
-    );
-
-  };
-
-  const pages = Array.from(
-    { length: totalPages },
-    (_, i) => i + 1
-  );
 
   return (
 
@@ -696,81 +681,15 @@ export default function PaymentPendingHistory() {
       </div>
 
       {/* PAGINATION */}
-
-      {totalPages > 1 && (
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: 18
-          }}
-        >
-
-          {/* PREV */}
-
-          <button
-            onClick={() => goTo(currentPage - 1)}
-            disabled={currentPage === 1}
-            style={pgBtn}
-          >
-            <ChevronLeft size={15} />
-            Prev
-          </button>
-
-          {/* PAGE NUMBERS */}
-
-          <div
-            style={{
-              display: "flex",
-              gap: 6
-            }}
-          >
-
-            {pages.map((p) => (
-
-              <button
-                key={p}
-                onClick={() => goTo(p)}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  border: "1px solid #dbeafe",
-                  background:
-                    currentPage === p
-                      ? "#4338ca"
-                      : "#fff",
-                  color:
-                    currentPage === p
-                      ? "#fff"
-                      : "#4338ca",
-                  fontWeight: 700,
-                  cursor: "pointer"
-                }}
-              >
-                {p}
-              </button>
-
-            ))}
-
-          </div>
-
-          {/* NEXT */}
-
-          <button
-            onClick={() => goTo(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            style={pgBtn}
-          >
-            Next
-            <ChevronRight size={15} />
-          </button>
-
-        </div>
-
-      )}
+      <ReportPagination
+        total={data.length}
+        page={currentPage}
+        rowsPerPage={recordsPerPage}
+        pageSizeOptions={[recordsPerPage]}
+        onPageChange={(p) => {
+          setCurrentPage(Math.max(1, Math.min(p, totalPages)));
+        }}
+      />
 
     </div>
   );
@@ -805,15 +724,4 @@ const tdBlue = {
   whiteSpace: "nowrap"
 };
 
-const pgBtn = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "8px 16px",
-  background: "#fff",
-  border: "1px solid #dbeafe",
-  borderRadius: 10,
-  cursor: "pointer",
-  color: "#4338ca",
-  fontWeight: 600
-};
+

@@ -3,6 +3,7 @@ import { ChevronDown, Calendar, FileSpreadsheet, Printer, RefreshCw, AlertCircle
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -104,6 +105,8 @@ export default function StockDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const catRef = useRef(null);
 
@@ -238,6 +241,11 @@ export default function StockDetail() {
        </table>`;
     printElement(el, "Stock Detail");
   };
+
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
     <div style={{ fontFamily: FONT, padding: "2px 0", display: "flex", flexDirection: "column", height: "100%", background: "#fff" }}>
@@ -381,7 +389,7 @@ export default function StockDetail() {
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
+                pagedRows.map((r) => (
                   <tr key={r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
                     <td style={{ ...tdStyle, fontSize: 14, fontWeight: 600, color: NAVY }}>{r.item_name || "-"}</td>
                     {COLUMNS.slice(1).map((c) => (
@@ -407,6 +415,13 @@ export default function StockDetail() {
           </table>
         </div>
       </div>
+      <ReportPagination
+        total={totalRows}
+        page={safePage}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+      />
     </div>
   );
 }

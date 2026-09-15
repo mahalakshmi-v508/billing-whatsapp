@@ -3,6 +3,7 @@ import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle, X, Searc
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -295,6 +296,9 @@ export default function BillWiseProfit() {
 
   const [detailRow, setDetailRow] = useState(null); // invoice row open in the modal
 
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const [periodOpen, setPeriodOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
 
@@ -419,6 +423,11 @@ export default function BillWiseProfit() {
   const prettyFrom = startDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const metaLabel = `${prettyFrom} to ${prettyTo}`;
+
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   /* ── Excel export ── */
   const handleExcel = () => {
@@ -758,7 +767,7 @@ export default function BillWiseProfit() {
                   </td>
                 </tr>
               ) : (
-                rows.map((r, i) => {
+                pagedRows.map((r, i) => {
                   const profit = Number(r.profit || 0);
                   const profitColor = profit > 0 ? "#15803d" : profit < 0 ? "#dc2626" : "#334155";
                   return (
@@ -813,6 +822,14 @@ export default function BillWiseProfit() {
             )}
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════

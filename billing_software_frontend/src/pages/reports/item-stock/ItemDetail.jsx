@@ -3,6 +3,7 @@ import { AlertCircle, Calendar, ChevronDown, FileSpreadsheet, Printer, RefreshCw
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -89,6 +90,8 @@ export default function ItemDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const itemRef = useRef(null);
 
   useEffect(() => {
@@ -196,6 +199,11 @@ export default function ItemDetail() {
     printElement(element);
   };
 
+  const totalRows = visibleRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = visibleRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
   return (
     <div style={pageStyle}>
       <div style={topBarStyle}>
@@ -225,11 +233,18 @@ export default function ItemDetail() {
           <table style={tableStyle}>
             <thead><tr>{COLUMNS.map((column) => <th key={column.key} style={{ ...thStyle, textAlign: column.right ? "right" : "left" }}>{column.label}</th>)}</tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>Loading...</td></tr> : error ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : visibleRows.length === 0 ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>No item details found for the selected period.</td></tr> : visibleRows.map((row, index) => <tr key={`${row.date}-${row.is_beginning ? "opening" : index}`}><td style={tdStyle}>{formatDisplayDate(row.date)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.sale_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{row.purchase_label || formatQuantity(row.purchase_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.adjustment_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.closing_quantity)}</td></tr>)}
+              {loading ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>Loading...</td></tr> : error ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : visibleRows.length === 0 ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>No item details found for the selected period.</td></tr> : pagedRows.map((row, index) => <tr key={`${row.date}-${row.is_beginning ? "opening" : index}`}><td style={tdStyle}>{formatDisplayDate(row.date)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.sale_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{row.purchase_label || formatQuantity(row.purchase_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.adjustment_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.closing_quantity)}</td></tr>)}
             </tbody>
           </table>
         </div>
       </div>
+      <ReportPagination
+        total={totalRows}
+        page={safePage}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+      />
     </div>
   );
 }

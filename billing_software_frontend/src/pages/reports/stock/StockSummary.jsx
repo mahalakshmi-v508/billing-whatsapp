@@ -6,12 +6,11 @@ import {
   Printer,
   X,
   AlertCircle,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -202,8 +201,6 @@ export default function StockSummary() {
     setPage(1);
     setCatOpen(false);
   };
-
-  const lastPage = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const prettyAsOf = asOf.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -533,29 +530,14 @@ export default function StockSummary() {
       {/* ═══════════════════════════════════════════════════════════════
           PAGINATION
           ═══════════════════════════════════════════════════════════════ */}
-      {totalCount > PAGE_SIZE && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, marginTop: 10 }}>
-          <span style={{ fontSize: 12, color: GRAY_TEXT }}>
-            {totalCount} items · Page {Math.min(page, lastPage)} of {lastPage}
-          </span>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              style={{ ...pageBtnStyle, opacity: page <= 1 ? 0.4 : 1, cursor: page <= 1 ? "not-allowed" : "pointer" }}
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-              disabled={page >= lastPage}
-              style={{ ...pageBtnStyle, opacity: page >= lastPage ? 0.4 : 1, cursor: page >= lastPage ? "not-allowed" : "pointer" }}
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
+      <ReportPagination
+        total={totalCount}
+        page={page}
+        rowsPerPage={PAGE_SIZE}
+        pageSizeOptions={[PAGE_SIZE]}
+        onPageChange={setPage}
+        onRowsPerPageChange={() => setPage(1)}
+      />
     </div>
   );
 }
@@ -703,17 +685,4 @@ const tdStyle = {
   fontSize: 12.5,
   color: "#334155",
   verticalAlign: "middle",
-};
-
-const pageBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 30,
-  height: 30,
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  color: NAVY,
-  fontFamily: FONT,
 };

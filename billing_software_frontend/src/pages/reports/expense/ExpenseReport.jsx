@@ -21,6 +21,8 @@ import {
   X,
 } from "lucide-react";
 import ExpenseDocument from "./ExpenseDocument";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 const formatINDate = (dateStr) => {
   if (!dateStr) return "-";
@@ -111,6 +113,8 @@ export default function ExpenseReport() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showGraph, setShowGraph] = useState(false);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   /* Row Actions (Purchase.jsx pattern) */
   const [actionMenu, setActionMenu] = useState(null);
@@ -272,11 +276,11 @@ export default function ExpenseReport() {
         setDeleteTarget(null);
         loadExpenses();
       } else {
-        alert(res.data.message || "Unable to delete this expense");
+        showToast(res.data.message || "Unable to delete this expense", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Error deleting expense");
+      showToast("Error deleting expense", "error");
     } finally {
       setDeletingId(null);
     }
@@ -330,17 +334,18 @@ export default function ExpenseReport() {
       if (res.data.status) {
         setDocBusyText("");
         loadExpenses();
-        alert(
-          `Expense duplicated as ${res.data.expense_no || res.data.invoice_no || "New"}`
+        showToast(
+          `Expense duplicated as ${res.data.expense_no || res.data.invoice_no || "New"}`,
+          "success"
         );
       } else {
         setDocBusyText("");
-        alert(res.data.message || "Unable to duplicate expense");
+        showToast(res.data.message || "Unable to duplicate expense", "error");
       }
     } catch (err) {
       setDocBusyText("");
       console.error(err);
-      alert("Error duplicating expense");
+      showToast("Error duplicating expense", "error");
     }
   };
 
@@ -370,7 +375,7 @@ export default function ExpenseReport() {
       .then((detail) => setDocAction({ mode: "pdf", detail }))
       .catch((err) => {
         setDocBusyText("");
-        alert(err.message);
+        showToast(err.message, "error");
       });
   };
 
@@ -385,7 +390,7 @@ export default function ExpenseReport() {
       .then((detail) => setDocAction({ mode: "print", detail }))
       .catch((err) => {
         setDocBusyText("");
-        alert(err.message);
+        showToast(err.message, "error");
       });
   };
 
@@ -402,7 +407,7 @@ export default function ExpenseReport() {
       if (!element) {
         setDocAction(null);
         setDocBusyText("");
-        alert("Could not prepare the expense document");
+        showToast("Could not prepare the expense document", "error");
         return;
       }
 
@@ -425,24 +430,72 @@ export default function ExpenseReport() {
       if (mode === "print") {
         printElement(element);
       } else {
-        const opt = {
-          margin: [8, 8, 8, 8],
-          filename: `expense-${docAction.detail.expense_no || docAction.detail.id || ""}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            backgroundColor: "#ffffff",
-          },
-          jsPDF: {
-            unit: "mm",
-            format: "a4",
-            orientation: "portrait",
-          },
-        };
+        /*
+         * FIX PDF HORIZONTAL CROPPING / EMPTY PAYMENT BOXES
+         *
+         * Same recipe as the working Purchase PDF: measure the real rendered
+         * expense voucher width instead of forcing html2canvas to capture only
+         * the fixed 794px box. The inline width is applied, layout gets one
+         * frame, then the FULL rendered width is captured and jsPDF scales the
+         * complete image down to the A4 page — so nothing on the right side
+         * (nor the PAID/BALANCE boxes) is ever cropped out.
+         */
+        const originalWidth = element.style.width;
+        const originalMaxWidth = element.style.maxWidth;
+        const originalOverflow = element.style.overflow;
+        const originalBoxSizing = element.style.boxSizing;
+
+        const contentWidth = Math.max(
+          element.scrollWidth || 0,
+          element.offsetWidth || 0,
+          element.clientWidth || 0,
+          794
+        );
 
         try {
+          element.style.width = `${contentWidth}px`;
+          element.style.maxWidth = "none";
+          element.style.overflow = "visible";
+          element.style.boxSizing = "border-box";
+
+          /* Give the browser one frame to recalculate layout after resizing. */
+          await new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve))
+          );
+
+          const captureWidth = Math.max(
+            element.scrollWidth || 0,
+            element.offsetWidth || 0,
+            contentWidth
+          );
+
+          const opt = {
+            margin: [6, 6, 6, 6],
+            filename: `expense-${docAction.detail.expense_no || docAction.detail.id || ""}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: {
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              backgroundColor: "#ffffff",
+              scrollX: 0,
+              scrollY: 0,
+              windowWidth: captureWidth,
+              width: captureWidth,
+              x: 0,
+              y: 0,
+            },
+            pagebreak: {
+              mode: ["css", "legacy"],
+            },
+            jsPDF: {
+              unit: "mm",
+              format: "a4",
+              orientation: "portrait",
+              compress: true,
+            },
+          };
+
           const url = await html2pdf()
             .set(opt)
             .from(element)
@@ -451,7 +504,13 @@ export default function ExpenseReport() {
           window.open(url, "_blank");
         } catch (err) {
           console.error(err);
-          alert("Could not generate the PDF");
+          showToast("Could not generate the PDF", "error");
+        } finally {
+          /* Restore the hidden render container so other actions are unaffected. */
+          element.style.width = originalWidth;
+          element.style.maxWidth = originalMaxWidth;
+          element.style.overflow = originalOverflow;
+          element.style.boxSizing = originalBoxSizing;
         }
       }
 
@@ -482,7 +541,7 @@ export default function ExpenseReport() {
   /* EXCEL EXPORT — real filtered rows for the selected range/firm */
   const handleDownloadExcel = () => {
     if (!filteredExpenses.length) {
-      alert("No data available to export");
+      showToast("No data available to export", "warning");
       return;
     }
 
@@ -530,6 +589,11 @@ export default function ExpenseReport() {
     fontWeight: "600",
     cursor: "pointer",
   };
+
+  const totalRows = filteredExpenses.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = filteredExpenses.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
     <div className="expense-report-page">
@@ -876,11 +940,11 @@ export default function ExpenseReport() {
                     <th>Payment Type</th>
                     <th>Amount</th>
                     <th>Balance Due</th>
-                    <th></th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredExpenses.map((expense) => (
+                  {pagedRows.map((expense) => (
                     <tr key={expense.id}>
                       <td>{formatINDate(expense.expense_date)}</td>
                       <td>{expense.expense_no || expense.id}</td>
@@ -905,8 +969,17 @@ export default function ExpenseReport() {
             </div>
           )}
         </div>
+
+        <div className="expense-report-no-print">
+          <ReportPagination
+            total={totalRows}
+            page={safePage}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+          />
+        </div>
       </div>
-{/* ── 3-DOT ACTIONS DROPDOWN (fixed, never clipped by the table scroll) ── */}
       {actionMenu && actionMenuExpense && (
         <>
           {/* Click-outside to close */}
@@ -1421,10 +1494,11 @@ export default function ExpenseReport() {
 
       {/* =====================================================
           OFF-SCREEN EXPENSE DOCUMENT used by Open PDF / Print
-          (kept off the painted viewport with negative z-index,
-           exactly like the proven Purchase.jsx implementation —
-           never display:none / visibility:hidden so html2canvas
-           can still rasterise it)
+          (kept off the painted viewport — never display:none /
+           visibility:hidden so html2canvas can still rasterise it. Width is
+           max-content so the capture always has the voucher's real width and
+           jsPDF scales the complete image down to the A4 page — nothing on the
+           right side is ever cropped.)
       ===================================================== */}
       {docAction && (
         <div
@@ -1433,16 +1507,22 @@ export default function ExpenseReport() {
             position: "fixed",
             top: 0,
             left: "-10000px",
-            width: 794,
+            width: "max-content",
+            minWidth: 794,
             background: "#fff",
             zIndex: -1,
+            overflow: "visible",
           }}
         >
           <div
             id="row-action-expense"
             style={{
               background: "#fff",
-              width: 794,
+              width: "max-content",
+              minWidth: 794,
+              maxWidth: "none",
+              overflow: "visible",
+              boxSizing: "border-box",
             }}
           >
             <ExpenseDocument
