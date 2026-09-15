@@ -350,6 +350,8 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   };
 
   const handleVerifyGst = async () => {
+  if (gstVerified) return;
+
   if (!gstSessionId) {
     showToast("Please refresh the captcha", false);
     return;
@@ -874,6 +876,12 @@ gst_type: "Unregistered/Consumer",
           color: #2563eb;
         }
         .cf-btn-outline:hover { background: #eff6ff; }
+        .cf-btn-outline:disabled {
+          background: #f1f5f9;
+          border-color: #d1d5db;
+          color: #9ca3af;
+          cursor: not-allowed;
+        }
         .cf-btn-ghost {
           background: #eef2f7;
           border: none;
@@ -976,11 +984,28 @@ gst_type: "Unregistered/Consumer",
                     value={form.gst_no}
                     maxLength={15}
                     onChange={(e) => {
-                      const v = e.target.value.toUpperCase().slice(0, 15);
-                      set("gst_no", v);
-                      if (gstVerified) resetGstVerify();
+                      if (gstVerified) return;
+                      set("gst_no", e.target.value.toUpperCase().slice(0, 15));
                     }}
-                    style={{ paddingRight: 34 }}
+                    onPaste={(e) => {
+                      if (gstVerified) e.preventDefault();
+                    }}
+                    onCut={(e) => {
+                      if (gstVerified) e.preventDefault();
+                    }}
+                    disabled={gstVerified}
+                    readOnly={gstVerified}
+                    style={{
+                      paddingRight: 34,
+                      ...(gstVerified
+                        ? {
+                            background: "#f1f5f9",
+                            color: "#111827",
+                            cursor: "not-allowed",
+                            opacity: 1,
+                          }
+                        : {}),
+                    }}
                   />
                   {gstVerified ? (
                     <BadgeCheck
@@ -1000,7 +1025,7 @@ gst_type: "Unregistered/Consumer",
                   type="button"
                   className="cf-btn cf-btn-outline"
                   onClick={fetchCaptcha}
-                  disabled={isLoadingCaptcha || !form.gst_no.trim()}
+                  disabled={isLoadingCaptcha || !form.gst_no.trim() || gstVerified}
                   style={{ padding: "8px 10px", whiteSpace: "nowrap", flexShrink: 0 }}
                 >
                   {gstVerified ? "Verified" : isLoadingCaptcha ? "Loading..." : "Verify"}
