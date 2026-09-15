@@ -164,25 +164,23 @@ Route::prefix('settings')->group(function () {
     Route::post('save', [SettingsController::class, 'save']);
 });
 
-// ── E-WAY BILL ROUTES ──
-Route::prefix('eway-bill')->group(function () {
-    Route::get('settings', [EwayBillController::class, 'getSettings']);
-    Route::post('settings', [EwayBillController::class, 'saveSettings']);
-    Route::post('settings/save', [EwayBillController::class, 'saveSettings']);
-    Route::post('test-connection', [EwayBillController::class, 'testConnection']);
-    Route::get('list', [EwayBillController::class, 'list']);
-    Route::get('invoices', [EwayBillController::class, 'invoiceOptions']);
-    Route::post('create', [EwayBillController::class, 'create']);
-    Route::post('update', [EwayBillController::class, 'update']);
-    Route::post('cancel', [EwayBillController::class, 'cancel']);
-    Route::post('delete', [EwayBillController::class, 'delete']);
-});
-
 // ── INVOICE SETTINGS ROUTES ──
 Route::prefix('invoice-settings')->group(function () {
     Route::get('get', [InvoiceSettingController::class, 'get']);
     Route::post('save', [InvoiceSettingController::class, 'save']);
     Route::get('next-number', [InvoiceSettingController::class, 'getNextNumber']);
+});
+
+// ── E-WAY BILL ROUTES ──
+Route::prefix('eway-bill')->group(function () {
+    Route::get('settings', [EwayBillController::class, 'getSettings']);
+    Route::post('settings', [EwayBillController::class, 'saveSettings']);
+    Route::post('test-connection', [EwayBillController::class, 'testConnection']);
+    Route::get('list', [EwayBillController::class, 'list']);
+    Route::post('create', [EwayBillController::class, 'create']);
+    Route::post('update', [EwayBillController::class, 'update']);
+    Route::post('cancel', [EwayBillController::class, 'cancel']);
+    Route::post('delete', [EwayBillController::class, 'delete']);
 });
 
 // ── CUSTOMER ROUTES ──
