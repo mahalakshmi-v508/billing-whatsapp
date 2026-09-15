@@ -346,6 +346,7 @@ export default function AddSale() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [unlistedProductsWarning, setUnlistedProductsWarning] = useState(null);
+  const [quickAddModal, setQuickAddModal] = useState(null);
   const toastTimerRef = useRef(null);
 
   const showToast = (msg, ok = false) => {
@@ -902,6 +903,155 @@ export default function AddSale() {
       showToast(err.response?.data?.message || "An error occurred while saving invoice.", false);
     } finally {
       setSaving(false);
+    }
+  };
+
+  /* ── Quick Add Product Flow for Unlisted Items ── */
+  const handleProceedFromWarning = () => {
+    const items = unlistedProductsWarning || [];
+    setUnlistedProductsWarning(null);
+    if (items.length > 0) {
+      const first = items[0];
+      setQuickAddModal({
+        queue: items,
+        currentIndex: 0,
+        form: {
+          product_name: first.item_name || "",
+          purchase_price: "",
+          sale_price: first.price !== "" && first.price !== undefined ? String(first.price) : "",
+          purchase_gst: "",
+          sale_gst: (first.tax_percent !== undefined && first.tax_percent !== null && first.tax_percent !== "") ? String(first.tax_percent) : "0",
+          unit: (first.unit && first.unit !== "NONE") ? first.unit : "PCS",
+          stock: (first.qty !== "" && first.qty !== undefined && !isNaN(first.qty)) ? String(first.qty) : "0",
+        },
+        saving: false,
+        error: "",
+      });
+    } else {
+      handleSave(true);
+    }
+  };
+
+  const setQuickAddForm = (field, val) => {
+    setQuickAddModal(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        error: "",
+        form: { ...prev.form, [field]: val }
+      };
+    });
+  };
+
+  const handleSaveQuickAddProduct = async () => {
+    if (!quickAddModal) return;
+    const { form, queue, currentIndex } = quickAddModal;
+
+    if (!form.product_name || !form.product_name.trim()) {
+      setQuickAddModal(prev => ({ ...prev, error: "Product name is required." }));
+      return;
+    }
+
+    if (form.sale_price === "" || isNaN(Number(form.sale_price)) || Number(form.sale_price) < 0) {
+      setQuickAddModal(prev => ({ ...prev, error: "Valid sale price is required." }));
+      return;
+    }
+
+    setQuickAddModal(prev => ({ ...prev, saving: true, error: "" }));
+
+    try {
+      const companyId = parseInt(selectedCompany) || parseInt(user?.company_id) || (companies[0] ? parseInt(companies[0].id) : 0);
+
+      const payload = {
+        product_name: form.product_name.trim(),
+        company_id: companyId,
+        price: parseFloat(form.sale_price) || 0,
+        sale_price: parseFloat(form.sale_price) || 0,
+        purchase_price: form.purchase_price !== "" ? (parseFloat(form.purchase_price) || 0) : 0,
+        gst_percentage: form.sale_gst !== "" ? (parseFloat(form.sale_gst) || 0) : 0,
+        purchase_gst: form.purchase_gst !== "" ? (parseFloat(form.purchase_gst) || 0) : 0,
+        unit: form.unit || "PCS",
+        stock: form.stock !== "" ? (parseInt(form.stock) || 0) : 0,
+        status: "active"
+      };
+
+      const res = await api.post("/product/add", payload);
+      if (res.data && res.data.status) {
+        const newProduct = res.data.data || {
+          id: Date.now(),
+          product_name: payload.product_name,
+          price: payload.price,
+          sale_price: payload.sale_price,
+          gst_percentage: payload.gst_percentage,
+          unit: payload.unit,
+          stock: payload.stock
+        };
+
+        // 1. Append new product to products list state
+        setProducts(prev => [newProduct, ...prev]);
+
+        // 2. Update the corresponding row in activeSale
+        const currentItem = queue[currentIndex];
+        updateActiveSale(sale => {
+          const updatedRows = sale.rows.map(r => {
+            if (r.id === currentItem.id || (r.item_name && r.item_name.trim().toLowerCase() === currentItem.item_name.trim().toLowerCase())) {
+              const updated = {
+                ...r,
+                product_id: newProduct.id,
+                item_name: newProduct.product_name,
+                price: parseFloat(newProduct.sale_price || newProduct.price) || 0,
+                unit: (newProduct.unit && newProduct.unit !== "NONE") ? newProduct.unit : r.unit,
+                tax_percent: parseFloat(newProduct.gst_percentage || 0),
+                stock: newProduct.stock,
+                product_code: newProduct.product_code || ""
+              };
+              return recalculateRow(updated);
+            }
+            return r;
+          });
+          return { ...sale, rows: updatedRows };
+        });
+
+        // 3. Move to next unlisted item or complete invoice
+        const nextIndex = currentIndex + 1;
+        if (nextIndex < queue.length) {
+          const nextItem = queue[nextIndex];
+          setQuickAddModal({
+            queue,
+            currentIndex: nextIndex,
+            form: {
+              product_name: nextItem.item_name || "",
+              purchase_price: "",
+              sale_price: nextItem.price !== "" && nextItem.price !== undefined ? String(nextItem.price) : "",
+              purchase_gst: "",
+              sale_gst: (nextItem.tax_percent !== undefined && nextItem.tax_percent !== null && nextItem.tax_percent !== "") ? String(nextItem.tax_percent) : "0",
+              unit: (nextItem.unit && nextItem.unit !== "NONE") ? nextItem.unit : "PCS",
+              stock: (nextItem.qty !== "" && nextItem.qty !== undefined && !isNaN(nextItem.qty)) ? String(nextItem.qty) : "0"
+            },
+            saving: false,
+            error: ""
+          });
+        } else {
+          setQuickAddModal(null);
+          showToast(`Product "${newProduct.product_name}" added to inventory!`, true);
+          setTimeout(() => {
+            handleSave(true);
+          }, 150);
+        }
+      } else {
+        setQuickAddModal(prev => ({
+          ...prev,
+          saving: false,
+          error: res.data?.message || "Failed to add product"
+        }));
+      }
+    } catch (err) {
+      console.error("Error adding quick product:", err);
+      setQuickAddModal(prev => ({
+        ...prev,
+        saving: false,
+        error: err.response?.data?.message || "Server error while adding product."
+      }));
     }
   };
 
@@ -2190,10 +2340,7 @@ export default function AddSale() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setUnlistedProductsWarning(null);
-                  handleSave(true);
-                }}
+                onClick={handleProceedFromWarning}
                 disabled={saving}
                 style={{
                   padding: "8px 20px", borderRadius: 8, border: "none",
@@ -2205,6 +2352,298 @@ export default function AddSale() {
                 <Check size={16} strokeWidth={2.5} />
                 <span>Proceed to Bill</span>
               </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick Add Product to Inventory Modal ── */}
+      {quickAddModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 99999,
+          background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "16px"
+        }} onClick={() => setQuickAddModal(null)}>
+          <div style={{
+            background: "#ffffff", borderRadius: 16, width: 490, maxWidth: "96vw",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.3)", overflow: "hidden",
+            border: "1px solid #e2e8f0"
+          }} onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{
+              padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between",
+              borderBottom: "1px solid #f1f5f9", background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10, background: "#dbeafe",
+                  display: "flex", alignItems: "center", justifyContent: "center", color: "#1d4ed8", flexShrink: 0
+                }}>
+                  <Package size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#1e3a8a" }}>
+                    Add Product to Inventory
+                  </h3>
+                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                    Enter product details to save in inventory and bill
+                  </p>
+                </div>
+              </div>
+              {quickAddModal.queue.length > 1 && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, color: "#2563eb", background: "#dbeafe",
+                  padding: "3px 10px", borderRadius: 100
+                }}>
+                  {quickAddModal.currentIndex + 1} of {quickAddModal.queue.length}
+                </span>
+              )}
+            </div>
+
+            {/* Error Message if any */}
+            {quickAddModal.error && (
+              <div style={{
+                margin: "14px 20px 0", padding: "10px 14px", borderRadius: 8,
+                background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c",
+                fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 8
+              }}>
+                <AlertCircle size={16} />
+                <span>{quickAddModal.error}</span>
+              </div>
+            )}
+
+            {/* Form Body */}
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              
+              {/* 1. Product Name */}
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
+                  Product Name <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={quickAddModal.form.product_name}
+                  onChange={e => setQuickAddForm("product_name", e.target.value)}
+                  placeholder="e.g. Center Fresh 50g"
+                  autoFocus
+                  style={{
+                    width: "100%", padding: "10px 12px", borderRadius: 8,
+                    border: "1.5px solid #cbd5e1", fontSize: 13.5, fontWeight: 600,
+                    color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
+                  }}
+                />
+              </div>
+
+              {/* 2. Sale Price & Purchase Price */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
+                    Sale Price (₹) <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <span style={{
+                      position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+                      fontSize: 13, fontWeight: 700, color: "#64748b", pointerEvents: "none"
+                    }}>₹</span>
+                    <input
+                      type="number"
+                      value={quickAddModal.form.sale_price}
+                      onChange={e => setQuickAddForm("sale_price", e.target.value)}
+                      placeholder="0.00"
+                      min="0"
+                      step="any"
+                      style={{
+                        width: "100%", padding: "10px 12px 10px 28px", borderRadius: 8,
+                        border: "1.5px solid #cbd5e1", fontSize: 13.5, fontWeight: 600,
+                        color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
+                    Purchase Price (₹) <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, textTransform: "none" }}>(Optional)</span>
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <span style={{
+                      position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+                      fontSize: 13, fontWeight: 700, color: "#64748b", pointerEvents: "none"
+                    }}>₹</span>
+                    <input
+                      type="number"
+                      value={quickAddModal.form.purchase_price}
+                      onChange={e => setQuickAddForm("purchase_price", e.target.value)}
+                      placeholder="0.00 (Optional)"
+                      min="0"
+                      step="any"
+                      style={{
+                        width: "100%", padding: "10px 12px 10px 28px", borderRadius: 8,
+                        border: "1.5px solid #cbd5e1", fontSize: 13.5, fontWeight: 600,
+                        color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Sale GST & Purchase GST */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
+                    Sale GST <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  <select
+                    value={quickAddModal.form.sale_gst}
+                    onChange={e => setQuickAddForm("sale_gst", e.target.value)}
+                    style={{
+                      width: "100%", padding: "10px 12px", borderRadius: 8,
+                      border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 600,
+                      color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
+                    }}
+                  >
+                    <option value="0">None / 0% (Exempted)</option>
+                    <option value="5">GST @ 5%</option>
+                    <option value="12">GST @ 12%</option>
+                    <option value="18">GST @ 18%</option>
+                    <option value="28">GST @ 28%</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
+                    Purchase GST <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, textTransform: "none" }}>(Optional)</span>
+                  </label>
+                  <select
+                    value={quickAddModal.form.purchase_gst}
+                    onChange={e => setQuickAddForm("purchase_gst", e.target.value)}
+                    style={{
+                      width: "100%", padding: "10px 12px", borderRadius: 8,
+                      border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 600,
+                      color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
+                    }}
+                  >
+                    <option value="">None / 0% (Optional)</option>
+                    <option value="0">GST @ 0%</option>
+                    <option value="5">GST @ 5%</option>
+                    <option value="12">GST @ 12%</option>
+                    <option value="18">GST @ 18%</option>
+                    <option value="28">GST @ 28%</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 4. Unit & Stock */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
+                    Unit
+                  </label>
+                  <select
+                    value={quickAddModal.form.unit}
+                    onChange={e => setQuickAddForm("unit", e.target.value)}
+                    style={{
+                      width: "100%", padding: "10px 12px", borderRadius: 8,
+                      border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 600,
+                      color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
+                    }}
+                  >
+                    <option value="PCS">PCS (Piece)</option>
+                    <option value="KG">KG (Kilogram)</option>
+                    <option value="GRAM">GRAM</option>
+                    <option value="BOX">BOX</option>
+                    <option value="PACK">PACK / Packet</option>
+                    <option value="LTR">LTR (Litre)</option>
+                    <option value="ML">ML</option>
+                    <option value="BOTTLE">BOTTLE</option>
+                    <option value="BAG">BAG</option>
+                    <option value="DOZEN">DOZEN</option>
+                    <option value="SET">SET</option>
+                    <option value="MTR">MTR (Meter)</option>
+                    <option value="NONE">NONE</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
+                    Stock Qty <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, textTransform: "none" }}>(Optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={quickAddModal.form.stock}
+                    onChange={e => setQuickAddForm("stock", e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    style={{
+                      width: "100%", padding: "10px 12px", borderRadius: 8,
+                      border: "1.5px solid #cbd5e1", fontSize: 13.5, fontWeight: 600,
+                      color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
+                    }}
+                  />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer Buttons */}
+            <div style={{
+              padding: "14px 20px", display: "flex", justifyContent: "space-between",
+              alignItems: "center", background: "#f8fafc", borderTop: "1px solid #e2e8f0"
+            }}>
+              <button
+                type="button"
+                onClick={() => setQuickAddModal(null)}
+                style={{
+                  padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1",
+                  background: "#ffffff", color: "#334155", fontWeight: 700, fontSize: 13,
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                {/* <button
+                  type="button"
+                  onClick={() => {
+                    setQuickAddModal(null);
+                    handleSave(true);
+                  }}
+                  style={{
+                    padding: "8px 14px", borderRadius: 8, border: "1px solid #cbd5e1",
+                    background: "#f1f5f9", color: "#475569", fontWeight: 600, fontSize: 12.5,
+                    cursor: "pointer"
+                  }}
+                  title="Proceed to billing without saving product"
+                >
+                  Skip &amp; Bill
+                </button> */}
+
+                <button
+                  type="button"
+                  onClick={handleSaveQuickAddProduct}
+                  disabled={quickAddModal.saving}
+                  style={{
+                    padding: "8px 20px", borderRadius: 8, border: "none",
+                    background: "#2563eb", color: "#ffffff", fontWeight: 700, fontSize: 13,
+                    cursor: quickAddModal.saving ? "not-allowed" : "pointer", display: "flex",
+                    alignItems: "center", gap: 6, opacity: quickAddModal.saving ? 0.7 : 1,
+                    boxShadow: "0 2px 4px rgba(37, 99, 235, 0.25)"
+                  }}
+                >
+                  {quickAddModal.saving ? (
+                    <span>Saving...</span>
+                  ) : (
+                    <>
+                      <Check size={16} strokeWidth={2.5} />
+                      <span>{quickAddModal.queue.length > 1 && quickAddModal.currentIndex < quickAddModal.queue.length - 1 ? "Save & Next" : "Save & Proceed to Bill"}</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
           </div>
