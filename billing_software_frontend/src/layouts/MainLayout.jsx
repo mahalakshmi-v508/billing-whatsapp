@@ -239,7 +239,6 @@ export default function MainLayout() {
           },
           { name: "E-Way", path: "/e-way", icon: <Truck size={20} /> },
           { name: "Products", path: "/products", icon: <PackageSearch size={20} /> },
-          { name: "E-Way", path: "/e-way", icon: <Truck size={20} /> },
           {
             name: "Purchase & Expense",
             icon: <ShoppingCart size={20} />,
