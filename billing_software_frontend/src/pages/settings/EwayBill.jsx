@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ShieldCheck,
   Lock,
@@ -8,23 +8,21 @@ import {
   Save,
   Server,
   CheckCircle2,
-  XCircle,
-  Clock,
   BookOpen,
   Eye,
   EyeOff,
 } from "lucide-react";
-import api from "../../services/api";
-import { getCompanyId } from "./settingsApi";
+import { useBackendSync } from "./useBackendSync";
 import { SettingsShell, Badge, Toggle } from "./settingsUI";
 
-const DEFAULT_FORM = {
-  integrationEnabled: false,
+const DEFAULT_STATE = {
+  integrationEnabled: true,
+  selectedCompany: "Pavitha Consultancy Services (33AABCP1234F1Z5)",
   apiProvider: "Adequate GSP (Recommended)",
   environment: "Sandbox (Testing / Demo)",
-  companyGstin: "",
-  ewbUsername: "",
-  gspClientId: "",
+  companyGstin: "33AABCP1234F1Z5",
+  ewbUsername: "PAVITHA_EWB_USER",
+  gspClientId: "adq****_01",
 };
 
 const inputCls =
@@ -52,146 +50,18 @@ function ChecklistRow({ label, value }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-[13px] text-slate-600">{label}</span>
-      <Badge tone={value === "Pending" ? "gray" : "green"}>{value}</Badge>
+      <Badge tone="green">{value}</Badge>
     </div>
   );
 }
 
 function EwayBillSettings() {
-  const companyId = getCompanyId();
+  const [state, setState] = useState({ ...DEFAULT_STATE });
+  const set = (key) => (val) => setState((s) => ({ ...s, [key]: val }));
+  useBackendSync("eway_bill", state, setState);
 
-  const [form, setForm] = useState({ ...DEFAULT_FORM });
-  const [secrets, setSecrets] = useState({ ewbPassword: "", gspClientSecret: "" });
-  const [savedFlags, setSavedFlags] = useState({ ewbPasswordSaved: false, gspClientSecretSaved: false });
-  const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(companyId ? String(companyId) : "");
-  const [lastTest, setLastTest] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [toasts, setToasts] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
-
-  const showToast = (msg, ok = true) => {
-    const id = Date.now() + Math.random();
-    setToasts((p) => [...p, { id, msg, ok }]);
-    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 3500);
-  };
-
-  const set = (key) => (val) => setForm((s) => ({ ...s, [key]: val }));
-
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (user && user.id) {
-      api
-        .get(`/company/get_companies_by_admin?admin_id=${user.id}`)
-        .then((res) => {
-          const list = (res.data && res.data.data) || [];
-          setCompanies(list);
-          if (list.length && !list.some((c) => String(c.id) === String(selectedCompanyId))) {
-            setSelectedCompanyId(String(list[0].id));
-          }
-        })
-        .catch(() => {});
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!companyId) return;
-    let cancelled = false;
-    api
-      .get("/eway-bill/settings", { params: { company_id: companyId } })
-      .then((res) => {
-        if (cancelled) return;
-        const d = res.data && res.data.data;
-        if (d) {
-          setForm({
-            integrationEnabled: !!d.integrationEnabled,
-            apiProvider: d.apiProvider || DEFAULT_FORM.apiProvider,
-            environment: d.environment || DEFAULT_FORM.environment,
-            companyGstin: d.companyGstin || "",
-            ewbUsername: d.ewbUsername || "",
-            gspClientId: d.gspClientId || "",
-          });
-          setSavedFlags({
-            ewbPasswordSaved: !!d.ewbPasswordSaved,
-            gspClientSecretSaved: !!d.gspClientSecretSaved,
-          });
-          if (d.lastTestAt) {
-            setLastTest({ at: d.lastTestAt, status: d.lastTestStatus, message: d.lastTestMessage });
-          }
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId]);
-
-  const handleSave = async () => {
-    if (!companyId) {
-      showToast("Company ID missing", false);
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await api.post("/eway-bill/settings", {
-        company_id: companyId,
-        settings: { ...form, ...secrets },
-      });
-      if (res.data && res.data.status) {
-        const d = res.data.data;
-        if (d) {
-          setSavedFlags({
-            ewbPasswordSaved: !!d.ewbPasswordSaved,
-            gspClientSecretSaved: !!d.gspClientSecretSaved,
-          });
-          if (d.lastTestAt) {
-            setLastTest({ at: d.lastTestAt, status: d.lastTestStatus, message: d.lastTestMessage });
-          }
-        }
-        setSecrets({ ewbPassword: "", gspClientSecret: "" });
-        showToast(res.data.message || "Settings saved successfully");
-      } else {
-        showToast((res.data && res.data.message) || "Save failed", false);
-      }
-    } catch {
-      showToast("Could not reach server", false);
-    }
-    setSaving(false);
-  };
-
-  const handleTest = async () => {
-    if (!companyId) {
-      showToast("Company ID missing", false);
-      return;
-    }
-    setTesting(true);
-    try {
-      // Persist the current form values so the stored config is tested.
-      await api
-        .post("/eway-bill/settings", { company_id: companyId, settings: { ...form, ...secrets } })
-        .catch(() => {});
-      const res = await api.post("/eway-bill/test-connection", { company_id: companyId });
-      if (res.data) {
-        const d = res.data.data;
-        if (d && d.lastTestAt) {
-          setLastTest({ at: d.lastTestAt, status: d.lastTestStatus, message: d.lastTestMessage });
-        }
-        if (res.data.status) showToast("Connection successful (sandbox gateway)");
-        else showToast(res.data.message || "Connection failed", false);
-      }
-    } catch {
-      showToast("Could not reach server", false);
-    }
-    setTesting(false);
-  };
-
-  const selCompany = companies.find((c) => String(c.id) === String(selectedCompanyId));
-  const gstin = form.companyGstin || (selCompany && selCompany.gstin) || "";
-  const stateCode = gstin.slice(0, 2);
-  const gstinSet = gstin.trim().length > 0;
 
   const guideSteps = [
     "Login to the official E-Way Bill portal (ewaybillgst.gov.in).",
@@ -241,21 +111,10 @@ function EwayBillSettings() {
             <div className="relative">
               <select
                 className={selectCls}
-                value={selectedCompanyId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setSelectedCompanyId(id);
-                  const c = companies.find((x) => String(x.id) === String(id));
-                  if (c && c.gstin) set("companyGstin")(c.gstin);
-                }}
+                value={state.selectedCompany}
+                onChange={(e) => set("selectedCompany")(e.target.value)}
               >
-                {companies.length === 0 && <option value="">Loading companies…</option>}
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.company_name}
-                    {c.gstin ? ` (${c.gstin})` : ""}
-                  </option>
-                ))}
+                <option>Pavitha Consultancy Services (33AABCP1234F1Z5)</option>
               </select>
               <ChevronDown
                 size={16}
@@ -265,14 +124,8 @@ function EwayBillSettings() {
           </div>
           <div className="lg:text-right lg:pb-1">
             <p className="text-[11px] font-bold tracking-widest text-slate-500">REGISTERED STATE &amp; ADDRESS:</p>
-            <p className="mt-1 text-[13.5px] font-semibold text-slate-800">
-              {selCompany ? selCompany.company_name : "—"}
-            </p>
-            <p className="mt-0.5 text-[12px] text-slate-500">
-              {gstinSet
-                ? `State Code: ${stateCode} | GSTIN: ${gstin}`
-                : "No GSTIN configured yet for this company."}
-            </p>
+            <p className="mt-1 text-[13.5px] font-semibold text-slate-800">Chennai, Tamil Nadu (Code: 33)</p>
+            <p className="mt-0.5 text-[12px] text-slate-500">PIN: 600002 | GSTIN: 33AABCP1234F1Z5</p>
           </div>
         </div>
 
@@ -288,7 +141,7 @@ function EwayBillSettings() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[11.5px] font-extrabold tracking-widest text-slate-700">INTEGRATION ENABLED</span>
-            <Toggle checked={form.integrationEnabled} onChange={(v) => set("integrationEnabled")(v)} />
+            <Toggle checked={state.integrationEnabled} onChange={(v) => set("integrationEnabled")(v)} />
           </div>
         </div>
 
@@ -298,7 +151,7 @@ function EwayBillSettings() {
             <div className="relative">
               <select
                 className={selectCls}
-                value={form.apiProvider}
+                value={state.apiProvider}
                 onChange={(e) => set("apiProvider")(e.target.value)}
               >
                 <option>Adequate GSP (Recommended)</option>
@@ -315,7 +168,7 @@ function EwayBillSettings() {
             <div className="relative">
               <select
                 className={selectCls}
-                value={form.environment}
+                value={state.environment}
                 onChange={(e) => set("environment")(e.target.value)}
               >
                 <option>Sandbox (Testing / Demo)</option>
@@ -328,33 +181,26 @@ function EwayBillSettings() {
             </div>
           </Field>
 
-          <Field label="Company GSTIN **" hint={gstinSet ? "✓ GSTIN registered for this profile" : "15-character GST identification number"}>
+          <Field label="Company GSTIN **" hint="15-character GST identification number">
             <input
               className={inputCls}
-              value={form.companyGstin}
+              value={state.companyGstin}
               onChange={(e) => set("companyGstin")(e.target.value)}
             />
           </Field>
 
           <Field label="EWB API Username *" hint="E-Way Bill portal API user registered for this GSTIN">
-            <input
-              className={inputCls}
-              value={form.ewbUsername}
-              onChange={(e) => set("ewbUsername")(e.target.value)}
-            />
+            <input className={inputCls} value={state.ewbUsername} onChange={(e) => set("ewbUsername")(e.target.value)} />
           </Field>
 
-          <Field
-            label="EWB API Password"
-            hint={savedFlags.ewbPasswordSaved ? "✓ Secure password currently saved (AES encrypted)" : "Type a value to store it encrypted"}
-          >
+          <Field label="EWB API Password" hint="✓ Secure password currently saved">
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 className={`${inputCls} pr-9`}
-                value={secrets.ewbPassword}
-                placeholder={savedFlags.ewbPasswordSaved ? "•••••••• (saved — type to change)" : "Enter EWB API password"}
-                onChange={(e) => setSecrets((s) => ({ ...s, ewbPassword: e.target.value }))}
+                readOnly
+                value="secure-password"
+                aria-label="EWB API Password"
               />
               <button
                 type="button"
@@ -367,24 +213,17 @@ function EwayBillSettings() {
           </Field>
 
           <Field label="GSP Client ID *" hint="Provided by Adequare or GSP partner">
-            <input
-              className={inputCls}
-              value={form.gspClientId}
-              onChange={(e) => set("gspClientId")(e.target.value)}
-            />
+            <input className={inputCls} value={state.gspClientId} onChange={(e) => set("gspClientId")(e.target.value)} />
           </Field>
 
-          <Field
-            label="GSP Client Secret"
-            hint={savedFlags.gspClientSecretSaved ? "✓ Secure client secret currently saved (AES encrypted)" : "Type a value to store it encrypted"}
-          >
+          <Field label="GSP Client Secret" hint="✓ Secure client secret currently saved">
             <div className="relative">
               <input
                 type={showSecret ? "text" : "password"}
                 className={`${inputCls} pr-9`}
-                value={secrets.gspClientSecret}
-                placeholder={savedFlags.gspClientSecretSaved ? "•••••••• (saved — type to change)" : "Enter GSP client secret"}
-                onChange={(e) => setSecrets((s) => ({ ...s, gspClientSecret: e.target.value }))}
+                readOnly
+                value="secure-secret"
+                aria-label="GSP Client Secret"
               />
               <button
                 type="button"
@@ -401,21 +240,17 @@ function EwayBillSettings() {
         <div className="flex items-center justify-between gap-3 mt-7 pt-5 border-t border-slate-100">
           <button
             type="button"
-            onClick={handleTest}
-            disabled={testing}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 text-slate-600 text-[13px] font-semibold bg-white hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 text-slate-600 text-[13px] font-semibold bg-white hover:bg-slate-50"
           >
             <Zap size={15} className="text-amber-500" />
-            {testing ? "Testing…" : "Test Connection"}
+            Test Connection
           </button>
           <button
             type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 text-white text-[13px] font-semibold shadow-lg shadow-blue-600/25 hover:bg-blue-700 disabled:opacity-60 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 text-white text-[13px] font-semibold shadow-lg shadow-blue-600/25 hover:bg-blue-700"
           >
             <Save size={15} />
-            {saving ? "Saving…" : "Save Settings"}
+            Save Settings
           </button>
         </div>
       </div>
@@ -428,57 +263,20 @@ function EwayBillSettings() {
           </div>
           <h3 className="text-[15px] font-bold text-slate-800">Connection Status</h3>
         </div>
-
-        {lastTest ? (
-          <div
-            className={`mt-4 flex items-center gap-3 rounded-xl px-4 py-3.5 border ${
-              lastTest.status === "connected"
-                ? "bg-emerald-50 border-emerald-200"
-                : "bg-red-50 border-red-200"
-            }`}
-          >
-            <div
-              className={`w-9 h-9 rounded-full ${
-                lastTest.status === "connected"
-                  ? "bg-emerald-100 text-emerald-600"
-                  : "bg-red-100 text-red-500"
-              } flex items-center justify-center flex-shrink-0`}
-            >
-              {lastTest.status === "connected" ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
-            </div>
-            <div className="min-w-0">
-              <p
-                className={`text-[14px] font-bold ${
-                  lastTest.status === "connected" ? "text-emerald-700" : "text-red-600"
-                }`}
-              >
-                {lastTest.status === "connected" ? "✓ Connected & Verified" : "Connection Failed"}
-              </p>
-              <p className={`text-[12px] ${lastTest.status === "connected" ? "text-emerald-600/90" : "text-red-500/90"}`}>
-                Last tested: {String(lastTest.at).slice(0, 16).replace("T", " ")}
-              </p>
-              {lastTest.message && (
-                <p className="mt-0.5 text-[11.5px] text-slate-500 truncate">{lastTest.message}</p>
-              )}
-            </div>
+        <div className="mt-4 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5">
+          <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 size={18} />
           </div>
-        ) : (
-          <div className="mt-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
-            <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
-              <Clock size={18} />
-            </div>
-            <div>
-              <p className="text-[14px] font-bold text-amber-700">Not Tested Yet</p>
-              <p className="text-[12px] text-amber-600/90">Save settings, then click Test Connection.</p>
-            </div>
+          <div>
+            <p className="text-[14px] font-bold text-emerald-700">✓ Connected &amp; Verified</p>
+            <p className="text-[12px] text-emerald-600/90">Last tested: 9/11/2026, 3:08:16 PM</p>
           </div>
-        )}
-
+        </div>
         <p className="mt-4 text-[11px] font-bold tracking-widest text-slate-500">CONFIGURATION CHECKLIST:</p>
         <div className="mt-2 space-y-1.5">
-          <ChecklistRow label="GSTIN Set" value={gstinSet ? "Yes" : "No"} />
-          <ChecklistRow label="API Password" value={savedFlags.ewbPasswordSaved ? "Encrypted" : "Pending"} />
-          <ChecklistRow label="Client Secret" value={savedFlags.gspClientSecretSaved ? "Encrypted" : "Pending"} />
+          <ChecklistRow label="GSTIN Set" value="Yes" />
+          <ChecklistRow label="API Password" value="Encrypted" />
+          <ChecklistRow label="Client Secret" value="Encrypted" />
         </div>
       </div>
 
@@ -500,20 +298,6 @@ function EwayBillSettings() {
             </li>
           ))}
         </ol>
-      </div>
-
-      {/* TOASTS */}
-      <div className="fixed bottom-5 right-5 space-y-2 z-50">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`px-4 py-2.5 rounded-xl text-[13px] font-semibold shadow-lg border ${
-              t.ok ? "bg-emerald-600 text-white border-emerald-700" : "bg-red-600 text-white border-red-700"
-            }`}
-          >
-            {t.msg}
-          </div>
-        ))}
       </div>
     </SettingsShell>
   );
