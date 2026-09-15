@@ -14,6 +14,7 @@ import {
   Search,
   User,
   RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialParty = null }) {
@@ -39,6 +40,7 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [toast, setToast] = useState(null);
 
   const partyRef = useRef(null);
 
@@ -138,12 +140,12 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
   // Submit Handler
   const handleSavePaymentIn = async () => {
     if (!selectedParty) {
-      setErrorMsg("Please select a Party / Customer.");
+      setErrorMsg("Please select a customer.");
       return;
     }
-    const amountNum = parseFloat(receivedAmount);
-    if (!amountNum || amountNum <= 0) {
-      setErrorMsg("Please enter a valid received amount.");
+    const amountNum = parseFloat(receivedAmount) || 0;
+    if (amountNum <= 0) {
+      setErrorMsg("Please enter a valid received amount greater than 0.");
       return;
     }
 
@@ -168,8 +170,35 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
       if (res.data.status) {
         const savedReceiptNo = res.data.invoice_no || res.data.receipt_no || finalReceiptNo;
         if (onSuccess) onSuccess(savedReceiptNo);
-        onClose();
-        navigate(`/invoice/${savedReceiptNo}`);
+
+        const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+        if (shouldSkipPreview) {
+          setToast(`Payment-In #${savedReceiptNo} recorded successfully!`);
+          setTimeout(() => setToast(null), 4000);
+
+          // Reset form for next payment entry
+          setSelectedParty(null);
+          setPartyQuery("");
+          setReceivedAmount("");
+          setDiscountAmount("");
+          setDescription("");
+          setShowDescription(false);
+
+          // Fetch / increment next receipt number
+          try {
+            const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_in`);
+            if (numRes.data?.status && numRes.data?.formatted_number) {
+              setReceiptNo(numRes.data.formatted_number);
+            } else {
+              setReceiptNo(prev => typeof prev === 'number' ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : 1);
+            }
+          } catch (e) {
+            setReceiptNo(prev => typeof prev === 'number' ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : 1);
+          }
+        } else {
+          onClose();
+          navigate(`/invoice/${savedReceiptNo}`);
+        }
       } else {
         setErrorMsg(res.data.message || "Failed to record payment.");
       }
@@ -226,7 +255,19 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
           </div>
         </div>
 
-        {/* ── 2. ERROR ALERT ── */}
+        {/* ── 2. SUCCESS TOAST & ERROR ALERT ── */}
+        {toast && (
+          <div className="mx-6 mt-3 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+              <X size={13} />
+            </button>
+          </div>
+        )}
+
         {errorMsg && (
           <div className="mx-6 mt-3 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-lg flex items-center justify-between">
             <span>{errorMsg}</span>

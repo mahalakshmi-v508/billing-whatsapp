@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\CashierController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\BillWiseProfitController;
 use App\Http\Controllers\Api\CreditController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
@@ -192,6 +193,8 @@ Route::prefix('customer')->group(function () {
     Route::get('get_customer_by_id', [CustomerController::class, 'getCustomerById']);
     Route::post('toggle_status_customer', [CustomerController::class, 'toggleStatusCustomer']);
     Route::post('update', [CustomerController::class, 'update']);
+    Route::get('getCaptcha', [CustomerController::class, 'getCaptcha']);
+    Route::post('getGSTDetails', [CustomerController::class, 'getGSTDetails']);
 });
 
 // ── DASHBOARD ROUTES ──
@@ -377,6 +380,7 @@ Route::prefix('report')->group(function () {
     Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);
     Route::get('item-report-by-party', [PartyStatementController::class, 'getItemReportByParty']);
     Route::get('item-wise-profit-loss', [ItemWiseProfitLossController::class, 'index']);
+    Route::get('bill-wise-profit', [BillWiseProfitController::class, 'index']);
     Route::get('item-category-wise-profit-loss', [ItemCategoryWiseProfitLossController::class, 'index']);
     Route::get('sale-purchase-by-item-category', [SalePurchaseByItemCategoryController::class, 'index']);
     Route::get('item-wise-discount', [ItemWiseDiscountController::class, 'index']);

@@ -30,7 +30,8 @@ import {
   CreditCard,
   CornerUpLeft,
   Save,
-  Clock
+  Clock,
+  CheckCircle2
 } from "lucide-react";
 
 const unitOptions = [
@@ -232,6 +233,8 @@ export default function AddDebitNote() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const partyRef = useRef(null);
   const productSuggestRef = useRef(null);
@@ -696,16 +699,17 @@ export default function AddDebitNote() {
 
   // Save Debit Note
   const handleSaveDebitNote = async () => {
+    setErrorMsg("");
     const validItems = activeTab.items
       .filter((r, idx) => (idx > 0 || r.product_name) && r.product_name && (parseFloat(r.quantity) || 0) > 0);
 
     if (validItems.length === 0) {
-      alert("Please enter at least one item with a valid product name and quantity.");
+      setErrorMsg("Please enter at least one item with a valid product name and quantity.");
       return;
     }
 
     if (!activeTab.partyInput && !activeTab.selectedSupplier) {
-      alert("Please select or enter a Supplier (Party).");
+      setErrorMsg("Please select or enter a Supplier (Party).");
       return;
     }
 
@@ -752,13 +756,46 @@ export default function AddDebitNote() {
 
       if (res.data.status) {
         const savedReturnNo = res.data.return_no || res.data.invoice_no || activeTab.returnNo;
-        navigate(`/invoice/${savedReturnNo}`);
+        if (isEditMode) {
+          setToast(`Debit Note #${savedReturnNo} updated successfully!`);
+          setTimeout(() => navigate("/purchases/debit-note"), 1500);
+        } else {
+          const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+          if (shouldSkipPreview) {
+            setToast(`Debit Note #${savedReturnNo} saved successfully!`);
+            setTimeout(() => setToast(null), 4000);
+
+            // Fetch next sequential debit note number from settings
+            let nextReturnNo = "";
+            try {
+              const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=debit_note`);
+              if (numRes.data?.status && numRes.data?.formatted_number) {
+                nextReturnNo = numRes.data.formatted_number;
+              } else {
+                nextReturnNo = `DN-${String(existingCount + 2).padStart(4, "0")}`;
+              }
+            } catch (e) {
+              nextReturnNo = `DN-${String(existingCount + 2).padStart(4, "0")}`;
+            }
+
+            // Reset active tab for continuous next debit note data entry
+            setTabs((prev) =>
+              prev.map((tab) =>
+                tab.id === activeTabId
+                  ? createNewDebitNoteTab(tab.id, 1, nextReturnNo)
+                  : tab
+              )
+            );
+          } else {
+            navigate(`/invoice/${savedReturnNo}`);
+          }
+        }
       } else {
-        alert(res.data.message || "Failed to save Debit Note.");
+        setErrorMsg(res.data.message || "Failed to save Debit Note.");
       }
     } catch (err) {
       console.error("Error saving debit note:", err);
-      alert("Failed to save Debit Note.");
+      setErrorMsg("Failed to save Debit Note.");
     } finally {
       setSaving(false);
     }
@@ -869,6 +906,31 @@ export default function AddDebitNote() {
 
       {/* ── 2. MAIN FORM BODY ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex-1 w-full space-y-6">
+
+        {/* Success Toast & Error Alerts */}
+        {toast && (
+          <div className="px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={15} className="text-rose-600 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            <button onClick={() => setErrorMsg("")} className="text-rose-500 hover:text-rose-700 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* ── SECTION 1: SUPPLIER & RETURN DETAILS ── */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">

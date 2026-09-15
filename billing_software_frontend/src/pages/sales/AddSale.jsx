@@ -862,10 +862,37 @@ export default function AddSale() {
       const submitPayload = isEditMode ? { ...payload, invoice_no: invoiceNo } : payload;
       const res = await api.post(endpoint, submitPayload);
       if (res.data.status) {
+        const savedInvNo = res.data.invoice_no || invoiceNo || "Invoice";
         if (isEditMode) {
-          navigate("/sales/invoices");
+          showToast(`Invoice #${savedInvNo} updated successfully!`, true);
+          setTimeout(() => navigate("/sales/invoices"), 1500);
         } else {
-          navigate(`/invoice/${res.data.invoice_no}`);
+          const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
+          if (shouldSkipPreview) {
+            showToast(`Invoice #${savedInvNo} generated successfully!`, true);
+
+            // Fetch next invoice number
+            const companyId = parseInt(selectedCompany) || parseInt(user?.company_id) || (companies[0] ? parseInt(companies[0].id) : 1);
+            let nextInvNo = "";
+            try {
+              const nextRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}`);
+              if (nextRes.data && nextRes.data.status && nextRes.data.invoice_no) {
+                nextInvNo = nextRes.data.invoice_no;
+              }
+            } catch (e) {
+              console.error("Error fetching next invoice no:", e);
+            }
+
+            // Reset active tab state for continuous next invoice entry
+            setSales(prev => prev.map(s => {
+              if (s.id === activeTabId) {
+                return createNewSaleTab(s.id, 1, nextInvNo);
+              }
+              return s;
+            }));
+          } else {
+            navigate(`/invoice/${savedInvNo}`);
+          }
         }
       } else {
         showToast(res.data.message || (isEditMode ? "Failed to update invoice" : "Failed to generate invoice"), false);
@@ -1089,7 +1116,7 @@ export default function AddSale() {
             color: "#ffffff",
             borderRadius: 6,
             padding: "12px 16px",
-            boxShadow: "0 6px 20px rgba(239, 68, 68, 0.4)",
+            boxShadow: toast.ok ? "0 6px 20px rgba(16, 185, 129, 0.35)" : "0 6px 20px rgba(239, 68, 68, 0.4)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -1098,8 +1125,12 @@ export default function AddSale() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <ShieldAlert size={26} color="#ffffff" style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.35, color: "#ffffff" }}>
+            {toast.ok ? (
+              <CheckCircle2 size={24} color="#ffffff" style={{ flexShrink: 0 }} />
+            ) : (
+              <ShieldAlert size={26} color="#ffffff" style={{ flexShrink: 0 }} />
+            )}
+            <span style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.35, color: "#ffffff" }}>
               {toast.msg}
             </span>
           </div>
