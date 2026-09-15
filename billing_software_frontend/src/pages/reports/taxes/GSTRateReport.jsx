@@ -3,6 +3,7 @@ import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle } from "l
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -47,6 +48,8 @@ export default function GSTRateReport() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const companyRef = useRef(null);
 
   useEffect(() => {
@@ -97,6 +100,11 @@ export default function GSTRateReport() {
     printReport(element);
   };
 
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
   return <div style={pageStyle}>
     <div style={topBarStyle}>
       <div style={dateFieldStyle}><span>From</span><input type="date" value={formatDate(fromDate)} onChange={(event) => setFromDate(parseDate(event.target.value))} style={dateInputStyle} /></div>
@@ -105,7 +113,7 @@ export default function GSTRateReport() {
       <button onClick={exportExcel} title="Excel Report" style={actionStyle}><FileSpreadsheet size={17} color={INDIGO} /></button><button onClick={print} title="Print" style={actionStyle}><Printer size={17} color={INDIGO} /></button>
     </div>
     <div style={titleStyle}>GST TAX RATE REPORT</div>
-    <div style={tableWrapStyle}><div style={scrollStyle}><table style={tableStyle}><thead><tr>{["Tax Name", "Tax Percent", "Taxable Sale Amount", "Tax In", "Taxable Purchase/Expense Amount", "Tax Out"].map((label, index) => <th key={label} style={{ ...thStyle, textAlign: index === 0 ? "left" : "right" }}>{label}</th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={6} style={emptyStyle}>Loading...</td></tr> : error ? <tr><td colSpan={6} style={emptyStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : rows.map((row) => <tr key={`${row.tax_percent}-${row.tax_name}`}><td style={tdStyle}>{row.tax_name}</td><td style={{ ...tdStyle, textAlign: "right" }}>{row.tax_percent}%</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.taxable_sale_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.tax_in)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.taxable_purchase_expense_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.tax_out)}</td></tr>)}</tbody></table></div></div>
+    <div style={tableWrapStyle}><div style={scrollStyle}><table style={tableStyle}><thead><tr>{["Tax Name", "Tax Percent", "Taxable Sale Amount", "Tax In", "Taxable Purchase/Expense Amount", "Tax Out"].map((label, index) => <th key={label} style={{ ...thStyle, textAlign: index === 0 ? "left" : "right" }}>{label}</th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={6} style={emptyStyle}>Loading...</td></tr> : error ? <tr><td colSpan={6} style={emptyStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : pagedRows.map((row) => <tr key={`${row.tax_percent}-${row.tax_name}`}><td style={tdStyle}>{row.tax_name}</td><td style={{ ...tdStyle, textAlign: "right" }}>{row.tax_percent}%</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.taxable_sale_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.tax_in)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.taxable_purchase_expense_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.tax_out)}</td></tr>)}</tbody></table></div><ReportPagination total={totalRows} page={safePage} rowsPerPage={rowsPerPage} onPageChange={setPage} onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }} /></div>
     <div style={totalsStyle}><span>Total Tax In: <strong>{money(totals.tax_in)}</strong></span><span>Total Tax Out: <strong>{money(totals.tax_out)}</strong></span></div>
   </div>;
 }

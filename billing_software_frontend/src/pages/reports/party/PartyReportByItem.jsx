@@ -10,6 +10,7 @@ import {
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -137,6 +138,9 @@ export default function PartyReportByItem() {
   const [catOpen, setCatOpen] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const periodRef = useRef(null);
   const companyRef = useRef(null);
   const catRef = useRef(null);
@@ -263,6 +267,11 @@ export default function PartyReportByItem() {
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
   const metaLabel = `${prettyFrom} to ${prettyTo}`;
+
+  const totalRows = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = filtered.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   /* ── Excel export ── */
   const handleExcel = () => {
@@ -572,7 +581,7 @@ export default function PartyReportByItem() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((r, i) => (
+                pagedRows.map((r, i) => (
                   <tr key={r.role + "-" + r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
                     <td style={tdStyle}>{i + 1}</td>
                     <td style={{ ...tdStyle, fontSize: 13, fontWeight: 600, color: NAVY }}>{r.name || "-"}</td>
@@ -607,6 +616,14 @@ export default function PartyReportByItem() {
             </tfoot>
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
     </div>
   );

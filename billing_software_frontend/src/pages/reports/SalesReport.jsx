@@ -1855,11 +1855,12 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 
 import {
-  FileText, Search, ChevronLeft, ChevronRight,
+  FileText, Search,
   Eye, Receipt, Download, Filter, X, FileDown, TrendingUp,
   PackageX, Boxes, MoreVertical, Printer, Loader2, MessageCircle,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
+import ReportPagination from "../../components/reports/ReportPagination";
 
 /* reuse the EXACT invoice markup + WhatsApp send logic from the Invoice View page */
 import { DESIGN_COMPONENTS } from "../billing/Invoice";
@@ -3199,46 +3200,13 @@ const downloadExcel = (rows, label) => {
       </div>
 
       {/* PAGINATION */}
-      {totalPages > 1 && (
-        <div style={{
-          display:"flex", alignItems:"center",
-          justifyContent:"space-between", marginTop:18,
-        }}>
-          <button className="rp-pg-btn" onClick={() => goTo(currentPage - 1)}
-            disabled={currentPage === 1}
-            style={{
-              display:"flex", alignItems:"center", gap:6,
-              padding:"8px 16px", background:"#fff",
-              border:"1px solid #dbeafe", borderRadius:10,
-              cursor:"pointer", fontFamily:FONT,
-            }}>
-            <ChevronLeft size={15} /> Prev
-          </button>
-
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center" }}>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <button key={p} onClick={() => goTo(p)} className="rp-pg-btn" style={{
-                width:36, height:36, borderRadius:10,
-                border:"1px solid #dbeafe",
-                background: currentPage === p ? INDIGO : "#fff",
-                color: currentPage === p ? "#fff" : INDIGO,
-                fontWeight:700, cursor:"pointer", fontFamily:FONT,
-              }}>{p}</button>
-            ))}
-          </div>
-
-          <button className="rp-pg-btn" onClick={() => goTo(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            style={{
-              display:"flex", alignItems:"center", gap:6,
-              padding:"8px 16px", background:"#fff",
-              border:"1px solid #dbeafe", borderRadius:10,
-              cursor:"pointer", fontFamily:FONT,
-            }}>
-            Next <ChevronRight size={15} />
-          </button>
-        </div>
-      )}
+      <ReportPagination
+        total={filtered.length}
+        page={currentPage}
+        rowsPerPage={recordsPerPage}
+        pageSizeOptions={[recordsPerPage]}
+        onPageChange={goTo}
+      />
 
       {/* ── OFF-SCREEN INVOICE (same markup as Invoice View page) —
              rendered only while a row WhatsApp/Print action is running ── */}

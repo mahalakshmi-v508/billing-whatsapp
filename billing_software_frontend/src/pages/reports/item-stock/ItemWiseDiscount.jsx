@@ -3,6 +3,7 @@ import { AlertCircle, ChevronDown, FileSpreadsheet, Printer, RefreshCw } from "l
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -73,6 +74,8 @@ export default function ItemWiseDiscount() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
   const periodRef = useRef(null);
@@ -144,6 +147,11 @@ export default function ItemWiseDiscount() {
     printReport(element);
   };
 
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
   return (
     <div style={pageStyle}>
       <div style={topBarStyle}>
@@ -156,7 +164,14 @@ export default function ItemWiseDiscount() {
       <div style={headingStyle}>Item Wise Discount</div>
       <div style={itemFilterStyle}><span style={filterLabelStyle}>ITEM NAME</span><input value={itemName} onChange={(event) => setItemName(event.target.value)} placeholder="Item name" style={filterInputStyle} /><select value={categoryId} onChange={(event) => setCategoryId(Number(event.target.value))} style={filterSelectStyle}><option value={0}>All Categories</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><select value={subcategoryId} onChange={(event) => setSubcategoryId(Number(event.target.value))} style={filterSelectStyle}><option value={0}>All Subcategories</option>{subcategories.map((subcategory) => <option key={subcategory.id} value={subcategory.id}>{subcategory.name}</option>)}</select></div>
       {itemName && matchingProducts.length === 0 && <div style={filterHintStyle}>No matching items found.</div>}
-      <div style={tableContainerStyle}><div style={tableScrollStyle}><table style={tableStyle}><thead><tr><th style={{ ...thStyle, textAlign: "center", width: 42 }}>#</th><th style={thStyle}>ITEM NAME</th><th style={{ ...thStyle, textAlign: "right" }}>TOTAL QTY SOLD</th><th style={{ ...thStyle, textAlign: "right" }}>TOTAL SALE AMOUNT</th><th style={{ ...thStyle, textAlign: "right" }}>TOTAL DISC. AMOUNT</th><th style={{ ...thStyle, textAlign: "right" }}>AVG. DISC. (%)</th><th style={{ ...thStyle, textAlign: "center", width: 84 }}>Details</th></tr></thead><tbody>{loading ? <tr><td colSpan={7} style={emptyCellStyle}>Loading...</td></tr> : error ? <tr><td colSpan={7} style={emptyCellStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : rows.length === 0 ? <tr><td colSpan={7} style={emptyCellStyle}>No Items</td></tr> : rows.map((row, index) => <tr key={row.id}><td style={{ ...tdStyle, textAlign: "center", color: GRAY_TEXT }}>{index + 1}</td><td style={{ ...tdStyle, fontWeight: 600 }}>{row.item_name || "-"}</td><td style={{ ...tdStyle, textAlign: "right" }}>{number(row.total_qty_sold)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.total_sale_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.total_discount_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{number(row.avg_discount_percent)}%</td><td style={{ ...tdStyle, textAlign: "center" }}></td></tr>)}</tbody></table></div></div>
+      <div style={tableContainerStyle}><div style={tableScrollStyle}><table style={tableStyle}><thead><tr><th style={{ ...thStyle, textAlign: "center", width: 42 }}>#</th><th style={thStyle}>ITEM NAME</th><th style={{ ...thStyle, textAlign: "right" }}>TOTAL QTY SOLD</th><th style={{ ...thStyle, textAlign: "right" }}>TOTAL SALE AMOUNT</th><th style={{ ...thStyle, textAlign: "right" }}>TOTAL DISC. AMOUNT</th><th style={{ ...thStyle, textAlign: "right" }}>AVG. DISC. (%)</th><th style={{ ...thStyle, textAlign: "center", width: 84 }}>Details</th></tr></thead><tbody>{loading ? <tr><td colSpan={7} style={emptyCellStyle}>Loading...</td></tr> : error ? <tr><td colSpan={7} style={emptyCellStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : rows.length === 0 ? <tr><td colSpan={7} style={emptyCellStyle}>No Items</td></tr> : pagedRows.map((row, index) => <tr key={row.id}><td style={{ ...tdStyle, textAlign: "center", color: GRAY_TEXT }}>{index + 1}</td><td style={{ ...tdStyle, fontWeight: 600 }}>{row.item_name || "-"}</td><td style={{ ...tdStyle, textAlign: "right" }}>{number(row.total_qty_sold)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.total_sale_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.total_discount_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{number(row.avg_discount_percent)}%</td><td style={{ ...tdStyle, textAlign: "center" }}></td></tr>)}</tbody></table></div></div>
+      <ReportPagination
+        total={totalRows}
+        page={safePage}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+      />
       <div style={summaryStyle}><div style={summaryTitleStyle}>Summary</div><div>Total Sale Amount: <strong>{money(totals.total_sale_amount)}</strong></div><div>Total Discount amount: <strong>{money(totals.total_discount_amount)}</strong></div></div>
     </div>
   );

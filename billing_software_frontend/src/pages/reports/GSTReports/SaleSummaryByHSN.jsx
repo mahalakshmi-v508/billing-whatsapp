@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 function auth() {
   try {
@@ -576,6 +578,9 @@ console.warn(
     [filtered]
   );
 
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const onPeriodChange = (e) => {
     const key = e.target.value;
     setPeriodKey(key);
@@ -658,7 +663,7 @@ console.warn(
       XLSX.writeFile(wb, fname);
     } catch (err) {
       console.error(err);
-      alert("Unable to generate Excel. Please try again.");
+      showToast("Unable to generate Excel. Please try again.", "error");
     }
   };
 
@@ -670,6 +675,12 @@ console.warn(
       "Sale Summary By HSN"
     );
   };
+
+  const totalRows = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedStart = (safePage - 1) * rowsPerPage;
+  const pagedRows = filtered.slice(pagedStart, pagedStart + rowsPerPage);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", fontFamily: FONT }}>
@@ -865,9 +876,9 @@ console.warn(
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((g, i) => (
+                  pagedRows.map((g, i) => (
                     <tr key={`${g.hsn}-${i}`} style={{ background: i % 2 ? ALT_BG : "#fff" }}>
-                      <td style={{ ...tdBase, textAlign: "center" }}>{i + 1}</td>
+                      <td style={{ ...tdBase, textAlign: "center" }}>{pagedStart + i + 1}</td>
                       <td style={{ ...tdBase, fontWeight: 600 }}>{g.hsn}</td>
                       <td style={{ ...tdBase, ...tdNum }}>{fmtMoney(g.total)}</td>
                       <td style={{ ...tdBase, ...tdNum }}>{fmtMoney(g.base)}</td>
@@ -881,6 +892,16 @@ console.warn(
               </tbody>
             </table>
           </div>
+          <ReportPagination
+            total={totalRows}
+            page={safePage}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={(v) => {
+              setRowsPerPage(v);
+              setPage(1);
+            }}
+          />
         </div>
       </div>
 

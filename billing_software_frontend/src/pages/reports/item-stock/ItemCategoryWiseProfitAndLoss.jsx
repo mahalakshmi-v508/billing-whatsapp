@@ -1,8 +1,9 @@
 ﻿import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronRight, Search, Printer, FileSpreadsheet, RefreshCw, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Search, Printer, FileSpreadsheet, RefreshCw, AlertCircle, Check } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -16,6 +17,12 @@ const PERIODS = [
   { label: "Last 30 Days", value: "last_30_days" },
   { label: "This Year", value: "this_year" },
   { label: "All Time", value: "all_time" },
+];
+
+const ITEM_STATUSES = [
+  { label: "All Items", value: "all" },
+  { label: "Active Items", value: "active" },
+  { label: "Inactive Items", value: "inactive" },
 ];
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -135,10 +142,8 @@ export default function ItemCategoryWiseProfitAndLoss() {
 
   const [companyId, setCompanyId] = useState(null);
   const [companyName, setCompanyName] = useState("My Company");
-  const [categories, setCategories] = useState([]);
-  const [subcategories, setSubcategories] = useState([]);
 
-  const [filter, setFilter] = useState({ type: "all", id: 0, label: "All Items" });
+  const [itemStatus, setItemStatus] = useState("active");
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -148,17 +153,20 @@ export default function ItemCategoryWiseProfitAndLoss() {
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const [periodOpen, setPeriodOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
 
   const periodRef = useRef(null);
-  const filterRef = useRef(null);
+  const statusRef = useRef(null);
   const searchRef = useRef(null);
 
   useEffect(() => {
     function onDoc(e) {
       if (periodRef.current && !periodRef.current.contains(e.target)) setPeriodOpen(false);
-      if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false);
+      if (statusRef.current && !statusRef.current.contains(e.target)) setStatusOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -183,37 +191,6 @@ export default function ItemCategoryWiseProfitAndLoss() {
       .catch(() => setError("Failed to load companies."));
   }, [adminId]);
 
-  // Options for the "All Items" dropdown (existing category/subcategory APIs).
-  useEffect(() => {
-    if (!companyId) return;
-    api.get(`/category/get_all?company_id=${companyId}`).then((res) => {
-      if (res.data?.status) setCategories(res.data.data || []);
-    }).catch(() => {});
-    api.get(`/subcategory/get_all?company_id=${companyId}`).then((res) => {
-      if (res.data?.status) setSubcategories(res.data.data || []);
-    }).catch(() => {});
-  }, [companyId]);
-
-  const categoryName = useMemo(() => {
-    const m = {};
-    categories.forEach((c) => { if (c) m[String(c.id)] = c.name; });
-    return m;
-  }, [categories]);
-
-  const filterOptions = useMemo(() => {
-    const opts = [{ type: "all", id: 0, label: "All Items", parent: "" }];
-    categories.forEach((c) => opts.push({ type: "category", id: Number(c.id), label: c.name, parent: "" }));
-    subcategories.forEach((s) => {
-      opts.push({
-        type: "subcategory",
-        id: Number(s.id),
-        label: s.name,
-        parent: s.category_id ? categoryName[String(s.category_id)] || "" : "",
-      });
-    });
-    return opts;
-  }, [categories, subcategories, categoryName]);
-
   // Fetch report on any filter change.
   useEffect(() => {
     if (companyId === null) return;
@@ -226,8 +203,6 @@ export default function ItemCategoryWiseProfitAndLoss() {
         from_date: formatDateISO(startDate),
         to_date: formatDateISO(endDate),
       };
-      if (filter.type === "category") params.category_id = filter.id;
-      if (filter.type === "subcategory") params.subcategory_id = filter.id;
       api
         .get("/report/item-category-wise-profit-loss", { params })
         .then((res) => {
@@ -243,7 +218,7 @@ export default function ItemCategoryWiseProfitAndLoss() {
         .finally(() => setLoading(false));
     }, 0);
     return () => clearTimeout(t);
-  }, [companyId, adminId, startDate, endDate, filter, reloadKey]);
+  }, [companyId, adminId, startDate, endDate, reloadKey]);
 
   const selectPeriod = (p) => {
     setPeriod(p.value);
@@ -251,9 +226,9 @@ export default function ItemCategoryWiseProfitAndLoss() {
     setPeriodOpen(false);
   };
 
-  const selectFilter = (o) => {
-    setFilter({ type: o.type, id: o.id, label: o.label });
-    setFilterOpen(false);
+  const selectStatus = (value) => {
+    setItemStatus(value);
+    setStatusOpen(false);
   };
 
   const toggleExpanded = (id) => {
@@ -306,7 +281,13 @@ export default function ItemCategoryWiseProfitAndLoss() {
 
   const prettyFrom = startDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-  const metaLabel = `${prettyFrom} to ${prettyTo} | ${companyName} | ${filter.label}`;
+  const statusLabel = ITEM_STATUSES.find((s) => s.value === itemStatus)?.label || "Active Items";
+  const metaLabel = `${prettyFrom} to ${prettyTo} | ${companyName} | ${statusLabel}`;
+
+  // UI-only pagination over the displayed rows (calculations/totals untouched).
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = displayRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   /* ── Excel (exactly the 12 required columns) ── */
   const handleExcel = () => {
@@ -420,26 +401,30 @@ export default function ItemCategoryWiseProfitAndLoss() {
           />
         </div>
 
-        <div ref={filterRef} style={{ position: "relative" }}>
-          <button onClick={() => setFilterOpen((v) => !v)} style={compactSelectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY, fontSize: 12.5 }}>{filter.label}</span>
-            <ChevronDown size={14} style={{ color: "#94a3b8", transform: filterOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+        <div ref={statusRef} style={{ position: "relative" }}>
+          <button onClick={() => setStatusOpen((v) => !v)} style={compactSelectBtnStyle}>
+            <span style={{ fontWeight: 600, color: NAVY, fontSize: 12.5 }}>{statusLabel}</span>
+            <ChevronDown size={14} style={{ color: "#94a3b8", transform: statusOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
           </button>
-          {filterOpen && (
-            <div style={{ ...dropdownPanelStyle, maxHeight: 320, overflowY: "auto", minWidth: 210 }}>
-              {filterOptions.map((o) => (
+          {statusOpen && (
+            <div style={statusDropdownPanelStyle}>
+              {ITEM_STATUSES.map((s) => (
                 <button
-                  key={o.type + "-" + o.id}
-                  onClick={() => selectFilter(o)}
+                  key={s.value}
+                  onClick={() => selectStatus(s.value)}
                   style={{
                     ...dropdownItemStyle,
-                    paddingLeft: o.type === "subcategory" ? 26 : 12,
-                    background: filter.type === o.type && filter.id === o.id ? "#eef2ff" : "transparent",
-                    color: filter.type === o.type && filter.id === o.id ? INDIGO : o.type === "subcategory" ? "#64748b" : "#334155",
-                    fontWeight: filter.type === o.type && filter.id === o.id ? 700 : 500,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    background: s.value === itemStatus ? "#eef2ff" : "transparent",
+                    color: s.value === itemStatus ? INDIGO : "#334155",
+                    fontWeight: s.value === itemStatus ? 700 : 500,
                   }}
                 >
-                  {o.type === "subcategory" ? "↳ " + o.label : o.label}
+                  <span>{s.label}</span>
+                  {s.value === itemStatus && <Check size={14} color={INDIGO} style={{ flexShrink: 0 }} />}
                 </button>
               ))}
             </div>
@@ -545,7 +530,7 @@ export default function ItemCategoryWiseProfitAndLoss() {
                   </td>
                 </tr>
               ) : (
-                displayRows.map((r) => (
+                pagedRows.map((r) => (
                   <tr key={(r.isChild ? "sub-" : "cat-") + r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}`, background: r.isChild ? "#fcfcfd" : "#fff" }}>
                     <td style={{ ...tdStyle, paddingLeft: r.isChild ? 34 : 10 }}>
                       {!r.isChild && (r.children || []).length > 0 && (
@@ -620,6 +605,16 @@ export default function ItemCategoryWiseProfitAndLoss() {
           </div>
         )}
       </div>
+      <ReportPagination
+        total={displayRows.length}
+        page={safePage}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={(v) => {
+          setRowsPerPage(v);
+          setPage(1);
+        }}
+      />
     </div>
   );
 }
@@ -691,6 +686,20 @@ const dropdownPanelStyle = {
   borderRadius: 8,
   boxShadow: "0 12px 32px rgba(30,27,75,.12)",
   overflow: "hidden",
+  fontFamily: FONT,
+};
+
+const statusDropdownPanelStyle = {
+  position: "absolute",
+  top: "calc(100% + 5px)",
+  left: 0,
+  width: 180,
+  padding: 4,
+  zIndex: 80,
+  background: "#fff",
+  border: `1px solid ${LIGHT_BORDER}`,
+  borderRadius: 8,
+  boxShadow: "0 8px 24px rgba(15,23,42,.10)",
   fontFamily: FONT,
 };
 

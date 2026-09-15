@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation, Outlet } from "react-router-dom";
 import ReportsNavDropdown from "./ReportsNavDropdown";
+import ReportToaster from "./ReportToaster";
 import { findReportByPath } from "./reportNavigation";
 import { recordReportView } from "./reportUsage";
 
@@ -42,6 +43,7 @@ export default function ReportsLayout() {
       <div style={{ flex: 1, minHeight: 0 }}>
         <Outlet />
       </div>
+      <ReportToaster />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -111,6 +112,8 @@ export default function GSTReport() {
   const [totals, setTotals] = useState({ tax_in: 0, tax_out: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [companyOpen, setCompanyOpen] = useState(false);
   const companyRef = useRef(null);
@@ -152,28 +155,33 @@ export default function GSTReport() {
 
   // Fetch GST report data
   useEffect(() => {
-    if (companyId === null) return;
-    setLoading(true);
-    setError("");
-    api
-      .get("/report/gst-report", {
-        params: {
-          company_id: companyId,
-          admin_id: adminId || 0,
-          from_date: formatDateISO(fromDate),
-          to_date: formatDateISO(toDate),
-        },
-      })
-      .then((res) => {
-        if (res.data?.status) {
-          setRows(res.data.data || []);
-          setTotals(res.data.totals || { tax_in: 0, tax_out: 0 });
-        } else {
-          setError(res.data?.message || "Failed to load GST report.");
-        }
-      })
-      .catch(() => setError("Failed to load GST report."))
-      .finally(() => setLoading(false));
+    if (companyId === null) return undefined;
+    let active = true;
+    const timer = setTimeout(() => {
+      setLoading(true);
+      setError("");
+      api
+        .get("/report/gst-report", {
+          params: {
+            company_id: companyId,
+            admin_id: adminId || 0,
+            from_date: formatDateISO(fromDate),
+            to_date: formatDateISO(toDate),
+          },
+        })
+        .then((res) => {
+          if (!active) return;
+          if (res.data?.status) {
+            setRows(res.data.data || []);
+            setTotals(res.data.totals || { tax_in: 0, tax_out: 0 });
+          } else {
+            setError(res.data?.message || "Failed to load GST report.");
+          }
+        })
+        .catch(() => { if (active) setError("Failed to load GST report."); })
+        .finally(() => { if (active) setLoading(false); });
+    }, 0);
+    return () => { active = false; clearTimeout(timer); };
   }, [companyId, adminId, fromDate, toDate]);
 
   const handleDateChange = (setter) => (e) => {
@@ -254,6 +262,11 @@ export default function GSTReport() {
        </div>`;
     printElement(el, "GST Tax Report");
   };
+
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
     <div style={{ fontFamily: FONT, padding: "6px 2px", display: "flex", flexDirection: "column", height: "100%" }}>
@@ -376,7 +389,7 @@ export default function GSTReport() {
                   </td>
                 </tr>
               ) : (
-                rows.map((r, i) => (
+                pagedRows.map((r, i) => (
                   <tr key={i} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
                     <td style={{ ...tdStyle, fontWeight: 600, color: NAVY }}>{r.party_name}</td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>{fmtINR(r.sale_tax)}</td>
@@ -386,6 +399,7 @@ export default function GSTReport() {
               )}
             </tbody>
           </table>
+          <ReportPagination total={totalRows} page={safePage} rowsPerPage={rowsPerPage} onPageChange={setPage} onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }} />
         </div>
       </div>
 

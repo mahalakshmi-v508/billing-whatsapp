@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
-import { Settings, X, Info, Eye, EyeOff, Plus } from "lucide-react";
+import { Settings, X, Info, Eye, EyeOff, Plus, BadgeCheck } from "lucide-react";
 
 export default function EditCustomer({ customerId, onSuccess, onCancel }) {
   const navigate = useNavigate();
@@ -43,6 +43,12 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
   const [fetching, setFetching] = useState(true);
   const [toast, setToast] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
+
+  // ─── GST lock state ─────────────────────────────────────────
+  // A stored verified GSTIN (gst_no from the DB) is read-only forever:
+  // no unlock / re-verify. Nothing else in the form is locked.
+  const [gstLocked, setGstLocked] = useState(false);
+  const [originalGst, setOriginalGst] = useState("");
 
   // ─── tab state ──────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("gst");
@@ -97,6 +103,10 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
           const c = res.data.data;
           const isEnabled = Number(c.credit_enabled) === 1;
           setIsCreditAuthorized(isEnabled);
+          /* A customer record that already holds a GSTIN was verified when
+             saved, so its GSTIN is permanently locked in edit mode. */
+          setGstLocked(Boolean(c.gst_no));
+          setOriginalGst(c.gst_no || "");
           setForm((p) => ({
             ...p,
             name: c.name || "",
@@ -341,7 +351,7 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
         shipping_city: form.shipping_city,
         shipping_country: form.shipping_country,
         shipping_pincode: form.shipping_pincode,
-        gst_no: form.gst_no,
+        gst_no: gstLocked ? originalGst : form.gst_no,
         type: form.gst_type,
         credit_enabled: form.credit_enabled,
         credit_limit: form.credit_enabled ? form.credit_limit : 0,
@@ -656,14 +666,43 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
                       placeholder="22ABCDE1234F1Z5"
                       value={form.gst_no}
                       maxLength={15}
-                      onChange={(e) => set("gst_no", e.target.value.toUpperCase().slice(0, 15))}
-                      style={{ paddingRight: 34 }}
+                      onChange={(e) => {
+                        if (gstLocked) return;
+                        set("gst_no", e.target.value.toUpperCase().slice(0, 15));
+                      }}
+                      onPaste={(e) => {
+                        if (gstLocked) e.preventDefault();
+                      }}
+                      onCut={(e) => {
+                        if (gstLocked) e.preventDefault();
+                      }}
+                      disabled={gstLocked}
+                      readOnly={gstLocked}
+                      style={{
+                        paddingRight: 34,
+                        ...(gstLocked
+                          ? {
+                              background: "#f1f5f9",
+                              color: "#111827",
+                              cursor: "not-allowed",
+                              opacity: 1,
+                            }
+                          : {}),
+                      }}
                     />
-                    <Info
-                      size={14}
-                      color="#94a3b8"
-                      style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}
-                    />
+                    {gstLocked ? (
+                      <BadgeCheck
+                        size={14}
+                        color="#16a34a"
+                        style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}
+                      />
+                    ) : (
+                      <Info
+                        size={14}
+                        color="#94a3b8"
+                        style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}
+                      />
+                    )}
                   </div>
                 </div>
                 <div>

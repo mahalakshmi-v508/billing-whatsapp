@@ -1,7 +1,7 @@
 import { useState } from "react";
 import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
-import { Settings, X, Info, Eye, EyeOff, Plus } from "lucide-react";
+import { Settings, X, Info, Eye, EyeOff, Plus, RefreshCw, BadgeCheck } from "lucide-react";
 
 export default function CustomerForm({ onSuccess, onCancel }) {
   const navigate = useNavigate();
@@ -58,6 +58,15 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
+  // ─── GST verify state ──────────────────────────────────
+  const [gstCaptchaImg, setGstCaptchaImg] = useState("");
+  const [gstSessionId, setGstSessionId] = useState("");
+  const [enteredCaptcha, setEnteredCaptcha] = useState("");
+  const [showCaptchaBox, setShowCaptchaBox] = useState(false);
+  const [gstVerified, setGstVerified] = useState(false);
+  const [isLoadingCaptcha, setIsLoadingCaptcha] = useState(false);
+  const [isVerifyingGst, setIsVerifyingGst] = useState(false);
+
   // ─── confirm-popup state ────────────────────────────────────
   // null | "close" | "clearBilling" | "clearShipping"
   const [confirmAction, setConfirmAction] = useState(null);
@@ -110,6 +119,55 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     form.shipping_address_line1.trim() ||
     form.shipping_address_line2.trim() ||
     form.shipping_city.trim();
+
+  const getMissingRequiredFields = () => {
+    const requiredFields = [
+      ["Party Name", form.name],
+      ["GSTIN", form.gst_no],
+      ["Phone Number", form.phone],
+      ["State", form.state],
+      ["Email ID", form.email],
+      ["Billing Address", form.billing_address],
+      ["Account Number", form.account_number],
+      ["PAN Number", form.pan_number],
+      ["Date of Birth", form.date_of_birth],
+    ];
+
+    if (form.show_detailed_address) {
+      requiredFields.push(
+        ["Billing Address Line 1", form.address_line1],
+        ["Billing Address Line 2", form.address_line2],
+        ["Billing City", form.city],
+        ["Billing Pincode", form.billing_pincode]
+      );
+    }
+
+    if (form.enable_shipping) {
+      requiredFields.push(["Shipping Address", form.shipping_address]);
+
+      if (form.show_detailed_shipping_address) {
+        requiredFields.push(
+          ["Shipping Address Line 1", form.shipping_address_line1],
+          ["Shipping Address Line 2", form.shipping_address_line2],
+          ["Shipping City", form.shipping_city],
+          ["Shipping Pincode", form.shipping_pincode]
+        );
+      }
+    }
+
+    if (form.credit_enabled === 1) {
+      requiredFields.push(
+        ["Credit Limit", form.credit_limit],
+        ["Credit Days", form.credit_days],
+        ["Balance", form.balance],
+        ["Pending", form.pending]
+      );
+    }
+
+    return requiredFields.filter(([, value]) => !String(value ?? "").trim());
+  };
+
+  const hasMissingRequiredFields = getMissingRequiredFields().length > 0;
 
   // ─── whole-form cancel: confirm only if the form is dirty ──
   const handleCancelClick = () => {
@@ -257,10 +315,176 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     }
   };
 
+  // ─── GST verify handlers ──────────────────────────────
+  const resetGstVerify = () => {
+    setGstVerified(false);
+    setShowCaptchaBox(false);
+    setGstCaptchaImg("");
+    setGstSessionId("");
+    setEnteredCaptcha("");
+  };
+
+  const fetchCaptcha = async () => {
+    if (!form.gst_no.trim()) {
+      showToast("Enter GSTIN first", false);
+      return;
+    }
+    setIsLoadingCaptcha(true);
+    try {
+      const res = await api.get("/customer/getCaptcha");
+      if (res.data.status === false || !res.data.image) {
+        showToast(res.data.message || "Failed to load captcha", false);
+        return;
+      }
+      setGstCaptchaImg(res.data.image);
+      setGstSessionId(res.data.sessionId);
+      setEnteredCaptcha("");
+      setShowCaptchaBox(true);
+      setGstVerified(false);
+    } catch (err) {
+      console.error(err);
+      showToast("Error loading captcha", false);
+    } finally {
+      setIsLoadingCaptcha(false);
+    }
+  };
+
+  const handleVerifyGst = async () => {
+  if (gstVerified) return;
+
+  if (!gstSessionId) {
+    showToast("Please refresh the captcha", false);
+    return;
+  }
+
+  if (!enteredCaptcha.trim()) {
+    showToast("Enter the captcha code", false);
+    return;
+  }
+
+  setIsVerifyingGst(true);
+
+  try {
+    const res = await api.post("/customer/getGSTDetails", {
+      sessionId: gstSessionId,
+      GSTIN: form.gst_no.trim().toUpperCase(),
+      captcha: enteredCaptcha.trim(),
+    });
+
+    const payload = res.data;
+
+    console.log("GST Verification Response:", payload);
+
+    // Backend directly returns GST details
+    const gstDetails =
+      payload?.data?.tp ||
+      payload?.tp ||
+      payload;
+
+    // Check whether GST details are actually available
+    if (
+      gstDetails &&
+      gstDetails.gstin &&
+      gstDetails.lgnm
+    ) {
+      const address = gstDetails?.pradr?.adr || "";
+
+      const businessName =
+        gstDetails.tradeNam ||
+        gstDetails.lgnm ||
+        "";
+
+      const gstType =
+        String(gstDetails.dty || "").toLowerCase() === "composition"
+          ? "Registered Business - Composition"
+          : "Registered Business - Regular";
+
+      // Extract state from jurisdiction string if possible
+      let state = "";
+
+      const stj = String(gstDetails.stj || "");
+
+      if (stj.toLowerCase().includes("tamil nadu")) {
+        state = "Tamil Nadu";
+      }
+
+      setForm((p) => ({
+        ...p,
+
+        // Basic GST details
+        name: businessName || p.name,
+        gst_no: gstDetails.gstin || p.gst_no,
+
+        // GST type
+        gst_type: gstType,
+
+        // Address details
+        state: state || p.state,
+        billing_country: "India",
+        billing_address: address || p.billing_address,
+      }));
+
+      setGstVerified(true);
+
+      // Close captcha
+      setShowCaptchaBox(false);
+      setGstCaptchaImg("");
+      setGstSessionId("");
+      setEnteredCaptcha("");
+
+      setIsDirty(true);
+
+      showToast("GST verified! Details filled automatically.");
+    } else {
+      const message =
+        payload?.error?.message ||
+        payload?.message ||
+        "Verification failed. Please check the GSTIN and captcha.";
+
+      showToast(
+        String(message)
+          .replace(/<[^>]+>/g, "")
+          .slice(0, 120),
+        false
+      );
+
+      // Get fresh captcha
+      fetchCaptcha();
+    }
+ } catch (err) {
+    console.error("GST Verification Error:", err);
+
+    const serverMessage =
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      "Server error while verifying GST";
+
+    showToast(
+      String(serverMessage)
+        .replace(/<[^>]+>/g, "")
+        .slice(0, 120),
+      false
+    );
+  } finally {
+    setIsVerifyingGst(false);
+  }
+};
+
   // ─── submit ──────────────────────────────────────────────────
   const handleSubmit = async (andNew = false) => {
     const user = JSON.parse(localStorage.getItem("user"));
     const admin_id = user?.id;
+
+    const missingFields = getMissingRequiredFields();
+    if (missingFields.length > 0) {
+      showToast(`Please fill ${missingFields[0][0]}`, false);
+      return;
+    }
+
+    if (!gstVerified) {
+      showToast("Please verify GSTIN before saving", false);
+      return;
+    }
 
     if (!form.name.trim()) {
       showToast("Party Name is required", false);
@@ -379,6 +603,7 @@ gst_type: "Unregistered/Consumer",
           setIsCreditAuthorized(false);
           setOtpSent(false);
           setEnteredOtp("");
+          resetGstVerify();
           setErrors({});
           setActiveTab("gst"); // reset back to default tab, never "credit"
           setIsDirty(false);
@@ -444,6 +669,89 @@ gst_type: "Unregistered/Consumer",
             {toast.ok ? "✓" : "✕"}
           </div>
           {toast.msg}
+        </div>
+      )}
+
+      {showCaptchaBox && gstCaptchaImg && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="gst-captcha-title"
+          onClick={() => setShowCaptchaBox(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100001,
+            background: "rgba(15, 23, 42, 0.48)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(380px, 100%)",
+              background: "#fff",
+              borderRadius: 14,
+              padding: 20,
+              boxShadow: "0 24px 70px rgba(15, 23, 42, 0.25)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div>
+                <h3 id="gst-captcha-title" style={{ margin: 0, color: "#0f172a", fontSize: 16 }}>
+                  Verify GSTIN
+                </h3>
+                <p style={{ margin: "5px 0 0", color: "#64748b", fontSize: 11.5 }}>
+                  Enter the captcha to continue
+                </p>
+              </div>
+              <button
+                type="button"
+                className="cf-icon-btn"
+                title="Close captcha"
+                onClick={() => setShowCaptchaBox(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <img
+                src={gstCaptchaImg}
+                alt="GST verification captcha"
+                style={{ height: 44, borderRadius: 6, border: "1px solid #e2e8f0" }}
+              />
+              <button
+                type="button"
+                className="cf-icon-btn"
+                title="Refresh captcha"
+                onClick={fetchCaptcha}
+                disabled={isLoadingCaptcha}
+              >
+                <RefreshCw size={16} />
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="cf-input"
+                placeholder="Enter captcha"
+                value={enteredCaptcha}
+                onChange={(e) => setEnteredCaptcha(e.target.value.toUpperCase())}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="cf-btn cf-btn-success"
+                onClick={handleVerifyGst}
+                disabled={isVerifyingGst || !enteredCaptcha.trim()}
+                style={{ padding: "8px 12px", whiteSpace: "nowrap", flexShrink: 0 }}
+              >
+                {isVerifyingGst ? "..." : "Submit"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -568,6 +876,12 @@ gst_type: "Unregistered/Consumer",
           color: #2563eb;
         }
         .cf-btn-outline:hover { background: #eff6ff; }
+        .cf-btn-outline:disabled {
+          background: #f1f5f9;
+          border-color: #d1d5db;
+          color: #9ca3af;
+          cursor: not-allowed;
+        }
         .cf-btn-ghost {
           background: #eef2f7;
           border: none;
@@ -660,23 +974,64 @@ gst_type: "Unregistered/Consumer",
             </div>
             <div>
               <label className="cf-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                GSTIN
+                GSTIN (15 Digits)
               </label>
-              <div style={{ position: "relative" }}>
-                <input
-                  className="cf-input"
-                  placeholder="22ABCDE1234F1Z5"
-                  value={form.gst_no}
-                  maxLength={15}
-                  onChange={(e) => set("gst_no", e.target.value.toUpperCase().slice(0, 15))}
-                  style={{ paddingRight: 34 }}
-                />
-                <Info
-                  size={14}
-                  color="#94a3b8"
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}
-                />
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input
+                    className="cf-input"
+                    placeholder="22ABCDE1234F1Z5"
+                    value={form.gst_no}
+                    maxLength={15}
+                    onChange={(e) => {
+                      if (gstVerified) return;
+                      set("gst_no", e.target.value.toUpperCase().slice(0, 15));
+                    }}
+                    onPaste={(e) => {
+                      if (gstVerified) e.preventDefault();
+                    }}
+                    onCut={(e) => {
+                      if (gstVerified) e.preventDefault();
+                    }}
+                    disabled={gstVerified}
+                    readOnly={gstVerified}
+                    style={{
+                      paddingRight: 34,
+                      ...(gstVerified
+                        ? {
+                            background: "#f1f5f9",
+                            color: "#111827",
+                            cursor: "not-allowed",
+                            opacity: 1,
+                          }
+                        : {}),
+                    }}
+                  />
+                  {gstVerified ? (
+                    <BadgeCheck
+                      size={14}
+                      color="#16a34a"
+                      style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}
+                    />
+                  ) : (
+                    <Info
+                      size={14}
+                      color="#94a3b8"
+                      style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}
+                    />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="cf-btn cf-btn-outline"
+                  onClick={fetchCaptcha}
+                  disabled={isLoadingCaptcha || !form.gst_no.trim() || gstVerified}
+                  style={{ padding: "8px 10px", whiteSpace: "nowrap", flexShrink: 0 }}
+                >
+                  {gstVerified ? "Verified" : isLoadingCaptcha ? "Loading..." : "Verify"}
+                </button>
               </div>
+
             </div>
             <div>
               <label className="cf-label">Phone Number</label>
@@ -1183,7 +1538,7 @@ gst_type: "Unregistered/Consumer",
             type="button"
             className="cf-btn cf-btn-outline"
             onClick={() => handleSubmit(true)}
-            disabled={loading}
+            disabled={loading || hasMissingRequiredFields}
           >
             Save & New
           </button>
@@ -1191,7 +1546,7 @@ gst_type: "Unregistered/Consumer",
             type="button"
             className="cf-btn cf-btn-primary"
             onClick={() => handleSubmit(false)}
-            disabled={loading}
+            disabled={loading || hasMissingRequiredFields}
           >
             {loading ? "Creating..." : "Save"}
           </button>

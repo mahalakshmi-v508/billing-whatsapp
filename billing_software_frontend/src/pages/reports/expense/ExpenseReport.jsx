@@ -5,6 +5,15 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import html2pdf from "html2pdf.js";
 import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   BarChart3,
   Copy,
   Eye,
@@ -21,6 +30,8 @@ import {
   X,
 } from "lucide-react";
 import ExpenseDocument from "./ExpenseDocument";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 const formatINDate = (dateStr) => {
   if (!dateStr) return "-";
@@ -90,6 +101,251 @@ function printElement(element) {
     win.addEventListener("load", fire);
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   EXPENSE GRAPH — Vyapar-style summary shown above the
+   transactions. Uses ONLY the expense records already loaded by
+   the page (/expense/list) and the same date-range used by the
+   page filters — no fake/static data, no extra API.
+   ───────────────────────────────────────────────────────────── */
+const GRAPH_MODES = [
+  { key: "daily", label: "Daily" },
+  { key: "weekly", label: "Weekly" },
+  { key: "monthly", label: "Monthly" },
+  { key: "yearly", label: "Yearly" },
+];
+
+const MONTH_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+const DAY_MS = 86400000;
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const toDay = (dateStr) => {
+  if (!dateStr) return null;
+  const d = new Date(`${String(dateStr).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const addDaysISO = (dateStr, n) => {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+const daysDiff = (fromISO, toISO) =>
+  Math.round(
+    (new Date(`${toISO}T00:00:00`).getTime() - new Date(`${fromISO}T00:00:00`).getTime()) / DAY_MS
+  );
+
+const fmtGraphMoney = (v) =>
+  `₹${Number(v || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const fmtGraphAxis = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
+
+/* Dynamic Y-axis scale based on the ACTUAL maximum expense, so the chart
+   is never distorted to a fixed 0–100 range. */
+function niceScale(maxValue) {
+  if (!(maxValue > 0)) return { max: 0, ticks: [0] };
+  const rawStep = maxValue / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const norm = rawStep / mag;
+  const step = Math.max(1, mag * (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10));
+  const top = Math.ceil(maxValue / step) * step;
+  const ticks = [];
+  for (let v = 0; v <= top; v = Math.round((v + step) * 100) / 100) ticks.push(v);
+  return { max: top, ticks };
+}
+
+function buildExpenseSeries(expenses, mode, fromDate, toDate, period) {
+  /* Mirror the page's API query range so zero-filled buckets line up
+     exactly with what /expense/list actually returned. */
+  const effFrom = period === "Between" ? fromDate : getFirstDayOfMonthISO();
+  const effTo = period === "Between" ? toDate : getTodayISO();
+
+  const start = toDay(effFrom);
+  const end = toDay(effTo);
+  if (!start || !end || start.getTime() > end.getTime()) {
+    return { buckets: [], scale: niceScale(0) };
+  }
+
+  const sums = new Map();
+  (expenses || []).forEach((exp) => {
+    const edate = String(exp.expense_date || "").slice(0, 10);
+    if (!edate) return;
+    const amount = Number(exp.total_amount || 0);
+    if (mode === "daily") {
+      sums.set(edate, (sums.get(edate) || 0) + amount);
+    } else if (mode === "weekly") {
+      const idx = Math.floor(daysDiff(effFrom, edate) / 7);
+      if (idx >= 0) sums.set(idx, (sums.get(idx) || 0) + amount);
+    } else if (mode === "monthly") {
+      const key = edate.slice(0, 7);
+      sums.set(key, (sums.get(key) || 0) + amount);
+    } else {
+      const key = edate.slice(0, 4);
+      sums.set(key, (sums.get(key) || 0) + amount);
+    }
+  });
+
+  const buckets = [];
+
+  if (mode === "daily") {
+    const days = daysDiff(effFrom, effTo) + 1;
+    for (let i = 0; i < days; i++) {
+      const date = addDaysISO(effFrom, i);
+      const [y, m, d] = date.split("-");
+      buckets.push({
+        key: `d-${date}`,
+        label: `${pad2(Number(d))}/${pad2(Number(m))}`,
+        tooltipTitle: `Date: ${pad2(Number(d))}/${pad2(Number(m))}/${y}`,
+        amount: sums.get(date) || 0,
+      });
+    }
+  } else if (mode === "weekly") {
+    const weekCount = Math.max(1, Math.ceil((daysDiff(effFrom, effTo) + 1) / 7));
+    for (let w = 0; w < weekCount; w++) {
+      buckets.push({
+        key: `w-${w}`,
+        label: `Week ${w + 1}`,
+        tooltipTitle: `Week: Week ${w + 1}`,
+        amount: sums.get(w) || 0,
+      });
+    }
+  } else if (mode === "monthly") {
+    let y = start.getFullYear();
+    let m = start.getMonth();
+    const endY = end.getFullYear();
+    const endM = end.getMonth();
+    while (y < endY || (y === endY && m <= endM)) {
+      const key = `${y}-${pad2(m + 1)}`;
+      buckets.push({
+        key: `m-${key}`,
+        label: MONTH_SHORT[m],
+        tooltipTitle: `Month: ${MONTH_SHORT[m]} ${y}`,
+        amount: sums.get(key) || 0,
+      });
+      m += 1;
+      if (m > 11) {
+        m = 0;
+        y += 1;
+      }
+    }
+  } else {
+    for (let y = start.getFullYear(); y <= end.getFullYear(); y++) {
+      const key = String(y);
+      buckets.push({
+        key: `y-${key}`,
+        label: key,
+        tooltipTitle: `Year: ${key}`,
+        amount: sums.get(key) || 0,
+      });
+    }
+  }
+
+  const maxAmount = buckets.reduce((mx, b) => Math.max(mx, b.amount), 0);
+  return { buckets, scale: niceScale(maxAmount) };
+}
+
+function ExpenseGraphTooltip({ active, payload }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const point = payload[0]?.payload;
+  if (!point) return null;
+  return (
+    <div className="expense-graph-tooltip">
+      <div>{point.tooltipTitle}</div>
+      <div className="expense-graph-tooltip-amount">Amount: {fmtGraphMoney(point.amount)}</div>
+    </div>
+  );
+}
+
+function ExpenseGraph({ expenses, loading, period, fromDate, toDate }) {
+  const [mode, setMode] = useState("daily");
+
+  const { buckets, scale } = useMemo(
+    () => buildExpenseSeries(expenses, mode, fromDate, toDate, period),
+    [expenses, mode, fromDate, toDate, period]
+  );
+
+  const noData = !expenses || expenses.length === 0 || buckets.length === 0;
+  const angledDaily = mode === "daily" && buckets.length > 10;
+
+  return (
+    <section id="expense-graph" className="expense-graph expense-report-no-print">
+      <div className="expense-graph-head">
+        <h3 className="expense-graph-title">Expense Graph</h3>
+        <div className="expense-graph-tabs">
+          {GRAPH_MODES.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              className={`expense-graph-tab ${mode === m.key ? "active" : ""}`}
+              onClick={() => setMode(m.key)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading && noData ? (
+        <div className="expense-graph-empty">Loading expense data...</div>
+      ) : noData ? (
+        <div className="expense-graph-empty">No expense data available for the selected period.</div>
+      ) : (
+        <ResponsiveContainer width="100%" height={300}>
+          <AreaChart data={buckets} margin={{ top: 12, right: 14, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="expenseGraphFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#2563eb" stopOpacity={0.16} />
+                <stop offset="100%" stopColor="#2563eb" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="#eef2f8" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11.5, fill: "#64748b" }}
+              tickLine={false}
+              axisLine={{ stroke: "#cbd5e1" }}
+              interval="preserveStartEnd"
+              minTickGap={8}
+              angle={angledDaily ? -35 : 0}
+              textAnchor={angledDaily ? "end" : "middle"}
+              height={angledDaily ? 46 : 30}
+            />
+            <YAxis
+              tick={{ fontSize: 11.5, fill: "#64748b" }}
+              tickLine={false}
+              axisLine={false}
+              width={62}
+              domain={[0, scale.max || 100]}
+              ticks={scale.max > 0 ? scale.ticks : undefined}
+              tickFormatter={fmtGraphAxis}
+            />
+            <Tooltip
+              content={(props) => <ExpenseGraphTooltip {...props} />}
+              cursor={{ stroke: "#c7d2fe", strokeDasharray: "4 4" }}
+            />
+            <Area
+              type="monotone"
+              dataKey="amount"
+              stroke="#2563eb"
+              strokeWidth={2.5}
+              fill="url(#expenseGraphFill)"
+              dot={{ r: 3.2, fill: "#2563eb", stroke: "#fff", strokeWidth: 1.5 }}
+              activeDot={{ r: 5, fill: "#2563eb", stroke: "#fff", strokeWidth: 2 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </section>
+  );
+}
 export default function ExpenseReport() {
   const navigate = useNavigate();
   const user = useMemo(() => {
@@ -110,7 +366,9 @@ export default function ExpenseReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [showGraph, setShowGraph] = useState(false);
+  const [graphModalOpen, setGraphModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   /* Row Actions (Purchase.jsx pattern) */
   const [actionMenu, setActionMenu] = useState(null);
@@ -201,15 +459,6 @@ export default function ExpenseReport() {
 
   const filteredExpenses = useMemo(() => expenses, [expenses]);
 
-  const graphData = useMemo(() => {
-    const map = new Map();
-    filteredExpenses.forEach((expense) => {
-      const key = (expense.expense_date || "").slice(5, 7) || "00";
-      map.set(key, (map.get(key) || 0) + Number(expense.total_amount || 0));
-    });
-    return Array.from(map.entries()).map(([month, amount]) => ({ month, amount }));
-  }, [filteredExpenses]);
-
   const handlePeriodChange = (value) => {
     setPeriod(value);
     if (value === "This Month") {
@@ -272,11 +521,11 @@ export default function ExpenseReport() {
         setDeleteTarget(null);
         loadExpenses();
       } else {
-        alert(res.data.message || "Unable to delete this expense");
+        showToast(res.data.message || "Unable to delete this expense", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Error deleting expense");
+      showToast("Error deleting expense", "error");
     } finally {
       setDeletingId(null);
     }
@@ -330,17 +579,18 @@ export default function ExpenseReport() {
       if (res.data.status) {
         setDocBusyText("");
         loadExpenses();
-        alert(
-          `Expense duplicated as ${res.data.expense_no || res.data.invoice_no || "New"}`
+        showToast(
+          `Expense duplicated as ${res.data.expense_no || res.data.invoice_no || "New"}`,
+          "success"
         );
       } else {
         setDocBusyText("");
-        alert(res.data.message || "Unable to duplicate expense");
+        showToast(res.data.message || "Unable to duplicate expense", "error");
       }
     } catch (err) {
       setDocBusyText("");
       console.error(err);
-      alert("Error duplicating expense");
+      showToast("Error duplicating expense", "error");
     }
   };
 
@@ -370,7 +620,7 @@ export default function ExpenseReport() {
       .then((detail) => setDocAction({ mode: "pdf", detail }))
       .catch((err) => {
         setDocBusyText("");
-        alert(err.message);
+        showToast(err.message, "error");
       });
   };
 
@@ -385,7 +635,7 @@ export default function ExpenseReport() {
       .then((detail) => setDocAction({ mode: "print", detail }))
       .catch((err) => {
         setDocBusyText("");
-        alert(err.message);
+        showToast(err.message, "error");
       });
   };
 
@@ -402,7 +652,7 @@ export default function ExpenseReport() {
       if (!element) {
         setDocAction(null);
         setDocBusyText("");
-        alert("Could not prepare the expense document");
+        showToast("Could not prepare the expense document", "error");
         return;
       }
 
@@ -425,24 +675,72 @@ export default function ExpenseReport() {
       if (mode === "print") {
         printElement(element);
       } else {
-        const opt = {
-          margin: [8, 8, 8, 8],
-          filename: `expense-${docAction.detail.expense_no || docAction.detail.id || ""}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            backgroundColor: "#ffffff",
-          },
-          jsPDF: {
-            unit: "mm",
-            format: "a4",
-            orientation: "portrait",
-          },
-        };
+        /*
+         * FIX PDF HORIZONTAL CROPPING / EMPTY PAYMENT BOXES
+         *
+         * Same recipe as the working Purchase PDF: measure the real rendered
+         * expense voucher width instead of forcing html2canvas to capture only
+         * the fixed 794px box. The inline width is applied, layout gets one
+         * frame, then the FULL rendered width is captured and jsPDF scales the
+         * complete image down to the A4 page — so nothing on the right side
+         * (nor the PAID/BALANCE boxes) is ever cropped out.
+         */
+        const originalWidth = element.style.width;
+        const originalMaxWidth = element.style.maxWidth;
+        const originalOverflow = element.style.overflow;
+        const originalBoxSizing = element.style.boxSizing;
+
+        const contentWidth = Math.max(
+          element.scrollWidth || 0,
+          element.offsetWidth || 0,
+          element.clientWidth || 0,
+          794
+        );
 
         try {
+          element.style.width = `${contentWidth}px`;
+          element.style.maxWidth = "none";
+          element.style.overflow = "visible";
+          element.style.boxSizing = "border-box";
+
+          /* Give the browser one frame to recalculate layout after resizing. */
+          await new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve))
+          );
+
+          const captureWidth = Math.max(
+            element.scrollWidth || 0,
+            element.offsetWidth || 0,
+            contentWidth
+          );
+
+          const opt = {
+            margin: [6, 6, 6, 6],
+            filename: `expense-${docAction.detail.expense_no || docAction.detail.id || ""}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: {
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              backgroundColor: "#ffffff",
+              scrollX: 0,
+              scrollY: 0,
+              windowWidth: captureWidth,
+              width: captureWidth,
+              x: 0,
+              y: 0,
+            },
+            pagebreak: {
+              mode: ["css", "legacy"],
+            },
+            jsPDF: {
+              unit: "mm",
+              format: "a4",
+              orientation: "portrait",
+              compress: true,
+            },
+          };
+
           const url = await html2pdf()
             .set(opt)
             .from(element)
@@ -451,7 +749,13 @@ export default function ExpenseReport() {
           window.open(url, "_blank");
         } catch (err) {
           console.error(err);
-          alert("Could not generate the PDF");
+          showToast("Could not generate the PDF", "error");
+        } finally {
+          /* Restore the hidden render container so other actions are unaffected. */
+          element.style.width = originalWidth;
+          element.style.maxWidth = originalMaxWidth;
+          element.style.overflow = originalOverflow;
+          element.style.boxSizing = originalBoxSizing;
         }
       }
 
@@ -482,7 +786,7 @@ export default function ExpenseReport() {
   /* EXCEL EXPORT — real filtered rows for the selected range/firm */
   const handleDownloadExcel = () => {
     if (!filteredExpenses.length) {
-      alert("No data available to export");
+      showToast("No data available to export", "warning");
       return;
     }
 
@@ -530,6 +834,11 @@ export default function ExpenseReport() {
     fontWeight: "600",
     cursor: "pointer",
   };
+
+  const totalRows = filteredExpenses.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = filteredExpenses.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
     <div className="expense-report-page">
@@ -742,6 +1051,73 @@ export default function ExpenseReport() {
           font-weight: 700;
         }
         .loading { padding: 50px; text-align: center; color: #65748b; }
+        .expense-graph {
+          background: #fff;
+          border: 1px solid #dde2ea;
+          border-radius: 12px;
+          padding: 18px 20px 12px;
+          margin-top: 18px;
+          box-shadow: 0 1px 2px rgba(0,0,0,.04);
+        }
+        .expense-graph-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+          padding-bottom: 14px;
+          border-bottom: 1px solid #eef2f8;
+        }
+        .expense-graph-title {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 800;
+          color: #304254;
+        }
+        .expense-graph-tabs {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+        .expense-graph-tab {
+          background: transparent;
+          border: none;
+          border-bottom: 2px solid transparent;
+          color: #94a3b8;
+          font-size: 13px;
+          font-weight: 700;
+          padding: 8px 14px;
+          cursor: pointer;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+        .expense-graph-tab:hover { color: #40536b; }
+        .expense-graph-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+        .expense-graph-empty {
+          padding: 56px 20px;
+          text-align: center;
+          color: #94a3b8;
+          font-size: 14px;
+          font-weight: 600;
+        }
+        .expense-graph-tooltip {
+          background: #0f172a;
+          color: #fff;
+          border-radius: 8px;
+          padding: 8px 12px;
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.55;
+          box-shadow: 0 10px 24px rgba(0,0,0,.18);
+          white-space: nowrap;
+        }
+        .expense-graph-tooltip-amount { color: #93c5fd; }
+        @media (max-width: 760px) {
+          .expense-graph { padding: 14px 10px 8px; }
+          .expense-graph-title { font-size: 16px; }
+          .expense-graph-tab { padding: 7px 10px; font-size: 12px; }
+        }
         .modal-backdrop {
           position: fixed;
           inset: 0;
@@ -831,7 +1207,10 @@ export default function ExpenseReport() {
           </div>
 
           <div className="report-actions">
-            <button className="graph-action" onClick={() => setShowGraph(true)}>
+            <button
+              className="graph-action"
+              onClick={() => setGraphModalOpen(true)}
+            >
               <BarChart3 /> <span>Graph</span>
             </button>
             <button className="excel-action" onClick={handleDownloadExcel}>
@@ -876,11 +1255,11 @@ export default function ExpenseReport() {
                     <th>Payment Type</th>
                     <th>Amount</th>
                     <th>Balance Due</th>
-                    <th></th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredExpenses.map((expense) => (
+                  {pagedRows.map((expense) => (
                     <tr key={expense.id}>
                       <td>{formatINDate(expense.expense_date)}</td>
                       <td>{expense.expense_no || expense.id}</td>
@@ -905,8 +1284,17 @@ export default function ExpenseReport() {
             </div>
           )}
         </div>
+
+        <div className="expense-report-no-print">
+          <ReportPagination
+            total={totalRows}
+            page={safePage}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+          />
+        </div>
       </div>
-{/* ── 3-DOT ACTIONS DROPDOWN (fixed, never clipped by the table scroll) ── */}
       {actionMenu && actionMenuExpense && (
         <>
           {/* Click-outside to close */}
@@ -1394,26 +1782,23 @@ export default function ExpenseReport() {
           </div>
         </div>
       )}
-{/* ── EXPENSE GRAPH MODAL ── */}
-      {showGraph && (
-        <div className="modal-backdrop">
-          <div className="preview-modal">
+
+      {/* ── EXPENSE GRAPH MODAL — opens only when the Graph button is clicked ── */}
+      {graphModalOpen && (
+        <div className="modal-backdrop" onClick={() => setGraphModalOpen(false)}>
+          <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
             <div className="preview-head">
               <h3>Expense Graph</h3>
-              <button className="row-menu-button" onClick={() => setShowGraph(false)}><X /></button>
+              <button className="row-menu-button" onClick={() => setGraphModalOpen(false)}><X size={18} /></button>
             </div>
             <div className="preview-content">
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, minHeight: 190 }}>
-                {graphData.length === 0 ? <div>No data</div> : graphData.map((row) => {
-                  const barHeight = Math.max(10, Math.min(180, Number(row.amount || 0) / Math.max(...graphData.map((r) => Number(r.amount || 0)), 1) * 180));
-                  return (
-                    <div key={row.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: '50px', height: `${barHeight}px`, background: '#4f8bf9', borderRadius: '4px 4px 0 0', display: 'flex', alignItems: 'end' }}>{}</div>
-                      <span style={{ fontSize: 11, color: '#40536b' }}>{row.month}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <ExpenseGraph
+                expenses={filteredExpenses}
+                loading={loading}
+                period={period}
+                fromDate={fromDate}
+                toDate={toDate}
+              />
             </div>
           </div>
         </div>
@@ -1421,10 +1806,11 @@ export default function ExpenseReport() {
 
       {/* =====================================================
           OFF-SCREEN EXPENSE DOCUMENT used by Open PDF / Print
-          (kept off the painted viewport with negative z-index,
-           exactly like the proven Purchase.jsx implementation —
-           never display:none / visibility:hidden so html2canvas
-           can still rasterise it)
+          (kept off the painted viewport — never display:none /
+           visibility:hidden so html2canvas can still rasterise it. Width is
+           max-content so the capture always has the voucher's real width and
+           jsPDF scales the complete image down to the A4 page — nothing on the
+           right side is ever cropped.)
       ===================================================== */}
       {docAction && (
         <div
@@ -1433,16 +1819,22 @@ export default function ExpenseReport() {
             position: "fixed",
             top: 0,
             left: "-10000px",
-            width: 794,
+            width: "max-content",
+            minWidth: 794,
             background: "#fff",
             zIndex: -1,
+            overflow: "visible",
           }}
         >
           <div
             id="row-action-expense"
             style={{
               background: "#fff",
-              width: 794,
+              width: "max-content",
+              minWidth: 794,
+              maxWidth: "none",
+              overflow: "visible",
+              boxSizing: "border-box",
             }}
           >
             <ExpenseDocument

@@ -7,6 +7,19 @@ import { getFrequentlyUsedReports, removeFrequentReport } from "./reportUsage";
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
 
+/** Reports hidden from the dropdown (UI-only change: the registry, routes,
+ *  active-title lookup and default-redirect stay untouched). */
+const HIDDEN_REPORT_PATHS = new Set([
+  "/reports/all-transactions",
+  "/reports/profit-loss",
+  "/reports/cash-flow",
+  "/reports/trial-balance",
+  "/reports/balance-sheet",
+  "/reports/bank-statement",
+  "/reports/discount-report",
+  "/reports/loan-statement",
+]);
+
 /**
  * Report header used at the top of every report page:
  *
@@ -66,7 +79,7 @@ export default function ReportsNavDropdown() {
   const searchMatches = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return [];
-    return reports.filter((r) => r.title.toLowerCase().includes(term));
+    return reports.filter((r) => !HIDDEN_REPORT_PATHS.has(r.path) && r.title.toLowerCase().includes(term));
   }, [q]);
 
   const toggleSection = (key) =>
@@ -137,6 +150,7 @@ export default function ReportsNavDropdown() {
                 <>
                   {/* Expandable sections (in the app's report-menu order) */}
                   {reportSections.map((section) => {
+                    if (section.reports.every((r) => HIDDEN_REPORT_PATHS.has(r.path))) return null;
                     const open = !!openSections[section.key];
                     return (
                       <div key={section.key}>
@@ -146,9 +160,11 @@ export default function ReportsNavDropdown() {
                           onClick={() => toggleSection(section.key)}
                         />
                         {open &&
-                          section.reports.map((r) => (
-                            <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} indent />
-                          ))}
+                          section.reports
+                            .filter((r) => !HIDDEN_REPORT_PATHS.has(r.path))
+                            .map((r) => (
+                              <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} indent />
+                            ))}
                       </div>
                     );
                   })}
@@ -157,9 +173,11 @@ export default function ReportsNavDropdown() {
                   {otherReports.length > 0 && (
                     <>
                       <div style={listSectionLabel}>All Reports</div>
-                      {otherReports.map((r) => (
-                        <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} />
-                      ))}
+                      {otherReports
+                        .filter((r) => !HIDDEN_REPORT_PATHS.has(r.path))
+                        .map((r) => (
+                          <Row key={r.path} title={r.title} active={r.path === activePath} onPick={() => go(r)} />
+                        ))}
                     </>
                   )}
                 </>
