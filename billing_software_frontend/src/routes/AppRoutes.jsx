@@ -88,6 +88,7 @@ import SaleSubmenuView from "../pages/sales/SaleSubmenuView";
 import SaleInvoices from "../pages/sales/SaleInvoices";
 import EstimateQuotation from "../pages/sales/estimate-quotation/EstimateQuotation";
 import EwayBills from "../pages/eway-bills/EwayBills";
+import GenerateEwayBill from "../pages/eway-bills/GenerateEwayBill";
 import EstimateForm from "../pages/sales/estimate-quotation/EstimateForm";
 import PaymentIn from "../pages/sales/payment_in/PaymentIn";
 import CreditNoteList from "../pages/sales/credit_note/CreditNoteList";
@@ -261,6 +262,7 @@ export default function AppRoutes() {
 
             {/* E-Way Bills */}
             <Route path="/e-way" element={<EwayBills />} />
+            <Route path="/e-way/generate" element={<GenerateEwayBill />} />
             
             {/* Settings & Configuration */}
             <Route path="/settings" element={<General />} />

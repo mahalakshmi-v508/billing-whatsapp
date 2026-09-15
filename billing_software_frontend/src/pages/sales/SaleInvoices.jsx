@@ -33,6 +33,7 @@ import {
   GripVertical,
   RotateCcw,
   Check,
+  Truck,
 } from "lucide-react";
 
 // Table columns list for customization drawer with rich icons and colors
@@ -899,6 +900,19 @@ export default function SaleInvoices() {
                                   >
                                     <Printer size={14} className="text-emerald-600" />
                                     <span>Print POS</span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuId(null);
+                                      navigate(
+                                        `/e-way/generate?invoice_id=${inv.id || ""}&invoice_no=${encodeURIComponent(inv.invoice_no || "")}`
+                                      );
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                  >
+                                    <Truck size={14} className="text-blue-600" />
+                                    <span>Generate E-Way Bill</span>
                                   </button>
                                   <div className="border-t border-slate-100 my-1" />
                                   <button
