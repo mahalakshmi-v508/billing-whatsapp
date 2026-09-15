@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Search, Printer, FileSpreadsheet, RefreshCw,
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -152,6 +153,9 @@ export default function ItemCategoryWiseProfitAndLoss() {
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const [periodOpen, setPeriodOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
 
@@ -279,6 +283,11 @@ export default function ItemCategoryWiseProfitAndLoss() {
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const statusLabel = ITEM_STATUSES.find((s) => s.value === itemStatus)?.label || "Active Items";
   const metaLabel = `${prettyFrom} to ${prettyTo} | ${companyName} | ${statusLabel}`;
+
+  // UI-only pagination over the displayed rows (calculations/totals untouched).
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = displayRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   /* ── Excel (exactly the 12 required columns) ── */
   const handleExcel = () => {
@@ -521,7 +530,7 @@ export default function ItemCategoryWiseProfitAndLoss() {
                   </td>
                 </tr>
               ) : (
-                displayRows.map((r) => (
+                pagedRows.map((r) => (
                   <tr key={(r.isChild ? "sub-" : "cat-") + r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}`, background: r.isChild ? "#fcfcfd" : "#fff" }}>
                     <td style={{ ...tdStyle, paddingLeft: r.isChild ? 34 : 10 }}>
                       {!r.isChild && (r.children || []).length > 0 && (
@@ -596,6 +605,16 @@ export default function ItemCategoryWiseProfitAndLoss() {
           </div>
         )}
       </div>
+      <ReportPagination
+        total={displayRows.length}
+        page={safePage}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={(v) => {
+          setRowsPerPage(v);
+          setPage(1);
+        }}
+      />
     </div>
   );
 }

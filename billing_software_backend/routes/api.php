@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\StockDetailController;
 use App\Http\Controllers\Api\ItemDetailController;
 use App\Http\Controllers\Api\LowStockSummaryController;
 use App\Http\Controllers\Api\ItemWiseProfitLossController;
+use App\Http\Controllers\Api\PartyWiseProfitLossController;
 use App\Http\Controllers\Api\ItemCategoryWiseProfitLossController;
 use App\Http\Controllers\Api\SalePurchaseByItemCategoryController;
 use App\Http\Controllers\Api\ItemWiseDiscountController;
@@ -382,6 +383,7 @@ Route::prefix('report')->group(function () {
     Route::get('party-report-by-item', [PartyStatementController::class, 'getPartyReportByItem']);
     Route::get('item-report-by-party', [PartyStatementController::class, 'getItemReportByParty']);
     Route::get('item-wise-profit-loss', [ItemWiseProfitLossController::class, 'index']);
+    Route::get('party-wise-profit-loss', [PartyWiseProfitLossController::class, 'index']);
     Route::get('bill-wise-profit', [BillWiseProfitController::class, 'index']);
     Route::get('item-category-wise-profit-loss', [ItemCategoryWiseProfitLossController::class, 'index']);
     Route::get('sale-purchase-by-item-category', [SalePurchaseByItemCategoryController::class, 'index']);

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 import {
   FileDown,
   Printer,
@@ -669,6 +671,18 @@ export default function GstR2() {
     setLoading,
   ] = useState(false);
 
+  /* ── Pagination ───────────────────────────────────────────── */
+
+  const [
+    page,
+    setPage,
+  ] = useState(1);
+
+  const [
+    rowsPerPage,
+    setRowsPerPage,
+  ] = useState(10);
+
   const tableWrapRef =
     useRef(null);
 
@@ -1076,7 +1090,7 @@ export default function GstR2() {
     if (
       activeRows.length === 0
     ) {
-      alert(
+      showToast(
         "No data available to export."
       );
       return;
@@ -1150,7 +1164,7 @@ export default function GstR2() {
     if (
       activeRows.length === 0
     ) {
-      alert(
+      showToast(
         "No data available to export."
       );
       return;
@@ -1230,7 +1244,7 @@ export default function GstR2() {
     if (
       activeRows.length === 0
     ) {
-      alert(
+      showToast(
         "No data available to print."
       );
       return;
@@ -1422,6 +1436,12 @@ export default function GstR2() {
   /* ───────────────────────────────────────────────────────────
      UI
   ─────────────────────────────────────────────────────────── */
+
+  const totalRows = activeRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedStart = (safePage - 1) * rowsPerPage;
+  const pagedRows = activeRows.slice(pagedStart, pagedStart + rowsPerPage);
 
   return (
     <div
@@ -2358,7 +2378,7 @@ export default function GstR2() {
                   </td>
                 </tr>
               ) : (
-                activeRows.map(
+                pagedRows.map(
                   (
                     row,
                     index
@@ -2559,6 +2579,16 @@ export default function GstR2() {
               )}
           </table>
         </div>
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
+        />
       </div>
     </div>
   );

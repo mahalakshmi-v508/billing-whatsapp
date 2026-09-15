@@ -27,6 +27,8 @@ import {
 import PurchaseDocument from "./PurchaseDocument";
 import AddPaymentOutModal from "../../purchase/payment_out/AddPaymentOutModal";
 import { generateInvoicePdfBase64 } from "../../../utils/invoiceShare";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 const toInputDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
@@ -176,6 +178,12 @@ export default function Purchase() {
 
   const [docBusyText, setDocBusyText] = useState("");
   const [docAction, setDocAction] = useState(null);
+
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const [page2, setPage2] = useState(1);
+  const [rowsPerPage2, setRowsPerPage2] = useState(10);
 
   const fetchToken = useRef(0);
 
@@ -570,15 +578,16 @@ export default function Purchase() {
 
         retry();
       } else {
-        alert(
+        showToast(
           res.data.message ||
-          "Unable to delete this purchase"
+          "Unable to delete this purchase",
+          "error"
         );
       }
     } catch (err) {
       console.error(err);
 
-      alert("Error deleting purchase");
+      showToast("Error deleting purchase", "error");
     } finally {
       setDeletingId(null);
     }
@@ -639,7 +648,7 @@ export default function Purchase() {
       .then((detail) => setDocAction({ mode: "pdf", detail }))
       .catch((err) => {
         setDocBusyText("");
-        alert(err.message);
+        showToast(err.message, "error");
       });
   };
 
@@ -656,7 +665,7 @@ export default function Purchase() {
       .then((detail) => setDocAction({ mode: "print", detail }))
       .catch((err) => {
         setDocBusyText("");
-        alert(err.message);
+        showToast(err.message, "error");
       });
   };
 
@@ -718,15 +727,16 @@ export default function Purchase() {
           });
 
           if (res.data?.status) {
-            alert(res.data.message || "Purchase invoice sent via WhatsApp!");
+            showToast(res.data.message || "Purchase invoice sent via WhatsApp!", "success");
           } else {
-            alert(res.data?.message || "Unable to send purchase via WhatsApp.");
+            showToast(res.data?.message || "Unable to send purchase via WhatsApp.", "error");
           }
         } catch (err) {
           console.error(err);
-          alert(
+          showToast(
             err.response?.data?.message ||
-              "Failed to send purchase via WhatsApp."
+              "Failed to send purchase via WhatsApp.",
+            "error"
           );
         }
       } else {
@@ -802,7 +812,7 @@ export default function Purchase() {
           window.open(url, "_blank");
         } catch (err) {
           console.error(err);
-          alert("Could not generate the PDF");
+          showToast("Could not generate the PDF", "error");
         } finally {
           /* Restore the hidden render container so other actions are unaffected. */
           element.style.width = originalWidth;
@@ -839,15 +849,17 @@ export default function Purchase() {
 
         retry();
 
-        alert(
-          `Purchase duplicated as ${res.data.purchase_no || "Draft"}`
+        showToast(
+          `Purchase duplicated as ${res.data.purchase_no || "Draft"}`,
+          "success"
         );
       } else {
         setDocBusyText("");
 
-        alert(
+        showToast(
           res.data.message ||
-          "Unable to duplicate purchase"
+          "Unable to duplicate purchase",
+          "error"
         );
       }
     } catch (err) {
@@ -855,7 +867,7 @@ export default function Purchase() {
 
       console.error(err);
 
-      alert("Error duplicating purchase");
+      showToast("Error duplicating purchase", "error");
     }
   };
 
@@ -911,7 +923,7 @@ export default function Purchase() {
       const cleanedPhone = String(supplierPhone || "").replace(/[^0-9]/g, "");
 
       if (!cleanedPhone) {
-        alert("This purchase has no supplier phone number for WhatsApp.");
+        showToast("This purchase has no supplier phone number for WhatsApp.", "warning");
         return;
       }
 
@@ -926,7 +938,7 @@ export default function Purchase() {
       });
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to send purchase via WhatsApp.");
+      showToast(err.response?.data?.message || "Failed to send purchase via WhatsApp.", "error");
     } finally {
       setShareMenu(null);
     }
@@ -1042,7 +1054,7 @@ export default function Purchase() {
 
   const exportToExcel = () => {
     if (!filtered.length) {
-      alert("No data available to export");
+      showToast("No data available to export", "warning");
       return;
     }
 
@@ -1165,6 +1177,16 @@ export default function Purchase() {
     fontWeight: "600",
     cursor: "pointer",
   };
+
+  const totalRows = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = filtered.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
+  const historyTotalRows = historyList.length;
+  const historyTotalPages = Math.max(1, Math.ceil(historyTotalRows / rowsPerPage2));
+  const historySafePage = Math.min(page2, historyTotalPages);
+  const pagedHistoryRows = historyList.slice((historySafePage - 1) * rowsPerPage2, historySafePage * rowsPerPage2);
 
   return (
     <div
@@ -2604,7 +2626,7 @@ export default function Purchase() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((p) => {
+                pagedRows.map((p) => {
                   const isDraft =
                     p.status ===
                     "draft";
@@ -2881,6 +2903,14 @@ export default function Purchase() {
             </tbody>
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
 
       {/* =====================================================
@@ -3376,14 +3406,15 @@ export default function Purchase() {
                   No payments recorded yet
                 </div>
               ) : (
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse:
-                      "collapse",
-                    fontSize: "13px",
-                  }}
-                >
+                <>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse:
+                        "collapse",
+                      fontSize: "13px",
+                    }}
+                  >
                   <thead>
                     <tr>
                       {[
@@ -3422,7 +3453,7 @@ export default function Purchase() {
                     </tr>
                   </thead>
                   <tbody>
-                    {historyList.map((pm, i) => (
+                    {pagedHistoryRows.map((pm, i) => (
                       <tr
                         key={pm.id || i}
                         style={{
@@ -3490,7 +3521,16 @@ export default function Purchase() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                  </table>
+
+                  <ReportPagination
+                    total={historyTotalRows}
+                    page={historySafePage}
+                    rowsPerPage={rowsPerPage2}
+                    onPageChange={setPage2}
+                    onRowsPerPageChange={(v) => { setRowsPerPage2(v); setPage2(1); }}
+                  />
+                </>
               )}
             </div>
           </div>

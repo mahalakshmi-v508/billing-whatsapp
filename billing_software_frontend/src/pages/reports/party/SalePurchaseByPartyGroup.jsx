@@ -11,6 +11,7 @@ import {
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -133,6 +134,9 @@ export default function SalePurchaseByPartyGroup() {
   const [openFilter, setOpenFilter] = useState("");
   const [colFilters, setColFilters] = useState({});
 
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const periodRef = useRef(null);
   const firmRef = useRef(null);
 
@@ -246,6 +250,11 @@ export default function SalePurchaseByPartyGroup() {
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const metaLabel = `${prettyFrom} to ${prettyTo}`;
   const firmLabel = firm === "all" ? "My Company" : (companies.find((c) => String(c.id) === String(firm))?.company_name || "My Company");
+
+  const totalRows = displayed.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = displayed.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   /* ── Excel export ── */
   const handleExcel = () => {
@@ -528,7 +537,7 @@ export default function SalePurchaseByPartyGroup() {
                   </td>
                 </tr>
               ) : (
-                displayed.map((r, i) => (
+                pagedRows.map((r, i) => (
                   <tr key={r.group_name || i} style={{ borderBottom: `1px solid ${LIGHT_BORDER}`, transition: "background .1s" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#f8fafc"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                     <td style={{ ...tdStyle, textAlign: "center", color: GRAY_TEXT }}>{i + 1}</td>
                     <td style={{ ...tdStyle, fontSize: 13, fontWeight: 600, color: NAVY }}>{r.group_name || "-"}</td>
@@ -544,6 +553,14 @@ export default function SalePurchaseByPartyGroup() {
             </tbody>
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
 
         {/* Summary footer */}
         <div style={summaryStyle}>

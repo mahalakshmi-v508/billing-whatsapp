@@ -5,6 +5,8 @@ import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import { getCurrencySymbol, parseRowItems } from "../../../utils/expenseDocument";
 import { Calendar, ChevronDown, FileSpreadsheet, Filter, Plus, Printer, Search } from "lucide-react";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 const today = () => new Date();
 const firstOfMonth = () => new Date(today().getFullYear(), today().getMonth(), 1);
@@ -80,6 +82,8 @@ export default function ExpenseItemReport() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [periodMenuPosition, setPeriodMenuPosition] = useState(null);
   const [activeFilterCol, setActiveFilterCol] = useState("");
@@ -268,7 +272,7 @@ export default function ExpenseItemReport() {
 
   const handleExportExcel = () => {
     if (!displayedRows.length) {
-      alert("No expense item data available to export.");
+      showToast("No expense item data available to export.", "warning");
       return;
     }
     const data = displayedRows.map((r) => ({
@@ -292,6 +296,11 @@ export default function ExpenseItemReport() {
   const handlePrint = () => {
     window.print();
   };
+
+  const totalRows = displayedRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = displayedRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
     <div className="expense-item-report-root">
@@ -890,7 +899,7 @@ export default function ExpenseItemReport() {
                 ) : displayedRows.length === 0 ? (
                   <tr><td colSpan="4" className="eir-empty-cell">No expense items found.</td></tr>
                 ) : (
-                  displayedRows.map((r) => (
+                  pagedRows.map((r) => (
                     <tr key={r.key}>
                       <td className="eir-left eir-item" title={r.item_name}>{r.item_name}</td>
                       <td className="eir-right eir-money">{formatAmount(symbol, r.unit_price)}</td>
@@ -913,6 +922,16 @@ export default function ExpenseItemReport() {
               <span className="eir-foot-amt">{formatAmount(symbol, totals.amount)}</span>
             </span>
           </div>
+        </div>
+
+        <div className="eir-no-print">
+          <ReportPagination
+            total={totalRows}
+            page={safePage}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+          />
         </div>
       </div>
 

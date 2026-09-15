@@ -11,9 +11,16 @@ import { numberToWordsINR } from "../../../utils/numberToWords";
  * dependency.
  */
 
+/* Never produce NaN/"undefined" values in the document —
+   numbers always fall back to 0 and stay finite. */
+const safeNum = (v) => {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+};
+
 const fmtMoney = (v) =>
   "₹" +
-  Number(v || 0).toLocaleString("en-IN", {
+  safeNum(v).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -66,13 +73,13 @@ export default function ExpenseDocument({ expense, company }) {
 
   const logo = company?.logo ? getInvoiceLogoUrl(company.logo) : null;
 
-  const subTotal = Number(expense.sub_total || 0);
-  const taxTotal = Number(expense.tax_total || 0);
-  const discountTotal = Number(expense.discount_total || 0);
-  const roundOff = Number(expense.round_off || 0);
-  const totalAmount = Number(expense.total_amount || 0);
-  const paidAmount = Number(expense.paid_amount || 0);
-  const balanceAmount = Number(expense.balance_amount || 0);
+  const subTotal = safeNum(expense.sub_total);
+  const taxTotal = safeNum(expense.tax_total);
+  const discountTotal = safeNum(expense.discount_total);
+  const roundOff = safeNum(expense.round_off);
+  const totalAmount = safeNum(expense.total_amount);
+  const paidAmount = safeNum(expense.paid_amount);
+  const balanceAmount = safeNum(expense.balance_amount);
 
   return (
     <div
@@ -83,6 +90,8 @@ export default function ExpenseDocument({ expense, company }) {
         fontFamily: "Arial, Helvetica, sans-serif",
         minWidth: "640px",
         width: "100%",
+        maxWidth: "794px",
+        margin: "0 auto",
       }}
     >
       {/* ── COMPANY HEADER ── */}
@@ -115,6 +124,8 @@ export default function ExpenseDocument({ expense, company }) {
                 fontSize: "19px",
                 fontWeight: "800",
                 letterSpacing: "-0.3px",
+                wordBreak: "break-word",
+                maxWidth: "480px",
               }}
             >
               {companyName}
@@ -178,7 +189,7 @@ export default function ExpenseDocument({ expense, company }) {
       >
         <div>
           <div style={{ ...LIGHT, marginBottom: "5px" }}>Expense For</div>
-          <div style={{ fontSize: "14px", fontWeight: "800" }}>
+          <div style={{ fontSize: "14px", fontWeight: "800", wordBreak: "break-word", maxWidth: "360px" }}>
             {expense.party_name || expense.category_name || "-"}
           </div>
           {expense.party_phone && (
@@ -280,7 +291,13 @@ export default function ExpenseDocument({ expense, company }) {
                   >
                     {i + 1}
                   </td>
-                  <td style={{ padding: "9px 10px", fontWeight: "600" }}>
+                  <td
+                    style={{
+                      padding: "9px 10px",
+                      fontWeight: "600",
+                      wordBreak: "break-word",
+                    }}
+                  >
                     {name}
                   </td>
                   <td
@@ -368,6 +385,9 @@ export default function ExpenseDocument({ expense, company }) {
         </div>
       </div>
 
+      {/* ── TWO COLORED PAYMENT/STATUS BOXES ──
+           Bound to the real expense record: PAID = expense.paid_amount,
+           BALANCE = expense.balance_amount. */}
       {[
         { label: "PAID", value: paidAmount, bg: "#d1fae5", color: "#136a3a" },
         {
@@ -382,7 +402,7 @@ export default function ExpenseDocument({ expense, company }) {
           style={{
             display: "inline-block",
             padding: "6px 14px",
-            margin: "6px",
+            margin: "6px 6px 4px",
             borderRadius: "8px",
             background: box.bg,
           }}
@@ -390,7 +410,14 @@ export default function ExpenseDocument({ expense, company }) {
           <div style={{ fontSize: "10.5px", fontWeight: "600", color: box.color }}>
             {box.label}
           </div>
-          <div style={{ fontSize: "14px", fontWeight: "800", color: box.color }}>
+          <div
+            style={{
+              fontSize: "14px",
+              fontWeight: "800",
+              color: box.color,
+              whiteSpace: "nowrap",
+            }}
+          >
             {fmtMoney(box.value)}
           </div>
         </div>

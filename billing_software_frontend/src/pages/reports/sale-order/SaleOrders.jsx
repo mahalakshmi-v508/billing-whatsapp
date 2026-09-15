@@ -3,6 +3,8 @@ import api from "../../../services/api";
 import { getCurrencySymbol } from "../../../utils/expenseDocument";
 import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search } from "lucide-react";
 import * as XLSX from "xlsx";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 const toInputDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -58,6 +60,9 @@ export default function SaleOrders() {
   const [loading, setLoading] = useState(false);
   const [symbol, setSymbol] = useState("\u20B9");
   const [activeDropdown, setActiveDropdown] = useState(null);
+
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const user = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
@@ -217,7 +222,7 @@ export default function SaleOrders() {
   };
 
   const handleExportExcel = () => {
-    if (!filteredOrders.length) { alert("No data to export"); return; }
+    if (!filteredOrders.length) { showToast("No data to export", "warning"); return; }
     const data = filteredOrders.map((o) => ({
       Date: fmtDate(o.date),
       "Order No.": o.orderNo,
@@ -242,6 +247,11 @@ export default function SaleOrders() {
 
   const selectedTypeLabel = ORDER_TYPES.find((t) => t.value === orderType)?.label || "Sale Order";
   const selectedStatusLabel = ORDER_STATUSES.find((s) => s.value === orderStatus)?.label || "All Orders";
+
+  const totalRows = filteredOrders.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedOrders = filteredOrders.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
     <>
@@ -459,7 +469,7 @@ export default function SaleOrders() {
               ) : filteredOrders.length === 0 ? (
                 <tr><td colSpan={9} className="so-empty">No Sale Orders found.</td></tr>
               ) : (
-                filteredOrders.map((o, i) => (
+                pagedOrders.map((o, i) => (
                   <tr key={i}>
                     <td>{fmtDate(o.date)}</td>
                     <td>{o.orderNo}</td>
@@ -478,6 +488,14 @@ export default function SaleOrders() {
             </tbody>
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
 
         <div className="so-total-bar">
           Total Amount: {fmtMoney(totalAmount)}

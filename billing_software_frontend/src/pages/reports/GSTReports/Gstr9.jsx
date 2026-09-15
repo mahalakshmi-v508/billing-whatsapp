@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import { FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 /* ─────────────────────────────────────────────────────────────
    CONSTANTS
@@ -611,6 +613,21 @@ export default function Gstr9() {
 
   const [loading, setLoading] = useState(false);
 
+  const [pt2Page, setPt2Page] = useState(1);
+  const [pt2RowsPerPage, setPt2RowsPerPage] = useState(10);
+  const [availPage, setAvailPage] = useState(1);
+  const [availRowsPerPage, setAvailRowsPerPage] = useState(10);
+  const [ineligPage, setIneligPage] = useState(1);
+  const [ineligRowsPerPage, setIneligRowsPerPage] = useState(10);
+  const [pt4Page, setPt4Page] = useState(1);
+  const [pt4RowsPerPage, setPt4RowsPerPage] = useState(10);
+  const [pt5Page, setPt5Page] = useState(1);
+  const [pt5RowsPerPage, setPt5RowsPerPage] = useState(10);
+  const [pt6Page, setPt6Page] = useState(1);
+  const [pt6RowsPerPage, setPt6RowsPerPage] = useState(10);
+  const [hsnPage, setHsnPage] = useState(1);
+  const [hsnRowsPerPage, setHsnRowsPerPage] = useState(10);
+
   const printRef = useRef(null);
 
   /* ── Load companies ───────────────────────────────────────── */
@@ -1211,7 +1228,7 @@ export default function Gstr9() {
 
   const exportXls = () => {
     if (invoices.length === 0 && purchases.length === 0) {
-      alert("No data available to export.");
+      showToast("No data available to export.", "warning");
       return;
     }
 
@@ -1316,7 +1333,7 @@ export default function Gstr9() {
 
   const handlePrint = () => {
     if (invoices.length === 0 && purchases.length === 0) {
-      alert("No data available to print.");
+      showToast("No data available to print.", "warning");
       return;
     }
 
@@ -1357,6 +1374,41 @@ const checkboxInputStyle = {
   };
 
   /* ── Render ───────────────────────────────────────────────── */
+
+  const pt2TotalRows = pt2Rows.length;
+  const pt2TotalPages = Math.max(1, Math.ceil(pt2TotalRows / pt2RowsPerPage));
+  const pt2SafePage = Math.min(pt2Page, pt2TotalPages);
+  const pt2PagedRows = pt2Rows.slice((pt2SafePage - 1) * pt2RowsPerPage, pt2SafePage * pt2RowsPerPage);
+
+  const pt3AvailTotalRows = pt3Available.length;
+  const pt3AvailTotalPages = Math.max(1, Math.ceil(pt3AvailTotalRows / availRowsPerPage));
+  const pt3AvailSafePage = Math.min(availPage, pt3AvailTotalPages);
+  const pt3AvailPaged = pt3Available.slice((pt3AvailSafePage - 1) * availRowsPerPage, pt3AvailSafePage * availRowsPerPage);
+
+  const pt3IneligTotalRows = pt3Ineligible.length;
+  const pt3IneligTotalPages = Math.max(1, Math.ceil(pt3IneligTotalRows / ineligRowsPerPage));
+  const pt3IneligSafePage = Math.min(ineligPage, pt3IneligTotalPages);
+  const pt3IneligPaged = pt3Ineligible.slice((pt3IneligSafePage - 1) * ineligRowsPerPage, pt3IneligSafePage * ineligRowsPerPage);
+
+  const pt4TotalRows = pt4Rows.length;
+  const pt4TotalPages = Math.max(1, Math.ceil(pt4TotalRows / pt4RowsPerPage));
+  const pt4SafePage = Math.min(pt4Page, pt4TotalPages);
+  const pt4PagedRows = pt4Rows.slice((pt4SafePage - 1) * pt4RowsPerPage, pt4SafePage * pt4RowsPerPage);
+
+  const pt5TotalRows = pt5Rows.length;
+  const pt5TotalPages = Math.max(1, Math.ceil(pt5TotalRows / pt5RowsPerPage));
+  const pt5SafePage = Math.min(pt5Page, pt5TotalPages);
+  const pt5PagedRows = pt5Rows.slice((pt5SafePage - 1) * pt5RowsPerPage, pt5SafePage * pt5RowsPerPage);
+
+  const pt6TotalRows = pt6Rows.length;
+  const pt6TotalPages = Math.max(1, Math.ceil(pt6TotalRows / pt6RowsPerPage));
+  const pt6SafePage = Math.min(pt6Page, pt6TotalPages);
+  const pt6PagedRows = pt6Rows.slice((pt6SafePage - 1) * pt6RowsPerPage, pt6SafePage * pt6RowsPerPage);
+
+  const hsnTotalRows = hsnOutward.rows.length;
+  const hsnTotalPages = Math.max(1, Math.ceil(hsnTotalRows / hsnRowsPerPage));
+  const hsnSafePage = Math.min(hsnPage, hsnTotalPages);
+  const hsnPagedRows = hsnOutward.rows.slice((hsnSafePage - 1) * hsnRowsPerPage, hsnSafePage * hsnRowsPerPage);
 
   return (
     <div
@@ -1544,7 +1596,7 @@ const checkboxInputStyle = {
                 ]}
               />
               <tbody>
-                {pt2Rows.map((r, i) => (
+                {pt2PagedRows.map((r, i) => (
                   <SuppliesRow
                     key={i}
                     num={r.num}
@@ -1556,6 +1608,16 @@ const checkboxInputStyle = {
                 <SuppliesRow num="6" label="Total" row={pt2Totals} total />
               </tbody>
             </table>
+            <ReportPagination
+              total={pt2TotalRows}
+              page={pt2SafePage}
+              rowsPerPage={pt2RowsPerPage}
+              onPageChange={setPt2Page}
+              onRowsPerPageChange={(v) => {
+                setPt2RowsPerPage(v);
+                setPt2Page(1);
+              }}
+            />
           </div>
 
           {/* Pt. III — ITC */}
@@ -1577,7 +1639,7 @@ const checkboxInputStyle = {
                 ]}
               />
               <tbody>
-                {pt3Available.map((r, i) => (
+                {pt3AvailPaged.map((r, i) => (
                   <ItcRow
                     key={i}
                     num={r.num}
@@ -1592,7 +1654,21 @@ const checkboxInputStyle = {
                   row={pt3AvailableTotal}
                   total
                 />
-                {pt3Ineligible.map((r, i) => (
+                <tr>
+                  <td colSpan={6} style={{ padding: 0, border: "none" }}>
+                    <ReportPagination
+                      total={pt3AvailTotalRows}
+                      page={pt3AvailSafePage}
+                      rowsPerPage={availRowsPerPage}
+                      onPageChange={setAvailPage}
+                      onRowsPerPageChange={(v) => {
+                        setAvailRowsPerPage(v);
+                        setAvailPage(1);
+                      }}
+                    />
+                  </td>
+                </tr>
+                {pt3IneligPaged.map((r, i) => (
                   <ItcRow
                     key={i}
                     num={r.num}
@@ -1607,6 +1683,20 @@ const checkboxInputStyle = {
                   row={pt3IneligibleTotal}
                   total
                 />
+                <tr>
+                  <td colSpan={6} style={{ padding: 0, border: "none" }}>
+                    <ReportPagination
+                      total={pt3IneligTotalRows}
+                      page={pt3IneligSafePage}
+                      rowsPerPage={ineligRowsPerPage}
+                      onPageChange={setIneligPage}
+                      onRowsPerPageChange={(v) => {
+                        setIneligRowsPerPage(v);
+                        setIneligPage(1);
+                      }}
+                    />
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1630,7 +1720,7 @@ const checkboxInputStyle = {
                 ]}
               />
               <tbody>
-                {pt4Rows.map((r, i) => (
+                {pt4PagedRows.map((r, i) => (
                   <TaxPaidRow
                     key={i}
                     num={r.num}
@@ -1651,6 +1741,16 @@ const checkboxInputStyle = {
                 />
               </tbody>
             </table>
+            <ReportPagination
+              total={pt4TotalRows}
+              page={pt4SafePage}
+              rowsPerPage={pt4RowsPerPage}
+              onPageChange={setPt4Page}
+              onRowsPerPageChange={(v) => {
+                setPt4RowsPerPage(v);
+                setPt4Page(1);
+              }}
+            />
           </div>
 
           {/* Pt. V — Previous FY transactions */}
@@ -1673,7 +1773,7 @@ const checkboxInputStyle = {
                 ]}
               />
               <tbody>
-                {pt5Rows.map((r, i) => (
+                {pt5PagedRows.map((r, i) => (
                   <SuppliesRow
                     key={i}
                     num={r.num}
@@ -1684,6 +1784,16 @@ const checkboxInputStyle = {
                 ))}
               </tbody>
             </table>
+            <ReportPagination
+              total={pt5TotalRows}
+              page={pt5SafePage}
+              rowsPerPage={pt5RowsPerPage}
+              onPageChange={setPt5Page}
+              onRowsPerPageChange={(v) => {
+                setPt5RowsPerPage(v);
+                setPt5Page(1);
+              }}
+            />
           </div>
 
           {/* Pt. VI — Other information */}
@@ -1699,7 +1809,7 @@ const checkboxInputStyle = {
                 ]}
               />
               <tbody>
-                {pt6Rows.map((r, i) => (
+                {pt6PagedRows.map((r, i) => (
                   <InfoRow
                     key={i}
                     num={r.num}
@@ -1710,6 +1820,16 @@ const checkboxInputStyle = {
                 ))}
               </tbody>
             </table>
+            <ReportPagination
+              total={pt6TotalRows}
+              page={pt6SafePage}
+              rowsPerPage={pt6RowsPerPage}
+              onPageChange={setPt6Page}
+              onRowsPerPageChange={(v) => {
+                setPt6RowsPerPage(v);
+                setPt6Page(1);
+              }}
+            />
           </div>
 
           {/* HSN-wise summary — outward supplies */}
@@ -1754,7 +1874,7 @@ const checkboxInputStyle = {
                 ]}
               />
               <tbody>
-                {hsnOutward.rows.map((e, i) => (
+                {hsnPagedRows.map((e, i) => (
                   <tr key={i} style={i % 2 === 1 ? rowAlt : undefined}>
                     <td style={tdBase}>{e.hsn}</td>
                     <td style={{ ...tdBase, textAlign: "center" }}>{e.uqc}</td>
@@ -1781,6 +1901,16 @@ const checkboxInputStyle = {
                 </tr>
               </tbody>
             </table>
+            <ReportPagination
+              total={hsnTotalRows}
+              page={hsnSafePage}
+              rowsPerPage={hsnRowsPerPage}
+              onPageChange={setHsnPage}
+              onRowsPerPageChange={(v) => {
+                setHsnRowsPerPage(v);
+                setHsnPage(1);
+              }}
+            />
           </div>
 
           {/* HSN-wise summary — inward supplies */}

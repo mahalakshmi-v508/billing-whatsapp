@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 function auth() {
   try {
@@ -609,6 +611,9 @@ export default function SACReport() {
     [filtered]
   );
 
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const hasFallback =
     !loading && !error && sacGroups.length > 0 && sacGroups.some((g) => g.fallback);
 
@@ -680,7 +685,7 @@ export default function SACReport() {
       XLSX.writeFile(wb, fname);
     } catch (err) {
       console.error(err);
-      alert("Unable to generate Excel. Please try again.");
+      showToast("Unable to generate Excel. Please try again.", "error");
     }
   };
 
@@ -695,6 +700,12 @@ export default function SACReport() {
       "SAC Report"
     );
   };
+
+  const totalRows = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedStart = (safePage - 1) * rowsPerPage;
+  const pagedRows = filtered.slice(pagedStart, pagedStart + rowsPerPage);
 
   const colSpan = 8;
 
@@ -971,13 +982,13 @@ export default function SACReport() {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((g, i) => (
+                  pagedRows.map((g, i) => (
                     <tr
                       key={`${g.sac}-${g.invoiceType}-${i}`}
                       style={{ background: i % 2 ? ALT_BG : "#fff" }}
                     >
                       <td style={{ ...tdBase, textAlign: "center" }}>
-                        {i + 1}
+                        {pagedStart + i + 1}
                       </td>
                       <td style={{ ...tdBase, fontWeight: 600 }}>{g.sac}</td>
                       <td style={{ ...tdBase }}>{g.invoiceType}</td>
@@ -1005,6 +1016,16 @@ export default function SACReport() {
               </tbody>
             </table>
           </div>
+          <ReportPagination
+            total={totalRows}
+            page={safePage}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={(v) => {
+              setRowsPerPage(v);
+              setPage(1);
+            }}
+          />
         </div>
       </div>
 

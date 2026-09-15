@@ -8,6 +8,8 @@ import {
   ClipboardList,
   RefreshCw,
 } from "lucide-react";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 /* ─────────────────────────────────────────────────────────────
    CONSTANTS
@@ -565,6 +567,15 @@ export default function Gstr3B() {
 
   const [loading, setLoading] = useState(false);
 
+  const [s1Page, setS1Page] = useState(1);
+  const [s1RowsPerPage, setS1RowsPerPage] = useState(10);
+  const [s2Page, setS2Page] = useState(1);
+  const [s2RowsPerPage, setS2RowsPerPage] = useState(10);
+  const [s3AvailPage, setS3AvailPage] = useState(1);
+  const [s3AvailRowsPerPage, setS3AvailRowsPerPage] = useState(10);
+  const [s3IneligPage, setS3IneligPage] = useState(1);
+  const [s3IneligRowsPerPage, setS3IneligRowsPerPage] = useState(10);
+
   const tableWrapRef = useRef(null);
 
   /* ── Load companies ───────────────────────────────────────── */
@@ -1079,7 +1090,7 @@ export default function Gstr3B() {
 
   const exportJson = () => {
     if (invoices.length === 0 && purchases.length === 0) {
-      alert("No data available to export.");
+      showToast("No data available to export.", "warning");
       return;
     }
 
@@ -1125,7 +1136,7 @@ export default function Gstr3B() {
 
   const exportXls = () => {
     if (invoices.length === 0 && purchases.length === 0) {
-      alert("No data available to export.");
+      showToast("No data available to export.", "warning");
       return;
     }
 
@@ -1257,7 +1268,7 @@ export default function Gstr3B() {
 
   const handlePrint = () => {
     if (invoices.length === 0 && purchases.length === 0) {
-      alert("No data available to print.");
+      showToast("No data available to print.", "warning");
       return;
     }
 
@@ -1474,6 +1485,26 @@ export default function Gstr3B() {
   /* ───────────────────────────────────────────────────────────
      RENDER
   ─────────────────────────────────────────────────────────── */
+
+  const s1TotalRows = section1Rows.length;
+  const s1TotalPages = Math.max(1, Math.ceil(s1TotalRows / s1RowsPerPage));
+  const s1SafePage = Math.min(s1Page, s1TotalPages);
+  const s1PagedRows = section1Rows.slice((s1SafePage - 1) * s1RowsPerPage, s1SafePage * s1RowsPerPage);
+
+  const s2TotalRows = section2Groups.length;
+  const s2TotalPages = Math.max(1, Math.ceil(s2TotalRows / s2RowsPerPage));
+  const s2SafePage = Math.min(s2Page, s2TotalPages);
+  const s2PagedRows = section2Groups.slice((s2SafePage - 1) * s2RowsPerPage, s2SafePage * s2RowsPerPage);
+
+  const s3AvailTotalRows = section3.available.length;
+  const s3AvailTotalPages = Math.max(1, Math.ceil(s3AvailTotalRows / s3AvailRowsPerPage));
+  const s3AvailSafePage = Math.min(s3AvailPage, s3AvailTotalPages);
+  const s3AvailPaged = section3.available.slice((s3AvailSafePage - 1) * s3AvailRowsPerPage, s3AvailSafePage * s3AvailRowsPerPage);
+
+  const s3IneligTotalRows = section3.ineligible.length;
+  const s3IneligTotalPages = Math.max(1, Math.ceil(s3IneligTotalRows / s3IneligRowsPerPage));
+  const s3IneligSafePage = Math.min(s3IneligPage, s3IneligTotalPages);
+  const s3IneligPaged = section3.ineligible.slice((s3IneligSafePage - 1) * s3IneligRowsPerPage, s3IneligSafePage * s3IneligRowsPerPage);
 
   return (
     <div style={{ fontFamily: FONT, padding: "6px 14px 20px" }}>
@@ -1771,7 +1802,7 @@ export default function Gstr3B() {
                       Loading GSTR-3B data…
                     </td>
                   </tr>
-                ) : section1Rows.map((r, i) => (
+                ) : s1PagedRows.map((r, i) => (
                   <tr key={i}>
                     <td style={tdStyle}>{r.name}</td>
                     <td style={tdNumStyle}>{fmtNum(r.value)}</td>
@@ -1796,6 +1827,16 @@ export default function Gstr3B() {
                 </tfoot>
               )}
             </table>
+            <ReportPagination
+              total={s1TotalRows}
+              page={s1SafePage}
+              rowsPerPage={s1RowsPerPage}
+              onPageChange={setS1Page}
+              onRowsPerPageChange={(v) => {
+                setS1RowsPerPage(v);
+                setS1Page(1);
+              }}
+            />
           </div>
 
           {/* ════════ SECTION 2 ════════ */}
@@ -1852,7 +1893,7 @@ export default function Gstr3B() {
                     </td>
                   </tr>
                 ) : section2Groups.length > 0 ? (
-                  section2Groups.map((g, i) => (
+                  s2PagedRows.map((g, i) => (
                     <tr key={i}>
                       <td style={tdStyle}>{g.pos}</td>
                       <td style={tdNumStyle}>{fmtNum(g.taxable)}</td>
@@ -1890,6 +1931,16 @@ export default function Gstr3B() {
                 </tfoot>
               )}
             </table>
+            <ReportPagination
+              total={s2TotalRows}
+              page={s2SafePage}
+              rowsPerPage={s2RowsPerPage}
+              onPageChange={setS2Page}
+              onRowsPerPageChange={(v) => {
+                setS2RowsPerPage(v);
+                setS2Page(1);
+              }}
+            />
           </div>
 
           {/* ════════ SECTION 3 ════════ */}
@@ -1941,7 +1992,7 @@ export default function Gstr3B() {
                       </td>
                     </tr>
 
-                    {section3.available.map((r, i) => (
+                    {s3AvailPaged.map((r, i) => (
                       <tr key={i}>
                         <td style={tdStyle}>{r.name}</td>
                         <td style={tdNumStyle}>{fmtNum(r.igst)}</td>
@@ -1967,6 +2018,21 @@ export default function Gstr3B() {
                       </td>
                     </tr>
 
+                    <tr>
+                      <td colSpan={5} style={{ padding: 0, border: "none" }}>
+                        <ReportPagination
+                          total={s3AvailTotalRows}
+                          page={s3AvailSafePage}
+                          rowsPerPage={s3AvailRowsPerPage}
+                          onPageChange={setS3AvailPage}
+                          onRowsPerPageChange={(v) => {
+                            setS3AvailRowsPerPage(v);
+                            setS3AvailPage(1);
+                          }}
+                        />
+                      </td>
+                    </tr>
+
                     <tr
                       style={{
                         background: NAVY,
@@ -1982,7 +2048,7 @@ export default function Gstr3B() {
                       </td>
                     </tr>
 
-                    {section3.ineligible.map((r, i) => (
+                    {s3IneligPaged.map((r, i) => (
                       <tr key={i}>
                         <td style={tdStyle}>{r.name}</td>
                         <td style={tdNumStyle}>{fmtNum(r.igst)}</td>
@@ -2005,6 +2071,21 @@ export default function Gstr3B() {
                       </td>
                       <td style={tdNumStyle}>
                         {fmtNum(section3.ineligibleTotal.cess)}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td colSpan={5} style={{ padding: 0, border: "none" }}>
+                        <ReportPagination
+                          total={s3IneligTotalRows}
+                          page={s3IneligSafePage}
+                          rowsPerPage={s3IneligRowsPerPage}
+                          onPageChange={setS3IneligPage}
+                          onRowsPerPageChange={(v) => {
+                            setS3IneligRowsPerPage(v);
+                            setS3IneligPage(1);
+                          }}
+                        />
                       </td>
                     </tr>
                   </>

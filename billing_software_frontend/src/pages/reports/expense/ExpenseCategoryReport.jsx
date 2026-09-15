@@ -4,6 +4,8 @@ import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import { getCurrencySymbol } from "../../../utils/expenseDocument";
 import { Calendar, FileSpreadsheet, Plus, Printer } from "lucide-react";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 const today = () => new Date();
 const firstOfMonth = () => new Date(today().getFullYear(), today().getMonth(), 1);
@@ -32,6 +34,8 @@ export default function ExpenseCategoryReport() {
   const [toDate, setToDate] = useState(toInputDate(today()));
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     let mounted = true;
@@ -82,7 +86,7 @@ export default function ExpenseCategoryReport() {
 
   const handleExportExcel = () => {
     if (!reportRows.length) {
-      alert("No expense data available to export.");
+      showToast("No expense data available to export.", "warning");
       return;
     }
     const data = reportRows.map((r) => ({
@@ -124,6 +128,11 @@ export default function ExpenseCategoryReport() {
     window.print();
     setTimeout(() => document.getElementById(styleId)?.remove(), 300);
   };
+
+  const totalRows = reportRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = reportRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
     <div className="expense-category-report-root">
@@ -478,7 +487,7 @@ export default function ExpenseCategoryReport() {
                   <td colSpan="3" className="ecr-empty-cell">No expense records found for the selected date range.</td>
                 </tr>
               ) : (
-                reportRows.map((r) => (
+                pagedRows.map((r) => (
                   <tr key={r.id}>
                     <td className="ecr-name" title={r.name || ""}>{r.name || "-"}</td>
                     <td title={r.type || ""}>{r.type || "Direct Expense"}</td>
@@ -494,6 +503,16 @@ export default function ExpenseCategoryReport() {
           <span className="ecr-total-label">Total Expense:</span>
           <span className="ecr-total-value">{formatAmount(symbol, totalAmount)}</span>
         </div>
+      </div>
+
+      <div className="ecr-no-print">
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
     </div>
   );

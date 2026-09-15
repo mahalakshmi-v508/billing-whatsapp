@@ -21,6 +21,8 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import { generateInvoicePdfBase64 } from "../../../utils/invoiceShare";
+import ReportPagination from "../../../components/reports/ReportPagination";
+import { showToast } from "../../../utils/reportToast";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -168,6 +170,9 @@ export default function PartyStatement() {
   const [sortDir, setSortDir] = useState("asc");
   const [summaryOpen, setSummaryOpen] = useState(true);
   const [filterOpen, setFilterOpen] = useState(null);
+
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [sharePopup, setSharePopup] = useState({ open: false, row: null, position: { top: 0, left: 0 } });
   const [whatsappSending, setWhatsappSending] = useState(false);
@@ -323,6 +328,11 @@ export default function PartyStatement() {
   const periodLabel = TIME_PRESETS.find((p) => p.value === period)?.label || "This Month";
   const prettyTo = endDate ? endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "";
   const prettyFrom = startDate ? startDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "";
+
+  const totalRows = displayed.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = displayed.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   /* ── Print ── */
   const handlePrint = () => {
@@ -520,7 +530,7 @@ export default function PartyStatement() {
             pdf_base64: pdfBase64,
             filename: `${t.ref_no}.pdf`,
           });
-          alert(res.data?.message || "Invoice sent via WhatsApp!");
+          showToast(res.data?.message || "Invoice sent via WhatsApp!", "success");
         } catch {
           const fallbackMsg = encodeURIComponent(
             `Party Statement — ${partyName}\nInvoice: ${t.ref_no}\nDate: ${t.date || "-"}\nTotal: ${fmtINR(t.total)}\nReceivable: ${fmtINR(t.receivable_bal)}`
@@ -790,7 +800,7 @@ export default function PartyStatement() {
                   </td>
                 </tr>
               ) : (
-                displayed.map((t, i) => (
+                pagedRows.map((t, i) => (
                   <tr key={i} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
                     <td style={tdStyle}>{t.date || "-"}</td>
                     <td style={tdStyle}>
@@ -833,6 +843,14 @@ export default function PartyStatement() {
             </tbody>
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════

@@ -3,6 +3,7 @@ import { AlertCircle, FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
+import ReportPagination from "../../../components/reports/ReportPagination";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -58,11 +59,14 @@ export default function StockSummaryByItemCategory() {
   const [totals, setTotals] = useState({ stock_quantity: 0, stock_value: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
+    const [reloadKey, setReloadKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     if (!adminId) return;
-    api.get(`/company/get_companies_by_admin?admin_id=${adminId}`).then((res) => {
+    api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
+.then((res) => {
       const list = res.data?.status ? res.data.data || [] : [];
       const saved = localStorage.getItem("selected_company_id");
       const chosen = list.find((company) => String(company.id) === String(saved)) || list[0];
@@ -116,6 +120,11 @@ export default function StockSummaryByItemCategory() {
     printElement(element);
   };
 
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
   return (
     <div style={pageStyle}>
       <div style={topBarStyle}>
@@ -130,12 +139,19 @@ export default function StockSummaryByItemCategory() {
           <table style={tableStyle}>
             <thead><tr>{COLUMNS.map((column) => <th key={column.key} style={{ ...thStyle, textAlign: column.right ? "right" : "left" }}>{column.label}</th>)}</tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>Loading...</td></tr> : error ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : rows.length === 0 ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>No stock data available.</td></tr> : rows.map((row) => <tr key={row.id}><td style={tdStyle}>{row.item_category || "Uncategorized"}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.stock_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatCurrency(row.stock_value)}</td></tr>)}
+              {loading ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>Loading...</td></tr> : error ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : rows.length === 0 ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>No stock data available.</td></tr> : pagedRows.map((row) => <tr key={row.id}><td style={tdStyle}>{row.item_category || "Uncategorized"}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.stock_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatCurrency(row.stock_value)}</td></tr>)}
             </tbody>
             {!loading && !error && rows.length > 0 && <tfoot><tr><td style={totalCellStyle}>Total</td><td style={totalNumberStyle}>{formatQuantity(totals.stock_quantity)}</td><td style={totalNumberStyle}>{formatCurrency(totals.stock_value)}</td></tr></tfoot>}
           </table>
         </div>
       </div>
+      <ReportPagination
+        total={totalRows}
+        page={safePage}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+      />
     </div>
   );
 }
