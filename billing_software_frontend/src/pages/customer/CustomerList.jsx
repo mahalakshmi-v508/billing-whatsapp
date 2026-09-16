@@ -1,12 +1,13 @@
 //whatsapp
-import { useEffect, useState } from "react";
+import { Children, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import {
   Pencil, Search, Phone, MapPin, Download, Wallet,
-  CheckCircle, ChevronRight, IndianRupee, X, MessageCircle, History
+  CheckCircle, ChevronRight, IndianRupee, X, MessageCircle, History,
+  MoreVertical, Eye
 } from "lucide-react";
 import CustomerForm from "./CustomerForm"; // <-- import the form
 import EditCustomer from "./EditCustomer"; // <-- import the edit form (opens as popup modal)
@@ -71,6 +72,14 @@ export default function CustomerList() {
   // Modal state for editing customer (popup instead of navigate)
   const [showEditModal, setShowEditModal] = useState(false);
   const [editCustomerId, setEditCustomerId] = useState(null);
+
+  // 3-dot dropdown menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // View customer modal state
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewCustomer, setViewCustomer] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
 
   const loadCompanies = async () => {
     try {
@@ -225,6 +234,24 @@ export default function CustomerList() {
       console.error(err);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  // Open view customer modal with all details
+  const openViewCustomer = async (cust) => {
+    setShowViewModal(true);
+    setViewCustomer(null);
+    setViewLoading(true);
+    setMenuOpen(false);
+    try {
+      const res = await api.get(`/customer/get_customer_by_id?id=${cust.id}`);
+      if (res.data.status) {
+        setViewCustomer(res.data.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setViewLoading(false);
     }
   };
 
@@ -814,15 +841,51 @@ export default function CustomerList() {
                       </button>
                     )}
 
-                    <button
-                      onClick={() => {
-                        setEditCustomerId(selectedCustomer.id);
-                        setShowEditModal(true);
-                      }}
-                      style={btnEdit}
-                    >
-                      <Pencil size={15}/>
-                    </button>
+                    {/* 3-dot dropdown: Edit / View */}
+                    <div style={{ position:"relative" }}>
+                      <button
+                        onClick={() => setMenuOpen(!menuOpen)}
+                        style={btnMenu}
+                      >
+                        <MoreVertical size={18}/>
+                      </button>
+                      {menuOpen && (
+                        <>
+                          <div
+                            style={{ position:"fixed", inset:0, zIndex:49 }}
+                            onClick={() => setMenuOpen(false)}
+                          />
+                          <div style={{
+                            position:"absolute", right:0, top:50, zIndex:50,
+                            background:"#fff", borderRadius:12,
+                            border:"1px solid #e2e8f0",
+                            boxShadow:"0 10px 30px rgba(0,0,0,0.12)",
+                            minWidth:150, overflow:"hidden",
+                            animation:"popIn .15s ease"
+                          }}>
+                            <button
+                              onClick={() => {
+                                setMenuOpen(false);
+                                openViewCustomer(selectedCustomer);
+                              }}
+                              style={menuItem}
+                            >
+                              <Eye size={15} color="#2563eb"/> View Details
+                            </button>
+                            <button
+                              onClick={() => {
+                                setMenuOpen(false);
+                                setEditCustomerId(selectedCustomer.id);
+                                setShowEditModal(true);
+                              }}
+                              style={menuItem}
+                            >
+                              <Pencil size={15} color="#7c3aed"/> Edit Customer
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1065,6 +1128,119 @@ export default function CustomerList() {
           </div>
         </div>
       )}
+
+      {/* ── VIEW CUSTOMER MODAL ── */}
+      {showViewModal && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowViewModal(false); }}
+          style={{
+            position:"fixed", inset:0, zIndex:10000,
+            background:"rgba(15,23,42,.55)",
+            backdropFilter:"blur(4px)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            padding:20, fontFamily:"Inter, sans-serif"
+          }}
+        >
+          <div style={{
+            background:"#fff", borderRadius:20, width:"100%", maxWidth:680,
+            maxHeight:"88vh", display:"flex", flexDirection:"column",
+            boxShadow:"0 25px 50px -12px rgba(0,0,0,0.15)", overflow:"hidden"
+          }}>
+            {/* Header */}
+            <div style={{
+              padding:"20px 24px", borderBottom:"1px solid #e2e8f0",
+              background:"linear-gradient(135deg, #eff6ff, #dbeafe)", flexShrink:0
+            }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <h3 style={{ margin:0, fontSize:18, fontWeight:800, color:"#0f172a", display:"flex", alignItems:"center", gap:8 }}>
+                    <Eye size={20} color="#2563eb"/> Customer Details
+                  </h3>
+                  <p style={{ margin:"4px 0 0", fontSize:13, color:"#475569" }}>
+                    {viewCustomer ? viewCustomer.name : "Loading..."}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowViewModal(false)}
+                  style={{ border:"none", background:"#f1f5f9", color:"#475569", padding:"8px 14px", borderRadius:10, fontWeight:700, fontSize:13, cursor:"pointer" }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ overflowY:"auto", flex:1, padding:"20px 24px" }}>
+              {viewLoading ? (
+                <div style={{ textAlign:"center", padding:"40px", color:"#64748b", fontSize:13, fontWeight:500 }}>
+                  Loading customer details...
+                </div>
+              ) : viewCustomer ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:22 }}>
+                  {/* Basic info */}
+                  <Section title="Basic Information" icon="👤">
+                    <Row label="Name" value={viewCustomer.name} />
+                    <Row label="Phone" value={viewCustomer.phone} />
+                    <Row label="Email" value={viewCustomer.email} />
+                    <Row label="State" value={viewCustomer.state} />
+                    <Row label="Date of Birth" value={viewCustomer.date_of_birth && formatDate(viewCustomer.date_of_birth)} />
+                  </Section>
+
+                  {/* GST info */}
+                  <Section title="GST Details" icon="🧾">
+                    <Row label="GST Type" value={viewCustomer.type} />
+                    <Row label="GSTIN" value={viewCustomer.gst_no} />
+                    <Row label="PAN Number" value={viewCustomer.pan_number} />
+                  </Section>
+
+                  {/* Billing address */}
+                  <Section title="Billing Address" icon="🏠">
+                    <Row label="Address" value={viewCustomer.address || viewCustomer.address_line1} />
+                    {viewCustomer.address_line1 && viewCustomer.address_line1 !== viewCustomer.address && (
+                      <Row label="Address Line 1" value={viewCustomer.address_line1} />
+                    )}
+                    <Row label="Address Line 2" value={viewCustomer.address_line2} />
+                    <Row label="City" value={viewCustomer.city} />
+                    <Row label="Country" value={viewCustomer.billing_country} />
+                    <Row label="Pincode" value={viewCustomer.billing_pincode} />
+                  </Section>
+
+                  {/* Shipping address */}
+                  <Section title="Shipping Address" icon="🚚">
+                    <Row label="Address" value={viewCustomer.shipping_address || viewCustomer.shipping_address_line1} />
+                    <Row label="Address Line 2" value={viewCustomer.shipping_address_line2} />
+                    <Row label="City" value={viewCustomer.shipping_city} />
+                    <Row label="Country" value={viewCustomer.shipping_country} />
+                    <Row label="Pincode" value={viewCustomer.shipping_pincode} />
+                  </Section>
+
+                  {/* Credit & balance */}
+                  <Section title="Credit & Balance" icon="💳">
+                    <Row
+                      label="Credit Enabled"
+                      value={Number(viewCustomer.credit_enabled) === 1 ? "Yes" : "No"}
+                      valueStyle={{ color: Number(viewCustomer.credit_enabled) === 1 ? "#16a34a" : "#64748b" }}
+                    />
+                    {Number(viewCustomer.credit_enabled) === 1 && (
+                      <>
+                        <Row label="Credit Limit" value={`₹${fmt(viewCustomer.credit_limit)}`} />
+                        <Row label="Credit Days" value={`${viewCustomer.credit_days || 0} days`} />
+                      </>
+                    )}
+                    <Row label="Advance Balance" value={`₹${fmt(viewCustomer.advance_balance)}`} />
+                    <Row label="Pending Amount" value={`₹${fmt(viewCustomer.pending_amount)}`} />
+                    <Row label="Account Number" value={viewCustomer.account_number} />
+                  </Section>
+                </div>
+              ) : (
+                <div style={{ textAlign:"center", padding:"40px", color:"#94a3b8" }}>
+                  Failed to load customer details.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -1091,3 +1267,48 @@ const btnEdit = {
   cursor:"pointer", color:"#2563eb",
   display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0
 };
+const btnMenu = {
+  background:"#f8fafc", border:"1.5px solid #e2e8f0",
+  width:44, height:44, borderRadius:12,
+  cursor:"pointer", color:"#475569",
+  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+  transition:"all .15s"
+};
+const menuItem = {
+  width:"100%", background:"#fff", border:"none", textAlign:"left",
+  padding:"10px 14px", fontSize:13, fontWeight:600, color:"#334155",
+  cursor:"pointer", display:"flex", alignItems:"center", gap:10,
+  fontFamily:"Inter, sans-serif"
+};
+
+const Section = ({ title, icon, children }) => {
+  const hasData = Children.toArray(children).some((child) => {
+    const value = child?.props?.value;
+    return value !== null && value !== undefined && String(value).trim() !== "";
+  });
+
+  if (!hasData) return null;
+
+  return (
+    <div style={{ background:"#f8fafc", borderRadius:14, border:"1px solid #e2e8f0", padding:16 }}>
+      <div style={{
+        fontSize:12, fontWeight:800, color:"#0f172a", textTransform:"uppercase",
+        letterSpacing:".5px", marginBottom:12, display:"flex", alignItems:"center", gap:6
+      }}>
+        <span>{icon}</span> {title}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", gap:"8px 20px" }}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const Row = ({ label, value, valueStyle }) => (
+  value !== null && value !== undefined && String(value).trim() !== "" && <>
+    <div style={{ fontSize:12.5, fontWeight:600, color:"#64748b" }}>{label}</div>
+    <div style={{ fontSize:13, fontWeight:600, color:"#0f172a", wordBreak:"break-word", ...valueStyle }}>
+      {value}
+    </div>
+  </>
+);
