@@ -39,6 +39,9 @@ class TransactionMessageController extends Controller
                 'web_invoice_link_in_msg' => $row->web_invoice_link_in_msg,
                 'payment_link_in_msg' => $row->payment_link_in_msg,
                 'template' => (string) $row->template,
+                'template_2' => (string) $row->template_2,
+                'custom_template' => (string) $row->custom_template,
+                'selected_template' => $row->selected_template ?: 'template_1',
             ];
         }
 

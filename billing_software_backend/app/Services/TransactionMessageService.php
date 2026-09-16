@@ -77,6 +77,25 @@ class TransactionMessageService
         'purchase_fa' => "Greetings from [Firm_Name]\n\nFixed asset purchase details are as follows:\n\nTransaction Type: [Transaction_Type]\nVoucher Number: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
     ];
 
+    /** Second default template per type (Template 2), seeded into template_2. */
+    private const DEFAULTS_2 = [
+        'sales' => "Dear [Party_Name],\n\nThank you for shopping with [Firm_Name].\n\nYour invoice details:\nInvoice No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\nBalance Due: Rs.[Transaction_Balance]\n\nPay your invoice easily using the link below:\n[Invoice_Link]\n\nNeed help with anything? Just reply to this message.\n\nRegards,\n[Firm_Name]",
+        'sales_return' => "Hi [Party_Name],\n\nYour return has been processed successfully.\n\nReturn Details:\nReturn No: [Invoice_Number]\nReturn Amount: Rs.[Invoice_Amount]\nRefund Amount: Rs.[Payment_Amount]\nBalance: Rs.[Transaction_Balance]\n[Invoice_Link]\n\nThank you for choosing [Firm_Name].\n\nRegards,\n[Firm_Name]",
+        'purchase' => "Dear [Party_Name],\n\nWe have recorded your purchase in our books.\n\nPurchase Details:\nPurchase No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\nBalance: Rs.[Transaction_Balance]\n\nWe will pay the outstanding amount as per the agreed terms.\n\nRegards,\n[Firm_Name]",
+        'purchase_return' => "Dear [Party_Name],\n\nYour purchase return has been recorded successfully.\n\nReturn Details:\nReturn No: [Invoice_Number]\nReturn Amount: Rs.[Invoice_Amount]\nBalance: Rs.[Transaction_Balance]\n\nPlease credit our account at the earliest.\n\nRegards,\n[Firm_Name]",
+        'payment_in' => "Dear [Party_Name],\n\nWe confirm receipt of your payment.\n\nPayment Details:\nReceipt No: [Invoice_Number]\nAmount Received: Rs.[Payment_Amount]\nMode: [Payment_Mode]\n\nThank you for your payment!\n\nRegards,\n[Firm_Name]",
+        'payment_out' => "Dear [Party_Name],\n\nWe have processed your payment.\n\nPayment Details:\nReceipt No: [Invoice_Number]\nAmount Paid: Rs.[Payment_Amount]\nMode: [Payment_Mode]\n\nFor any clarifications, please contact [Firm_Name].\n\nRegards,\n[Firm_Name]",
+        'expense' => "Hi [Party_Name],\n\nAn expense has been recorded in our books.\n\nExpense Details:\nExpense No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\nBalance: Rs.[Transaction_Balance]\n\nRegards,\n[Firm_Name]",
+        'sale_order' => "Dear [Party_Name],\n\nThank you for placing an order with us.\n\nOrder Details:\nOrder No: [Invoice_Number]\nOrder Amount: Rs.[Invoice_Amount]\n\nWe will notify you once your order is processed.\n\nRegards,\n[Firm_Name]",
+        'purchase_order' => "Dear [Party_Name],\n\nPlease find our purchase order details below.\n\nOrder Details:\nOrder No: [Invoice_Number]\nOrder Amount: Rs.[Invoice_Amount]\n\nKindly process the order at the earliest.\n\nRegards,\n[Firm_Name]",
+        'estimate' => "Dear [Party_Name],\n\nWe are pleased to share your estimate.\n\nEstimate Details:\nEstimate No: [Invoice_Number]\nEstimated Amount: Rs.[Invoice_Amount]\n\nView your estimate:\n[Invoice_Link]\n\nPlease let us know if you have any questions.\n\nRegards,\n[Firm_Name]",
+        'proforma_invoice' => "Dear [Party_Name],\n\nPlease find your proforma invoice below.\n\nInvoice Details:\nInvoice No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nView your invoice:\n[Invoice_Link]\n\nRegards,\n[Firm_Name]",
+        'delivery_challan' => "Dear [Party_Name],\n\nYour order has been dispatched.\n\nChallan Details:\nChallan No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nPlease receive the goods and verify the contents.\n\nRegards,\n[Firm_Name]",
+        'cancelled_invoice' => "Dear [Party_Name],\n\nThis is to inform you that your invoice has been cancelled.\n\nCancellation Details:\nInvoice No: [Invoice_Number]\nCancelled Amount: Rs.[Invoice_Amount]\n\nFor any queries, please contact us.\n\nRegards,\n[Firm_Name]",
+        'sale_fa' => "Dear [Party_Name],\n\nWe are pleased to confirm the sale of the fixed asset.\n\nSale Details:\nVoucher No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
+        'purchase_fa' => "Dear [Party_Name],\n\nWe have recorded the purchase of a fixed asset.\n\nPurchase Details:\nVoucher No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
+    ];
+
     public function types(): array
     {
         return self::TYPES;
@@ -87,6 +106,11 @@ class TransactionMessageService
         return self::DEFAULTS[$type] ?? '';
     }
 
+    public function defaultTemplate2(string $type): string
+    {
+        return self::DEFAULTS_2[$type] ?? '';
+    }
+
     /** Returns the stored settings for a type, creating a row with defaults when missing. */
     public function getOrInit(int $companyId, string $type): TransactionMessageSetting
     {
@@ -95,6 +119,14 @@ class TransactionMessageService
             ->first();
 
         if ($row) {
+            // Backfill Template 2 for rows created before multi-template support.
+            if (trim((string) $row->template_2) === '') {
+                $default2 = $this->defaultTemplate2($type);
+                if ($default2 !== '') {
+                    $row->template_2 = $default2;
+                    $row->save();
+                }
+            }
             return $row;
         }
 
@@ -110,6 +142,8 @@ class TransactionMessageService
             'web_invoice_link_in_msg' => true,
             'payment_link_in_msg' => false,
             'template' => $this->defaultTemplate($type),
+            'template_2' => $this->defaultTemplate2($type),
+            'selected_template' => 'template_1',
         ]);
     }
 
@@ -122,6 +156,15 @@ class TransactionMessageService
             if (!$type || !isset(self::TYPES[$type])) {
                 continue;
             }
+            $existing = TransactionMessageSetting::where('company_id', $companyId)
+                ->where('transaction_type', $type)
+                ->first();
+
+            $selected = isset($row['selected_template']) ? (string) $row['selected_template'] : 'template_1';
+            if (!in_array($selected, ['template_1', 'template_2', 'custom'], true)) {
+                $selected = $existing->selected_template ?? 'template_1';
+            }
+
             $setting = TransactionMessageSetting::updateOrCreate(
                 ['company_id' => $companyId, 'transaction_type' => $type],
                 [
@@ -134,11 +177,32 @@ class TransactionMessageService
                     'web_invoice_link_in_msg' => $this->bool($row['web_invoice_link_in_msg'] ?? true),
                     'payment_link_in_msg' => $this->bool($row['payment_link_in_msg'] ?? false),
                     'template' => isset($row['template']) ? (string) $row['template'] : $this->defaultTemplate($type),
+                    'template_2' => isset($row['template_2']) ? (string) $row['template_2'] : ($existing->template_2 ?? $this->defaultTemplate2($type)),
+                    'custom_template' => isset($row['custom_template']) ? (string) $row['custom_template'] : ($existing->custom_template ?? ''),
+                    'selected_template' => $selected,
                 ]
             );
             $saved += $setting ? 1 : 0;
         }
         return $saved;
+    }
+
+    /** The message content that is currently active for a setting row. */
+    private function selectedMessage(TransactionMessageSetting $setting): string
+    {
+        $selected = $setting->selected_template ?: 'template_1';
+
+        if ($selected === 'template_2') {
+            $msg = (string) $setting->template_2;
+            return $msg !== '' ? $msg : (string) $setting->template;
+        }
+
+        if ($selected === 'custom') {
+            $msg = (string) $setting->custom_template;
+            return $msg !== '' ? $msg : (string) $setting->template;
+        }
+
+        return (string) $setting->template;
     }
 
     /**
@@ -147,7 +211,7 @@ class TransactionMessageService
      */
     public function generate(TransactionMessageSetting $setting, array $ctx): string
     {
-        $template = (string) $setting->template;
+        $template = $this->selectedMessage($setting);
         if (trim($template) === '') {
             return '';
         }

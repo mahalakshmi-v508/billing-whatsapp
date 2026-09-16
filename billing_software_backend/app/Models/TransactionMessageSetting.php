@@ -20,6 +20,9 @@ class TransactionMessageSetting extends Model
         'web_invoice_link_in_msg',
         'payment_link_in_msg',
         'template',
+        'selected_template',
+        'template_2',
+        'custom_template',
     ];
 
     protected $casts = [
