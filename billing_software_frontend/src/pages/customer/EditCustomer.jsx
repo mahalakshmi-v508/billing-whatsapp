@@ -41,6 +41,8 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [phoneExists, setPhoneExists] = useState(false);
+  const [checkingPhone, setCheckingPhone] = useState(false);
   const [toast, setToast] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -64,6 +66,39 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
   // ─── confirm-popup state ────────────────────────────────────
   // null | "close" | "clearBilling" | "clearShipping"
   const [confirmAction, setConfirmAction] = useState(null);
+
+  useEffect(() => {
+    const phone = form.phone.trim();
+    if (phone.length !== 10 || !customerId) {
+      setPhoneExists(false);
+      setCheckingPhone(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const checkPhone = async () => {
+      setCheckingPhone(true);
+      try {
+        const user = JSON.parse(localStorage.getItem("user"));
+        const customer = await api.get("/customer/get_by_phone", {
+          params: { phone, admin_id: user?.id },
+        });
+        const foundCustomer = customer.data?.status ? customer.data.data : null;
+        if (!cancelled) {
+          setPhoneExists(Boolean(foundCustomer && String(foundCustomer.id) !== String(customerId)));
+        }
+      } catch (err) {
+        if (!cancelled) setPhoneExists(false);
+      } finally {
+        if (!cancelled) setCheckingPhone(false);
+      }
+    };
+
+    checkPhone();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.phone, customerId]);
 
   // ─── helpers ────────────────────────────────────────────────
   const set = (k, v) => {
@@ -165,12 +200,7 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
     }
   };
 
-  // ─── billing address cancel: confirm only if it has data ───
-  const handleBillingCancelClick = () => {
-    if (isBillingFilled()) {
-      setConfirmAction("clearBilling");
-    }
-  };
+ 
 
   // ─── shipping address cancel: confirm only if it has data ──
   const handleShippingCancelClick = () => {
@@ -240,10 +270,7 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
     },
   };
 
-  // ─── section-only "Save" handlers ───────────────────────────
-  const handleSaveBillingSection = () => {
-    showToast("Billing address saved");
-  };
+  
 
   const handleSaveShippingSection = () => {
     showToast("Shipping address saved");
@@ -300,6 +327,10 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
 
   // ─── update ──────────────────────────────────────────────────
   const handleUpdate = async () => {
+    if (phoneExists) {
+      showToast("Phone number already exists", false);
+      return;
+    }
     if (!form.name.trim()) {
       showToast("Party Name is required", false);
       return;
@@ -712,7 +743,13 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
                     placeholder=""
                     value={form.phone}
                     onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    style={phoneExists ? { borderColor: "#ef4444" } : {}}
                   />
+                  {phoneExists && (
+                    <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
+                      Phone number already exists
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -859,19 +896,6 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
                     </div>
                   )}
 
-                    <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                      <button type="button" className="cf-btn cf-btn-ghost" onClick={handleBillingCancelClick}>
-                        Cancel
-                      </button>
-                        <button
-                          type="button"
-                          className="cf-btn cf-btn-primary"
-                          onClick={handleSaveBillingSection}
-                          disabled={loading || !isBillingFilled()}
-                        >
-                          Save
-                        </button>
-                      </div>
                     </div>
 
                     <div style={{ background: "#eef1f5" }} />
@@ -1192,7 +1216,7 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
                 type="button"
                 className="cf-btn cf-btn-primary"
                 onClick={handleUpdate}
-                disabled={loading}
+                disabled={loading || checkingPhone || phoneExists}
               >
                 {loading ? "Updating..." : "Update"}
               </button>

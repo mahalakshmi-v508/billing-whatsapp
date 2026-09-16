@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import { Settings, X, Info, Eye, EyeOff, Plus, RefreshCw, BadgeCheck } from "lucide-react";
@@ -40,6 +40,8 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   });
 
   const [loading, setLoading] = useState(false);
+  const [phoneExists, setPhoneExists] = useState(false);
+  const [checkingPhone, setCheckingPhone] = useState(false);
   const [toast, setToast] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
   const [errors, setErrors] = useState({});
@@ -70,6 +72,36 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   // ─── confirm-popup state ────────────────────────────────────
   // null | "close" | "clearBilling" | "clearShipping"
   const [confirmAction, setConfirmAction] = useState(null);
+
+  useEffect(() => {
+    const phone = form.phone.trim();
+    if (phone.length !== 10) {
+      setPhoneExists(false);
+      setCheckingPhone(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const checkPhone = async () => {
+      setCheckingPhone(true);
+      try {
+        const user = JSON.parse(localStorage.getItem("user"));
+        const res = await api.get("/customer/get_by_phone", {
+          params: { phone, admin_id: user?.id },
+        });
+        if (!cancelled) setPhoneExists(Boolean(res.data?.status));
+      } catch (err) {
+        if (!cancelled) setPhoneExists(false);
+      } finally {
+        if (!cancelled) setCheckingPhone(false);
+      }
+    };
+
+    checkPhone();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.phone]);
 
   // ─── helpers ────────────────────────────────────────────────
   const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -123,14 +155,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   const getMissingRequiredFields = () => {
     const requiredFields = [
       ["Party Name", form.name],
-      ["GSTIN", form.gst_no],
       ["Phone Number", form.phone],
-      ["State", form.state],
-      ["Email ID", form.email],
-      ["Billing Address", form.billing_address],
-      ["Account Number", form.account_number],
-      ["PAN Number", form.pan_number],
-      ["Date of Birth", form.date_of_birth],
     ];
 
     if (form.show_detailed_address) {
@@ -175,20 +200,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       setConfirmAction("close");
     } else if (onCancel) {
       onCancel();
-    }
-  };
-
-  // ─── billing address cancel: confirm only if it has data ───
-  const handleBillingCancelClick = () => {
-    if (isBillingFilled()) {
-      setConfirmAction("clearBilling");
-    }
-  };
-
-  // ─── shipping address cancel: confirm only if it has data ──
-  const handleShippingCancelClick = () => {
-    if (isShippingFilled()) {
-      setConfirmAction("clearShipping");
     }
   };
 
@@ -251,19 +262,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       message: "This will empty the shipping address fields you've entered.",
       confirmLabel: "Clear",
     },
-  };
-
-  // ─── section-only "Save" handlers ───────────────────────────
-  // These are the inline Save buttons inside the Billing / Shipping
-  // blocks. They must NOT trigger the full customer-create API call
-  // (that one validates name/phone/GST/credit and hits the backend).
-  // They only need to confirm/lock in that section's own fields.
-  const handleSaveBillingSection = () => {
-    showToast("Billing address saved");
-  };
-
-  const handleSaveShippingSection = () => {
-    showToast("Shipping address saved");
   };
 
   // ─── OTP handlers (unchanged) ──────────────────────────────
@@ -481,10 +479,10 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       return;
     }
 
-    if (!gstVerified) {
-      showToast("Please verify GSTIN before saving", false);
-      return;
-    }
+    // if (!gstVerified) {
+    //   showToast("Please verify GSTIN before saving", false);
+    //   return;
+    // }
 
     if (!form.name.trim()) {
       showToast("Party Name is required", false);
@@ -1040,7 +1038,13 @@ gst_type: "Unregistered/Consumer",
                 placeholder=""
                 value={form.phone}
                 onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                style={phoneExists ? { borderColor: "#ef4444" } : {}}
               />
+              {phoneExists && (
+                <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
+                  Phone number already exists
+                </p>
+              )}
             </div>
           </div>
 
@@ -1193,19 +1197,6 @@ gst_type: "Unregistered/Consumer",
                     </div>
                   )}
 
-                  <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                    <button type="button" className="cf-btn cf-btn-ghost" onClick={handleBillingCancelClick}>
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="cf-btn cf-btn-primary"
-                      onClick={handleSaveBillingSection}
-                      disabled={loading || !isBillingFilled()}
-                    >
-                      Save
-                    </button>
-                  </div>
                 </div>
 
                 <div style={{ background: "#eef1f5" }} />
@@ -1290,19 +1281,6 @@ gst_type: "Unregistered/Consumer",
                         </div>
                       )}
 
-                      <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
-                        <button type="button" className="cf-btn cf-btn-ghost" onClick={handleShippingCancelClick}>
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          className="cf-btn cf-btn-primary"
-                          onClick={handleSaveShippingSection}
-                          disabled={loading || !isShippingFilled()}
-                        >
-                          Save
-                        </button>
-                      </div>
                     </>
                   )}
                 </div>
@@ -1538,7 +1516,7 @@ gst_type: "Unregistered/Consumer",
             type="button"
             className="cf-btn cf-btn-outline"
             onClick={() => handleSubmit(true)}
-            disabled={loading || hasMissingRequiredFields}
+            disabled={loading || checkingPhone || phoneExists || hasMissingRequiredFields}
           >
             Save & New
           </button>
@@ -1546,7 +1524,7 @@ gst_type: "Unregistered/Consumer",
             type="button"
             className="cf-btn cf-btn-primary"
             onClick={() => handleSubmit(false)}
-            disabled={loading || hasMissingRequiredFields}
+            disabled={loading || checkingPhone || phoneExists || hasMissingRequiredFields}
           >
             {loading ? "Creating..." : "Save"}
           </button>
