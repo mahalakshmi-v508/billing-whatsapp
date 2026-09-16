@@ -59,30 +59,23 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
   const [barcodeKey, setBarcodeKey] = useState(0);
   const [showAdditional, setShowAdditional] = useState(false);
 
+  const [categories, setCategories] = useState([]);
+  const [categoryLoading, setCategoryLoading] = useState(false);
+  const [subCategories, setSubCategories] = useState([]);
+  const [subCategoryLoading, setSubCategoryLoading] = useState(false);
+  const [brands, setBrands] = useState([]);
+  const [brandLoading, setBrandLoading] = useState(false);
+
   const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
 
   const [form, setForm] = useState({
     name: "", product_code: "", price: "", stock: "",
     gst: "", barcode: "", unit: "",
     sale_price: "", purchase_price: "",
-    category: "", subcategory: "", brand: ""
+    category_id: "", subcategory_id: "", brand_id: ""
   });
 
   const set = (field, val) => setForm(p => ({ ...p, [field]: val }));
-
-  useEffect(() => {
-    document.body.style.overflow = isOpen ? "hidden" : "";
-
-    if (isOpen) {
-      setForm({ name: "", product_code: "", price: "", stock: "", gst: "", barcode: "", unit: "", sale_price: "", purchase_price: "", category: "", subcategory: "", brand: "" });
-      setShowAdditional(false);
-      fetchCompanyGST();
-    }
-
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
 
   const fetchCompanyGST = async () => {
     setGstLoading(true);
@@ -99,6 +92,96 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
       setGstLoading(false);
     }
   };
+
+  const fetchCategories = async () => {
+    const company_id = getCompanyId();
+    if (!company_id) {
+      setCategories([]);
+      return;
+    }
+    setCategoryLoading(true);
+    try {
+      const res = await api.get(`/category/get_active_category?company_id=${company_id}`);
+      if (res.data.status) {
+        setCategories(res.data.data || []);
+      } else {
+        setCategories([]);
+      }
+    } catch (err) {
+      console.log(err);
+      setCategories([]);
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
+  const fetchSubCategories = async (categoryId) => {
+    const company_id = getCompanyId();
+    if (!company_id || !categoryId) {
+      setSubCategories([]);
+      return;
+    }
+    setSubCategoryLoading(true);
+    try {
+      const res = await api.get(`/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${categoryId}`);
+      if (res.data.status) {
+        setSubCategories(res.data.data || []);
+      } else {
+        setSubCategories([]);
+      }
+    } catch (err) {
+      console.log(err);
+      setSubCategories([]);
+    } finally {
+      setSubCategoryLoading(false);
+    }
+  };
+
+  const fetchBrands = async () => {
+    const company_id = getCompanyId();
+    if (!company_id) {
+      setBrands([]);
+      return;
+    }
+    setBrandLoading(true);
+    try {
+      const res = await api.get(`/brand/get_active_brand?company_id=${company_id}`);
+      if (res.data.status) {
+        setBrands(res.data.data || []);
+      } else {
+        setBrands([]);
+      }
+    } catch (err) {
+      console.log(err);
+      setBrands([]);
+    } finally {
+      setBrandLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        setForm({ name: "", product_code: "", price: "", stock: "", gst: "", barcode: "", unit: "", sale_price: "", purchase_price: "", category_id: "", subcategory_id: "", brand_id: "" });
+        setShowAdditional(false);
+        setSubCategories([]);
+        fetchCompanyGST();
+        fetchCategories();
+        fetchBrands();
+      }, 0);
+
+      return () => {
+        document.body.style.overflow = "";
+        clearTimeout(timer);
+      };
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);
@@ -121,12 +204,9 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
       const res = await api.post("/product/add", {
         product_name: form.name,
         product_code: form.product_code,
-        category_id: 0,
-        subcategory_id: 0,
-        brand_id: 0,
-        new_category_name: form.category,
-        new_subcategory_name: form.subcategory,
-        new_brand_name: form.brand,
+        category_id: Number(form.category_id) || 0,
+        subcategory_id: Number(form.subcategory_id) || 0,
+        brand_id: Number(form.brand_id) || 0,
         company_id: getCompanyId(),
         price: Number(form.price !== "" ? form.price : form.sale_price || 0),
         sale_price: form.sale_price || 0,
@@ -164,6 +244,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
         @keyframes apmToastIn { from{opacity:0;transform:translateX(60px) scale(0.9)} to{opacity:1;transform:translateX(0) scale(1)} }
         @keyframes apmSpin { to{transform:rotate(360deg)} }
         @keyframes apmFadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes apmSkel { to{background-position:-200% 0} }
         .apm-input:focus { border-color:#3b82f6 !important; background:#fff !important; box-shadow:0 0 0 4px rgba(59,130,246,0.1) !important; }
         .apm-select:focus { border-color:#3b82f6 !important; background:#fff !important; box-shadow:0 0 0 4px rgba(59,130,246,0.1) !important; }
         .apm-submit:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 10px 28px rgba(37,99,235,0.45) !important; }
@@ -479,51 +560,107 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
                   <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
                     Category
                   </label>
-                  <input
-                    className="apm-input"
-                    placeholder="e.g. Grocery"
-                    value={form.category}
-                    onChange={e => set("category", e.target.value)}
-                    style={{
-                      width: "100%", padding: "11px 14px", borderRadius: 10,
-                      border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                      fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                    }}
-                  />
+                  {categoryLoading ? (
+                    <div style={{
+                      height: 42, borderRadius: 10,
+                      background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)",
+                      backgroundSize: "200% 100%", animation: "apmSkel 1.4s ease infinite"
+                    }} />
+                  ) : (
+                    <select
+                      className="apm-select"
+                      value={form.category_id}
+                      onChange={(e) => {
+                        const categoryId = e.target.value;
+                        set("category_id", categoryId);
+                        set("subcategory_id", "");
+                        set("brand_id", "");
+                        setSubCategories([]);
+                        if (categoryId) fetchSubCategories(categoryId);
+                      }}
+                      style={{
+                        width: "100%", padding: "11px 14px", borderRadius: 10,
+                        border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
+                        fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s",
+                        appearance: "none"
+                      }}
+                    >
+                      <option value="">Select Category</option>
+                      {categories.length === 0 ? (
+                        <option value="" disabled>No categories found</option>
+                      ) : categories.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
                     Subcategory
                   </label>
-                  <input
-                    className="apm-input"
-                    placeholder="e.g. Soft Drinks"
-                    value={form.subcategory}
-                    onChange={e => set("subcategory", e.target.value)}
-                    style={{
-                      width: "100%", padding: "11px 14px", borderRadius: 10,
-                      border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                      fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                    }}
-                  />
+                  {subCategoryLoading ? (
+                    <div style={{
+                      height: 42, borderRadius: 10,
+                      background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)",
+                      backgroundSize: "200% 100%", animation: "apmSkel 1.4s ease infinite"
+                    }} />
+                  ) : (
+                    <select
+                      className="apm-select"
+                      value={form.subcategory_id}
+                      onChange={(e) => {
+                        set("subcategory_id", e.target.value);
+                        set("brand_id", "");
+                      }}
+                      disabled={!form.category_id}
+                      style={{
+                        width: "100%", padding: "11px 14px", borderRadius: 10,
+                        border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
+                        fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s",
+                        appearance: "none"
+                      }}
+                    >
+                      <option value="">{form.category_id ? "Select Subcategory" : "Select a category first"}</option>
+                      {form.category_id && subCategories.length === 0 ? (
+                        <option value="" disabled>No subcategories found</option>
+                      ) : subCategories.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
                     Brand
                   </label>
-                  <input
-                    className="apm-input"
-                    placeholder="e.g. Coca-Cola"
-                    value={form.brand}
-                    onChange={e => set("brand", e.target.value)}
-                    style={{
-                      width: "100%", padding: "11px 14px", borderRadius: 10,
-                      border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                      fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                    }}
-                  />
+                  {brandLoading ? (
+                    <div style={{
+                      height: 42, borderRadius: 10,
+                      background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)",
+                      backgroundSize: "200% 100%", animation: "apmSkel 1.4s ease infinite"
+                    }} />
+                  ) : (
+                    <select
+                      className="apm-select"
+                      value={form.brand_id}
+                      onChange={(e) => set("brand_id", e.target.value)}
+                      style={{
+                        width: "100%", padding: "11px 14px", borderRadius: 10,
+                        border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
+                        fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s",
+                        appearance: "none"
+                      }}
+                    >
+                      <option value="">Select Brand</option>
+                      {brands.length === 0 ? (
+                        <option value="" disabled>No brands found</option>
+                      ) : brands.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
             )}
