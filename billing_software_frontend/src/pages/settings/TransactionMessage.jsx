@@ -30,6 +30,7 @@ const TYPES = [
   { key: "sale_fa", label: "Sale FA" },
   { key: "purchase_fa", label: "Purchase FA" },
   { key: "royalty_points", label: "Royalty Points" },
+  { key: "credit_due", label: "Credit Due" },
 ];
 
 const TYPES_MAP = Object.fromEntries(TYPES.map((t) => [t.key, t.label]));
@@ -46,6 +47,8 @@ const VARIABLES = [
   "Invoice_Link",
   "Payment_Link",
   "Royalty_Points",
+  "Due_Date",
+  "Credit_Days",
 ];
 
 /** Selectable message variants per transaction type. */
@@ -54,6 +57,12 @@ const VARIANTS = [
   { key: "template_2", label: "Template 2" },
   { key: "custom", label: "Customize" },
 ];
+
+/** Per-type extra number inputs shown in the auto-send grid when the toggle is ON. */
+const EXTRA_FIELDS = {
+  royalty_points: { label: "Royalty Points Threshold", key: "royalty_points_threshold", placeholder: "100" },
+  credit_due: { label: "Credit Days", key: "credit_days", placeholder: "30" },
+};
 
 /** The row field that holds the message for a given variant. */
 function fieldForVariant(variant) {
@@ -100,6 +109,8 @@ function renderPreview(template, ctx, s) {
     "[Invoice_Link]": ctx.invoice_link,
     "[Payment_Link]": ctx.payment_link,
     "[Royalty_Points]": ctx.royalty_points,
+    "[Due_Date]": ctx.due_date,
+    "[Credit_Days]": ctx.credit_days,
   };
   Object.entries(map).forEach(([tok, v]) => {
     out = out.split(tok).join(v || "");
@@ -407,13 +418,13 @@ export default function TransactionMessage() {
             <div className="grid sm:grid-cols-2 gap-x-4">
               {TYPES.map((t) => {
                 const on = !!types[t.key]?.auto_send;
-                const isRoyalty = t.key === "royalty_points";
+                const extra = EXTRA_FIELDS[t.key];
                 return (
                   <label
                     key={t.key}
                     onClick={() => setSelectedType(t.key)}
                     className={`${
-                      isRoyalty ? "flex flex-col" : "flex items-center justify-between"
+                      extra ? "flex flex-col" : "flex items-center justify-between"
                     } gap-2 py-2 px-2.5 rounded-lg cursor-pointer select-none transition-colors ${
                       selectedType === t.key ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-slate-50"
                     }`}
@@ -443,19 +454,19 @@ export default function TransactionMessage() {
                         />
                       </span>
                     </span>
-                    {isRoyalty && on && (
+                    {extra && on && (
                       <span
                         className="flex items-center gap-2 mt-1 pl-0.5"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="text-[11.5px] text-slate-500">Royalty Points Threshold</span>
+                        <span className="text-[11.5px] text-slate-500">{extra.label}</span>
                         <input
                           type="number"
                           min="1"
                           step="1"
-                          value={types[t.key]?.royalty_points_threshold ?? ""}
-                          onChange={(e) => patchType(t.key, { royalty_points_threshold: e.target.value })}
-                          placeholder="100"
+                          value={types[t.key]?.[extra.key] ?? ""}
+                          onChange={(e) => patchType(t.key, { [extra.key]: e.target.value })}
+                          placeholder={extra.placeholder}
                           className="w-24 px-2 py-1 rounded-lg border border-slate-300 bg-white text-[12px] font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </span>
