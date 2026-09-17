@@ -20,6 +20,10 @@ class TransactionMessageSetting extends Model
         'web_invoice_link_in_msg',
         'payment_link_in_msg',
         'template',
+        'selected_template',
+        'template_2',
+        'custom_template',
+        'royalty_points_threshold',
     ];
 
     protected $casts = [
@@ -30,5 +34,6 @@ class TransactionMessageSetting extends Model
         'party_balance_in_msg' => 'boolean',
         'web_invoice_link_in_msg' => 'boolean',
         'payment_link_in_msg' => 'boolean',
+        'royalty_points_threshold' => 'integer',
     ];
 }

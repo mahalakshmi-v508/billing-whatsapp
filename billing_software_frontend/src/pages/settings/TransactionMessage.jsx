@@ -29,6 +29,7 @@ const TYPES = [
   { key: "expense", label: "Expense" },
   { key: "sale_fa", label: "Sale FA" },
   { key: "purchase_fa", label: "Purchase FA" },
+  { key: "royalty_points", label: "Royalty Points" },
 ];
 
 const TYPES_MAP = Object.fromEntries(TYPES.map((t) => [t.key, t.label]));
@@ -44,7 +45,28 @@ const VARIABLES = [
   "Payment_Mode",
   "Invoice_Link",
   "Payment_Link",
+  "Royalty_Points",
 ];
+
+/** Selectable message variants per transaction type. */
+const VARIANTS = [
+  { key: "template_1", label: "Template 1" },
+  { key: "template_2", label: "Template 2" },
+  { key: "custom", label: "Customize" },
+];
+
+/** The row field that holds the message for a given variant. */
+function fieldForVariant(variant) {
+  if (variant === "template_2") return "template_2";
+  if (variant === "custom") return "custom_template";
+  return "template";
+}
+
+/** The message content stored for a variant on a settings row. */
+function messageForVariant(row, variant) {
+  if (!row) return "";
+  return row[fieldForVariant(variant)] || "";
+}
 
 /** Mirrors the server-side line/token suppression rules for the live preview. */
 function renderPreview(template, ctx, s) {
@@ -77,6 +99,7 @@ function renderPreview(template, ctx, s) {
     "[Payment_Mode]": ctx.payment_mode,
     "[Invoice_Link]": ctx.invoice_link,
     "[Payment_Link]": ctx.payment_link,
+    "[Royalty_Points]": ctx.royalty_points,
   };
   Object.entries(map).forEach(([tok, v]) => {
     out = out.split(tok).join(v || "");
@@ -227,6 +250,9 @@ export default function TransactionMessage() {
   };
 
   const sel = types[selectedType] || null;
+  const activeVariant = sel?.selected_template || "template_1";
+  const activeField = fieldForVariant(activeVariant);
+  const activeMessage = sel ? sel[activeField] || "" : "";
   const isReady = conn.status === "ready";
   const connectedText = conn.phone ? conn.phone.replace(/^91/, "") : (conn.name || "");
   const enabledCount = TYPES.filter((t) => types[t.key]?.auto_send).length;
@@ -234,7 +260,8 @@ export default function TransactionMessage() {
   const insertVariable = (v) => {
     const current = types[selectedType];
     if (!current) return;
-    patchType(selectedType, { template: (current.template || "") + ` [${v}]` });
+    const field = fieldForVariant(current.selected_template || "template_1");
+    patchType(selectedType, { [field]: (current[field] || "") + ` [${v}]` });
   };
 
   return (
@@ -380,37 +407,59 @@ export default function TransactionMessage() {
             <div className="grid sm:grid-cols-2 gap-x-4">
               {TYPES.map((t) => {
                 const on = !!types[t.key]?.auto_send;
+                const isRoyalty = t.key === "royalty_points";
                 return (
                   <label
                     key={t.key}
                     onClick={() => setSelectedType(t.key)}
-                    className={`flex items-center justify-between gap-2 py-2 px-2.5 rounded-lg cursor-pointer select-none transition-colors ${
+                    className={`${
+                      isRoyalty ? "flex flex-col" : "flex items-center justify-between"
+                    } gap-2 py-2 px-2.5 rounded-lg cursor-pointer select-none transition-colors ${
                       selectedType === t.key ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-slate-50"
                     }`}
                   >
-                    <span
-                      className={`text-[13px] ${selectedType === t.key ? "text-blue-700 font-semibold" : "text-slate-700"}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {t.label}
-                    </span>
-                    <span
-                      role="switch"
-                      aria-checked={on}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        patchType(t.key, { auto_send: !on });
-                      }}
-                      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${
-                        on ? "bg-blue-600" : "bg-slate-300"
-                      }`}
-                    >
+                    <span className="flex items-center justify-between gap-2 w-full">
                       <span
-                        className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                          on ? "left-[18px]" : "left-0.5"
+                        className={`text-[13px] ${selectedType === t.key ? "text-blue-700 font-semibold" : "text-slate-700"}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t.label}
+                      </span>
+                      <span
+                        role="switch"
+                        aria-checked={on}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          patchType(t.key, { auto_send: !on });
+                        }}
+                        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${
+                          on ? "bg-blue-600" : "bg-slate-300"
                         }`}
-                      />
+                      >
+                        <span
+                          className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                            on ? "left-[18px]" : "left-0.5"
+                          }`}
+                        />
+                      </span>
                     </span>
+                    {isRoyalty && on && (
+                      <span
+                        className="flex items-center gap-2 mt-1 pl-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="text-[11.5px] text-slate-500">Royalty Points Threshold</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={types[t.key]?.royalty_points_threshold ?? ""}
+                          onChange={(e) => patchType(t.key, { royalty_points_threshold: e.target.value })}
+                          placeholder="100"
+                          className="w-24 px-2 py-1 rounded-lg border border-slate-300 bg-white text-[12px] font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </span>
+                    )}
                   </label>
                 );
               })}
@@ -440,6 +489,53 @@ export default function TransactionMessage() {
             ) : null}
           </SettingsCard>
 
+          {/* MESSAGE TEMPLATE SELECTOR */}
+          <SettingsCard title="Message Template">
+            <p className="text-[12.5px] text-slate-500 mb-2">
+              Choose which message is sent for the selected transaction type. Only one option can be active at a time.
+            </p>
+            <div className="space-y-2">
+              {VARIANTS.map((v) => {
+                const selected = activeVariant === v.key;
+                const content = messageForVariant(sel, v.key);
+                const hints = {
+                  template_1: "Default message for this transaction type.",
+                  template_2: "Second default message for this transaction type.",
+                  custom: "Write your own message using the editor below.",
+                };
+                return (
+                  <label
+                    key={v.key}
+                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer select-none transition-colors ${
+                      selected
+                        ? "border-blue-300 bg-blue-50/70 ring-1 ring-blue-200"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`template_variant_${selectedType}`}
+                      className="mt-1 accent-blue-600"
+                      checked={selected}
+                      onChange={() => patchType(selectedType, { selected_template: v.key })}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className={`block text-[13.5px] font-semibold ${selected ? "text-blue-700" : "text-slate-700"}`}>
+                        {v.label}
+                      </span>
+                      <span className="block text-[11.5px] text-slate-400 mt-0.5">{hints[v.key]}</span>
+                      <span className="block text-[12px] text-slate-500 mt-1 leading-relaxed whitespace-pre-wrap break-words line-clamp-2 rounded-lg bg-white/80 border border-slate-100 px-2 py-1.5">
+                        {content || (v.key === "custom"
+                          ? "No custom message saved yet — the editor below will store it for this transaction type."
+                          : "No content available.")}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </SettingsCard>
+
           <SettingsCard title="Edit Message">
             <div className="flex flex-wrap gap-1.5 mb-2">
               {VARIABLES.map((v) => (
@@ -454,8 +550,8 @@ export default function TransactionMessage() {
               ))}
             </div>
             <textarea
-              value={sel?.template || ""}
-              onChange={(e) => patchType(selectedType, { template: e.target.value })}
+              value={activeMessage}
+              onChange={(e) => patchType(selectedType, { [activeField]: e.target.value })}
               rows={12}
               placeholder="Write your transaction message. Click a variable above to insert it."
               className="w-full p-3 rounded-xl border border-slate-300 bg-white text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
@@ -470,11 +566,18 @@ export default function TransactionMessage() {
             </div>
           </SettingsCard>
 
-          <SettingsCard title="Message Preview">
+          <SettingsCard
+            title="Message Preview"
+            badge={
+              <Badge tone={activeVariant === "custom" ? "amber" : "blue"}>
+                {VARIANTS.find((v) => v.key === activeVariant)?.label || "Template 1"}
+              </Badge>
+            }
+          >
             <div className="rounded-2xl bg-[#eef2f7] p-3">
               <div className="max-w-[85%] ml-auto bg-[#dcf8c6] rounded-2xl rounded-tr-sm px-3.5 py-2.5 shadow-sm">
                 <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words text-slate-800">
-                  {sel ? renderPreview(sel.template, previewCtx || {}, sel) : ""}
+                  {sel ? renderPreview(activeMessage, previewCtx || {}, sel) : ""}
                 </p>
                 <p className="text-[10px] text-slate-500 text-right mt-1.5">
                   {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

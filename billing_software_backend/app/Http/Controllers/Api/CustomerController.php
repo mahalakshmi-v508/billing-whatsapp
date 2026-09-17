@@ -305,6 +305,21 @@ class CustomerController extends Controller
             return response()->json(["status" => false, "message" => "Required fields missing"]);
         }
 
+        $existingCustomer = Customer::find($id);
+        if (!$existingCustomer) {
+            return response()->json(["status" => false, "message" => "Customer not found"]);
+        }
+
+        $duplicatePhone = Customer::where('phone', $phone)
+            ->where('admin_id', $existingCustomer->admin_id)
+            ->where('id', '!=', $id)
+            ->where('is_deleted', 0)
+            ->exists();
+
+        if ($duplicatePhone) {
+            return response()->json(["status" => false, "message" => "Customer with this phone already exists"]);
+        }
+
         Customer::where('id', $id)->update([
             'name' => $name ?: 'Customer',
             'phone' => $phone,
