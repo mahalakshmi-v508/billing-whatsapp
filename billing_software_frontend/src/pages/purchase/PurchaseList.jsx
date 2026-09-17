@@ -383,7 +383,7 @@ export default function PurchaseList() {
           </button>
           <button
             onClick={() => navigate("/purchases/new")}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+            className="app-btn-primary h-9 px-4 rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
           >
             <Plus size={16} />
             <span>Add Purchase</span>
@@ -407,7 +407,7 @@ export default function PurchaseList() {
                 onClick={() => handleCompanyChange(c.id)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 border ${
                   isActive
-                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    ? "app-pill-active"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
               >
@@ -434,13 +434,13 @@ export default function PurchaseList() {
                 placeholder="Search supplier..."
                 value={supplierSearch}
                 onChange={(e) => setSupplierSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 transition"
+                className="w-full pl-8 pr-3 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 transition"
               />
             </div>
 
             <button
               onClick={() => setShowAddSupplierModal(true)}
-              className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+              className="app-btn-primary w-full py-2 px-3 text-xs font-semibold rounded-xl"
             >
               <Plus size={15} /> Add Supplier
             </button>

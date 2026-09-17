@@ -116,8 +116,8 @@ export default function CommonTableColumnSettings({
 
             {/* Visible count badge + Quick actions */}
             <div className="flex items-center justify-between text-xs">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-100/80">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-100/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
                 {visibleCount} of {columns.length} visible
               </span>
 
@@ -125,7 +125,7 @@ export default function CommonTableColumnSettings({
                 <button
                   type="button"
                   onClick={() => onSelectAll && onSelectAll(true)}
-                  className="text-[11px] font-semibold text-slate-600 hover:text-blue-600 hover:bg-white px-2 py-0.5 rounded transition cursor-pointer"
+                  className="text-[11px] font-semibold text-slate-600 hover:text-emerald-600 hover:bg-white px-2 py-0.5 rounded transition cursor-pointer"
                 >
                   Show all
                 </button>
@@ -212,7 +212,7 @@ export default function CommonTableColumnSettings({
                     {/* Right: Modern iOS Toggle Switch */}
                     <div
                       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out flex-shrink-0 ${
-                        isChecked ? "bg-blue-600" : "bg-slate-200"
+                        isChecked ? "app-toggle-active" : "bg-slate-200"
                       }`}
                     >
                       <span
@@ -229,7 +229,7 @@ export default function CommonTableColumnSettings({
 
           {/* 4. Drawer Footer */}
           <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
+            <div className="flex items-center gap-1.5 text-xs text-brand-600 font-semibold">
               <Check size={14} strokeWidth={2.5} />
               <span className="text-[11px]">Saved automatically</span>
             </div>
@@ -237,7 +237,7 @@ export default function CommonTableColumnSettings({
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 transition transform active:scale-95 cursor-pointer"
+              className="app-btn-primary px-6 py-2 text-xs font-bold rounded-xl transition transform active:scale-95 cursor-pointer"
             >
               Done
             </button>

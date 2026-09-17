@@ -146,7 +146,7 @@ function CloseConfirmModal({ isOpen, onCancel, onConfirm }) {
           <button
             type="button"
             onClick={onConfirm}
-            className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/25 transition cursor-pointer"
+            className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer"
           >
             OK, Discard
           </button>
@@ -1131,7 +1131,7 @@ export default function AddDebitNote() {
               <button
                 type="button"
                 onClick={addRow}
-                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                className="app-btn-primary px-3 py-1.5 rounded-xl text-xs font-bold"
               >
                 <Plus size={13} strokeWidth={2.5} />
                 <span>Add Return Row</span>
@@ -1456,7 +1456,7 @@ export default function AddDebitNote() {
                     onClick={() => updateActiveTab({ paymentType: type.value })}
                     className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                       isSelected
-                        ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                        ? "app-pill-active"
                         : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
                     }`}
                   >

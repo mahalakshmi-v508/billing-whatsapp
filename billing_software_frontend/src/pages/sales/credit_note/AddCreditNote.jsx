@@ -875,7 +875,7 @@ export default function AddCreditNote() {
             <button
               type="button"
               onClick={addRow}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+              className="app-btn-primary px-3 py-1.5 rounded-xl text-xs font-bold"
             >
               <Plus size={13} strokeWidth={2.5} />
               <span>Add Return Item</span>

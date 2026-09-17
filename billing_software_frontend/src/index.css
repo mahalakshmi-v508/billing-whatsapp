@@ -37,7 +37,14 @@
 @layer components {
   /* Unified Buttons */
   .app-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer;
+    background-color: #10b981;
+  }
+  .app-btn-primary:hover {
+    background-color: #059669;
+  }
+  .app-btn-primary:active {
+    background-color: #047857;
   }
 
   .app-btn-secondary {
@@ -49,7 +56,33 @@
   }
 
   .app-btn-success {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-150 cursor-pointer;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-150 cursor-pointer;
+    background-color: #10b981;
+  }
+  .app-btn-success:hover {
+    background-color: #059669;
+  }
+  .app-btn-success:active {
+    background-color: #047857;
+  }
+
+  /* Active State Classes (Single Source of Truth) */
+  .app-pill-active {
+    background-color: #10b981 !important;
+    color: #ffffff !important;
+    border-color: #10b981 !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  .app-pagination-active {
+    background-color: #10b981 !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  .app-toggle-active {
+    background-color: #10b981 !important;
   }
 
   .app-btn-icon {
@@ -57,7 +90,7 @@
   }
 
   .app-btn-icon-edit {
-    @apply app-btn-icon bg-blue-50 text-blue-600 hover:bg-blue-100;
+    @apply app-btn-icon bg-emerald-50 text-emerald-600 hover:bg-emerald-100;
   }
 
   .app-btn-icon-delete {

@@ -80,7 +80,7 @@ export default function TablePagination({
               onClick={() => onPageChange && onPageChange(item)}
               className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
                 safePage === item
-                  ? "bg-blue-600 text-white font-bold shadow-sm"
+                  ? "app-pagination-active"
                   : "border border-slate-200 text-slate-700 hover:bg-slate-50"
               }`}
             >

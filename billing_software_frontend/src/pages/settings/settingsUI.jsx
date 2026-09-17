@@ -1,13 +1,13 @@
 import { X, Sparkles } from "lucide-react";
 
-export const accent = "#2563eb";
-export const gradient = "linear-gradient(135deg, #1f8cff 0%, #4338ca 100%)";
+export const accent = "#10b981";
+export const gradient = "linear-gradient(135deg, #10b981 0%, #047857 100%)";
 
 /** Small circular info tooltip icon */
 export function InfoIcon({ title }) {
   return (
     <span
-      className="info-icon inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-500 hover:bg-blue-500 hover:text-white cursor-help transition-colors flex-shrink-0 text-[10px] font-bold"
+      className="info-icon inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-slate-500 hover:bg-emerald-500 hover:text-white cursor-help transition-colors flex-shrink-0 text-[10px] font-bold"
       title={title}
       aria-label={title}
     >
@@ -27,8 +27,8 @@ export function CheckRow({ label, checked, onChange, info, extra, sub, size = "s
               size === "lg" ? "w-[22px] h-[22px]" : "w-5 h-5"
             } ${
               checked
-                ? "bg-blue-600 border-blue-600 shadow-sm shadow-blue-600/30"
-                : "bg-white border-slate-300 group-hover:border-blue-400"
+                ? "bg-brand-500 border-brand-500 shadow-sm shadow-brand-500/30"
+                : "bg-white border-slate-300 group-hover:border-brand-400"
             }`}
             onClick={(e) => {
               if (sub || extra) e.preventDefault();
@@ -88,7 +88,7 @@ export function Toggle({ checked, onChange, label, info }) {
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
-          checked ? "bg-blue-600" : "bg-slate-300"
+          checked ? "app-toggle-active" : "bg-slate-300"
         }`}
       >
         <span

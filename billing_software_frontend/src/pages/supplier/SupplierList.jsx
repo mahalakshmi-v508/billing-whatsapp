@@ -157,7 +157,7 @@ export default function SupplierList() {
                 onClick={() => handleCompanyChange(String(c.id))}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                   isActive
-                    ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-600 ring-offset-1"
+                    ? "app-pill-active ring-2 ring-brand-500 ring-offset-1"
                     : "bg-white text-slate-700 border border-slate-200/80 hover:bg-slate-50 hover:border-slate-300"
                 }`}
               >

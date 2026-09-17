@@ -345,7 +345,7 @@ export default function GenerateEwayBill() {
           <button
             type="button"
             onClick={() => navigate("/sales/invoices")}
-            className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold cursor-pointer"
+            className="app-btn-primary px-5 py-2.5 rounded-lg text-sm font-bold"
           >
             Back to Sales Invoices
           </button>
@@ -597,7 +597,7 @@ export default function GenerateEwayBill() {
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-[14px] font-bold shadow-md shadow-blue-600/20 cursor-pointer transition"
+            className="app-btn-primary px-7 py-3 rounded-xl disabled:opacity-60 text-white text-[14px] font-bold shadow-md shadow-emerald-500/20 cursor-pointer transition"
           >
             {submitting ? <Loader2 size={17} className="animate-spin" /> : <ArrowRight size={17} />}
             {submitting ? "Posting E-Way Bill…" : "Proceed & Generate E-Way Bill"}

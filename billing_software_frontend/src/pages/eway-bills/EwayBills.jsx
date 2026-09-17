@@ -281,7 +281,7 @@ export default function EwayBills() {
                 onClick={() => handleCompanyChange(c.id)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 border ${
                   isActive
-                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    ? "app-pill-active"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
               >
@@ -794,7 +794,7 @@ export default function EwayBills() {
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-bold cursor-pointer"
+                className="app-btn-primary px-5 py-2 rounded-xl disabled:opacity-60 text-xs font-bold cursor-pointer"
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                 {saving ? "Updating…" : "Update & Recalculate"}

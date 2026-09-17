@@ -462,7 +462,7 @@ export default function PaymentOut() {
             />
             <button
               onClick={() => setShowDatePicker(false)}
-              className="px-2.5 py-1 bg-blue-600 text-white rounded-full text-xs font-bold cursor-pointer"
+              className="app-btn-primary px-2.5 py-1 rounded-full text-xs font-bold"
             >
               Apply
             </button>
@@ -942,7 +942,7 @@ export default function PaymentOut() {
                       onClick={() => setCurrentPage(item)}
                       className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
                         safePage === item
-                          ? "bg-blue-600 text-white shadow-xs font-bold"
+                          ? "app-pagination-active"
                           : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                       }`}
                     >

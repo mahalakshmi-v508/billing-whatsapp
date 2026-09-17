@@ -22,7 +22,7 @@ export default function HeaderSettingsButton({
         onClick={onClick}
         className={`w-9 h-9 rounded-xl border transition cursor-pointer flex items-center justify-center shadow-2xs ${
           isActive
-            ? "bg-blue-50 border-blue-300 text-blue-600"
+            ? "bg-emerald-50 border-emerald-300 text-emerald-600"
             : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         } ${className}`}
         title={title}
@@ -38,7 +38,7 @@ export default function HeaderSettingsButton({
       onClick={onClick}
       className={`w-9 h-9 flex items-center justify-center rounded-full transition cursor-pointer ${
         isActive
-          ? "bg-blue-100 text-blue-600"
+          ? "bg-emerald-100 text-emerald-600"
           : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
       } ${className}`}
       title={title}

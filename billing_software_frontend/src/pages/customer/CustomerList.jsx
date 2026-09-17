@@ -771,7 +771,7 @@ export default function CustomerList() {
                     {totalPending > 0 && (
                       <button
                         onClick={openCollect}
-                        className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold shadow-xs transition cursor-pointer flex-shrink-0"
+                        className="app-btn-primary px-3.5 py-1.5 rounded-2xl text-xs font-bold shadow-xs transition cursor-pointer flex-shrink-0"
                       >
                         <Wallet size={15} />
                         <span className="flex flex-col text-left leading-tight font-bold">

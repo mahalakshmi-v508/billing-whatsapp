@@ -129,7 +129,7 @@ function CloseSaleModal({ isOpen, onCancel, onConfirm }) {
           <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer">
             Cancel
           </button>
-          <button type="button" onClick={onConfirm} className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition cursor-pointer">
+          <button type="button" onClick={onConfirm} className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer">
             OK, Discard
           </button>
         </div>
@@ -881,7 +881,7 @@ export default function AddSale() {
           </button>
 
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-brand-500 text-white flex items-center justify-center font-black shadow-sm">
               <ReceiptText size={16} />
             </div>
             <div>
@@ -896,7 +896,7 @@ export default function AddSale() {
                     type="button"
                     onClick={() => updateActiveSale({ paymentType: "cash" })}
                     className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase transition cursor-pointer ${
-                      !isCredit ? "bg-blue-600 text-white shadow-xs" : "text-slate-500 hover:text-slate-800"
+                      !isCredit ? "app-pill-active" : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
                     Cash
@@ -910,7 +910,7 @@ export default function AddSale() {
                       updateActiveSale({ paymentType: "credit", dueDate: baseDate.toISOString().split("T")[0] });
                     }}
                     className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase transition cursor-pointer ${
-                      isCredit ? "bg-blue-600 text-white shadow-xs" : "text-slate-500 hover:text-slate-800"
+                      isCredit ? "app-pill-active" : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
                     Credit
@@ -1692,7 +1692,7 @@ export default function AddSale() {
               <button type="button" onClick={() => setUnlistedProductsWarning(null)} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer">
                 Cancel
               </button>
-              <button type="button" onClick={handleProceedFromWarning} className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm cursor-pointer flex items-center gap-1.5">
+              <button type="button" onClick={handleProceedFromWarning} className="app-btn-primary px-5 py-2 text-xs font-bold flex items-center gap-1.5">
                 <Check size={14} />
                 <span>Proceed to Bill</span>
               </button>

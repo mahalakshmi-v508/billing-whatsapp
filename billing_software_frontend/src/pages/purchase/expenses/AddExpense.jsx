@@ -116,7 +116,7 @@ function CloseConfirmModal({ isOpen, onCancel, onConfirm }) {
           <button
             type="button"
             onClick={onConfirm}
-            className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+            className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer"
           >
             OK, Discard
           </button>
@@ -547,7 +547,7 @@ export default function AddExpense() {
                   const recalculated = activeTab.rows.map((r) => calculateRow(r, newGst));
                   updateActiveTab({ isGst: newGst, rows: recalculated });
                 }}
-                className={`w-8 h-4.5 rounded-full p-0.5 cursor-pointer transition-colors ${activeTab.isGst ? "bg-blue-600" : "bg-slate-300"}`}
+                className={`w-8 h-4.5 rounded-full p-0.5 cursor-pointer transition-colors ${activeTab.isGst ? "app-toggle-active" : "bg-slate-300"}`}
               >
                 <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${activeTab.isGst ? "translate-x-3.5" : "translate-x-0"}`} />
               </div>
@@ -804,7 +804,7 @@ export default function AddExpense() {
             <button
               type="button"
               onClick={handleAddRow}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+              className="app-btn-primary px-3 py-1.5 rounded-xl text-xs font-bold"
             >
               <Plus size={13} strokeWidth={2.5} />
               <span>Add Expense Row</span>
@@ -1031,7 +1031,7 @@ export default function AddExpense() {
                     onClick={() => updateActiveTab({ paymentType: mode })}
                     className={`py-2 px-3 rounded-xl font-bold text-xs border transition cursor-pointer text-center ${
                       isSelected
-                        ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                        ? "app-pill-active"
                         : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                     }`}
                   >

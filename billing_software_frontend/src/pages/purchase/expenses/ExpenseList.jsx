@@ -387,7 +387,7 @@ export default function ExpenseList() {
           onClick={() => setActiveTab("CATEGORY")}
           className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold tracking-wide transition cursor-pointer ${
             activeTab === "CATEGORY"
-              ? "bg-blue-600 text-white shadow-xs"
+              ? "app-pill-active"
               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
           }`}
         >
@@ -399,7 +399,7 @@ export default function ExpenseList() {
           onClick={() => setActiveTab("ITEMS")}
           className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold tracking-wide transition cursor-pointer ${
             activeTab === "ITEMS"
-              ? "bg-blue-600 text-white shadow-xs"
+              ? "app-pill-active"
               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
           }`}
         >

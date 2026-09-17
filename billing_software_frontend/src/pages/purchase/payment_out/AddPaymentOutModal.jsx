@@ -403,7 +403,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                       onClick={() => setPaymentType(type)}
                       className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
                         paymentType === type
-                          ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                          ? "app-pill-active"
                           : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                       }`}
                     >

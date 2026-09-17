@@ -220,7 +220,7 @@ export default function TicketList() {
 
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-sm hover:shadow transition flex items-center gap-2"
+            className="app-btn-primary px-4 py-2 rounded-xl text-xs shadow-sm hover:shadow transition flex items-center gap-2"
           >
             <Plus size={16} />
             Create Ticket

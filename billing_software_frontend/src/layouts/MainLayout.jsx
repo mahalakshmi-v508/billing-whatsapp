@@ -636,8 +636,8 @@ export default function MainLayout() {
                 title="Quick Actions"
                 className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
                   quickAddOpen
-                    ? "bg-blue-100 border-blue-300 text-blue-700"
-                    : "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100 hover:border-blue-300"
+                    ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                    : "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-300"
                 }`}
               >
                 <Plus size={18} strokeWidth={2.5} />

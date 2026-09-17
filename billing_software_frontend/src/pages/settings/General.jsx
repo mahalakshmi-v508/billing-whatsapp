@@ -244,7 +244,7 @@ function GeneralSettings() {
         <button
           type="button"
           onClick={() => alert(`Screen zoom set to ${state.zoom}%`)}
-          className="mt-4 px-5 py-1.5 bg-blue-600 text-white text-[13px] font-medium rounded-full hover:bg-blue-700 transition ml-auto block"
+          className="app-btn-primary mt-4 px-5 py-1.5 text-[13px] font-medium rounded-full ml-auto block"
         >
           Apply
         </button>
