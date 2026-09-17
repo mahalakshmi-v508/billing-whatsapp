@@ -77,8 +77,8 @@ function ItemCheckbox({ label, checked, onChange, info, extra, sub }) {
         <span
           className={`relative inline-flex items-center justify-center rounded-md border-2 transition-all cursor-pointer shrink-0 ${
             checked
-              ? "bg-brand-500 border-brand-500 shadow-sm"
-              : "bg-white border-slate-300 group-hover:border-brand-400"
+              ? "bg-blue-600 border-blue-600 shadow-sm shadow-blue-600/30"
+              : "bg-white border-slate-300 group-hover:border-blue-400"
           }`}
           style={{ width: 23, height: 23 }}
         >
@@ -164,8 +164,8 @@ function FieldRow({ checked, onChange, label, input }) {
         <span
           className={`relative inline-flex items-center justify-center rounded-md border-2 transition-all cursor-pointer shrink-0 ${
             checked
-              ? "bg-brand-500 border-brand-500 shadow-sm"
-              : "bg-white border-slate-300 group-hover:border-brand-400"
+              ? "bg-blue-600 border-blue-600 shadow-sm shadow-blue-600/30"
+              : "bg-white border-slate-300 group-hover:border-blue-400"
           }`}
           style={{ width: 23, height: 23 }}
         >

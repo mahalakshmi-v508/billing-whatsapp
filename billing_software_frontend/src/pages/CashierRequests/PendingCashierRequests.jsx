@@ -1,43 +1,37 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
-import { Check, X, Users, ShieldCheck } from "lucide-react";
 import {
-  TableContainer,
-  Table,
-  Thead,
-  Th,
-  Tbody,
-  Tr,
-  Td,
-  TablePagination,
-  TableLoadingState,
-  TableEmptyState,
-} from "../../components/table";
+  Check,
+  X,
+  Search,
+  ShieldCheck,
+  Users,
+   ChevronLeft,
+  ChevronRight
+} from "lucide-react";
+
+const ITEMS_PER_PAGE = 5;
 
 export default function PendingCashierRequests() {
+
   const [data, setData] = useState([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(null);
+  const [toast, setToast] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [confirmBox, setConfirmBox] = useState({
-    open: false,
-    type: "",
-    id: null,
-  });
+  open: false,
+  type: "",
+  id: null
+});
 
   const fetchRequests = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/CashierRequest/get_cashier_requests");
-      if (res.data.status) {
-        setData(res.data.data || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+
+    const res = await api.get(
+      "/CashierRequest/get_cashier_requests"
+    );
+
+    if (res.data.status) {
+      setData(res.data.data);
     }
   };
 
@@ -45,252 +39,900 @@ export default function PendingCashierRequests() {
     fetchRequests();
   }, []);
 
-  const approve = async (id) => {
-    setActionLoading(id);
-    try {
-      const res = await api.post("/CashierRequest/approve_cashier_request", { id });
-      alert(res.data.message || "Approved successfully");
-      fetchRequests();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to approve request");
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
-  const reject = async (id) => {
-    setActionLoading(id);
-    try {
-      const res = await api.post("/CashierRequest/reject_cashier_request", { id });
-      alert(res.data.message || "Rejected successfully");
-      fetchRequests();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to reject request");
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const showToast = (msg, ok = true) => {
 
-  const filtered = data.filter(
-    (item) =>
-      item.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-      item.name?.toLowerCase().includes(search.toLowerCase()) ||
-      item.email?.toLowerCase().includes(search.toLowerCase()) ||
-      item.admin_name?.toLowerCase().includes(search.toLowerCase())
+  setToast({
+    msg,
+    ok
+  });
+
+  setTimeout(() => {
+    setToast(null);
+  }, 3000);
+};
+ const approve = async (id) => {
+
+  const res = await api.post(
+    "/CashierRequest/approve_cashier_request",
+    { id }
   );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginated = filtered.slice(
-    (safePage - 1) * rowsPerPage,
-    safePage * rowsPerPage
+  showToast(
+    res.data.message,
+    res.data.status
   );
+
+  fetchRequests();
+};
+
+ const reject = async (id) => {
+
+  const res = await api.post(
+    "/CashierRequest/reject_cashier_request",
+    { id }
+  );
+
+  showToast(
+    res.data.message,
+    res.data.status
+  );
+
+  fetchRequests();
+};
+
+  const filtered = data.filter((item) =>
+
+    item.company_name
+      ?.toLowerCase()
+      .includes(search.toLowerCase())
+
+    ||
+
+    item.name
+      ?.toLowerCase()
+      .includes(search.toLowerCase())
+
+    ||
+
+    item.email
+      ?.toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
+  const totalPages = Math.max(
+  1,
+  Math.ceil(filtered.length / ITEMS_PER_PAGE)
+);
+
+const safePage = Math.min(
+  currentPage,
+  totalPages
+);
+
+const paginated = filtered.slice(
+  (safePage - 1) * ITEMS_PER_PAGE,
+  safePage * ITEMS_PER_PAGE
+);
+
+  const getInitial = (name) =>
+    name
+      ? name.charAt(0).toUpperCase()
+      : "?";
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen">
-      {/* Confirmation Modal */}
-      {confirmBox.open && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
-                confirmBox.type === "approve"
-                  ? "bg-emerald-50 text-emerald-600"
-                  : "bg-rose-50 text-rose-600"
-              }`}
-            >
-              {confirmBox.type === "approve" ? <Check size={24} /> : <X size={24} />}
-            </div>
+<>
+<style>
+{`
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: scale(.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+`}
+</style>
+    
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#eef2f7",
+        padding: 30,
+        fontFamily: "Inter, sans-serif"
+      }}
+    >
 
-            <h3 className="text-lg font-bold text-slate-900 text-center">
-              {confirmBox.type === "approve" ? "Approve Cashier Request?" : "Reject Cashier Request?"}
-            </h3>
+        {/* CONFIRM DIALOG */}
 
-            <p className="text-xs text-slate-500 text-center mt-2 leading-relaxed">
-              {confirmBox.type === "approve"
-                ? "This cashier account will be activated immediately and assigned to the company."
-                : "This cashier request will be permanently rejected."}
-            </p>
+{confirmBox.open && (
 
-            <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => setConfirmBox({ open: false, type: "", id: null })}
-                className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const id = confirmBox.id;
-                  const type = confirmBox.type;
-                  setConfirmBox({ open: false, type: "", id: null });
-                  if (type === "approve") {
-                    await approve(id);
-                  } else {
-                    await reject(id);
-                  }
-                }}
-                className={`flex-1 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition cursor-pointer ${
-                  confirmBox.type === "approve"
-                    ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-rose-600 hover:bg-rose-700"
-                }`}
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(15,23,42,.45)",
+      zIndex: 9998,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      backdropFilter: "blur(4px)"
+    }}
+  >
 
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>👥</span> Cashier Requests
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Review and approve requests for additional cashier licenses
-          </p>
-        </div>
+    <div
+      style={{
+        width: 380,
+        background: "#fff",
+        borderRadius: 28,
+        padding: 28,
+        boxShadow:
+          "0 20px 50px rgba(0,0,0,.18)",
+        animation: "dialogIn .25s ease"
+      }}
+    >
 
-        <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-            <Users size={20} />
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              Pending Requests
-            </div>
-            <div className="text-lg font-extrabold text-slate-800">
-              {filtered.length}
-            </div>
-          </div>
-        </div>
+      <div
+        style={{
+          width: 70,
+          height: 70,
+          margin: "0 auto 18px",
+          borderRadius: 22,
+          background:
+            confirmBox.type === "approve"
+              ? "#dcfce7"
+              : "#fee2e2",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}
+      >
+
+        {confirmBox.type === "approve" ? (
+
+          <Check
+            size={34}
+            color="#16a34a"
+          />
+
+        ) : (
+
+          <X
+            size={34}
+            color="#dc2626"
+          />
+
+        )}
+
       </div>
 
-      {/* Main Table Container */}
-      <TableContainer
-        title="Cashier Requests"
-        badge={filtered.length}
-        searchQuery={search}
-        onSearchChange={(val) => {
-          setSearch(val);
-          setCurrentPage(1);
+      <h3
+        style={{
+          margin: 0,
+          textAlign: "center",
+          fontSize: 24,
+          color: "#0f172a",
+          fontWeight: 700
         }}
-        searchPlaceholder="Search by company, cashier name, or email..."
       >
-        <Table>
-          <Thead>
-            <Tr>
-              <Th className="w-14">#</Th>
-              <Th>Company</Th>
-              <Th>Requested By (Admin)</Th>
-              <Th>Cashier Name</Th>
-              <Th>Email Address</Th>
-              <Th align="center" className="w-48">Actions</Th>
-            </Tr>
-          </Thead>
+        {confirmBox.type === "approve"
+          ? "Approve Request?"
+          : "Reject Request?"}
+      </h3>
 
-          <Tbody>
-            {loading ? (
-              <TableLoadingState colSpan={6} message="Loading cashier requests..." />
-            ) : filtered.length === 0 ? (
-              <TableEmptyState
-                colSpan={6}
-                title="No Pending Requests"
-                description={
-                  search
-                    ? `No cashier requests match "${search}".`
-                    : "There are currently no pending cashier access requests."
-                }
-              />
-            ) : (
-              paginated.map((item, index) => (
-                <Tr key={item.id}>
-                  <Td className="font-semibold text-slate-500">
-                    {(safePage - 1) * rowsPerPage + index + 1}
-                  </Td>
+      <p
+        style={{
+          marginTop: 10,
+          textAlign: "center",
+          color: "#64748b",
+          fontSize: 14,
+          lineHeight: 1.6
+        }}
+      >
+        {confirmBox.type === "approve"
+          ? "This cashier will be activated immediately."
+          : "This cashier request will be rejected permanently."}
+      </p>
 
-                  <Td>
-                    <span className="font-bold text-slate-800">{item.company_name}</span>
-                    <div className="text-[10px] font-mono text-slate-400">Request #{item.id}</div>
-                  </Td>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          marginTop: 26
+        }}
+      >
 
-                  <Td>
-                    <span className="font-semibold text-slate-700 text-xs">
-                      {item.admin_name || "Admin"}
-                    </span>
-                  </Td>
+        <button
+          onClick={() =>
+            setConfirmBox({
+              open: false,
+              type: "",
+              id: null
+            })
+          }
+          style={{
+            flex: 1,
+            height: 48,
+            borderRadius: 14,
+            border: "1px solid #e2e8f0",
+            background: "#fff",
+            color: "#475569",
+            fontWeight: 600,
+            cursor: "pointer",
+            fontSize: 14
+          }}
+        >
+          No
+        </button>
 
-                  <Td>
-                    <span className="font-bold text-slate-900">{item.name}</span>
-                  </Td>
+        <button
+          onClick={async () => {
 
-                  <Td className="text-slate-600 font-medium">{item.email || "—"}</Td>
+            if (
+              confirmBox.type === "approve"
+            ) {
 
-                  <Td align="center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        disabled={actionLoading === item.id}
-                        onClick={() =>
-                          setConfirmBox({
-                            open: true,
-                            type: "approve",
-                            id: item.id,
-                          })
-                        }
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition cursor-pointer disabled:opacity-50"
-                        title="Approve Cashier"
-                      >
-                        <Check size={14} />
-                        <span>Accept</span>
-                      </button>
+              await approve(
+                confirmBox.id
+              );
 
-                      <button
-                        type="button"
-                        disabled={actionLoading === item.id}
-                        onClick={() =>
-                          setConfirmBox({
-                            open: true,
-                            type: "reject",
-                            id: item.id,
-                          })
-                        }
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition cursor-pointer disabled:opacity-50"
-                        title="Reject Cashier"
-                      >
-                        <X size={14} />
-                        <span>Reject</span>
-                      </button>
-                    </div>
-                  </Td>
-                </Tr>
-              ))
-            )}
-          </Tbody>
-        </Table>
+            } else {
 
-        {filtered.length > 0 && (
-          <TablePagination
-            currentPage={safePage}
-            totalPages={totalPages}
-            totalItems={filtered.length}
-            rowsPerPage={rowsPerPage}
-            onPageChange={setCurrentPage}
-            onRowsPerPageChange={(n) => {
-              setRowsPerPage(n);
-              setCurrentPage(1);
-            }}
-            itemLabel="requests"
-          />
-        )}
-      </TableContainer>
+              await reject(
+                confirmBox.id
+              );
+            }
+
+            setConfirmBox({
+              open: false,
+              type: "",
+              id: null
+            });
+
+          }}
+          style={{
+            flex: 1,
+            height: 48,
+            border: "none",
+            borderRadius: 14,
+            background:
+              confirmBox.type === "approve"
+                ? "linear-gradient(135deg,#16a34a,#22c55e)"
+                : "linear-gradient(135deg,#dc2626,#ef4444)",
+            color: "#fff",
+            fontWeight: 700,
+            cursor: "pointer",
+            fontSize: 14,
+            boxShadow:
+              confirmBox.type === "approve"
+                ? "0 8px 20px rgba(34,197,94,.25)"
+                : "0 8px 20px rgba(239,68,68,.25)"
+          }}
+        >
+          Yes
+        </button>
+
+      </div>
+
     </div>
+
+  </div>
+
+)}
+
+        {/* TOAST */}
+
+{toast && (
+
+  <div
+    style={{
+      position: "fixed",
+      top: 20,
+      right: 20,
+      zIndex: 9999,
+      padding: "14px 18px",
+      borderRadius: 14,
+      color: "#fff",
+      fontWeight: 600,
+      fontSize: 14,
+      background: toast.ok
+        ? "linear-gradient(135deg,#16a34a,#22c55e)"
+        : "linear-gradient(135deg,#dc2626,#ef4444)",
+      boxShadow:
+        "0 10px 25px rgba(0,0,0,.15)",
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      animation: "toastIn .25s ease"
+    }}
+  >
+
+    <div
+      style={{
+        width: 24,
+        height: 24,
+        borderRadius: 8,
+        background: "rgba(255,255,255,.2)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 12,
+        fontWeight: 700
+      }}
+    >
+      {toast.ok ? "✓" : "✕"}
+    </div>
+
+    {toast.msg}
+
+  </div>
+
+)}
+
+      {/* HEADER */}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 22
+        }}
+      >
+
+        <div>
+
+          <h2
+            style={{
+              margin: 0,
+              color: "#0f172a",
+              fontSize: 32,
+              fontWeight: 700
+            }}
+          >
+            Pending Cashier Requests
+          </h2>
+
+          <p
+            style={{
+              marginTop: 6,
+              color: "#64748b",
+              fontSize: 14
+            }}
+          >
+            Manage cashier approval requests
+          </p>
+
+        </div>
+
+        {/* TOTAL CARD */}
+
+        <div
+          style={{
+            background: "#fff",
+            padding: "14px 18px",
+            borderRadius: 18,
+            boxShadow:
+              "0 4px 14px rgba(0,0,0,.05)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12
+          }}
+        >
+
+          <div
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 14,
+              background: "#dbeafe",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <Users
+              size={24}
+              color="#2563eb"
+            />
+          </div>
+
+          <div>
+
+            <div
+              style={{
+                fontSize: 13,
+                color: "#64748b"
+              }}
+            >
+              Total Requests
+            </div>
+
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 700,
+                color: "#1e3a8a"
+              }}
+            >
+              {filtered.length}
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* SEARCH */}
+
+      <div
+        style={{
+          position: "relative",
+          marginBottom: 22
+        }}
+      >
+
+        <Search
+          size={18}
+          style={{
+            position: "absolute",
+            left: 16,
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#94a3b8"
+          }}
+        />
+
+        <input
+          type="text"
+          placeholder="Search company, cashier or email..."
+          value={search}
+          onChange={(e) => {
+  setSearch(e.target.value);
+  setCurrentPage(1);
+}}
+          style={{
+            width: "100%",
+            padding: "15px 18px 15px 48px",
+            borderRadius: 16,
+            border: "1px solid #dbe2ea",
+            outline: "none",
+            fontSize: 14,
+            background: "#fff",
+            boxSizing: "border-box"
+          }}
+        />
+
+      </div>
+
+      {/* TABLE CARD */}
+
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 24,
+          overflow: "hidden",
+          boxShadow:
+            "0 10px 30px rgba(0,0,0,0.05)"
+        }}
+      >
+
+        {/* HEADER */}
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "2fr 1.5fr 1.5fr 2fr 1.3fr",
+            padding: "18px 24px",
+            background:
+              "linear-gradient(135deg,#2563eb,#3b82f6)",
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: 13
+          }}
+        >
+
+          <span>Company</span>
+
+          <span>Requested By</span>
+
+          <span>Cashier</span>
+
+          <span>Email</span>
+
+          <span
+            style={{
+              textAlign: "center"
+            }}
+          >
+            Actions
+          </span>
+
+        </div>
+
+        {/* BODY */}
+
+        {filtered.length === 0 ? (
+
+          <div
+            style={{
+              padding: 60,
+              textAlign: "center"
+            }}
+          >
+
+            <div
+              style={{
+                width: 80,
+                height: 80,
+                margin: "0 auto 18px",
+                borderRadius: 24,
+                background: "#dbeafe",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              <ShieldCheck
+                size={36}
+                color="#2563eb"
+              />
+            </div>
+
+            <h3
+              style={{
+                margin: 0,
+                color: "#334155"
+              }}
+            >
+              No Pending Requests
+            </h3>
+
+            <p
+              style={{
+                marginTop: 8,
+                color: "#94a3b8"
+              }}
+            >
+              Everything looks good 🎉
+            </p>
+
+          </div>
+
+        ) : (
+
+          // filtered.map((item, index) => (
+            paginated.map((item, index) => (
+
+            <div
+              key={item.id}
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "2fr 1.5fr 1.5fr 2fr 1.3fr",
+                padding: "18px 24px",
+                alignItems: "center",
+               borderBottom:
+  index !== paginated.length - 1
+    ? "1px solid #f1f5f9"
+    : "none"
+              }}
+            >
+
+              {/* COMPANY */}
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12
+                }}
+              >
+
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 14,
+                    background: "#dbeafe",
+                    color: "#2563eb",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 700
+                  }}
+                >
+                  {getInitial(
+                    item.company_name
+                  )}
+                </div>
+
+                <div>
+
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      color: "#0f172a"
+                    }}
+                  >
+                    {item.company_name}
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "#94a3b8"
+                    }}
+                  >
+                    Request ID #{item.id}
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* REQUESTED BY */}
+
+              <div
+                style={{
+                  color: "#334155",
+                  fontWeight: 500
+                }}
+              >
+                {item.requested_user}
+              </div>
+
+              {/* CASHIER */}
+
+              <div
+                style={{
+                  color: "#0f172a",
+                  fontWeight: 600
+                }}
+              >
+                {item.name}
+              </div>
+
+              {/* EMAIL */}
+
+              <div
+                style={{
+                  color: "#64748b",
+                  fontSize: 14
+                }}
+              >
+                {item.email}
+              </div>
+
+              {/* ACTIONS */}
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 10
+                }}
+              >
+
+              <button
+  onClick={() =>
+    setConfirmBox({
+      open: true,
+      type: "approve",
+      id: item.id
+    })
+  }
+  style={{
+    border: "none",
+    background:
+      "linear-gradient(135deg,#16a34a,#22c55e)",
+    color: "#fff",
+    padding: "10px 18px",
+    borderRadius: 12,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    fontSize: 13,
+    boxShadow:
+      "0 4px 12px rgba(34,197,94,.25)"
+  }}
+>
+  Accept
+</button>
+
+<button
+  onClick={() =>
+    setConfirmBox({
+      open: true,
+      type: "reject",
+      id: item.id
+    })
+  }
+  style={{
+    border: "none",
+    background:
+      "linear-gradient(135deg,#dc2626,#ef4444)",
+    color: "#fff",
+    padding: "10px 18px",
+    borderRadius: 12,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    fontSize: 13,
+    boxShadow:
+      "0 4px 12px rgba(239,68,68,.25)"
+  }}
+>
+  Reject
+</button>
+
+              </div>
+
+            </div>
+
+          ))
+        )}
+
+      
+      {filtered.length > ITEMS_PER_PAGE && (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "16px 22px",
+      borderTop: "1px solid #e2e8f0",
+      background: "#fafbff",
+      flexWrap: "wrap",
+      gap: 10
+    }}
+  >
+    <div
+      style={{
+        fontSize: 13,
+        color: "#64748b"
+      }}
+    >
+      Showing{" "}
+      <strong>
+        {(safePage - 1) * ITEMS_PER_PAGE + 1}-
+        {Math.min(
+          safePage * ITEMS_PER_PAGE,
+          filtered.length
+        )}
+      </strong>{" "}
+      of <strong>{filtered.length}</strong> requests
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6
+      }}
+    >
+      <button
+        disabled={safePage === 1}
+        onClick={() =>
+          setCurrentPage((p) => p - 1)
+        }
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          border: "1px solid #dbe2ea",
+          background: "#fff",
+          cursor:
+            safePage === 1
+              ? "not-allowed"
+              : "pointer",
+          opacity: safePage === 1 ? .5 : 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      {Array.from(
+        { length: totalPages },
+        (_, i) => i + 1
+      )
+        .filter(
+          (p) =>
+            p === 1 ||
+            p === totalPages ||
+            Math.abs(p - safePage) <= 1
+        )
+        .reduce((acc, p, i, arr) => {
+          if (i > 0 && arr[i - 1] !== p - 1)
+            acc.push("...");
+          acc.push(p);
+          return acc;
+        }, [])
+        .map((item, i) =>
+          item === "..." ? (
+            <span
+              key={i}
+              style={{
+                padding: "0 5px",
+                color: "#94a3b8"
+              }}
+            >
+              …
+            </span>
+          ) : (
+            <button
+              key={item}
+              onClick={() =>
+                setCurrentPage(item)
+              }
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                border:
+                  safePage === item
+                    ? "none"
+                    : "1px solid #dbe2ea",
+                background:
+                  safePage === item
+                    ? "linear-gradient(135deg,#2563eb,#3b82f6)"
+                    : "#fff",
+                color:
+                  safePage === item
+                    ? "#fff"
+                    : "#475569",
+                fontWeight: 700,
+                cursor: "pointer"
+              }}
+            >
+              {item}
+            </button>
+          )
+        )}
+
+      <button
+        disabled={safePage === totalPages}
+        onClick={() =>
+          setCurrentPage((p) => p + 1)
+        }
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          border: "1px solid #dbe2ea",
+          background: "#fff",
+          cursor:
+            safePage === totalPages
+              ? "not-allowed"
+              : "pointer",
+          opacity:
+            safePage === totalPages ? .5 : 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        }}
+      >
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  </div>
+)}
+      
+      </div>
+
+    </div>
+    </>
   );
 }

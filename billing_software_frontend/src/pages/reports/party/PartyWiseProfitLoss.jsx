@@ -503,10 +503,16 @@ export default function PartyWiseProfitLoss() {
               <tr>
                 <th style={{ ...thStyle, width: 46, minWidth: 46 }}>#</th>
                 <th style={{ ...thStyle, borderRight: `1px solid ${LIGHT_BORDER}` }}>
-                  PARTY NAME
+                  <div style={headerCellInnerStyle}>
+                    PARTY NAME
+                    <Filter size={12} color="#cbd5e1" style={{ cursor: "pointer", flexShrink: 0 }} />
+                  </div>
                 </th>
                 <th style={{ ...thStyle }}>
-                  PHONE NO.
+                  <div style={headerCellInnerStyle}>
+                    PHONE NO.
+                    <Phone size={12} color="#cbd5e1" style={{ flexShrink: 0 }} />
+                  </div>
                 </th>
                 <th style={{ ...thStyle, textAlign: "right" }}>TOTAL SALE AMOUNT</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>PROFIT (+) / LOSS (-)</th>

@@ -32,7 +32,7 @@ function Toggle({ checked, onChange }) {
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`w-[38px] h-[22px] rounded-full flex items-center transition-colors ${checked ? "app-toggle-active" : "bg-gray-300"}`}
+      className={`w-[38px] h-[22px] rounded-full flex items-center transition-colors ${checked ? "bg-blue-600" : "bg-gray-300"}`}
     >
       <span
         className={`bg-white w-[16px] h-[16px] rounded-full shadow transition-transform ${checked ? "translate-x-[19px]" : "translate-x-[3px]"}`}
@@ -134,7 +134,7 @@ export default function MultiCurrency() {
             <button
               type="button"
               onClick={() => setShowCurrencyModal(true)}
-              className="app-btn-primary mt-5 font-semibold text-[19px] rounded-lg px-5"
+              className="mt-5 bg-red-600 hover:bg-red-700 text-white font-semibold text-[19px] rounded-lg flex items-center px-5 transition-colors"
               style={{ height: 46 }}
             >
               <Plus size={20} strokeWidth={2.5} className="mr-1.5" />

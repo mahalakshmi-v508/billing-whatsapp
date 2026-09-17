@@ -2,21 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import api from "../../services/api";
 import Barcode from "react-barcode";
-import { ArrowLeft, Plus } from "lucide-react";
-import {
-  TableContainer,
-  Table,
-  Thead,
-  Th,
-  Tbody,
-  Tr,
-  Td,
-  TablePagination,
-  TableStatusBadge,
-  TableActionButtons,
-  TableLoadingState,
-  TableEmptyState,
-} from "../../components/table";
+import { Pencil, ArrowLeft, Plus } from "lucide-react";
 
 export default function SupplierProductList() {
   const navigate = useNavigate();
@@ -27,8 +13,9 @@ export default function SupplierProductList() {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
+
+  const ITEMS_PER_PAGE = 10;
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -36,7 +23,7 @@ export default function SupplierProductList() {
       const res = await api.get(
         `/product/get_by_supplier?supplier_id=${supplierId}`
       );
-      if (res.data.status) setProducts(res.data.data || []);
+      if (res.data.status) setProducts(res.data.data);
     } catch (err) {
       console.log(err);
     } finally {
@@ -49,202 +36,173 @@ export default function SupplierProductList() {
   }, [supplierId]);
 
   const filtered = products.filter((p) =>
-    p.product_name?.toLowerCase().includes(search.toLowerCase()) ||
-    p.product_code?.toLowerCase().includes(search.toLowerCase()) ||
-    p.category_name?.toLowerCase().includes(search.toLowerCase())
+    p.product_name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
   const paginated = filtered.slice(
-    (safePage - 1) * rowsPerPage,
-    safePage * rowsPerPage
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
   );
 
+  const stockBadge = (stock) => {
+    if (stock <= 0) return { cls: "pl-badge-out", label: "Out" };
+    if (stock <= 10) return { cls: "pl-badge-low", label: "Low" };
+    return { cls: "pl-badge-ok", label: "OK" };
+  };
+
   return (
-    <div className="p-6 bg-slate-50 min-h-screen">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/suppliers")}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-slate-200/80 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs cursor-pointer"
-            title="Back to Suppliers"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              <span>📦</span> {supplierName ? `${supplierName}'s Products` : "Supplier Products"}
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Products catalog and inventory supplied by this vendor
-            </p>
+    <>
+      <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+      .pl-page{font-family:'Plus Jakarta Sans',sans-serif;min-height:100vh;background:#f0f4ff;padding:2rem;}
+      .pl-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:12px;}
+      .pl-header-left{display:flex;align-items:center;gap:12px;}
+      .pl-back-btn{width:38px;height:38px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+      .pl-header-left h1{font-size:22px;font-weight:800;margin:0;color:#0f172a;}
+      .pl-header-left p{font-size:13px;color:#94a3b8;margin-top:4px;}
+      .pl-add-btn{display:flex;align-items:center;gap:6px;padding:10px 18px;border:none;border-radius:12px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,0.35);}
+      .pl-toolbar{display:flex;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap;}
+      .pl-search{flex:1;min-width:220px;padding:12px 14px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;font-size:14px;}
+      .pl-card{background:#fff;border-radius:20px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(37,99,235,0.08);}
+      .pl-table{width:100%;border-collapse:collapse;}
+      .pl-table thead{background:linear-gradient(135deg,#1e40af,#2563eb);}
+      .pl-table th{padding:14px;font-size:11px;text-transform:uppercase;color:#fff;text-align:left;}
+      .pl-table th.center{text-align:center;}
+      .pl-table td{padding:14px;border-bottom:1px solid #f1f5f9;font-size:14px;}
+      .pl-table td.center{text-align:center;}
+      .pl-index{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700;}
+      .pl-prod-name{font-weight:700;color:#0f172a;}
+      .pl-prod-cat{font-size:12px;color:#94a3b8;margin-top:4px;}
+      .pl-price{font-weight:700;}
+      .pl-gst{display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;}
+      .pl-status-active{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
+      .pl-stock-wrap{display:flex;align-items:center;justify-content:center;gap:6px;}
+      .pl-badge-ok{padding:3px 9px;border-radius:999px;background:#dcfce7;color:#15803d;font-size:11px;font-weight:700;}
+      .pl-badge-low{padding:3px 9px;border-radius:999px;background:#fef9c3;color:#854d0e;font-size:11px;font-weight:700;}
+      .pl-badge-out{padding:3px 9px;border-radius:999px;background:#ffe4e6;color:#be123c;font-size:11px;font-weight:700;}
+      .pl-btn-edit{width:34px;height:34px;border:none;border-radius:10px;background:#eff6ff;color:#2563eb;cursor:pointer;}
+      .pl-barcode-cell{display:flex;flex-direction:column;align-items:center;}
+      .pl-barcode-num{font-size:10px;color:#94a3b8;margin-top:4px;}
+      `}</style>
+
+      <div className="pl-page">
+       <div className="pl-header">
+          <div className="pl-header-left">
+            <button className="pl-back-btn" onClick={() => navigate("/suppliers")}>
+              <ArrowLeft size={16} />
+            </button>
+            <div>
+              <h1>📦 {supplierName ? `${supplierName}'s Products` : "Supplier Products"}</h1>
+              <p>Products added by this supplier</p>
+            </div>
           </div>
+
+          <button
+            className="pl-add-btn"
+            onClick={() =>
+              navigate(`/supplier/${supplierId}/add-product`, {
+                state: { supplierName },
+              })
+            }
+          >
+            <Plus size={16} /> Add Product
+          </button>
         </div>
 
-        <button
-          onClick={() =>
-            navigate(`/supplier/${supplierId}/add-product`, {
-              state: { supplierName },
-            })
-          }
-          className="app-btn-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition"
-        >
-          <Plus size={16} /> Add Product
-        </button>
-      </div>
-
-      {/* Main Table Container */}
-      <TableContainer
-        title="Products Catalog"
-        badge={filtered.length}
-        searchQuery={search}
-        onSearchChange={(val) => {
-          setSearch(val);
-          setCurrentPage(1);
-        }}
-        searchPlaceholder="Search products by name, code, category..."
-      >
-        <Table>
-          <Thead>
-            <Tr>
-              <Th className="w-14">#</Th>
-              <Th>Product</Th>
-              <Th>Company</Th>
-              <Th align="center">HSN Code</Th>
-              <Th align="right">Price</Th>
-              <Th align="center">Stock</Th>
-              <Th align="center">GST</Th>
-              <Th align="center">Barcode</Th>
-              <Th align="center" className="w-20">Actions</Th>
-            </Tr>
-          </Thead>
-
-          <Tbody>
-            {loading ? (
-              <TableLoadingState colSpan={9} message="Loading supplier products..." />
-            ) : filtered.length === 0 ? (
-              <TableEmptyState
-                colSpan={9}
-                title="No Products Found"
-                description={
-                  search
-                    ? `No products match "${search}". Try a different query.`
-                    : "No products added for this supplier yet."
-                }
-                actionLabel={!search ? "+ Add Product" : undefined}
-                onAction={
-                  !search
-                    ? () =>
-                        navigate(`/supplier/${supplierId}/add-product`, {
-                          state: { supplierName },
-                        })
-                    : undefined
-                }
-              />
-            ) : (
-              paginated.map((p, i) => {
-                const stockVal = Number(p.stock) || 0;
-                let stockStatus = "Active";
-                if (stockVal <= 0) stockStatus = "Inactive";
-                else if (stockVal <= 10) stockStatus = "Pending";
-
-                return (
-                  <Tr key={p.id}>
-                    <Td className="font-semibold text-slate-500">
-                      {(safePage - 1) * rowsPerPage + i + 1}
-                    </Td>
-
-                    <Td>
-                      <div className="font-bold text-slate-800">{p.product_name}</div>
-                      <div className="text-xs text-slate-400 font-medium">
-                        {p.category_name || "No Category"}
-                      </div>
-                    </Td>
-
-                    <Td className="text-slate-600 font-medium">{p.company_name || "—"}</Td>
-
-                    <Td align="center">
-                      <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                        {p.product_code || "—"}
-                      </span>
-                    </Td>
-
-                    <Td align="right" className="font-bold text-slate-800">
-                      ₹{Number(p.price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </Td>
-
-                    <Td align="center">
-                      <div className="inline-flex items-center gap-1.5">
-                        <span className="font-bold text-slate-700">{stockVal}</span>
-                        <TableStatusBadge
-                          status={stockVal <= 0 ? "Out of Stock" : stockVal <= 10 ? "Low Stock" : "In Stock"}
-                          customColor={
-                            stockVal <= 0
-                              ? "bg-rose-50 text-rose-700 border-rose-200"
-                              : stockVal <= 10
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          }
-                        />
-                      </div>
-                    </Td>
-
-                    <Td align="center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                        {p.gst_percentage || 0}%
-                      </span>
-                    </Td>
-
-                    <Td align="center">
-                      <div className="flex flex-col items-center justify-center py-1">
-                        <Barcode
-                          value={p.barcode || "NA"}
-                          width={1}
-                          height={30}
-                          fontSize={0}
-                          margin={0}
-                        />
-                        <span className="text-[10px] font-mono text-slate-400 mt-1">
-                          {p.barcode || "—"}
-                        </span>
-                      </div>
-                    </Td>
-
-                    <Td align="center">
-                      <TableActionButtons
-                        onEdit={() =>
-                          navigate(`/supplier/${supplierId}/products/edit/${p.id}`, {
-                            state: { supplierName },
-                          })
-                        }
-                        editTitle="Edit Product"
-                      />
-                    </Td>
-                  </Tr>
-                );
-              })
-            )}
-          </Tbody>
-        </Table>
-
-        {filtered.length > 0 && (
-          <TablePagination
-            currentPage={safePage}
-            totalPages={totalPages}
-            totalItems={filtered.length}
-            rowsPerPage={rowsPerPage}
-            onPageChange={setCurrentPage}
-            onRowsPerPageChange={(n) => {
-              setRowsPerPage(n);
-              setCurrentPage(1);
-            }}
-            itemLabel="products"
+        <div className="pl-toolbar">
+          <input
+            className="pl-search"
+            placeholder="Search products..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
-        )}
-      </TableContainer>
-    </div>
+        </div>
+
+        <div className="pl-card">
+          <table className="pl-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Product</th>
+                <th className="center">Company</th>
+                <th className="center">HSN Code</th>
+                <th className="center">Price</th>
+                <th className="center">Stock</th>
+                <th className="center">GST</th>
+                <th className="center">Barcode</th>
+                <th className="center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan="9">Loading…</td></tr>
+              ) : paginated.length === 0 ? (
+                <tr><td colSpan="9">No Products Found</td></tr>
+              ) : (
+                paginated.map((p, i) => {
+                  const sb = stockBadge(p.stock);
+                  return (
+                    <tr key={p.id}>
+                      <td><span className="pl-index">{(safePage-1)*ITEMS_PER_PAGE+i+1}</span></td>
+                      <td>
+                        <div className="pl-prod-name">{p.product_name}</div>
+                        <div className="pl-prod-cat">{p.category_name || "No Category"}</div>
+                      </td>
+                      <td className="center">{p.company_name || "-"}</td>
+                      <td className="center"><span className="pl-gst pl-status-active">{p.product_code || "-"}</span></td>
+                      <td className="center"><span className="pl-price">₹{p.price}</span></td>
+                      <td className="center">
+                        <div className="pl-stock-wrap">
+                          <span>{p.stock}</span>
+                          <span className={sb.cls}>{sb.label}</span>
+                        </div>
+                      </td>
+                      <td className="center"><span className="pl-gst pl-status-active">{p.gst_percentage}%</span></td>
+                      <td className="center">
+                        <div className="pl-barcode-cell">
+                          <Barcode value={p.barcode || "NA"} width={1} height={36} fontSize={0} margin={0} />
+                          <span className="pl-barcode-num">{p.barcode || "-"}</span>
+                        </div>
+                      </td>
+                      <td className="center">
+                        <button
+                          className="pl-btn-edit"
+                          onClick={() => navigate(`/supplier/${supplierId}/products/edit/${p.id}`, { state: { supplierName } })}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+
+          {!loading && filtered.length > ITEMS_PER_PAGE && (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderTop:"1px solid #f1f5f9", background:"#f8fbff" }}>
+              <span style={{ fontSize:13, color:"#64748b" }}>
+                Showing <b>{(safePage-1)*ITEMS_PER_PAGE+1}–{Math.min(safePage*ITEMS_PER_PAGE, filtered.length)}</b> of <b>{filtered.length}</b>
+              </span>
+              <div style={{ display:"flex", gap:6 }}>
+                <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={safePage===1}
+                  style={{ width:34, height:34, borderRadius:10, border:"1px solid #e2e8f0", background:"#fff", cursor:safePage===1?"not-allowed":"pointer", opacity:safePage===1?0.5:1 }}>‹</button>
+                {Array.from({ length: totalPages }, (_, i) => i+1).map(p => (
+                  <button key={p} onClick={() => setCurrentPage(p)} style={{
+                    width:34, height:34, borderRadius:10, border:"1px solid #e2e8f0",
+                    background:safePage===p?"#2563eb":"#fff", color:safePage===p?"#fff":"#374151",
+                    fontWeight:700, fontSize:13, cursor:"pointer",
+                  }}>{p}</button>
+                ))}
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={safePage===totalPages}
+                  style={{ width:34, height:34, borderRadius:10, border:"1px solid #e2e8f0", background:"#fff", cursor:safePage===totalPages?"not-allowed":"pointer", opacity:safePage===totalPages?0.5:1 }}>›</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

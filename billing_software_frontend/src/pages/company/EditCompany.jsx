@@ -13,7 +13,7 @@ const GLOBAL_CSS = `
   @keyframes fadeScale { from{opacity:0;transform:scale(.93)} to{opacity:1;transform:scale(1)} }
 
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Plus Jakarta Sans',sans-serif; }
+  body { font-family:'Outfit',sans-serif; }
 
   .ec-input {
     width:100%;
@@ -23,7 +23,7 @@ const GLOBAL_CSS = `
     padding:11px 14px;
     color:#1e2a45;
     font-size:14px;
-    font-family:'Plus Jakarta Sans',sans-serif;
+    font-family:'Outfit',sans-serif;
     outline:none;
     transition:all .2s;
   }
@@ -42,7 +42,7 @@ const GLOBAL_CSS = `
     padding:11px 14px;
     color:#1e2a45;
     font-size:14px;
-    font-family:'Plus Jakarta Sans',sans-serif;
+    font-family:'Outfit',sans-serif;
     outline:none;
     appearance:none;
     cursor:pointer;
@@ -71,7 +71,7 @@ const GLOBAL_CSS = `
     width:100%; padding:14px; border:none; border-radius:12px;
     background:linear-gradient(135deg,#1d4ed8,#3b82f6,#60a5fa);
     color:#fff; font-size:15px; font-weight:700;
-    font-family:'Plus Jakarta Sans',sans-serif; cursor:pointer;
+    font-family:'Outfit',sans-serif; cursor:pointer;
     letter-spacing:.02em; transition:all .22s;
   }
   .ec-submit:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(59,130,246,.38); }
@@ -157,7 +157,7 @@ function Toast({ toasts }) {
             background: cfg.bg, color: "#fff", borderRadius: 13,
             padding: "12px 18px", fontWeight: 600, fontSize: 13.5,
             animation: "toastIn .32s cubic-bezier(.4,0,.2,1) both",
-            fontFamily: "'Plus Jakarta Sans',sans-serif", minWidth: 270, maxWidth: 340,
+            fontFamily: "'Outfit',sans-serif", minWidth: 270, maxWidth: 340,
             pointerEvents: "auto",
           }}>
             <span style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -350,7 +350,7 @@ export default function EditCompany() {
   /* ── loading skeleton ── */
   if (fetching) {
     return (
-      <div style={{ minHeight: "100vh", background: "#eef4ff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "#eef4ff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Outfit',sans-serif" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
           <span style={{ width: 36, height: 36, border: "3px solid #bfdbfe", borderTopColor: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "spin .7s linear infinite" }} />
           <span style={{ fontSize: 14, color: "#64748b", fontWeight: 500 }}>Loading company data…</span>
@@ -361,7 +361,7 @@ export default function EditCompany() {
 
   /* ─────────────────────────────── RENDER ─────────────────────────────── */
   return (
-    <div style={{ minHeight: "100vh", background: "#eef4ff", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#eef4ff", fontFamily: "'Outfit',sans-serif" }}>
       <Toast toasts={toasts} />
 
       {/* ── Centered wrapper ── */}
@@ -390,7 +390,7 @@ export default function EditCompany() {
               display: "flex", alignItems: "center", gap: 6,
               background: "rgba(255,255,255,.15)", border: "none", borderRadius: 8,
               color: "#fff", padding: "6px 12px", fontSize: 12, fontWeight: 600,
-              fontFamily: "'Plus Jakarta Sans',sans-serif", cursor: "pointer", marginBottom: 14,
+              fontFamily: "'Outfit',sans-serif", cursor: "pointer", marginBottom: 14,
               transition: "background .15s",
             }}
               onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,.25)"}

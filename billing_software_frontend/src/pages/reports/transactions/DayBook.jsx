@@ -487,7 +487,20 @@ export default function DayBook() {
 
   const headerCell = (col, alignRight = false) => (
     <th key={col} style={{ padding: "9px 12px", textAlign: alignRight ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#334155", borderRight: "1px solid " + BORDER, whiteSpace: "nowrap" }}>
-      <span>{col}</span>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort(col)}>
+        <span>{col}</span>
+        {sortKey === col && <span style={{ fontSize: 9, color: INDIGO }}>{sortDir === 1 ? "▲" : "▼"}</span>}
+      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); clickFilterIcon(col); }}
+        title={`Filter ${col}`}
+        style={{
+          border: "none", background: "transparent", cursor: "pointer",
+          color: colFilters[col] ? INDIGO : "#94a3b8", marginLeft: 5, verticalAlign: "middle",
+        }}
+      >
+        <Filter size={11} fill={colFilters[col] ? "#c7d2fe" : "none"} />
+      </button>
     </th>
   );
 

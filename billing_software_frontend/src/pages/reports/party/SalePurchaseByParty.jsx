@@ -452,13 +452,55 @@ export default function SalePurchaseByParty() {
               <tr>
                 <th style={{ ...thStyle, width: 46, minWidth: 46 }}>#</th>
                 <th style={{ ...thStyle, borderRight: `1px solid ${LIGHT_BORDER}` }}>
-                  PARTY NAME
+                  <div style={headerCellInnerStyle}>
+                    PARTY NAME
+                    <Filter size={12} color={colFilters["PARTY NAME"] ? INDIGO : "#cbd5e1"} style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => clickFilterIcon("PARTY NAME")} />
+                  </div>
+                  {openFilter === "PARTY NAME" && (
+                    <input
+                      autoFocus
+                      value={colFilters["PARTY NAME"] || ""}
+                      onChange={(e) => setColFilters((p) => ({ ...p, "PARTY NAME": e.target.value }))}
+                      onBlur={() => setOpenFilter("")}
+                      onKeyDown={(e) => { if (e.key === "Enter") setOpenFilter(""); }}
+                      placeholder="Filter party..."
+                      style={filterInputStyle}
+                    />
+                  )}
                 </th>
                 <th style={{ ...thStyle }}>
-                  SALE AMOUNT
+                  <div style={headerCellInnerStyle}>
+                    SALE AMOUNT
+                    <Filter size={12} color={colFilters["SALE AMOUNT"] ? INDIGO : "#cbd5e1"} style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => clickFilterIcon("SALE AMOUNT")} />
+                  </div>
+                  {openFilter === "SALE AMOUNT" && (
+                    <input
+                      autoFocus
+                      value={colFilters["SALE AMOUNT"] || ""}
+                      onChange={(e) => setColFilters((p) => ({ ...p, "SALE AMOUNT": e.target.value }))}
+                      onBlur={() => setOpenFilter("")}
+                      onKeyDown={(e) => { if (e.key === "Enter") setOpenFilter(""); }}
+                      placeholder="Filter amount..."
+                      style={filterInputStyle}
+                    />
+                  )}
                 </th>
                 <th style={{ ...thStyle }}>
-                  PURCHASE AMOUNT
+                  <div style={headerCellInnerStyle}>
+                    PURCHASE AMOUNT
+                    <Filter size={12} color={colFilters["PURCHASE AMOUNT"] ? INDIGO : "#cbd5e1"} style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => clickFilterIcon("PURCHASE AMOUNT")} />
+                  </div>
+                  {openFilter === "PURCHASE AMOUNT" && (
+                    <input
+                      autoFocus
+                      value={colFilters["PURCHASE AMOUNT"] || ""}
+                      onChange={(e) => setColFilters((p) => ({ ...p, "PURCHASE AMOUNT": e.target.value }))}
+                      onBlur={() => setOpenFilter("")}
+                      onKeyDown={(e) => { if (e.key === "Enter") setOpenFilter(""); }}
+                      placeholder="Filter amount..."
+                      style={filterInputStyle}
+                    />
+                  )}
                 </th>
               </tr>
             </thead>

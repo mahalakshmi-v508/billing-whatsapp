@@ -692,7 +692,7 @@ export default function InvoiceSettings() {
           type="button"
           onClick={handleSave}
           disabled={saving || loading}
-          className="app-btn-primary px-6 py-2.5 font-bold text-sm rounded-xl transition shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50"
+          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 cursor-pointer"
         >
           {saving ? (
             <>

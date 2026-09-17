@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, ArrowLeft, FileText, ShoppingCart, ArrowDownRight, Receipt, Undo2 } from "lucide-react";
-import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 
 export default function PurchaseSubmenuView({ title = "Purchase Document", type = "document", subtitle }) {
   const navigate = useNavigate();
@@ -57,13 +56,11 @@ export default function PurchaseSubmenuView({ title = "Purchase Document", type 
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/purchases/new")}
-            className="app-btn-primary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm transition transform active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-blue-500/20 transition transform active:scale-95"
           >
             <Plus size={18} />
             <span>{defaultMeta.btnText}</span>
           </button>
-
-          <HeaderSettingsButton variant="list" />
         </div>
       </div>
 
@@ -133,7 +130,7 @@ export default function PurchaseSubmenuView({ title = "Purchase Document", type 
         </p>
         <button
           onClick={() => navigate("/purchases/new")}
-          className="app-btn-primary px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition"
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md transition"
         >
           <Plus size={18} />
           <span>Create First {title.split("/")[0].trim()}</span>

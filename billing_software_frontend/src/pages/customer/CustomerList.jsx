@@ -6,11 +6,11 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import {
   Pencil, Search, Phone, MapPin, Download, Wallet,
-  CheckCircle, ChevronRight, IndianRupee, X, MessageCircle, History, Filter
+  CheckCircle, ChevronRight, IndianRupee, X, MessageCircle, History,
+  MoreVertical, Eye
 } from "lucide-react";
 import CustomerForm from "./CustomerForm"; // <-- import the form
 import EditCustomer from "./EditCustomer"; // <-- import the edit form (opens as popup modal)
-import { Table, Thead, Th, Tbody, Tr, Td, TableStatusBadge, TableEmptyState, TableLoadingState } from "../../components/table";
 
 /* ─────────────────── helpers ─────────────────── */
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -644,46 +644,55 @@ export default function CustomerList() {
       )}
 
       {/* ── MAIN ── */}
-      <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      <div style={{ minHeight:"100vh", background:"#f1f5f9", padding:20, fontFamily:"Inter, sans-serif" }}>
 
         {/* HEADER */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-200/80 mb-4">
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
           <div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Customers</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Manage your customer directories & payment ledgers</p>
+            <h2 style={{ margin:0, fontSize:22, fontWeight:800, color:"#0f172a" }}>Customers</h2>
+            <p style={{ margin:"3px 0 0", color:"#64748b", fontSize:13 }}>Manage your customers & payments</p>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <button onClick={downloadExcel} className="app-btn-secondary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm cursor-pointer">
+          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+            <button onClick={downloadExcel} style={btnGreen}>
               <Download size={15}/>
-              <span>{selectedRows.length > 0 ? `Download (${selectedRows.length})` : "Excel Download"}</span>
+              {selectedRows.length > 0 ? `Download (${selectedRows.length})` : "Excel Download"}
             </button>
-            <button onClick={() => setShowAddModal(true)} className="app-btn-primary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm cursor-pointer">
+            <button onClick={() => setShowAddModal(true)} style={btnRed}>
               + Add Customer
             </button>
           </div>
         </div>
 
         {/* 2-COLUMN LAYOUT */}
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 items-start">
+        <div style={{
+          display:"grid",
+          gridTemplateColumns:"300px 1fr",
+          gap:16,
+          height:"calc(100vh - 120px)"
+        }}>
 
-          {/* ── LEFT: Customer Directory ── */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col h-[calc(100vh-140px)]">
-            <div className="p-3 border-b border-slate-100 relative">
-              <Search size={14} className="absolute top-1/2 left-6 -translate-y-1/2 text-slate-400" />
+          {/* ── LEFT ── */}
+          <div style={card}>
+            <div style={{ padding:"12px 14px", borderBottom:"1px solid #f1f5f9", position:"relative" }}>
+              <Search size={15} style={{ position:"absolute", top:"50%", left:26, transform:"translateY(-50%)", color:"#94a3b8" }}/>
               <input
                 placeholder="Search customer..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                style={{
+                  width:"100%", padding:"9px 12px 9px 34px",
+                  borderRadius:10, border:"1px solid #e2e8f0",
+                  outline:"none", fontSize:13, boxSizing:"border-box"
+                }}
               />
             </div>
-            <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
+            <div style={{ overflowY:"auto", flex:1 }}>
               {filtered.map((c) => {
+                const pt         = getCustomerPendingTotal(c.id);
                 const isSelected = selectedCustomer?.id === c.id;
                 return (
-                  <div
-                    key={c.id}
+                  <div key={c.id} className="cust-row"
                     onClick={() => {
                       setSelectedCustomer(c);
                       fetchCustomerHistory(c.id);
@@ -691,19 +700,24 @@ export default function CustomerList() {
                       setPreview([]);
                       setSelectedRows([]);
                     }}
-                    className={`p-3.5 cursor-pointer transition-colors duration-150 ${
-                      isSelected
-                        ? "bg-blue-50/80 border-l-4 border-blue-600 font-bold"
-                        : "hover:bg-slate-50 border-l-4 border-transparent text-slate-700"
-                    }`}
+                    style={{
+                      padding:"12px 14px", borderBottom:"1px solid #f1f5f9",
+                      cursor:"pointer",
+                      background:  isSelected ? "#eff6ff" : "#fff",
+                      borderLeft:  isSelected ? "3px solid #2563eb" : "3px solid transparent",
+                      transition:"all .15s"
+                    }}
                   >
-                    <div className="flex items-center justify-between">
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div>
-                        <div className="font-bold text-sm text-slate-900">{c.name}</div>
-                        <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                        <div style={{ fontWeight:700, fontSize:14, color:"#0f172a" }}>{c.name}</div>
+                        <div style={{ fontSize:12, color:"#94a3b8", marginTop:2, display:"flex", gap:6, alignItems:"center" }}>
                           <span>{c.phone}</span>
                           {Number(c.advance_balance || 0) > 0 && (
-                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded-full text-[10px] font-bold">
+                            <span style={{
+                              background:"#dcfce7", color:"#15803d",
+                              padding:"1px 6px", borderRadius:10, fontSize:10, fontWeight:700
+                            }}>
                               Adv: ₹{fmt(c.advance_balance)}
                             </span>
                           )}
@@ -716,39 +730,38 @@ export default function CustomerList() {
             </div>
           </div>
 
-          {/* ── RIGHT: Customer Ledger & Table ── */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col min-h-[500px]">
+          {/* ── RIGHT: invoice table ── */}
+          <div style={{ ...card, overflow:"hidden" }}>
 
             {/* customer info + collect button */}
             {selectedCustomer && (
-              <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/40">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3.5">
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-extrabold text-slate-900 truncate">
+              <div style={{ padding:"16px 20px", borderBottom:"1px solid #f1f5f9" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div>
+                    <div style={{ fontSize:20, fontWeight:800, color:"#0f172a", marginBottom:8 }}>
                       {selectedCustomer.name}
-                    </h2>
-                    <div className="flex flex-col gap-0.5 text-xs text-slate-500 mt-1 font-medium">
-                      <span className="flex items-center gap-1.5">
-                        <Phone size={13} className="text-slate-400" /> {selectedCustomer.phone}
-                      </span>
-                      {selectedCustomer.address && (
-                        <span className="flex items-center gap-1.5">
-                          <MapPin size={13} className="text-slate-400" /> {selectedCustomer.address}
-                        </span>
-                      )}
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#64748b", marginBottom:4 }}>
+                      <Phone size={13}/> {selectedCustomer.phone}
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#64748b" }}>
+                      <MapPin size={13}/> {selectedCustomer.address}
                     </div>
                   </div>
 
-                  {/* RIGHT side: pending badge + send reminder + payment history + collect payment + edit in ONE neat line */}
-                  <div className="flex items-center gap-2.5 flex-nowrap overflow-x-auto max-w-full flex-shrink-0 py-0.5">
+                  {/* RIGHT side: pending badge + collect button + edit */}
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
 
                     {/* pending badge */}
                     {totalPending > 0 && (
-                      <div className="bg-rose-50 border border-rose-200 rounded-2xl px-4 py-1.5 text-center flex-shrink-0">
-                        <div className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">
-                          PENDING
+                      <div style={{
+                        background:"#fef2f2", border:"1px solid #fecaca",
+                        borderRadius:12, padding:"8px 16px", textAlign:"center"
+                      }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:"#dc2626", textTransform:"uppercase", letterSpacing:".5px" }}>
+                          Pending
                         </div>
-                        <div className="text-base font-black text-rose-600 leading-tight">
+                        <div style={{ fontSize:18, fontWeight:900, color:"#dc2626" }}>
                           ₹{fmt(totalPending)}
                         </div>
                       </div>
@@ -756,228 +769,361 @@ export default function CustomerList() {
 
                     {/* advance badge */}
                     {Number(selectedCustomer.advance_balance || 0) > 0 && (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-1.5 text-center flex-shrink-0">
-                        <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
-                          ADVANCE
+                      <div style={{
+                        background:"#f0fdf4", border:"1px solid #bbf7d0",
+                        borderRadius:12, padding:"8px 16px", textAlign:"center"
+                      }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:"#15803d", textTransform:"uppercase", letterSpacing:".5px" }}>
+                          Advance Balance
                         </div>
-                        <div className="text-base font-black text-emerald-600 leading-tight">
+                        <div style={{ fontSize:18, fontWeight:900, color:"#15803d" }}>
                           ₹{fmt(selectedCustomer.advance_balance)}
                         </div>
                       </div>
                     )}
 
-                    {/* Send Reminder Button (Double line text) */}
+                    {/* Send Reminder Button */}
                     {totalPending > 0 && (
                       <button
                         onClick={sendCustomerReminder}
                         disabled={sendingReminder}
-                        className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50 flex-shrink-0"
+                        style={{
+                          background:"#22c55e",
+                          color:"#fff",
+                          border:"none",
+                          borderRadius:12,
+                          padding:"10px 18px",
+                          fontWeight:700,
+                          fontSize:13,
+                          cursor:sendingReminder ? "not-allowed":"pointer",
+                          display:"flex",
+                          alignItems:"center",
+                          gap:7,
+                          boxShadow:"0 4px 14px rgba(34,197,94,.3)"
+                        }}
                       >
-                        <MessageCircle size={15} />
-                        <span className="flex flex-col text-left leading-tight font-bold">
-                          <span>Send</span>
-                          <span>Reminder</span>
-                        </span>
+                        <MessageCircle size={16}/>
+                        {sendingReminder ? "Sending..." : "Send Reminder"}
                       </button>
                     )}
 
-                    {/* Payment History Button (Double line text) */}
+                    {/* Payment History Button */}
                     <button
                       onClick={() => openCustomerHistoryModal(selectedCustomer)}
-                      className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer flex-shrink-0"
+                      style={{
+                        background:"#f1f5f9", border:"1.5px solid #e2e8f0",
+                        borderRadius:12, padding:"10px 18px", fontWeight:700, fontSize:13,
+                        cursor:"pointer", display:"flex", alignItems:"center", gap:7,
+                        color:"#475569", transition:"all .15s"
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#e2e8f0")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#f1f5f9")}
                     >
-                      <History size={15} />
-                      <span className="flex flex-col text-left leading-tight font-bold">
-                        <span>Payment</span>
-                        <span>History</span>
-                      </span>
+                      <History size={15}/> Payment History
                     </button>
 
-                    {/* Collect Payment Button (Double line text) */}
+                    {/* collect button */}
                     {totalPending > 0 && (
                       <button
                         onClick={openCollect}
-                        className="app-btn-primary px-3.5 py-1.5 rounded-2xl text-xs font-bold shadow-xs transition cursor-pointer flex-shrink-0"
+                        style={{
+                          background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
+                          color:"#fff", border:"none", borderRadius:12,
+                          padding:"10px 18px", fontWeight:700, fontSize:13,
+                          cursor:"pointer", display:"flex", alignItems:"center", gap:7,
+                          boxShadow:"0 4px 14px rgba(37,99,235,.3)",
+                          transition:"all .15s"
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
                       >
-                        <Wallet size={15} />
-                        <span className="flex flex-col text-left leading-tight font-bold">
-                          <span>Collect</span>
-                          <span>Payment</span>
-                        </span>
+                        <Wallet size={15}/> Collect Payment
                       </button>
                     )}
 
-                    {/* Edit Customer Button after Collect Payment */}
-                    <button
-                      onClick={() => {
-                        setEditCustomerId(selectedCustomer.id);
-                        setShowEditModal(true);
-                      }}
-                      className="w-9 h-9 rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer flex-shrink-0"
-                      title="Edit Customer"
-                    >
-                      <Pencil size={15} />
-                    </button>
+                    {/* 3-dot dropdown: Edit / View */}
+                    <div style={{ position:"relative" }}>
+                      <button
+                        onClick={() => setMenuOpen(!menuOpen)}
+                        style={btnMenu}
+                      >
+                        <MoreVertical size={18}/>
+                      </button>
+                      {menuOpen && (
+                        <>
+                          <div
+                            style={{ position:"fixed", inset:0, zIndex:49 }}
+                            onClick={() => setMenuOpen(false)}
+                          />
+                          <div style={{
+                            position:"absolute", right:0, top:50, zIndex:50,
+                            background:"#fff", borderRadius:12,
+                            border:"1px solid #e2e8f0",
+                            boxShadow:"0 10px 30px rgba(0,0,0,0.12)",
+                            minWidth:150, overflow:"hidden",
+                            animation:"popIn .15s ease"
+                          }}>
+                            <button
+                              onClick={() => {
+                                setMenuOpen(false);
+                                openViewCustomer(selectedCustomer);
+                              }}
+                              style={menuItem}
+                            >
+                              <Eye size={15} color="#2563eb"/> View Details
+                            </button>
+                            <button
+                              onClick={() => {
+                                setMenuOpen(false);
+                                setEditCustomerId(selectedCustomer.id);
+                                setShowEditModal(true);
+                              }}
+                              style={menuItem}
+                            >
+                              <Pencil size={15} color="#7c3aed"/> Edit Customer
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Standardized Table */}
-            <div className="overflow-x-auto flex-1">
-              <Table>
-                <Thead>
-                  <tr>
-                    <Th align="center" showFilter={false} className="w-10">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 cursor-pointer accent-blue-600 rounded"
-                        checked={invoiceHistory.length > 0 && selectedRows.length === invoiceHistory.length}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedRows(invoiceHistory.map((_, i) => i));
-                          } else {
-                            setSelectedRows([]);
-                          }
-                        }}
-                      />
-                    </Th>
-                    <Th>Payment Method</Th>
-                    <Th align="right">Total</Th>
-                    <Th align="right">Paid</Th>
-                    <Th align="right">Pending</Th>
-                    <Th>Due Date</Th>
-                    <Th align="center">Status</Th>
-                  </tr>
-                </Thead>
+            {/* table header */}
+            <div style={{
+              display:"grid",
+              gridTemplateColumns:"40px 1.2fr .8fr .8fr .8fr 1fr 1fr",
+              padding:"11px 20px",
+              background:"#f8fafc",
+              borderBottom:"1px solid #e5e7eb",
+              fontWeight:700, fontSize:12, color:"#64748b",
+              textTransform:"uppercase", letterSpacing:".5px",
+              textAlign:"center"
+            }}>
+              <span style={{ display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <input
+                  type="checkbox"
+                  style={{ width:15, height:15, cursor:"pointer", accentColor:"#2563eb" }}
+                  checked={invoiceHistory.length > 0 && selectedRows.length === invoiceHistory.length}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedRows(invoiceHistory.map((_, i) => i));
+                    } else {
+                      setSelectedRows([]);
+                    }
+                  }}
+                />
+              </span>
+              <span style={{ textAlign:"left" }}>Payment Method</span>
+              <span>Total</span>
+              <span>Paid</span>
+              <span>Pending</span>
+              <span>Due Date</span>
+              <span>Status</span>
+            </div>
 
-                <Tbody>
-                  {invoiceHistory.length === 0 ? (
-                    <TableEmptyState
-                      colSpan={7}
-                      title="No Billing Records"
-                      description="This customer has no billing or payment history records yet."
-                    />
-                  ) : (
-                    invoiceHistory.map((item, index) => {
-                      const isPaid = Number(item.balance_amount) <= 0;
-                      const isChecked = selectedRows.includes(index);
-                      return (
-                        <Tr
-                          key={index}
-                          active={isChecked}
-                          onClick={() => {
+            {/* rows */}
+            <div style={{ overflowY:"auto", flex:1 }}>
+              {invoiceHistory.length === 0 ? (
+                <div style={{
+                  display:"flex", flexDirection:"column",
+                  alignItems:"center", justifyContent:"center",
+                  padding:48, color:"#94a3b8", textAlign:"center"
+                }}>
+                  <div style={{ fontSize:52, marginBottom:14 }}>📄</div>
+                  <div style={{ fontWeight:700, fontSize:16, color:"#0f172a" }}>No Billing Records</div>
+                  <p style={{ fontSize:13, marginTop:6, maxWidth:300, lineHeight:1.6 }}>
+                    This customer has no billing or payment history yet.
+                  </p>
+                </div>
+              ) : (
+                invoiceHistory.map((item, index) => {
+                  const isPaid = Number(item.balance_amount) <= 0;
+                  const isChecked = selectedRows.includes(index);
+                  return (
+                    <div key={index} style={{
+                      display:"grid",
+                      gridTemplateColumns:"40px 1.2fr .8fr .8fr .8fr 1fr 1fr",
+                      padding:"14px 20px",
+                      alignItems:"center", textAlign:"center",
+                      borderBottom:"1px solid #f8fafc",
+                      background: isChecked ? "#eff6ff" : "#fff",
+                      cursor:"pointer",
+                      transition:"background .15s"
+                    }}
+                      onClick={() => {
+                        setSelectedRows(prev =>
+                          prev.includes(index)
+                            ? prev.filter(i => i !== index)
+                            : [...prev, index]
+                        );
+                      }}
+                    >
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"center" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          style={{ width:15, height:15, cursor:"pointer", accentColor:"#2563eb" }}
+                          checked={isChecked}
+                          onChange={() => {
                             setSelectedRows(prev =>
                               prev.includes(index)
                                 ? prev.filter(i => i !== index)
                                 : [...prev, index]
                             );
                           }}
-                        >
-                          <Td align="center" onClick={(e) => e.stopPropagation()} className="w-10">
-                            <input
-                              type="checkbox"
-                              className="w-4 h-4 cursor-pointer accent-blue-600 rounded"
-                              checked={isChecked}
-                              onChange={() => {
-                                setSelectedRows(prev =>
-                                  prev.includes(index)
-                                    ? prev.filter(i => i !== index)
-                                    : [...prev, index]
-                                );
-                              }}
-                            />
-                          </Td>
-                          <Td className="font-semibold capitalize text-slate-800">
-                            {item.payment_method || "-"}
-                          </Td>
-                          <Td align="right" className="font-bold text-slate-900">
-                            ₹{fmt(item.total_amount)}
-                          </Td>
-                          <Td align="right" className="font-bold text-emerald-700">
-                            ₹{fmt(item.paid_amount_total)}
-                          </Td>
-                          <Td align="right">
-                            <span className={`font-bold ${isPaid ? "text-slate-600" : "text-rose-600"}`}>
-                              ₹{fmt(item.balance_amount)}
-                            </span>
-                          </Td>
-                          <Td className="text-slate-600">
-                            {item.due_date ? formatDate(item.due_date) : "-"}
-                          </Td>
-                          <Td align="center">
-                            <TableStatusBadge status={isPaid ? "Paid" : "Unpaid"} />
-                          </Td>
-                        </Tr>
-                      );
-                    })
-                  )}
-                </Tbody>
-              </Table>
+                        />
+                      </div>
+                      <div style={{ textAlign:"left", fontWeight:600, fontSize:13, textTransform:"capitalize" }}>
+                        {item.payment_method || "-"}
+                      </div>
+                      <div style={{ fontSize:13 }}>₹{fmt(item.total_amount)}</div>
+                      <div style={{ fontWeight:700, color:"#16a34a", fontSize:13 }}>
+                        ₹{fmt(item.paid_amount_total)}
+                      </div>
+                      <div>
+                        <span style={{
+                          background: isPaid ? "#f0fdf4" : "#fee2e2",
+                          color:      isPaid ? "#16a34a" : "#dc2626",
+                          padding:"4px 10px", borderRadius:8, fontSize:12, fontWeight:700
+                        }}>
+                          ₹{fmt(item.balance_amount)}
+                        </span>
+                      </div>
+                      <div style={{ fontSize:13, color:"#64748b" }}>
+                        {item.due_date ? formatDate(item.due_date) : "-"}
+                      </div>
+                      <div>
+                        <span style={{
+                          padding:"5px 14px", borderRadius:20, fontSize:11, fontWeight:700,
+                          background: isPaid ? "#dcfce7" : "#fee2e2",
+                          color:      isPaid ? "#15803d" : "#dc2626",
+                          display:"inline-block", minWidth:72, textAlign:"center"
+                        }}>
+                          {isPaid ? "Paid" : "Not Paid"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
       </div>
-
       {/* ── CUSTOMER PAYMENT HISTORY MODAL ── */}
       {showHistoryModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-[10000] p-4 font-sans">
-          <div className="bg-white w-full max-w-2xl rounded-2xl border border-slate-200 overflow-hidden shadow-2xl max-h-[85vh] flex flex-col">
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000
+        }}>
+          <div style={{
+            background: "#ffffff", width: "100%", maxWidth: "750px",
+            borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            maxHeight: "80vh", display: "flex", flexDirection: "column"
+          }}>
             {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Payment History
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  All recorded payments for <strong className="text-slate-800">{selectedCustomer?.name}</strong>
-                </p>
+            <div style={{ padding: "18px 22px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flexShrink: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
+                    Payment History
+                  </h3>
+                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
+                    All payments recorded for <strong>{selectedCustomer?.name}</strong>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  style={{
+                    border: "none", background: "#f1f5f9", color: "#475569",
+                    padding: "8px 14px", borderRadius: 10, fontWeight: 700,
+                    fontSize: 13, cursor: "pointer"
+                  }}
+                >
+                  ✕ Close
+                </button>
               </div>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition cursor-pointer"
-              >
-                ✕
-              </button>
+
+              {/* Summary bar */}
+              {!loadingHistory && paymentHistory.length > 0 && (
+                <div style={{
+                  marginTop: 12, background: "#f0fdf4", border: "1px solid #bbf7d0",
+                  borderRadius: 10, padding: "10px 14px",
+                  display: "flex", gap: 24, alignItems: "center"
+                }}>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#15803d", textTransform: "uppercase" }}>Total Paid</span>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#15803d" }}>
+                      ₹{fmt(paymentHistory.reduce((s, h) => s + Number(h.amount || 0), 0))}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Transactions</span>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#334155" }}>{paymentHistory.length}</div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Modal Body Table */}
-            <div className="overflow-y-auto flex-1">
-              <Table>
-                <Thead>
-                  <tr>
-                    <Th>Bill No</Th>
-                    <Th>Bill Date</Th>
-                    <Th>Pay Date</Th>
-                    <Th align="right">Amount Paid</Th>
-                    <Th>Method</Th>
-                    <Th>Notes</Th>
-                  </tr>
-                </Thead>
-
-                <Tbody>
-                  {loadingHistory ? (
-                    <TableLoadingState colSpan={6} message="Loading payment records..." />
-                  ) : paymentHistory.length === 0 ? (
-                    <TableEmptyState
-                      colSpan={6}
-                      title="No Payment Records"
-                      description="No payment transactions recorded for this customer yet."
-                    />
-                  ) : (
-                    paymentHistory.map((h) => (
-                      <Tr key={h.id}>
-                        <Td className="font-bold text-slate-900">{h.invoice_no || "N/A"}</Td>
-                        <Td className="text-slate-600">{h.invoice_date ? formatDate(h.invoice_date) : "-"}</Td>
-                        <Td className="text-slate-600">{h.payment_date ? formatDate(h.payment_date) : "-"}</Td>
-                        <Td align="right" className="font-bold text-emerald-700">₹{fmt(h.amount)}</Td>
-                        <Td className="capitalize font-semibold text-slate-700">{h.payment_method}</Td>
-                        <Td className="text-slate-500">{h.notes || "-"}</Td>
-                      </Tr>
-                    ))
-                  )}
-                </Tbody>
-              </Table>
+            {/* Modal Body */}
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {loadingHistory ? (
+                <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Loading payment records...</div>
+              ) : paymentHistory.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>
+                  <div style={{ fontSize: 40, marginBottom: 10 }}>🧾</div>
+                  No payment records found for this customer yet.
+                </div>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                  <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
+                    <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill No</th>
+                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill Date</th>
+                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Pay Date</th>
+                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Amount Paid</th>
+                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Method</th>
+                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentHistory.map((h, idx) => (
+                      <tr key={h.id} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
+                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#0f172a", fontWeight: "700" }}>
+                          {h.invoice_no || "N/A"}
+                        </td>
+                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
+                          {h.invoice_date ? formatDate(h.invoice_date) : "-"}
+                        </td>
+                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#334155", fontWeight: "500" }}>
+                          {h.payment_date ? formatDate(h.payment_date) : "-"}
+                        </td>
+                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#16a34a", fontWeight: "700" }}>
+                          ₹{fmt(h.amount)}
+                        </td>
+                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#475569", textTransform: "capitalize" }}>
+                          <span style={{
+                            padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                            background: h.payment_method === "cash" ? "#f0fdf4" : "#eff6ff",
+                            color: h.payment_method === "cash" ? "#15803d" : "#2563eb"
+                          }}>
+                            {h.payment_method}
+                          </span>
+                        </td>
+                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
+                          {h.notes || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>

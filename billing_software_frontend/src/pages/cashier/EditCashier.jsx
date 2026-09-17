@@ -107,7 +107,7 @@ const showToast = (msg, ok = true) => {
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap');
 
         .ec-wrapper {
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-family: 'DM Sans', sans-serif;
           min-height: 100vh;
           display: flex;
           align-items: center;
@@ -206,7 +206,7 @@ const showToast = (msg, ok = true) => {
         }
 
         .ec-title {
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-family: 'Sora', sans-serif;
           font-size: 22px;
           font-weight: 700;
           color: #fff;
@@ -339,7 +339,7 @@ const showToast = (msg, ok = true) => {
           border-radius: 16px;
           border: none;
           cursor: pointer;
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-family: 'Sora', sans-serif;
           font-size: 15px;
           font-weight: 600;
           letter-spacing: 0.01em;

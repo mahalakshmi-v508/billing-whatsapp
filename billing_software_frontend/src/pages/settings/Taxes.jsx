@@ -321,14 +321,14 @@ function EditTaxRateModal({ rate, onClose, onSave }) {
           <button
             type="button"
             onClick={onClose}
-            className="border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-[13px] px-7 py-2.5 rounded-lg transition-colors cursor-pointer"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] px-7 py-2.5 rounded-lg transition-colors"
           >
             CANCEL
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="app-btn-primary font-semibold text-[13px] px-7 py-2.5 rounded-lg"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] px-7 py-2.5 rounded-lg transition-colors"
           >
             SAVE
           </button>
@@ -404,14 +404,14 @@ function EditTaxGroupModal({ group, rates, onClose, onSave }) {
           <button
             type="button"
             onClick={onClose}
-            className="border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors cursor-pointer"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors"
           >
             CANCEL
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="app-btn-primary font-semibold text-[13px] w-[105px] h-[45px] rounded-lg"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors"
           >
             SAVE
           </button>

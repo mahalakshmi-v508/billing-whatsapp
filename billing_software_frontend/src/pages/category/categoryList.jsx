@@ -1,21 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { Plus, Building2 } from "lucide-react";
-import {
-  TableContainer,
-  Table,
-  Thead,
-  Th,
-  Tbody,
-  Tr,
-  Td,
-  TablePagination,
-  TableStatusBadge,
-  TableActionButtons,
-  TableLoadingState,
-  TableEmptyState,
-} from "../../components/table";
+import { Pencil, ChevronLeft, ChevronRight, Search, Plus } from "lucide-react";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -43,11 +29,10 @@ export default function CategoryList() {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user) return;
 
-    api
-      .get(`/company/get_companies_by_admin?admin_id=${user.id}`)
-      .then((res) => {
+    api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
+      .then(res => {
         if (res.data.status) {
-          setCompanies(res.data.data || []);
+          setCompanies(res.data.data);
           const savedId = localStorage.getItem("selected_company_id");
           if (savedId) {
             fetchData(savedId);
@@ -67,13 +52,13 @@ export default function CategoryList() {
       // Fetch Categories
       const catRes = await api.get(`/category/get_all?company_id=${companyId}`);
       if (catRes.data.status) {
-        setCategories(catRes.data.data || []);
+        setCategories(catRes.data.data);
       }
 
       // Fetch Subcategories
       const subRes = await api.get(`/subcategory/get_all?company_id=${companyId}`);
       if (subRes.data.status) {
-        setSubcategories(subRes.data.data || []);
+        setSubcategories(subRes.data.data);
       }
     } catch (err) {
       console.error("Error loading categories or subcategories", err);
@@ -134,15 +119,13 @@ export default function CategoryList() {
 
   // Filtering Categories
   const filteredCategories = categories.filter((c) =>
-    (c.name || "").toLowerCase().includes(categorySearch.toLowerCase())
+    c.name.toLowerCase().includes(categorySearch.toLowerCase())
   );
 
   // Filtering Subcategories
-  const filteredSubcategories = subcategories.filter(
-    (s) =>
-      (s.name || "").toLowerCase().includes(subcategorySearch.toLowerCase()) ||
-      (s.category_name &&
-        s.category_name.toLowerCase().includes(subcategorySearch.toLowerCase()))
+  const filteredSubcategories = subcategories.filter((s) =>
+    s.name.toLowerCase().includes(subcategorySearch.toLowerCase()) ||
+    (s.category_name && s.category_name.toLowerCase().includes(subcategorySearch.toLowerCase()))
   );
 
   // Pagination calculations for Categories
@@ -154,10 +137,7 @@ export default function CategoryList() {
   );
 
   // Pagination calculations for Subcategories
-  const totalSubcategoryPages = Math.max(
-    1,
-    Math.ceil(filteredSubcategories.length / ITEMS_PER_PAGE)
-  );
+  const totalSubcategoryPages = Math.max(1, Math.ceil(filteredSubcategories.length / ITEMS_PER_PAGE));
   const safeSubcategoryPage = Math.min(subcategoryPage, totalSubcategoryPages);
   const paginatedSubcategories = filteredSubcategories.slice(
     (safeSubcategoryPage - 1) * ITEMS_PER_PAGE,
@@ -165,249 +145,425 @@ export default function CategoryList() {
   );
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "30px", fontFamily: "'Inter', sans-serif" }}>
+      <style>{`
+        .cl-layout-grid {
+          display: grid;
+          grid-template-columns: 1fr 1.2fr;
+          gap: 25px;
+          align-items: start;
+        }
+        @media (max-width: 1024px) {
+          .cl-layout-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .cl-search-input {
+          width: 100%;
+          padding: 10px 14px 10px 36px;
+          border-radius: 10px;
+          border: 1.5px solid #e2e8f0;
+          outline: none;
+          font-size: 13.5px;
+          font-weight: 500;
+          background: #ffffff;
+          box-sizing: border-box;
+          transition: border-color 0.2s;
+        }
+        .cl-search-input:focus {
+          border-color: #3b82f6;
+        }
+        .cl-card {
+          background: #ffffff;
+          border-radius: 16px;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        .cl-table {
+          width: 100%;
+          border-collapse: collapse;
+          text-align: left;
+        }
+        .cl-table th {
+          padding: 14px 16px;
+          font-size: 11px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          border-bottom: 2px solid #e2e8f0;
+          background: #f8fafc;
+        }
+        .cl-table td {
+          padding: 14px 16px;
+          border-bottom: 1px solid #f1f5f9;
+          font-size: 13.5px;
+          color: #334155;
+        }
+        .cl-status-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+        }
+        .cl-status-badge.active {
+          background: #dcfce7;
+          color: #15803d;
+        }
+        .cl-status-badge.inactive {
+          background: #f1f5f9;
+          color: #64748b;
+        }
+        .cl-switch-lbl {
+          position: relative;
+          display: inline-block;
+          width: 44px;
+          height: 20px;
+        }
+        .cl-switch-lbl input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .cl-slider {
+          position: absolute;
+          cursor: pointer;
+          inset: 0;
+          background: #cbd5e1;
+          transition: 0.3s;
+          border-radius: 20px;
+        }
+        .cl-slider:before {
+          position: absolute;
+          content: "";
+          height: 14px;
+          width: 14px;
+          left: 3px;
+          top: 3px;
+          background: white;
+          transition: 0.3s;
+          border-radius: 50%;
+        }
+        .cl-switch-lbl input:checked + .cl-slider {
+          background: #2563eb;
+        }
+        .cl-switch-lbl input:checked + .cl-slider:before {
+          transform: translateX(24px);
+        }
+        .cl-action-btn {
+          width: 32px;
+          height: 32px;
+          border: none;
+          border-radius: 8px;
+          background: #eff6ff;
+          color: #2563eb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .cl-action-btn:hover {
+          background: #dbeafe;
+        }
+        .cl-page-btn {
+          padding: 6px 12px;
+          border-radius: 8px;
+          border: 1.5px solid #e2e8f0;
+          background: #ffffff;
+          font-size: 13px;
+          font-weight: 600;
+          color: #64748b;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .cl-page-btn:hover:not(:disabled) {
+          background: #eff6ff;
+          color: #2563eb;
+          border-color: #bfdbfe;
+        }
+        .cl-page-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      `}</style>
+
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px" }}>
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>📑</span> Category & Subcategory
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Manage product categories and subcategories in a single screen
-          </p>
+          <h1 style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a", margin: 0 }}>Category & Subcategory</h1>
+          <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>Manage product categories and subcategories in a single screen</p>
         </div>
       </div>
 
       {/* Company Selector Buttons */}
-      <div className="flex flex-wrap gap-2.5 mb-6">
-        {companies
-          .filter((c) => c.status === "active")
+      <div style={{ marginBottom: "20px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+          {companies
+          .filter((c) => c.status === "active") 
           .map((c) => {
             const isActive = Number(selectedCompany) === Number(c.id);
             return (
               <button
                 key={c.id}
-                type="button"
                 onClick={() => handleCompanyChange(c.id)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  isActive
-                    ? "app-pill-active ring-2 ring-brand-500 ring-offset-1"
-                    : "bg-white text-slate-700 border border-slate-200/80 hover:bg-slate-50 hover:border-slate-300"
-                }`}
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  border: isActive ? "2px solid #2563eb" : "1.5px solid #e2e8f0",
+                  backgroundColor: isActive ? "#2563eb" : "#ffffff",
+                  color: isActive ? "#ffffff" : "#475569",
+                  boxShadow: isActive ? "0 4px 12px rgba(37,99,235,0.15)" : "0 1px 4px rgba(0,0,0,0.05)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "5px"
+                }}
               >
-                <Building2 size={14} className={isActive ? "text-white" : "text-slate-400"} />
-                <span>{c.company_name}</span>
+                <span>🏢</span> {c.company_name}
               </button>
             );
           })}
+        </div>
       </div>
 
-      {/* Two Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* 🏷️ CATEGORY COLUMN */}
-        <TableContainer
-          title="Categories"
-          badge={filteredCategories.length}
-          searchQuery={categorySearch}
-          onSearchChange={(val) => {
-            setCategorySearch(val);
-            setCategoryPage(1);
-          }}
-          searchPlaceholder="Search categories..."
-          actions={
-            <button
-              onClick={() => navigate("/category/add")}
-              disabled={!selectedCompany}
-              className="app-btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Plus size={14} /> Add Category
-            </button>
-          }
-        >
-          <Table>
-            <Thead>
-              <Tr>
-                <Th className="w-12">#</Th>
-                <Th>Category Name</Th>
-                <Th align="center">Status</Th>
-                <Th align="center" className="w-20">Actions</Th>
-              </Tr>
-            </Thead>
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "60px", color: "#64748b" }}>Loading categories and subcategories data...</div>
+      ) : (
+        <div className="cl-layout-grid">
+          
+          {/* 🏷️ CATEGORY COLUMN */}
+          <div className="cl-card">
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", margin: 0 }}>Categories</h3>
+              <button
+                onClick={() => navigate("/category/add")}
+                disabled={!selectedCompany}
+                style={{
+                  padding: "6px 12px", borderRadius: "8px",
+                  background: selectedCompany ? "#2563eb" : "#94a3b8", color: "#ffffff",
+                  border: "none", fontSize: "12.5px", fontWeight: "600",
+                  cursor: selectedCompany ? "pointer" : "not-allowed",
+                  display: "flex", alignItems: "center", gap: "5px"
+                }}
+              >
+                <Plus size={14} /> Add Category
+              </button>
+            </div>
 
-            <Tbody>
-              {loading ? (
-                <TableLoadingState colSpan={4} message="Loading categories..." />
-              ) : !selectedCompany ? (
-                <TableEmptyState
-                  colSpan={4}
-                  title="No Company Selected"
-                  description="Select a company to view categories."
-                />
-              ) : filteredCategories.length === 0 ? (
-                <TableEmptyState
-                  colSpan={4}
-                  title="No Categories Found"
-                  description={
-                    categorySearch
-                      ? `No categories match "${categorySearch}".`
-                      : "No categories added yet."
-                  }
-                  actionLabel={!categorySearch && selectedCompany ? "+ Add Category" : undefined}
-                  onAction={
-                    !categorySearch && selectedCompany
-                      ? () => navigate("/category/add")
-                      : undefined
-                  }
-                />
-              ) : (
-                paginatedCategories.map((c, i) => (
-                  <Tr key={c.id}>
-                    <Td className="font-semibold text-slate-500">
-                      {(safeCategoryPage - 1) * ITEMS_PER_PAGE + i + 1}
-                    </Td>
-                    <Td>
-                      <span className="font-bold text-slate-800">{c.name}</span>
-                    </Td>
-                    <Td align="center">
-                      <button
-                        type="button"
-                        onClick={() => toggleCategoryStatus(c)}
-                        title="Click to toggle status"
-                        className="cursor-pointer"
-                      >
-                        <TableStatusBadge status={c.status || "active"} />
-                      </button>
-                    </Td>
-                    <Td align="center">
-                      <TableActionButtons
-                        onEdit={() => navigate(`/category/edit/${c.id}`)}
-                        editTitle="Edit Category"
-                      />
-                    </Td>
-                  </Tr>
-                ))
-              )}
-            </Tbody>
-          </Table>
+            {/* Search Categories */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", position: "relative" }}>
+              <Search size={15} style={{ position: "absolute", top: "50%", left: 26, transform: "translateY(-50%)", color: "#94a3b8" }} />
+              <input
+                type="text"
+                placeholder="Search categories..."
+                value={categorySearch}
+                onChange={(e) => { setCategorySearch(e.target.value); setCategoryPage(1); }}
+                className="cl-search-input"
+              />
+            </div>
 
-          {filteredCategories.length > 0 && (
-            <TablePagination
-              currentPage={safeCategoryPage}
-              totalPages={totalCategoryPages}
-              totalItems={filteredCategories.length}
-              rowsPerPage={ITEMS_PER_PAGE}
-              onPageChange={setCategoryPage}
-              itemLabel="categories"
-            />
-          )}
-        </TableContainer>
+            {/* Categories Table */}
+            <div style={{ overflowX: "auto" }}>
+              <table className="cl-table">
+                <thead>
+                  <tr>
+                    <th>Category Name</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: "center" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedCategories.length === 0 ? (
+                    <tr>
+                      <td colSpan="3" style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>
+                        No categories found.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedCategories.map((c) => (
+                      <tr key={c.id}>
+                        <td style={{ fontWeight: "700", color: "#0f172a" }}>{c.name}</td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span className={`cl-status-badge ${c.status}`}>
+                              {c.status}
+                            </span>
+                            <label className="cl-switch-lbl">
+                              <input
+                                type="checkbox"
+                                checked={c.status === "active"}
+                                onChange={() => toggleCategoryStatus(c)}
+                              />
+                              <span className="cl-slider"></span>
+                            </label>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", justifyContent: "center" }}>
+                            <button
+                              onClick={() => navigate(`/category/edit/${c.id}`)}
+                              className="cl-action-btn"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-        {/* 📦 SUBCATEGORY COLUMN */}
-        <TableContainer
-          title="Subcategories"
-          badge={filteredSubcategories.length}
-          searchQuery={subcategorySearch}
-          onSearchChange={(val) => {
-            setSubcategorySearch(val);
-            setSubcategoryPage(1);
-          }}
-          searchPlaceholder="Search subcategories..."
-          actions={
-            <button
-              onClick={() => navigate("/subcategory/add")}
-              disabled={!selectedCompany}
-              className="app-btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Plus size={14} /> Add Subcategory
-            </button>
-          }
-        >
-          <Table>
-            <Thead>
-              <Tr>
-                <Th className="w-12">#</Th>
-                <Th>Subcategory</Th>
-                <Th>Category</Th>
-                <Th align="center">Status</Th>
-                <Th align="center" className="w-20">Actions</Th>
-              </Tr>
-            </Thead>
+            {/* Categories Pagination */}
+            {filteredCategories.length > ITEMS_PER_PAGE && (
+              <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
+                <span style={{ fontSize: "12.5px", color: "#64748b" }}>
+                  Page {safeCategoryPage} of {totalCategoryPages}
+                </span>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    disabled={safeCategoryPage === 1}
+                    onClick={() => setCategoryPage(safeCategoryPage - 1)}
+                    className="cl-page-btn"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    disabled={safeCategoryPage === totalCategoryPages}
+                    onClick={() => setCategoryPage(safeCategoryPage + 1)}
+                    className="cl-page-btn"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
-            <Tbody>
-              {loading ? (
-                <TableLoadingState colSpan={5} message="Loading subcategories..." />
-              ) : !selectedCompany ? (
-                <TableEmptyState
-                  colSpan={5}
-                  title="No Company Selected"
-                  description="Select a company to view subcategories."
-                />
-              ) : filteredSubcategories.length === 0 ? (
-                <TableEmptyState
-                  colSpan={5}
-                  title="No Subcategories Found"
-                  description={
-                    subcategorySearch
-                      ? `No subcategories match "${subcategorySearch}".`
-                      : "No subcategories added yet."
-                  }
-                  actionLabel={
-                    !subcategorySearch && selectedCompany ? "+ Add Subcategory" : undefined
-                  }
-                  onAction={
-                    !subcategorySearch && selectedCompany
-                      ? () => navigate("/subcategory/add")
-                      : undefined
-                  }
-                />
-              ) : (
-                paginatedSubcategories.map((s, i) => (
-                  <Tr key={s.id}>
-                    <Td className="font-semibold text-slate-500">
-                      {(safeSubcategoryPage - 1) * ITEMS_PER_PAGE + i + 1}
-                    </Td>
-                    <Td>
-                      <span className="font-bold text-slate-800">{s.name}</span>
-                    </Td>
-                    <Td>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                        {s.category_name || "—"}
-                      </span>
-                    </Td>
-                    <Td align="center">
-                      <button
-                        type="button"
-                        onClick={() => toggleSubcategoryStatus(s)}
-                        title="Click to toggle status"
-                        className="cursor-pointer"
-                      >
-                        <TableStatusBadge status={s.status || "active"} />
-                      </button>
-                    </Td>
-                    <Td align="center">
-                      <TableActionButtons
-                        onEdit={() => navigate(`/subcategory/edit/${s.id}`)}
-                        editTitle="Edit Subcategory"
-                      />
-                    </Td>
-                  </Tr>
-                ))
-              )}
-            </Tbody>
-          </Table>
+          {/* Boxes SUB-CATEGORY COLUMN */}
+          <div className="cl-card">
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", margin: 0 }}>Subcategories</h3>
+              <button
+                onClick={() => navigate("/subcategory/add")}
+                disabled={!selectedCompany}
+                style={{
+                  padding: "6px 12px", borderRadius: "8px",
+                  background: selectedCompany ? "#2563eb" : "#94a3b8", color: "#ffffff",
+                  border: "none", fontSize: "12.5px", fontWeight: "600",
+                  cursor: selectedCompany ? "pointer" : "not-allowed",
+                  display: "flex", alignItems: "center", gap: "5px"
+                }}
+              >
+                <Plus size={14} /> Add Subcategory
+              </button>
+            </div>
 
-          {filteredSubcategories.length > 0 && (
-            <TablePagination
-              currentPage={safeSubcategoryPage}
-              totalPages={totalSubcategoryPages}
-              totalItems={filteredSubcategories.length}
-              rowsPerPage={ITEMS_PER_PAGE}
-              onPageChange={setSubcategoryPage}
-              itemLabel="subcategories"
-            />
-          )}
-        </TableContainer>
-      </div>
+            {/* Search Subcategories */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", position: "relative" }}>
+              <Search size={15} style={{ position: "absolute", top: "50%", left: 26, transform: "translateY(-50%)", color: "#94a3b8" }} />
+              <input
+                type="text"
+                placeholder="Search subcategories..."
+                value={subcategorySearch}
+                onChange={(e) => { setSubcategorySearch(e.target.value); setSubcategoryPage(1); }}
+                className="cl-search-input"
+              />
+            </div>
+
+            {/* Subcategories Table */}
+            <div style={{ overflowX: "auto" }}>
+              <table className="cl-table">
+                <thead>
+                  <tr>
+                    <th>Subcategory Name</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: "center" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedSubcategories.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>
+                        No subcategories found.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedSubcategories.map((s) => (
+                      <tr key={s.id}>
+                        <td style={{ fontWeight: "700", color: "#0f172a" }}>{s.name}</td>
+                        <td style={{ color: "#64748b", fontSize: "13px" }}>{s.category_name || "N/A"}</td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span className={`cl-status-badge ${s.status}`}>
+                              {s.status}
+                            </span>
+                            <label className="cl-switch-lbl">
+                              <input
+                                type="checkbox"
+                                checked={s.status === "active"}
+                                onChange={() => toggleSubcategoryStatus(s)}
+                              />
+                              <span className="cl-slider"></span>
+                            </label>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", justifyContent: "center" }}>
+                            <button
+                              onClick={() => navigate(`/subcategory/edit/${s.id}`)}
+                              className="cl-action-btn"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Subcategories Pagination */}
+            {filteredSubcategories.length > ITEMS_PER_PAGE && (
+              <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
+                <span style={{ fontSize: "12.5px", color: "#64748b" }}>
+                  Page {safeSubcategoryPage} of {totalSubcategoryPages}
+                </span>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    disabled={safeSubcategoryPage === 1}
+                    onClick={() => setSubcategoryPage(safeSubcategoryPage - 1)}
+                    className="cl-page-btn"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    disabled={safeSubcategoryPage === totalSubcategoryPages}
+                    onClick={() => setSubcategoryPage(safeSubcategoryPage + 1)}
+                    className="cl-page-btn"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
     </div>
   );
 }

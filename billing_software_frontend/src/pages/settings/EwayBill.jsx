@@ -247,7 +247,7 @@ function EwayBillSettings() {
           </button>
           <button
             type="button"
-            className="app-btn-primary px-5 py-2 rounded-xl text-[13px] font-semibold"
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 text-white text-[13px] font-semibold shadow-lg shadow-blue-600/25 hover:bg-blue-700"
           >
             <Save size={15} />
             Save Settings

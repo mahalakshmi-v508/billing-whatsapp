@@ -88,7 +88,7 @@ const STYLE = `
   @keyframes fp-scanline  { from{top:-100%} to{top:200%} }
   @keyframes fp-pulse     { 0%,100%{opacity:1} 50%{opacity:.5} }
 
-  .fp-input { transition: border-color .2s, box-shadow .2s !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
+  .fp-input { transition: border-color .2s, box-shadow .2s !important; font-family: 'Outfit', sans-serif !important; }
   .fp-input:focus { outline: none !important; border-color: #3b82f6 !important; box-shadow: 0 0 0 3.5px rgba(59,130,246,.15) !important; }
   .fp-btn { transition: all .2s cubic-bezier(.4,0,.2,1) !important; }
   .fp-btn:hover:not(:disabled) { transform: translateY(-2px) !important; box-shadow: 0 10px 32px rgba(29,78,216,.35) !important; }

@@ -821,13 +821,28 @@ console.warn(
               <thead>
                 <tr>
                   <th style={{ ...thBase, width: 40, textAlign: "center" }}>
-                    #
+                    #{" "}
+                    <ArrowUpDown
+                      size={10}
+                      style={{ verticalAlign: "-1px", marginLeft: 2 }}
+                      color={GREY}
+                    />
                   </th>
                   <th style={{ ...thBase, minWidth: 200 }}>
-                    Hsn
+                    Hsn{" "}
+                    <ArrowUpDown
+                      size={10}
+                      style={{ verticalAlign: "-1px", marginLeft: 2 }}
+                      color={GREY}
+                    />
                   </th>
                   <th style={{ ...thBase, textAlign: "right", minWidth: 120 }}>
-                    Total Value
+                    Total Value{" "}
+                    <Filter
+                      size={10}
+                      style={{ verticalAlign: "-1px", marginLeft: 3 }}
+                      color={GREY}
+                    />
                   </th>
                   <th style={{ ...thBase, textAlign: "right", minWidth: 120 }}>
                     Taxable Value

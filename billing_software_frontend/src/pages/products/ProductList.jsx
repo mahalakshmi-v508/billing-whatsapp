@@ -10,17 +10,6 @@ import {
 } from "lucide-react";
 import AddProductModal from "./AddProductModal";
 import EditProductModal from "./EditProductModal";
-import {
-  TableContainer,
-  Table,
-  Thead,
-  Th,
-  Tbody,
-  Tr,
-  Td,
-  TableEmptyState,
-  TableLoadingState,
-} from "../../components/table";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 const money = (n) =>
@@ -46,9 +35,9 @@ const COLORS = {
   text: "#0a1628",
   textSoft: "#3d4a66",
   textMuted: "#8a94a8",
-  primary: "#10b981",
-  primaryDark: "#059669",
-  primaryTint: "#ecfdf5",
+  primary: "#2563eb",
+  primaryDark: "#1d4ed8",
+  primaryTint: "#eff6ff",
   success: "#059669",
   successTint: "#ecfdf5",
   danger: "#dc2626",
@@ -68,7 +57,7 @@ const SHADOW = {
   modal: "0 24px 60px -16px rgba(10,22,40,.3)",
   glow: "0 0 0 4px rgba(37,99,235,.15)",
 };
-const FONT = "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+const FONT = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
 export default function ProductList() {
   const [activeTab, setActiveTab] = useState("product");
@@ -1298,39 +1287,55 @@ export default function ProductList() {
                       </div>
 
                       {loadingHistory ? (
-                        <TableLoadingState message="Loading transactions..." />
+                        <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted }}>Loading transactions...</div>
                       ) : filteredHistory.length === 0 ? (
-                        <TableEmptyState
-                          title="No transactions"
-                          description="This product hasn't been sold yet."
-                        />
+                        <div
+                          style={{
+                            border: `1.5px dashed ${COLORS.border}`,
+                            borderRadius: RADIUS.md,
+                            background: COLORS.surfaceAlt,
+                          }}
+                        >
+                          <EmptyState
+                            icon={<Inbox size={28} color={COLORS.textMuted} />}
+                            title="No transactions"
+                            subtitle="This product hasn't been sold yet"
+                          />
+                        </div>
                       ) : (
-                        <TableContainer className="shadow-none border border-slate-200 rounded-xl">
-                          <Table>
-                            <Thead>
-                              <tr>
-                                <Th>Customer Name</Th>
-                                <Th>Phone Number</Th>
-                                <Th align="right">Quantity</Th>
-                                <Th align="right">Price</Th>
+                        <div
+                          style={{
+                            border: `1px solid ${COLORS.border}`,
+                            borderRadius: RADIUS.md,
+                            overflow: "hidden",
+                            background: COLORS.surface,
+                          }}
+                        >
+                          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
+                            <thead>
+                              <tr style={{ background: COLORS.surfaceAlt, borderBottom: `1px solid ${COLORS.border}` }}>
+                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Customer Name</th>
+                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Phone Number</th>
+                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Quantity</th>
+                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Price</th>
                               </tr>
-                            </Thead>
-                            <Tbody>
+                            </thead>
+                            <tbody>
                               {filteredHistory.map((s, i) => {
                                 return (
-                                  <Tr key={i}>
-                                    <Td className="font-semibold text-slate-900">{s.customer_name || "-"}</Td>
-                                    <Td className="text-slate-600">{s.customer_phone || "-"}</Td>
-                                    <Td align="right" className="font-semibold text-slate-800">
+                                  <tr key={i} className="hover-bg" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>{s.customer_name || "-"}</td>
+                                    <td style={{ padding: "11px 14px", color: COLORS.textSoft }}>{s.customer_phone || "-"}</td>
+                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>
                                       {s.quantity} {selectedProduct.unit?.slice(0, 3) || ""}
-                                    </Td>
-                                    <Td align="right" className="font-semibold text-slate-900">{money(s.price)}</Td>
-                                  </Tr>
+                                    </td>
+                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>{money(s.price)}</td>
+                                  </tr>
                                 );
                               })}
-                            </Tbody>
-                          </Table>
-                        </TableContainer>
+                            </tbody>
+                          </table>
+                        </div>
                       )}
                     </div>
                   </>

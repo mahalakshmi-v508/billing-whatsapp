@@ -1,36 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../../services/api";
-import { Check, X, Building2, Users } from "lucide-react";
 import {
-  TableContainer,
-  Table,
-  Thead,
-  Th,
-  Tbody,
-  Tr,
-  Td,
-  TablePagination,
-  TableLoadingState,
-  TableEmptyState,
-} from "../../components/table";
+  Search,
+  Building2,
+  Check,
+  X,
+  Users,
+   ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+const ITEMS_PER_PAGE = 5;
 
 export default function CompanyRequest() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
 
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/CompanyRequest/get_company_requests");
+
+      const res = await api.get(
+        "/CompanyRequest/get_company_requests"
+      );
+
       if (res.data.status) {
         setRequests(res.data.data || []);
       }
     } catch (err) {
       console.error(err);
+    //   alert("Failed to load requests");
     } finally {
       setLoading(false);
     }
@@ -43,12 +45,16 @@ export default function CompanyRequest() {
   const handleApprove = async (requestId) => {
     try {
       setActionLoading(requestId);
-      const res = await api.post("/CompanyRequest/approve_company_request", {
-        request_id: requestId,
-      });
+
+      const res = await api.post(
+        "/CompanyRequest/approve_company_request",
+        {
+          request_id: requestId,
+        }
+      );
 
       if (res.data.status) {
-        alert("Company request approved successfully");
+        alert("Company request approved");
         fetchRequests();
       } else {
         alert(res.data.message);
@@ -62,15 +68,23 @@ export default function CompanyRequest() {
   };
 
   const handleReject = async (requestId) => {
-    if (!window.confirm("Are you sure you want to reject this request?")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to reject this request?"
+      )
+    ) {
       return;
     }
 
     try {
       setActionLoading(requestId);
-      const res = await api.post("/CompanyRequest/reject_company_request", {
-        request_id: requestId,
-      });
+
+      const res = await api.post(
+        "/CompanyRequest/reject_company_request",
+        {
+          request_id: requestId,
+        }
+      );
 
       if (res.data.status) {
         alert("Company request rejected");
@@ -89,164 +103,527 @@ export default function CompanyRequest() {
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
       const txt = search.toLowerCase();
+
       return (
-        (r.company_name || "").toLowerCase().includes(txt) ||
-        (r.owner_name || "").toLowerCase().includes(txt) ||
-        (r.admin_name || "").toLowerCase().includes(txt) ||
-        (r.owner_email || "").toLowerCase().includes(txt)
+        (r.company_name || "")
+          .toLowerCase()
+          .includes(txt) ||
+        (r.owner_name || "")
+          .toLowerCase()
+          .includes(txt) ||
+        (r.owner_email || "")
+          .toLowerCase()
+          .includes(txt)
       );
     });
   }, [requests, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / rowsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedRequests = filteredRequests.slice(
-    (safePage - 1) * rowsPerPage,
-    safePage * rowsPerPage
-  );
+  const totalPages = Math.max(
+  1,
+  Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)
+);
+
+const safePage = Math.min(
+  currentPage,
+  totalPages
+);
+
+const paginatedRequests = filteredRequests.slice(
+  (safePage - 1) * ITEMS_PER_PAGE,
+  safePage * ITEMS_PER_PAGE
+);
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div
+      style={{
+        padding: 30,
+        background: "#f4f8ff",
+        minHeight: "100vh",
+      }}
+    >
+      {/* HEADER */}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 20,
+          marginBottom: 25,
+        }}
+      >
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>🏢</span> Pending Company Requests
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Review and approve requests to register new company workspaces
+          <h2
+            style={{
+              margin: 0,
+              color: "#0f172a",
+              fontSize: 32,
+              fontWeight: 700,
+            }}
+          >
+            Pending Company Requests
+          </h2>
+
+          <p
+            style={{
+              marginTop: 10,
+              color: "#64748b",
+              fontSize: 16,
+            }}
+          >
+            Manage company approval requests
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-            <Users size={20} />
+        <div
+          style={{
+            width: 220,
+            background: "#fff",
+            borderRadius: 28,
+            padding: 24,
+            display: "flex",
+            gap: 18,
+            alignItems: "center",
+            boxShadow:
+              "0 10px 25px rgba(15,23,42,.05)",
+          }}
+        >
+          <div
+            style={{
+              width: 62,
+              height: 62,
+              borderRadius: 18,
+              background: "#dbeafe",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Users
+              size={30}
+              color="#2563eb"
+            />
           </div>
+
           <div>
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              Pending Requests
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: 13,
+              }}
+            >
+              Total Requests
             </div>
-            <div className="text-lg font-extrabold text-slate-800">
+
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 800,
+                color: "#1e40af",
+              }}
+            >
               {filteredRequests.length}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Table Container */}
-      <TableContainer
-        title="Company Requests"
-        badge={filteredRequests.length}
-        searchQuery={search}
-        onSearchChange={(val) => {
-          setSearch(val);
-          setCurrentPage(1);
+      {/* SEARCH */}
+
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 24,
+          padding: "18px 22px",
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          marginBottom: 30,
+          boxShadow:
+            "0 5px 20px rgba(15,23,42,.04)",
         }}
-        searchPlaceholder="Search by company name, admin, or email..."
       >
-        <Table>
-          <Thead>
-            <Tr>
-              <Th className="w-14">#</Th>
-              <Th>Company Details</Th>
-              <Th>Requested By (Admin)</Th>
-              <Th align="center" className="w-48">Actions</Th>
-            </Tr>
-          </Thead>
+        <Search
+          size={26}
+          color="#94a3b8"
+        />
 
-          <Tbody>
-            {loading ? (
-              <TableLoadingState colSpan={4} message="Loading company requests..." />
-            ) : filteredRequests.length === 0 ? (
-              <TableEmptyState
-                colSpan={4}
-                title="No Pending Requests"
-                description={
-                  search
-                    ? `No company requests match "${search}".`
-                    : "There are currently no pending company registration requests."
-                }
-              />
-            ) : (
-              paginatedRequests.map((item, index) => (
-                <Tr key={item.id}>
-                  <Td className="font-semibold text-slate-500">
-                    {(safePage - 1) * rowsPerPage + index + 1}
-                  </Td>
+        <input
+          value={search}
+         onChange={(e) => {
+  setSearch(e.target.value);
+  setCurrentPage(1);
+}}
+          placeholder="Search company, owner or email..."
+          style={{
+            border: "none",
+            outline: "none",
+            width: "100%",
+            fontSize: 18,
+            color: "#334155",
+            background: "transparent",
+          }}
+        />
+      </div>
 
-                  <Td>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 font-extrabold text-base flex items-center justify-center shrink-0 shadow-2xs">
-                        {item.company_name?.charAt(0)?.toUpperCase() || "C"}
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900 text-sm">
-                          {item.company_name}
-                        </div>
-                        <div className="text-xs text-slate-400 font-medium mt-0.5">
-                          Request ID #{item.id}
-                        </div>
-                      </div>
-                    </div>
-                  </Td>
+      {/* TABLE */}
 
-                  <Td>
-                    <div className="font-semibold text-slate-800 text-xs">
-                      {item.admin_name || item.owner_name || "Admin"}
-                    </div>
-                    {item.owner_email && (
-                      <div className="text-xs text-slate-400 font-medium">
-                        {item.owner_email}
-                      </div>
-                    )}
-                  </Td>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 28,
+          overflow: "hidden",
+          boxShadow:
+            "0 15px 30px rgba(15,23,42,.05)",
+        }}
+      >
+        {/* HEADER */}
 
-                  <Td align="center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        disabled={actionLoading === item.id}
-                        onClick={() => handleApprove(item.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition cursor-pointer disabled:opacity-50"
-                        title="Accept Request"
-                      >
-                        <Check size={14} />
-                        <span>Accept</span>
-                      </button>
+        <div
+  style={{
+    background:
+      "linear-gradient(135deg,#2563eb,#4f86ff)",
+    color: "#fff",
+    padding: "22px 40px",
+    display: "grid",
+    gridTemplateColumns:
+      "2fr 1.5fr 1.2fr",
+    fontWeight: 700,
+    fontSize: 15
+  }}
+>
+  <div>Company</div>
+  <div>Requested By</div>
+  <div style={{ textAlign: "center" }}>
+    Actions
+  </div>
+</div>
 
-                      <button
-                        type="button"
-                        disabled={actionLoading === item.id}
-                        onClick={() => handleReject(item.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition cursor-pointer disabled:opacity-50"
-                        title="Reject Request"
-                      >
-                        <X size={14} />
-                        <span>Reject</span>
-                      </button>
-                    </div>
-                  </Td>
-                </Tr>
-              ))
-            )}
-          </Tbody>
-        </Table>
-
-        {filteredRequests.length > 0 && (
-          <TablePagination
-            currentPage={safePage}
-            totalPages={totalPages}
-            totalItems={filteredRequests.length}
-            rowsPerPage={rowsPerPage}
-            onPageChange={setCurrentPage}
-            onRowsPerPageChange={(n) => {
-              setRowsPerPage(n);
-              setCurrentPage(1);
+        {loading ? (
+          <div
+            style={{
+              padding: 50,
+              textAlign: "center",
             }}
-            itemLabel="requests"
-          />
+          >
+            Loading...
+          </div>
+        ) : filteredRequests.length === 0 ? (
+          <div
+            style={{
+              padding: 50,
+              textAlign: "center",
+              color: "#64748b",
+            }}
+          >
+            No pending requests found
+          </div>
+        ) : (
+          // filteredRequests.map((item) => (
+            paginatedRequests.map((item, index) => (
+            <div
+  key={item.id}
+  style={{
+    padding: "28px 40px",
+    display: "grid",
+    gridTemplateColumns:
+      "2fr 1.5fr 1.2fr",
+    alignItems: "center",
+    borderBottom:
+  index !== paginatedRequests.length - 1
+    ? "1px solid #eef2f7"
+    : "none"
+  }}
+>
+              {/* COMPANY */}
+
+             <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 18
+  }}
+>
+  <div
+    style={{
+      width: 58,
+      height: 58,
+      borderRadius: 18,
+      background: "#dbeafe",
+      color: "#2563eb",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontWeight: 700,
+      fontSize: 28
+    }}
+  >
+    {item.company_name
+      ?.charAt(0)
+      ?.toUpperCase()}
+  </div>
+
+  <div>
+    <div
+      style={{
+        fontWeight: 700,
+        fontSize: 18,
+        color: "#0f172a"
+      }}
+    >
+      {item.company_name}
+    </div>
+
+    <div
+      style={{
+        color: "#94a3b8",
+        marginTop: 4,
+        fontSize: 14
+      }}
+    >
+      {/* Request ID #{item.id} */}
+      #{(safePage - 1) * ITEMS_PER_PAGE + index + 1}
+ • Request ID #{item.id}
+    </div>
+  </div>
+</div>
+
+              {/* REQUESTED BY */}
+<div>
+  <div
+    style={{
+      fontWeight: 600,
+      fontSize: 17,
+      color: "#334155"
+    }}
+  >
+    {item.admin_name}
+  </div>
+
+  <div
+    style={{
+      fontSize: 13,
+      color: "#94a3b8",
+      marginTop: 4
+    }}
+  >
+    Admin
+  </div>
+</div>
+
+             
+
+
+              {/* ACTIONS */}
+
+             <div
+  style={{
+    display: "flex",
+    justifyContent: "center",
+    gap: 12
+  }}
+>
+  <button
+    onClick={() => handleApprove(item.id)}
+    style={{
+      border: "none",
+      background:
+        "linear-gradient(135deg,#16a34a,#22c55e)",
+      color: "#fff",
+      padding: "14px 28px",
+      borderRadius: 16,
+      cursor: "pointer",
+      fontWeight: 700,
+      fontSize: 15,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      boxShadow:
+        "0 6px 16px rgba(34,197,94,.25)"
+    }}
+  >
+    <Check size={18}/>
+    Accept
+  </button>
+
+  <button
+    onClick={() => handleReject(item.id)}
+    style={{
+      border: "none",
+      background:
+        "linear-gradient(135deg,#dc2626,#ef4444)",
+      color: "#fff",
+      padding: "14px 28px",
+      borderRadius: 16,
+      cursor: "pointer",
+      fontWeight: 700,
+      fontSize: 15,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      boxShadow:
+        "0 6px 16px rgba(239,68,68,.25)"
+    }}
+  >
+    <X size={18}/>
+    Reject
+  </button>
+</div>
+            </div>
+          ))
         )}
-      </TableContainer>
+      
+      {filteredRequests.length > ITEMS_PER_PAGE && (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "18px 24px",
+      borderTop: "1px solid #eef2f7",
+      background: "#fafbff",
+      flexWrap: "wrap",
+      gap: 10,
+    }}
+  >
+    <div
+      style={{
+        fontSize: 14,
+        color: "#64748b",
+      }}
+    >
+      Showing{" "}
+      <strong>
+        {(safePage - 1) * ITEMS_PER_PAGE + 1}-
+        {Math.min(
+          safePage * ITEMS_PER_PAGE,
+          filteredRequests.length
+        )}
+      </strong>{" "}
+      of{" "}
+      <strong>{filteredRequests.length}</strong>{" "}
+      requests
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <button
+        disabled={safePage === 1}
+        onClick={() =>
+          setCurrentPage((p) => p - 1)
+        }
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          border: "1px solid #dbe2ea",
+          background: "#fff",
+          cursor:
+            safePage === 1
+              ? "not-allowed"
+              : "pointer",
+          opacity: safePage === 1 ? 0.45 : 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      {Array.from(
+        { length: totalPages },
+        (_, i) => i + 1
+      )
+        .filter(
+          (p) =>
+            p === 1 ||
+            p === totalPages ||
+            Math.abs(p - safePage) <= 1
+        )
+        .reduce((acc, p, i, arr) => {
+          if (i > 0 && arr[i - 1] !== p - 1)
+            acc.push("...");
+          acc.push(p);
+          return acc;
+        }, [])
+        .map((item, i) =>
+          item === "..." ? (
+            <span
+              key={i}
+              style={{
+                padding: "0 5px",
+                color: "#94a3b8",
+              }}
+            >
+              …
+            </span>
+          ) : (
+            <button
+              key={item}
+              onClick={() =>
+                setCurrentPage(item)
+              }
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                border:
+                  safePage === item
+                    ? "none"
+                    : "1px solid #dbe2ea",
+                background:
+                  safePage === item
+                    ? "linear-gradient(135deg,#2563eb,#3b82f6)"
+                    : "#fff",
+                color:
+                  safePage === item
+                    ? "#fff"
+                    : "#475569",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {item}
+            </button>
+          )
+        )}
+
+      <button
+        disabled={safePage === totalPages}
+        onClick={() =>
+          setCurrentPage((p) => p + 1)
+        }
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          border: "1px solid #dbe2ea",
+          background: "#fff",
+          cursor:
+            safePage === totalPages
+              ? "not-allowed"
+              : "pointer",
+          opacity:
+            safePage === totalPages
+              ? 0.45
+              : 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  </div>
+)}
+      </div>
+    
     </div>
   );
 }
