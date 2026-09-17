@@ -42,6 +42,7 @@ class TransactionMessageController extends Controller
                 'template_2' => (string) $row->template_2,
                 'custom_template' => (string) $row->custom_template,
                 'selected_template' => $row->selected_template ?: 'template_1',
+                'royalty_points_threshold' => $row->royalty_points_threshold,
             ];
         }
 

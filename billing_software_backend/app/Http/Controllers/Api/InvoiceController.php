@@ -315,6 +315,8 @@ class InvoiceController extends Controller
 
             /* UPDATE CUSTOMER */
             $total_pending = $current_balance;
+            $customerModel = null;
+            $earnedLoyaltyPoints = 0;
             if ($customer_id > 0) {
                 $cust = Customer::find($customer_id);
                 if ($cust) {
@@ -325,16 +327,27 @@ class InvoiceController extends Controller
                         $points = floor($total_amount / 100);
                         if ($points > 0) {
                             $cust->loyalty_points = intval($cust->loyalty_points) + $points;
+                            $earnedLoyaltyPoints = $points;
                         }
                     }
                     $cust->pending_amount = $total_pending;
                     $cust->save();
+                    $customerModel = $cust;
                 }
             }
 
             DB::commit();
 
             app(\App\Services\TransactionMessageService::class)->handleInvoice($company_id, $invoice);
+
+            if ($customerModel && $earnedLoyaltyPoints > 0) {
+                app(\App\Services\TransactionMessageService::class)->handleRoyaltyPoints(
+                    $company_id,
+                    $customerModel,
+                    $earnedLoyaltyPoints,
+                    (string) $invoice_no
+                );
+            }
 
             /* LAST INVOICE */
             $last_invoice = null;

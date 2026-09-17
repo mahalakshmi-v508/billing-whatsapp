@@ -36,6 +36,7 @@ class TransactionMessageService
         'expense'            => 'Expense',
         'sale_fa'            => 'Sale FA',
         'purchase_fa'        => 'Purchase FA',
+        'royalty_points'     => 'Royalty Points',
     ];
 
     /** Token supported inside templates. */
@@ -50,6 +51,7 @@ class TransactionMessageService
         'Payment_Mode',
         'Invoice_Link',
         'Payment_Link',
+        'Royalty_Points',
     ];
 
     /** Tokens that get special line-level handling based on settings/values. */
@@ -75,6 +77,7 @@ class TransactionMessageService
         'cancelled_invoice' => "Greetings from [Firm_Name]\n\nYour invoice has been cancelled.\n\nTransaction Type: [Transaction_Type]\nInvoice Number: [Invoice_Number]\nCancelled Amount: Rs.[Invoice_Amount]\n\nFor any queries, please contact us.\n\nRegards,\n[Firm_Name]",
         'sale_fa' => "Greetings from [Firm_Name]\n\nWe are pleased to inform you about your fixed asset sale.\n\nTransaction Type: [Transaction_Type]\nVoucher Number: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
         'purchase_fa' => "Greetings from [Firm_Name]\n\nFixed asset purchase details are as follows:\n\nTransaction Type: [Transaction_Type]\nVoucher Number: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
+        'royalty_points' => "Congratulations [Party_Name]!\n\nYou have earned [Royalty_Points] Royalty Points.\n\nThank you for being our valued customer at [Firm_Name].\n\nWe look forward to serving you again.\n\nRegards,\n[Firm_Name]",
     ];
 
     /** Second default template per type (Template 2), seeded into template_2. */
@@ -94,6 +97,7 @@ class TransactionMessageService
         'cancelled_invoice' => "Dear [Party_Name],\n\nThis is to inform you that your invoice has been cancelled.\n\nCancellation Details:\nInvoice No: [Invoice_Number]\nCancelled Amount: Rs.[Invoice_Amount]\n\nFor any queries, please contact us.\n\nRegards,\n[Firm_Name]",
         'sale_fa' => "Dear [Party_Name],\n\nWe are pleased to confirm the sale of the fixed asset.\n\nSale Details:\nVoucher No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
         'purchase_fa' => "Dear [Party_Name],\n\nWe have recorded the purchase of a fixed asset.\n\nPurchase Details:\nVoucher No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
+        'royalty_points' => "Dear [Party_Name],\n\nGreat news! You now have [Royalty_Points] Royalty Points with [Firm_Name].\n\nKeep shopping with us to earn more reward points.\n\nThank you!\n[Firm_Name]",
     ];
 
     public function types(): array
@@ -180,6 +184,7 @@ class TransactionMessageService
                     'template_2' => isset($row['template_2']) ? (string) $row['template_2'] : ($existing->template_2 ?? $this->defaultTemplate2($type)),
                     'custom_template' => isset($row['custom_template']) ? (string) $row['custom_template'] : ($existing->custom_template ?? ''),
                     'selected_template' => $selected,
+                    'royalty_points_threshold' => isset($row['royalty_points_threshold']) ? $this->intThreshold($row['royalty_points_threshold'], $existing->royalty_points_threshold ?? null) : ($existing->royalty_points_threshold ?? null),
                 ]
             );
             $saved += $setting ? 1 : 0;
@@ -599,6 +604,85 @@ class TransactionMessageService
         }
     }
 
+    /**
+     * Royalty Points auto-send — called immediately after a customer's
+     * loyalty_points are incremented in InvoiceController::createInvoice.
+     *
+     * The qualifying event is the invoice that earned the points (invoice_no),
+     * which the existing dedup mechanism in recordAutoSend uses to prevent
+     * duplicate sends for the same earning event.
+     *
+     * @param \App\Models\Customer $customer         Post-save customer (points already incremented)
+     * @param int                 $pointsEarned     Points earned by THIS invoice (> 0 guaranteed)
+     * @param string              $referenceInvoice Invoice number of the earning event
+     */
+    public function handleRoyaltyPoints(int $companyId, $customer, int $pointsEarned, string $referenceInvoice): ?array
+    {
+        try {
+            if ($pointsEarned <= 0) {
+                return null;
+            }
+
+            $setting = $this->getOrInit($companyId, 'royalty_points');
+            if (!$setting->auto_send) {
+                return null;
+            }
+
+            $threshold = $setting->royalty_points_threshold ?? null;
+            if ($threshold === null || (int) $threshold <= 0) {
+                return null;
+            }
+
+            $balance = (int) $customer->loyalty_points;
+            if ($balance < (int) $threshold) {
+                return null;
+            }
+
+            $phone = trim((string) ($customer->phone ?? ''));
+            if ($phone === '') {
+                return null;
+            }
+
+            // Dedup: never re-send for the same qualifying earning event
+            // (a given invoice earned points exactly once).
+            $alreadySent = TransactionMessageAutoSend::where('company_id', $companyId)
+                ->where('transaction_type', 'royalty_points')
+                ->where('txn_no', $referenceInvoice)
+                ->exists();
+            if ($alreadySent) {
+                return null;
+            }
+
+            $firm = $this->firm($companyId);
+
+            $ctx = [
+                'firm_name'          => $firm['name'],
+                'transaction_type'   => self::TYPES['royalty_points'],
+                'party_name'         => $customer->name ?? '',
+                'party_phone'        => $phone,
+                'txn_no'             => $referenceInvoice,
+                'invoice_amount'     => '',
+                'transaction_balance' => '',
+                'payment_amount'     => '',
+                'payment_mode'       => '',
+                'invoice_link'       => '',
+                'payment_link'       => '',
+                'royalty_points'     => (string) $balance,
+            ];
+
+            $result = $this->autoSend($companyId, 'royalty_points', $ctx, $phone);
+
+            if ($result) {
+                \Log::info("[TransactionMessage] royalty-points sent: company={$companyId} customer={$customer->id} balance={$balance} invoice={$referenceInvoice}");
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            \Log::warning("[TransactionMessage] royalty-points handler: " . $e->getMessage());
+            return null;
+        }
+    }
+
     // ── CONTEXT BUILDERS ────────────────────────────────────────────────
 
     private function buildContext(int $companyId, string $type, $record): array
@@ -616,6 +700,7 @@ class TransactionMessageService
             'payment_mode' => '',
             'invoice_link' => '',
             'payment_link' => '',
+            'royalty_points' => '',
         ];
 
         switch ($type) {
@@ -728,6 +813,7 @@ class TransactionMessageService
                 'expense' => 'EXP-0001',
                 'sale_fa' => 'SFA-0001',
                 'purchase_fa' => 'PFA-0001',
+                'royalty_points' => 'INV-0001',
                 default => 'DOC-0001',
             },
             'invoice_amount' => '1,000.00',
@@ -736,6 +822,7 @@ class TransactionMessageService
             'payment_mode' => in_array($type, ['payment_in', 'payment_out', 'sales_return', 'purchase_return'], true) ? 'Cash' : '',
             'invoice_link' => \Illuminate\Support\Str::endsWith(trim($firm['base_url'] ?? ''), '/') ? $firm['base_url'] . 'invoice/web/SAMPLE-INV' : ($firm['base_url'] ?? '') . '/invoice/web/SAMPLE-INV',
             'payment_link' => '',
+            'royalty_points' => '100',
         ];
     }
 
@@ -862,6 +949,7 @@ class TransactionMessageService
             '[Payment_Mode]' => $ctx['payment_mode'] ?? '',
             '[Invoice_Link]' => $ctx['invoice_link'] ?? '',
             '[Payment_Link]' => $ctx['payment_link'] ?? '',
+            '[Royalty_Points]' => $ctx['royalty_points'] ?? '',
         ];
         return str_replace(array_keys($map), array_values($map), $text);
     }
@@ -921,5 +1009,14 @@ class TransactionMessageService
             return (int) $value === 1;
         }
         return in_array(strtolower((string) $value), ['1', 'true', 'on', 'yes'], true);
+    }
+
+    private function intThreshold($value, $fallback = null): ?int
+    {
+        if ($value === null || $value === '') {
+            return $fallback !== null ? (int) $fallback : null;
+        }
+        $n = (int) $value;
+        return $n > 0 ? $n : ($fallback !== null ? (int) $fallback : null);
     }
 }
