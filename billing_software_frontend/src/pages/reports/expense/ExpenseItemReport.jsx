@@ -1,4 +1,4 @@
-﻿import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import api from "../../../services/api";
@@ -879,15 +879,6 @@ export default function ExpenseItemReport() {
                     <th key={c.key} className={i === 0 ? "eir-left" : "eir-right"}>
                       <span className="eir-th-inner">
                         {c.key}
-                        <button
-                          type="button"
-                          className={`eir-filter-btn ${(colFilters[c.key] || "").trim() ? "is-active" : ""}`}
-                          data-eir-menu-container
-                          onClick={(e) => toggleFilterMenu(e, c.key)}
-                          title={`Filter ${c.key.toLowerCase()}`}
-                        >
-                          <Filter size={11} />
-                        </button>
                       </span>
                     </th>
                   ))}

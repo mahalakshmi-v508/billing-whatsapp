@@ -1,8 +1,35 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { ArrowLeft, Download, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Download, Calendar, FileText, User, DollarSign, Percent } from "lucide-react";
 import * as XLSX from "xlsx";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
+import useTableColumns from "../../hooks/useTableColumns";
+import {
+  TableContainer,
+  Table,
+  Thead,
+  Th,
+  Tbody,
+  Tr,
+  Td,
+  TablePagination,
+  TableEmptyState,
+  TableLoadingState,
+} from "../../components/table";
+
+const DEFAULT_COLUMNS = [
+  { key: "date", label: "Date", icon: Calendar, color: "text-blue-600", bg: "bg-blue-50", desc: "Purchase / Invoice date" },
+  { key: "invoice_no", label: "Invoice No", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Supplier invoice / bill number" },
+  { key: "supplier", label: "Supplier", icon: User, color: "text-violet-600", bg: "bg-violet-50", desc: "Supplier name" },
+  { key: "gstin", label: "GSTIN", icon: FileText, color: "text-purple-600", bg: "bg-purple-50", desc: "Supplier GST identification number" },
+  { key: "taxable", label: "Taxable Amount", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Taxable purchase value" },
+  { key: "cgst", label: "CGST", icon: Percent, color: "text-blue-600", bg: "bg-blue-50", desc: "Central GST (50% of tax)" },
+  { key: "sgst", label: "SGST", icon: Percent, color: "text-indigo-600", bg: "bg-indigo-50", desc: "State GST (50% of tax)" },
+  { key: "total_gst", label: "Total GST", icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50", desc: "Combined GST tax amount" },
+  { key: "bill_total", label: "Bill Total", icon: DollarSign, color: "text-slate-900", bg: "bg-slate-100", desc: "Total purchase bill amount" },
+];
 
 export default function PurchaseGSTReport() {
   const navigate = useNavigate();
@@ -24,6 +51,17 @@ export default function PurchaseGSTReport() {
   const [endDate, setEndDate] = useState(getToday());
   const [showGstOnly, setShowGstOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(15);
+
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumnCount,
+  } = useTableColumns("purchase_gst_columns", DEFAULT_COLUMNS);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -33,8 +71,9 @@ export default function PurchaseGSTReport() {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user) return;
 
-    api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
-      .then(res => {
+    api
+      .get(`/company/get_companies_by_admin?admin_id=${user.id}`)
+      .then((res) => {
         if (res.data.status) {
           setCompanies(res.data.data);
           const savedId = localStorage.getItem("selected_company_id");
@@ -80,7 +119,12 @@ export default function PurchaseGSTReport() {
 
   // Filter purchases if showGstOnly is active
   const filteredPurchases = showGstOnly
-    ? purchases.filter(p => p.supplier_gstin && p.supplier_gstin.trim() !== "" && p.supplier_gstin.toLowerCase() !== "n/a")
+    ? purchases.filter(
+        (p) =>
+          p.supplier_gstin &&
+          p.supplier_gstin.trim() !== "" &&
+          p.supplier_gstin.toLowerCase() !== "n/a"
+      )
     : purchases;
 
   // Export to Excel
@@ -90,7 +134,9 @@ export default function PurchaseGSTReport() {
       return;
     }
 
-    const companyName = companies.find(c => Number(c.id) === Number(selectedCompany))?.company_name || "Company";
+    const companyName =
+      companies.find((c) => Number(c.id) === Number(selectedCompany))
+        ?.company_name || "Company";
 
     const data = filteredPurchases.map((p, index) => {
       const taxable = Number(p.sub_total);
@@ -109,7 +155,7 @@ export default function PurchaseGSTReport() {
         "CGST (₹)": cgst,
         "SGST (₹)": sgst,
         "Total GST (₹)": gst,
-        "Total Bill Amount (₹)": Number(p.total_amount)
+        "Total Bill Amount (₹)": Number(p.total_amount),
       };
     });
 
@@ -118,209 +164,174 @@ export default function PurchaseGSTReport() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "GST Purchase Report");
 
     // Add totals row
-    const totalTaxable = filteredPurchases.reduce((sum, p) => sum + Number(p.sub_total), 0);
-    const totalGst = filteredPurchases.reduce((sum, p) => sum + Number(p.gst_total), 0);
-    const totalAmount = filteredPurchases.reduce((sum, p) => sum + Number(p.total_amount), 0);
+    const totalTaxable = filteredPurchases.reduce(
+      (sum, p) => sum + Number(p.sub_total),
+      0
+    );
+    const totalGst = filteredPurchases.reduce(
+      (sum, p) => sum + Number(p.gst_total),
+      0
+    );
+    const totalAmount = filteredPurchases.reduce(
+      (sum, p) => sum + Number(p.total_amount),
+      0
+    );
 
-    XLSX.utils.sheet_add_aoa(worksheet, [
-      [],
-      ["Total", "", "", "", "", totalTaxable, totalGst / 2, totalGst / 2, totalGst, totalAmount]
-    ], { origin: -1 });
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [
+        [],
+        [
+          "Total",
+          "",
+          "",
+          "",
+          "",
+          totalTaxable,
+          totalGst / 2,
+          totalGst / 2,
+          totalGst,
+          totalAmount,
+        ],
+      ],
+      { origin: -1 }
+    );
 
-    XLSX.writeFile(workbook, `Purchase_GST_Report_${companyName}_${startDate}_to_${endDate}.xlsx`);
+    XLSX.writeFile(
+      workbook,
+      `Purchase_GST_Report_${companyName}_${startDate}_to_${endDate}.xlsx`
+    );
   };
 
   // Calculations
-  const totalTaxable = filteredPurchases.reduce((sum, p) => sum + Number(p.sub_total), 0);
-  const totalGst = filteredPurchases.reduce((sum, p) => sum + Number(p.gst_total), 0);
-  const totalBillAmount = filteredPurchases.reduce((sum, p) => sum + Number(p.total_amount), 0);
+  const totalTaxable = filteredPurchases.reduce(
+    (sum, p) => sum + Number(p.sub_total || 0),
+    0
+  );
+  const totalGst = filteredPurchases.reduce(
+    (sum, p) => sum + Number(p.gst_total || 0),
+    0
+  );
+  const totalBillAmount = filteredPurchases.reduce(
+    (sum, p) => sum + Number(p.total_amount || 0),
+    0
+  );
 
   // Pagination Calculations
-  const ITEMS_PER_PAGE = 15;
-  const totalPages = Math.ceil(filteredPurchases.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredPurchases.length / rowsPerPage) || 1;
   const safePage = Math.min(currentPage, totalPages || 1);
-  const indexOfLast = safePage * ITEMS_PER_PAGE;
-  const indexOfFirst = indexOfLast - ITEMS_PER_PAGE;
+  const indexOfLast = safePage * rowsPerPage;
+  const indexOfFirst = indexOfLast - rowsPerPage;
   const paginatedPurchases = filteredPurchases.slice(indexOfFirst, indexOfLast);
 
+  const fmt = (n) =>
+    Number(n || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
   return (
-    <div style={{ padding: "30px", background: "#f8fafc", minHeight: "100vh" }}>
-      <style>{`
-        .sl-page-btn {
-          width: 34px;
-          height: 34px;
-          border-radius: 9px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1.5px solid #e2e8f0;
-          background: #fff;
-          color: #64748b;
-          cursor: pointer;
-          font-weight: 600;
-          transition: .2s;
-        }
-
-        .sl-page-btn:hover:not(:disabled) {
-          background: #eff6ff;
-          color: #2563eb;
-          border-color: #3b82f6;
-        }
-
-        .sl-page-btn:disabled {
-          opacity: .4;
-          cursor: not-allowed;
-        }
-
-        .sl-page-btn.active {
-          background: linear-gradient(135deg,#1d4ed8,#3b82f6);
-          color: #fff;
-          border: none;
-        }
-      `}</style>
+    <div className="space-y-5 pb-16 max-w-[1600px] mx-auto">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-3.5">
           <button
             onClick={() => navigate("/purchases")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "40px",
-              height: "40px",
-              borderRadius: "12px",
-              background: "#ffffff",
-              border: "1.5px solid #e2e8f0",
-              cursor: "pointer",
-              color: "#475569"
-            }}
+            className="w-9 h-9 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 flex items-center justify-center transition cursor-pointer"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a", margin: 0 }}>GST Purchase Report</h1>
-            <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>Generate GSTR-2 details for outward inputs and GST filing</p>
+            <h1 className="text-xl font-bold text-slate-900">GST Purchase Report</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Generate GSTR-2 details for outward inputs and GST filing
+            </p>
           </div>
         </div>
-        <button
-          onClick={exportToExcel}
-          disabled={purchases.length === 0}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "10px 18px",
-            borderRadius: "12px",
-            background: purchases.length === 0 ? "#cbd5e1" : "#10b981",
-            color: "#ffffff",
-            border: "none",
-            fontSize: "14px",
-            fontWeight: "600",
-            cursor: purchases.length === 0 ? "not-allowed" : "pointer",
-            boxShadow: purchases.length === 0 ? "none" : "0 4px 12px rgba(16,185,129,0.2)"
-          }}
-        >
-          <Download size={16} /> Export Excel
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={exportToExcel}
+            disabled={purchases.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition disabled:opacity-50 cursor-pointer"
+          >
+            <Download size={15} />
+            <span>Export Excel</span>
+          </button>
+          <HeaderSettingsButton
+            onClick={() => setShowColumnDrawer(true)}
+            tooltip="Customise GST table columns"
+            variant="list"
+            isActive={showColumnDrawer}
+          />
+        </div>
       </div>
 
       {/* Company Selector Buttons */}
-      <div style={{ marginBottom: "24px" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+      {companies.length > 0 && (
+        <div className="flex flex-wrap gap-2">
           {companies.map((c) => {
             const isActive = Number(selectedCompany) === Number(c.id);
             return (
               <button
                 key={c.id}
                 onClick={() => handleCompanyChange(c.id)}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: "12px",
-                  fontSize: "13.5px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  border: isActive ? "2px solid #2563eb" : "1.5px solid #e2e8f0",
-                  backgroundColor: isActive ? "#2563eb" : "#ffffff",
-                  color: isActive ? "#ffffff" : "#475569",
-                  boxShadow: isActive ? "0 4px 12px rgba(37,99,235,0.25)" : "0 1px 4px rgba(0,0,0,0.06)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px"
-                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 border ${
+                  isActive
+                    ? "app-pill-active"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
               >
-                <span>🏢</span> {c.company_name}
+                <span>🏢</span>
+                <span>{c.company_name}</span>
               </button>
             );
           })}
         </div>
-      </div>
+      )}
 
       {/* Date Filters bar */}
-      <div style={{ background: "#ffffff", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0", marginBottom: "25px", display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "20px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <label style={{ fontSize: "12px", fontWeight: "700", color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>Start Date</label>
-          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <Calendar size={16} style={{ position: "absolute", left: "12px", color: "#64748b" }} />
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-end gap-3.5">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            Start Date
+          </label>
+          <div className="relative flex items-center">
+            <Calendar size={14} className="absolute left-3 text-slate-400" />
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              style={{
-                padding: "10px 12px 10px 36px",
-                border: "1.5px solid #e2e8f0",
-                borderRadius: "10px",
-                fontSize: "14px",
-                outline: "none",
-                color: "#334155"
-              }}
+              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs outline-none text-slate-700 focus:border-blue-500"
             />
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <label style={{ fontSize: "12px", fontWeight: "700", color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>End Date</label>
-          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-            <Calendar size={16} style={{ position: "absolute", left: "12px", color: "#64748b" }} />
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            End Date
+          </label>
+          <div className="relative flex items-center">
+            <Calendar size={14} className="absolute left-3 text-slate-400" />
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              style={{
-                padding: "10px 12px 10px 36px",
-                border: "1.5px solid #e2e8f0",
-                borderRadius: "10px",
-                fontSize: "14px",
-                outline: "none",
-                color: "#334155"
-              }}
+              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs outline-none text-slate-700 focus:border-blue-500"
             />
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", height: "42px", paddingBottom: "2px" }}>
+        <div className="flex items-center gap-2 h-9 px-2">
           <input
             type="checkbox"
             id="gstToggle"
             checked={showGstOnly}
             onChange={(e) => setShowGstOnly(e.target.checked)}
-            style={{
-              width: "18px",
-              height: "18px",
-              cursor: "pointer",
-              accentColor: "#2563eb"
-            }}
+            className="w-4 h-4 rounded border-slate-300 text-blue-600 accent-blue-600 cursor-pointer"
           />
           <label
             htmlFor="gstToggle"
-            style={{
-              fontSize: "14px",
-              fontWeight: "600",
-              color: "#475569",
-              cursor: "pointer",
-              userSelect: "none"
-            }}
+            className="text-xs font-semibold text-slate-700 cursor-pointer select-none"
           >
             GSTIN Only
           </label>
@@ -328,164 +339,152 @@ export default function PurchaseGSTReport() {
 
         <button
           onClick={handleSearch}
-          style={{
-            padding: "11px 24px",
-            borderRadius: "10px",
-            background: "#2563eb",
-            color: "#ffffff",
-            border: "none",
-            fontSize: "14px",
-            fontWeight: "600",
-            cursor: "pointer",
-            boxShadow: "0 4px 12px rgba(37,99,235,0.15)"
-          }}
+          className="app-btn-primary px-4 py-2 text-xs font-semibold rounded-lg"
         >
           Generate Report
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px", marginBottom: "25px" }}>
-        <div style={{ background: "#ffffff", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-          <p style={{ fontSize: "13px", fontWeight: "600", color: "#64748b", margin: 0, textTransform: "uppercase" }}>Total Taxable Value</p>
-          <h3 style={{ fontSize: "24px", fontWeight: "800", color: "#0f172a", margin: "8px 0 0" }}>₹{totalTaxable.toFixed(2)}</h3>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            Total Taxable Value
+          </p>
+          <h3 className="text-xl font-bold text-slate-900 mt-1">₹{fmt(totalTaxable)}</h3>
         </div>
-        <div style={{ background: "#ffffff", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-          <p style={{ fontSize: "13px", fontWeight: "600", color: "#64748b", margin: 0, textTransform: "uppercase" }}>CGST Total (50%)</p>
-          <h3 style={{ fontSize: "24px", fontWeight: "800", color: "#3b82f6", margin: "8px 0 0" }}>₹{(totalGst / 2).toFixed(2)}</h3>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            CGST Total (50%)
+          </p>
+          <h3 className="text-xl font-bold text-blue-600 mt-1">₹{fmt(totalGst / 2)}</h3>
         </div>
-        <div style={{ background: "#ffffff", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-          <p style={{ fontSize: "13px", fontWeight: "600", color: "#64748b", margin: 0, textTransform: "uppercase" }}>SGST Total (50%)</p>
-          <h3 style={{ fontSize: "24px", fontWeight: "800", color: "#6366f1", margin: "8px 0 0" }}>₹{(totalGst / 2).toFixed(2)}</h3>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            SGST Total (50%)
+          </p>
+          <h3 className="text-xl font-bold text-indigo-600 mt-1">₹{fmt(totalGst / 2)}</h3>
         </div>
-        <div style={{ background: "#ffffff", padding: "20px", borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-          <p style={{ fontSize: "13px", fontWeight: "600", color: "#64748b", margin: 0, textTransform: "uppercase" }}>Total Bill Amount</p>
-          <h3 style={{ fontSize: "24px", fontWeight: "800", color: "#10b981", margin: "8px 0 0" }}>₹{totalBillAmount.toFixed(2)}</h3>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            Total Bill Amount
+          </p>
+          <h3 className="text-xl font-bold text-emerald-600 mt-1">₹{fmt(totalBillAmount)}</h3>
         </div>
       </div>
 
       {/* Report Table */}
-      <div style={{ background: "#ffffff", borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-          <thead>
-            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Date</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Invoice No</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Supplier</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>GSTIN</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Taxable (₹)</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>CGST (₹)</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>SGST (₹)</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Total GST (₹)</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Bill Total (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan="9" style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>Generating report details...</td>
-              </tr>
-            ) : !selectedCompany ? (
-              <tr>
-                <td colSpan="9" style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>Select a company to load GST reports</td>
-              </tr>
-            ) : filteredPurchases.length === 0 ? (
-              <tr>
-                <td colSpan="9" style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>No submitted purchases found for the selected date range.</td>
-              </tr>
-            ) : (
-              paginatedPurchases.map((p) => {
-                const taxable = Number(p.sub_total);
-                const gst = Number(p.gst_total);
+      <TableContainer>
+        {loading ? (
+          <TableLoadingState colSpan={visibleColumnCount || 1} message="Generating GST report details..." />
+        ) : !selectedCompany ? (
+          <TableEmptyState
+            colSpan={visibleColumnCount || 1}
+            title="No Company Selected"
+            description="Select a company from above to load GST purchase reports."
+          />
+        ) : filteredPurchases.length === 0 ? (
+          <TableEmptyState
+            colSpan={visibleColumnCount || 1}
+            title="No Purchases Found"
+            description="No submitted purchases found for the selected date range and filter criteria."
+          />
+        ) : (
+          <>
+            <Table>
+              <Thead>
+                <tr>
+                  {visibleColumns.date && <Th>Date</Th>}
+                  {visibleColumns.invoice_no && <Th>Invoice No</Th>}
+                  {visibleColumns.supplier && <Th>Supplier</Th>}
+                  {visibleColumns.gstin && <Th>GSTIN</Th>}
+                  {visibleColumns.taxable && <Th align="right">Taxable (₹)</Th>}
+                  {visibleColumns.cgst && <Th align="right">CGST (₹)</Th>}
+                  {visibleColumns.sgst && <Th align="right">SGST (₹)</Th>}
+                  {visibleColumns.total_gst && <Th align="right">Total GST (₹)</Th>}
+                  {visibleColumns.bill_total && <Th align="right">Bill Total (₹)</Th>}
+                </tr>
+              </Thead>
+              <Tbody>
+                {paginatedPurchases.map((p) => {
+                  const taxable = Number(p.sub_total || 0);
+                  const gst = Number(p.gst_total || 0);
 
-                return (
-                  <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#334155" }}>{p.purchase_date}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: "600", color: "#1e293b" }}>{p.purchase_no || "N/A"}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#475569" }}>{p.supplier_name || "Unknown"}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#64748b", fontFamily: "monospace" }}>{p.supplier_gstin || "N/A"}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#334155" }}>{taxable.toFixed(2)}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#3b82f6" }}>{(gst / 2).toFixed(2)}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#6366f1" }}>{(gst / 2).toFixed(2)}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#e11d48" }}>{gst.toFixed(2)}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: "700", color: "#0f172a" }}>{Number(p.total_amount).toFixed(2)}</td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                  return (
+                    <Tr key={p.id}>
+                      {visibleColumns.date && (
+                        <Td className="whitespace-nowrap text-slate-600">{p.purchase_date}</Td>
+                      )}
+                      {visibleColumns.invoice_no && (
+                        <Td className="whitespace-nowrap font-bold text-slate-900 font-mono">
+                          {p.purchase_no || "N/A"}
+                        </Td>
+                      )}
+                      {visibleColumns.supplier && (
+                        <Td className="font-medium text-slate-800">{p.supplier_name || "Unknown"}</Td>
+                      )}
+                      {visibleColumns.gstin && (
+                        <Td className="font-mono text-slate-600">{p.supplier_gstin || "N/A"}</Td>
+                      )}
+                      {visibleColumns.taxable && (
+                        <Td align="right" className="font-semibold text-slate-700">
+                          {fmt(taxable)}
+                        </Td>
+                      )}
+                      {visibleColumns.cgst && (
+                        <Td align="right" className="text-blue-600 font-semibold">
+                          {fmt(gst / 2)}
+                        </Td>
+                      )}
+                      {visibleColumns.sgst && (
+                        <Td align="right" className="text-indigo-600 font-semibold">
+                          {fmt(gst / 2)}
+                        </Td>
+                      )}
+                      {visibleColumns.total_gst && (
+                        <Td align="right" className="text-rose-600 font-semibold">
+                          {fmt(gst)}
+                        </Td>
+                      )}
+                      {visibleColumns.bill_total && (
+                        <Td align="right" className="font-bold text-slate-900">
+                          ₹{fmt(p.total_amount)}
+                        </Td>
+                      )}
+                    </Tr>
+                  );
+                })}
+              </Tbody>
+            </Table>
 
-        {/* Pagination Footer */}
-        {!loading && selectedCompany && filteredPurchases.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              background: "#ffffff",
-              padding: "16px 20px",
-              borderTop: "1px solid #e2e8f0",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
-            }}
-          >
-            <div style={{ fontSize: "13.5px", color: "#64748b" }}>
-              Showing{" "}
-              <strong>
-                {(safePage - 1) * ITEMS_PER_PAGE + 1}–
-                {Math.min(safePage * ITEMS_PER_PAGE, filteredPurchases.length)}
-              </strong>{" "}
-              of <strong>{filteredPurchases.length}</strong> transactions
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <button
-                disabled={safePage === 1}
-                onClick={() => setCurrentPage((p) => p - 1)}
-                className="sl-page-btn"
-              >
-                <ChevronLeft size={16} />
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(
-                  (p) =>
-                    p === 1 ||
-                    p === totalPages ||
-                    Math.abs(p - safePage) <= 1
-                )
-                .reduce((acc, p, i, arr) => {
-                  if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((item, i) =>
-                  item === "..." ? (
-                    <span key={i} style={{ padding: "0 5px", color: "#94a3b8" }}>
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={item}
-                      onClick={() => setCurrentPage(item)}
-                      className={`sl-page-btn ${safePage === item ? "active" : ""}`}
-                    >
-                      {item}
-                    </button>
-                  )
-                )}
-
-              <button
-                disabled={safePage === totalPages}
-                onClick={() => setCurrentPage((p) => p + 1)}
-                className="sl-page-btn"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
+            <TablePagination
+              currentPage={safePage}
+              totalPages={totalPages}
+              totalItems={filteredPurchases.length}
+              rowsPerPage={rowsPerPage}
+              onPageChange={(page) => setCurrentPage(page)}
+              onRowsPerPageChange={(size) => {
+                setRowsPerPage(size);
+                setCurrentPage(1);
+              }}
+              itemLabel="records"
+            />
+          </>
         )}
-      </div>
+      </TableContainer>
+
+      {/* Column Customization Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide table columns in GST Purchase report"
+      />
     </div>
   );
 }

@@ -373,7 +373,7 @@ export default function InvoiceDesign() {
           <button
             onClick={handleSave}
             disabled={saving || loading}
-            className="px-5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-60"
+            className="app-btn-primary px-5 py-2 rounded-xl font-bold text-xs sm:text-sm active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-60"
           >
             {saving ? (
               <>
@@ -608,7 +608,7 @@ export default function InvoiceDesign() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="app-btn-primary px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
               >
                 <Save size={14} />
                 <span>Save as Default</span>

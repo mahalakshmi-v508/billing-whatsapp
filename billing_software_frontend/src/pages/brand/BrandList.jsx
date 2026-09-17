@@ -1,21 +1,28 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-
+import { Plus, Building2 } from "lucide-react";
 import {
-  Pencil,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-
-const ITEMS_PER_PAGE = 5;
+  TableContainer,
+  Table,
+  Thead,
+  Th,
+  Tbody,
+  Tr,
+  Td,
+  TablePagination,
+  TableStatusBadge,
+  TableActionButtons,
+  TableLoadingState,
+  TableEmptyState,
+} from "../../components/table";
 
 export default function BrandList() {
-
   const navigate = useNavigate();
 
- const [brands, setBrands] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -25,16 +32,11 @@ export default function BrandList() {
   );
 
   useEffect(() => {
-
     const user = JSON.parse(localStorage.getItem("user"));
+    if (!user?.id) return;
 
-    api.get(
-      `/company/get_companies_by_admin?admin_id=${user.id}`
-    )
-    .then(res => {
-
+    api.get(`/company/get_companies_by_admin?admin_id=${user.id}`).then((res) => {
       if (res.data.status) {
-
         setCompanies(res.data.data);
 
         // Auto-fetch brands for saved company on mount
@@ -42,652 +44,234 @@ export default function BrandList() {
         if (savedId) {
           fetchBrands(savedId);
         }
-
       }
-
     });
-
   }, []);
 
-
   useEffect(() => {
-
     if (selectedCompany) {
-
       fetchBrands(selectedCompany);
-
     } else {
-
       setBrands([]);
       setLoading(false);
-
     }
-
   }, [selectedCompany]);
 
- const fetchBrands = async (companyId) => {
-
+  const fetchBrands = async (companyId) => {
     setLoading(true);
-
     try {
-
-      const res = await api.get(
-        `/brand/get_all?company_id=${companyId}`
-      );
-
+      const res = await api.get(`/brand/get_all?company_id=${companyId}`);
       if (res.data.status) {
-       setBrands(res.data.data);
+        setBrands(res.data.data || []);
       }
-
     } catch (err) {
-
       console.error(err);
-
     } finally {
-
       setLoading(false);
-
     }
   };
 
-  const handleCompanyChange = (e) => {
-
-    const companyId = e.target.value;
-
+  const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);
     setCurrentPage(1);
-
-    localStorage.setItem(
-      "selected_company_id",
-      companyId
-    );
-
+    localStorage.setItem("selected_company_id", companyId);
   };
 
   const toggleStatus = async (brand) => {
-
-    const newStatus =
-     brand.status === "active"
-        ? "inactive"
-        : "active";
+    const newStatus = brand.status === "active" ? "inactive" : "active";
 
     try {
-
-      const res = await api.post(
-        "/brand/status_toggle",
-        {
-          id: brand.id,
-          status: newStatus,
-        }
-      );
+      const res = await api.post("/brand/status_toggle", {
+        id: brand.id,
+        status: newStatus,
+      });
 
       if (res.data.status) {
-
         setBrands((prev) =>
-          prev.map((s) =>
-            s.id === brand.id
-              ? { ...s, status: newStatus }
-              : s
-          )
+          prev.map((s) => (s.id === brand.id ? { ...s, status: newStatus } : s))
         );
-
       } else {
-
         alert(res.data.message);
-
       }
-
     } catch (err) {
-
       console.error(err);
       alert("Server error");
-
     }
   };
 
-  // const filtered = brands.filter((s) =>
-  //   s.name.toLowerCase().includes(search.toLowerCase()) ||
-  //   s.brand_category.toLowerCase().includes(search.toLowerCase())
-  // );
-
-  const filtered = brands.filter((s) =>
-  (s.name || "").toLowerCase().includes(search.toLowerCase()) ||
-  (s.category_name || "").toLowerCase().includes(search.toLowerCase()) ||
-  (s.subcategory_name || "").toLowerCase().includes(search.toLowerCase())
-);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filtered.length / ITEMS_PER_PAGE)
+  const filtered = brands.filter(
+    (s) =>
+      (s.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (s.category_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (s.subcategory_name || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const safePage = Math.min(
-    currentPage,
-    totalPages
-  );
-
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
   const paginated = filtered.slice(
-    (safePage - 1) * ITEMS_PER_PAGE,
-    safePage * ITEMS_PER_PAGE
+    (safePage - 1) * rowsPerPage,
+    safePage * rowsPerPage
   );
 
   return (
-    <>
-      <style>{`
-
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-        .sl-page{
-          font-family:'Plus Jakarta Sans',sans-serif;
-          min-height:100vh;
-          background:#f0f4ff;
-          padding:2rem;
-        }
-
-        .sl-header{
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-          margin-bottom:1.5rem;
-          flex-wrap:wrap;
-          gap:12px;
-        }
-
-        .sl-header h1{
-          margin:0;
-          font-size:24px;
-          font-weight:800;
-          color:#0f172a;
-        }
-
-        .sl-header p{
-          margin-top:4px;
-          color:#64748b;
-          font-size:13px;
-        }
-
-        .sl-add-btn{
-          padding:11px 20px;
-          border:none;
-          border-radius:12px;
-          background:linear-gradient(135deg,#1d4ed8,#3b82f6);
-          color:#fff;
-          font-size:14px;
-          font-weight:700;
-          cursor:pointer;
-          box-shadow:0 4px 16px rgba(37,99,235,0.35);
-        }
-
-        .sl-search-wrap{
-          position:relative;
-          margin-bottom:1.5rem;
-        }
-
-        .sl-search{
-          width:100%;
-          padding:12px 16px;
-          border-radius:12px;
-          border:1.5px solid #e2e8f0;
-          font-size:14px;
-          outline:none;
-          box-sizing:border-box;
-        }
-
-        .sl-card{
-          background:#fff;
-          border-radius:20px;
-          overflow:hidden;
-          border:1px solid #e2e8f0;
-          box-shadow:0 4px 24px rgba(37,99,235,0.08);
-        }
-
-        .sl-table{
-          width:100%;
-          border-collapse:collapse;
-        }
-
-        .sl-table thead{
-          background:linear-gradient(135deg,#1d4ed8,#3b82f6);
-        }
-
-        .sl-table th{
-          padding:15px;
-          font-size:11px;
-          font-weight:700;
-          color:#fff;
-          text-transform:uppercase;
-          letter-spacing:0.08em;
-          text-align:left;
-        }
-
-        .sl-table th.center{
-          text-align:center;
-        }
-
-        .sl-table td{
-          padding:15px;
-          border-bottom:1px solid #f1f5f9;
-          font-size:14px;
-        }
-
-        .sl-index{
-          width:28px;
-          height:28px;
-          border-radius:999px;
-          background:#f1f5f9;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          font-size:12px;
-          font-weight:700;
-          color:#64748b;
-        }
-
-        .sl-name{
-          font-weight:700;
-          color:#0f172a;
-        }
-
-        .sl-category-badge{
-          display:inline-block;
-          padding:4px 10px;
-          border-radius:999px;
-          background:#eff6ff;
-          color:#2563eb;
-          font-size:11.5px;
-          font-weight:700;
-          border:1px solid #bfdbfe;
-        }
-
-        .sl-actions{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:10px;
-        }
-
-        .sl-btn-edit{
-          width:34px;
-          height:34px;
-          border:none;
-          border-radius:10px;
-          background:#eff6ff;
-          color:#2563eb;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          cursor:pointer;
-        }
-
-        .sl-btn-edit:hover{
-          background:#dbeafe;
-        }
-
-        .sl-switch {
-          position: relative;
-          display: inline-block;
-          width: 45px;
-          height: 20px;
-        }
-
-        .sl-switch input {
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
-
-        .sl-slider {
-          position: absolute;
-          cursor: pointer;
-          inset: 0;
-          background: #d1d5db;
-          transition: 0.4s;
-          border-radius: 999px;
-        }
-
-        .sl-slider:before {
-          position: absolute;
-          content: "";
-          height: 14px;
-          width: 15px;
-          left: 3px;
-          top: 3px;
-          background: white;
-          transition: 0.4s;
-          border-radius: 50%;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-        }
-
-        .sl-switch input:checked + .sl-slider {
-          background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-        }
-
-        .sl-switch input:checked + .sl-slider:before {
-          transform: translateX(24px);
-        }
-
-        .sl-status{
-          display:inline-block;
-          padding:5px 12px;
-          border-radius:999px;
-          font-size:12px;
-          font-weight:700;
-        }
-
-        .sl-status.active{
-          background:#eff6ff;
-          color:#2563eb;
-          border:1px solid #bfdbfe;
-        }
-
-        .sl-status.inactive{
-          background:#f8fafc;
-          color:#64748b;
-          border:1px solid #e2e8f0;
-        }
-
-        .sl-empty{
-          padding:3rem;
-          text-align:center;
-          color:#94a3b8;
-        }
-
-        .sl-page-btn{
-          width:34px;
-          height:34px;
-          border-radius:9px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          border:1.5px solid #e2e8f0;
-          background:#fff;
-          color:#64748b;
-          cursor:pointer;
-          font-weight:600;
-          transition:.2s;
-        }
-
-        .sl-page-btn:hover:not(:disabled){
-          background:#eff6ff;
-          color:#2563eb;
-          border-color:#3b82f6;
-        }
-
-        .sl-page-btn:disabled{
-          opacity:.4;
-          cursor:not-allowed;
-        }
-
-        .sl-page-btn.active{
-          background:linear-gradient(135deg,#1d4ed8,#3b82f6);
-          color:#fff;
-          border:none;
-        }
-
-      `}</style>
-
-      <div className="sl-page">
-
-        {/* Header */}
-        <div className="sl-header">
-
-          <div>
-            <h1>🏷️ Brands</h1>
-            <p>Manage your product Brands</p>
-          </div>
-
-          <button
-            className="sl-add-btn"
-            onClick={() => navigate("/brand/add")}
-          >
-            + Add Brand
-          </button>
-
+    <div className="p-6 bg-slate-50 min-h-screen">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            <span>🏷️</span> Brands
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Manage your product brands and their category associations
+          </p>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px",
-            marginBottom: "20px",
-          }}
+        <button
+          onClick={() => navigate("/brand/add")}
+          className="app-btn-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition"
         >
+          <Plus size={16} />
+          Add Brand
+        </button>
+      </div>
+
+      {/* Company Selector Pills */}
+      {companies.length > 0 && (
+        <div className="flex flex-wrap gap-2.5 mb-5">
           {companies.map((c) => {
             const isActive = Number(selectedCompany) === Number(c.id);
             return (
               <button
                 key={c.id}
-                onClick={() => handleCompanyChange({ target: { value: String(c.id) } })}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: "12px",
-                  fontSize: "13.5px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  border: isActive ? "2px solid #2563eb" : "1.5px solid #e2e8f0",
-                  backgroundColor: isActive ? "#2563eb" : "#ffffff",
-                  color: isActive ? "#ffffff" : "#475569",
-                  boxShadow: isActive ? "0 4px 12px rgba(37,99,235,0.25)" : "0 1px 4px rgba(0,0,0,0.06)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
+                type="button"
+                onClick={() => handleCompanyChange(String(c.id))}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  isActive
+                    ? "app-pill-active ring-2 ring-brand-500 ring-offset-1"
+                    : "bg-white text-slate-700 border border-slate-200/80 hover:bg-slate-50 hover:border-slate-300"
+                }`}
               >
-                <span>🏢</span> {c.company_name}
+                <Building2 size={14} className={isActive ? "text-white" : "text-slate-400"} />
+                <span>{c.company_name}</span>
               </button>
             );
           })}
         </div>
+      )}
 
-        {/* Search */}
-        <div className="sl-search-wrap">
+      {/* Table Container */}
+      <TableContainer
+        title="Brands Directory"
+        badge={filtered.length}
+        searchQuery={search}
+        onSearchChange={(val) => {
+          setSearch(val);
+          setCurrentPage(1);
+        }}
+        searchPlaceholder="Search brands, category, subcategory..."
+      >
+        <Table>
+          <Thead>
+            <Tr>
+              <Th className="w-14">#</Th>
+              <Th>Brand Name</Th>
+              <Th>Category</Th>
+              <Th>Subcategory</Th>
+              <Th align="center">Status</Th>
+              <Th align="center" className="w-24">Actions</Th>
+            </Tr>
+          </Thead>
 
-          <input
-            type="text"
-            className="sl-search"
-            placeholder="Search brands..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
+          <Tbody>
+            {!selectedCompany ? (
+              <TableEmptyState
+                colSpan={6}
+                title="No Company Selected"
+                description="Please select a company above to view its brands."
+              />
+            ) : loading ? (
+              <TableLoadingState colSpan={6} message="Loading brands..." />
+            ) : filtered.length === 0 ? (
+              <TableEmptyState
+                colSpan={6}
+                title="No Brands Found"
+                description={
+                  search
+                    ? `No brands match "${search}". Try clearing your search.`
+                    : "Get started by adding your first brand."
+                }
+                actionLabel={!search ? "+ Add Brand" : undefined}
+                onAction={!search ? () => navigate("/brand/add") : undefined}
+              />
+            ) : (
+              paginated.map((s, i) => (
+                <Tr key={s.id}>
+                  <Td className="font-semibold text-slate-500">
+                    {(safePage - 1) * rowsPerPage + i + 1}
+                  </Td>
 
-        </div>
+                  <Td>
+                    <span className="font-bold text-slate-800">{s.name}</span>
+                  </Td>
 
-        {/* Table */}
-        <div className="sl-card">
-
-          <table className="sl-table">
-
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Subcategory</th>
-                <th className="center">Actions</th>
-                <th className="center">Status</th>
-              </tr>
-            </thead>
-
-            <tbody>
-
-              {!selectedCompany ? (
-
-                <tr>
-                  <td colSpan="5" className="sl-empty">
-                    Select a company to view brands
-                  </td>
-                </tr>
-
-              ) : loading ? (
-
-                <tr>
-                  <td colSpan="5" className="sl-empty">
-                    Loading...
-                  </td>
-                </tr>
-
-              ) : filtered.length === 0 ? (
-
-                <tr>
-                  <td colSpan="5" className="sl-empty">
-                    No brands found
-                  </td>
-                </tr>
-
-              ) : (
-
-                paginated.map((s, i) => (
-
-                  <tr key={s.id}>
-
-                    <td>
-                      <div className="sl-index">
-                        {(safePage - 1) * ITEMS_PER_PAGE + i + 1}
-                      </div>
-                    </td>
-
-                    <td>
-                      <div className="sl-name">
-                        {s.name}
-                      </div>
-                    </td>
-
-                    <td>
-                      <span className="sl-category-badge">
-                      {s.category_name}
-                    </span>
-                    </td>
-
-                    <td>
-  <span className="sl-category-badge">
-    {s.subcategory_name}
-  </span>
-</td>
-
-                    <td>
-
-                      <div className="sl-actions">
-
-                        <button
-                          className="sl-btn-edit"
-                          onClick={() =>
-                            navigate(`/brand/edit/${s.id}`)
-                          }
-                        >
-                          <Pencil size={15} />
-                        </button>
-
-                        <label className="sl-switch">
-
-                          <input
-                            type="checkbox"
-                            checked={s.status === "active"}
-                            onChange={() => toggleStatus(s)}
-                          />
-
-                          <span className="sl-slider"></span>
-
-                        </label>
-
-                      </div>
-
-                    </td>
-
-                    <td className="center">
-
-                      <span className={`sl-status ${s.status}`}>
-                        {s.status}
-                      </span>
-
-                    </td>
-
-                  </tr>
-
-                ))
-
-              )}
-
-            </tbody>
-
-          </table>
-
-          {filtered.length > ITEMS_PER_PAGE && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "16px 20px",
-                borderTop: "1px solid #e2e8f0",
-                background: "#fafbff",
-                flexWrap: "wrap",
-                gap: 10,
-              }}
-            >
-              <div style={{ fontSize: 13, color: "#64748b" }}>
-                Showing{" "}
-                <strong>
-                  {(safePage - 1) * ITEMS_PER_PAGE + 1}–
-                  {Math.min(safePage * ITEMS_PER_PAGE, filtered.length)}
-                </strong>{" "}
-                of <strong>{filtered.length}</strong> brands
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button
-                  disabled={safePage === 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                  className="sl-page-btn"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(
-                    (p) =>
-                      p === 1 ||
-                      p === totalPages ||
-                      Math.abs(p - safePage) <= 1
-                  )
-                  .reduce((acc, p, i, arr) => {
-                    if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((item, i) =>
-                    item === "..." ? (
-                      <span key={i} style={{ padding: "0 5px", color: "#94a3b8" }}>
-                        …
+                  <Td>
+                    {s.category_name ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        {s.category_name}
                       </span>
                     ) : (
-                      <button
-                        key={item}
-                        onClick={() => setCurrentPage(item)}
-                        className={`sl-page-btn ${safePage === item ? "active" : ""}`}
-                      >
-                        {item}
-                      </button>
-                    )
-                  )}
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </Td>
 
-                <button
-                  disabled={safePage === totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="sl-page-btn"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+                  <Td>
+                    {s.subcategory_name ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                        {s.subcategory_name}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </Td>
 
-      </div>
-    </>
+                  <Td align="center">
+                    <button
+                      type="button"
+                      onClick={() => toggleStatus(s)}
+                      title="Click to toggle status"
+                      className="cursor-pointer"
+                    >
+                      <TableStatusBadge status={s.status || "active"} />
+                    </button>
+                  </Td>
+
+                  <Td align="center">
+                    <TableActionButtons
+                      onEdit={() => navigate(`/brand/edit/${s.id}`)}
+                      editTitle="Edit Brand"
+                    />
+                  </Td>
+                </Tr>
+              ))
+            )}
+          </Tbody>
+        </Table>
+
+        {filtered.length > 0 && (
+          <TablePagination
+            currentPage={safePage}
+            totalPages={totalPages}
+            totalItems={filtered.length}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setCurrentPage}
+            onRowsPerPageChange={(n) => {
+              setRowsPerPage(n);
+              setCurrentPage(1);
+            }}
+            itemLabel="brands"
+          />
+        )}
+      </TableContainer>
+    </div>
   );
 }

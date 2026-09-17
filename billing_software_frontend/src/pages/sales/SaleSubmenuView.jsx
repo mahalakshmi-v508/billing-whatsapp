@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, ArrowLeft, FileText } from "lucide-react";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 
 export default function SaleSubmenuView({ title = "Sale Document", type = "document", subtitle }) {
   const navigate = useNavigate();
@@ -39,11 +40,13 @@ export default function SaleSubmenuView({ title = "Sale Document", type = "docum
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/sales/add")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-blue-500/20 transition transform active:scale-95"
+            className="app-btn-primary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm transition transform active:scale-95"
           >
             <Plus size={18} />
             <span>Create {title.split("/")[0].trim()}</span>
           </button>
+
+          <HeaderSettingsButton variant="list" />
         </div>
       </div>
 
@@ -57,7 +60,7 @@ export default function SaleSubmenuView({ title = "Sale Document", type = "docum
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Value</span>
-          <div className="text-2xl font-bold text-blue-600 mt-1">₹0.00</div>
+          <div className="text-2xl font-bold text-slate-800 mt-1">₹0.00</div>
           <span className="text-xs text-slate-400">Combined document value</span>
         </div>
 
@@ -77,7 +80,7 @@ export default function SaleSubmenuView({ title = "Sale Document", type = "docum
             placeholder={`Search ${title.toLowerCase()} by customer or number...`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+            className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
           />
         </div>
 
@@ -85,7 +88,7 @@ export default function SaleSubmenuView({ title = "Sale Document", type = "docum
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-blue-500"
+            className="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-emerald-500"
           >
             <option value="all">All Status</option>
             <option value="draft">Draft</option>
@@ -105,7 +108,7 @@ export default function SaleSubmenuView({ title = "Sale Document", type = "docum
       {/* ── TABLE / EMPTY STATE ── */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="p-12 text-center flex flex-col items-center justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
             <FileText size={32} />
           </div>
           <h3 className="text-lg font-bold text-slate-800 mb-1">No {title} Created Yet</h3>
@@ -114,7 +117,7 @@ export default function SaleSubmenuView({ title = "Sale Document", type = "docum
           </p>
           <button
             onClick={() => navigate("/sales/add")}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-blue-500/20 transition"
+            className="app-btn-primary px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition"
           >
             <Plus size={18} />
             <span>Create New {title.split("/")[0].trim()}</span>

@@ -10,28 +10,39 @@ import {
   Calendar,
   Search,
   Printer,
-  FileSpreadsheet,
   MoreVertical,
   Trash2,
   Edit,
-  Edit3,
   Eye,
   Share2,
   AlertTriangle,
-  X,
   RefreshCw,
-  TrendingUp,
-  Building2,
-  Truck,
   SlidersHorizontal,
-  CheckCircle2,
-  Receipt,
-  ArrowUpRight,
+  Filter,
+  Settings,
   ArrowDownRight,
-  Wallet
+  FileText,
+  User,
+  CreditCard,
+  DollarSign,
+  CheckCircle2,
 } from "lucide-react";
 import AddPaymentOutModal from "./AddPaymentOutModal";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
+
+const DEFAULT_COLUMNS = [
+  { key: "date", label: "Date", icon: Calendar, color: "text-blue-600", bg: "bg-blue-50", desc: "Payment voucher date" },
+  { key: "ref_no", label: "Ref No", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Payment reference number" },
+  { key: "party_name", label: "Party Name", icon: User, color: "text-violet-600", bg: "bg-violet-50", desc: "Supplier / Party name" },
+  { key: "payment_type", label: "Payment Type", icon: CreditCard, color: "text-purple-600", bg: "bg-purple-50", desc: "Payment mode (Cash, Bank, etc.)" },
+  { key: "total_amount", label: "Total Amount", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Total invoice or voucher amount" },
+  { key: "paid", label: "Paid", icon: DollarSign, color: "text-teal-600", bg: "bg-teal-50", desc: "Amount paid out" },
+  { key: "status", label: "Status", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Payment status" },
+  { key: "actions", label: "Action", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "View, Print, Share, Delete" },
+];
 
 const periodLabels = {
   today: "Today",
@@ -72,6 +83,7 @@ export default function PaymentOut() {
 
   // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [activeShareId, setActiveShareId] = useState(null);
 
@@ -83,6 +95,17 @@ export default function PaymentOut() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(15);
+
+  // Column customization drawer state & persistence
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumnCount,
+  } = useTableColumns("payment_out_columns", DEFAULT_COLUMNS);
 
   const menuRef = useRef(null);
 
@@ -161,6 +184,12 @@ export default function PaymentOut() {
       setToDate("");
     }
   }, [period]);
+
+  const setPresetDates = (key) => {
+    setPeriod(key);
+    setPeriodOpen(false);
+    if (key === "custom") setShowDatePicker(true);
+  };
 
   // Load Companies
   useEffect(() => {
@@ -336,416 +365,369 @@ export default function PaymentOut() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1520px] mx-auto min-h-screen space-y-5 bg-[#f8fafc] font-sans text-slate-800">
-      
-      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-purple-500/20 shrink-0">
-            <ArrowDownRight size={24} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Payment-Out Ledger</h1>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                {filteredPayments.length} vouchers
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              Vendor cash/bank payment disbursements, settlement receipts and ledger adjustments
-            </p>
-          </div>
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* ── 1. TOP HEADER: Title + Add Payment-Out + Settings ── */}
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200/80">
+        <div className="flex items-center gap-2 select-none">
+          <h1 className="text-xl font-bold text-slate-800 tracking-tight">Payment-Out</h1>
         </div>
 
-        {/* Toolbar Actions */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={fetchPaymentOuts}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Refresh Data"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin text-purple-600" : "text-slate-500"} />
-            <span>Refresh</span>
-          </button>
-
-          <button
-            onClick={exportToExcel}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Export Excel"
-          >
-            <FileSpreadsheet size={14} className="text-emerald-600" />
-            <span>Export Excel</span>
-          </button>
-
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Print View"
-          >
-            <Printer size={14} className="text-slate-500" />
-            <span>Print</span>
-          </button>
-
-          {/* Primary CTA */}
+        <div className="flex items-center gap-3">
           <button
             onClick={() => {
               setEditingPayment(null);
               setIsAddModalOpen(true);
             }}
-            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-purple-500/25 transition active:scale-95 cursor-pointer"
+            className="app-btn-primary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm cursor-pointer"
           >
-            <Plus size={16} strokeWidth={2.8} />
-            <span>+ Add Payment-Out</span>
+            <Plus size={16} strokeWidth={2.5} />
+            <span>Add Payment-Out</span>
           </button>
+
+          <HeaderSettingsButton variant="list" onClick={() => setShowColumnDrawer(true)} />
         </div>
       </div>
 
-      {/* ── 2. SEGMENTED FINANCIAL INTELLIGENCE STRIP ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-        {/* Metric 1: Total Payment Out */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-purple-500" />
-                Total Disbursed
-              </span>
-              <div className="text-2xl font-black text-slate-900 mt-1.5 tracking-tight">
-                ₹ {fmt(metrics.total)}
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-              <Wallet size={20} />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>Supplier Payouts</span>
-            <span className="font-bold text-slate-800">{filteredPayments.length} Transactions</span>
-          </div>
-        </div>
+      {/* ── 2. FILTER ROW: Period, Date Range, Firms, Suppliers ── */}
+      <div className="flex flex-wrap items-center gap-2.5 py-4 text-xs">
+        <span className="font-semibold text-slate-500 mr-1">Filter by :</span>
 
-        {/* Metric 2: Paid To Vendors */}
-        <div className="bg-white rounded-2xl border border-emerald-200/80 p-4 shadow-xs relative overflow-hidden flex flex-col justify-between bg-gradient-to-br from-white to-emerald-50/20">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Vendor Clearance
-              </span>
-              <div className="text-2xl font-black text-emerald-900 mt-1.5 tracking-tight">
-                ₹ {fmt(metrics.paid)}
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-100/70 text-emerald-700 flex items-center justify-center">
-              <CheckCircle2 size={20} />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-emerald-100 flex items-center justify-between text-xs">
-            <span className="text-emerald-700 font-semibold">Settlement Status</span>
-            <span className="font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full text-[11px]">100% Cleared</span>
-          </div>
-        </div>
-
-        {/* Metric 3: Average Payout Size */}
-        <div className="bg-white rounded-2xl border border-indigo-200/80 p-4 shadow-xs relative overflow-hidden flex flex-col justify-between bg-gradient-to-br from-white to-indigo-50/20">
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                Avg. Payout Voucher
-              </span>
-              <div className="text-2xl font-black text-indigo-900 mt-1.5 tracking-tight">
-                ₹ {fmt(filteredPayments.length > 0 ? metrics.total / filteredPayments.length : 0)}
-              </div>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-100/70 text-indigo-700 flex items-center justify-center">
-              <TrendingUp size={20} />
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-indigo-100 flex items-center justify-between text-xs">
-            <span className="text-indigo-700 font-medium">Recorded Across</span>
-            <span className="font-bold text-indigo-800">{new Set(filteredPayments.map(p => p.supplier_id)).size} Suppliers</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ── 3. FILTER & SEARCH CONTROL TOOLBAR ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        {/* Left Filter Pill Group */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5 mr-1">
-            <SlidersHorizontal size={14} className="text-slate-400" />
-            <span>Filters:</span>
-          </span>
-
-          {/* Period Selector */}
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setPeriodOpen((v) => !v);
-                setFirmOpen(false);
-                setSupplierOpen(false);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
-            >
-              <span>{periodLabels[period] || "This Month"}</span>
-              <ChevronDown size={13} className={`text-slate-500 transition-transform duration-200 ${periodOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {periodOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
-                {Object.entries(periodLabels).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      setPeriod(key);
-                      setPeriodOpen(false);
-                      if (key === "custom") setShowDatePicker(true);
-                    }}
-                    className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                      period === key ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>{label}</span>
-                    {period === key && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Date Range Display Button */}
+        {/* Period Pill Dropdown */}
+        <div className="relative">
           <button
-            onClick={() => setShowDatePicker((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-semibold text-xs transition cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPeriodOpen((v) => !v);
+              setFirmOpen(false);
+              setSupplierOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
           >
-            <Calendar size={13} className="text-slate-500" />
-            <span>
-              {fromDate ? formatDateDMY(fromDate) : "01/09/2026"} - {toDate ? formatDateDMY(toDate) : "30/09/2026"}
-            </span>
+            <span>{periodLabels[period] || "This Month"}</span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
           </button>
 
-          {/* Date Picker Range Popover */}
-          {showDatePicker && (
-            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border border-purple-300 shadow-sm">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
-                  setPeriod("custom");
-                }}
-                className="text-xs text-slate-700 outline-none bg-transparent cursor-pointer font-medium"
-              />
-              <span className="text-slate-400 text-xs font-bold">to</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
-                  setPeriod("custom");
-                }}
-                className="text-xs text-slate-700 outline-none bg-transparent cursor-pointer font-medium"
-              />
+          {periodOpen && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute left-0 top-9 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100"
+            >
+              {Object.entries(periodLabels).map(([key, label]) => (
+                <div
+                  key={key}
+                  onClick={() => setPresetDates(key)}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                    period === key ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </div>
+              ))}
             </div>
           )}
-
-          {/* Firm Selector */}
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setFirmOpen((v) => !v);
-                setPeriodOpen(false);
-                setSupplierOpen(false);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
-            >
-              <Building2 size={13} className="text-slate-500" />
-              <span>
-                {selectedCompany === "all"
-                  ? "All Firms"
-                  : companies.find((c) => String(c.id) === String(selectedCompany))?.company_name || "Firm"}
-              </span>
-              <ChevronDown size={13} className={`text-slate-500 transition-transform duration-200 ${firmOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {firmOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
-                <button
-                  onClick={() => {
-                    setSelectedCompany("all");
-                    setFirmOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                    selectedCompany === "all" ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>All Firms</span>
-                  {selectedCompany === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
-                </button>
-                {companies.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      setSelectedCompany(c.id);
-                      setFirmOpen(false);
-                    }}
-                    className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer truncate ${
-                      String(selectedCompany) === String(c.id) ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {c.company_name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Supplier Selector */}
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSupplierOpen((v) => !v);
-                setPeriodOpen(false);
-                setFirmOpen(false);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
-            >
-              <Truck size={13} className="text-slate-500" />
-              <span>
-                {selectedSupplier === "all"
-                  ? "All Suppliers"
-                  : suppliers.find((s) => String(s.id) === String(selectedSupplier))?.supplier_name ||
-                    suppliers.find((s) => String(s.id) === String(selectedSupplier))?.name ||
-                    "Supplier"}
-              </span>
-              <ChevronDown size={13} className={`text-slate-500 transition-transform duration-200 ${supplierOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {supplierOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
-                <button
-                  onClick={() => {
-                    setSelectedSupplier("all");
-                    setSupplierOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                    selectedSupplier === "all" ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>All Suppliers</span>
-                  {selectedSupplier === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
-                </button>
-                {suppliers.map((s) => {
-                  const sName = s.supplier_name || s.name || `Supplier #${s.id}`;
-                  const isSelected = String(selectedSupplier) === String(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setSelectedSupplier(s.id);
-                        setSupplierOpen(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer truncate ${
-                        isSelected ? "bg-purple-50 text-purple-600 font-bold" : "text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      {sName}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Global Search Input */}
-        <div className="relative w-full sm:w-72">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search ref, supplier, amount..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-8 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition"
-          />
-          {searchQuery && (
+        {/* Date Range Pill Display */}
+        <div
+          onClick={() => setShowDatePicker((v) => !v)}
+          className="flex items-center gap-2 px-3.5 py-1.5 bg-sky-50/50 hover:bg-sky-100/50 text-slate-700 font-medium rounded-full border border-sky-100/80 transition cursor-pointer select-none"
+        >
+          <Calendar size={14} className="text-slate-500" />
+          <span>
+            {fromDate && toDate ? `${formatDateDMY(fromDate)} To ${formatDateDMY(toDate)}` : "All Time"}
+          </span>
+        </div>
+
+        {/* Custom Date Picker Popover */}
+        {showDatePicker && (
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm text-xs">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPeriod("custom");
+              }}
+              className="text-xs text-slate-700 outline-none cursor-pointer"
+            />
+            <span className="text-slate-400">To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPeriod("custom");
+              }}
+              className="text-xs text-slate-700 outline-none cursor-pointer"
+            />
             <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              onClick={() => setShowDatePicker(false)}
+              className="app-btn-primary px-2.5 py-1 rounded-full text-xs font-bold"
             >
-              <X size={13} />
+              Apply
             </button>
+          </div>
+        )}
+
+        {/* Firms Dropdown Pill */}
+        <div className="relative">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setFirmOpen((v) => !v);
+              setPeriodOpen(false);
+              setSupplierOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
+          >
+            <span>
+              {selectedCompany === "all"
+                ? "All Firms"
+                : companies.find((c) => String(c.id) === String(selectedCompany))?.company_name || "Firm"}
+            </span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {firmOpen && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute left-0 top-9 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 max-h-56 overflow-y-auto z-40 animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div
+                onClick={() => { setSelectedCompany("all"); setFirmOpen(false); }}
+                className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                  selectedCompany === "all" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                All Firms
+              </div>
+              {companies.map((c) => (
+                <div
+                  key={c.id}
+                  onClick={() => { setSelectedCompany(String(c.id)); setFirmOpen(false); }}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition truncate ${
+                    String(selectedCompany) === String(c.id) ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {c.company_name}
+                </div>
+              ))}
+            </div>
           )}
+        </div>
+
+        {/* Suppliers Dropdown Pill */}
+        <div className="relative">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSupplierOpen((v) => !v);
+              setPeriodOpen(false);
+              setFirmOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
+          >
+            <span>
+              {selectedSupplier === "all"
+                ? "All Suppliers"
+                : suppliers.find((s) => String(s.id) === String(selectedSupplier))?.supplier_name ||
+                  suppliers.find((s) => String(s.id) === String(selectedSupplier))?.name ||
+                  "Supplier"}
+            </span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${supplierOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {supplierOpen && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute left-0 top-9 w-52 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 max-h-56 overflow-y-auto z-40 animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div
+                onClick={() => { setSelectedSupplier("all"); setSupplierOpen(false); }}
+                className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                  selectedSupplier === "all" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                All Suppliers
+              </div>
+              {suppliers.map((s) => {
+                const sName = s.supplier_name || s.name || `Supplier #${s.id}`;
+                const isSelected = String(selectedSupplier) === String(s.id);
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => { setSelectedSupplier(String(s.id)); setSupplierOpen(false); }}
+                    className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition truncate ${
+                      isSelected ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {sName}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Refresh button */}
+        <button
+          onClick={fetchPaymentOuts}
+          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition cursor-pointer ml-auto"
+          title="Refresh Payment Records"
+        >
+          <RefreshCw size={15} className={loading ? "animate-spin text-blue-600" : ""} />
+        </button>
+      </div>
+
+      {/* ── 3. SUMMARY CARD (Standardized Sale Invoice style) ── */}
+      <div className="my-2">
+        <div className="bg-white border border-purple-200/90 rounded-2xl p-4 w-72 sm:w-80 shadow-2xs">
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500">Total Payment-Out</span>
+            <div className="flex flex-col items-end">
+              <span className="inline-flex items-center text-[11px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                100% ↗
+              </span>
+              <span className="text-[10px] text-slate-400 mt-0.5">vs last month</span>
+            </div>
+          </div>
+
+          <div className="text-2xl font-black text-slate-900 my-1 tracking-tight">
+            ₹ {fmt(metrics.total)}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-100 mt-2">
+            <span>
+              Paid to Vendors: <strong className="text-slate-800 font-bold">₹ {fmt(metrics.paid)}</strong>
+            </span>
+            <span className="text-slate-300">|</span>
+            <span>
+              Vouchers: <strong className="text-slate-800 font-bold">{filteredPayments.length}</strong>
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* ── 4. MODERN SAAS TRANSACTION DATA TABLE ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-        
-        {/* Table Header Bar */}
-        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+      {/* ── 4. TRANSACTIONS SECTION: Header + Action Icons + Table ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs mt-6 overflow-hidden">
+        {/* Top Row */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="text-base font-bold text-slate-800">Transactions</h2>
+
           <div className="flex items-center gap-2">
-            <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">Payment-Out Register</h2>
-            <span className="text-[11px] font-bold text-slate-400">({filteredPayments.length} records)</span>
+            {/* Inline Search Toggle */}
+            {showSearchInput ? (
+              <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full text-xs animate-in fade-in duration-150">
+                <Search size={13} className="text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search ref, supplier, amount..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="bg-transparent text-xs text-slate-700 outline-none w-44"
+                />
+                <button
+                  onClick={() => { setShowSearchInput(false); setSearchQuery(""); }}
+                  className="text-slate-400 hover:text-slate-600 ml-1 text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowSearchInput(true)}
+                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                title="Search Transactions"
+              >
+                <Search size={17} />
+              </button>
+            )}
+
+            {/* Excel Export Button */}
+            <button
+              onClick={exportToExcel}
+              className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+              title="Export to Excel (.xlsx)"
+            >
+              <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded leading-none shadow-2xs">
+                xls
+              </span>
+            </button>
+
+            {/* Print Button */}
+            <button
+              onClick={() => window.print()}
+              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+              title="Print Transactions"
+            >
+              <Printer size={17} />
+            </button>
           </div>
         </div>
 
-        {/* Table View */}
+        {/* Table with Vertical Grid Lines */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-500 text-[11px] uppercase tracking-wider">
-                <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Date</th>
-                <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Ref / Receipt #</th>
-                <th className="py-3 px-5 border-r border-slate-200/70 whitespace-nowrap">Supplier / Party</th>
-                <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Payment Mode</th>
-                <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Total Amount</th>
-                <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Paid Amount</th>
-                <th className="py-3 px-4 border-r border-slate-200/70 text-center whitespace-nowrap">Status</th>
-                <th className="py-3 px-4 text-center whitespace-nowrap">Actions</th>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold select-none">
+                {visibleColumns.date && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Date
+                  </th>
+                )}
+                {visibleColumns.ref_no && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Ref No
+                  </th>
+                )}
+                {visibleColumns.party_name && (
+                  <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
+                    Party Name
+                  </th>
+                )}
+                {visibleColumns.payment_type && (
+                  <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
+                    Payment Type
+                  </th>
+                )}
+                {visibleColumns.total_amount && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Total Amount
+                  </th>
+                )}
+                {visibleColumns.paid && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Paid
+                  </th>
+                )}
+                {visibleColumns.status && (
+                  <th className="py-3 px-3 border-r border-slate-200 text-center whitespace-nowrap">
+                    Status
+                  </th>
+                )}
+                {visibleColumns.actions && (
+                  <th className="py-3 px-3 text-center whitespace-nowrap w-24">Action</th>
+                )}
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100 font-medium">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-14 text-center text-slate-400">
-                    <RefreshCw size={24} className="animate-spin text-purple-600 mx-auto mb-2.5" />
-                    <span className="font-bold text-slate-600">Loading payout records...</span>
+                  <td colSpan={visibleColumnCount || 1} className="text-center py-12 text-slate-400">
+                    <RefreshCw size={24} className="animate-spin text-blue-600 mx-auto mb-2" />
+                    <span>Loading payment records...</span>
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 1} className="text-center py-12 text-slate-400">
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
                       <AlertTriangle size={24} />
                     </div>
-                    <p className="font-extrabold text-slate-700 text-sm">No Payment Vouchers Found</p>
-                    <p className="text-xs text-slate-400 mt-1">There are no payment-out records matching your active filters.</p>
-                    <button
-                      onClick={() => {
-                        setEditingPayment(null);
-                        setIsAddModalOpen(true);
-                      }}
-                      className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer transition active:scale-95"
-                    >
-                      <Plus size={14} /> Record Payment-Out
-                    </button>
+                    <p className="font-semibold text-slate-600">No payment vouchers found</p>
+                    <p className="text-xs text-slate-400 mt-0.5">There are no payment-out records matching your active filters.</p>
                   </td>
                 </tr>
               ) : (
@@ -755,70 +737,80 @@ export default function PaymentOut() {
                   return (
                     <tr
                       key={p.id || idx}
-                      className="group hover:bg-purple-50/30 transition-colors duration-150 text-slate-700"
+                      className="group hover:bg-[#eaedf2] transition-colors duration-150 text-slate-700 cursor-pointer"
                     >
-                      {/* DATE */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap text-slate-600 group-hover:text-slate-900 font-semibold">
-                        {formatDateDMY(p.payment_date)}
-                      </td>
+                      {/* Date */}
+                      {visibleColumns.date && (
+                        <td className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap font-medium text-slate-600 group-hover:text-slate-900">
+                          {formatDateDMY(p.payment_date)}
+                        </td>
+                      )}
 
-                      {/* REF NO */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
-                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                      {/* Ref No */}
+                      {visibleColumns.ref_no && (
+                        <td className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap font-medium text-slate-800">
                           {p.receipt_no ? `#${p.receipt_no}` : `#REC-${p.id}`}
-                        </span>
-                      </td>
+                        </td>
+                      )}
 
-                      {/* PARTY NAME */}
-                      <td className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap font-bold text-slate-900">
-                        <span>{p.supplier_name || "Unknown Party"}</span>
-                      </td>
+                      {/* Party Name */}
+                      {visibleColumns.party_name && (
+                        <td className="py-3 px-4 border-r border-slate-200 whitespace-nowrap font-medium text-slate-800">
+                          {p.supplier_name || "Unknown Party"}
+                        </td>
+                      )}
 
-                      {/* PAYMENT TYPE */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
-                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 uppercase">
+                      {/* Payment Type */}
+                      {visibleColumns.payment_type && (
+                        <td className="py-3 px-4 border-r border-slate-200 whitespace-nowrap text-slate-600 font-medium">
                           {p.payment_method || "Cash"}
-                        </span>
-                      </td>
+                        </td>
+                      )}
 
-                      {/* TOTAL AMOUNT */}
-                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-slate-900 text-right whitespace-nowrap">
-                        ₹ {fmt(p.amount)}
-                      </td>
+                      {/* Total Amount */}
+                      {visibleColumns.total_amount && (
+                        <td className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap font-medium text-slate-800">
+                          ₹ {fmt(p.amount)}
+                        </td>
+                      )}
 
-                      {/* PAID */}
-                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-emerald-700 text-right whitespace-nowrap">
-                        ₹ {fmt(p.amount)}
-                      </td>
+                      {/* Paid */}
+                      {visibleColumns.paid && (
+                        <td className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap font-semibold text-emerald-600">
+                          ₹ {fmt(p.amount)}
+                        </td>
+                      )}
 
-                      {/* STATUS */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap font-bold">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          Paid
-                        </span>
-                      </td>
+                      {/* Status */}
+                      {visibleColumns.status && (
+                        <td className="py-3 px-3 border-r border-slate-200 text-center whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wide border bg-emerald-50 text-emerald-700 border-emerald-200">
+                            Paid
+                          </span>
+                        </td>
+                      )}
 
-                      {/* ACTIONS */}
-                      <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                          {/* Print POS / Preview */}
+                      {/* Action */}
+                      {visibleColumns.actions && (
+                        <td className="py-3 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1 text-slate-400">
+                          {/* Print / View */}
                           <button
                             onClick={() => navigate(`/invoice/${p.receipt_no || p.id}`)}
-                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                            title="Print"
+                            className="p-1 hover:text-blue-600 hover:bg-slate-200/60 rounded transition cursor-pointer"
+                            title="Print Receipt"
                           >
                             <Printer size={15} />
                           </button>
 
-                          {/* Share Icon with Popover */}
+                          {/* Share Popover */}
                           <div className="relative">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActiveShareId(activeShareId === p.id ? null : p.id);
                               }}
-                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              className="p-1 hover:text-blue-600 hover:bg-slate-200/60 rounded transition cursor-pointer"
                               title="Share"
                             >
                               <Share2 size={15} />
@@ -835,8 +827,8 @@ export default function PaymentOut() {
                           <div className="relative">
                             <button
                               onClick={() => setActiveMenuId(isMenuOpen ? null : p.id)}
-                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                              title="More actions"
+                              className="p-1 hover:text-slate-700 hover:bg-slate-200/60 rounded transition cursor-pointer"
+                              title="More Options"
                             >
                               <MoreVertical size={15} />
                             </button>
@@ -844,7 +836,7 @@ export default function PaymentOut() {
                             {isMenuOpen && (
                               <div
                                 ref={menuRef}
-                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                                className="absolute right-0 top-7 w-36 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-40 text-left animate-in fade-in zoom-in-95 duration-100"
                               >
                                 <button
                                   onClick={() => {
@@ -852,9 +844,9 @@ export default function PaymentOut() {
                                     setEditingPayment(p);
                                     setIsAddModalOpen(true);
                                   }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
                                 >
-                                  <Edit size={14} className="text-blue-600" />
+                                  <Edit size={13} className="text-blue-600" />
                                   <span>Edit</span>
                                 </button>
                                 <button
@@ -862,9 +854,9 @@ export default function PaymentOut() {
                                     setActiveMenuId(null);
                                     navigate(`/invoice/${p.receipt_no || p.id}`);
                                   }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
                                 >
-                                  <Eye size={14} className="text-slate-600" />
+                                  <Eye size={13} className="text-slate-500" />
                                   <span>View Receipt</span>
                                 </button>
                                 <div className="border-t border-slate-100 my-1" />
@@ -873,9 +865,9 @@ export default function PaymentOut() {
                                     setActiveMenuId(null);
                                     handleDeletePayment(p.id);
                                   }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 cursor-pointer font-medium"
                                 >
-                                  <Trash2 size={14} className="text-red-600" />
+                                  <Trash2 size={13} />
                                   <span>Delete</span>
                                 </button>
                               </div>
@@ -883,8 +875,9 @@ export default function PaymentOut() {
                           </div>
                         </div>
                       </td>
-                    </tr>
-                  );
+                    )}
+                  </tr>
+                );
                 })
               )}
             </tbody>
@@ -908,7 +901,7 @@ export default function PaymentOut() {
                     setRowsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-purple-500 cursor-pointer"
+                  className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-blue-500 cursor-pointer"
                 >
                   <option value={10}>10</option>
                   <option value={15}>15</option>
@@ -949,7 +942,7 @@ export default function PaymentOut() {
                       onClick={() => setCurrentPage(item)}
                       className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
                         safePage === item
-                          ? "bg-purple-600 text-white shadow-xs"
+                          ? "app-pagination-active"
                           : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                       }`}
                     >
@@ -983,6 +976,18 @@ export default function PaymentOut() {
         editPayment={editingPayment}
       />
 
+      {/* Column Customization Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide table columns in payment out list"
+      />
     </div>
   );
 }

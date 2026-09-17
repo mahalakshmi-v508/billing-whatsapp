@@ -334,7 +334,7 @@ export default function TransactionMessage() {
                         type="button"
                         onClick={connectWhatsApp}
                         disabled={connecting || conn.status === "initializing" || conn.status === "reconnecting"}
-                        className="px-4 py-2 rounded-xl bg-blue-600 text-white text-[13px] font-semibold hover:bg-blue-700 transition disabled:opacity-50 inline-flex items-center gap-1.5"
+                        className="app-btn-primary px-4 py-2 rounded-xl text-[13px] font-semibold"
                       >
                         {connecting ? <Loader2 size={14} className="animate-spin" /> : null}
                         Connect WhatsApp

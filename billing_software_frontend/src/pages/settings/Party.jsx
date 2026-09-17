@@ -231,21 +231,21 @@ function ReminderMessageModal({ initialMessage, onClose, onSave }) {
           <button
             type="button"
             onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors shadow-sm"
+            className="border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors shadow-sm cursor-pointer"
           >
             CANCEL
           </button>
           <button
             type="button"
             onClick={resetDefault}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[165px] h-[45px] rounded-lg transition-colors shadow-sm"
+            className="border border-brand-500 text-brand-600 hover:bg-brand-50 font-semibold text-[13px] w-[165px] h-[45px] rounded-lg transition-colors shadow-sm cursor-pointer"
           >
             RESET DEFAULT
           </button>
           <button
             type="button"
             onClick={() => onSave(additional)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] w-[105px] h-[45px] rounded-lg transition-colors shadow-sm"
+            className="app-btn-primary font-semibold text-[13px] w-[105px] h-[45px] rounded-lg"
           >
             SAVE
           </button>
@@ -340,7 +340,7 @@ export default function Party() {
           <button
             type="button"
             onClick={openReminder}
-            className="mt-10 px-6 bg-gray-100 hover:bg-gray-200 text-blue-600 font-semibold text-[13.5px] rounded-lg flex items-center transition-colors self-start"
+            className="mt-10 px-6 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-[13.5px] rounded-lg flex items-center transition-colors self-start cursor-pointer"
             style={{ height: 52 }}
           >
             Reminder Message

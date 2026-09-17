@@ -10,20 +10,49 @@ import {
   Calendar,
   Search,
   Printer,
-  FileSpreadsheet,
   Filter,
   Trash2,
   Eye,
   AlertTriangle,
   X,
   RefreshCw,
-  FileText,
   MoreVertical,
   Share2,
-  Pencil,
   Edit,
+  DollarSign,
+  Layers,
+  SlidersHorizontal,
+  CheckCircle2,
+  User,
+  FileText,
 } from "lucide-react";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
+
+const DEFAULT_COLUMNS = [
+  { key: "date", label: "Date", icon: Calendar, color: "text-blue-600", bg: "bg-blue-50", desc: "Credit note return date" },
+  { key: "return_no", label: "Return No", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Credit note / return number" },
+  { key: "party_name", label: "Party Name", icon: User, color: "text-violet-600", bg: "bg-violet-50", desc: "Customer or party name" },
+  { key: "type", label: "Type", icon: Layers, color: "text-purple-600", bg: "bg-purple-50", desc: "Transaction type" },
+  { key: "total", label: "Total", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Total credit note value" },
+  { key: "refund", label: "Refund", icon: DollarSign, color: "text-teal-600", bg: "bg-teal-50", desc: "Refunded amount" },
+  { key: "balance", label: "Balance", icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50", desc: "Remaining balance" },
+  { key: "status", label: "Status", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Settlement status (Paid / Partial / Unpaid)" },
+  { key: "actions", label: "Actions", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "View, Print, Share, Delete" },
+];
+
+const PERIOD_LABELS = {
+  today: "Today",
+  yesterday: "Yesterday",
+  this_week: "This Week",
+  this_month: "This Month",
+  last_month: "Last Month",
+  this_year: "This Year",
+  all_time: "All Time",
+  custom: "Custom",
+};
 
 export default function CreditNoteList() {
   const navigate = useNavigate();
@@ -33,7 +62,6 @@ export default function CreditNoteList() {
   // Data states
   const [creditNotes, setCreditNotes] = useState([]);
   const [companies, setCompanies] = useState([]);
-  const [cashiers, setCashiers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filter states
@@ -41,11 +69,8 @@ export default function CreditNoteList() {
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [firmOpen, setFirmOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState("all");
-  const [userOpen, setUserOpen] = useState(false);
-
-  const [docType, setDocType] = useState("credit_note");
   const [paymentFilter, setPaymentFilter] = useState("all");
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   // Date range
   const [fromDate, setFromDate] = useState("");
@@ -54,11 +79,23 @@ export default function CreditNoteList() {
 
   // Search & Actions
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [activeShareId, setActiveShareId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+
+  // Column Customization Drawer state & persistence
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumnCount,
+  } = useTableColumns("credit_note_columns", DEFAULT_COLUMNS);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,6 +112,11 @@ export default function CreditNoteList() {
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
+  };
+
+  const formatYMD = (date) => {
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
 
   // Preset Date Helper
@@ -94,6 +136,9 @@ export default function CreditNoteList() {
     if (type === "today") {
       from = now;
       to = now;
+    } else if (type === "yesterday") {
+      from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      to = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
     } else if (type === "this_week") {
       const day = now.getDay() || 7;
       from.setDate(now.getDate() - day + 1);
@@ -101,23 +146,21 @@ export default function CreditNoteList() {
     } else if (type === "this_month") {
       from = new Date(now.getFullYear(), now.getMonth(), 1);
       to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    } else if (type === "this_quarter") {
-      const qMonth = Math.floor(now.getMonth() / 3) * 3;
-      from = new Date(now.getFullYear(), qMonth, 1);
-      to = new Date(now.getFullYear(), qMonth + 3, 0);
+    } else if (type === "last_month") {
+      from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      to = new Date(now.getFullYear(), now.getMonth(), 0);
     } else if (type === "this_year") {
       from = new Date(now.getFullYear(), 0, 1);
       to = new Date(now.getFullYear(), 11, 31);
     }
 
-    const fmt = (d) => d.toISOString().split("T")[0];
-    setFromDate(fmt(from));
-    setToDate(fmt(to));
+    setFromDate(formatYMD(from));
+    setToDate(formatYMD(to));
     setPeriod(type);
     setPeriodOpen(false);
   };
 
-  // Initial Load: Companies & Cashiers
+  // Initial Load: Companies & Date Range
   useEffect(() => {
     setPresetDates("this_month");
 
@@ -127,10 +170,6 @@ export default function CreditNoteList() {
           const compRes = await api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role}`);
           if (compRes.data.status) {
             setCompanies(compRes.data.data || []);
-          }
-          const cashRes = await api.get(`/cashier/get_cashier?admin_id=${adminId}`);
-          if (cashRes.data.status) {
-            setCashiers(cashRes.data.data || []);
           }
         }
       } catch (err) {
@@ -188,19 +227,13 @@ export default function CreditNoteList() {
         if (String(item.company_id) !== String(selectedFirm)) return false;
       }
 
-      // User filter
-      if (selectedUser !== "all" && item.cashier_id) {
-        if (String(item.cashier_id) !== String(selectedUser)) return false;
-      }
-
-      // Payment filter (matching media_1787845504680.png)
+      // Payment filter
       if (paymentFilter !== "all") {
         const bal = parseFloat(item.balance_amount || 0);
         const ref = parseFloat(item.refund_amount || 0);
         if (paymentFilter === "unpaid" && !(bal > 0 && ref === 0)) return false;
         if (paymentFilter === "partial" && !(bal > 0 && ref > 0)) return false;
         if (paymentFilter === "paid" && !(bal <= 0)) return false;
-        if (paymentFilter === "cancelled" && item.is_deleted !== 1) return false;
       }
 
       // Search query
@@ -217,23 +250,25 @@ export default function CreditNoteList() {
 
       return true;
     });
-  }, [creditNotes, fromDate, toDate, selectedFirm, selectedUser, paymentFilter, searchQuery]);
+  }, [creditNotes, fromDate, toDate, selectedFirm, paymentFilter, searchQuery]);
 
   // Summary Totals
   const totals = useMemo(() => {
     let totalAmt = 0;
     let balanceAmt = 0;
+    let refundAmt = 0;
     filteredNotes.forEach((n) => {
       totalAmt += parseFloat(n.total_amount || 0);
       balanceAmt += parseFloat(n.balance_amount || 0);
+      refundAmt += parseFloat(n.refund_amount || 0);
     });
-    return { totalAmt, balanceAmt };
+    return { totalAmt, balanceAmt, refundAmt };
   }, [filteredNotes]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedFirm, selectedUser, fromDate, toDate, period, paymentFilter]);
+  }, [searchQuery, selectedFirm, fromDate, toDate, period, paymentFilter]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredNotes.length / rowsPerPage) || 1;
@@ -252,7 +287,7 @@ export default function CreditNoteList() {
     const data = filteredNotes.map((n, idx) => ({
       "#": idx + 1,
       Date: formatDateDMY(n.return_date || n.created_at),
-      "Ref. no.": n.return_no || n.id,
+      "Return No": n.return_no || n.id,
       "Party Name": n.customer_name || "Cash Customer",
       Type: "Credit Note",
       Total: parseFloat(n.total_amount || 0),
@@ -262,7 +297,7 @@ export default function CreditNoteList() {
     }));
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Credit Note");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Credit_Notes");
     XLSX.writeFile(workbook, `Credit_Note_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
@@ -274,407 +309,519 @@ export default function CreditNoteList() {
       const res = await api.post("/credit_note/delete", { id: deleteTarget.id });
       if (res.data.status) {
         setCreditNotes((prev) => prev.filter((n) => n.id !== deleteTarget.id));
-        setActionToast({ msg: "Credit note deleted and inventory stock restored.", ok: true });
+        setActionToast("Credit note deleted and inventory stock restored.");
         setDeleteTarget(null);
         setTimeout(() => setActionToast(null), 3500);
       } else {
-        setActionToast({ msg: res.data.message || "Failed to delete credit note.", ok: false });
+        setActionToast(res.data.message || "Failed to delete credit note.");
         setTimeout(() => setActionToast(null), 3500);
       }
     } catch (err) {
       console.error(err);
-      setActionToast({ msg: err.response?.data?.message || "Error deleting credit note.", ok: false });
+      setActionToast(err.response?.data?.message || "Error deleting credit note.");
       setTimeout(() => setActionToast(null), 3500);
     } finally {
       setDeleting(false);
     }
   };
 
+  const paymentFilterLabels = {
+    all: "All Payment",
+    unpaid: "Unpaid / Unused",
+    partial: "Partial",
+    paid: "Paid / Used",
+  };
+
   return (
-    <div className="p-5 max-w-[1400px] mx-auto min-h-screen space-y-4 font-sans text-slate-800">
-      {/* ── 1. TOP FILTER BAR (Matching media_1787843153565.png) ── */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
-        {/* Row 1: Period, Date Range, All Firms, All Users, Excel Report, Print */}
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Period Selector */}
-            <div className="relative">
-              <button
-                onClick={() => setPeriodOpen(!periodOpen)}
-                className="flex items-center gap-2 font-bold text-slate-900 text-sm hover:text-blue-600 transition cursor-pointer"
-              >
-                <span>{period === "all_time" ? "All Time" : period === "this_month" ? "This Month" : period.replace("_", " ")}</span>
-                <ChevronDown size={15} />
-              </button>
-
-              {periodOpen && (
-                <div className="absolute left-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50">
-                  {[
-                    { label: "All Time", val: "all_time" },
-                    { label: "Today", val: "today" },
-                    { label: "This Week", val: "this_week" },
-                    { label: "This Month", val: "this_month" },
-                    { label: "This Quarter", val: "this_quarter" },
-                    { label: "This Year", val: "this_year" },
-                  ].map((p) => (
-                    <button
-                      key={p.val}
-                      onClick={() => setPresetDates(p.val)}
-                      className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 ${
-                        period === p.val ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Date Range Pill */}
-            <div className="flex items-center gap-1.5 border border-slate-300 rounded-lg px-2.5 py-1 text-slate-700 bg-white">
-              <span className="text-slate-400 font-medium">Between</span>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="outline-none text-xs bg-transparent cursor-pointer font-medium"
-              />
-              <span className="text-slate-400">To</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="outline-none text-xs bg-transparent cursor-pointer font-medium"
-              />
-            </div>
-
-            {/* ALL FIRMS Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setFirmOpen(!firmOpen)}
-                className="flex items-center gap-2 border border-slate-300 rounded-lg px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-              >
-                <span>
-                  {selectedFirm === "all"
-                    ? "ALL COMPANY"
-                    : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "FIRM"}
-                </span>
-                <ChevronDown size={13} />
-              </button>
-
-              {firmOpen && (
-                <div className="absolute left-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50">
-                  <button
-                    onClick={() => {
-                      setSelectedFirm("all");
-                      setFirmOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50"
-                  >
-                    ALL COMPANY
-                  </button>
-                  {companies.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => {
-                        setSelectedFirm(String(c.id));
-                        setFirmOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 hover:bg-slate-50"
-                    >
-                      {c.company_name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* ALL company Dropdown */}
-             <div className="border border-blue-500 ring-1 ring-blue-500/20 rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-slate-800 bg-white font-medium">
-            <select
-              value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
-              className="bg-transparent outline-none cursor-pointer text-xs font-semibold"
-            >
-              <option value="all">All Payment</option>
-              <option value="unpaid">Unpaid/ Unused</option>
-              <option value="partial">Partial</option>
-              <option value="paid">Paid/ Used</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-            
-          </div>
-
-          {/* Right Tools: Excel Report & Print */}
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleExportExcel}
-              className="flex flex-col items-center gap-0.5 text-slate-600 hover:text-emerald-700 transition cursor-pointer"
-            >
-              <FileSpreadsheet size={18} className="text-emerald-600" />
-              <span className="text-[10px] font-semibold">Excel Report</span>
-            </button>
-
-            <button
-              onClick={() => window.print()}
-              className="flex flex-col items-center gap-0.5 text-slate-600 hover:text-slate-900 transition cursor-pointer"
-            >
-              <Printer size={18} className="text-slate-600" />
-              <span className="text-[10px] font-semibold">Print</span>
-            </button>
-          </div>
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* ── 1. TOP HEADER: Title + Add Credit Note ── */}
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200/80">
+        <div className="flex items-center gap-2 select-none">
+          <h1 className="text-xl font-bold text-slate-800 tracking-tight">Sale Return (Credit Note)</h1>
         </div>
 
-       
-      </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate("/sales/credit-note/add")}
+            className="app-btn-primary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm cursor-pointer"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+            <span>Add Credit Note</span>
+          </button>
 
-      {/* ── 2. SEARCH & + ADD CREDIT NOTE BAR ── */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
-            className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500"
+          <HeaderSettingsButton
+            variant="list"
+            onClick={() => setShowColumnDrawer(true)}
+            isActive={showColumnDrawer}
           />
         </div>
+      </div>
 
-        <button
-          onClick={() => navigate("/sales/credit-note/add")}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition cursor-pointer"
+      {/* ── 2. FILTER ROW: Period, Date Range, Firms, Payment Status ── */}
+      <div className="flex flex-wrap items-center gap-2.5 py-4 text-xs">
+        <span className="font-semibold text-slate-500 mr-1">Filter by :</span>
+
+        {/* Period Pill Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setPeriodOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
+          >
+            <span>{PERIOD_LABELS[period] || "This Month"}</span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {periodOpen && (
+            <div className="absolute left-0 top-9 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+              {Object.entries(PERIOD_LABELS).map(([key, label]) => (
+                <div
+                  key={key}
+                  onClick={() => setPresetDates(key)}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                    period === key ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Date Range Pill Display */}
+        <div
+          onClick={() => setShowDatePicker((v) => !v)}
+          className="flex items-center gap-2 px-3.5 py-1.5 bg-sky-50/50 hover:bg-sky-100/50 text-slate-700 font-medium rounded-full border border-sky-100/80 transition cursor-pointer select-none"
         >
-          <Plus size={16} />
-          <span>Add Credit Note</span>
+          <Calendar size={14} className="text-slate-500" />
+          <span>
+            {fromDate && toDate ? `${formatDateDMY(fromDate)} To ${formatDateDMY(toDate)}` : "All Time"}
+          </span>
+        </div>
+
+        {/* Custom Date Picker Popover */}
+        {showDatePicker && (
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm text-xs">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="text-xs text-slate-700 outline-none"
+            />
+            <span className="text-slate-400">To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="text-xs text-slate-700 outline-none"
+            />
+            <button
+              onClick={() => setShowDatePicker(false)}
+              className="app-btn-primary px-2.5 py-1 rounded-full text-xs font-bold"
+            >
+              Apply
+            </button>
+          </div>
+        )}
+
+        {/* Firms Dropdown Pill */}
+        <div className="relative">
+          <button
+            onClick={() => setFirmOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
+          >
+            <span>
+              {selectedFirm === "all"
+                ? "All Firms"
+                : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
+            </span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {firmOpen && (
+            <div className="absolute left-0 top-9 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+              <div
+                onClick={() => { setSelectedFirm("all"); setFirmOpen(false); }}
+                className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                  selectedFirm === "all" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                All Firms
+              </div>
+              {companies.map((c) => (
+                <div
+                  key={c.id}
+                  onClick={() => { setSelectedFirm(String(c.id)); setFirmOpen(false); }}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition truncate ${
+                    String(selectedFirm) === String(c.id) ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {c.company_name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Payment Status Dropdown Pill */}
+        <div className="relative">
+          <button
+            onClick={() => setPaymentOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
+          >
+            <span>{paymentFilterLabels[paymentFilter] || "All Payment"}</span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${paymentOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {paymentOpen && (
+            <div className="absolute left-0 top-9 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+              {Object.entries(paymentFilterLabels).map(([key, label]) => (
+                <div
+                  key={key}
+                  onClick={() => { setPaymentFilter(key); setPaymentOpen(false); }}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                    paymentFilter === key ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Refresh button */}
+        <button
+          onClick={fetchCreditNotes}
+          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition cursor-pointer ml-auto"
+          title="Refresh Credit Notes"
+        >
+          <RefreshCw size={15} className={loading ? "animate-spin text-blue-600" : ""} />
         </button>
       </div>
 
-      {/* ── 3. TABLE ── */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* ── 3. SUMMARY KPI CARD ── */}
+      <div className="my-2">
+        <div className="bg-white border border-purple-200/90 rounded-2xl p-4 w-72 sm:w-80 shadow-2xs">
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500">Total Return Value</span>
+            <div className="flex flex-col items-end">
+              <span className="inline-flex items-center text-[11px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                100% ↗
+              </span>
+              <span className="text-[10px] text-slate-400 mt-0.5">vs last month</span>
+            </div>
+          </div>
+
+          <div className="text-2xl font-black text-slate-900 my-1 tracking-tight">
+            ₹ {totals.totalAmt.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-100 mt-2">
+            <span>
+              Refunded: <strong className="text-slate-800 font-bold">₹ {totals.refundAmt.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+            </span>
+            <span className="text-slate-300">|</span>
+            <span>
+              Balance: <strong className="text-slate-800 font-bold">₹ {totals.balanceAmt.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. TRANSACTIONS SECTION: Header + Action Icons + Table ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs mt-6 overflow-hidden">
+        {/* Top Row */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="text-base font-bold text-slate-800">Transactions</h2>
+
+          <div className="flex items-center gap-2">
+            {/* Inline Search Toggle */}
+            {showSearchInput ? (
+              <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full text-xs animate-in fade-in duration-150">
+                <Search size={13} className="text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search return no, customer..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="bg-transparent text-xs text-slate-700 outline-none w-44"
+                />
+                <button
+                  onClick={() => { setShowSearchInput(false); setSearchQuery(""); }}
+                  className="text-slate-400 hover:text-slate-600 ml-1 text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowSearchInput(true)}
+                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                title="Search Transactions"
+              >
+                <Search size={17} />
+              </button>
+            )}
+
+            {/* Excel Export Button */}
+            <button
+              onClick={handleExportExcel}
+              className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+              title="Export to Excel (.xlsx)"
+            >
+              <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded leading-none shadow-2xs">
+                xls
+              </span>
+            </button>
+
+            {/* Print Button */}
+            <button
+              onClick={() => window.print()}
+              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+              title="Print Transactions"
+            >
+              <Printer size={17} />
+            </button>
+          </div>
+        </div>
+
+        {/* Table with Vertical Grid Lines */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/60 font-semibold text-slate-600 uppercase text-[10.5px]">
-                <th className="py-3 px-3 border-r border-slate-200 w-10 text-center">#</th>
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>DATE</span>
-                    <Filter size={10} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>RETURN NO.</span>
-                    <Filter size={10} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>PARTY NAME</span>
-                    <Filter size={10} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>TYPE</span>
-                    <Filter size={10} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>TOTAL</span>
-                    <Filter size={10} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>RECEIVE...</span>
-                    <Filter size={10} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>BALANCE</span>
-                    <Filter size={10} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>STATUS</span>
-                    <Filter size={10} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 text-center whitespace-nowrap">Actions</th>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold select-none">
+                {visibleColumns.date && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Date
+                  </th>
+                )}
+                {visibleColumns.return_no && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Return No
+                  </th>
+                )}
+                {visibleColumns.party_name && (
+                  <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
+                    Party Name
+                  </th>
+                )}
+                {visibleColumns.type && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Type
+                  </th>
+                )}
+                {visibleColumns.total && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Total
+                  </th>
+                )}
+                {visibleColumns.refund && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Refund
+                  </th>
+                )}
+                {visibleColumns.balance && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Balance
+                  </th>
+                )}
+                {visibleColumns.status && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Status
+                  </th>
+                )}
+                {visibleColumns.actions && (
+                  <th className="py-3 px-3.5 text-center whitespace-nowrap">Actions</th>
+                )}
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-14 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 1} className="py-12 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-blue-500 mx-auto mb-2" />
                     <span>Loading Credit Notes...</span>
                   </td>
                 </tr>
               ) : filteredNotes.length === 0 ? (
-                /* ── EMPTY STATE MATCHING media_1787843153565.png ── */
                 <tr>
-                  <td colSpan={10} className="py-16 text-center">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="w-20 h-20 mb-4 flex items-center justify-center rounded-2xl bg-slate-50 border border-slate-100 text-slate-300">
-                        <FileText size={40} strokeWidth={1.2} />
-                      </div>
-                      <p className="text-sm font-semibold text-slate-700">No data is available for Credit Note.</p>
-                      <p className="text-xs text-slate-400 mt-1">Please try again after making relevant changes.</p>
-                    </div>
+                  <td colSpan={visibleColumnCount || 1} className="py-12 text-center text-slate-400">
+                    <p className="font-semibold text-slate-500">No credit notes found for this period.</p>
+                    <p className="text-xs text-slate-400 mt-1">Click &quot;+ Add Credit Note&quot; to record a customer sale return.</p>
                   </td>
                 </tr>
               ) : (
                 paginatedNotes.map((n, idx) => {
-                  const seqNo = (safePage - 1) * rowsPerPage + idx + 1;
-                  const isMenuOpen = activeMenuId === n.id;
                   const total = parseFloat(n.total_amount || 0);
                   const refund = parseFloat(n.refund_amount || 0);
                   const balance = parseFloat(n.balance_amount || 0);
+                  const isPaid = balance <= 0;
+                  const isPartial = balance > 0 && refund > 0;
+                  const isMenuOpen = activeMenuId === n.id;
 
                   return (
                     <tr
                       key={n.id || idx}
-                      className="group hover:bg-[#eaedf2] transition-colors text-slate-700"
+                      className="group hover:bg-[#eaedf2] transition-colors duration-150 text-slate-700 cursor-pointer"
+                      onClick={() => navigate(`/invoice/${n.return_no || n.id}`)}
                     >
-                      <td className="py-3.5 px-3 border-r border-slate-200 text-center font-medium text-slate-500">
-                        {seqNo}
-                      </td>
+                      {/* Date */}
+                      {visibleColumns.date && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-600 group-hover:text-slate-900 whitespace-nowrap">
+                          {formatDateDMY(n.return_date || n.created_at)}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 whitespace-nowrap font-medium group-hover:font-bold">
-                        {formatDateDMY(n.return_date || n.created_at)}
-                      </td>
+                      {/* Return No */}
+                      {visibleColumns.return_no && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-blue-600 group-hover:text-blue-800 whitespace-nowrap">
+                          {n.return_no || n.id}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 text-right font-medium text-slate-800">
-                        {n.return_no || n.id}
-                      </td>
-
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium text-slate-800">
-                        {n.customer_name || "Cash Customer"}
-                      </td>
+                      {/* Party Name */}
+                      {visibleColumns.party_name && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 whitespace-nowrap">
+                          {n.customer_name || "Cash Customer"}
+                        </td>
+                      )}
 
                       {/* Type */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 text-slate-700 whitespace-nowrap">
-                        Credit Note
-                      </td>
+                      {visibleColumns.type && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 text-slate-600 group-hover:text-slate-900 font-medium whitespace-nowrap">
+                          Credit Note
+                        </td>
+                      )}
 
                       {/* Total */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 text-right font-medium text-slate-800 whitespace-nowrap">
-                        ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+                      {visibleColumns.total && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 text-right font-bold text-slate-900 whitespace-nowrap">
+                          ₹ {total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
 
-                      {/* Received */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 text-right font-medium text-slate-800 whitespace-nowrap">
-                        ₹ {refund.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+                      {/* Refund */}
+                      {visibleColumns.refund && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 text-right font-medium text-slate-800 whitespace-nowrap">
+                          ₹ {refund.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
 
                       {/* Balance */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 text-right font-medium text-slate-800 whitespace-nowrap">
-                        ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+                      {visibleColumns.balance && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 text-right font-bold text-rose-600 whitespace-nowrap">
+                          ₹ {balance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
 
                       {/* Status */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 whitespace-nowrap font-medium">
-                        {balance <= 0 ? (
-                          <span className="text-emerald-600 font-semibold">Paid</span>
-                        ) : refund > 0 ? (
-                          <span className="text-amber-600 font-semibold">Partial</span>
-                        ) : (
-                          <span className="text-blue-600 font-semibold">Unpaid</span>
-                        )}
-                      </td>
-
-                      {/* Actions Column */}
-                      <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                          {/* Print POS / Preview */}
-                          <button
-                            onClick={() => navigate(`/invoice/${n.return_no || n.id}`)}
-                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                            title="Print / View Invoice"
+                      {visibleColumns.status && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wide border ${
+                              isPaid
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : isPartial
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : "bg-rose-50 text-rose-700 border-rose-200"
+                            }`}
                           >
-                            <Printer size={15} />
-                          </button>
+                            {isPaid ? "Paid" : isPartial ? "Partial" : "Unpaid"}
+                          </span>
+                        </td>
+                      )}
 
-                          {/* Share Icon with Popover */}
-                          <div className="relative">
+                      {/* Actions */}
+                      {visibleColumns.actions && (
+                        <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1">
+                            {/* Print Icon Button */}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveShareId(activeShareId === n.id ? null : n.id);
-                              }}
+                              onClick={() => navigate(`/invoice/${n.return_no || n.id}`)}
                               className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                              title="Share"
+                              title="Print / View Invoice"
                             >
-                              <Share2 size={15} />
-                            </button>
-                            <ShareTransactionPopover
-                              isOpen={activeShareId === n.id}
-                              onClose={() => setActiveShareId(null)}
-                              transaction={n}
-                              type="Credit Note"
-                            />
-                          </div>
-
-                          {/* 3-Dot More Menu */}
-                          <div className="relative">
-                            <button
-                              onClick={() => setActiveMenuId(isMenuOpen ? null : n.id)}
-                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                              title="More actions"
-                            >
-                              <MoreVertical size={15} />
+                              <Printer size={15} />
                             </button>
 
-                            {isMenuOpen && (
-                              <div
-                                ref={menuRef}
-                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                            {/* Share with Popover */}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveShareId(activeShareId === n.id ? null : n.id);
+                                }}
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                                title="Share"
                               >
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    navigate(`/sales/credit-note/edit/${n.id}`);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                <Share2 size={15} />
+                              </button>
+                              <ShareTransactionPopover
+                                isOpen={activeShareId === n.id}
+                                onClose={() => setActiveShareId(null)}
+                                transaction={n}
+                                type="Credit Note"
+                              />
+                            </div>
+
+                            {/* 3-Dot More Menu */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setActiveMenuId(isMenuOpen ? null : n.id)}
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                                title="More actions"
+                              >
+                                <MoreVertical size={15} />
+                              </button>
+
+                              {isMenuOpen && (
+                                <div
+                                  ref={menuRef}
+                                  className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                                 >
-                                  <Edit size={14} className="text-blue-600" />
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    navigate(`/invoice/${n.return_no || n.id}`);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
-                                >
-                                  <Eye size={14} className="text-slate-600" />
-                                  <span>View Receipt</span>
-                                </button>
-                                <div className="border-t border-slate-100 my-1" />
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    setDeleteTarget(n);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
-                                >
-                                  <Trash2 size={14} className="text-red-600" />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            )}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuId(null);
+                                      navigate(`/sales/credit-note/edit/${n.id}`);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                  >
+                                    <Edit size={14} className="text-blue-600" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuId(null);
+                                      navigate(`/invoice/${n.return_no || n.id}`);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
+                                  >
+                                    <Eye size={14} className="text-slate-600" />
+                                    <span>View Receipt</span>
+                                  </button>
+                                  <div className="border-t border-slate-100 my-1" />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuId(null);
+                                      setDeleteTarget(n);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
+                                  >
+                                    <Trash2 size={14} className="text-red-600" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -687,44 +834,75 @@ export default function CreditNoteList() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 text-xs text-slate-600 bg-white">
               <div className="flex items-center gap-4">
                 <span>
-                  Showing <strong>{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
-                  <strong>{Math.min(safePage * rowsPerPage, filteredNotes.length)}</strong> of{" "}
-                  <strong>{filteredNotes.length}</strong> entries
+                  Showing <strong className="font-semibold text-slate-800">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
+                  <strong className="font-semibold text-slate-800">
+                    {Math.min(safePage * rowsPerPage, filteredNotes.length)}
+                  </strong>{" "}
+                  of <strong className="font-semibold text-slate-800">{filteredNotes.length}</strong> credit notes
                 </span>
                 <div className="flex items-center gap-1.5">
-                  <span>Rows:</span>
+                  <span className="text-slate-500">Rows:</span>
                   <select
                     value={rowsPerPage}
                     onChange={(e) => {
                       setRowsPerPage(Number(e.target.value));
                       setCurrentPage(1);
                     }}
-                    className="border border-slate-300 rounded px-1.5 py-0.5 text-xs"
+                    className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-blue-500 cursor-pointer"
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
                     <option value={50}>50</option>
+                    <option value={100}>100</option>
                   </select>
                 </div>
               </div>
 
               <div className="flex items-center gap-1">
                 <button
+                  type="button"
                   disabled={safePage === 1}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                  title="Previous Page"
                 >
                   <ChevronLeft size={15} />
                 </button>
 
-                <span className="px-3 py-1 bg-blue-600 text-white font-bold rounded-lg text-xs">
-                  {safePage}
-                </span>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                  .reduce((acc, p, i, arr) => {
+                    if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, i) =>
+                    item === "..." ? (
+                      <span key={`dots-${i}`} className="px-2 text-slate-400 font-bold">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setCurrentPage(item)}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
+                            safePage === item
+                              ? "app-pagination-active"
+                              : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
 
                 <button
+                  type="button"
                   disabled={safePage === totalPages}
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                  title="Next Page"
                 >
                   <ChevronRight size={15} />
                 </button>
@@ -734,31 +912,14 @@ export default function CreditNoteList() {
         </div>
       </div>
 
-      {/* ── 4. BOTTOM SUMMARY BAR (Matching media_1787845504680.png) ── */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between text-xs font-bold">
-        <div className="text-slate-700">
-          Total Amount:{" "}
-          <span className="text-teal-600 font-extrabold text-sm ml-1">
-            ₹ {totals.totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        </div>
-
-        <div className="text-slate-700">
-          Balance:{" "}
-          <span className="text-slate-900 font-extrabold text-sm ml-1">
-            ₹ {totals.balanceAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        </div>
-      </div>
-
       {/* ── DELETE MODAL ── */}
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
           onClick={() => setDeleteTarget(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 text-red-600 mb-3">
@@ -771,25 +932,27 @@ export default function CreditNoteList() {
               </div>
             </div>
 
-            <p className="text-sm text-slate-600 mb-4">
+            <p className="text-xs text-slate-600 leading-relaxed mb-5 bg-slate-50 p-3 rounded-xl border border-slate-100">
               Deleting this credit note will revert the inventory stock and re-adjust customer debt balance.
             </p>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-end gap-2.5">
               <button
+                type="button"
                 disabled={deleting}
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 rounded-xl"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 disabled={deleting}
                 onClick={handleDelete}
-                className="px-5 py-2 text-sm font-bold text-white bg-red-600 rounded-xl disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
                 {deleting && <RefreshCw size={14} className="animate-spin" />}
-                <span>Yes, Delete</span>
+                <span>{deleting ? "Deleting..." : "Yes, Delete"}</span>
               </button>
             </div>
           </div>
@@ -798,30 +961,23 @@ export default function CreditNoteList() {
 
       {/* ── ACTION TOAST ── */}
       {actionToast && (
-        <div
-          style={{
-            position: "fixed",
-            top: 24,
-            right: 28,
-            zIndex: 99999,
-            minWidth: 320,
-            background: actionToast.ok ? "#10b981" : "#ef4444",
-            color: "#ffffff",
-            borderRadius: 6,
-            padding: "12px 16px",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 14,
-          }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{actionToast.msg}</span>
-          <button onClick={() => setActionToast(null)} className="text-white">
-            <X size={15} />
-          </button>
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[99999] px-4 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-200">
+          {actionToast}
         </div>
       )}
+
+      {/* Table Column Customizer Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide columns in Credit Note table"
+      />
     </div>
   );
 }

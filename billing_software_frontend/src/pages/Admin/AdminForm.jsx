@@ -21,6 +21,7 @@ const STYLE = `
     border-radius:14px;
     padding:13px 14px 13px 46px;
     font-size:14px;
+    font-family:'Plus Jakarta Sans',sans-serif;
     color:#1e3a8a;
     outline:none;
     box-sizing:border-box;

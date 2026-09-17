@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
-  Calculator,
   Settings,
   Calendar,
   ChevronDown,
@@ -222,19 +221,11 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
         style={{ minHeight: 460 }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── 1. HEADER (Title, Calculator, Settings, Close) ── */}
+        {/* ── 1. HEADER (Title, Settings, Close) ── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
           <h2 className="text-base font-bold text-slate-800 tracking-tight">Payment-In</h2>
 
           <div className="flex items-center gap-3.5">
-            <button
-              type="button"
-              className="text-slate-400 hover:text-slate-700 transition cursor-pointer"
-              title="Calculator"
-            >
-              <Calculator size={18} />
-            </button>
-
             <button
               type="button"
               className="text-slate-400 hover:text-slate-700 relative transition cursor-pointer"
@@ -523,16 +514,16 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
         {/* ── 4. BOTTOM ACTION BAR (Share | Save) ── */}
         <div className="px-6 py-3.5 border-t border-slate-200 bg-white flex items-center justify-end gap-3">
           {/* Share Split Button */}
-          <div className="inline-flex rounded-md border border-blue-500 shadow-xs">
+          <div className="inline-flex rounded-md border border-emerald-500 shadow-xs">
             <button
               type="button"
-              className="px-3.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 transition cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
             >
               Share
             </button>
             <button
               type="button"
-              className="px-1.5 py-1.5 text-blue-600 border-l border-blue-500 hover:bg-blue-50 transition cursor-pointer"
+              className="px-1.5 py-1.5 text-emerald-600 border-l border-emerald-500 hover:bg-emerald-50 transition cursor-pointer"
             >
               <ChevronDown size={13} />
             </button>
@@ -543,7 +534,7 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
             type="button"
             disabled={saving}
             onClick={handleSavePaymentIn}
-            className="px-8 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            className="app-btn-primary px-8 py-2 rounded-md font-bold text-sm"
           >
             {saving && <RefreshCw size={14} className="animate-spin" />}
             <span><u>S</u>ave</span>

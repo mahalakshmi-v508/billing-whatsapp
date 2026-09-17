@@ -56,7 +56,7 @@ export default function Accounting() {
             aria-checked={state.enableAccounting}
             onClick={() => setEnableAccounting(!state.enableAccounting)}
             className={`relative w-12 h-7 rounded-full transition-colors shrink-0 cursor-pointer ${
-              state.enableAccounting ? "bg-blue-600" : "bg-slate-300"
+              state.enableAccounting ? "app-toggle-active" : "bg-slate-300"
             }`}
           >
             <span

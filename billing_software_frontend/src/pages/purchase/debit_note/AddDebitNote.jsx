@@ -1,26 +1,20 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../../../services/api";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
 import {
   X,
   Plus,
   Trash2,
   Calendar,
   ChevronDown,
-  Calculator,
-  Settings,
-  ScanBarcode,
-  Check,
   Search,
   RefreshCw,
   ArrowLeft,
-  Pencil,
-  AlignLeft,
-  Zap,
-  ChevronsUpDown,
   Building2,
   Truck,
-  DollarSign,
   FileText,
   AlertCircle,
   Layers,
@@ -30,21 +24,34 @@ import {
   CreditCard,
   CornerUpLeft,
   Save,
-  Clock,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles,
+  DollarSign,
+  Check,
+  Zap,
+  SlidersHorizontal,
 } from "lucide-react";
 
+const DEFAULT_ITEM_COLUMNS = [
+  { key: "product_name", label: "Product Name", icon: Layers, color: "text-blue-600", bg: "bg-blue-50", desc: "Return product description" },
+  { key: "quantity", label: "Quantity", icon: Layers, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Return quantity" },
+  { key: "unit", label: "Unit", icon: Percent, color: "text-purple-600", bg: "bg-purple-50", desc: "Unit of measurement" },
+  { key: "price", label: "Price / Unit", icon: DollarSign, color: "text-teal-600", bg: "bg-teal-50", desc: "Original unit price" },
+  { key: "discount", label: "Discount", icon: Percent, color: "text-amber-600", bg: "bg-amber-50", desc: "Discount percent & amount" },
+  { key: "tax", label: "Tax (GST)", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "GST tax rate & amount" },
+  { key: "amount", label: "Amount", icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50", desc: "Total line item return value" },
+];
+
 const unitOptions = [
-  "NONE", "Piece", "Box", "Pack", "Kg", "Gram", "Litre", "ML", "Meter", "Feet", "Dozen", "Pair", "Roll", "Bag", "Bottle", "Can", "Set"
+  "NONE", "PCS", "Box", "Pack", "Kg", "Gram", "Litre", "ML", "Meter", "Feet", "Dozen", "Pair", "Roll", "Bag", "Bottle", "Can", "Set"
 ];
 
 const gstSlabs = [
-  { label: "Select", value: 0 },
-  { label: "0%", value: 0 },
-  { label: "5%", value: 5 },
-  { label: "12%", value: 12 },
-  { label: "18%", value: 18 },
-  { label: "28%", value: 28 }
+  { label: "0% GST", value: 0 },
+  { label: "5% GST", value: 5 },
+  { label: "12% GST", value: 12 },
+  { label: "18% GST", value: 18 },
+  { label: "28% GST", value: 28 }
 ];
 
 const indianStates = [
@@ -59,7 +66,7 @@ function createEmptyRow(isQuickAdd = false) {
     product_code: "",
     barcode: "",
     quantity: isQuickAdd ? "" : "",
-    unit: "NONE",
+    unit: "PCS",
     price: "",
     discount_percent: "",
     discount_amount: "",
@@ -76,7 +83,7 @@ function createNewDebitNoteTab(id, index, returnNoValue = null) {
     partyInput: "",
     selectedSupplier: null,
     supplierPhone: "",
-    returnNo: returnNoValue ? String(returnNoValue) : String(index),
+    returnNo: returnNoValue ? String(returnNoValue) : `DN-${String(index).padStart(4, "0")}`,
     billNo: "",
     billDate: "",
     returnDate: new Date().toISOString().split("T")[0],
@@ -139,70 +146,10 @@ function CloseConfirmModal({ isOpen, onCancel, onConfirm }) {
           <button
             type="button"
             onClick={onConfirm}
-            className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition cursor-pointer"
+            className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer"
           >
             OK, Discard
           </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Built-in Calculator Modal (Safe) ── */
-function CalculatorModal({ isOpen, onClose }) {
-  const [calcInput, setCalcInput] = useState("");
-  if (!isOpen) return null;
-
-  const handleBtn = (val) => {
-    if (val === "C") setCalcInput("");
-    else if (val === "=") {
-      try {
-        const sanitized = calcInput.replace(/×/g, "*").replace(/÷/g, "/");
-        // Safe evaluation without direct eval
-        const res = Function(`'use strict'; return (${sanitized})`)();
-        setCalcInput(String(res));
-      } catch {
-        setCalcInput("Error");
-      }
-    } else {
-      setCalcInput((prev) => prev + val);
-    }
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl w-72 shadow-2xl border border-slate-200 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-4 py-3 bg-slate-900 text-white flex justify-between items-center">
-          <span className="font-bold text-xs">Calculator</span>
-          <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X size={15} /></button>
-        </div>
-        <div className="p-4 bg-slate-50 text-right text-2xl font-black text-slate-900 min-h-[56px] border-b border-slate-200">
-          {calcInput || "0"}
-        </div>
-        <div className="grid grid-cols-4 gap-2 p-3 bg-white">
-          {["7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "-", "C", "0", "=", "+"].map((b) => (
-            <button
-              key={b}
-              type="button"
-              onClick={() => handleBtn(b)}
-              className={`py-3 text-sm font-bold rounded-xl border transition cursor-pointer ${
-                b === "="
-                  ? "bg-rose-600 text-white border-rose-600 shadow-sm"
-                  : b === "C"
-                  ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100"
-                  : "bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100"
-              }`}
-            >
-              {b}
-            </button>
-          ))}
         </div>
       </div>
     </div>
@@ -231,10 +178,20 @@ export default function AddDebitNote() {
   const [activeProductSearchIndex, setActiveProductSearchIndex] = useState(null);
 
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Column customization drawer state & persistence
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumnCount,
+  } = useTableColumns("debit_note_item_columns", DEFAULT_ITEM_COLUMNS);
 
   const partyRef = useRef(null);
   const productSuggestRef = useRef(null);
@@ -282,7 +239,7 @@ export default function AddDebitNote() {
     }
   };
 
-  // Load Suppliers and Products Catalog (with bulletproof fallbacks)
+  // Load Suppliers and Products Catalog
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
@@ -294,7 +251,6 @@ export default function AddDebitNote() {
         if (supRes.data?.status && Array.isArray(supRes.data.data) && supRes.data.data.length > 0) {
           supsList = supRes.data.data;
         } else {
-          // Fallback to fetch all suppliers
           const fallbackSup = await api.get("/supplier/get_all");
           if (fallbackSup.data?.status && Array.isArray(fallbackSup.data.data)) {
             supsList = fallbackSup.data.data;
@@ -315,7 +271,7 @@ export default function AddDebitNote() {
         }
         setProductsCatalog(prodsList);
 
-        // 3. Count & formatted number for return no from settings
+        // 3. Formatted number from settings
         try {
           const numRes = await api.get(`/invoice-settings/next-number?company_id=${cid || 0}&type=debit_note`);
           if (numRes.data?.status && numRes.data?.formatted_number) {
@@ -364,7 +320,7 @@ export default function AddDebitNote() {
                 product_code: r.product_code || "",
                 barcode: r.barcode || "",
                 quantity: r.quantity || r.qty || "",
-                unit: r.unit || "NONE",
+                unit: r.unit || "PCS",
                 price: r.price || r.unit_price || 0,
                 discount_percent: r.discount_percent || r.discount_pct || "",
                 discount_amount: r.discount_amount || r.discount_amt || "",
@@ -406,9 +362,7 @@ export default function AddDebitNote() {
     }
   }, [isEditMode, editId]);
 
-  // If opened from Reports → Purchase → "Convert To Return" (?purchase_id=X),
-  // prefill the first tab from the real purchase record (supplier, bill ref,
-  // items, payment type and state of supply are all transferred).
+  // If opened from Reports → Purchase → "Convert To Return" (?purchase_id=X)
   useEffect(() => {
     if (isEditMode || !purchaseId) return;
 
@@ -434,7 +388,7 @@ export default function AddDebitNote() {
               product_code: it.product_code || "",
               barcode: it.barcode || "",
               quantity: it.quantity || "",
-              unit: it.unit && it.unit !== "NONE" ? it.unit : "NONE",
+              unit: it.unit && it.unit !== "NONE" ? it.unit : "PCS",
               price: it.price || 0,
               discount_percent:
                 Number(it.discount_percent) > 0
@@ -579,7 +533,7 @@ export default function AddDebitNote() {
       product_code: prod.product_code || "",
       barcode: prod.barcode || "",
       quantity: updated[index].quantity ? updated[index].quantity : 1,
-      unit: prod.unit || "NONE",
+      unit: prod.unit || "PCS",
       price: unitPrice || "",
       gst_percentage: gstRate,
     };
@@ -587,10 +541,9 @@ export default function AddDebitNote() {
     row = calculateRow(row, activeTab.globalTaxMode);
     updated[index] = row;
 
-    // If it was the Quick Add / Lightning Row (row 0), create a regular row below
     if (index === 0) {
       updated.splice(1, 0, { ...row, id: Date.now() + Math.random() });
-      updated[0] = createEmptyRow(true); // reset quick add
+      updated[0] = createEmptyRow(true);
     } else if (index === updated.length - 1) {
       updated.push(createEmptyRow(false));
     }
@@ -607,7 +560,6 @@ export default function AddDebitNote() {
   // Delete row
   const deleteRow = (index) => {
     if (index === 0) {
-      // Clear quick add row
       const updated = [...activeTab.items];
       updated[0] = createEmptyRow(true);
       updateActiveTab({ items: updated });
@@ -664,7 +616,7 @@ export default function AddDebitNote() {
     }
   };
 
-  // Calculate Totals Summary (Rows 1 to N, ignoring row 0 if empty)
+  // Calculate Totals Summary
   const { totalQty, totalDiscount, totalTax, calculatedTotal, roundOffVal, grandTotal } = useMemo(() => {
     let tQty = 0;
     let tDisc = 0;
@@ -672,7 +624,7 @@ export default function AddDebitNote() {
     let rawTotal = 0;
 
     activeTab.items.forEach((r, idx) => {
-      if (idx === 0 && !r.product_name) return; // skip empty lightning row
+      if (idx === 0 && !r.product_name) return;
       const q = parseFloat(r.quantity) || 0;
       tQty += q;
       tDisc += parseFloat(r.discount_amount) || 0;
@@ -684,7 +636,7 @@ export default function AddDebitNote() {
     let diff = 0;
     if (activeTab.roundOffEnabled) {
       rounded = Math.round(rawTotal);
-      diff = rounded - rawTotal;
+      diff = Number((rounded - rawTotal).toFixed(2));
     }
 
     return {
@@ -758,14 +710,13 @@ export default function AddDebitNote() {
         const savedReturnNo = res.data.return_no || res.data.invoice_no || activeTab.returnNo;
         if (isEditMode) {
           setToast(`Debit Note #${savedReturnNo} updated successfully!`);
-          setTimeout(() => navigate("/purchases/debit-note"), 1500);
+          setTimeout(() => navigate("/purchases/return"), 1500);
         } else {
           const shouldSkipPreview = localStorage.getItem("skip_invoice_preview") === "true";
           if (shouldSkipPreview) {
             setToast(`Debit Note #${savedReturnNo} saved successfully!`);
             setTimeout(() => setToast(null), 4000);
 
-            // Fetch next sequential debit note number from settings
             let nextReturnNo = "";
             try {
               const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=debit_note`);
@@ -778,7 +729,6 @@ export default function AddDebitNote() {
               nextReturnNo = `DN-${String(existingCount + 2).padStart(4, "0")}`;
             }
 
-            // Reset active tab for continuous next debit note data entry
             setTabs((prev) =>
               prev.map((tab) =>
                 tab.id === activeTabId
@@ -808,343 +758,77 @@ export default function AddDebitNote() {
     });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 flex flex-col font-sans text-slate-800 antialiased pb-24">
-      
-      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
-          
-          {/* Left: Back & Badge Title */}
-          <div className="flex items-center gap-3.5">
-            <button
-              type="button"
-              onClick={() => setShowCloseModal(true)}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100/80 transition-all border border-slate-200/70 shadow-2xs cursor-pointer"
-              title="Back to Purchase Returns"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-red-500 text-white flex items-center justify-center shadow-md shadow-rose-500/20">
-                <CornerUpLeft size={20} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-black text-slate-900 tracking-tight">
-                    {isEditMode ? "Edit Debit Note" : "New Debit Note"}
-                  </h1>
-                  <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200/60 rounded-full">
-                    Purchase Return
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 font-medium">Record purchase returns, defective items & supplier credit notes</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Center: Multi-Tab Vouchers */}
-          <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 pb-20">
+      {/* ── 1. EXECUTIVE COMMAND BAR & DEBIT NOTE TABS ── */}
+      <div className="bg-white border-b border-slate-200/80 px-4 md:px-6 pt-3 pb-0 shadow-xs sticky top-0 z-30">
+        <div className="flex items-center justify-between gap-4">
+          {/* Voucher Workspace Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             {tabs.map((tab) => {
-              const isActive = tab.id === activeTabId;
+              const isActive = activeTabId === tab.id;
               return (
                 <div
                   key={tab.id}
                   onClick={() => setActiveTabId(tab.id)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`group relative flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-t-2 ${
                     isActive
-                      ? "bg-white text-rose-700 shadow-xs border border-slate-200/80"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                      ? "border-blue-600 bg-slate-50 text-blue-700 shadow-xs font-bold"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/60"
                   }`}
                 >
-                  <Receipt size={13} className={isActive ? "text-rose-600" : "text-slate-400"} />
-                  <span>{tab.title}</span>
+                  <div className="flex items-center gap-2">
+                    <CornerUpLeft size={13} className={isActive ? "text-blue-600" : "text-slate-400"} />
+                    <span>{tab.title}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 text-slate-600 font-mono">
+                      {tab.returnNo || "Draft"}
+                    </span>
+                  </div>
                   <button
                     type="button"
                     onClick={(e) => handleCloseTab(tab.id, e)}
-                    className="p-0.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                    className="w-4 h-4 rounded-full flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-slate-200/80 transition"
+                    title="Close tab"
                   >
-                    <X size={12} />
+                    <X size={11} />
                   </button>
                 </div>
               );
             })}
 
+            {/* + Add New Return Tab */}
             {!isEditMode && (
               <button
                 type="button"
                 onClick={handleAddTab}
-                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer"
-                title="Open another Return Tab"
+                className="h-8 px-2.5 mb-1 flex items-center gap-1.5 rounded-lg text-blue-600 hover:bg-blue-50 text-xs font-semibold border border-dashed border-blue-300 transition cursor-pointer"
+                title="Add New Purchase Return"
               >
-                <Plus size={14} />
+                <Plus size={14} strokeWidth={2.5} />
+                <span className="hidden sm:inline">New Return</span>
               </button>
             )}
           </div>
 
-          {/* Right: Quick Tools */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowCalculator(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-xs font-bold shadow-2xs transition cursor-pointer"
-            >
-              <Calculator size={14} className="text-slate-500" />
-              <span>Calculator</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCloseModal(true)}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-              title="Close"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-        </div>
-      </header>
-
-      {/* ── 2. MAIN FORM BODY ── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex-1 w-full space-y-6">
-
-        {/* Success Toast & Error Alerts */}
-        {toast && (
-          <div className="px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-              <span>{toast}</span>
-            </div>
-            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
-              <X size={14} />
-            </button>
-          </div>
-        )}
-
-        {errorMsg && (
-          <div className="px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150">
-            <div className="flex items-center gap-2">
-              <AlertCircle size={15} className="text-rose-600 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-            <button onClick={() => setErrorMsg("")} className="text-rose-500 hover:text-rose-700 cursor-pointer">
-              <X size={14} />
-            </button>
-          </div>
-        )}
-
-        {/* ── SECTION 1: SUPPLIER & RETURN DETAILS ── */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">
-          <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
-                1
-              </div>
-              <h2 className="text-sm font-bold text-slate-900">Supplier & Voucher Reference</h2>
-            </div>
-            {activeTab.selectedSupplier && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200/60 rounded-xl text-xs">
-                <span className="text-amber-700 font-medium">Supplier Pending Balance:</span>
-                <span className="font-extrabold text-amber-900">₹ {fmtCurrency(activeTab.selectedSupplier.pending_balance || 0)}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-            
-            {/* Left: Supplier Search / Selection */}
-            <div className="md:col-span-6 space-y-4" ref={partyRef}>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Supplier / Vendor (Party) <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="relative flex items-center">
-                    <Truck size={16} className="absolute left-3.5 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Search supplier by name or phone..."
-                      value={activeTab.partyInput}
-                      onChange={(e) => {
-                        updateActiveTab({ partyInput: e.target.value, selectedSupplier: null });
-                        setShowPartyDropdown(true);
-                      }}
-                      onFocus={() => setShowPartyDropdown(true)}
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 placeholder:text-slate-400 transition-all outline-hidden"
-                    />
-                    <ChevronDown
-                      size={15}
-                      className={`absolute right-3.5 text-slate-400 transition-transform cursor-pointer ${
-                        showPartyDropdown ? "rotate-180 text-rose-600" : ""
-                      }`}
-                      onClick={() => setShowPartyDropdown((prev) => !prev)}
-                    />
-                  </div>
-
-                  {/* Supplier Suggestions Dropdown */}
-                  {showPartyDropdown && (
-                    <div className="absolute left-0 top-full mt-1.5 w-full bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2 z-50 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                      {filteredSuppliers.length > 0 ? (
-                        filteredSuppliers.map((s) => (
-                          <div
-                            key={s.id}
-                            onClick={() => handleSelectParty(s)}
-                            className="px-4 py-2.5 hover:bg-rose-50/60 cursor-pointer flex items-center justify-between transition-colors border-b border-slate-50 last:border-0"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 font-bold text-xs flex items-center justify-center">
-                                {(s.supplier_name || s.name || "S")[0].toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="text-xs font-bold text-slate-900">{s.supplier_name || s.name}</p>
-                                <p className="text-[11px] text-slate-500">{s.phone || s.mobile_number || "No phone"}</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-[10px] text-slate-400 block font-medium">Balance</span>
-                              <span className="text-xs font-bold text-rose-600">
-                                ₹ {fmtCurrency(s.pending_balance || 0)}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-4 text-center">
-                          <p className="text-xs text-slate-500">No matching supplier found.</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            Saving will create <strong>"{activeTab.partyInput}"</strong> as a new vendor.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Phone number field */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Supplier Contact Phone</label>
-                  <div className="relative">
-                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Phone number"
-                      value={activeTab.supplierPhone}
-                      onChange={(e) => updateActiveTab({ supplierPhone: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 placeholder:text-slate-400 transition-all outline-hidden"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">State of Supply</label>
-                  <select
-                    value={activeTab.stateOfSupply}
-                    onChange={(e) => updateActiveTab({ stateOfSupply: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 transition-all outline-hidden cursor-pointer"
-                  >
-                    {indianStates.map((st) => (
-                      <option key={st} value={st}>{st}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Return #, Original Bill Ref & Dates */}
-            <div className="md:col-span-6 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Debit Note Return #</label>
-                  <div className="relative">
-                    <Receipt size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Return #"
-                      value={activeTab.returnNo}
-                      onChange={(e) => updateActiveTab({ returnNo: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-bold text-slate-900 transition-all outline-hidden"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Original Purchase Bill #</label>
-                  <div className="relative">
-                    <FileText size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="e.g. PUR-0082"
-                      value={activeTab.billNo}
-                      onChange={(e) => updateActiveTab({ billNo: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 transition-all outline-hidden"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Original Bill Date</label>
-                  <div className="relative">
-                    <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="date"
-                      value={activeTab.billDate}
-                      onChange={(e) => updateActiveTab({ billDate: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 transition-all outline-hidden cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Return Date</label>
-                  <div className="relative">
-                    <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-rose-500" />
-                    <input
-                      type="date"
-                      value={activeTab.returnDate}
-                      onChange={(e) => updateActiveTab({ returnDate: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-rose-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-bold text-slate-900 transition-all outline-hidden cursor-pointer"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* ── SECTION 2: RETURN ITEMS TABLE ── */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
-                2
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Returned Line Items</h2>
-                <p className="text-[11px] text-slate-500">Add returned goods with quantity, rate, discount and GST slab</p>
-              </div>
-            </div>
-
-            {/* Tax Mode Switcher */}
+          {/* Right Action Tools */}
+          <div className="flex items-center gap-2 pb-2 flex-shrink-0">
+            {/* Tax Mode Switcher Button */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <div
+              <button
+                type="button"
                 onClick={() => setShowTaxModeDropdown(!showTaxModeDropdown)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition cursor-pointer"
               >
-                <Percent size={13} className="text-rose-600" />
-                <span>Prices: {activeTab.globalTaxMode === "with_tax" ? "Tax Inclusive" : "Tax Exclusive"}</span>
+                <Percent size={13} className="text-blue-600" />
+                <span>{activeTab.globalTaxMode === "with_tax" ? "Tax Inclusive" : "Tax Exclusive"}</span>
                 <ChevronDown size={13} className="text-slate-400" />
-              </div>
+              </button>
 
               {showTaxModeDropdown && (
                 <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in duration-100">
                   <div
                     onClick={() => handleTaxModeChange("without_tax")}
                     className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
-                      activeTab.globalTaxMode === "without_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
+                      activeTab.globalTaxMode === "without_tax" ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
                     <span>Tax Exclusive</span>
@@ -1153,7 +837,7 @@ export default function AddDebitNote() {
                   <div
                     onClick={() => handleTaxModeChange("with_tax")}
                     className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
-                      activeTab.globalTaxMode === "with_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
+                      activeTab.globalTaxMode === "with_tax" ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
                     <span>Tax Inclusive</span>
@@ -1162,40 +846,330 @@ export default function AddDebitNote() {
                 </div>
               )}
             </div>
+
+            <HeaderSettingsButton
+              variant="voucher"
+              onClick={() => setShowColumnDrawer(true)}
+              isActive={showColumnDrawer}
+            />
+
+            {/* Close Page */}
+            <button
+              type="button"
+              onClick={() => setShowCloseModal(true)}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              title="Close Workspace"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. WORKSPACE HEADER BANNER ── */}
+      <div className="px-6 md:px-8 pt-6 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowCloseModal(true)}
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-xs cursor-pointer"
+              title="Back to Purchase Returns"
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 uppercase tracking-wide">
+                  Purchase Return Desk
+                </span>
+                <span className="text-xs text-slate-400 font-medium">• Supplier Debit Voucher</span>
+              </div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                {isEditMode ? `Edit Debit Note #${activeTab.returnNo}` : "Purchase Return & Supplier Credit Desk"}
+              </h1>
+            </div>
+          </div>
+        </div>
+
+        {/* Success Toast & Error Alerts */}
+        {toast && (
+          <div className="mt-4 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={15} className="text-red-600 flex-shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            <button onClick={() => setErrorMsg("")} className="text-red-500 hover:text-red-700">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── 3. SUPPLIER INTELLIGENCE & BILL REFERENCE CARDS ── */}
+      <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
+        {/* Left: Supplier Intelligence Card (7 Cols) */}
+        <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Truck size={16} />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Supplier / Vendor Profile</h3>
+                <p className="text-[11px] text-slate-400">Select supplier receiving returned items for accounts payable adjustment</p>
+              </div>
+            </div>
+
+            {activeTab.selectedSupplier && (
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 size={11} /> Linked Supplier
+              </span>
+            )}
           </div>
 
-          {/* Line Items Table */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Supplier Search Box */}
+            <div ref={partyRef} className="relative sm:col-span-2">
+              <label className="text-[11px] font-bold text-slate-600 mb-1 block">
+                Supplier / Vendor (Party) <span className="text-red-500">*</span>
+              </label>
+              <div
+                className={`relative border rounded-xl px-3.5 py-2.5 transition bg-white flex items-center justify-between ${
+                  showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/15" : "border-slate-300 hover:border-slate-400"
+                }`}
+              >
+                <div className="flex items-center gap-2.5 w-full">
+                  <Search size={15} className="text-slate-400 flex-shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Search supplier by name or phone..."
+                    value={activeTab.partyInput}
+                    onChange={(e) => {
+                      updateActiveTab({ partyInput: e.target.value, selectedSupplier: null });
+                      setShowPartyDropdown(true);
+                    }}
+                    onFocus={() => setShowPartyDropdown(true)}
+                    className="w-full bg-transparent text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                  />
+                </div>
+                <ChevronDown
+                  size={15}
+                  onClick={() => setShowPartyDropdown(!showPartyDropdown)}
+                  className="text-slate-400 cursor-pointer flex-shrink-0"
+                />
+              </div>
+
+              {/* Suggestions Popover */}
+              {showPartyDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-50 py-1.5 animate-in fade-in">
+                  {filteredSuppliers.length > 0 ? (
+                    filteredSuppliers.map((s) => (
+                      <div
+                        key={s.id}
+                        onClick={() => handleSelectParty(s)}
+                        className="px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-none transition"
+                      >
+                        <div>
+                          <div className="text-xs font-bold text-slate-900">{s.supplier_name || s.name}</div>
+                          {s.phone && <div className="text-[11px] text-slate-400 flex items-center gap-1"><Phone size={10} /> {s.phone}</div>}
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block font-medium">Pending Payable</span>
+                          <span className="text-xs font-bold text-red-600">
+                            ₹ {fmtCurrency(s.pending_balance || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-xs text-slate-500">
+                      No matching supplier found. Will create <strong>"{activeTab.partyInput}"</strong> on save.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Supplier Phone */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 mb-1 block">Supplier Contact Phone</label>
+              <div className="relative border border-slate-300 rounded-xl px-3.5 py-2.5 bg-white flex items-center gap-2">
+                <Phone size={14} className="text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Phone number..."
+                  value={activeTab.supplierPhone}
+                  onChange={(e) => updateActiveTab({ supplierPhone: e.target.value })}
+                  className="w-full bg-transparent text-xs font-medium text-slate-800 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Selected Supplier Status pill */}
+            <div className="flex flex-col justify-end">
+              {activeTab.selectedSupplier ? (
+                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-slate-500">Payable Balance:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-red-600">
+                      ₹ {fmtCurrency(activeTab.selectedSupplier.pending_balance || 0)} (Due to Vendor)
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-center text-[11px] text-slate-400 italic">
+                  One-off supplier return mode
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Return & Purchase Reference Card (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center gap-2 mb-3.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+              <FileText size={16} />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Return & Bill Parameters</h3>
+              <p className="text-[11px] text-slate-400">Debit note ref & original purchase linkages</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {/* Debit Note Return # */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                <Receipt size={13} className="text-slate-400" /> Return Voucher #
+              </span>
+              <input
+                type="text"
+                value={activeTab.returnNo}
+                onChange={(e) => updateActiveTab({ returnNo: e.target.value })}
+                className="w-40 text-right font-mono font-bold text-xs text-blue-700 bg-blue-50/50 border border-blue-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500"
+              />
+            </div>
+
+            {/* Original Purchase Bill # */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                <FileText size={13} className="text-slate-400" /> Orig. Purchase Bill #
+              </span>
+              <input
+                type="text"
+                placeholder="Optional ref #..."
+                value={activeTab.billNo}
+                onChange={(e) => updateActiveTab({ billNo: e.target.value })}
+                className="w-40 text-right font-medium text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500"
+              />
+            </div>
+
+            {/* Return Date */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                <Calendar size={13} className="text-slate-400" /> Return Date
+              </span>
+              <input
+                type="date"
+                value={activeTab.returnDate}
+                onChange={(e) => updateActiveTab({ returnDate: e.target.value })}
+                className="w-40 text-right font-semibold text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* State of Supply */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                <Building2 size={13} className="text-slate-400" /> Place of Supply
+              </span>
+              <select
+                value={activeTab.stateOfSupply}
+                onChange={(e) => updateActiveTab({ stateOfSupply: e.target.value })}
+                className="w-40 text-right font-semibold text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500 cursor-pointer"
+              >
+                {indianStates.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. DYNAMIC RETURNED LINE ITEMS MATRIX ── */}
+      <div className="px-6 md:px-8 mb-6">
+        <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+          {/* Table Header Bar */}
+          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers size={15} className="text-blue-600" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Returned Goods Line Items</h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                {activeTab.items.filter((r, i) => i > 0 || r.product_name).length} Items
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <HeaderSettingsButton
+                onClick={() => setShowColumnDrawer(true)}
+                tooltip="Customise item table columns"
+                variant="voucher"
+                isActive={showColumnDrawer}
+              />
+              <button
+                type="button"
+                onClick={addRow}
+                className="app-btn-primary px-3 py-1.5 rounded-xl text-xs font-bold"
+              >
+                <Plus size={13} strokeWidth={2.5} />
+                <span>Add Return Row</span>
+              </button>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="w-12 py-3 px-3 text-center border-r border-slate-200/60">
-                    <ScanBarcode size={15} className="mx-auto text-slate-400" />
-                  </th>
-                  <th className="py-3 px-4 min-w-[220px] border-r border-slate-200/60">Item Name / Product</th>
-                  <th className="py-3 px-3 w-24 text-center border-r border-slate-200/60">Qty</th>
-                  <th className="py-3 px-3 w-28 text-center border-r border-slate-200/60">Unit</th>
-                  <th className="py-3 px-3 w-32 text-center border-r border-slate-200/60">Rate (₹)</th>
-                  <th className="py-3 px-0 w-36 text-center border-r border-slate-200/60">
-                    <div className="border-b border-slate-200/60 pb-1">Discount</div>
-                    <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
-                      <span>%</span>
-                      <span>Amount</span>
-                    </div>
-                  </th>
-                  <th className="py-3 px-0 w-36 text-center border-r border-slate-200/60">
-                    <div className="border-b border-slate-200/60 pb-1">Tax (GST)</div>
-                    <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
-                      <span>% Slab</span>
-                      <span>Tax (₹)</span>
-                    </div>
-                  </th>
-                  <th className="py-3 px-4 w-32 text-right">Amount (₹)</th>
-                  <th className="py-3 px-2 w-10 text-center"></th>
+                <tr className="border-b border-slate-200 bg-slate-100/60 text-slate-600 font-bold uppercase text-[11px]">
+                  <th className="py-3 px-3.5 border-r border-slate-200 w-12 text-center">#</th>
+                  {visibleColumns.product_name && (
+                    <th className="py-3 px-4 border-r border-slate-200 min-w-[260px]">ITEM NAME / PRODUCT</th>
+                  )}
+                  {visibleColumns.quantity && (
+                    <th className="py-3 px-3 border-r border-slate-200 w-24 text-right">QTY</th>
+                  )}
+                  {visibleColumns.unit && (
+                    <th className="py-3 px-3 border-r border-slate-200 w-24">UNIT</th>
+                  )}
+                  {visibleColumns.price && (
+                    <th className="py-3 px-3 border-r border-slate-200 w-36 text-right">RATE (₹)</th>
+                  )}
+                  {visibleColumns.discount && (
+                    <th className="py-3 px-3 border-r border-slate-200 w-32 text-right">DISCOUNT</th>
+                  )}
+                  {visibleColumns.tax && (
+                    <th className="py-3 px-3 border-r border-slate-200 w-32 text-right">TAX (GST)</th>
+                  )}
+                  {visibleColumns.amount && (
+                    <th className="py-3 px-4 border-r border-slate-200 w-36 text-right">AMOUNT (₹)</th>
+                  )}
+                  <th className="py-3 px-3 w-16 text-center">ACTION</th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100 font-medium">
+              <tbody className="divide-y divide-slate-100">
                 {activeTab.items.map((row, idx) => {
                   const isLightning = idx === 0;
                   const isProductSearchOpen = activeProductSearchIndex === idx;
@@ -1203,206 +1177,201 @@ export default function AddDebitNote() {
                   return (
                     <tr
                       key={row.id || idx}
-                      className={`transition-colors ${
-                        isLightning
-                          ? "bg-rose-50/40 hover:bg-rose-50/70 border-b border-rose-200/60"
-                          : "hover:bg-slate-50/70"
+                      className={`hover:bg-blue-50/25 transition-colors group ${
+                        isLightning ? "bg-amber-50/40 border-b border-amber-200/60" : ""
                       }`}
                     >
-                      {/* Col 1: Lightning / Row # */}
-                      <td className="py-2 px-3 text-center border-r border-slate-100">
+                      {/* Index / Lightning Badge */}
+                      <td className="py-2.5 px-3.5 border-r border-slate-200 text-center font-mono text-slate-400 text-xs">
                         {isLightning ? (
-                          <div className="w-7 h-7 rounded-lg bg-rose-500/15 text-rose-600 flex items-center justify-center mx-auto" title="Quick Add Lightning Row">
-                            <Zap size={14} className="fill-rose-500 text-rose-500" />
+                          <div className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-600 flex items-center justify-center mx-auto" title="Quick Add Lightning Row">
+                            <Zap size={13} className="fill-amber-500 text-amber-500" />
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center gap-1 text-slate-400 font-bold text-[11px]">
-                            <span>{idx}</span>
-                          </div>
+                          idx
                         )}
                       </td>
 
-                      {/* Col 2: Product Name Autocomplete */}
-                      <td className="py-2 px-3 relative border-r border-slate-100">
-                        <input
-                          type="text"
-                          placeholder={isLightning && !row.product_name ? "⚡ Type item name for instant add..." : "Enter returned product name..."}
-                          value={row.product_name}
-                          onChange={(e) => {
-                            updateRow(idx, "product_name", e.target.value);
-                            setActiveProductSearchIndex(idx);
-                          }}
-                          onFocus={() => setActiveProductSearchIndex(idx)}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-xs font-semibold text-slate-900 placeholder:text-slate-400 outline-hidden transition-all"
-                        />
+                      {/* Product Name Autocomplete */}
+                      {visibleColumns.product_name && (
+                        <td className="py-2 px-3 border-r border-slate-200 relative">
+                          <input
+                            type="text"
+                            placeholder={isLightning && !row.product_name ? "⚡ Type item name for instant lightning add..." : "Search catalog product..."}
+                            value={row.product_name}
+                            onChange={(e) => {
+                              updateRow(idx, "product_name", e.target.value);
+                              setActiveProductSearchIndex(idx);
+                            }}
+                            onFocus={() => setActiveProductSearchIndex(idx)}
+                            className="w-full bg-transparent outline-none font-semibold text-slate-800 text-xs placeholder:font-normal placeholder:text-slate-400"
+                          />
 
-                        {/* Product Suggestions Dropdown */}
-                        {isProductSearchOpen && (
-                          <div
-                            ref={productSuggestRef}
-                            className="absolute left-2 top-full mt-1 w-80 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2 z-50 max-h-60 overflow-y-auto animate-in fade-in duration-100"
-                          >
-                            {(() => {
-                              const q = (row.product_name || "").toLowerCase().trim();
-                              const selectedSupId = activeTab.selectedSupplier?.id;
+                          {/* Suggestions Popover */}
+                          {isProductSearchOpen && (
+                            <div
+                              ref={productSuggestRef}
+                              className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-48 overflow-y-auto z-50 py-1"
+                            >
+                              {(() => {
+                                const q = (row.product_name || "").toLowerCase().trim();
+                                const selectedSupId = activeTab.selectedSupplier?.id;
 
-                              let sourceList = productsCatalog;
-                              if (selectedSupId) {
-                                const supItems = productsCatalog.filter(
-                                  (p) => Number(p.supplier_id) === Number(selectedSupId)
-                                );
-                                if (supItems.length > 0) sourceList = supItems;
-                              }
+                                let sourceList = productsCatalog;
+                                if (selectedSupId) {
+                                  const supItems = productsCatalog.filter(
+                                    (p) => Number(p.supplier_id) === Number(selectedSupId)
+                                  );
+                                  if (supItems.length > 0) sourceList = supItems;
+                                }
 
-                              const filtered = q
-                                ? sourceList.filter(
-                                    (p) =>
-                                      (p.product_name || p.name || "").toLowerCase().includes(q) ||
-                                      (p.product_code || "").toLowerCase().includes(q) ||
-                                      (p.barcode || "").includes(q)
-                                  )
-                                : sourceList;
+                                const filtered = q
+                                  ? sourceList.filter(
+                                      (p) =>
+                                        (p.product_name || p.name || "").toLowerCase().includes(q) ||
+                                        (p.product_code || "").toLowerCase().includes(q) ||
+                                        (p.barcode || "").includes(q)
+                                    )
+                                  : sourceList;
 
-                              if (filtered.length === 0) {
-                                return (
-                                  <div className="p-3 text-center text-xs text-slate-500">
-                                    No item found. Press Enter to use <strong>"{row.product_name}"</strong>.
+                                if (filtered.length === 0) {
+                                  return (
+                                    <div className="p-3 text-center text-xs text-slate-500">
+                                      No item found. Press Enter to use <strong>"{row.product_name}"</strong>.
+                                    </div>
+                                  );
+                                }
+
+                                return filtered.slice(0, 15).map((p) => (
+                                  <div
+                                    key={p.id}
+                                    onClick={() => handleSelectProduct(idx, p)}
+                                    className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs border-b border-slate-50 last:border-none transition"
+                                  >
+                                    <div>
+                                      <span className="font-bold text-slate-800">{p.product_name || p.name}</span>
+                                      <span className="text-[10px] text-slate-400 ml-2">Stock: {p.stock || 0}</span>
+                                    </div>
+                                    <span className="text-blue-600 font-mono font-bold">
+                                      ₹{parseFloat(p.purchase_price || p.price || 0).toLocaleString()}
+                                    </span>
                                   </div>
-                                );
-                              }
+                                ));
+                              })()}
+                            </div>
+                          )}
+                        </td>
+                      )}
 
-                              return (
-                                <>
-                                  {selectedSupId && sourceList.length > 0 && (
-                                    <div className="px-3 py-1 bg-slate-100 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
-                                      Vendor Catalog ({filtered.length})
-                                    </div>
-                                  )}
-                                  {filtered.slice(0, 15).map((p) => (
-                                    <div
-                                      key={p.id}
-                                      onClick={() => handleSelectProduct(idx, p)}
-                                      className="px-3.5 py-2 hover:bg-rose-50/70 cursor-pointer flex items-center justify-between transition text-xs border-b border-slate-50 last:border-0"
-                                    >
-                                      <div>
-                                        <p className="font-bold text-slate-900">{p.product_name || p.name}</p>
-                                        <p className="text-[11px] text-slate-400">
-                                          Stock: {p.stock || 0} {p.unit || ""} {p.product_code ? `• Code: ${p.product_code}` : ""}
-                                        </p>
-                                      </div>
-                                      <div className="text-right">
-                                        <span className="font-extrabold text-rose-600">
-                                          ₹{parseFloat(p.purchase_price || p.price || 0).toLocaleString()}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400 block">Unit Cost</span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Col 3: Qty */}
-                      <td className="py-2 px-2 text-center border-r border-slate-100">
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          placeholder="0"
-                          value={row.quantity}
-                          onChange={(e) => updateRow(idx, "quantity", e.target.value)}
-                          className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
-                        />
-                      </td>
-
-                      {/* Col 4: Unit */}
-                      <td className="py-2 px-2 text-center border-r border-slate-100">
-                        <select
-                          value={row.unit}
-                          onChange={(e) => updateRow(idx, "unit", e.target.value)}
-                          className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-semibold text-slate-700 outline-hidden transition-all text-xs cursor-pointer"
-                        >
-                          {unitOptions.map((u) => (
-                            <option key={u} value={u}>{u}</option>
-                          ))}
-                        </select>
-                      </td>
-
-                      {/* Col 5: Rate */}
-                      <td className="py-2 px-2 text-center border-r border-slate-100">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={row.price}
-                          onChange={(e) => updateRow(idx, "price", e.target.value)}
-                          className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
-                        />
-                      </td>
-
-                      {/* Col 6: Discount (% & Amt) */}
-                      <td className="py-2 px-0 border-r border-slate-100">
-                        <div className="grid grid-cols-2 divide-x divide-slate-100">
+                      {/* Qty */}
+                      {visibleColumns.quantity && (
+                        <td className="py-2 px-2 border-r border-slate-200">
                           <input
                             type="number"
                             min="0"
-                            max="100"
-                            placeholder="%"
-                            value={row.discount_percent || ""}
-                            onChange={(e) => {
-                              updateRow(idx, "discount_percent", e.target.value);
-                              updateRow(idx, "discount_amount", "");
-                            }}
-                            className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 placeholder:text-slate-300 outline-hidden text-xs"
+                            step="any"
+                            placeholder="0"
+                            value={row.quantity}
+                            onChange={(e) => updateRow(idx, "quantity", e.target.value)}
+                            className="w-full text-right outline-none bg-transparent font-bold text-slate-800 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-1"
                           />
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="₹"
-                            value={row.discount_amount || ""}
-                            onChange={(e) => {
-                              updateRow(idx, "discount_amount", e.target.value);
-                              updateRow(idx, "discount_percent", "");
-                            }}
-                            className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 placeholder:text-slate-300 outline-hidden text-xs"
-                          />
-                        </div>
-                      </td>
+                        </td>
+                      )}
 
-                      {/* Col 7: Tax (% & Amt) */}
-                      <td className="py-2 px-0 border-r border-slate-100">
-                        <div className="grid grid-cols-2 divide-x divide-slate-100 items-center">
+                      {/* Unit */}
+                      {visibleColumns.unit && (
+                        <td className="py-2 px-2 border-r border-slate-200">
                           <select
-                            value={row.gst_percentage}
-                            onChange={(e) => updateRow(idx, "gst_percentage", e.target.value)}
-                            className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 outline-hidden text-xs cursor-pointer"
+                            value={row.unit}
+                            onChange={(e) => updateRow(idx, "unit", e.target.value)}
+                            className="w-full bg-transparent outline-none text-slate-700 text-xs font-semibold cursor-pointer rounded px-1 py-1"
                           >
-                            {gstSlabs.map((s, i) => (
-                              <option key={i} value={s.value}>{s.label}</option>
+                            {unitOptions.map((u) => (
+                              <option key={u} value={u}>{u}</option>
                             ))}
                           </select>
-                          <div className="px-1.5 py-1.5 text-center font-bold text-slate-600 text-xs truncate">
-                            {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : "—"}
+                        </td>
+                      )}
+
+                      {/* Rate */}
+                      {visibleColumns.price && (
+                        <td className="py-2 px-2 border-r border-slate-200">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={row.price}
+                            onChange={(e) => updateRow(idx, "price", e.target.value)}
+                            className="w-full text-right outline-none bg-transparent font-bold text-slate-800 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-1"
+                          />
+                        </td>
+                      )}
+
+                      {/* Discount */}
+                      {visibleColumns.discount && (
+                        <td className="py-2 px-2 border-r border-slate-200">
+                          <div className="flex items-center justify-end gap-1">
+                            <input
+                              type="number"
+                              placeholder="%"
+                              value={row.discount_percent || ""}
+                              onChange={(e) => {
+                                updateRow(idx, "discount_percent", e.target.value);
+                                updateRow(idx, "discount_amount", "");
+                              }}
+                              className="w-11 text-right outline-none bg-transparent font-semibold text-slate-700 text-xs focus:bg-white rounded px-1 py-0.5"
+                            />
+                            <span className="text-slate-300">|</span>
+                            <input
+                              type="number"
+                              placeholder="₹"
+                              value={row.discount_amount || ""}
+                              onChange={(e) => {
+                                updateRow(idx, "discount_amount", e.target.value);
+                                updateRow(idx, "discount_percent", "");
+                              }}
+                              className="w-12 text-right outline-none bg-transparent font-semibold text-slate-700 text-xs focus:bg-white rounded px-1 py-0.5"
+                            />
                           </div>
-                        </div>
-                      </td>
+                        </td>
+                      )}
 
-                      {/* Col 8: Row Amount */}
-                      <td className="py-2 px-4 text-right font-black text-slate-900 text-xs">
-                        ₹ {row.amount ? fmtCurrency(row.amount) : "0.00"}
-                      </td>
+                      {/* Tax (GST) */}
+                      {visibleColumns.tax && (
+                        <td className="py-2 px-2 border-r border-slate-200">
+                          <div className="flex items-center justify-end gap-1">
+                            <select
+                              value={row.gst_percentage}
+                              onChange={(e) => updateRow(idx, "gst_percentage", e.target.value)}
+                              className="bg-transparent outline-none text-xs font-semibold text-slate-700 cursor-pointer"
+                            >
+                              {gstSlabs.map((s, i) => (
+                                <option key={i} value={s.value}>{s.label}</option>
+                              ))}
+                            </select>
+                            <span className="text-slate-300">|</span>
+                            <span className="text-[11px] font-mono font-medium text-slate-500 w-12 text-right">
+                              {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : "0.0"}
+                            </span>
+                          </div>
+                        </td>
+                      )}
 
-                      {/* Col 9: Delete */}
-                      <td className="py-2 px-2 text-center">
+                      {/* Amount */}
+                      {visibleColumns.amount && (
+                        <td className="py-2 px-4 border-r border-slate-200 text-right font-black text-slate-900 text-xs font-mono">
+                          ₹{row.amount ? fmtCurrency(row.amount) : "0.00"}
+                        </td>
+                      )}
+
+                      {/* Action */}
+                      <td className="py-2 px-2 text-center whitespace-nowrap">
                         {!isLightning && (
                           <button
                             type="button"
                             onClick={() => deleteRow(idx)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                             title="Delete row"
                           >
                             <Trash2 size={13} />
@@ -1413,219 +1382,206 @@ export default function AddDebitNote() {
                   );
                 })}
               </tbody>
+
+              {/* Table Footer Totals */}
+              <tfoot>
+                <tr className="bg-slate-100/80 font-bold text-slate-800 border-t-2 border-slate-200 text-xs">
+                  <td colSpan={visibleColumns.product_name ? 2 : 1} className="py-3 px-4 border-r border-slate-200">
+                    <button
+                      type="button"
+                      onClick={addRow}
+                      className="px-3.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs hover:bg-blue-100 transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Plus size={13} strokeWidth={2.5} />
+                      <span>ADD RETURN ITEM</span>
+                    </button>
+                  </td>
+                  {visibleColumns.quantity && (
+                    <td className="py-3 px-3 border-r border-slate-200 text-right font-mono font-black">{totalQty}</td>
+                  )}
+                  {visibleColumns.unit && (
+                    <td className="py-3 px-3 border-r border-slate-200"></td>
+                  )}
+                  {visibleColumns.price && (
+                    <td className="py-3 px-3 border-r border-slate-200 text-right font-bold text-slate-500">TOTALS</td>
+                  )}
+                  {visibleColumns.discount && (
+                    <td className="py-3 px-3 border-r border-slate-200 text-right font-mono font-bold text-slate-700">
+                      -₹{fmtCurrency(totalDiscount)}
+                    </td>
+                  )}
+                  {visibleColumns.tax && (
+                    <td className="py-3 px-3 border-r border-slate-200 text-right font-mono font-bold text-slate-700">
+                      +₹{fmtCurrency(totalTax)}
+                    </td>
+                  )}
+                  {visibleColumns.amount && (
+                    <td className="py-3 px-4 border-r border-slate-200 text-right text-sm text-blue-700 font-black font-mono">
+                      ₹{fmtCurrency(calculatedTotal)}
+                    </td>
+                  )}
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
+        </div>
+      </div>
 
-          {/* Table Footer: Add Row & Live Totals */}
-          <div className="px-6 py-3.5 bg-slate-50/70 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={addRow}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 hover:border-rose-300 hover:bg-rose-50/30 text-rose-700 text-xs font-bold shadow-2xs transition cursor-pointer"
-            >
-              <Plus size={14} className="text-rose-600" />
-              <span>Add Another Item Row</span>
-            </button>
+      {/* ── 5. SETTLEMENT & REVERSAL SUMMARY ── */}
+      <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
+        {/* Left: Settlement Mode & Return Reason (7 Cols) */}
+        <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <CreditCard size={16} className="text-blue-600" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Refund Settlement & Reason</h3>
+          </div>
 
-            <div className="flex items-center gap-6 text-xs font-bold text-slate-600">
-              <div>
-                <span className="text-slate-400 font-medium">Total Qty:</span>{" "}
-                <span className="text-slate-900">{totalQty}</span>
-              </div>
-              {totalDiscount > 0 && (
-                <div>
-                  <span className="text-slate-400 font-medium">Discount:</span>{" "}
-                  <span className="text-amber-600">-₹{fmtCurrency(totalDiscount)}</span>
-                </div>
-              )}
-              {totalTax > 0 && (
-                <div>
-                  <span className="text-slate-400 font-medium">GST Tax:</span>{" "}
-                  <span className="text-rose-600">+₹{fmtCurrency(totalTax)}</span>
-                </div>
-              )}
-              <div className="text-sm font-black text-slate-900">
-                <span className="text-slate-400 font-medium text-xs">Subtotal:</span>{" "}
-                ₹{fmtCurrency(calculatedTotal)}
-              </div>
+          {/* Refund Settlement Mode Chips */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-600 mb-2 block">Settlement Mode</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Cash", value: "Cash" },
+                { label: "Online / Bank", value: "Online" },
+                { label: "UPI", value: "UPI" },
+                { label: "Cheque", value: "Cheque" },
+                { label: "Credit Adjustment", value: "Credit" }
+              ].map((type) => {
+                const isSelected = activeTab.paymentType === type.value;
+                return (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => updateActiveTab({ paymentType: type.value })}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                      isSelected
+                        ? "app-pill-active"
+                        : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
+                    }`}
+                  >
+                    {type.label}
+                  </button>
+                );
+              })}
             </div>
+          </div>
+
+          {/* Reason / Remarks */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-600 mb-1 block">Return Reason / Notes</label>
+            <textarea
+              rows={2}
+              placeholder="Enter return reason (e.g. Defective batch, wrong shipment, price rate dispute)..."
+              value={activeTab.description}
+              onChange={(e) => updateActiveTab({ description: e.target.value })}
+              className="w-full border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-blue-500 font-medium resize-none bg-slate-50/50"
+            />
           </div>
         </div>
 
-        {/* ── SECTION 3: REFUND SETTLEMENT & HERO TOTAL ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* Left: Refund Mode & Reason / Notes (7 Cols) */}
-          <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
-                3
-              </div>
-              <h2 className="text-sm font-bold text-slate-900">Refund Settlement & Reason</h2>
+        {/* Right: Financial Reconciliation & Grand Total Billboard (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+              <DollarSign size={16} className="text-blue-600" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">Return Financial Valuation</h4>
             </div>
 
-            {/* Refund Type Selection Chips */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2">Refund Settlement Mode</label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: "Cash", value: "Cash" },
-                  { label: "Online / Bank", value: "Online" },
-                  { label: "UPI", value: "UPI" },
-                  { label: "Cheque", value: "Cheque" },
-                  { label: "Credit Adjustment", value: "Credit" }
-                ].map((type) => {
-                  const isSelected = activeTab.paymentType === type.value;
-                  return (
-                    <button
-                      key={type.value}
-                      type="button"
-                      onClick={() => updateActiveTab({ paymentType: type.value })}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                        isSelected
-                          ? "bg-rose-600 text-white border-rose-600 shadow-xs shadow-rose-600/20"
-                          : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
-                      }`}
-                    >
-                      {type.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Return Reason / Description */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-700">Reason for Return / Remarks</label>
-                {!activeTab.showDescription && (
-                  <button
-                    type="button"
-                    onClick={() => updateActiveTab({ showDescription: true })}
-                    className="text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
-                  >
-                    + Add Reason
-                  </button>
-                )}
+            <div className="space-y-3 text-xs">
+              {/* Taxable Return Value */}
+              <div className="flex items-center justify-between text-slate-600">
+                <span className="font-semibold">Taxable Return Value</span>
+                <span className="font-mono font-bold text-slate-900">
+                  ₹ {fmtCurrency(calculatedTotal - totalTax + totalDiscount)}
+                </span>
               </div>
 
-              {activeTab.showDescription ? (
-                <textarea
-                  rows="3"
-                  placeholder="e.g. Defective batch received, wrong part number delivered, overcharged rate adjustment..."
-                  value={activeTab.description}
-                  onChange={(e) => updateActiveTab({ description: e.target.value })}
-                  className="w-full p-3 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-medium text-slate-900 transition-all outline-hidden resize-none"
-                />
-              ) : (
-                <div
-                  onClick={() => updateActiveTab({ showDescription: true })}
-                  className="p-3 border border-dashed border-slate-200 rounded-xl text-slate-400 text-xs cursor-pointer hover:bg-slate-50/50 transition"
-                >
-                  Click to add reason for debit note (e.g. Quality defect, Wrong shipment, Rate dispute)...
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right: Tax Breakdown & Hero Grand Total (5 Cols) */}
-          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-900 pb-3 border-b border-slate-100">
-              Return Value Summary
-            </h2>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between text-slate-600 font-medium">
-                <span>Taxable Return Value</span>
-                <span className="font-bold text-slate-900">₹ {fmtCurrency(calculatedTotal - totalTax + totalDiscount)}</span>
-              </div>
-
+              {/* Total Discount */}
               {totalDiscount > 0 && (
-                <div className="flex items-center justify-between text-amber-600 font-medium">
-                  <span>Total Discount</span>
-                  <span className="font-bold">-₹ {fmtCurrency(totalDiscount)}</span>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span className="font-semibold">Discount Reversal</span>
+                  <span className="font-mono font-bold text-red-600">-₹ {fmtCurrency(totalDiscount)}</span>
                 </div>
               )}
 
+              {/* Total GST Tax */}
               {totalTax > 0 && (
-                <div className="flex items-center justify-between text-rose-600 font-medium">
-                  <span>Total GST Return Tax</span>
-                  <span className="font-bold">+₹ {fmtCurrency(totalTax)}</span>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span className="font-semibold">Input GST Reversal</span>
+                  <span className="font-mono font-bold text-slate-900">+₹ {fmtCurrency(totalTax)}</span>
                 </div>
               )}
 
-              {/* Round Off Toggle */}
+              {/* Auto Round Off */}
               <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
-                    checked={activeTab.roundOffEnabled}
+                    checked={Boolean(activeTab.roundOffEnabled)}
                     onChange={(e) => updateActiveTab({ roundOffEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer"
+                    className="w-4 h-4 rounded text-blue-600 cursor-pointer accent-blue-600"
                   />
-                  <span>Auto Round Off</span>
+                  <span className="font-bold text-slate-700">Auto Round-Off</span>
                 </label>
-                <span className="font-bold text-slate-600">
-                  {roundOffVal !== 0 ? (roundOffVal > 0 ? `+₹${roundOffVal.toFixed(2)}` : `-₹${Math.abs(roundOffVal).toFixed(2)}`) : "₹0.00"}
+                <span className="font-mono text-xs font-semibold text-slate-600">
+                  {roundOffVal !== 0 ? (roundOffVal > 0 ? `+₹${roundOffVal}` : `-₹${Math.abs(roundOffVal)}`) : "₹0.00"}
                 </span>
               </div>
             </div>
-
-            {/* Hero Total Box */}
-            <div className="bg-gradient-to-br from-rose-600 via-rose-700 to-red-700 rounded-2xl p-5 text-white shadow-lg shadow-rose-600/25">
-              <span className="text-xs uppercase tracking-wider font-extrabold text-rose-200 block mb-1">
-                Total Refund / Credit Value
-              </span>
-              <div className="text-2xl sm:text-3xl font-black tracking-tight">
-                ₹ {fmtCurrency(grandTotal)}
-              </div>
-              <p className="text-[11px] text-rose-100/80 mt-1">
-                {activeTab.paymentType === "Credit"
-                  ? "Will reduce supplier outstanding payable ledger"
-                  : `Will be refunded to business via ${activeTab.paymentType}`}
-              </p>
-            </div>
           </div>
 
+          {/* Grand Total Hero Banner */}
+          <div className="mt-6 pt-4 border-t border-slate-100">
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-lg shadow-blue-500/20">
+              <div className="flex items-center justify-between text-blue-100 text-[11px] font-bold uppercase tracking-wider mb-1">
+                <span>Total Debit Note Valuation</span>
+                <span className="px-2 py-0.5 rounded bg-white/15 text-white font-mono text-[10px]">Net Return</span>
+              </div>
+              <div className="text-3xl font-black font-mono tracking-tight text-white">
+                ₹ {fmtCurrency(grandTotal)}
+              </div>
+              <div className="mt-2 text-[11px] text-blue-100/90 flex items-center gap-1.5">
+                <Sparkles size={12} className="text-amber-300" />
+                <span>
+                  {activeTab.paymentType === "Credit"
+                    ? "Reduces supplier outstanding payable ledger"
+                    : `Refunded to business via ${activeTab.paymentType}`}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
 
-      </main>
-
-      {/* ── 4. STICKY BOTTOM COMMAND BAR ── */}
-      <footer className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 py-3 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          
+      {/* ── 6. STICKY COMMAND FOOTER ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-6 py-3.5 shadow-2xl flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setShowCloseModal(true)}
-            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition cursor-pointer"
+            className="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-xs font-bold transition cursor-pointer"
           >
             Discard
           </button>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleSaveDebitNote}
-              disabled={saving}
-              className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-extrabold text-xs shadow-md shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <RefreshCw size={14} className="animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <Save size={15} />
-                  <span>Save Debit Note</span>
-                </>
-              )}
-            </button>
-          </div>
-
         </div>
-      </footer>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleSaveDebitNote}
+            className="app-btn-primary px-8 py-2.5 rounded-xl text-white font-bold text-sm shadow-md shadow-blue-500/25 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
+            <span>{isEditMode ? "Update Debit Note" : "Save Debit Note"}</span>
+          </button>
+        </div>
+      </div>
 
       {/* Close Confirm Modal */}
       <CloseConfirmModal
@@ -1634,12 +1590,18 @@ export default function AddDebitNote() {
         onConfirm={() => navigate("/purchases/return")}
       />
 
-      {/* Built-in Safe Calculator Modal */}
-      <CalculatorModal
-        isOpen={showCalculator}
-        onClose={() => setShowCalculator(false)}
+      {/* Column Customization Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_ITEM_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide table columns in debit note items"
       />
-
     </div>
   );
 }

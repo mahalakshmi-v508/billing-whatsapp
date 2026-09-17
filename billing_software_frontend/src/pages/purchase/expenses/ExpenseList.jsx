@@ -9,7 +9,6 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
-  FileText,
   AlertTriangle,
   X,
   Printer,
@@ -17,20 +16,37 @@ import {
   Layers,
   Package,
   FolderPlus,
-  CheckCircle2,
-  TrendingDown,
-  ChevronRight,
-  TrendingUp,
   Receipt,
-  ArrowUpRight,
-  SlidersHorizontal,
   Folder,
   Tag,
   Share2,
   Edit,
-  Eye
+  Eye,
+  Filter,
+  Settings,
+  Calendar,
+  FileText,
+  User,
+  CreditCard,
+  DollarSign,
+  CheckCircle2,
+  SlidersHorizontal,
 } from "lucide-react";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
+
+const DEFAULT_COLUMNS = [
+  { key: "date", label: "Date", icon: Calendar, color: "text-blue-600", bg: "bg-blue-50", desc: "Expense date" },
+  { key: "voucher_no", label: "Voucher #", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Expense / Voucher number" },
+  { key: "party_name", label: "Party / Supplier", icon: User, color: "text-violet-600", bg: "bg-violet-50", desc: "Supplier / Payee name" },
+  { key: "payment_mode", label: "Payment Mode", icon: CreditCard, color: "text-purple-600", bg: "bg-purple-50", desc: "Payment method" },
+  { key: "total_amount", label: "Total Amount", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Total expense amount" },
+  { key: "balance_due", label: "Balance Due", icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50", desc: "Unpaid / Balance due" },
+  { key: "status", label: "Status", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Settlement status" },
+  { key: "actions", label: "Action", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "View, Edit, Delete" },
+];
 
 export default function ExpenseList() {
   const navigate = useNavigate();
@@ -61,6 +77,17 @@ export default function ExpenseList() {
   const [activeShareId, setActiveShareId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Column customization drawer state & persistence
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumnCount,
+  } = useTableColumns("expense_list_columns", DEFAULT_COLUMNS);
 
   // Add / Edit Category Modal
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
@@ -302,74 +329,65 @@ export default function ExpenseList() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1520px] mx-auto min-h-screen space-y-4 bg-[#f8fafc] font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 font-['Plus_Jakarta_Sans',sans-serif] space-y-4">
       
-      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
-            <Receipt size={22} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Expense Management</h1>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                {expenses.length} vouchers
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              Track operational expenses, categorize overheads and monitor spending breakdown
-            </p>
-          </div>
+      {/* ── 1. TOP HEADER ── */}
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200/80">
+        <div className="flex items-center gap-2 select-none">
+          <h1 className="text-xl font-bold text-slate-800 tracking-tight">Expense Management</h1>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 ml-2">
+            {expenses.length} vouchers
+          </span>
         </div>
 
         {/* Header Action Tools */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={fetchData}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition cursor-pointer"
             title="Refresh Data"
           >
-            <RefreshCw size={14} className={loading ? "animate-spin text-amber-600" : "text-slate-500"} />
-            <span>Refresh</span>
+            <RefreshCw size={16} className={loading ? "animate-spin text-blue-600" : ""} />
           </button>
 
           <button
             onClick={handleExportExcel}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Export Excel"
+            className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+            title="Export to Excel (.xlsx)"
           >
-            <FileSpreadsheet size={14} className="text-emerald-600" />
-            <span>Export Excel</span>
+            <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded leading-none shadow-2xs">
+              xls
+            </span>
           </button>
 
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
             title="Print View"
           >
-            <Printer size={14} className="text-slate-500" />
-            <span>Print</span>
+            <Printer size={17} />
           </button>
 
           {/* Primary CTA */}
           <button
             onClick={() => navigate("/purchases/expenses/add")}
-            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/25 transition active:scale-95 cursor-pointer"
+            className="app-btn-primary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm cursor-pointer flex items-center gap-1.5"
           >
-            <Plus size={16} strokeWidth={2.8} />
+            <Plus size={16} strokeWidth={2.5} />
             <span>+ Add Expense</span>
           </button>
+
+          <HeaderSettingsButton variant="list" onClick={() => setShowColumnDrawer(true)} />
         </div>
       </div>
 
       {/* ── 2. SEGMENTED TAB SWITCHER ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-2 shadow-xs flex items-center gap-2 w-fit">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-1.5 shadow-2xs flex items-center gap-2 w-fit">
         <button
           onClick={() => setActiveTab("CATEGORY")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold tracking-wider uppercase transition cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold tracking-wide transition cursor-pointer ${
             activeTab === "CATEGORY"
-              ? "bg-slate-900 text-white shadow-xs"
+              ? "app-pill-active"
               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
           }`}
         >
@@ -379,9 +397,9 @@ export default function ExpenseList() {
 
         <button
           onClick={() => setActiveTab("ITEMS")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold tracking-wider uppercase transition cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold tracking-wide transition cursor-pointer ${
             activeTab === "ITEMS"
-              ? "bg-slate-900 text-white shadow-xs"
+              ? "app-pill-active"
               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
           }`}
         >
@@ -394,12 +412,12 @@ export default function ExpenseList() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
         {/* ── LEFT MASTER PANEL (4 Cols) ── */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col max-h-[750px]">
+        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col max-h-[750px]">
           
           {/* Left Header */}
-          <div className="p-4 border-b border-slate-200 bg-slate-50/70 space-y-3">
+          <div className="p-4 border-b border-slate-200/80 bg-slate-50/70 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                 {activeTab === "CATEGORY" ? "Categories Directory" : "Items Master"}
               </span>
               <span className="text-[11px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
@@ -415,7 +433,7 @@ export default function ExpenseList() {
                 placeholder={activeTab === "CATEGORY" ? "Search categories..." : "Search items..."}
                 value={leftSearchQuery}
                 onChange={(e) => setLeftSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+                className="w-full pl-8 pr-3 py-1.5 text-xs font-medium bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
               />
             </div>
           </div>
@@ -440,14 +458,14 @@ export default function ExpenseList() {
                       onClick={() => setSelectedCategory(cat)}
                       className={`p-3 rounded-xl transition cursor-pointer flex items-center justify-between group ${
                         isSelected
-                          ? "bg-amber-50/80 border border-amber-200/90 shadow-xs"
+                          ? "bg-blue-50/80 border border-blue-200/90 shadow-2xs"
                           : "hover:bg-slate-50 border border-transparent"
                       }`}
                     >
                       <div className="min-w-0 pr-2">
                         <div className="flex items-center gap-2">
-                          <Folder size={14} className={isSelected ? "text-amber-600" : "text-slate-400"} />
-                          <span className={`text-xs font-bold truncate ${isSelected ? "text-amber-950" : "text-slate-800"}`}>
+                          <Folder size={14} className={isSelected ? "text-blue-600" : "text-slate-400"} />
+                          <span className={`text-xs font-bold truncate ${isSelected ? "text-blue-900" : "text-slate-800"}`}>
                             {cat.name}
                           </span>
                         </div>
@@ -464,7 +482,7 @@ export default function ExpenseList() {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-xs font-black ${isSelected ? "text-amber-900" : "text-slate-900"}`}>
+                        <span className={`text-xs font-extrabold ${isSelected ? "text-blue-900" : "text-slate-900"}`}>
                           ₹ {totalAmt.toLocaleString("en-IN")}
                         </span>
 
@@ -483,7 +501,7 @@ export default function ExpenseList() {
                           {isMenuOpen && (
                             <div
                               onClick={(e) => e.stopPropagation()}
-                              className="absolute right-0 top-full mt-1 w-32 bg-white rounded-xl shadow-2xl border border-slate-200 py-1 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                              className="absolute right-0 top-full mt-1 w-32 bg-white rounded-xl shadow-xl border border-slate-200 py-1 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                             >
                               <button
                                 onClick={(e) => {
@@ -533,7 +551,7 @@ export default function ExpenseList() {
                       onClick={() => setSelectedItem(item)}
                       className={`p-3 rounded-xl transition cursor-pointer flex items-center justify-between ${
                         isSelected
-                          ? "bg-amber-50/80 border border-amber-200/90 shadow-xs"
+                          ? "bg-blue-50/80 border border-blue-200/90 shadow-2xs"
                           : "hover:bg-slate-50 border border-transparent"
                       }`}
                     >
@@ -557,7 +575,7 @@ export default function ExpenseList() {
           </div>
 
           {/* Left Footer: + New Category Button */}
-          <div className="p-3 border-t border-slate-200 bg-slate-50/70">
+          <div className="p-3 border-t border-slate-200/80 bg-slate-50/70">
             <button
               onClick={() => {
                 setEditingCategory(null);
@@ -565,7 +583,7 @@ export default function ExpenseList() {
                 setCatTypeInput("Indirect Expense");
                 setCategoryModalOpen(true);
               }}
-              className="w-full py-2 bg-white hover:bg-slate-100 border border-dashed border-amber-400/80 text-amber-700 font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              className="w-full py-2 bg-white hover:bg-blue-50/50 border border-dashed border-blue-300 text-blue-600 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <FolderPlus size={14} />
               <span>+ Create New Category</span>
@@ -577,15 +595,15 @@ export default function ExpenseList() {
         <div className="lg:col-span-8 space-y-4">
           
           {/* Active Detail Header & KPI Blocks */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Scope</span>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 uppercase">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase">
                   {activeTab === "CATEGORY" ? selectedCategory?.type || "Direct Expense" : "Expense Item"}
                 </span>
               </div>
-              <h2 className="text-xl font-black text-slate-900 mt-1">
+              <h2 className="text-xl font-black text-slate-900 mt-1 tracking-tight">
                 {activeTab === "CATEGORY"
                   ? selectedCategory?.name || "All Expenses"
                   : selectedItem?.item_name || "All Items"}
@@ -594,20 +612,20 @@ export default function ExpenseList() {
 
             {/* KPI Cards */}
             <div className="flex items-center gap-3">
-              <div className="bg-rose-50 border border-rose-200/80 rounded-xl px-4 py-2.5 text-right">
-                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">Total Spent</span>
-                <span className="text-base font-black text-rose-900">₹ {fmtCurrency(currentTotal)}</span>
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-2 text-right">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Spent</span>
+                <span className="text-base font-black text-slate-900">₹ {fmtCurrency(currentTotal)}</span>
               </div>
 
-              <div className="bg-amber-50 border border-amber-200/80 rounded-xl px-4 py-2.5 text-right">
-                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Balance Due</span>
-                <span className="text-base font-black text-amber-900">₹ {fmtCurrency(currentBalance)}</span>
+              <div className="bg-rose-50 border border-rose-200/80 rounded-xl px-4 py-2 text-right">
+                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">Balance Due</span>
+                <span className="text-base font-black text-rose-900">₹ {fmtCurrency(currentBalance)}</span>
               </div>
             </div>
           </div>
 
           {/* Search & Transaction Controls */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs flex items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 shadow-2xs flex items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -615,7 +633,7 @@ export default function ExpenseList() {
                 placeholder="Search voucher #, party, amount..."
                 value={rightSearchQuery}
                 onChange={(e) => setRightSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+                className="w-full pl-9 pr-8 py-1.5 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
               />
               {rightSearchQuery && (
                 <button onClick={() => setRightSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -630,37 +648,67 @@ export default function ExpenseList() {
           </div>
 
           {/* Transaction Ledger Table */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-500 text-[11px] uppercase tracking-wider">
-                    <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Date</th>
-                    <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Voucher #</th>
-                    <th className="py-3 px-5 border-r border-slate-200/70 whitespace-nowrap">Party / Supplier</th>
-                    <th className="py-3 px-4 border-r border-slate-200/70 whitespace-nowrap">Payment Mode</th>
-                    <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Total Amount</th>
-                    <th className="py-3 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Balance Due</th>
-                    <th className="py-3 px-4 border-r border-slate-200/70 text-center whitespace-nowrap">Status</th>
-                    <th className="py-3 px-4 text-center whitespace-nowrap">Actions</th>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold select-none">
+                    {visibleColumns.date && (
+                      <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                        Date
+                      </th>
+                    )}
+                    {visibleColumns.voucher_no && (
+                      <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                        Voucher #
+                      </th>
+                    )}
+                    {visibleColumns.party_name && (
+                      <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
+                        Party / Supplier
+                      </th>
+                    )}
+                    {visibleColumns.payment_mode && (
+                      <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
+                        Payment Mode
+                      </th>
+                    )}
+                    {visibleColumns.total_amount && (
+                      <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                        Total Amount
+                      </th>
+                    )}
+                    {visibleColumns.balance_due && (
+                      <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                        Balance Due
+                      </th>
+                    )}
+                    {visibleColumns.status && (
+                      <th className="py-3 px-3 border-r border-slate-200 text-center whitespace-nowrap">
+                        Status
+                      </th>
+                    )}
+                    {visibleColumns.actions && (
+                      <th className="py-3 px-3 text-center whitespace-nowrap w-24">Action</th>
+                    )}
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
-                        <RefreshCw size={22} className="animate-spin text-amber-500 mx-auto mb-2" />
+                      <td colSpan={visibleColumnCount || 1} className="py-12 text-center text-slate-400">
+                        <RefreshCw size={22} className="animate-spin text-blue-600 mx-auto mb-2" />
                         <span>Loading expense vouchers...</span>
                       </td>
                     </tr>
                   ) : filteredTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-14 text-center text-slate-400">
+                      <td colSpan={visibleColumnCount || 1} className="py-14 text-center text-slate-400">
                         <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-2.5">
                           <Receipt size={22} />
                         </div>
-                        <p className="font-extrabold text-slate-700 text-sm">No Expense Transactions Found</p>
+                        <p className="font-bold text-slate-700 text-sm">No Expense Transactions Found</p>
                         <p className="text-xs text-slate-400 mt-1">No vouchers recorded for this category yet.</p>
                       </td>
                     </tr>
@@ -670,140 +718,152 @@ export default function ExpenseList() {
                       const isMenuOpen = activeTxMenuId === item.id;
 
                       return (
-                        <tr key={item.id || idx} className="group hover:bg-amber-50/30 transition-colors duration-150 text-slate-700">
+                        <tr key={item.id || idx} className="group hover:bg-[#eaedf2] transition-colors duration-150 text-slate-700 cursor-pointer">
                           {/* DATE */}
-                          <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap text-slate-600 font-semibold">
-                            {formatDateDMY(item.expense_date)}
-                          </td>
+                          {visibleColumns.date && (
+                            <td className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap text-slate-600 font-medium group-hover:text-slate-900">
+                              {formatDateDMY(item.expense_date)}
+                            </td>
+                          )}
 
                           {/* VOUCHER NO */}
-                          <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
-                            <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                              #{item.expense_no || item.id}
-                            </span>
-                          </td>
+                          {visibleColumns.voucher_no && (
+                            <td className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap font-medium text-slate-800">
+                              <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                                #{item.expense_no || item.id}
+                              </span>
+                            </td>
+                          )}
 
                           {/* PARTY NAME */}
-                          <td className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap font-bold text-slate-900">
-                            {item.party_name || "-"}
-                          </td>
+                          {visibleColumns.party_name && (
+                            <td className="py-3 px-4 border-r border-slate-200 whitespace-nowrap font-medium text-slate-800">
+                              {item.party_name || "-"}
+                            </td>
+                          )}
 
                           {/* PAYMENT TYPE */}
-                          <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
-                            <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 uppercase">
+                          {visibleColumns.payment_mode && (
+                            <td className="py-3 px-4 border-r border-slate-200 whitespace-nowrap text-slate-600 font-medium">
                               {item.payment_type || "Cash"}
-                            </span>
-                          </td>
+                            </td>
+                          )}
 
                           {/* TOTAL AMOUNT */}
-                          <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-slate-900 text-right whitespace-nowrap">
-                            ₹ {fmtCurrency(item.total_amount)}
-                          </td>
+                          {visibleColumns.total_amount && (
+                            <td className="py-3 px-4 border-r border-slate-200 font-medium text-slate-900 text-right whitespace-nowrap">
+                              ₹ {fmtCurrency(item.total_amount)}
+                            </td>
+                          )}
 
                           {/* BALANCE DUE */}
-                          <td className={`py-3.5 px-5 border-r border-slate-200/70 font-bold text-right whitespace-nowrap ${
-                            Number(item.balance_amount || 0) > 0 ? "text-rose-600" : "text-emerald-700"
-                          }`}>
-                            ₹ {fmtCurrency(item.balance_amount)}
-                          </td>
+                          {visibleColumns.balance_due && (
+                            <td className={`py-3 px-4 border-r border-slate-200 font-semibold text-right whitespace-nowrap ${
+                              Number(item.balance_amount || 0) > 0 ? "text-rose-600" : "text-emerald-600"
+                            }`}>
+                              ₹ {fmtCurrency(item.balance_amount)}
+                            </td>
+                          )}
 
                           {/* STATUS */}
-                          <td className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap font-bold">
-                            {isPaid ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                Paid
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                Partial
-                              </span>
-                            )}
-                          </td>
+                          {visibleColumns.status && (
+                            <td className="py-3 px-3 border-r border-slate-200 text-center whitespace-nowrap">
+                              {isPaid ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wide border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                  Paid
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wide border bg-amber-50 text-amber-700 border-amber-200">
+                                  Partial
+                                </span>
+                              )}
+                            </td>
+                          )}
 
                           {/* ACTIONS */}
-                          <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                              {/* Print POS / Preview */}
-                              <button
-                                onClick={() => navigate(`/invoice/${item.expense_no || item.id}`)}
-                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                                title="Print"
-                              >
-                                <Printer size={15} />
-                              </button>
-
-                              {/* Share Icon with Popover */}
-                              <div className="relative">
+                          {visibleColumns.actions && (
+                            <td className="py-3 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-center gap-1 text-slate-400">
+                                {/* Print POS / Preview */}
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveShareId(activeShareId === item.id ? null : item.id);
-                                  }}
-                                  className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                                  title="Share"
+                                  onClick={() => navigate(`/invoice/${item.expense_no || item.id}`)}
+                                  className="p-1 hover:text-blue-600 hover:bg-slate-200/60 rounded transition cursor-pointer"
+                                  title="Print"
                                 >
-                                  <Share2 size={15} />
-                                </button>
-                                <ShareTransactionPopover
-                                  isOpen={activeShareId === item.id}
-                                  onClose={() => setActiveShareId(null)}
-                                  transaction={item}
-                                  type="Expense"
-                                />
-                              </div>
-
-                              {/* 3-Dot More Menu */}
-                              <div data-menu-container className="relative">
-                                <button
-                                  onClick={() => setActiveTxMenuId(isMenuOpen ? null : item.id)}
-                                  className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                                  title="More actions"
-                                >
-                                  <MoreVertical size={15} />
+                                  <Printer size={15} />
                                 </button>
 
-                                {isMenuOpen && (
-                                  <div
-                                    className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                                {/* Share Icon with Popover */}
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveShareId(activeShareId === item.id ? null : item.id);
+                                    }}
+                                    className="p-1 hover:text-blue-600 hover:bg-slate-200/60 rounded transition cursor-pointer"
+                                    title="Share"
                                   >
-                                    <button
-                                      onClick={() => {
-                                        setActiveTxMenuId(null);
-                                        navigate(`/purchases/expenses/edit/${item.id}`);
-                                      }}
-                                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                    <Share2 size={15} />
+                                  </button>
+                                  <ShareTransactionPopover
+                                    isOpen={activeShareId === item.id}
+                                    onClose={() => setActiveShareId(null)}
+                                    transaction={item}
+                                    type="Expense"
+                                  />
+                                </div>
+
+                                {/* 3-Dot More Menu */}
+                                <div data-menu-container className="relative">
+                                  <button
+                                    onClick={() => setActiveTxMenuId(isMenuOpen ? null : item.id)}
+                                    className="p-1 hover:text-slate-700 hover:bg-slate-200/60 rounded transition cursor-pointer"
+                                    title="More actions"
+                                  >
+                                    <MoreVertical size={15} />
+                                  </button>
+
+                                  {isMenuOpen && (
+                                    <div
+                                      className="absolute right-0 top-7 w-36 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-40 text-left animate-in fade-in zoom-in-95 duration-100"
                                     >
-                                      <Edit size={14} className="text-blue-600" />
-                                      <span>Edit</span>
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setActiveTxMenuId(null);
-                                        navigate(`/invoice/${item.expense_no || item.id}`);
-                                      }}
-                                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
-                                    >
-                                      <Eye size={14} className="text-slate-600" />
-                                      <span>View Receipt</span>
-                                    </button>
-                                    <div className="border-t border-slate-100 my-1" />
-                                    <button
-                                      onClick={() => {
-                                        setActiveTxMenuId(null);
-                                        setDeleteTarget(item);
-                                      }}
-                                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
-                                    >
-                                      <Trash2 size={14} className="text-red-600" />
-                                      <span className="text-red-600">Delete</span>
-                                    </button>
-                                  </div>
-                                )}
+                                      <button
+                                        onClick={() => {
+                                          setActiveTxMenuId(null);
+                                          navigate(`/purchases/expenses/edit/${item.id}`);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
+                                      >
+                                        <Edit size={13} className="text-blue-600" />
+                                        <span>Edit</span>
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setActiveTxMenuId(null);
+                                          navigate(`/invoice/${item.expense_no || item.id}`);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
+                                      >
+                                        <Eye size={13} className="text-slate-500" />
+                                        <span>View Receipt</span>
+                                      </button>
+                                      <div className="border-t border-slate-100 my-1" />
+                                      <button
+                                        onClick={() => {
+                                          setActiveTxMenuId(null);
+                                          setDeleteTarget(item);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 cursor-pointer font-medium"
+                                      >
+                                        <Trash2 size={13} />
+                                        <span>Delete</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </td>
+                            </td>
+                          )}
                         </tr>
                       );
                     })
@@ -828,7 +888,7 @@ export default function ExpenseList() {
           >
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-bold">
                   <FolderPlus size={18} />
                 </div>
                 <div>
@@ -856,7 +916,7 @@ export default function ExpenseList() {
                   placeholder="e.g., Office Rent, Fuel, Electricity"
                   value={catNameInput}
                   onChange={(e) => setCatNameInput(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-900 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition bg-slate-50/50 focus:bg-white"
                   required
                 />
               </div>
@@ -868,7 +928,7 @@ export default function ExpenseList() {
                 <select
                   value={catTypeInput}
                   onChange={(e) => setCatTypeInput(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-800 text-xs outline-none focus:border-amber-600 transition bg-white"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 font-bold text-slate-800 text-xs outline-none focus:border-blue-600 transition bg-white"
                 >
                   <option value="Indirect Expense">Indirect Expense (Overheads, Utilities)</option>
                   <option value="Direct Expense">Direct Expense (COGS, Raw Materials)</option>
@@ -879,14 +939,14 @@ export default function ExpenseList() {
                 <button
                   type="button"
                   onClick={() => setCategoryModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingCat}
-                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/25 transition cursor-pointer disabled:opacity-50"
+                  className="app-btn-primary h-9 px-5 rounded-xl text-xs font-semibold shadow-sm cursor-pointer disabled:opacity-50"
                 >
                   {savingCat ? "Saving..." : "Save Category"}
                 </button>
@@ -924,7 +984,7 @@ export default function ExpenseList() {
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -941,6 +1001,18 @@ export default function ExpenseList() {
         </div>
       )}
 
+      {/* Column Customization Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide table columns in expense transactions"
+      />
     </div>
   );
 }

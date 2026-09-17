@@ -732,40 +732,8 @@ export default function PartyStatement() {
               <tr>
                 {COLUMNS.map((col) => (
                   <th key={col.key} style={{ ...thStyle, width: col.width, minWidth: col.width }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center" }}>
                       <span>{col.label}</span>
-                      {col.sortable && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleSort(col.key); }}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex" }}
-                        >
-                          {sortCol === col.key ? (
-                            sortDir === "asc" ? <ArrowUp size={12} color="#94a3b8" /> : <ArrowDown size={12} color="#94a3b8" />
-                          ) : (
-                            <ArrowUpDown size={12} color="#cbd5e1" />
-                          )}
-                        </button>
-                      )}
-                      {col.filterable && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setFilterOpen(filterOpen === col.key ? null : col.key); }}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", position: "relative" }}
-                        >
-                          <Filter size={12} color={filterOpen === col.key ? INDIGO : "#cbd5e1"} />
-                          {filterOpen === col.key && (
-                            <div style={filterPopupStyle} onClick={(e) => e.stopPropagation()}>
-                              <div style={{ padding: 10 }}>
-                                <input
-                                  value={colText[col.key] || ""}
-                                  onChange={(e) => setColText((p) => ({ ...p, [col.key]: e.target.value }))}
-                                  placeholder={`Filter ${col.label.toLowerCase()}...`}
-                                  style={{ width: "100%", padding: "6px 8px", border: `1px solid ${LIGHT_BORDER}`, borderRadius: 6, fontSize: 12, outline: "none", boxSizing: "border-box" }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </button>
-                      )}
                     </div>
                   </th>
                 ))}
