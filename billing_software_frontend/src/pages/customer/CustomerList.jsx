@@ -696,29 +696,33 @@ export default function CustomerList() {
             {/* customer info + collect button */}
             {selectedCustomer && (
               <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/40">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                    <h2 className="text-lg font-extrabold text-slate-900">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3.5">
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-extrabold text-slate-900 truncate">
                       {selectedCustomer.name}
                     </h2>
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 mt-1 font-medium">
-                      <span className="flex items-center gap-1.5"><Phone size={13} className="text-slate-400" /> {selectedCustomer.phone}</span>
+                    <div className="flex flex-col gap-0.5 text-xs text-slate-500 mt-1 font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <Phone size={13} className="text-slate-400" /> {selectedCustomer.phone}
+                      </span>
                       {selectedCustomer.address && (
-                        <span className="flex items-center gap-1.5"><MapPin size={13} className="text-slate-400" /> {selectedCustomer.address}</span>
+                        <span className="flex items-center gap-1.5">
+                          <MapPin size={13} className="text-slate-400" /> {selectedCustomer.address}
+                        </span>
                       )}
                     </div>
                   </div>
 
-                  {/* RIGHT side: pending badge + collect button + edit */}
-                  <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* RIGHT side: pending badge + send reminder + payment history + collect payment + edit in ONE neat line */}
+                  <div className="flex items-center gap-2.5 flex-nowrap overflow-x-auto max-w-full flex-shrink-0 py-0.5">
 
                     {/* pending badge */}
                     {totalPending > 0 && (
-                      <div className="bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 text-center">
-                        <div className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">
-                          Pending
+                      <div className="bg-rose-50 border border-rose-200 rounded-2xl px-4 py-1.5 text-center flex-shrink-0">
+                        <div className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">
+                          PENDING
                         </div>
-                        <div className="text-base font-black text-rose-700">
+                        <div className="text-base font-black text-rose-600 leading-tight">
                           ₹{fmt(totalPending)}
                         </div>
                       </div>
@@ -726,57 +730,67 @@ export default function CustomerList() {
 
                     {/* advance badge */}
                     {Number(selectedCustomer.advance_balance || 0) > 0 && (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 text-center">
-                        <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
-                          Advance Balance
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-1.5 text-center flex-shrink-0">
+                        <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
+                          ADVANCE
                         </div>
-                        <div className="text-base font-black text-emerald-700">
+                        <div className="text-base font-black text-emerald-600 leading-tight">
                           ₹{fmt(selectedCustomer.advance_balance)}
                         </div>
                       </div>
                     )}
 
-                    {/* Send Reminder Button */}
+                    {/* Send Reminder Button (Double line text) */}
                     {totalPending > 0 && (
                       <button
                         onClick={sendCustomerReminder}
                         disabled={sendingReminder}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer disabled:opacity-50"
+                        className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50 flex-shrink-0"
                       >
-                        <MessageCircle size={15}/>
-                        <span>{sendingReminder ? "Sending..." : "Send Reminder"}</span>
+                        <MessageCircle size={15} />
+                        <span className="flex flex-col text-left leading-tight font-bold">
+                          <span>Send</span>
+                          <span>Reminder</span>
+                        </span>
                       </button>
                     )}
 
-                    {/* Payment History Button */}
+                    {/* Payment History Button (Double line text) */}
                     <button
                       onClick={() => openCustomerHistoryModal(selectedCustomer)}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
+                      className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer flex-shrink-0"
                     >
-                      <History size={14}/>
-                      <span>Payment History</span>
+                      <History size={15} />
+                      <span className="flex flex-col text-left leading-tight font-bold">
+                        <span>Payment</span>
+                        <span>History</span>
+                      </span>
                     </button>
 
-                    {/* collect button */}
+                    {/* Collect Payment Button (Double line text) */}
                     {totalPending > 0 && (
                       <button
                         onClick={openCollect}
-                        className="app-btn-primary h-9 px-3.5 rounded-xl text-xs font-semibold cursor-pointer"
+                        className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold shadow-xs transition cursor-pointer flex-shrink-0"
                       >
-                        <Wallet size={14}/>
-                        <span>Collect Payment</span>
+                        <Wallet size={15} />
+                        <span className="flex flex-col text-left leading-tight font-bold">
+                          <span>Collect</span>
+                          <span>Payment</span>
+                        </span>
                       </button>
                     )}
 
+                    {/* Edit Customer Button after Collect Payment */}
                     <button
                       onClick={() => {
                         setEditCustomerId(selectedCustomer.id);
                         setShowEditModal(true);
                       }}
-                      className="w-9 h-9 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition cursor-pointer"
+                      className="w-9 h-9 rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer flex-shrink-0"
                       title="Edit Customer"
                     >
-                      <Pencil size={15}/>
+                      <Pencil size={15} />
                     </button>
                   </div>
                 </div>
