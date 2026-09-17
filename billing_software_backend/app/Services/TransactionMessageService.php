@@ -37,6 +37,7 @@ class TransactionMessageService
         'sale_fa'            => 'Sale FA',
         'purchase_fa'        => 'Purchase FA',
         'royalty_points'     => 'Royalty Points',
+        'credit_due'         => 'Credit Due',
     ];
 
     /** Token supported inside templates. */
@@ -52,6 +53,8 @@ class TransactionMessageService
         'Invoice_Link',
         'Payment_Link',
         'Royalty_Points',
+        'Due_Date',
+        'Credit_Days',
     ];
 
     /** Tokens that get special line-level handling based on settings/values. */
@@ -78,6 +81,7 @@ class TransactionMessageService
         'sale_fa' => "Greetings from [Firm_Name]\n\nWe are pleased to inform you about your fixed asset sale.\n\nTransaction Type: [Transaction_Type]\nVoucher Number: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
         'purchase_fa' => "Greetings from [Firm_Name]\n\nFixed asset purchase details are as follows:\n\nTransaction Type: [Transaction_Type]\nVoucher Number: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
         'royalty_points' => "Congratulations [Party_Name]!\n\nYou have earned [Royalty_Points] Royalty Points.\n\nThank you for being our valued customer at [Firm_Name].\n\nWe look forward to serving you again.\n\nRegards,\n[Firm_Name]",
+        'credit_due' => "Dear [Party_Name],\n\nYour credit period of [Credit_Days] days has ended.\n\nInvoice No: [Invoice_Number]\nBalance Due: Rs.[Transaction_Balance]\n\nPlease make the payment at your earliest convenience.\n\nRegards,\n[Firm_Name]",
     ];
 
     /** Second default template per type (Template 2), seeded into template_2. */
@@ -98,6 +102,7 @@ class TransactionMessageService
         'sale_fa' => "Dear [Party_Name],\n\nWe are pleased to confirm the sale of the fixed asset.\n\nSale Details:\nVoucher No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
         'purchase_fa' => "Dear [Party_Name],\n\nWe have recorded the purchase of a fixed asset.\n\nPurchase Details:\nVoucher No: [Invoice_Number]\nAmount: Rs.[Invoice_Amount]\n\nRegards,\n[Firm_Name]",
         'royalty_points' => "Dear [Party_Name],\n\nGreat news! You now have [Royalty_Points] Royalty Points with [Firm_Name].\n\nKeep shopping with us to earn more reward points.\n\nThank you!\n[Firm_Name]",
+        'credit_due' => "Dear [Party_Name],\n\nThis is a friendly reminder that the credit period for invoice [Invoice_Number] has ended.\n\nOutstanding Balance: Rs.[Transaction_Balance]\nDue Date: [Due_Date]\n\nKindly clear the dues to keep your account in good standing.\n\nThank you,\n[Firm_Name]",
     ];
 
     public function types(): array
@@ -142,7 +147,9 @@ class TransactionMessageService
             'send_to_party' => true,
             'send_transaction_update' => false,
             'send_copy_to_self' => false,
-            'party_balance_in_msg' => false,
+            // Credit Due reminders center on the outstanding amount, so the
+            // balance line renders by default (still user-togglable per type).
+            'party_balance_in_msg' => $type === 'credit_due',
             'web_invoice_link_in_msg' => true,
             'payment_link_in_msg' => false,
             'template' => $this->defaultTemplate($type),
@@ -185,6 +192,7 @@ class TransactionMessageService
                     'custom_template' => isset($row['custom_template']) ? (string) $row['custom_template'] : ($existing->custom_template ?? ''),
                     'selected_template' => $selected,
                     'royalty_points_threshold' => isset($row['royalty_points_threshold']) ? $this->intThreshold($row['royalty_points_threshold'], $existing->royalty_points_threshold ?? null) : ($existing->royalty_points_threshold ?? null),
+                    'credit_days' => isset($row['credit_days']) ? $this->intThreshold($row['credit_days'], $existing->credit_days ?? null) : ($existing->credit_days ?? null),
                 ]
             );
             $saved += $setting ? 1 : 0;
@@ -500,6 +508,12 @@ class TransactionMessageService
             $record = Purchase::where('company_id', $companyId)->orderBy('id', 'desc')->first();
         } elseif ($type === 'sales') {
             $record = Invoice::where('company_id', $companyId)->orderBy('id', 'desc')->first();
+        } elseif ($type === 'credit_due') {
+            $record = Invoice::where('company_id', $companyId)
+                ->where('payment_type', 'credit')
+                ->where('balance_amount', '>', 0)
+                ->orderBy('id', 'desc')
+                ->first();
         } else {
             $record = null;
         }
@@ -683,6 +697,165 @@ class TransactionMessageService
         }
     }
 
+    /**
+     * Pure date rule for the Credit Due reminder.
+     *
+     * Configured credit days = N  =>  expiry is the Nth day (credit start + N-1).
+     * A reminder is eligible only AFTER the credit period expires:
+     *   send when  today > credit_expiry_date  (i.e. today = start + N days or later).
+     */
+    public static function creditDueEligibility(\Illuminate\Support\Carbon $start, int $creditDays, \Illuminate\Support\Carbon $today): bool
+    {
+        if ($creditDays <= 0) {
+            return false;
+        }
+        $expiry = (clone $start)->startOfDay()->addDays($creditDays - 1);
+        return $today->startOfDay()->gt($expiry);
+    }
+
+    /**
+     * Evaluate one credit invoice for the Credit Due reminder and send it if
+     * every condition holds (enabled + balance + period expired + phone + dedup).
+     *
+     * Returns a status array so the scheduled check can aggregate results.
+     */
+    public function handleCreditDue(int $companyId, Invoice $invoice, int $creditDays, ?\Illuminate\Support\Carbon $today = null): array
+    {
+        try {
+            if ($creditDays <= 0) {
+                return ['status' => 'skipped', 'reason' => 'no_credit_days'];
+            }
+            if (($invoice->payment_type ?? '') !== 'credit') {
+                return ['status' => 'skipped', 'reason' => 'not_credit'];
+            }
+            if ((float) ($invoice->balance_amount ?? 0) <= 0) {
+                return ['status' => 'skipped', 'reason' => 'balance_zero'];
+            }
+
+            $start = \Illuminate\Support\Carbon::parse($invoice->created_at ?? now())->startOfDay();
+            if (!$this->creditDueEligibility($start, $creditDays, $today ?? \Illuminate\Support\Carbon::now())) {
+                return ['status' => 'skipped', 'reason' => 'not_due'];
+            }
+
+            $customer = null;
+            $phone = trim((string) ($invoice->customer_phone ?? ''));
+            if ($phone === '') {
+                $customer = $invoice->customer_id ? Customer::find($invoice->customer_id) : null;
+                $phone = trim((string) ($customer->phone ?? ''));
+            }
+            if ($phone === '') {
+                return ['status' => 'skipped', 'reason' => 'no_phone'];
+            }
+
+            $txnNo = trim((string) ($invoice->invoice_no ?? ''));
+            if ($txnNo === '') {
+                return ['status' => 'skipped', 'reason' => 'no_txn_no'];
+            }
+
+            // Dedup: the same credit/invoice cycle must never receive the
+            // reminder more than once (recorded only on successful send).
+            $alreadySent = TransactionMessageAutoSend::where('company_id', $companyId)
+                ->where('transaction_type', 'credit_due')
+                ->where('txn_no', $txnNo)
+                ->exists();
+            if ($alreadySent) {
+                return ['status' => 'skipped', 'reason' => 'already_sent'];
+            }
+
+            $firm = $this->firm($companyId);
+            $due = $invoice->due_date
+                ?: $start->copy()->addDays($creditDays)->format('Y-m-d');
+
+            $ctx = [
+                'firm_name'           => $firm['name'],
+                'transaction_type'    => self::TYPES['credit_due'],
+                'party_name'          => trim((string) ($invoice->customer_name ?? '')) ?: trim((string) ($customer->name ?? '')),
+                'party_phone'         => $phone,
+                'txn_no'              => $txnNo,
+                'invoice_amount'      => $this->money($invoice->total_amount ?? 0),
+                'transaction_balance' => $this->money($invoice->balance_amount ?? 0),
+                'payment_amount'      => $this->money($invoice->paid_amount ?? 0),
+                'payment_mode'        => ucwords(str_replace('_', ' ', ($invoice->payment_method ?? 'Credit'))),
+                'invoice_link'        => $this->invoiceLink($txnNo),
+                'payment_link'        => '',
+                'royalty_points'      => '',
+                'due_date'            => (string) $due,
+                'credit_days'         => (string) $creditDays,
+            ];
+
+            $result = $this->autoSend($companyId, 'credit_due', $ctx, $phone);
+
+            if ($result) {
+                \Log::info("[TransactionMessage] credit-due sent: company={$companyId} invoice={$txnNo} phone={$phone} days={$creditDays}");
+                return ['status' => 'sent', 'result' => $result];
+            }
+
+            // autoSend returned null (e.g. WhatsApp disconnected). Do NOT mark
+            // as sent - the next scheduled run retries.
+            return ['status' => 'failed', 'reason' => 'send_failed'];
+        } catch (\Throwable $e) {
+            \Log::warning("[TransactionMessage] credit-due handler: " . $e->getMessage());
+            return ['status' => 'skipped', 'reason' => 'error', 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Scheduled daily check across companies.
+     *
+     * Finds every company that has a credit_due setting row and, when the
+     * Credit Due auto-send is enabled with a configured credit period, sends
+     * the reminder for each outstanding credit invoice past its period.
+     */
+    public function checkCreditDueReminders(int $companyId = 0): array
+    {
+        $stats = [
+            'companies_checked' => 0,
+            'invoices_evaluated' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'skipped' => [],
+        ];
+
+        $query = TransactionMessageSetting::where('transaction_type', 'credit_due');
+        if ($companyId > 0) {
+            $query->where('company_id', $companyId);
+        }
+        $companyIds = $query->pluck('company_id')->unique()->values()->all();
+
+        $today = \Illuminate\Support\Carbon::now();
+
+        foreach ($companyIds as $cid) {
+            $setting = $this->getOrInit($cid, 'credit_due');
+            if (!$setting->auto_send) {
+                $stats['skipped']['not_enabled'] = ($stats['skipped']['not_enabled'] ?? 0) + 1;
+                continue;
+            }
+            $creditDays = (int) ($setting->credit_days ?? 0);
+            $stats['companies_checked']++;
+
+            $invoices = Invoice::where('company_id', $cid)
+                ->where('payment_type', 'credit')
+                ->where('balance_amount', '>', 0)
+                ->orderBy('id')
+                ->get();
+
+            foreach ($invoices as $invoice) {
+                $stats['invoices_evaluated']++;
+                $result = $this->handleCreditDue($cid, $invoice, $creditDays, $today);
+                $reason = $result['reason'] ?? ($result['status'] ?? 'processed');
+                if ($result['status'] === 'sent') {
+                    $stats['sent']++;
+                } elseif ($result['status'] === 'failed') {
+                    $stats['failed']++;
+                } else {
+                    $stats['skipped'][$reason] = ($stats['skipped'][$reason] ?? 0) + 1;
+                }
+            }
+        }
+
+        return $stats;
+    }
+
     // ── CONTEXT BUILDERS ────────────────────────────────────────────────
 
     private function buildContext(int $companyId, string $type, $record): array
@@ -701,6 +874,8 @@ class TransactionMessageService
             'invoice_link' => '',
             'payment_link' => '',
             'royalty_points' => '',
+            'due_date' => '',
+            'credit_days' => '',
         ];
 
         switch ($type) {
@@ -782,6 +957,24 @@ class TransactionMessageService
                 $base['payment_mode'] = ucwords(str_replace('_', ' ', ($record->payment_type ?? 'Cash')));
                 break;
 
+            case 'credit_due':
+                $setting = $this->getOrInit($companyId, 'credit_due');
+                $creditDays = max(1, (int) ($setting->credit_days ?? 0));
+                $start = \Illuminate\Support\Carbon::parse($record->created_at ?? now())->startOfDay();
+                $due = $record->due_date
+                    ?: $start->copy()->addDays($creditDays)->format('Y-m-d');
+                $base['party_name'] = $record->customer_name ?? '';
+                $base['party_phone'] = $record->customer_phone ?? '';
+                $base['txn_no'] = $record->invoice_no ?? '';
+                $base['invoice_amount'] = $this->money($record->total_amount ?? 0);
+                $base['transaction_balance'] = $this->money($record->balance_amount ?? 0);
+                $base['payment_amount'] = $this->money($record->paid_amount ?? 0);
+                $base['payment_mode'] = ucwords(str_replace('_', ' ', ($record->payment_method ?? 'Credit')));
+                $base['invoice_link'] = $this->invoiceLink($record->invoice_no ?? '');
+                $base['due_date'] = (string) $due;
+                $base['credit_days'] = (string) $creditDays;
+                break;
+
             default:
                 // Types without entities fall back to an example context.
                 return $this->exampleContext($companyId, $type);
@@ -794,6 +987,8 @@ class TransactionMessageService
     {
         $firm = $this->firm($companyId);
         $isPurchaseSide = in_array($type, ['purchase', 'purchase_order', 'purchase_return', 'purchase_fa', 'payment_out'], true);
+        $isCreditDue = $type === 'credit_due';
+        $sampleCreditDays = $isCreditDue ? max(1, (int) ($this->getOrInit($companyId, 'credit_due')->credit_days ?? 30)) : 0;
 
         return [
             'firm_name' => $firm['name'],
@@ -814,6 +1009,7 @@ class TransactionMessageService
                 'sale_fa' => 'SFA-0001',
                 'purchase_fa' => 'PFA-0001',
                 'royalty_points' => 'INV-0001',
+                'credit_due' => 'INV-0001',
                 default => 'DOC-0001',
             },
             'invoice_amount' => '1,000.00',
@@ -823,6 +1019,8 @@ class TransactionMessageService
             'invoice_link' => \Illuminate\Support\Str::endsWith(trim($firm['base_url'] ?? ''), '/') ? $firm['base_url'] . 'invoice/web/SAMPLE-INV' : ($firm['base_url'] ?? '') . '/invoice/web/SAMPLE-INV',
             'payment_link' => '',
             'royalty_points' => '100',
+            'due_date' => $isCreditDue ? date('Y-m-d', strtotime("+{$sampleCreditDays} days")) : '',
+            'credit_days' => $isCreditDue ? (string) $sampleCreditDays : '',
         ];
     }
 
@@ -950,6 +1148,8 @@ class TransactionMessageService
             '[Invoice_Link]' => $ctx['invoice_link'] ?? '',
             '[Payment_Link]' => $ctx['payment_link'] ?? '',
             '[Royalty_Points]' => $ctx['royalty_points'] ?? '',
+            '[Due_Date]' => $ctx['due_date'] ?? '',
+            '[Credit_Days]' => $ctx['credit_days'] ?? '',
         ];
         return str_replace(array_keys($map), array_values($map), $text);
     }
