@@ -10,7 +10,6 @@ import {
   Trash2,
   Calendar,
   ChevronDown,
-  Calculator,
   Search,
   RefreshCw,
   ArrowLeft,
@@ -181,8 +180,6 @@ export default function AddCreditNote() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [toast, setToast] = useState(null);
-  const [calcOpen, setCalcOpen] = useState(false);
-  const [calcInput, setCalcInput] = useState("");
 
   // Load products list & prefetch customer list & initialize return no
   useEffect(() => {
@@ -581,21 +578,6 @@ export default function AddCreditNote() {
               isActive={showColumnDrawer}
             />
 
-            {/* Quick Calculator */}
-            <button
-              type="button"
-              onClick={() => setCalcOpen(!calcOpen)}
-              className={`p-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition cursor-pointer ${
-                calcOpen
-                  ? "bg-blue-50 border-blue-300 text-blue-600"
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
-              title="Toggle Quick Calculator"
-            >
-              <Calculator size={15} />
-              <span className="hidden md:inline">Calculator</span>
-            </button>
-
             {/* Close Page */}
             <button
               type="button"
@@ -608,58 +590,6 @@ export default function AddCreditNote() {
           </div>
         </div>
       </div>
-
-      {/* Quick Calculator Popover */}
-      {calcOpen && (
-        <div className="fixed right-6 top-16 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 w-64 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
-            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Calculator size={13} className="text-blue-600" /> Quick Calculator
-            </span>
-            <button onClick={() => setCalcOpen(false)} className="text-slate-400 hover:text-slate-600">
-              <X size={13} />
-            </button>
-          </div>
-          <input
-            type="text"
-            value={calcInput}
-            onChange={(e) => setCalcInput(e.target.value)}
-            placeholder="e.g. 500 * 2"
-            className="w-full text-right font-mono font-bold text-sm bg-slate-50 border border-slate-200 rounded-lg p-2 mb-3 outline-none focus:border-blue-500"
-          />
-          <div className="grid grid-cols-4 gap-1.5 text-xs font-semibold">
-            {["7","8","9","/","4","5","6","*","1","2","3","-","0",".","=","+"].map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => {
-                  if (k === "=") {
-                    try {
-                      const sanitized = calcInput.replace(/[^0-9+\-*/.]/g, "");
-                      // eslint-disable-next-line no-eval
-                      const res = Function(`'use strict'; return (${sanitized})`)();
-                      setCalcInput(String(res));
-                    } catch {
-                      setCalcInput("Error");
-                    }
-                  } else {
-                    setCalcInput((prev) => prev + k);
-                  }
-                }}
-                className={`py-2 rounded-lg text-center font-mono ${
-                  k === "="
-                    ? "bg-blue-600 text-white col-span-1 hover:bg-blue-700"
-                    : ["/","*","-","+"].includes(k)
-                    ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── 2. WORKSPACE HEADER BANNER ── */}
       <div className="px-6 md:px-8 pt-6 pb-4">

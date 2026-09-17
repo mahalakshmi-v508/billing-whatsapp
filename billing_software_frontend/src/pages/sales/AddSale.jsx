@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import {
-  X, Plus, Calculator, Settings, Calendar, ChevronDown, Check,
+  X, Plus, Settings, Calendar, ChevronDown, Check,
   Trash2, AlignLeft, Image, Paperclip, BarChart2,
   Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap, ChevronsUpDown, TrendingUp, ShieldAlert,
   Search, RotateCcw, GripVertical, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
@@ -138,106 +138,6 @@ function CloseSaleModal({ isOpen, onCancel, onConfirm }) {
   );
 }
 
-/* ── Mini Calculator Component ───────────────────────────────────────────── */
-function CalculatorModal({ isOpen, onClose }) {
-  const [calcInput, setCalcInput] = useState("0");
-  const [prevVal, setPrevVal] = useState(null);
-  const [operation, setOperation] = useState(null);
-  const [resetNext, setResetNext] = useState(false);
-
-  if (!isOpen) return null;
-
-  const handleNum = (n) => {
-    if (calcInput === "0" || resetNext) {
-      setCalcInput(String(n));
-      setResetNext(false);
-    } else {
-      setCalcInput(calcInput + String(n));
-    }
-  };
-
-  const calculate = (a, b, op) => {
-    switch (op) {
-      case "+": return a + b;
-      case "-": return a - b;
-      case "×": return a * b;
-      case "÷": return b !== 0 ? a / b : 0;
-      default: return b;
-    }
-  };
-
-  const handleOp = (op) => {
-    const current = parseFloat(calcInput);
-    if (prevVal === null) {
-      setPrevVal(current);
-    } else if (operation) {
-      const res = calculate(prevVal, current, operation);
-      setPrevVal(res);
-      setCalcInput(String(res));
-    }
-    setOperation(op);
-    setResetNext(true);
-  };
-
-  const handleEquals = () => {
-    if (operation && prevVal !== null) {
-      const current = parseFloat(calcInput);
-      const res = calculate(prevVal, current, operation);
-      setCalcInput(String(res));
-      setPrevVal(null);
-      setOperation(null);
-      setResetNext(true);
-    }
-  };
-
-  const handleClear = () => {
-    setCalcInput("0");
-    setPrevVal(null);
-    setOperation(null);
-    setResetNext(false);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-72 shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="px-4 py-3 bg-slate-900 text-white flex justify-between items-center">
-          <span className="font-bold text-xs">Calculator</span>
-          <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X size={15} /></button>
-        </div>
-        <div className="p-4 bg-slate-50 text-right text-2xl font-black text-slate-900 min-h-[56px] border-b border-slate-200">
-          {calcInput}
-        </div>
-        <div className="grid grid-cols-4 gap-2 p-3 bg-white">
-          {["C", "÷", "×", "-"].map(btn => (
-            <button key={btn} onClick={() => btn === "C" ? handleClear() : handleOp(btn)}
-              className="py-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-xs text-blue-600 hover:bg-slate-100 transition cursor-pointer">
-              {btn}
-            </button>
-          ))}
-          {[7, 8, 9, "+"].map(btn => (
-            <button key={btn} onClick={() => typeof btn === "number" ? handleNum(btn) : handleOp(btn)}
-              className={`py-2.5 rounded-xl border transition cursor-pointer font-bold text-xs ${typeof btn === "number" ? "border-slate-200 bg-white text-slate-800 hover:bg-slate-50" : "border-slate-200 bg-slate-50 text-blue-600"}`}>
-              {btn}
-            </button>
-          ))}
-          {[4, 5, 6, "="].map(btn => (
-            <button key={btn} onClick={() => typeof btn === "number" ? handleNum(btn) : handleEquals()}
-              className={`py-2.5 rounded-xl border transition cursor-pointer font-bold text-xs ${btn === "=" ? "bg-blue-600 text-white border-blue-600 shadow-sm" : "border-slate-200 bg-white text-slate-800 hover:bg-slate-50"}`}>
-              {btn}
-            </button>
-          ))}
-          {[1, 2, 3, 0].map(btn => (
-            <button key={btn} onClick={() => handleNum(btn)}
-              className="py-2.5 rounded-xl border border-slate-200 bg-white font-bold text-xs text-slate-800 hover:bg-slate-50 transition cursor-pointer">
-              {btn}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT: ADD SALE (BILLING & POS COMMERCIAL WORKSPACE)
 ══════════════════════════════════════════════════════════════════════════ */
@@ -287,7 +187,6 @@ export default function AddSale() {
   const [itemSearchQuery, setItemSearchQuery] = useState("");
 
   /* ── UI Utilities ── */
-  const [showCalculator, setShowCalculator] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [unlistedProductsWarning, setUnlistedProductsWarning] = useState(null);
@@ -1068,14 +967,6 @@ export default function AddSale() {
           />
 
           <button
-            onClick={() => setShowCalculator(true)}
-            className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition cursor-pointer shadow-2xs"
-            title="Calculator"
-          >
-            <Calculator size={16} />
-          </button>
-
-          <button
             onClick={() => setShowCloseConfirm(true)}
             className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition cursor-pointer shadow-2xs"
             title="Close Sale"
@@ -1769,9 +1660,6 @@ export default function AddSale() {
           navigate("/sales/invoices");
         }}
       />
-
-      {/* Calculator Modal */}
-      <CalculatorModal isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
 
       {/* Unlisted Products Warning Modal */}
       {unlistedProductsWarning && (

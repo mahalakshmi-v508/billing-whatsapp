@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
-  Calculator,
   Settings,
   Calendar,
   ChevronDown,
@@ -222,19 +221,11 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
         style={{ minHeight: 460 }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── 1. HEADER (Title, Calculator, Settings, Close) ── */}
+        {/* ── 1. HEADER (Title, Settings, Close) ── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
           <h2 className="text-base font-bold text-slate-800 tracking-tight">Payment-In</h2>
 
           <div className="flex items-center gap-3.5">
-            <button
-              type="button"
-              className="text-slate-400 hover:text-slate-700 transition cursor-pointer"
-              title="Calculator"
-            >
-              <Calculator size={18} />
-            </button>
-
             <button
               type="button"
               className="text-slate-400 hover:text-slate-700 relative transition cursor-pointer"

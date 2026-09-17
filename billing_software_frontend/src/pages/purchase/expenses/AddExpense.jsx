@@ -11,7 +11,6 @@ import {
   Trash2,
   Calendar,
   ChevronDown,
-  Calculator,
   Layers,
   Building,
   User,
@@ -127,66 +126,6 @@ function CloseConfirmModal({ isOpen, onCancel, onConfirm }) {
   );
 }
 
-/* ── Built-in Calculator Modal ── */
-function CalculatorModal({ isOpen, onClose }) {
-  const [calcInput, setCalcInput] = useState("");
-  if (!isOpen) return null;
-
-  const handleBtn = (val) => {
-    if (val === "C") setCalcInput("");
-    else if (val === "=") {
-      try {
-        const sanitized = calcInput.replace(/×/g, "*").replace(/÷/g, "/");
-        // eslint-disable-next-line no-eval
-        const res = Function(`'use strict'; return (${sanitized})`)();
-        setCalcInput(String(res));
-      } catch {
-        setCalcInput("Error");
-      }
-    } else {
-      setCalcInput((prev) => prev + val);
-    }
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl w-72 shadow-2xl border border-slate-200 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-4 py-3 bg-slate-900 text-white flex justify-between items-center">
-          <span className="font-bold text-xs flex items-center gap-1.5"><Calculator size={13} /> Calculator</span>
-          <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X size={15} /></button>
-        </div>
-        <div className="p-4 bg-slate-50 text-right text-2xl font-black text-slate-900 min-h-[56px] border-b border-slate-200 font-mono">
-          {calcInput || "0"}
-        </div>
-        <div className="grid grid-cols-4 gap-2 p-3 bg-white">
-          {["7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "-", "C", "0", "=", "+"].map((b) => (
-            <button
-              key={b}
-              type="button"
-              onClick={() => handleBtn(b)}
-              className={`py-3 text-sm font-bold rounded-xl border transition cursor-pointer font-mono ${
-                b === "="
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                  : b === "C"
-                  ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100"
-                  : "bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100"
-              }`}
-            >
-              {b}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function AddExpense() {
   const navigate = useNavigate();
   const { id: editId } = useParams();
@@ -211,7 +150,6 @@ export default function AddExpense() {
   const [modalInitialItemName, setModalInitialItemName] = useState("");
 
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -616,17 +554,6 @@ export default function AddExpense() {
             </div>
 
             <HeaderSettingsButton variant="voucher" onClick={() => setShowColumnDrawer(true)} />
-
-            {/* Quick Calculator */}
-            <button
-              type="button"
-              onClick={() => setShowCalculator(true)}
-              className="p-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition cursor-pointer"
-              title="Toggle Quick Calculator"
-            >
-              <Calculator size={15} />
-              <span className="hidden md:inline">Calculator</span>
-            </button>
 
             {/* Close Page */}
             <button
@@ -1222,12 +1149,6 @@ export default function AddExpense() {
         isOpen={showCloseModal}
         onCancel={() => setShowCloseModal(false)}
         onConfirm={() => navigate("/purchases/expenses")}
-      />
-
-      {/* Calculator Modal */}
-      <CalculatorModal
-        isOpen={showCalculator}
-        onClose={() => setShowCalculator(false)}
       />
 
       {/* Add Expense Item Modal Popup */}
