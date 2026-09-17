@@ -24,6 +24,7 @@ class TransactionMessageSetting extends Model
         'template_2',
         'custom_template',
         'royalty_points_threshold',
+        'credit_days',
     ];
 
     protected $casts = [
@@ -35,5 +36,6 @@ class TransactionMessageSetting extends Model
         'web_invoice_link_in_msg' => 'boolean',
         'payment_link_in_msg' => 'boolean',
         'royalty_points_threshold' => 'integer',
+        'credit_days' => 'integer',
     ];
 }
