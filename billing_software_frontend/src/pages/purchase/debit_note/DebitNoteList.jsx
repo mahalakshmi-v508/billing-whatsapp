@@ -15,27 +15,40 @@ import {
   AlertTriangle,
   X,
   RefreshCw,
-  FileText,
   MoreVertical,
-  Pencil,
   Settings,
-  TrendingUp,
-  Edit3,
   SlidersHorizontal,
   Building2,
   Truck,
   RotateCcw,
-  Receipt,
-  ArrowUpRight,
-  Sparkles,
-  CheckCircle2,
-  Clock,
-  CircleDot,
   Share2,
   Edit,
-  Eye
+  Eye,
+  Filter,
+  CheckCircle2,
+  FileText,
+  User,
+  CreditCard,
+  DollarSign,
+  Layers,
 } from "lucide-react";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
+
+const DEFAULT_COLUMNS = [
+  { key: "index", label: "#", icon: Layers, color: "text-slate-600", bg: "bg-slate-100", desc: "Row index" },
+  { key: "date", label: "Date", icon: Calendar, color: "text-blue-600", bg: "bg-blue-50", desc: "Debit note return date" },
+  { key: "ref_no", label: "Ref No", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Return reference number" },
+  { key: "supplier", label: "Supplier / Party", icon: User, color: "text-violet-600", bg: "bg-violet-50", desc: "Supplier / Party name" },
+  { key: "payment_mode", label: "Payment Mode", icon: CreditCard, color: "text-purple-600", bg: "bg-purple-50", desc: "Refund payment method" },
+  { key: "total_return", label: "Total Return", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Total return value" },
+  { key: "refund", label: "Refund", icon: DollarSign, color: "text-teal-600", bg: "bg-teal-50", desc: "Refund received" },
+  { key: "balance", label: "Balance", icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50", desc: "Balance remaining" },
+  { key: "status", label: "Status", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Settlement status" },
+  { key: "actions", label: "Actions", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "View, Print, Share, Delete" },
+];
 
 export default function DebitNoteList() {
   const navigate = useNavigate();
@@ -62,10 +75,11 @@ export default function DebitNoteList() {
   // Date range
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [showDatePickerModal, setShowDatePickerModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [activeShareId, setActiveShareId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -76,7 +90,18 @@ export default function DebitNoteList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(15);
 
-  const periodLabels = {
+  // Column customization drawer state & persistence
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumnCount,
+  } = useTableColumns("debit_note_columns", DEFAULT_COLUMNS);
+
+  const PERIOD_LABELS = {
     all_time: "All Time",
     today: "Today",
     yesterday: "Yesterday",
@@ -85,6 +110,15 @@ export default function DebitNoteList() {
     this_quarter: "This Quarter",
     this_year: "This Year",
     custom: "Custom Date"
+  };
+
+  const PAYMENT_FILTER_LABELS = {
+    all: "All Payment Modes",
+    cash: "Cash",
+    online: "Online",
+    upi: "UPI",
+    cheque: "Cheque",
+    credit: "Credit"
   };
 
   // Format Helper: DD/MM/YYYY
@@ -343,583 +377,544 @@ export default function DebitNoteList() {
     }
   };
 
-  const refundRate = totalAmount > 0 ? Math.round((totalRefund / totalAmount) * 100) : 0;
-
   return (
-    <div className="p-4 sm:p-6 max-w-[1520px] mx-auto min-h-screen space-y-4 bg-[#f8fafc] font-sans text-slate-800">
-      
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Toast Alert */}
       {actionToast && (
-        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold transition-all flex items-center gap-2.5 backdrop-blur-md animate-in slide-in-from-top-3 duration-200 ${
-          actionToast.ok ? "bg-emerald-500/90 text-white border-emerald-400" : "bg-rose-500/90 text-white border-rose-400"
-        }`}>
+        <div
+          className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold transition-all flex items-center gap-2.5 backdrop-blur-md animate-in slide-in-from-top-3 duration-200 ${
+            actionToast.ok
+              ? "bg-emerald-500/90 text-white border-emerald-400"
+              : "bg-rose-500/90 text-white border-rose-400"
+          }`}
+        >
           {actionToast.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
           <span>{actionToast.msg}</span>
         </div>
       )}
 
-      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-500/20 shrink-0">
-            <RotateCcw size={22} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Purchase Return & Debit Notes</h1>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                {filteredDebitNotes.length} notes
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              Manage returned items, supplier debit adjustments, and refund settlements
-            </p>
-          </div>
+      {/* ── 1. TOP HEADER: Title + Add Debit Note ── */}
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200/80">
+        <div className="flex items-center gap-2 select-none">
+          <h1 className="text-xl font-bold text-slate-800 tracking-tight">Purchase Return (Debit Note)</h1>
         </div>
 
-        {/* Header Action Tools */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={fetchDebitNotes}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Refresh Data"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin text-purple-600" : "text-slate-500"} />
-            <span>Refresh</span>
-          </button>
-
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Export Excel"
-          >
-            <FileSpreadsheet size={14} className="text-emerald-600" />
-            <span>Export Excel</span>
-          </button>
-
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Print View"
-          >
-            <Printer size={14} className="text-slate-500" />
-            <span>Print</span>
-          </button>
-
-          {/* Primary CTA */}
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/purchases/debit-note/add")}
-            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-purple-500/25 transition active:scale-95 cursor-pointer"
+            className="app-btn-primary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm cursor-pointer"
           >
-            <Plus size={16} strokeWidth={2.8} />
-            <span>+ Add Debit Note</span>
+            <Plus size={16} strokeWidth={2.5} />
+            <span>Add Debit Note</span>
           </button>
+
+          <HeaderSettingsButton variant="list" onClick={() => setShowColumnDrawer(true)} />
         </div>
       </div>
 
-      {/* ── 2. SEGMENTED FINANCIAL INTELLIGENCE STRIP (3 KPIs) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-        {/* KPI 1: Total Return Amount */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-              Total Return Value
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <RotateCcw size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              ₹ {fmtCurrency(totalAmount)}
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 font-semibold">
-              <span className="text-purple-600 font-bold">{filteredDebitNotes.length}</span> returns processed
-            </div>
-          </div>
-          <div className="w-full bg-purple-100 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div className="bg-purple-600 h-full rounded-full w-full" />
-          </div>
-        </div>
+      {/* ── 2. FILTER ROW: Period, Date Range, Firms, Supplier, Payment Mode ── */}
+      <div className="flex flex-wrap items-center gap-2.5 py-4 text-xs">
+        <span className="font-semibold text-slate-500 mr-1">Filter by :</span>
 
-        {/* KPI 2: Refund / Settled Amount */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">
-              Refunded & Settled
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight">
-              ₹ {fmtCurrency(totalRefund)}
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 font-semibold">
-              <span className="text-emerald-700 font-bold">{refundRate}%</span> recovery rate
-            </div>
-          </div>
-          <div className="w-full bg-emerald-100 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div
-              className="bg-emerald-600 h-full rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, Math.max(0, refundRate))}%` }}
-            />
-          </div>
-        </div>
-
-        {/* KPI 3: Pending Balance Due */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-600">
-              Pending Refund Balance
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <Clock size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className={`text-2xl sm:text-3xl font-black tracking-tight ${totalBalance > 0 ? "text-rose-600" : "text-slate-900"}`}>
-              ₹ {fmtCurrency(totalBalance)}
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 font-semibold">
-              <span>{totalBalance > 0 ? "Awaiting supplier credit note / cash refund" : "All returns fully settled"}</span>
-            </div>
-          </div>
-          <div className="w-full bg-rose-100 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div
-              className="bg-rose-500 h-full rounded-full transition-all duration-500"
-              style={{ width: `${totalAmount > 0 ? Math.min(100, (totalBalance / totalAmount) * 100) : 0}%` }}
-            />
-          </div>
-        </div>
-
-      </div>
-
-      {/* ── 3. SEGMENTED FILTER BAR ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        
-        {/* Left Filter Pill Group */}
-        <div className="flex flex-wrap items-center gap-2.5 text-xs">
-          <span className="font-extrabold text-slate-500 flex items-center gap-1.5 mr-1 uppercase text-[11px] tracking-wider">
-            <SlidersHorizontal size={13} />
-            <span>Filters</span>
-          </span>
-
-          {/* Period Dropdown Pill */}
-          <div data-dropdown-container className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setPeriodOpen((v) => !v);
-                setFirmOpen(false);
-                setSupplierOpen(false);
-                setPaymentFilterOpen(false);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
-            >
-              <Calendar size={13} className="text-slate-400" />
-              <span>{periodLabels[period] || "This Month"}</span>
-              <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {periodOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
-                {Object.entries(periodLabels).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      setPeriod(key);
-                      setPeriodOpen(false);
-                      if (key === "custom") {
-                        setShowDatePickerModal(true);
-                      } else {
-                        setPresetDates(key);
-                      }
-                    }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                      period === key ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>{label}</span>
-                    {period === key && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Date Picker Button */}
+        {/* Period Pill Dropdown */}
+        <div data-dropdown-container className="relative">
           <button
-            onClick={() => setShowDatePickerModal((v) => !v)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
+            onClick={() => {
+              setPeriodOpen((v) => !v);
+              setFirmOpen(false);
+              setSupplierOpen(false);
+              setPaymentFilterOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
           >
-            <Calendar size={13} className="text-purple-600" />
-            <span>
-              {fromDate ? formatDateDMY(fromDate) : "01/09/2026"} - {toDate ? formatDateDMY(toDate) : "30/09/2026"}
-            </span>
+            <span>{PERIOD_LABELS[period] || "This Month"}</span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
           </button>
 
-          {/* Date Range Modal Popover */}
-          {showDatePickerModal && (
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
-                  setPeriod("custom");
-                }}
-                className="text-xs text-slate-700 font-bold outline-none bg-transparent cursor-pointer"
-              />
-              <span className="text-slate-400 text-xs font-bold">to</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
-                  setPeriod("custom");
-                }}
-                className="text-xs text-slate-700 font-bold outline-none bg-transparent cursor-pointer"
-              />
+          {periodOpen && (
+            <div className="absolute left-0 top-9 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+              {Object.entries(PERIOD_LABELS).map(([key, label]) => (
+                <div
+                  key={key}
+                  onClick={() => {
+                    setPeriod(key);
+                    setPeriodOpen(false);
+                    if (key === "custom") {
+                      setShowDatePicker(true);
+                    } else {
+                      setPresetDates(key);
+                    }
+                  }}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                    period === key ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </div>
+              ))}
             </div>
           )}
+        </div>
 
-          {/* Firm Selector Pill */}
-          <div data-dropdown-container className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setFirmOpen((v) => !v);
-                setPeriodOpen(false);
-                setSupplierOpen(false);
-                setPaymentFilterOpen(false);
+        {/* Date Range Pill Display */}
+        <div
+          onClick={() => setShowDatePicker((v) => !v)}
+          className="flex items-center gap-2 px-3.5 py-1.5 bg-sky-50/50 hover:bg-sky-100/50 text-slate-700 font-medium rounded-full border border-sky-100/80 transition cursor-pointer select-none"
+        >
+          <Calendar size={14} className="text-slate-500" />
+          <span>
+            {fromDate && toDate ? `${formatDateDMY(fromDate)} To ${formatDateDMY(toDate)}` : "All Time"}
+          </span>
+        </div>
+
+        {/* Custom Date Picker Popover */}
+        {showDatePicker && (
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm text-xs">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPeriod("custom");
               }}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
+              className="text-xs text-slate-700 outline-none"
+            />
+            <span className="text-slate-400">To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPeriod("custom");
+              }}
+              className="text-xs text-slate-700 outline-none"
+            />
+            <button
+              onClick={() => setShowDatePicker(false)}
+              className="px-2.5 py-1 bg-blue-600 text-white rounded-full text-xs font-bold"
             >
-              <Building2 size={13} className="text-slate-400" />
-              <span>
-                {selectedFirm === "all"
-                  ? "All Firms"
-                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
-              </span>
-              <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
+              Apply
             </button>
+          </div>
+        )}
 
-            {firmOpen && (
+        {/* Firms Dropdown Pill */}
+        <div data-dropdown-container className="relative">
+          <button
+            onClick={() => {
+              setFirmOpen((v) => !v);
+              setPeriodOpen(false);
+              setSupplierOpen(false);
+              setPaymentFilterOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
+          >
+            <span>
+              {selectedFirm === "all"
+                ? "All Firms"
+                : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
+            </span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {firmOpen && (
+            <div className="absolute left-0 top-9 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100 max-h-56 overflow-y-auto">
               <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
+                onClick={() => {
+                  setSelectedFirm("all");
+                  setFirmOpen(false);
+                }}
+                className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                  selectedFirm === "all" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                }`}
               >
-                <button
+                All Firms
+              </div>
+              {companies.map((c) => (
+                <div
+                  key={c.id}
                   onClick={() => {
-                    setSelectedFirm("all");
+                    setSelectedFirm(String(c.id));
                     setFirmOpen(false);
                   }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                    selectedFirm === "all" ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition truncate ${
+                    String(selectedFirm) === String(c.id) ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  <span>All Firms</span>
-                  {selectedFirm === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
-                </button>
-                {companies.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      setSelectedFirm(c.id);
-                      setFirmOpen(false);
-                    }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer truncate ${
-                      String(selectedFirm) === String(c.id) ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {c.company_name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Supplier Selector Pill */}
-          <div data-dropdown-container className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSupplierOpen((v) => !v);
-                setPeriodOpen(false);
-                setFirmOpen(false);
-                setPaymentFilterOpen(false);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
-            >
-              <Truck size={13} className="text-slate-400" />
-              <span>
-                {selectedSupplier === "all"
-                  ? "All Suppliers"
-                  : suppliers.find((s) => String(s.id) === String(selectedSupplier))?.supplier_name ||
-                    suppliers.find((s) => String(s.id) === String(selectedSupplier))?.name ||
-                    "Supplier"}
-              </span>
-              <ChevronDown size={13} className={`text-slate-400 transition-transform ${supplierOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {supplierOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-60 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
-                <button
-                  onClick={() => {
-                    setSelectedSupplier("all");
-                    setSupplierOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                    selectedSupplier === "all" ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>All Suppliers</span>
-                  {selectedSupplier === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
-                </button>
-                {suppliers.map((s) => {
-                  const sName = s.supplier_name || s.name || `Supplier #${s.id}`;
-                  const isSelected = String(selectedSupplier) === String(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setSelectedSupplier(s.id);
-                        setSupplierOpen(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer truncate ${
-                        isSelected ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      {sName}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Payment Filter Pill */}
-          <div data-dropdown-container className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setPaymentFilterOpen((v) => !v);
-                setPeriodOpen(false);
-                setFirmOpen(false);
-                setSupplierOpen(false);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
-            >
-              <span>
-                {paymentFilter === "all"
-                  ? "All Payment Modes"
-                  : paymentFilter === "cash"
-                  ? "Cash"
-                  : paymentFilter === "online"
-                  ? "Online"
-                  : paymentFilter === "upi"
-                  ? "UPI"
-                  : paymentFilter === "cheque"
-                  ? "Cheque"
-                  : "Credit"}
-              </span>
-              <ChevronDown size={13} className={`text-slate-400 transition-transform ${paymentFilterOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {paymentFilterOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
-                {[
-                  { key: "all", label: "All Payment Modes" },
-                  { key: "cash", label: "Cash" },
-                  { key: "online", label: "Online" },
-                  { key: "upi", label: "UPI" },
-                  { key: "cheque", label: "Cheque" },
-                  { key: "credit", label: "Credit" },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => {
-                      setPaymentFilter(item.key);
-                      setPaymentFilterOpen(false);
-                    }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                      paymentFilter === item.key ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>{item.label}</span>
-                    {paymentFilter === item.key && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                  {c.company_name}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Global Search Input */}
-        <div className="relative w-full sm:w-72">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search ref #, party, phone..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition shadow-2xs"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
-              <X size={13} />
-            </button>
+        {/* Supplier Dropdown Pill */}
+        <div data-dropdown-container className="relative">
+          <button
+            onClick={() => {
+              setSupplierOpen((v) => !v);
+              setPeriodOpen(false);
+              setFirmOpen(false);
+              setPaymentFilterOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
+          >
+            <span>
+              {selectedSupplier === "all"
+                ? "All Suppliers"
+                : suppliers.find((s) => String(s.id) === String(selectedSupplier))?.supplier_name ||
+                  suppliers.find((s) => String(s.id) === String(selectedSupplier))?.name ||
+                  "Supplier"}
+            </span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${supplierOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {supplierOpen && (
+            <div className="absolute left-0 top-9 w-60 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100 max-h-56 overflow-y-auto">
+              <div
+                onClick={() => {
+                  setSelectedSupplier("all");
+                  setSupplierOpen(false);
+                }}
+                className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                  selectedSupplier === "all" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                All Suppliers
+              </div>
+              {suppliers.map((s) => {
+                const sName = s.supplier_name || s.name || `Supplier #${s.id}`;
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => {
+                      setSelectedSupplier(String(s.id));
+                      setSupplierOpen(false);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition truncate ${
+                      String(selectedSupplier) === String(s.id) ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {sName}
+                  </div>
+                );
+              })}
+            </div>
           )}
+        </div>
+
+        {/* Payment Filter Dropdown Pill */}
+        <div data-dropdown-container className="relative">
+          <button
+            onClick={() => {
+              setPaymentFilterOpen((v) => !v);
+              setPeriodOpen(false);
+              setFirmOpen(false);
+              setSupplierOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
+          >
+            <span>{PAYMENT_FILTER_LABELS[paymentFilter] || "All Payment Modes"}</span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${paymentFilterOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {paymentFilterOpen && (
+            <div className="absolute left-0 top-9 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+              {Object.entries(PAYMENT_FILTER_LABELS).map(([key, label]) => (
+                <div
+                  key={key}
+                  onClick={() => {
+                    setPaymentFilter(key);
+                    setPaymentFilterOpen(false);
+                  }}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                    paymentFilter === key ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Refresh button */}
+        <button
+          onClick={fetchDebitNotes}
+          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition cursor-pointer ml-auto"
+          title="Refresh Debit Notes"
+        >
+          <RefreshCw size={15} className={loading ? "animate-spin text-blue-600" : ""} />
+        </button>
+      </div>
+
+      {/* ── 3. SUMMARY KPI CARD ── */}
+      <div className="my-2">
+        <div className="bg-white border border-purple-200/90 rounded-2xl p-4 w-72 sm:w-80 shadow-2xs">
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500">Total Return Value</span>
+            <div className="flex flex-col items-end">
+              <span className="inline-flex items-center text-[11px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                100% ↗
+              </span>
+              <span className="text-[10px] text-slate-400 mt-0.5">vs last month</span>
+            </div>
+          </div>
+
+          <div className="text-2xl font-black text-slate-900 my-1 tracking-tight">
+            ₹ {fmtCurrency(totalAmount)}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-100 mt-2">
+            <span>
+              Refunded: <strong className="text-slate-800 font-bold">₹ {fmtCurrency(totalRefund)}</strong>
+            </span>
+            <span className="text-slate-300">|</span>
+            <span>
+              Balance: <strong className="text-slate-800 font-bold">₹ {fmtCurrency(totalBalance)}</strong>
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* ── 4. MODERN TWO-TIER DATA TABLE ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+      {/* ── 4. TRANSACTIONS SECTION: Header + Action Icons + Table ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs mt-6 overflow-hidden">
+        {/* Top Row */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="text-base font-bold text-slate-800">Transactions</h2>
+
+          <div className="flex items-center gap-2">
+            {/* Inline Search Toggle */}
+            {showSearchInput ? (
+              <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full text-xs animate-in fade-in duration-150">
+                <Search size={13} className="text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search ref #, party, phone..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="bg-transparent text-xs text-slate-700 outline-none w-44"
+                />
+                <button
+                  onClick={() => {
+                    setShowSearchInput(false);
+                    setSearchQuery("");
+                  }}
+                  className="text-slate-400 hover:text-slate-600 ml-1 text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowSearchInput(true)}
+                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                title="Search Transactions"
+              >
+                <Search size={17} />
+              </button>
+            )}
+
+            {/* Excel Export Button */}
+            <button
+              onClick={handleExportExcel}
+              className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+              title="Export to Excel (.xlsx)"
+            >
+              <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded leading-none shadow-2xs">
+                xls
+              </span>
+            </button>
+
+            {/* Print Button */}
+            <button
+              onClick={() => window.print()}
+              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+              title="Print Transactions"
+            >
+              <Printer size={17} />
+            </button>
+          </div>
+        </div>
+
+        {/* Table with Vertical Grid Lines */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-500 text-[11px] uppercase tracking-wider">
-                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">#</th>
-                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">Date</th>
-                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">Ref No</th>
-                <th className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap">Supplier / Party</th>
-                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">Mode</th>
-                <th className="py-3.5 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Total Return</th>
-                <th className="py-3.5 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Received / Refund</th>
-                <th className="py-3.5 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Balance Due</th>
-                <th className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap">Status</th>
-                <th className="py-3.5 px-4 text-center whitespace-nowrap">Actions</th>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold select-none">
+                {visibleColumns.index && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    #
+                  </th>
+                )}
+                {visibleColumns.date && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Date
+                  </th>
+                )}
+                {visibleColumns.ref_no && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Ref No
+                  </th>
+                )}
+                {visibleColumns.supplier && (
+                  <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
+                    Supplier / Party
+                  </th>
+                )}
+                {visibleColumns.payment_mode && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Payment Mode
+                  </th>
+                )}
+                {visibleColumns.total_return && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Total Return
+                  </th>
+                )}
+                {visibleColumns.refund && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Refund
+                  </th>
+                )}
+                {visibleColumns.balance && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Balance
+                  </th>
+                )}
+                {visibleColumns.status && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Status
+                  </th>
+                )}
+                {visibleColumns.actions && (
+                  <th className="py-3 px-3.5 text-center whitespace-nowrap">Actions</th>
+                )}
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100 font-medium">
+            <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-14 text-center text-slate-400">
-                    <RefreshCw size={24} className="animate-spin text-purple-600 mx-auto mb-2" />
-                    <span className="font-semibold text-xs">Loading debit note transactions...</span>
+                  <td colSpan={visibleColumnCount || 1} className="py-12 text-center text-slate-400">
+                    <RefreshCw size={24} className="animate-spin text-blue-500 mx-auto mb-2" />
+                    <span>Loading Debit Notes...</span>
                   </td>
                 </tr>
               ) : filteredDebitNotes.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center text-slate-400">
-                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
-                      <RotateCcw size={26} />
-                    </div>
-                    <p className="font-extrabold text-slate-800 text-sm">No Debit Notes Found</p>
-                    <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                      No purchase returns match your filter criteria. Record a new return to manage vendor adjustments.
-                    </p>
-                    <button
-                      onClick={() => navigate("/purchases/debit-note/add")}
-                      className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer active:scale-95"
-                    >
-                      <Plus size={15} /> + Add Debit Note
-                    </button>
+                  <td colSpan={visibleColumnCount || 1} className="py-12 text-center text-slate-400">
+                    <p className="font-semibold text-slate-500">No debit notes found for this period.</p>
+                    <p className="text-xs text-slate-400 mt-1">Click &quot;+ Add Debit Note&quot; to record a supplier purchase return.</p>
                   </td>
                 </tr>
               ) : (
                 paginatedList.map((item, idx) => {
-                  const globalIdx = (currentPage - 1) * rowsPerPage + idx + 1;
+                  const globalIdx = (safePage - 1) * rowsPerPage + idx + 1;
+                  const total = parseFloat(item.total_amount || 0);
+                  const refund = parseFloat(item.refund_amount || 0);
+                  const balance = parseFloat(item.balance_amount || 0);
+                  const isPaid = balance <= 0;
+                  const isPartial = balance > 0 && refund > 0;
                   const isMenuOpen = activeMenuId === item.id;
-                  const isPaid = Number(item.balance_amount || 0) <= 0;
 
                   return (
                     <tr
                       key={item.id || idx}
-                      className="group hover:bg-purple-50/30 transition-colors duration-150 text-slate-700"
+                      className="group hover:bg-[#eaedf2] transition-colors duration-150 text-slate-700 cursor-pointer"
+                      onClick={() => navigate(`/invoice/${item.return_no || item.id}`)}
                     >
                       {/* S.NO */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 text-slate-400 font-semibold whitespace-nowrap">
-                        {globalIdx}
-                      </td>
+                      {visibleColumns.index && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-500 whitespace-nowrap">
+                          {globalIdx}
+                        </td>
+                      )}
 
-                      {/* DATE */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap text-slate-600 font-semibold">
-                        {formatDateDMY(item.return_date)}
-                      </td>
+                      {/* Date */}
+                      {visibleColumns.date && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-600 group-hover:text-slate-900 whitespace-nowrap">
+                          {formatDateDMY(item.return_date || item.created_at)}
+                        </td>
+                      )}
 
-                      {/* REF NO */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
-                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
-                          #{item.return_no || item.id}
-                        </span>
-                      </td>
+                      {/* Ref No */}
+                      {visibleColumns.ref_no && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-blue-600 group-hover:text-blue-800 whitespace-nowrap">
+                          {item.return_no || item.id}
+                        </td>
+                      )}
 
-                      {/* SUPPLIER NAME */}
-                      <td className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap">
-                        <div className="font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
-                          {item.supplier_name || "-"}
-                        </div>
-                        {item.supplier_phone && (
-                          <div className="text-[10px] text-slate-400 font-medium">{item.supplier_phone}</div>
-                        )}
-                      </td>
+                      {/* Party Name */}
+                      {visibleColumns.supplier && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 whitespace-nowrap">
+                          <div>{item.supplier_name || "-"}</div>
+                          {item.supplier_phone && (
+                            <div className="text-[10px] text-slate-400 font-normal">{item.supplier_phone}</div>
+                          )}
+                        </td>
+                      )}
 
-                      {/* PAYMENT TYPE */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
-                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 uppercase">
+                      {/* Payment Mode */}
+                      {visibleColumns.payment_mode && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 text-slate-600 group-hover:text-slate-900 font-medium whitespace-nowrap uppercase">
                           {item.payment_type || "Cash"}
-                        </span>
-                      </td>
+                        </td>
+                      )}
 
-                      {/* TOTAL AMOUNT */}
-                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-slate-900 text-right whitespace-nowrap">
-                        ₹ {fmtCurrency(item.total_amount)}
-                      </td>
+                      {/* Total */}
+                      {visibleColumns.total_return && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 text-right font-bold text-slate-900 whitespace-nowrap">
+                          ₹ {fmtCurrency(total)}
+                        </td>
+                      )}
 
-                      {/* REFUND / RECEIVED AMOUNT */}
-                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-bold text-emerald-700 text-right whitespace-nowrap">
-                        ₹ {fmtCurrency(item.refund_amount)}
-                      </td>
+                      {/* Refund */}
+                      {visibleColumns.refund && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 text-right font-medium text-slate-800 whitespace-nowrap">
+                          ₹ {fmtCurrency(refund)}
+                        </td>
+                      )}
 
-                      {/* BALANCE AMOUNT */}
-                      <td className={`py-3.5 px-5 border-r border-slate-200/70 font-bold text-right whitespace-nowrap ${
-                        Number(item.balance_amount || 0) > 0 ? "text-rose-600" : "text-slate-600"
-                      }`}>
-                        ₹ {fmtCurrency(item.balance_amount)}
-                      </td>
+                      {/* Balance */}
+                      {visibleColumns.balance && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 text-right font-bold text-rose-600 whitespace-nowrap">
+                          ₹ {fmtCurrency(balance)}
+                        </td>
+                      )}
 
-                      {/* STATUS */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap font-bold">
-                        {isPaid ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Settled
+                      {/* Status */}
+                      {visibleColumns.status && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wide border ${
+                              isPaid
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : isPartial
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : "bg-rose-50 text-rose-700 border-rose-200"
+                            }`}
+                          >
+                            {isPaid ? "Settled" : isPartial ? "Partial" : "Unpaid"}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                            Pending
-                          </span>
-                        )}
-                      </td>
+                        </td>
+                      )}
 
-                      {/* ACTIONS */}
-                      <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                          {/* Print POS / Preview */}
+                      {/* Actions */}
+                      {visibleColumns.actions && (
+                        <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1">
+                          {/* Print Icon Button */}
                           <button
                             onClick={() => navigate(`/invoice/${item.return_no || item.id}`)}
                             className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                            title="Print"
+                            title="Print / View Invoice"
                           >
                             <Printer size={15} />
                           </button>
 
-                          {/* Share Icon with Popover */}
+                          {/* Share with Popover */}
                           <div className="relative">
                             <button
                               onClick={(e) => {
@@ -950,11 +945,10 @@ export default function DebitNoteList() {
                             </button>
 
                             {isMenuOpen && (
-                              <div
-                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
-                              >
+                              <div className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100">
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setActiveMenuId(null);
                                     navigate(`/purchases/debit-note/edit/${item.id}`);
                                   }}
@@ -964,7 +958,8 @@ export default function DebitNoteList() {
                                   <span>Edit</span>
                                 </button>
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setActiveMenuId(null);
                                     navigate(`/invoice/${item.return_no || item.id}`);
                                   }}
@@ -975,22 +970,24 @@ export default function DebitNoteList() {
                                 </button>
                                 <div className="border-t border-slate-100 my-1" />
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setActiveMenuId(null);
                                     setDeleteTarget(item);
                                   }}
                                   className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
                                 >
                                   <Trash2 size={14} className="text-red-600" />
-                                  <span className="text-red-600">Delete</span>
+                                  <span>Delete</span>
                                 </button>
                               </div>
                             )}
                           </div>
                         </div>
                       </td>
-                    </tr>
-                  );
+                    )}
+                  </tr>
+                );
                 })
               )}
             </tbody>
@@ -1003,8 +1000,10 @@ export default function DebitNoteList() {
             <div className="flex items-center gap-4">
               <span>
                 Showing <strong className="font-semibold text-slate-800">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
-                <strong className="font-semibold text-slate-800">{Math.min(safePage * rowsPerPage, filteredDebitNotes.length)}</strong> of{" "}
-                <strong className="font-semibold text-slate-800">{filteredDebitNotes.length}</strong> debit notes
+                <strong className="font-semibold text-slate-800">
+                  {Math.min(safePage * rowsPerPage, filteredDebitNotes.length)}
+                </strong>{" "}
+                of <strong className="font-semibold text-slate-800">{filteredDebitNotes.length}</strong> debit notes
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-500">Rows:</span>
@@ -1014,7 +1013,7 @@ export default function DebitNoteList() {
                     setRowsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-purple-500 cursor-pointer"
+                  className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-blue-500 cursor-pointer"
                 >
                   <option value={10}>10</option>
                   <option value={15}>15</option>
@@ -1055,8 +1054,8 @@ export default function DebitNoteList() {
                       onClick={() => setCurrentPage(item)}
                       className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
                         safePage === item
-                          ? "bg-purple-600 text-white shadow-xs"
-                          : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          ? "bg-blue-600 text-white font-bold shadow-sm"
+                          : "border border-slate-200 text-slate-700 hover:bg-slate-50"
                       }`}
                     >
                       {item}
@@ -1099,7 +1098,8 @@ export default function DebitNoteList() {
             </div>
 
             <div className="p-6 text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to delete Debit Note <b>#{deleteTarget.return_no || deleteTarget.id}</b> for supplier <b>{deleteTarget.supplier_name || "-"}</b> with amount <b>₹{fmtCurrency(deleteTarget.total_amount)}</b>?
+              Are you sure you want to delete Debit Note <b>#{deleteTarget.return_no || deleteTarget.id}</b> for supplier{" "}
+              <b>{deleteTarget.supplier_name || "-"}</b> with amount <b>₹{fmtCurrency(deleteTarget.total_amount)}</b>?
             </div>
 
             <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
@@ -1123,6 +1123,18 @@ export default function DebitNoteList() {
         </div>
       )}
 
+      {/* Column Customization Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide table columns in debit notes"
+      />
     </div>
   );
 }

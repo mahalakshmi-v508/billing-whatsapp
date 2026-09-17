@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../../services/api";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
 import {
   X,
   Plus,
@@ -8,23 +11,63 @@ import {
   Calendar,
   ChevronDown,
   Calculator,
-  Settings,
-  ScanBarcode,
-  Check,
   Search,
   RefreshCw,
   ArrowLeft,
-  Pencil,
   CheckCircle2,
+  AlertCircle,
+  RotateCcw,
+  User,
+  Phone,
+  FileText,
+  MapPin,
+  CreditCard,
+  Wallet,
+  TrendingDown,
+  Save,
+  Layers,
+  Sparkles,
+  DollarSign,
+  Check,
+  Percent,
 } from "lucide-react";
+
+const DEFAULT_ITEM_COLUMNS = [
+  { key: "item", label: "Item", icon: Layers, color: "text-blue-600", bg: "bg-blue-50", desc: "Return product name / description" },
+  { key: "qty", label: "Quantity", icon: Layers, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Returned item count / quantity" },
+  { key: "unit", label: "Unit", icon: Percent, color: "text-purple-600", bg: "bg-purple-50", desc: "Unit of measurement (PCS, KG, etc.)" },
+  { key: "price", label: "Price / Unit", icon: DollarSign, color: "text-teal-600", bg: "bg-teal-50", desc: "Original unit price" },
+  { key: "discount", label: "Discount", icon: Percent, color: "text-amber-600", bg: "bg-amber-50", desc: "Discount percent & amount" },
+  { key: "tax", label: "Tax (GST)", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "GST tax rate (%) & amount" },
+  { key: "amount", label: "Amount", icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50", desc: "Total line item return value" },
+];
+
+/* ── Indian States List for State of Supply ──────────────────────────── */
+const INDIAN_STATES = [
+  "Tamil Nadu", "Kerala", "Karnataka", "Andhra Pradesh", "Telangana",
+  "Maharashtra", "Gujarat", "Delhi", "Rajasthan", "Uttar Pradesh",
+  "West Bengal", "Bihar", "Odisha", "Punjab", "Haryana", "Goa"
+];
+
+/* ── Units List ──────────────────────────────────────────────────────── */
+const UNITS = ["NONE", "PCS", "BOX", "KGS", "BAGS", "LTR", "MTR", "DOZEN", "GRAM", "SET"];
+
+/* ── Tax Rates List ──────────────────────────────────────────────────── */
+const TAX_RATES = [
+  { label: "0% GST", value: 0 },
+  { label: "5% GST", value: 5 },
+  { label: "12% GST", value: 12 },
+  { label: "18% GST", value: 18 },
+  { label: "28% GST", value: 28 },
+];
 
 function createInitialRow(id = null) {
   return {
     id: id || Date.now() + Math.random(),
     product_id: 0,
     item: "",
-    qty: "", // Empty initially until product is chosen
-    unit: "NONE",
+    qty: "",
+    unit: "PCS",
     price: 0,
     discount_pct: 0,
     discount_amt: 0,
@@ -41,7 +84,7 @@ function createNewCreditNoteTab(id, index, returnNoValue = null) {
     partyQuery: "",
     selectedParty: null,
     phoneNo: "",
-    returnNo: returnNoValue ? String(returnNoValue) : String(index),
+    returnNo: returnNoValue ? String(returnNoValue) : `CN-${String(index).padStart(4, "0")}`,
     invoiceNo: "",
     invoiceDate: "",
     returnDate: new Date().toISOString().split("T")[0],
@@ -64,9 +107,6 @@ export default function AddCreditNote() {
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
   const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
 
-  // Track existing credit notes count for auto-incrementing return no
-  const [existingCount, setExistingCount] = useState(0);
-
   // Tabs state
   const [tabs, setTabs] = useState([createNewCreditNoteTab(1, 1)]);
   const [activeTabId, setActiveTabId] = useState(1);
@@ -76,6 +116,17 @@ export default function AddCreditNote() {
     return tabs.find((t) => t.id === activeTabId) || tabs[0];
   }, [tabs, activeTabId]);
 
+  // Column Customization Drawer state & persistence
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumnCount,
+  } = useTableColumns("credit_note_item_columns", DEFAULT_ITEM_COLUMNS);
+
   // Update active tab helper
   const updateActiveTab = (updates) => {
     setTabs((prev) =>
@@ -83,7 +134,7 @@ export default function AddCreditNote() {
     );
   };
 
-  // Add new tab (Credit Note #2, #3...) with auto-incremented return no
+  // Add new tab with auto-incremented return no
   const handleAddTab = async () => {
     const nextIdx = tabs.length + 1;
     let nextReturnNo = String(nextIdx);
@@ -130,6 +181,8 @@ export default function AddCreditNote() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [toast, setToast] = useState(null);
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [calcInput, setCalcInput] = useState("");
 
   // Load products list & prefetch customer list & initialize return no
   useEffect(() => {
@@ -149,7 +202,6 @@ export default function AddCreditNote() {
         }
 
         if (!isEditMode) {
-          // Fetch credit note next formatted number from settings
           try {
             const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=credit_note`);
             if (numRes.data?.status && numRes.data?.formatted_number) {
@@ -161,7 +213,6 @@ export default function AddCreditNote() {
             updateActiveTab({ returnNo: "CN-0001" });
           }
         } else {
-          // If in Edit Mode, fetch the existing record
           const editRes = await api.get(`/credit_note/get_by_id?id=${editId}`);
           if (editRes.data?.status && editRes.data?.data) {
             const cn = editRes.data.data;
@@ -190,7 +241,7 @@ export default function AddCreditNote() {
                     product_id: p.product_id || 0,
                     item: p.item || p.product_name || "",
                     qty: p.qty !== undefined ? String(p.qty) : "1",
-                    unit: p.unit || "NONE",
+                    unit: p.unit || "PCS",
                     price: parseFloat(p.price || 0),
                     discount_pct: parseFloat(p.discount_pct || 0),
                     discount_amt: parseFloat(p.discount_amt || 0),
@@ -281,7 +332,7 @@ export default function AddCreditNote() {
     updateActiveTab({ rows: nextRows });
   };
 
-  // Select Product for Row (Sets Qty to 1 upon selection)
+  // Select Product for Row
   const selectProductForRow = (idx, prod) => {
     const nextRows = [...activeTab.rows];
     const price = parseFloat(prod.price || prod.sale_price || prod.mrp || 0);
@@ -292,10 +343,10 @@ export default function AddCreditNote() {
       ...nextRows[idx],
       product_id: prod.id,
       item: prod.product_name || prod.name,
-      qty: initialQty, // Set to 1 upon choosing product
+      qty: initialQty,
       price: price,
       tax_rate: taxRate,
-      unit: prod.unit || "NONE",
+      unit: prod.unit || "PCS",
     });
     updateActiveTab({ rows: nextRows });
     setActiveSearchRow(null);
@@ -315,7 +366,7 @@ export default function AddCreditNote() {
     updateActiveTab({ rows: nextRows });
   };
 
-  // Summary Calculations for Active Tab (Round off removed)
+  // Summary Calculations for Active Tab
   const totals = useMemo(() => {
     let sub = 0;
     let tax = 0;
@@ -381,7 +432,7 @@ export default function AddCreditNote() {
   const handleSave = async () => {
     const validRows = (activeTab.rows || []).filter((r) => r.item.trim() !== "");
     if (validRows.length === 0) {
-      setErrorMsg("Please enter at least one item.");
+      setErrorMsg("Please enter at least one returned item.");
       return;
     }
 
@@ -431,7 +482,6 @@ export default function AddCreditNote() {
             setToast(`Credit Note #${savedReturnNo} created successfully!`);
             setTimeout(() => setToast(null), 4000);
 
-            // Fetch next return number from settings
             let nextReturnNo = "";
             try {
               const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=credit_note`);
@@ -444,7 +494,6 @@ export default function AddCreditNote() {
               nextReturnNo = `CN-${String(tabs.length + 1).padStart(4, "0")}`;
             }
 
-            // Reset active tab for next credit note entry
             setTabs((prev) =>
               prev.map((tab) =>
                 tab.id === activeTabId
@@ -467,687 +516,892 @@ export default function AddCreditNote() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
-      {/* ── 1. TOP TAB BAR ── */}
-      <div className="bg-white border-b border-slate-200 px-4 pt-2.5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {tabs.map((tab) => (
-            <div
-              key={tab.id}
-              onClick={() => setActiveTabId(tab.id)}
-              className={`flex items-center gap-2.5 px-4 py-2 border-t-2 text-xs font-bold rounded-t-lg transition cursor-pointer ${
-                activeTabId === tab.id
-                  ? "border-blue-600 bg-slate-50 text-blue-700 shadow-xs"
-                  : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50"
-              }`}
-            >
-              <span>{tab.title}</span>
-              <button
-                onClick={(e) => handleCloseTab(tab.id, e)}
-                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-slate-200 text-slate-400 hover:text-red-500 transition"
-                title="Close Tab"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          ))}
+  const formatCurrency = (val) => {
+    const num = parseFloat(val || 0);
+    return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
-          {/* + Add New Credit Note Tab Button */}
-          {!isEditMode && (
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 pb-20">
+      {/* ── 1. EXECUTIVE COMMAND BAR & CREDIT NOTE TABS ── */}
+      <div className="bg-white border-b border-slate-200/80 px-4 md:px-6 pt-3 pb-0 shadow-xs sticky top-0 z-30">
+        <div className="flex items-center justify-between gap-4">
+          {/* Voucher Workspace Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {tabs.map((tab) => {
+              const isActive = activeTabId === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  onClick={() => setActiveTabId(tab.id)}
+                  className={`group relative flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-t-2 ${
+                    isActive
+                      ? "border-blue-600 bg-slate-50 text-blue-700 shadow-xs font-bold"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/60"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <RotateCcw size={13} className={isActive ? "text-blue-600" : "text-slate-400"} />
+                    <span>{tab.title}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 text-slate-600 font-mono">
+                      {tab.returnNo || "Draft"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleCloseTab(tab.id, e)}
+                    className="w-4 h-4 rounded-full flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-slate-200/80 transition"
+                    title="Close tab"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* + Add New Return Tab */}
+            {!isEditMode && (
+              <button
+                type="button"
+                onClick={handleAddTab}
+                className="h-8 px-2.5 mb-1 flex items-center gap-1.5 rounded-lg text-blue-600 hover:bg-blue-50 text-xs font-semibold border border-dashed border-blue-300 transition cursor-pointer"
+                title="Add New Credit Note"
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span className="hidden sm:inline">New Return</span>
+              </button>
+            )}
+          </div>
+
+          {/* Right Action Tools */}
+          <div className="flex items-center gap-2 pb-2 flex-shrink-0">
+            <HeaderSettingsButton
+              variant="voucher"
+              onClick={() => setShowColumnDrawer(true)}
+              isActive={showColumnDrawer}
+            />
+
+            {/* Quick Calculator */}
             <button
               type="button"
-              onClick={handleAddTab}
-              className="w-7 h-7 flex items-center justify-center rounded-full text-blue-600 hover:bg-blue-50 transition ml-1 cursor-pointer"
-              title="Add New Credit Note"
-            >
-              <Plus size={18} strokeWidth={2.5} />
-            </button>
-          )}
-        </div>
-
-        {/* Right Tool Icons */}
-        <div className="flex items-center gap-3 pb-2 flex-shrink-0">
-          <button className="text-slate-400 hover:text-slate-700 transition cursor-pointer" title="Calculator">
-            <Calculator size={18} />
-          </button>
-          <button className="text-slate-400 hover:text-slate-700 relative transition cursor-pointer" title="Settings">
-            <Settings size={18} />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
-          </button>
-          <button
-            onClick={() => navigate("/sales/credit-note")}
-            className="text-slate-400 hover:text-slate-700 transition ml-1 cursor-pointer"
-            title="Close"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── 2. PAGE HEADER ── */}
-      <div className="px-8 pt-4 pb-2 flex items-center justify-between bg-white border-b border-slate-100">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/sales/credit-note")}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight">
-            {isEditMode ? `Edit Credit Note #${activeTab.returnNo}` : "Credit Note"}
-          </h1>
-        </div>
-      </div>
-
-      {/* Success Toast & Error alert */}
-      {toast && (
-        <div className="mx-8 mt-3 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center justify-between shadow-xs animate-in fade-in duration-150">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-            <span>{toast}</span>
-          </div>
-          <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="mx-8 mt-3 px-4 py-2.5 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-lg flex items-center justify-between">
-          <span>{errorMsg}</span>
-          <button onClick={() => setErrorMsg("")} className="text-red-500 hover:text-red-700">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {/* ── 3. FORM HEADER (Party & Invoice Details) ── */}
-      <div className="p-8 pb-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-slate-200">
-        {/* Left Side: Party Selection & Phone */}
-        <div className="space-y-4">
-          <div ref={partyRef} className="relative">
-            <div
-              className={`relative border rounded-lg px-3 pt-3 pb-2 transition bg-white ${
-                showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/20" : "border-blue-500"
+              onClick={() => setCalcOpen(!calcOpen)}
+              className={`p-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition cursor-pointer ${
+                calcOpen
+                  ? "bg-blue-50 border-blue-300 text-blue-600"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
+              title="Toggle Quick Calculator"
             >
-              <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-semibold text-blue-600">
-                Party *
-              </label>
-              <div className="flex items-center justify-between">
-                <input
-                  type="text"
-                  value={activeTab.partyQuery}
-                  onChange={(e) => handleSearchParty(e.target.value)}
-                  onFocus={() => {
-                    handleSearchParty(activeTab.partyQuery);
-                    setShowPartyDropdown(true);
-                  }}
-                  placeholder="Search customer party..."
-                  className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none"
-                />
-                <ChevronDown
-                  size={16}
-                  onClick={() => setShowPartyDropdown(!showPartyDropdown)}
-                  className="text-slate-400 cursor-pointer"
-                />
+              <Calculator size={15} />
+              <span className="hidden md:inline">Calculator</span>
+            </button>
+
+            {/* Close Page */}
+            <button
+              type="button"
+              onClick={() => navigate("/sales/credit-note")}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              title="Close Workspace"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Calculator Popover */}
+      {calcOpen && (
+        <div className="fixed right-6 top-16 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 w-64 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
+            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Calculator size={13} className="text-blue-600" /> Quick Calculator
+            </span>
+            <button onClick={() => setCalcOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <X size={13} />
+            </button>
+          </div>
+          <input
+            type="text"
+            value={calcInput}
+            onChange={(e) => setCalcInput(e.target.value)}
+            placeholder="e.g. 500 * 2"
+            className="w-full text-right font-mono font-bold text-sm bg-slate-50 border border-slate-200 rounded-lg p-2 mb-3 outline-none focus:border-blue-500"
+          />
+          <div className="grid grid-cols-4 gap-1.5 text-xs font-semibold">
+            {["7","8","9","/","4","5","6","*","1","2","3","-","0",".","=","+"].map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => {
+                  if (k === "=") {
+                    try {
+                      const sanitized = calcInput.replace(/[^0-9+\-*/.]/g, "");
+                      // eslint-disable-next-line no-eval
+                      const res = Function(`'use strict'; return (${sanitized})`)();
+                      setCalcInput(String(res));
+                    } catch {
+                      setCalcInput("Error");
+                    }
+                  } else {
+                    setCalcInput((prev) => prev + k);
+                  }
+                }}
+                className={`py-2 rounded-lg text-center font-mono ${
+                  k === "="
+                    ? "bg-blue-600 text-white col-span-1 hover:bg-blue-700"
+                    : ["/","*","-","+"].includes(k)
+                    ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 2. WORKSPACE HEADER BANNER ── */}
+      <div className="px-6 md:px-8 pt-6 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/sales/credit-note")}
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-xs cursor-pointer"
+              title="Back to Credit Notes"
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide">
+                  Sales Return Desk
+                </span>
+                <span className="text-xs text-slate-400 font-medium">• Customer Credit Voucher</span>
+              </div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                {isEditMode ? `Edit Credit Note #${activeTab.returnNo}` : "Customer Sales Return & Credit Desk"}
+              </h1>
+            </div>
+          </div>
+        </div>
+
+        {/* Success Toast & Error alert */}
+        {toast && (
+          <div className="mt-4 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={15} className="text-red-600 flex-shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            <button onClick={() => setErrorMsg("")} className="text-red-500 hover:text-red-700">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── 3. CUSTOMER INTELLIGENCE & RETURN PARAMETERS CARDS ── */}
+      <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
+        {/* Left: Customer Intelligence & Return Context (7 Cols) */}
+        <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <User size={16} />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Customer & Party Profile</h3>
+                <p className="text-[11px] text-slate-400">Select customer returning goods for ledger balance adjustment</p>
               </div>
             </div>
 
-            {/* Customer Suggestions Dropdown */}
-            {showPartyDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-2xl max-h-56 overflow-y-auto z-50 py-1">
-                {loadingParties ? (
-                  <div className="p-3 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                    <RefreshCw size={12} className="animate-spin text-blue-500" />
-                    <span>Loading customers...</span>
-                  </div>
-                ) : partySuggestions.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-slate-400">No customers found.</div>
-                ) : (
-                  partySuggestions.map((cust) => {
-                    const bal = parseFloat(cust.pending_amount ?? cust.balance ?? 0);
-                    const adv = parseFloat(cust.advance_balance ?? 0);
-                    return (
-                      <div
-                        key={cust.id}
-                        onClick={() => selectParty(cust)}
-                        className="px-3.5 py-2.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-none transition"
-                      >
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">{cust.name || cust.customer_name}</div>
-                          {cust.phone && <div className="text-[11px] text-slate-400">{cust.phone}</div>}
-                        </div>
-
-                        <div className="text-right flex items-center gap-2">
-                          {bal > 0 && (
-                            <div className="bg-red-50 border border-red-200 px-2 py-0.5 rounded text-right">
-                              <span className="text-[9px] text-red-500 uppercase font-semibold block">Pending Debt</span>
-                              <span className="text-xs font-bold text-red-700">₹{bal.toLocaleString()}</span>
-                            </div>
-                          )}
-                          {adv > 0 && (
-                            <div className="bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-right">
-                              <span className="text-[9px] text-emerald-500 uppercase font-semibold block">Advance</span>
-                              <span className="text-xs font-bold text-emerald-700">₹{adv.toLocaleString()}</span>
-                            </div>
-                          )}
-                          {bal <= 0 && adv <= 0 && (
-                            <span className="text-[11px] text-slate-400 font-medium">Clear</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-
-            {/* Selected Party Summary Pill */}
             {activeTab.selectedParty && (
-              <div className="mt-2 text-xs bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-slate-600">Selected Party:</span>
-                  <span className="font-bold text-slate-900">{activeTab.selectedParty.name || activeTab.selectedParty.customer_name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0) > 0 && (
-                    <span className="px-2 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 font-bold text-[11px]">
-                      Pending Debt: ₹{parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0).toLocaleString()}
-                    </span>
-                  )}
-                  {parseFloat(activeTab.selectedParty.advance_balance ?? 0) > 0 && (
-                    <span className="px-2 py-0.5 rounded bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold text-[11px]">
-                      Advance Balance: ₹{parseFloat(activeTab.selectedParty.advance_balance ?? 0).toLocaleString()}
-                    </span>
-                  )}
-                  {parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0) <= 0 &&
-                    parseFloat(activeTab.selectedParty.advance_balance ?? 0) <= 0 && (
-                      <span className="text-[11px] text-slate-500 italic">No previous balance</span>
-                    )}
-                </div>
-              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 size={11} /> Linked Party
+              </span>
             )}
           </div>
 
-          <div>
-            <input
-              type="text"
-              placeholder="Phone No."
-              value={activeTab.phoneNo}
-              onChange={(e) => updateActiveTab({ phoneNo: e.target.value })}
-              className="w-56 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 font-medium outline-none focus:border-blue-500"
-            />
-          </div>
-        </div>
-
-        {/* Right Side: Return No, Original Invoice Number & Dates */}
-        <div className="space-y-3 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-medium">Return No.</span>
-            <input
-              type="text"
-              value={activeTab.returnNo}
-              onChange={(e) => updateActiveTab({ returnNo: e.target.value })}
-              className="w-44 text-right border-b border-slate-200 pb-1 font-bold text-slate-800 outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-medium">Invoice Number</span>
-            <input
-              type="text"
-              placeholder="Original invoice no..."
-              value={activeTab.invoiceNo}
-              onChange={(e) => updateActiveTab({ invoiceNo: e.target.value })}
-              className="w-44 text-right border-b border-slate-200 pb-1 text-slate-800 font-medium outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-medium">Invoice Date</span>
-            <input
-              type="date"
-              value={activeTab.invoiceDate}
-              onChange={(e) => updateActiveTab({ invoiceDate: e.target.value })}
-              className="w-44 text-right border-b border-slate-200 pb-1 text-slate-800 font-medium outline-none cursor-pointer"
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-medium">Date</span>
-            <input
-              type="date"
-              value={activeTab.returnDate}
-              onChange={(e) => updateActiveTab({ returnDate: e.target.value })}
-              className="w-44 text-right border-b border-slate-200 pb-1 text-slate-800 font-bold outline-none cursor-pointer"
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 font-medium">State of supply</span>
-            <select
-              value={activeTab.stateOfSupply}
-              onChange={(e) => updateActiveTab({ stateOfSupply: e.target.value })}
-              className="w-44 text-right border-b border-slate-200 pb-1 text-slate-800 font-medium outline-none bg-transparent cursor-pointer"
-            >
-              <option value="Tamil Nadu">Tamil Nadu</option>
-              <option value="Kerala">Kerala</option>
-              <option value="Karnataka">Karnataka</option>
-              <option value="Andhra Pradesh">Andhra Pradesh</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 4. ITEMS TABLE (Free Qty removed, Quick scan row removed) ── */}
-      <div className="flex-1 p-8 pt-4 overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse bg-white border border-slate-200 rounded-lg shadow-xs">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold uppercase text-[11px]">
-              <th className="py-2.5 px-3 border-r border-slate-200 w-10 text-center">
-                <ScanBarcode size={15} className="mx-auto text-slate-500" />
-              </th>
-              <th className="py-2.5 px-3 border-r border-slate-200 min-w-[220px]">ITEM</th>
-              <th className="py-2.5 px-3 border-r border-slate-200 w-24 text-right">QTY</th>
-              <th className="py-2.5 px-3 border-r border-slate-200 w-24">UNIT</th>
-              <th className="py-2.5 px-3 border-r border-slate-200 w-32 text-right">PRICE/UNIT</th>
-              <th className="py-2.5 px-3 border-r border-slate-200 w-28 text-right">DISCOUNT</th>
-              <th className="py-2.5 px-3 border-r border-slate-200 w-28 text-right">TAX</th>
-              <th className="py-2.5 px-3 border-r border-slate-200 w-32 text-right">AMOUNT</th>
-              <th className="py-2.5 px-3 w-16 text-center">ACTIONS</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {/* Product Rows */}
-            {(activeTab.rows || []).map((row, idx) => (
-              <tr key={row.id || idx} className="border-b border-slate-200 hover:bg-slate-50/70">
-                {/* Row Index */}
-                <td className="py-2.5 px-3 border-r border-slate-200 text-center text-slate-400 font-medium">
-                  {idx + 1}
-                </td>
-
-                {/* Item Name Autocomplete */}
-                <td className="py-2 px-3 border-r border-slate-200 relative">
-                  <input
-                    type="text"
-                    placeholder="Search product..."
-                    value={row.item}
-                    onChange={(e) => {
-                      updateRow(idx, "item", e.target.value);
-                      setActiveSearchRow(idx);
-                    }}
-                    onFocus={() => setActiveSearchRow(idx)}
-                    className="w-full bg-transparent outline-none font-medium text-slate-800 text-xs"
-                  />
-
-                  {/* Suggestions Popover */}
-                  {activeSearchRow === idx && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-40 overflow-y-auto z-50 py-1">
-                      {productsList
-                        .filter(
-                          (p) =>
-                            !row.item ||
-                            (p.product_name &&
-                              p.product_name.toLowerCase().includes(row.item.toLowerCase()))
-                        )
-                        .slice(0, 8)
-                        .map((prod) => (
-                          <div
-                            key={prod.id}
-                            onClick={() => selectProductForRow(idx, prod)}
-                            className="px-3 py-1.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs"
-                          >
-                            <span className="font-semibold text-slate-800">{prod.product_name}</span>
-                            <span className="text-slate-500 font-mono">
-                              ₹{parseFloat(prod.sale_price || prod.price || 0)}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </td>
-
-                {/* Qty (Directly editable, empty initially until product chosen) */}
-                <td className="py-2 px-2 border-r border-slate-200">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder=""
-                    value={row.qty}
-                    onChange={(e) => updateRow(idx, "qty", e.target.value)}
-                    className="w-full text-right outline-none bg-transparent font-semibold text-slate-800"
-                  />
-                </td>
-
-                {/* Unit */}
-                <td className="py-2 px-2 border-r border-slate-200">
-                  <select
-                    value={row.unit}
-                    onChange={(e) => updateRow(idx, "unit", e.target.value)}
-                    className="w-full bg-transparent outline-none text-slate-700 text-xs cursor-pointer"
-                  >
-                    <option value="NONE">NONE</option>
-                    <option value="PCS">PCS</option>
-                    <option value="KGS">KGS</option>
-                    <option value="BAGS">BAGS</option>
-                    <option value="BOX">BOX</option>
-                  </select>
-                </td>
-
-                {/* Price */}
-                <td className="py-2 px-2 border-r border-slate-200">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={row.price}
-                    onChange={(e) => updateRow(idx, "price", e.target.value)}
-                    className="w-full text-right outline-none bg-transparent font-semibold text-slate-800"
-                  />
-                </td>
-
-                {/* Discount */}
-                <td className="py-2 px-2 border-r border-slate-200">
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      placeholder="%"
-                      value={row.discount_pct || ""}
-                      onChange={(e) => updateRow(idx, "discount_pct", e.target.value)}
-                      className="w-12 text-right outline-none bg-transparent text-slate-700"
-                    />
-                    <span className="text-slate-300">|</span>
-                    <span className="text-[11px] font-mono text-slate-600 w-12 text-right">
-                      {parseFloat(row.discount_amt || 0).toFixed(1)}
-                    </span>
-                  </div>
-                </td>
-
-                {/* Tax */}
-                <td className="py-2 px-2 border-r border-slate-200">
-                  <div className="flex items-center gap-1">
-                    <select
-                      value={row.tax_rate}
-                      onChange={(e) => updateRow(idx, "tax_rate", e.target.value)}
-                      className="bg-transparent outline-none text-xs text-slate-700 cursor-pointer"
-                    >
-                      <option value={0}>0%</option>
-                      <option value={5}>5%</option>
-                      <option value={12}>12%</option>
-                      <option value={18}>18%</option>
-                      <option value={28}>28%</option>
-                    </select>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-[11px] font-mono text-slate-600 w-12 text-right">
-                      {parseFloat(row.tax_amt || 0).toFixed(1)}
-                    </span>
-                  </div>
-                </td>
-
-                {/* Row Amount */}
-                <td className="py-2 px-3 border-r border-slate-200 text-right font-bold text-slate-900">
-                  ₹ {parseFloat(row.amount || 0).toFixed(2)}
-                </td>
-
-                {/* Actions: Edit & Delete Icons */}
-                <td className="py-2 px-2 text-center whitespace-nowrap">
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveSearchRow(idx)}
-                      className="text-slate-400 hover:text-blue-600 transition cursor-pointer"
-                      title="Edit Item"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeRow(idx)}
-                      className="text-slate-300 hover:text-red-500 transition cursor-pointer"
-                      title="Remove Item"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-
-          {/* Table Footer Totals */}
-          <tfoot>
-            <tr className="bg-slate-50/80 font-bold text-slate-800 border-t border-slate-200">
-              <td colSpan={2} className="py-2.5 px-4 border-r border-slate-200">
-                <button
-                  type="button"
-                  onClick={addRow}
-                  className="px-3 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs hover:bg-blue-100 transition cursor-pointer"
-                >
-                  ADD ROW
-                </button>
-              </td>
-              <td className="py-2.5 px-3 border-r border-slate-200 text-right">{totals.totalQty}</td>
-              <td className="py-2.5 px-3 border-r border-slate-200"></td>
-              <td className="py-2.5 px-3 border-r border-slate-200 text-right">TOTAL</td>
-              <td className="py-2.5 px-3 border-r border-slate-200 text-right">
-                ₹ {totals.discount.toFixed(2)}
-              </td>
-              <td className="py-2.5 px-3 border-r border-slate-200 text-right">
-                ₹ {totals.tax.toFixed(2)}
-              </td>
-              <td className="py-2.5 px-3 border-r border-slate-200 text-right text-sm text-blue-600 font-black">
-                ₹ {totals.grandTotal.toFixed(2)}
-              </td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      {/* ── 5. BELOW TABLE DETAILS (Add Description/Image/Doc removed, Round off removed) ── */}
-      <div className="p-8 pt-2 bg-white border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Left: Payment Type & Customer Ledger Impact */}
-        <div className="space-y-4">
-          <div className="relative">
-            <div className="relative border border-slate-300 rounded-lg px-3 pt-3 pb-2 w-56">
-              <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-medium text-slate-500">
-                Payment Type
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Party AutoComplete */}
+            <div ref={partyRef} className="relative sm:col-span-2">
+              <label className="text-[11px] font-bold text-slate-600 mb-1 block">
+                Party / Customer Name <span className="text-red-500">*</span>
               </label>
               <div
-                onClick={() => setShowPaymentTypeDropdown(!showPaymentTypeDropdown)}
-                className="flex items-center justify-between cursor-pointer"
+                className={`relative border rounded-xl px-3.5 py-2.5 transition bg-white flex items-center justify-between ${
+                  showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/15" : "border-slate-300 hover:border-slate-400"
+                }`}
               >
-                <span className="text-sm font-semibold text-slate-800">{activeTab.paymentType}</span>
-                <ChevronDown size={15} className="text-slate-400" />
+                <div className="flex items-center gap-2.5 w-full">
+                  <Search size={15} className="text-slate-400 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={activeTab.partyQuery}
+                    onChange={(e) => handleSearchParty(e.target.value)}
+                    onFocus={() => {
+                      handleSearchParty(activeTab.partyQuery);
+                      setShowPartyDropdown(true);
+                    }}
+                    placeholder="Search customer by name or phone..."
+                    className="w-full bg-transparent text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                  />
+                </div>
+                <ChevronDown
+                  size={15}
+                  onClick={() => setShowPartyDropdown(!showPartyDropdown)}
+                  className="text-slate-400 cursor-pointer flex-shrink-0"
+                />
+              </div>
+
+              {/* Suggestions Popover */}
+              {showPartyDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-50 py-1.5 animate-in fade-in">
+                  {loadingParties ? (
+                    <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      <span>Loading party directory...</span>
+                    </div>
+                  ) : partySuggestions.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400">
+                      No matching customers found.
+                    </div>
+                  ) : (
+                    partySuggestions.map((cust) => {
+                      const bal = parseFloat(cust.pending_amount ?? cust.balance ?? 0);
+                      const adv = parseFloat(cust.advance_balance ?? 0);
+                      return (
+                        <div
+                          key={cust.id}
+                          onClick={() => selectParty(cust)}
+                          className="px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-none transition"
+                        >
+                          <div>
+                            <div className="text-xs font-bold text-slate-900">{cust.name || cust.customer_name}</div>
+                            {cust.phone && <div className="text-[11px] text-slate-400 flex items-center gap-1"><Phone size={10} /> {cust.phone}</div>}
+                          </div>
+                          <div className="text-right">
+                            {bal > 0 && (
+                              <span className="px-2 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold">
+                                Pending Debt: ₹{bal.toLocaleString()}
+                              </span>
+                            )}
+                            {adv > 0 && (
+                              <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
+                                Advance: ₹{adv.toLocaleString()}
+                              </span>
+                            )}
+                            {bal <= 0 && adv <= 0 && (
+                              <span className="text-[10px] text-slate-400">Clear</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Phone Number Field */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 mb-1 block">Phone / Mobile</label>
+              <div className="relative border border-slate-300 rounded-xl px-3.5 py-2.5 bg-white flex items-center gap-2">
+                <Phone size={14} className="text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="e.g. +91 98765 43210"
+                  value={activeTab.phoneNo}
+                  onChange={(e) => updateActiveTab({ phoneNo: e.target.value })}
+                  className="w-full bg-transparent text-xs font-medium text-slate-800 outline-none"
+                />
               </div>
             </div>
 
-            {showPaymentTypeDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
-                {["Cash", "Credit", "Bank Transfer", "UPI"].map((type) => (
-                  <div
-                    key={type}
-                    onClick={() => {
-                      updateActiveTab({ paymentType: type });
-                      setShowPaymentTypeDropdown(false);
-                    }}
-                    className={`px-3 py-2 text-xs font-medium cursor-pointer hover:bg-slate-50 flex items-center justify-between ${
-                      activeTab.paymentType === type ? "text-blue-600 font-bold bg-blue-50" : "text-slate-700"
-                    }`}
-                  >
-                    <span>{type}</span>
-                    {activeTab.paymentType === type && <Check size={13} className="text-blue-600" />}
+            {/* Selected Party Summary Pill */}
+            <div className="flex flex-col justify-end">
+              {activeTab.selectedParty ? (
+                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-slate-500">Current Ledger:</span>
+                  <div className="flex items-center gap-1.5">
+                    {parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0) > 0 ? (
+                      <span className="text-xs font-bold text-red-600">
+                        ₹{parseFloat(activeTab.selectedParty.pending_amount ?? activeTab.selectedParty.balance ?? 0).toLocaleString()} (Customer Debt)
+                      </span>
+                    ) : parseFloat(activeTab.selectedParty.advance_balance ?? 0) > 0 ? (
+                      <span className="text-xs font-bold text-emerald-600">
+                        ₹{parseFloat(activeTab.selectedParty.advance_balance ?? 0).toLocaleString()} (Advance Credit)
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-slate-600">Clear / Zero Balance</span>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-center text-[11px] text-slate-400 italic">
+                  One-off cash return mode
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Return & Invoice Parameters Card (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center gap-2 mb-3.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
+              <FileText size={16} />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Return Parameters</h3>
+              <p className="text-[11px] text-slate-400">Credit note ref & original invoice linkages</p>
+            </div>
           </div>
 
-          {/* Customer Account Impact Breakdown when Unpaid Return Amount > 0 */}
+          <div className="space-y-3">
+            {/* Credit Note / Return No */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                <RotateCcw size={13} className="text-slate-400" /> Return Voucher #
+              </span>
+              <input
+                type="text"
+                value={activeTab.returnNo}
+                onChange={(e) => updateActiveTab({ returnNo: e.target.value })}
+                className="w-40 text-right font-mono font-bold text-xs text-blue-700 bg-blue-50/50 border border-blue-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500"
+              />
+            </div>
+
+            {/* Original Invoice No */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                <FileText size={13} className="text-slate-400" /> Orig. Invoice #
+              </span>
+              <input
+                type="text"
+                placeholder="Optional ref #..."
+                value={activeTab.invoiceNo}
+                onChange={(e) => updateActiveTab({ invoiceNo: e.target.value })}
+                className="w-40 text-right font-medium text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500"
+              />
+            </div>
+
+            {/* Return Date */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                <Calendar size={13} className="text-slate-400" /> Return Date
+              </span>
+              <input
+                type="date"
+                value={activeTab.returnDate}
+                onChange={(e) => updateActiveTab({ returnDate: e.target.value })}
+                className="w-40 text-right font-semibold text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* State of Supply */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                <MapPin size={13} className="text-slate-400" /> Place of Supply
+              </span>
+              <select
+                value={activeTab.stateOfSupply}
+                onChange={(e) => updateActiveTab({ stateOfSupply: e.target.value })}
+                className="w-40 text-right font-semibold text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500 cursor-pointer"
+              >
+                {INDIAN_STATES.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. DYNAMIC RETURNED ITEMS MATRIX ── */}
+      <div className="px-6 md:px-8 mb-6">
+        <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+          {/* Table Header Bar */}
+          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers size={15} className="text-blue-600" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Returned Goods Line Items</h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                {(activeTab.rows || []).length} Items Returned
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={addRow}
+              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+            >
+              <Plus size={13} strokeWidth={2.5} />
+              <span>Add Return Item</span>
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-100/60 text-slate-600 font-bold uppercase text-[11px]">
+                  <th className="py-3 px-3.5 border-r border-slate-200 w-12 text-center">#</th>
+                  {visibleColumns.item && <th className="py-3 px-4 border-r border-slate-200 min-w-[260px]">ITEM</th>}
+                  {visibleColumns.qty && <th className="py-3 px-3 border-r border-slate-200 w-24 text-right">QTY</th>}
+                  {visibleColumns.unit && <th className="py-3 px-3 border-r border-slate-200 w-24">UNIT</th>}
+                  {visibleColumns.price && <th className="py-3 px-3 border-r border-slate-200 w-36 text-right">PRICE/UNIT</th>}
+                  {visibleColumns.discount && <th className="py-3 px-3 border-r border-slate-200 w-32 text-right">DISCOUNT</th>}
+                  {visibleColumns.tax && <th className="py-3 px-3 border-r border-slate-200 w-32 text-right">TAX</th>}
+                  {visibleColumns.amount && <th className="py-3 px-4 border-r border-slate-200 w-36 text-right">AMOUNT</th>}
+                  <th className="py-3 px-3 w-16 text-center">ACTION</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100">
+                {(activeTab.rows || []).map((row, idx) => (
+                  <tr key={row.id || idx} className="hover:bg-blue-50/25 transition-colors group">
+                    {/* Index */}
+                    <td className="py-2.5 px-3.5 border-r border-slate-200 text-center font-mono text-slate-400 text-xs">
+                      {idx + 1}
+                    </td>
+
+                    {/* Item Autocomplete */}
+                    {visibleColumns.item && (
+                      <td className="py-2 px-3 border-r border-slate-200 relative">
+                        <input
+                          type="text"
+                          placeholder="Search product from sales catalog..."
+                          value={row.item}
+                          onChange={(e) => {
+                            updateRow(idx, "item", e.target.value);
+                            setActiveSearchRow(idx);
+                          }}
+                          onFocus={() => setActiveSearchRow(idx)}
+                          className="w-full bg-transparent outline-none font-semibold text-slate-800 text-xs placeholder:font-normal placeholder:text-slate-400"
+                        />
+
+                        {/* Suggestions Popover */}
+                        {activeSearchRow === idx && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-48 overflow-y-auto z-50 py-1">
+                            {productsList
+                              .filter(
+                                (p) =>
+                                  !row.item ||
+                                  (p.product_name &&
+                                    p.product_name.toLowerCase().includes(row.item.toLowerCase()))
+                              )
+                              .slice(0, 8)
+                              .map((prod) => (
+                                <div
+                                  key={prod.id}
+                                  onClick={() => selectProductForRow(idx, prod)}
+                                  className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs border-b border-slate-50 last:border-none transition"
+                                >
+                                  <div>
+                                    <span className="font-bold text-slate-800">{prod.product_name}</span>
+                                  </div>
+                                  <span className="text-blue-600 font-mono font-bold">
+                                    ₹{parseFloat(prod.sale_price || prod.price || 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </td>
+                    )}
+
+                    {/* Qty */}
+                    {visibleColumns.qty && (
+                      <td className="py-2 px-2 border-r border-slate-200">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0"
+                          value={row.qty}
+                          onChange={(e) => updateRow(idx, "qty", e.target.value)}
+                          className="w-full text-right outline-none bg-transparent font-bold text-slate-800 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-1"
+                        />
+                      </td>
+                    )}
+
+                    {/* Unit */}
+                    {visibleColumns.unit && (
+                      <td className="py-2 px-2 border-r border-slate-200">
+                        <select
+                          value={row.unit}
+                          onChange={(e) => updateRow(idx, "unit", e.target.value)}
+                          className="w-full bg-transparent outline-none text-slate-700 text-xs font-semibold cursor-pointer rounded px-1 py-1"
+                        >
+                          {UNITS.map((u) => (
+                            <option key={u} value={u}>{u}</option>
+                          ))}
+                        </select>
+                      </td>
+                    )}
+
+                    {/* Price / Unit */}
+                    {visibleColumns.price && (
+                      <td className="py-2 px-2 border-r border-slate-200">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0.00"
+                          value={row.price}
+                          onChange={(e) => updateRow(idx, "price", e.target.value)}
+                          className="w-full text-right outline-none bg-transparent font-bold text-slate-800 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-1"
+                        />
+                      </td>
+                    )}
+
+                    {/* Discount */}
+                    {visibleColumns.discount && (
+                      <td className="py-2 px-2 border-r border-slate-200">
+                        <div className="flex items-center justify-end gap-1">
+                          <input
+                            type="number"
+                            placeholder="%"
+                            value={row.discount_pct || ""}
+                            onChange={(e) => updateRow(idx, "discount_pct", e.target.value)}
+                            className="w-11 text-right outline-none bg-transparent font-semibold text-slate-700 text-xs focus:bg-white rounded px-1 py-0.5"
+                          />
+                          <span className="text-slate-300">|</span>
+                          <span className="text-[11px] font-mono font-medium text-slate-500 w-12 text-right">
+                            {parseFloat(row.discount_amt || 0).toFixed(1)}
+                          </span>
+                        </div>
+                      </td>
+                    )}
+
+                    {/* Tax */}
+                    {visibleColumns.tax && (
+                      <td className="py-2 px-2 border-r border-slate-200">
+                        <div className="flex items-center justify-end gap-1">
+                          <select
+                            value={row.tax_rate}
+                            onChange={(e) => updateRow(idx, "tax_rate", e.target.value)}
+                            className="bg-transparent outline-none text-xs font-semibold text-slate-700 cursor-pointer"
+                          >
+                            {TAX_RATES.map((t) => (
+                              <option key={t.label} value={t.value}>{t.label}</option>
+                            ))}
+                          </select>
+                          <span className="text-slate-300">|</span>
+                          <span className="text-[11px] font-mono font-medium text-slate-500 w-12 text-right">
+                            {parseFloat(row.tax_amt || 0).toFixed(1)}
+                          </span>
+                        </div>
+                      </td>
+                    )}
+
+                    {/* Amount */}
+                    {visibleColumns.amount && (
+                      <td className="py-2 px-4 border-r border-slate-200 text-right font-black text-slate-900 text-xs font-mono">
+                        ₹{parseFloat(row.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                    )}
+
+                    {/* Action */}
+                    <td className="py-2 px-2 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => removeRow(idx)}
+                          disabled={(activeTab.rows || []).length === 1}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition disabled:opacity-30 cursor-pointer"
+                          title="Remove returned item"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+
+              {/* Table Footer Totals */}
+              <tfoot>
+                <tr className="bg-slate-100/80 font-bold text-slate-800 border-t-2 border-slate-200 text-xs">
+                  <td colSpan={visibleColumns.item ? 2 : 1} className="py-3 px-4 border-r border-slate-200">
+                    <button
+                      type="button"
+                      onClick={addRow}
+                      className="px-3.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs hover:bg-blue-100 transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Plus size={13} strokeWidth={2.5} />
+                      <span>ADD RETURN ITEM</span>
+                    </button>
+                  </td>
+                  {visibleColumns.qty && <td className="py-3 px-3 border-r border-slate-200 text-right font-mono font-black">{totals.totalQty}</td>}
+                  {visibleColumns.unit && <td className="py-3 px-3 border-r border-slate-200"></td>}
+                  {visibleColumns.price && <td className="py-3 px-3 border-r border-slate-200 text-right font-bold text-slate-500">TOTALS</td>}
+                  {visibleColumns.discount && (
+                    <td className="py-3 px-3 border-r border-slate-200 text-right font-mono font-bold text-slate-700">
+                      {formatCurrency(totals.discount)}
+                    </td>
+                  )}
+                  {visibleColumns.tax && (
+                    <td className="py-3 px-3 border-r border-slate-200 text-right font-mono font-bold text-slate-700">
+                      {formatCurrency(totals.tax)}
+                    </td>
+                  )}
+                  {visibleColumns.amount && (
+                    <td className="py-3 px-4 border-r border-slate-200 text-right text-sm text-amber-700 font-black font-mono">
+                      {formatCurrency(totals.grandTotal)}
+                    </td>
+                  )}
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 5. CUSTOMER LEDGER IMPACT & FINANCIAL SETTLEMENT ── */}
+      <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
+        {/* Left: Customer Ledger Impact & Refund Settlement Mode (7 Cols) */}
+        <div className="lg:col-span-7 space-y-4">
+          {/* Hero Feature: Customer Ledger Impact Box */}
           {customerAdjustment && (
-            <div className="max-w-md bg-gradient-to-br from-blue-50/90 to-indigo-50/70 border border-blue-200 rounded-xl p-3.5 space-y-2.5 text-xs shadow-xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-bold text-blue-950">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
-                  <span>Customer Ledger Impact (Return Balance: ₹{totals.balance})</span>
+            <div className="bg-gradient-to-br from-blue-50/90 via-indigo-50/70 to-slate-50 border border-blue-200 rounded-2xl p-5 shadow-xs">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-blue-950">
+                    Customer Ledger Reversal Impact
+                  </h4>
                 </div>
+                <span className="text-[11px] font-mono font-bold text-blue-700 bg-white px-2.5 py-0.5 rounded-full border border-blue-200">
+                  Unpaid Return Balance: ₹{totals.balance.toLocaleString()}
+                </span>
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="bg-white p-2.5 rounded-lg border border-blue-100 shadow-2xs">
-                  <span className="text-[11px] text-slate-500 font-medium block">Debt Deduction</span>
-                  <span className="text-sm font-black text-red-600 block mt-0.5">
-                    - ₹{customerAdjustment.deductFromPending.toFixed(2)}
-                  </span>
-                  <span className="text-[10px] text-slate-400 block mt-1">
-                    Remaining Debt: <strong className="text-slate-700">₹{customerAdjustment.remainingPending.toFixed(2)}</strong>
-                  </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="bg-white p-3.5 rounded-xl border border-blue-100 shadow-2xs">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                    <span>Debt Deduction</span>
+                    <TrendingDown size={14} className="text-red-500" />
+                  </div>
+                  <div className="text-lg font-black text-red-600 mt-1">
+                    - {formatCurrency(customerAdjustment.deductFromPending)}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1.5 flex items-center justify-between border-t border-slate-100 pt-1.5">
+                    <span>Remaining Debt:</span>
+                    <strong className="text-slate-800">{formatCurrency(customerAdjustment.remainingPending)}</strong>
+                  </div>
                 </div>
 
-                <div className="bg-white p-2.5 rounded-lg border border-blue-100 shadow-2xs">
-                  <span className="text-[11px] text-slate-500 font-medium block">Advance Store Credit</span>
-                  <span className="text-sm font-black text-emerald-600 block mt-0.5">
-                    + ₹{customerAdjustment.excessToAdvance.toFixed(2)}
-                  </span>
-                  <span className="text-[10px] text-slate-400 block mt-1">
-                    New Advance: <strong className="text-slate-700">₹{customerAdjustment.newAdvance.toFixed(2)}</strong>
-                  </span>
+                <div className="bg-white p-3.5 rounded-xl border border-blue-100 shadow-2xs">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                    <span>Advance Store Credit</span>
+                    <Wallet size={14} className="text-emerald-500" />
+                  </div>
+                  <div className="text-lg font-black text-emerald-600 mt-1">
+                    + {formatCurrency(customerAdjustment.excessToAdvance)}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1.5 flex items-center justify-between border-t border-slate-100 pt-1.5">
+                    <span>New Advance Balance:</span>
+                    <strong className="text-slate-800">{formatCurrency(customerAdjustment.newAdvance)}</strong>
+                  </div>
                 </div>
               </div>
-              <p className="text-[11px] text-slate-500 italic">
-                * Note: Advance store credit will automatically apply on the customer's next sales bill.
+
+              <p className="text-[11px] text-slate-500 italic mt-3 flex items-center gap-1.5">
+                <Sparkles size={12} className="text-amber-500 flex-shrink-0" />
+                <span>Excess store credit will automatically apply on the customer's next sales bill.</span>
               </p>
             </div>
           )}
+
+          {/* Settlement Method Selector */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
+              <CreditCard size={15} className="text-blue-600" />
+              <span>Return Settlement & Refund Mode</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Payment Type */}
+              <div className="relative">
+                <label className="text-[11px] font-bold text-slate-600 mb-1 block">Payment / Settlement Method</label>
+                <div
+                  onClick={() => setShowPaymentTypeDropdown(!showPaymentTypeDropdown)}
+                  className="border border-slate-300 hover:border-slate-400 rounded-xl px-3.5 py-2.5 bg-white flex items-center justify-between cursor-pointer"
+                >
+                  <span className="text-xs font-bold text-slate-800">{activeTab.paymentType}</span>
+                  <ChevronDown size={15} className="text-slate-400" />
+                </div>
+
+                {showPaymentTypeDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 animate-in fade-in">
+                    {["Cash", "Credit", "Bank Transfer", "UPI"].map((type) => (
+                      <div
+                        key={type}
+                        onClick={() => {
+                          updateActiveTab({ paymentType: type });
+                          setShowPaymentTypeDropdown(false);
+                        }}
+                        className={`px-3.5 py-2 text-xs font-medium cursor-pointer hover:bg-blue-50 flex items-center justify-between ${
+                          activeTab.paymentType === type ? "text-blue-600 font-bold bg-blue-50/70" : "text-slate-700"
+                        }`}
+                      >
+                        <span>{type}</span>
+                        {activeTab.paymentType === type && <Check size={13} className="text-blue-600" />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Spot Cash Refund Toggle */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 mb-1 block">Immediate Spot Cash Refund</label>
+                <div className="border border-slate-300 rounded-xl p-2.5 bg-white flex items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={activeTab.paidAmountEnabled}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        updateActiveTab({
+                          paidAmountEnabled: checked,
+                          paidAmount: checked ? totals.grandTotal : "",
+                        });
+                      }}
+                      className="w-4 h-4 rounded text-blue-600 cursor-pointer accent-blue-600"
+                    />
+                    <span className="text-xs font-bold text-slate-700">Cash Refunded</span>
+                  </label>
+                  <input
+                    type="number"
+                    disabled={!activeTab.paidAmountEnabled}
+                    value={activeTab.paidAmount}
+                    onChange={(e) => updateActiveTab({ paidAmount: e.target.value })}
+                    placeholder="0.00"
+                    className="w-28 text-right border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Right: Discount, Tax, Total, Paid amount, Balance */}
-        <div className="space-y-3.5 text-xs">
-          {/* Discount */}
-          <div className="flex items-center justify-between">
-            <span className="text-slate-600 font-semibold">Discount</span>
-            <div className="flex items-center gap-1.5">
-              <div className="relative">
-                <input
-                  type="number"
-                  placeholder=""
-                  value={activeTab.bottomDiscountPct || ""}
-                  onChange={(e) => updateActiveTab({ bottomDiscountPct: e.target.value })}
-                  className="w-24 border border-slate-300 rounded px-2 py-1.5 text-right outline-none text-xs"
-                />
-                <span className="absolute right-2 top-1.5 text-slate-400 text-xs pointer-events-none">(%)</span>
+        {/* Right: Financial Reconciliation & Grand Total Billboard (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+              <DollarSign size={16} className="text-amber-600" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">Return Financial Valuation</h4>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              {/* Gross Subtotal */}
+              <div className="flex items-center justify-between text-slate-600">
+                <span className="font-semibold">Gross Returned Subtotal</span>
+                <span className="font-mono font-bold text-slate-900">{formatCurrency(totals.subtotal)}</span>
               </div>
-              <span className="text-slate-400 font-bold">-</span>
-              <div className="relative">
-                <input
-                  type="number"
-                  placeholder=""
-                  value={activeTab.bottomDiscountAmt || ""}
-                  onChange={(e) => updateActiveTab({ bottomDiscountAmt: e.target.value })}
-                  className="w-24 border border-slate-300 rounded px-2 py-1.5 text-right outline-none text-xs"
-                />
-                <span className="absolute right-2 top-1.5 text-slate-400 text-xs pointer-events-none">(₹)</span>
+
+              {/* Total Discounts */}
+              {totals.discount > 0 && (
+                <div className="flex items-center justify-between text-slate-600">
+                  <span className="font-semibold">Discount Reversal</span>
+                  <span className="font-mono font-bold text-red-600">- {formatCurrency(totals.discount)}</span>
+                </div>
+              )}
+
+              {/* Total GST Tax */}
+              <div className="flex items-center justify-between text-slate-600">
+                <span className="font-semibold">Input GST Reversal</span>
+                <span className="font-mono font-bold text-slate-900">{formatCurrency(totals.tax)}</span>
+              </div>
+
+              {/* Refund vs Balance breakdown */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between text-slate-600">
+                  <span className="font-semibold">Refunded on Spot</span>
+                  <span className="font-mono font-bold text-emerald-600">{formatCurrency(totals.paidAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600">
+                  <span className="font-semibold">Unpaid / Added to Ledger</span>
+                  <span className="font-mono font-bold text-blue-700">{formatCurrency(totals.balance)}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Tax */}
-          <div className="flex items-center justify-between">
-            <span className="text-slate-600 font-semibold">Tax</span>
-            <div className="flex items-center gap-6">
-              <select className="border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-700 bg-white cursor-pointer w-32">
-                <option>NONE</option>
-                <option>GST @ 5%</option>
-                <option>GST @ 12%</option>
-                <option>GST @ 18%</option>
-                <option>GST @ 28%</option>
-              </select>
-              <span className="font-bold text-slate-800 text-xs w-10 text-right">
-                {totals.tax.toFixed(0)}
-              </span>
+          {/* Grand Total Hero Banner */}
+          <div className="mt-6 pt-4 border-t border-slate-100">
+            <div className="bg-gradient-to-br from-amber-600 to-amber-700 rounded-2xl p-5 text-white shadow-lg shadow-amber-600/20">
+              <div className="flex items-center justify-between text-amber-100 text-[11px] font-bold uppercase tracking-wider mb-1">
+                <span>Credit Note Total Valuation</span>
+                <span className="px-2 py-0.5 rounded bg-white/15 text-white font-mono text-[10px]">Net Return</span>
+              </div>
+              <div className="text-3xl font-black font-mono tracking-tight text-white">
+                {formatCurrency(totals.grandTotal)}
+              </div>
+              <div className="mt-2 text-[11px] text-amber-100/90 flex items-center gap-1.5">
+                <Sparkles size={12} className="text-amber-200" />
+                <span>Reverses customer invoice liability and updates inventory</span>
+              </div>
             </div>
-          </div>
-
-          {/* Total */}
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-xs font-bold text-slate-700 ml-auto mr-4">Total</span>
-            <input
-              type="text"
-              readOnly
-              value={totals.grandTotal}
-              className="w-48 border border-slate-300 rounded px-3 py-1.5 text-right font-bold text-slate-900 text-sm bg-slate-100/70"
-            />
-          </div>
-
-          {/* Paid amount */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 ml-auto mr-3">
-              <input
-                type="checkbox"
-                checked={activeTab.paidAmountEnabled}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  updateActiveTab({
-                    paidAmountEnabled: checked,
-                    paidAmount: checked ? totals.grandTotal : "",
-                  });
-                }}
-                className="w-4 h-4 rounded text-blue-600 cursor-pointer accent-blue-600"
-              />
-              <span className="text-xs font-bold text-slate-700">Paid amount</span>
-            </div>
-            <input
-              type="number"
-              disabled={!activeTab.paidAmountEnabled}
-              value={activeTab.paidAmount}
-              onChange={(e) => updateActiveTab({ paidAmount: e.target.value })}
-              placeholder=""
-              className="w-48 border border-slate-300 rounded px-3 py-1.5 text-right font-semibold text-slate-900 text-sm outline-none disabled:bg-slate-50 disabled:text-slate-400"
-            />
-          </div>
-
-          {/* Balance */}
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-sm font-bold text-slate-800 ml-auto mr-4">Balance</span>
-            <span className="w-48 text-right font-black text-slate-950 text-base">
-              {totals.balance}
-            </span>
           </div>
         </div>
       </div>
 
-      {/* ── 6. BOTTOM ACTION BAR ── */}
-      <div className="px-8 py-4 border-t border-slate-200 bg-white flex items-center justify-end gap-3 shadow-lg">
-        {/* Generate e-Invoice Split Button */}
-        <div className="inline-flex rounded-md border border-blue-500 shadow-xs bg-white">
+      {/* ── 6. STICKY COMMAND FOOTER ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-6 py-3.5 shadow-2xl flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            className="px-4 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition cursor-pointer"
+            onClick={() => navigate("/sales/credit-note")}
+            className="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-xs font-bold transition cursor-pointer"
           >
-            Generate e-<u>I</u>nvoice
-          </button>
-          <button
-            type="button"
-            className="px-2 py-2 text-blue-600 border-l border-blue-500 hover:bg-blue-50 transition cursor-pointer"
-          >
-            <ChevronDown size={14} />
+            Discard
           </button>
         </div>
 
-        {/* Primary Save / Update Button */}
-        <button
-          type="button"
-          disabled={saving}
-          onClick={handleSave}
-          className="px-10 py-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/25 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
-        >
-          {saving && <RefreshCw size={15} className="animate-spin" />}
-          <span><u>S</u>{isEditMode ? "ave Changes" : "ave"}</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleSave}
+            className="app-btn-primary px-8 py-2.5 rounded-xl text-white font-bold text-sm shadow-md shadow-blue-500/25 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
+            <span>{isEditMode ? "Update Credit Note" : "Save Credit Note"}</span>
+          </button>
+        </div>
       </div>
+
+      {/* Table Column Customizer Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_ITEM_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide table columns in return items"
+      />
     </div>
   );
 }

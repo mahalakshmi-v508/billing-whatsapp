@@ -20,10 +20,32 @@ import {
   AlertTriangle,
   X,
   RefreshCw,
-  TrendingUp,
+  DollarSign,
+  CreditCard,
+  Percent,
+  SlidersHorizontal,
+  CheckCircle2,
+  User,
+  FileText,
 } from "lucide-react";
 import AddPaymentInModal from "./AddPaymentInModal";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
+
+const DEFAULT_COLUMNS = [
+  { key: "date", label: "Date", icon: Calendar, color: "text-blue-600", bg: "bg-blue-50", desc: "Payment receipt date" },
+  { key: "ref_no", label: "Ref No", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Reference / receipt number" },
+  { key: "party_name", label: "Party Name", icon: User, color: "text-violet-600", bg: "bg-violet-50", desc: "Customer or party name" },
+  { key: "total_amount", label: "Total Amount", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Total invoice or voucher amount" },
+  { key: "received", label: "Received", icon: DollarSign, color: "text-teal-600", bg: "bg-teal-50", desc: "Amount paid/received" },
+  { key: "discount", label: "Discount", icon: Percent, color: "text-amber-600", bg: "bg-amber-50", desc: "Discount amount" },
+  { key: "balance", label: "Balance", icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50", desc: "Remaining balance" },
+  { key: "payment_type", label: "Payment Type", icon: CreditCard, color: "text-purple-600", bg: "bg-purple-50", desc: "Mode of payment (Cash, Bank, etc.)" },
+  { key: "status", label: "Status", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Payment status (Paid / Partial)" },
+  { key: "actions", label: "Actions", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "View, Print, Share, Delete" },
+];
 
 export default function PaymentIn() {
   const navigate = useNavigate();
@@ -33,7 +55,6 @@ export default function PaymentIn() {
   // Data states
   const [payments, setPayments] = useState([]);
   const [companies, setCompanies] = useState([]);
-  const [cashiers, setCashiers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filter states
@@ -41,8 +62,6 @@ export default function PaymentIn() {
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [firmOpen, setFirmOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState("all");
-  const [userOpen, setUserOpen] = useState(false);
 
   // Date range
   const [fromDate, setFromDate] = useState("");
@@ -60,6 +79,17 @@ export default function PaymentIn() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+
+  // Column Customization Drawer state & persistence
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumnCount,
+  } = useTableColumns("payment_in_columns", DEFAULT_COLUMNS);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -129,13 +159,9 @@ export default function PaymentIn() {
           if (compRes.data.status) {
             setCompanies(compRes.data.data || []);
           }
-          const cashRes = await api.get(`/cashier/get_cashier?admin_id=${adminId}`);
-          if (cashRes.data.status) {
-            setCashiers(cashRes.data.data || []);
-          }
         }
       } catch (err) {
-        console.error("Error loading companies/cashiers:", err);
+        console.error("Error loading companies:", err);
       }
     };
     loadMeta();
@@ -175,7 +201,7 @@ export default function PaymentIn() {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
-  // Filtered Payments List (Show only Payment-In receipts recorded through Add Payment-In)
+  // Filtered Payments List
   const filteredPayments = useMemo(() => {
     return payments.filter((item) => {
       // Date range filter
@@ -187,11 +213,6 @@ export default function PaymentIn() {
       // Firm filter
       if (selectedFirm !== "all" && item.company_id) {
         if (String(item.company_id) !== String(selectedFirm)) return false;
-      }
-
-      // User filter
-      if (selectedUser !== "all" && item.cashier_id) {
-        if (String(item.cashier_id) !== String(selectedUser)) return false;
       }
 
       // Search query
@@ -215,9 +236,9 @@ export default function PaymentIn() {
 
       return true;
     });
-  }, [payments, fromDate, toDate, selectedFirm, selectedUser, searchQuery]);
+  }, [payments, fromDate, toDate, selectedFirm, searchQuery]);
 
-  // Summary Metrics (Total Amount, Received Amount, Discount Amount, Balance Amount)
+  // Summary Metrics
   const metrics = useMemo(() => {
     let total = 0;
     let received = 0;
@@ -239,7 +260,7 @@ export default function PaymentIn() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedFirm, selectedUser, fromDate, toDate, period]);
+  }, [searchQuery, selectedFirm, fromDate, toDate, period]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredPayments.length / rowsPerPage) || 1;
@@ -298,383 +319,311 @@ export default function PaymentIn() {
     }
   };
 
+  const periodLabels = {
+    today: "Today",
+    this_week: "This Week",
+    this_month: "This Month",
+    this_quarter: "This Quarter",
+    this_year: "This Year",
+    all_time: "All Time",
+    custom: "Custom",
+  };
+
   return (
-    <div className="p-5 max-w-[1400px] mx-auto min-h-screen space-y-4">
-      {/* ── 1. TOP HEADER (Payment-In ⌵ | + Add Payment-In | Settings) ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 cursor-pointer">
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* ── 1. TOP HEADER: Title + Add Payment-In + Settings ── */}
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200/80">
+        <div className="flex items-center gap-2 select-none">
           <h1 className="text-xl font-bold text-slate-800 tracking-tight">Payment-In</h1>
-          <ChevronDown size={18} className="text-slate-600 mt-0.5" />
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs rounded-full shadow-sm shadow-rose-500/30 transition cursor-pointer"
+            className="app-btn-primary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm cursor-pointer"
           >
-            <Plus size={15} strokeWidth={2.6} />
+            <Plus size={16} strokeWidth={2.5} />
             <span>Add Payment-In</span>
           </button>
 
-          <button
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition cursor-pointer"
-            title="Settings"
-          >
-            <Settings size={18} />
-          </button>
+          <HeaderSettingsButton
+            variant="list"
+            onClick={() => setShowColumnDrawer(true)}
+            isActive={showColumnDrawer}
+          />
         </div>
       </div>
 
-      {/* ── 2. FILTER BAR (Matching media_1787829087014.png) ── */}
-      <div className="flex flex-wrap items-center gap-3 py-1 text-xs">
+      {/* ── 2. FILTER ROW: Period, Date Range, Firms (All Users removed) ── */}
+      <div className="flex flex-wrap items-center gap-2.5 py-4 text-xs">
         <span className="font-semibold text-slate-500 mr-1">Filter by :</span>
 
-        {/* Period Selector (e.g. This Month) */}
+        {/* Period Pill Dropdown */}
         <div className="relative">
           <button
-            onClick={() => {
-              setPeriodOpen(!periodOpen);
-              setFirmOpen(false);
-              setUserOpen(false);
-            }}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-semibold rounded-full border border-blue-200/60 transition cursor-pointer"
+            onClick={() => setPeriodOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
           >
-            <span className="capitalize">{period === "all_time" ? "All Time" : period.replace("_", " ")}</span>
-            <ChevronDown size={13} />
+            <span>{periodLabels[period] || "This Month"}</span>
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
           </button>
 
           {periodOpen && (
-            <div className="absolute left-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95">
-              {[
-                { label: "All Time", val: "all_time" },
-                { label: "Today", val: "today" },
-                { label: "This Week", val: "this_week" },
-                { label: "This Month", val: "this_month" },
-                { label: "This Quarter", val: "this_quarter" },
-                { label: "This Year", val: "this_year" },
-              ].map((p) => (
-                <button
-                  key={p.val}
-                  onClick={() => setPresetDates(p.val)}
-                  className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                    period === p.val ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
+            <div className="absolute left-0 top-9 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+              {Object.entries(periodLabels).map(([key, label]) => (
+                <div
+                  key={key}
+                  onClick={() => setPresetDates(key)}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                    period === key ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  {p.label}
-                </button>
+                  {label}
+                </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Date Range Pill */}
-        <div className="relative">
-          <button
-            onClick={() => setShowDatePicker(!showDatePicker)}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-semibold rounded-full border border-blue-200/60 transition cursor-pointer"
-          >
-            <Calendar size={13} className="text-blue-600" />
-            <span>
-              {fromDate && toDate
-                ? `${formatDateDMY(fromDate)} To ${formatDateDMY(toDate)}`
-                : "All Time"}
-            </span>
-          </button>
-
-          {showDatePicker && (
-            <div className="absolute left-0 mt-1 p-3 bg-white rounded-xl shadow-xl border border-slate-100 z-50 flex items-center gap-2 animate-in fade-in">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="border border-slate-200 rounded px-2 py-1 text-xs"
-              />
-              <span className="text-slate-400">to</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="border border-slate-200 rounded px-2 py-1 text-xs"
-              />
-              <button
-                onClick={() => setShowDatePicker(false)}
-                className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs font-bold"
-              >
-                Apply
-              </button>
-            </div>
-          )}
+        {/* Date Range Pill Display */}
+        <div
+          onClick={() => setShowDatePicker((v) => !v)}
+          className="flex items-center gap-2 px-3.5 py-1.5 bg-sky-50/50 hover:bg-sky-100/50 text-slate-700 font-medium rounded-full border border-sky-100/80 transition cursor-pointer select-none"
+        >
+          <Calendar size={14} className="text-slate-500" />
+          <span>
+            {fromDate && toDate ? `${formatDateDMY(fromDate)} To ${formatDateDMY(toDate)}` : "All Time"}
+          </span>
         </div>
 
-        {/* All Firms Dropdown */}
+        {/* Custom Date Picker Popover */}
+        {showDatePicker && (
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm text-xs">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="text-xs text-slate-700 outline-none"
+            />
+            <span className="text-slate-400">To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="text-xs text-slate-700 outline-none"
+            />
+            <button
+              onClick={() => setShowDatePicker(false)}
+              className="px-2.5 py-1 bg-blue-600 text-white rounded-full text-xs font-bold"
+            >
+              Apply
+            </button>
+          </div>
+        )}
+
+        {/* Firms Dropdown Pill */}
         <div className="relative">
           <button
-            onClick={() => {
-              setFirmOpen(!firmOpen);
-              setPeriodOpen(false);
-              setUserOpen(false);
-            }}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-semibold rounded-full border border-blue-200/60 transition cursor-pointer"
+            onClick={() => setFirmOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
           >
             <span>
-              {selectedFirm === "all" ? "All Firms" : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
+              {selectedFirm === "all"
+                ? "All Firms"
+                : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
             </span>
-            <ChevronDown size={13} />
+            <ChevronDown size={14} className={`text-slate-500 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
           </button>
 
           {firmOpen && (
-            <div className="absolute left-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95">
-              <button
-                onClick={() => {
-                  setSelectedFirm("all");
-                  setFirmOpen(false);
-                }}
-                className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                  selectedFirm === "all" ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
+            <div className="absolute left-0 top-9 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+              <div
+                onClick={() => { setSelectedFirm("all"); setFirmOpen(false); }}
+                className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                  selectedFirm === "all" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 All Firms
-              </button>
+              </div>
               {companies.map((c) => (
-                <button
+                <div
                   key={c.id}
-                  onClick={() => {
-                    setSelectedFirm(String(c.id));
-                    setFirmOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                    String(selectedFirm) === String(c.id) ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
+                  onClick={() => { setSelectedFirm(String(c.id)); setFirmOpen(false); }}
+                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition truncate ${
+                    String(selectedFirm) === String(c.id) ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
                   {c.company_name}
-                </button>
+                </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* All Users Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setUserOpen(!userOpen);
-              setPeriodOpen(false);
-              setFirmOpen(false);
-            }}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-semibold rounded-full border border-blue-200/60 transition cursor-pointer"
-          >
-            <span>
-              {selectedUser === "all" ? "All Users" : cashiers.find((c) => String(c.id) === String(selectedUser))?.name || "User"}
-            </span>
-            <ChevronDown size={13} />
-          </button>
-
-          {userOpen && (
-            <div className="absolute left-0 mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95">
-              <button
-                onClick={() => {
-                  setSelectedUser("all");
-                  setUserOpen(false);
-                }}
-                className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                  selectedUser === "all" ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
-                }`}
-              >
-                All Users
-              </button>
-              {cashiers.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => {
-                    setSelectedUser(String(u.id));
-                    setUserOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                    String(selectedUser) === String(u.id) ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
-                  }`}
-                >
-                  {u.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Refresh button */}
+        <button
+          onClick={fetchPayments}
+          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition cursor-pointer ml-auto"
+          title="Refresh Payment Records"
+        >
+          <RefreshCw size={15} className={loading ? "animate-spin text-blue-600" : ""} />
+        </button>
       </div>
 
-      {/* ── 3. METRIC CARD (Matching media_1787829087014.png) ── */}
-      <div className="pt-2">
-        <div className="w-[420px] max-w-full rounded-2xl border border-purple-200/80 bg-purple-50/20 p-4 shadow-xs">
+      {/* ── 3. SUMMARY KPI CARD (Standardized) ── */}
+      <div className="my-2">
+        <div className="bg-white border border-purple-200/90 rounded-2xl p-4 w-72 sm:w-80 shadow-2xs">
           <div className="flex items-start justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-500 block">Total Amount</span>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                ₹ {metrics.total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-              </div>
-            </div>
-
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold">
-              <span>100%</span>
-              <TrendingUp size={12} />
-              <span className="text-[10px] text-slate-400 font-normal ml-0.5">vs last month</span>
+            <span className="text-xs font-semibold text-slate-500">Total Amount Received</span>
+            <div className="flex flex-col items-end">
+              <span className="inline-flex items-center text-[11px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                100% ↗
+              </span>
+              <span className="text-[10px] text-slate-400 mt-0.5">vs last month</span>
             </div>
           </div>
 
-          <div className="mt-3 pt-2 border-t border-purple-100 grid grid-cols-3 gap-2 text-xs font-semibold text-slate-600">
-            <div>
-              Received:{" "}
-              <strong className="text-emerald-700 font-bold block sm:inline">
-                ₹ {metrics.received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-              </strong>
-            </div>
-            <div>
-              Discount:{" "}
-              <strong className="text-amber-600 font-bold block sm:inline">
-                ₹ {metrics.discount.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-              </strong>
-            </div>
-            <div>
-              Balance:{" "}
-              <strong className="text-red-600 font-bold block sm:inline">
-                ₹ {metrics.balance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-              </strong>
-            </div>
+          <div className="text-2xl font-black text-slate-900 my-1 tracking-tight">
+            ₹ {metrics.received.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-100 mt-2">
+            <span>
+              Total: <strong className="text-slate-800 font-bold">₹ {metrics.total.toLocaleString("en-IN", { minimumFractionDigits: 0 })}</strong>
+            </span>
+            <span className="text-slate-300">|</span>
+            <span>
+              Balance: <strong className="text-slate-800 font-bold">₹ {metrics.balance.toLocaleString("en-IN", { minimumFractionDigits: 0 })}</strong>
+            </span>
           </div>
         </div>
       </div>
 
-      {/* ── 4. TRANSACTIONS CARD ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        {/* Card Header: Title & Utility Icons */}
-        <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-white">
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Transactions</h2>
+      {/* ── 4. TRANSACTIONS SECTION: Header + Action Icons + Table ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs mt-6 overflow-hidden">
+        {/* Top Row */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="text-base font-bold text-slate-800">Transactions</h2>
 
           <div className="flex items-center gap-2">
-            {/* Search Input Toggle */}
+            {/* Inline Search Toggle */}
             {showSearchInput ? (
-              <div className="flex items-center bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs">
-                <Search size={13} className="text-slate-400 mr-1.5" />
+              <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full text-xs animate-in fade-in duration-150">
+                <Search size={13} className="text-slate-400" />
                 <input
                   type="text"
-                  autoFocus
+                  placeholder="Search receipt, customer..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by party, ref..."
-                  className="bg-transparent text-xs outline-none text-slate-800 w-36"
+                  autoFocus
+                  className="bg-transparent text-xs text-slate-700 outline-none w-44"
                 />
                 <button
-                  onClick={() => {
-                    setShowSearchInput(false);
-                    setSearchQuery("");
-                  }}
-                  className="text-slate-400 hover:text-slate-600"
+                  onClick={() => { setShowSearchInput(false); setSearchQuery(""); }}
+                  className="text-slate-400 hover:text-slate-600 ml-1 text-xs cursor-pointer"
                 >
-                  <X size={13} />
+                  ✕
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => setShowSearchInput(true)}
-                className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
-                title="Search"
+                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                title="Search Transactions"
               >
-                <Search size={14} />
+                <Search size={17} />
               </button>
             )}
 
             {/* Excel Export Button */}
             <button
               onClick={handleExportExcel}
-              className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 font-bold text-xs transition cursor-pointer"
-              title="Export to Excel"
+              className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+              title="Export to Excel (.xlsx)"
             >
-              xls
+              <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-1.5 py-0.5 rounded leading-none shadow-2xs">
+                xls
+              </span>
             </button>
 
-            {/* Print Table Button */}
+            {/* Print Button */}
             <button
               onClick={() => window.print()}
-              className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
               title="Print Transactions"
             >
-              <Printer size={14} />
+              <Printer size={17} />
             </button>
           </div>
         </div>
 
-        {/* ── TABLE ── */}
+        {/* Table with Vertical Grid Lines */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/60 font-semibold text-slate-600">
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>Date</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Ref. no.</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>Party Name</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Total Amount</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Received</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Discount</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Balance</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>Payment Type</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>Status</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 text-center whitespace-nowrap">Actions</th>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold select-none">
+                {visibleColumns.date && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Date
+                  </th>
+                )}
+                {visibleColumns.ref_no && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Ref No
+                  </th>
+                )}
+                {visibleColumns.party_name && (
+                  <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
+                    Party Name
+                  </th>
+                )}
+                {visibleColumns.total_amount && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Total Amount
+                  </th>
+                )}
+                {visibleColumns.received && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Received
+                  </th>
+                )}
+                {visibleColumns.discount && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Discount
+                  </th>
+                )}
+                {visibleColumns.balance && (
+                  <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
+                    Balance
+                  </th>
+                )}
+                {visibleColumns.payment_type && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Payment Type
+                  </th>
+                )}
+                {visibleColumns.status && (
+                  <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                    Status
+                  </th>
+                )}
+                {visibleColumns.actions && (
+                  <th className="py-3 px-3.5 text-center whitespace-nowrap">Actions</th>
+                )}
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 1} className="py-12 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-blue-500 mx-auto mb-2" />
                     <span>Loading Payment-In Records...</span>
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 1} className="py-12 text-center text-slate-400">
                     <p className="font-semibold text-slate-500">No payment-in transactions found.</p>
                     <p className="text-xs text-slate-400 mt-1">Click &quot;+ Add Payment-In&quot; to record customer credit payment.</p>
                   </td>
@@ -686,146 +635,174 @@ export default function PaymentIn() {
                   const received = parseFloat(p.paid_amount || 0);
                   const discountAmt = parseFloat(p.discount_amount || 0);
                   const balance = parseFloat(p.balance_amount || 0);
-                  const status = balance <= 0 ? "paid" : "partial";
+                  const isPaid = balance <= 0;
                   const isMenuOpen = activeMenuId === p.id;
 
                   return (
                     <tr
                       key={p.id || idx}
-                      className="group hover:bg-[#eaedf2] transition-colors duration-150 text-slate-700"
+                      className="group hover:bg-[#eaedf2] transition-colors duration-150 text-slate-700 cursor-pointer"
+                      onClick={() => navigate(`/invoice/${p.invoice_no}`)}
                     >
                       {/* Date */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-600 group-hover:text-slate-900 whitespace-nowrap">
-                        {formatDateDMY(p.payment_date || p.created_at)}
-                      </td>
+                      {visibleColumns.date && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-600 group-hover:text-slate-900 whitespace-nowrap">
+                          {formatDateDMY(p.payment_date || p.created_at)}
+                        </td>
+                      )}
 
                       {/* Ref. no. */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 text-right whitespace-nowrap">
-                        #{refNo}
-                      </td>
+                      {visibleColumns.ref_no && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 whitespace-nowrap">
+                          #{refNo}
+                        </td>
+                      )}
 
                       {/* Party Name */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 whitespace-nowrap">
-                        {p.customer_name || p.name || "Customer"}
-                      </td>
+                      {visibleColumns.party_name && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 whitespace-nowrap">
+                          {p.customer_name || p.name || "Customer"}
+                        </td>
+                      )}
 
                       {/* Total Amount */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-900 text-right whitespace-nowrap">
-                        ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                      </td>
+                      {visibleColumns.total_amount && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-900 text-right whitespace-nowrap">
+                          ₹ {total.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                        </td>
+                      )}
 
                       {/* Received */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-900 text-right whitespace-nowrap">
-                        ₹ {received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                      </td>
+                      {visibleColumns.received && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-900 text-right whitespace-nowrap">
+                          ₹ {received.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                        </td>
+                      )}
 
                       {/* Discount */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-amber-600 group-hover:text-amber-700 text-right whitespace-nowrap">
-                        ₹ {discountAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                      </td>
+                      {visibleColumns.discount && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-amber-600 group-hover:text-amber-700 text-right whitespace-nowrap">
+                          ₹ {discountAmt.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                        </td>
+                      )}
 
                       {/* Balance */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-red-600 group-hover:text-red-700 text-right whitespace-nowrap">
-                        ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                      </td>
+                      {visibleColumns.balance && (
+                        <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-red-600 group-hover:text-red-700 text-right whitespace-nowrap">
+                          ₹ {balance.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                        </td>
+                      )}
 
                       {/* Payment Type */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 capitalize text-slate-600 group-hover:text-slate-900 font-medium group-hover:font-bold whitespace-nowrap">
-                        {p.payment_method || "Cash"}
-                      </td>
+                      {visibleColumns.payment_type && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 capitalize text-slate-600 group-hover:text-slate-900 font-medium whitespace-nowrap">
+                          {p.payment_method || "Cash"}
+                        </td>
+                      )}
 
                       {/* Status */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 whitespace-nowrap font-bold">
-                        {status === "paid" ? (
-                          <span className="text-emerald-700">Paid</span>
-                        ) : (
-                          <span className="text-amber-600 font-bold">Partial</span>
-                        )}
-                      </td>
-
-                      {/* Actions Column */}
-                      <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                          {/* Print POS */}
-                          <button
-                            onClick={() => navigate(`/invoice/${p.invoice_no}`)}
-                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                            title="Print"
+                      {visibleColumns.status && (
+                        <td className="py-3.5 px-3.5 border-r border-slate-200 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wide border ${
+                              isPaid
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
+                            }`}
                           >
-                            <Printer size={15} />
-                          </button>
+                            {isPaid ? "Paid" : "Partial"}
+                          </span>
+                        </td>
+                      )}
 
-                          {/* Share Icon with Popover */}
-                          <div className="relative">
+                      {/* Actions */}
+                      {visibleColumns.actions && (
+                        <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1">
+                            {/* Print Icon Button */}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveShareId(activeShareId === p.id ? null : p.id);
-                              }}
+                              onClick={() => navigate(`/invoice/${p.invoice_no}`)}
                               className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                              title="Share"
+                              title="Print Receipt"
                             >
-                              <Share2 size={15} />
-                            </button>
-                            <ShareTransactionPopover
-                              isOpen={activeShareId === p.id}
-                              onClose={() => setActiveShareId(null)}
-                              transaction={p}
-                              type="Payment-In"
-                            />
-                          </div>
-
-                          {/* 3-Dot More Menu */}
-                          <div className="relative">
-                            <button
-                              onClick={() => setActiveMenuId(isMenuOpen ? null : p.id)}
-                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                              title="More actions"
-                            >
-                              <MoreVertical size={15} />
+                              <Printer size={15} />
                             </button>
 
-                            {isMenuOpen && (
-                              <div
-                                ref={menuRef}
-                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                            {/* Share with Popover */}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveShareId(activeShareId === p.id ? null : p.id);
+                                }}
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                                title="Share"
                               >
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    navigate(`/sales/edit/${p.invoice_no}`);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                <Share2 size={15} />
+                              </button>
+                              <ShareTransactionPopover
+                                isOpen={activeShareId === p.id}
+                                onClose={() => setActiveShareId(null)}
+                                transaction={p}
+                                type="Payment-In"
+                              />
+                            </div>
+
+                            {/* 3-Dot More Menu */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setActiveMenuId(isMenuOpen ? null : p.id)}
+                                className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                                title="More actions"
+                              >
+                                <MoreVertical size={15} />
+                              </button>
+
+                              {isMenuOpen && (
+                                <div
+                                  ref={menuRef}
+                                  className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                                 >
-                                  <Edit size={14} className="text-blue-600" />
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    navigate(`/invoice/${p.invoice_no}`);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
-                                >
-                                  <Eye size={14} />
-                                  <span>View Receipt</span>
-                                </button>
-                                <div className="border-t border-slate-100 my-1" />
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    setDeleteTarget(p);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
-                                >
-                                  <Trash2 size={14} className="text-red-600" />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            )}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuId(null);
+                                      navigate(`/sales/edit/${p.invoice_no}`);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                  >
+                                    <Edit size={14} className="text-blue-600" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuId(null);
+                                      navigate(`/invoice/${p.invoice_no}`);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
+                                  >
+                                    <Eye size={14} />
+                                    <span>View Receipt</span>
+                                  </button>
+                                  <div className="border-t border-slate-100 my-1" />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuId(null);
+                                      setDeleteTarget(p);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
+                                  >
+                                    <Trash2 size={14} className="text-red-600" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -833,7 +810,7 @@ export default function PaymentIn() {
             </tbody>
           </table>
 
-          {/* ── PAGINATION BAR (Matching Sale Invoices) ── */}
+          {/* ── PAGINATION BAR ── */}
           {filteredPayments.length > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 text-xs text-slate-600 bg-white">
               <div className="flex items-center gap-4">
@@ -929,7 +906,7 @@ export default function PaymentIn() {
       {/* ── 6. DELETE CONFIRMATION MODAL ── */}
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
           onClick={() => setDeleteTarget(null)}
         >
           <div
@@ -946,16 +923,16 @@ export default function PaymentIn() {
               </div>
             </div>
 
-            <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed mb-5 bg-slate-50 p-3 rounded-xl border border-slate-100">
               Are you sure you want to permanently delete this payment transaction?
             </p>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 disabled={deleting}
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -963,7 +940,7 @@ export default function PaymentIn() {
                 type="button"
                 disabled={deleting}
                 onClick={handleDeletePayment}
-                className="px-5 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md shadow-red-500/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
                 {deleting && <RefreshCw size={14} className="animate-spin" />}
                 <span>{deleting ? "Deleting..." : "Yes, Delete"}</span>
@@ -975,49 +952,23 @@ export default function PaymentIn() {
 
       {/* ── 7. ACTION FLOATING TOAST NOTIFICATION ── */}
       {actionToast && (
-        <div
-          style={{
-            position: "fixed",
-            top: 24,
-            right: 28,
-            zIndex: 99999,
-            minWidth: 320,
-            maxWidth: 420,
-            background: actionToast.ok ? "#10b981" : "#ef4444",
-            color: "#ffffff",
-            borderRadius: 6,
-            padding: "12px 16px",
-            boxShadow: actionToast.ok
-              ? "0 6px 20px rgba(16, 185, 129, 0.4)"
-              : "0 6px 20px rgba(239, 68, 68, 0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 14,
-            animation: "fadeIn 0.2s ease",
-          }}
-        >
-          <span style={{ fontSize: 13.5, fontWeight: 500, lineHeight: 1.35, color: "#ffffff" }}>
-            {actionToast.msg}
-          </span>
-          <button
-            onClick={() => setActionToast(null)}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#ffffff",
-              cursor: "pointer",
-              padding: 2,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <X size={16} strokeWidth={2.5} />
-          </button>
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[99999] px-4 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-200">
+          {actionToast.msg}
         </div>
       )}
+
+      {/* Table Column Customizer Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide columns in Payment-In table"
+      />
     </div>
   );
 }

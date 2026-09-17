@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, ArrowLeft, FileText } from "lucide-react";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 
 export default function SaleSubmenuView({ title = "Sale Document", type = "document", subtitle }) {
   const navigate = useNavigate();
@@ -44,6 +45,8 @@ export default function SaleSubmenuView({ title = "Sale Document", type = "docum
             <Plus size={18} />
             <span>Create {title.split("/")[0].trim()}</span>
           </button>
+
+          <HeaderSettingsButton variant="list" />
         </div>
       </div>
 

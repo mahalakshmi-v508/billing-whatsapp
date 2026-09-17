@@ -545,7 +545,7 @@ const GLOBAL_CSS = `
   @keyframes pulse      { 0%,100%{opacity:1} 50%{opacity:.5} }
 
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Outfit',sans-serif; }
+  body { font-family:'Plus Jakarta Sans',sans-serif; }
 
   .rc-input {
     width:100%;
@@ -555,7 +555,7 @@ const GLOBAL_CSS = `
     padding:11px 14px;
     color:#1e2a45;
     font-size:14px;
-    font-family:'Outfit',sans-serif;
+    font-family:'Plus Jakarta Sans',sans-serif;
     outline:none;
     transition:all .2s;
   }
@@ -574,7 +574,7 @@ const GLOBAL_CSS = `
     padding:11px 14px;
     color:#1e2a45;
     font-size:14px;
-    font-family:'Outfit',sans-serif;
+    font-family:'Plus Jakarta Sans',sans-serif;
     outline:none;
     appearance:none;
     cursor:pointer;
@@ -603,7 +603,7 @@ const GLOBAL_CSS = `
     width:100%; padding:14px; border:none; border-radius:12px;
     background:linear-gradient(135deg,#1d4ed8,#3b82f6,#60a5fa);
     color:#fff; font-size:15px; font-weight:700;
-    font-family:'Outfit',sans-serif; cursor:pointer;
+    font-family:'Plus Jakarta Sans',sans-serif; cursor:pointer;
     letter-spacing:.02em;
     transition:all .22s;
   }

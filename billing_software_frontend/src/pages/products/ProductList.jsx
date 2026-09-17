@@ -10,6 +10,17 @@ import {
 } from "lucide-react";
 import AddProductModal from "./AddProductModal";
 import EditProductModal from "./EditProductModal";
+import {
+  TableContainer,
+  Table,
+  Thead,
+  Th,
+  Tbody,
+  Tr,
+  Td,
+  TableEmptyState,
+  TableLoadingState,
+} from "../../components/table";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 const money = (n) =>
@@ -57,7 +68,7 @@ const SHADOW = {
   modal: "0 24px 60px -16px rgba(10,22,40,.3)",
   glow: "0 0 0 4px rgba(37,99,235,.15)",
 };
-const FONT = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+const FONT = "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
 export default function ProductList() {
   const [activeTab, setActiveTab] = useState("product");
@@ -1287,55 +1298,39 @@ export default function ProductList() {
                       </div>
 
                       {loadingHistory ? (
-                        <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted }}>Loading transactions...</div>
+                        <TableLoadingState message="Loading transactions..." />
                       ) : filteredHistory.length === 0 ? (
-                        <div
-                          style={{
-                            border: `1.5px dashed ${COLORS.border}`,
-                            borderRadius: RADIUS.md,
-                            background: COLORS.surfaceAlt,
-                          }}
-                        >
-                          <EmptyState
-                            icon={<Inbox size={28} color={COLORS.textMuted} />}
-                            title="No transactions"
-                            subtitle="This product hasn't been sold yet"
-                          />
-                        </div>
+                        <TableEmptyState
+                          title="No transactions"
+                          description="This product hasn't been sold yet."
+                        />
                       ) : (
-                        <div
-                          style={{
-                            border: `1px solid ${COLORS.border}`,
-                            borderRadius: RADIUS.md,
-                            overflow: "hidden",
-                            background: COLORS.surface,
-                          }}
-                        >
-                          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
-                            <thead>
-                              <tr style={{ background: COLORS.surfaceAlt, borderBottom: `1px solid ${COLORS.border}` }}>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Customer Name</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Phone Number</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Quantity</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Price</th>
+                        <TableContainer className="shadow-none border border-slate-200 rounded-xl">
+                          <Table>
+                            <Thead>
+                              <tr>
+                                <Th>Customer Name</Th>
+                                <Th>Phone Number</Th>
+                                <Th align="right">Quantity</Th>
+                                <Th align="right">Price</Th>
                               </tr>
-                            </thead>
-                            <tbody>
+                            </Thead>
+                            <Tbody>
                               {filteredHistory.map((s, i) => {
                                 return (
-                                  <tr key={i} className="hover-bg" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>{s.customer_name || "-"}</td>
-                                    <td style={{ padding: "11px 14px", color: COLORS.textSoft }}>{s.customer_phone || "-"}</td>
-                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>
+                                  <Tr key={i}>
+                                    <Td className="font-semibold text-slate-900">{s.customer_name || "-"}</Td>
+                                    <Td className="text-slate-600">{s.customer_phone || "-"}</Td>
+                                    <Td align="right" className="font-semibold text-slate-800">
                                       {s.quantity} {selectedProduct.unit?.slice(0, 3) || ""}
-                                    </td>
-                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>{money(s.price)}</td>
-                                  </tr>
+                                    </Td>
+                                    <Td align="right" className="font-semibold text-slate-900">{money(s.price)}</Td>
+                                  </Tr>
                                 );
                               })}
-                            </tbody>
-                          </table>
-                        </div>
+                            </Tbody>
+                          </Table>
+                        </TableContainer>
                       )}
                     </div>
                   </>

@@ -603,123 +603,44 @@ export default function MainLayout() {
       {/* RIGHT CONTENT AREA: FIXED TOP BAR + SCROLLABLE PAGE */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         
-        {/* 🔥 TOP FIXED BAR FOR ADMIN (Exact Same Buttons as in Dashboard) */}
+        {/* 🔥 TOP FIXED BAR FOR ADMIN */}
         {role === "admin" && (
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            gap: 10,
-            padding: "12px 24px 6px 24px",
-            background: "#f0f4f9",
-            position: "sticky",
-            top: 0,
-            zIndex: 110,
-            flexShrink: 0
-          }}>
+          <div className="flex items-center justify-end gap-2.5 px-6 pt-3 pb-1.5 bg-[#f8fafc] sticky top-0 z-[110] flex-shrink-0">
             {/* Add Sale & Add Purchase Buttons (Visible ONLY on Dashboard) */}
             {location.pathname === "/dashboard" && (
               <>
                 {/* Add Sale Button */}
                 <button
                   onClick={() => navigate("/sales/add")}
-                  style={{
-                    height: 38,
-                    padding: "0 18px",
-                    borderRadius: "9999px",
-                    border: "none",
-                    background: "#ef4444",
-                    color: "#ffffff",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                    fontSize: 13.5,
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    boxShadow: "0 2px 8px rgba(239, 68, 68, 0.25)",
-                    transition: "all .15s ease",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.35)";
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = "none";
-                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(239, 68, 68, 0.25)";
-                  }}
+                  className="app-btn-primary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm"
                 >
-                  <Plus size={16} strokeWidth={2.8} />
+                  <Plus size={16} strokeWidth={2.5} />
                   <span>Add Sale</span>
                 </button>
 
                 {/* Add Purchase Button */}
                 <button
                   onClick={() => navigate("/purchases/new")}
-                  style={{
-                    height: 38,
-                    padding: "0 18px",
-                    borderRadius: "9999px",
-                    border: "none",
-                    background: "#1f8cff",
-                    color: "#ffffff",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                    fontSize: 13.5,
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    boxShadow: "0 2px 8px rgba(31, 140, 255, 0.25)",
-                    transition: "all .15s ease",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(31, 140, 255, 0.35)";
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = "none";
-                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(31, 140, 255, 0.25)";
-                  }}
+                  className="app-btn-secondary h-9 px-4 rounded-xl text-sm font-semibold shadow-sm"
                 >
-                  <Plus size={16} strokeWidth={2.8} />
+                  <Plus size={16} strokeWidth={2.5} />
                   <span>Add Purchase</span>
                 </button>
               </>
             )}
 
             {/* Plus (+) Quick Action Button (Visible on ALL Pages) */}
-            <div ref={quickAddRef} style={{ position: "relative" }}>
+            <div ref={quickAddRef} className="relative">
               <button
                 onClick={() => setQuickAddOpen(v => !v)}
                 title="Quick Actions"
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "9999px",
-                  border: "1.5px solid #dbeafe",
-                  background: quickAddOpen ? "#dbeafe" : "#eff6ff",
-                  color: "#1f8cff",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "all .15s ease",
-                }}
-                onMouseEnter={e => {
-                  if (!quickAddOpen) {
-                    e.currentTarget.style.background = "#dbeafe";
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!quickAddOpen) {
-                    e.currentTarget.style.background = "#eff6ff";
-                    e.currentTarget.style.transform = "none";
-                  }
-                }}
+                className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
+                  quickAddOpen
+                    ? "bg-blue-100 border-blue-300 text-blue-700"
+                    : "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100 hover:border-blue-300"
+                }`}
               >
-                <Plus size={18} strokeWidth={2.6} />
+                <Plus size={18} strokeWidth={2.5} />
               </button>
 
               {/* Quick Action Popover Dropdown (Matching media_1787899244680.png) */}

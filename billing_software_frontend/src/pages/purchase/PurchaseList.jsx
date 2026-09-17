@@ -1,9 +1,55 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search, Phone, Mail, MapPin, Wallet, Plus, Share2 } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Eye,
+  FileSpreadsheet,
+  History,
+  CreditCard,
+  Search,
+  Phone,
+  Mail,
+  MapPin,
+  Wallet,
+  Plus,
+  Share2,
+  X,
+  Calendar,
+  DollarSign,
+  FileText,
+  CheckCircle2,
+  SlidersHorizontal,
+} from "lucide-react";
 import AddSupplierModal from "../supplier/AddSupplierModal";
 import ShareTransactionPopover from "../../components/ShareTransactionPopover";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
+import useTableColumns from "../../hooks/useTableColumns";
+import {
+  TableContainer,
+  Table,
+  Thead,
+  Th,
+  Tbody,
+  Tr,
+  Td,
+  TablePagination,
+  TableStatusBadge,
+  TableEmptyState,
+  TableLoadingState,
+} from "../../components/table";
+
+const DEFAULT_COLUMNS = [
+  { key: "date", label: "Date", icon: Calendar, color: "text-blue-600", bg: "bg-blue-50", desc: "Purchase bill date" },
+  { key: "bill_no", label: "Bill No", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Purchase bill/invoice number" },
+  { key: "total", label: "Total", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Total purchase amount" },
+  { key: "paid", label: "Paid", icon: DollarSign, color: "text-teal-600", bg: "bg-teal-50", desc: "Amount paid" },
+  { key: "pending", label: "Pending", icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50", desc: "Remaining balance pending" },
+  { key: "status", label: "Status", icon: CheckCircle2, color: "text-amber-600", bg: "bg-amber-50", desc: "Bill submission status" },
+  { key: "actions", label: "Actions", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "Edit, View, Share, Pay" },
+];
 
 export default function PurchaseList() {
   const navigate = useNavigate();
@@ -15,10 +61,26 @@ export default function PurchaseList() {
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Search & Filters
   const [search, setSearch] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
   const [activeShareId, setActiveShareId] = useState(null);
+
+  // Column Customization Drawer state & persistence
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumnCount,
+  } = useTableColumns("purchase_bill_columns", DEFAULT_COLUMNS);
+
+  // Pagination states for invoice table
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Payment Modal States
   const [showPayModal, setShowPayModal] = useState(false);
@@ -47,8 +109,9 @@ export default function PurchaseList() {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user) return;
 
-    api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
-      .then(res => {
+    api
+      .get(`/company/get_companies_by_admin?admin_id=${user.id}`)
+      .then((res) => {
         if (res.data.status) {
           setCompanies(res.data.data);
           const savedId = localStorage.getItem("selected_company_id");
@@ -69,10 +132,8 @@ export default function PurchaseList() {
     try {
       // Fetch Purchases
       const pRes = await api.get(`/purchase/get_purchases?company_id=${companyId}`);
-      let fetchedPurchases = [];
       if (pRes.data.status) {
-        fetchedPurchases = pRes.data.data;
-        setPurchases(fetchedPurchases);
+        setPurchases(pRes.data.data);
       }
 
       // Fetch Suppliers
@@ -80,10 +141,16 @@ export default function PurchaseList() {
       if (sRes.data.status) {
         const fetchedSuppliers = sRes.data.data;
         setSuppliers(fetchedSuppliers);
-        
+
         // Auto-select first supplier if available
         if (fetchedSuppliers.length > 0) {
-          setSelectedSupplier(fetchedSuppliers[0]);
+          setSelectedSupplier((prev) => {
+            if (prev) {
+              const stillExists = fetchedSuppliers.find((s) => s.id === prev.id);
+              return stillExists || fetchedSuppliers[0];
+            }
+            return fetchedSuppliers[0];
+          });
         } else {
           setSelectedSupplier(null);
         }
@@ -146,7 +213,7 @@ export default function PurchaseList() {
         amount: payAmount,
         payment_method: payMethod,
         payment_date: payDate,
-        notes: payNotes
+        notes: payNotes,
       });
       if (res.data.status) {
         alert("Payment recorded successfully");
@@ -205,9 +272,12 @@ export default function PurchaseList() {
   // Live preview update on amount change
   const handleBulkAmountChange = (val) => {
     setBulkAmount(val);
-    const pendingBills = supplierBills.filter(p => Number(p.balance_amount) > 0 && p.status === "submitted");
+    const pendingBills = supplierBills.filter(
+      (p) => Number(p.balance_amount) > 0 && p.status === "submitted"
+    );
     const sorted = [...pendingBills].sort((a, b) => {
-      const da = new Date(a.purchase_date), db = new Date(b.purchase_date);
+      const da = new Date(a.purchase_date),
+        db = new Date(b.purchase_date);
       return da - db || a.id - b.id;
     });
     setBulkPreview(distributePayment(sorted, val));
@@ -229,7 +299,7 @@ export default function PurchaseList() {
         amount: Number(bulkAmount),
         payment_method: bulkMethod,
         payment_date: bulkDate,
-        notes: bulkNotes
+        notes: bulkNotes,
       });
       if (res.data.status) {
         alert(res.data.message);
@@ -247,12 +317,18 @@ export default function PurchaseList() {
   };
 
   // Helper formatting currency
-  const fmt = (n) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = (n) =>
+    Number(n || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   // Get total pending amount for a supplier (submitted invoices only, drafts excluded)
   const getSupplierPendingTotal = (supplierId) => {
     return purchases
-      .filter((p) => Number(p.supplier_id) === Number(supplierId) && p.status === "submitted")
+      .filter(
+        (p) => Number(p.supplier_id) === Number(supplierId) && p.status === "submitted"
+      )
       .reduce((sum, p) => sum + Number(p.balance_amount || 0), 0);
   };
 
@@ -260,7 +336,10 @@ export default function PurchaseList() {
   const filteredSuppliers = suppliers.filter((s) => {
     const name = s.supplier_name ? s.supplier_name.toLowerCase() : "";
     const phone = (s.mobile_number || s.phone || s.alt_mobile || "").toLowerCase();
-    return name.includes(supplierSearch.toLowerCase()) || phone.includes(supplierSearch.toLowerCase());
+    return (
+      name.includes(supplierSearch.toLowerCase()) ||
+      phone.includes(supplierSearch.toLowerCase())
+    );
   });
 
   // Filter current supplier's purchase bills by search bar input
@@ -273,146 +352,110 @@ export default function PurchaseList() {
     return billNo.includes(search.toLowerCase());
   });
 
+  const totalPages = Math.ceil(filteredBills.length / rowsPerPage) || 1;
+  const paginatedBills = filteredBills.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
   // Calculated totals of selected supplier
-  const selectedSupplierPendingTotal = selectedSupplier ? getSupplierPendingTotal(selectedSupplier.id) : 0;
+  const selectedSupplierPendingTotal = selectedSupplier
+    ? getSupplierPendingTotal(selectedSupplier.id)
+    : 0;
 
   return (
-    <>
-      <style>{`
-        .supplier-sidebar-scroll { scrollbar-width: thin; scrollbar-color: #94a3b8 #e2e8f0; }
-        .supplier-sidebar-scroll::-webkit-scrollbar { width: 9px; }
-        .supplier-sidebar-scroll::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 10px; }
-        .supplier-sidebar-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 2px solid #e2e8f0; }
-        .supplier-sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
-      `}</style>
-      <div style={{ height: "100vh", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column", background: "#f1f5f9", padding: 20, fontFamily: "Inter, sans-serif" }}>
-      
+    <div className="space-y-4 pb-12 max-w-[1600px] mx-auto">
       {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Supplier Purchases</h2>
-          <p style={{ margin: "3px 0 0", color: "#64748b", fontSize: 13 }}>Manage supplier purchase invoices, drafts, & credit payments</p>
+          <h1 className="text-xl font-bold text-slate-900">Supplier Purchases</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Manage supplier purchase invoices, drafts, & credit payments
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="flex gap-2.5 items-center flex-wrap">
           <button
             onClick={() => navigate("/purchases/reports")}
-            style={{
-              background: "#16a34a", color: "#fff", border: "none",
-              borderRadius: 10, padding: "10px 16px", fontWeight: 700, cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 7, fontSize: 13
-            }}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
           >
-            <FileSpreadsheet size={15} /> GST Report
+            <FileSpreadsheet size={15} />
+            <span>GST Report</span>
           </button>
           <button
             onClick={() => navigate("/purchases/new")}
-            style={{
-              background: "#ef4444", color: "#fff", border: "none",
-              borderRadius: 10, padding: "10px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13
-            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
           >
-            + Add Purchase
+            <Plus size={16} />
+            <span>Add Purchase</span>
           </button>
+          <HeaderSettingsButton
+            variant="list"
+            onClick={() => setShowColumnDrawer(true)}
+            isActive={showColumnDrawer}
+          />
         </div>
       </div>
 
       {/* Company Selector Buttons */}
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+      {companies.length > 0 && (
+        <div className="flex flex-wrap gap-2">
           {companies.map((c) => {
             const isActive = Number(selectedCompany) === Number(c.id);
             return (
               <button
                 key={c.id}
                 onClick={() => handleCompanyChange(c.id)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  border: isActive ? "2px solid #2563eb" : "1.5px solid #e5e7eb",
-                  backgroundColor: isActive ? "#2563eb" : "#ffffff",
-                  color: isActive ? "#ffffff" : "#475569",
-                  boxShadow: isActive ? "0 4px 12px rgba(37,99,235,0.15)" : "0 1px 3px rgba(0,0,0,0.05)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5
-                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 border ${
+                  isActive
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
               >
-                <span>🏢</span> {c.company_name}
+                <span>🏢</span>
+                <span>{c.company_name}</span>
               </button>
             );
           })}
         </div>
-      </div>
+      )}
 
       {/* 2-COLUMN SPLIT LAYOUT */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "300px 1fr",
-        gap: 16,
-        flex: 1,
-        minHeight: 0
-      }}>
-
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 items-start">
         {/* ── LEFT PANEL: Suppliers List ── */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[560px]">
           {/* Supplier Search & Add Button */}
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ position: "relative" }}>
-              <Search size={15} style={{ position: "absolute", top: "50%", left: 12, transform: "translateY(-50%)", color: "#94a3b8" }} />
+          <div className="p-3.5 border-b border-slate-100 flex flex-col gap-2.5">
+            <div className="relative">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <input
                 placeholder="Search supplier..."
                 value={supplierSearch}
                 onChange={(e) => setSupplierSearch(e.target.value)}
-                style={{
-                  width: "100%", padding: "9px 12px 9px 34px",
-                  borderRadius: 10, border: "1px solid #e2e8f0",
-                  outline: "none", fontSize: 13, boxSizing: "border-box"
-                }}
+                className="w-full pl-8 pr-3 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 transition"
               />
             </div>
 
-            {/* + Add Supplier Button (Like Product Page) */}
             <button
               onClick={() => setShowAddSupplierModal(true)}
-              style={{
-                width: "100%",
-                padding: "9px 12px",
-                background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
-                color: "#fff",
-                border: "none",
-                borderRadius: 10,
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                boxShadow: "0 2px 6px rgba(37,99,235,0.2)",
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = "0.92";
-                e.currentTarget.style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = "1";
-                e.currentTarget.style.transform = "none";
-              }}
+              className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <Plus size={16} /> Add Supplier
+              <Plus size={15} /> Add Supplier
             </button>
           </div>
+
           {/* Suppliers List */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
+          <div className="overflow-y-auto flex-1 divide-y divide-slate-100 max-h-[600px]">
             {loading ? (
-              <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Loading...</div>
+              <div className="p-8 text-center text-slate-400 text-xs font-medium">
+                Loading suppliers...
+              </div>
             ) : filteredSuppliers.length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No suppliers found</div>
+              <div className="p-8 text-center text-slate-400 text-xs font-medium">
+                No suppliers found
+              </div>
             ) : (
               filteredSuppliers.map((s) => {
                 const pt = getSupplierPendingTotal(s.id);
@@ -423,21 +466,28 @@ export default function PurchaseList() {
                     onClick={() => {
                       setSelectedSupplier(s);
                       setSearch("");
+                      setCurrentPage(1);
                     }}
-                    style={{
-                      padding: "12px 14px", borderBottom: "1px solid #f1f5f9",
-                      cursor: "pointer",
-                      background: isSelected ? "#eff6ff" : "#fff",
-                      borderLeft: isSelected ? "3px solid #2563eb" : "3px solid transparent",
-                      transition: "all 0.15s"
-                    }}
+                    className={`p-3.5 cursor-pointer transition-colors duration-150 ${
+                      isSelected
+                        ? "bg-blue-50/80 border-l-4 border-blue-600 font-semibold"
+                        : "hover:bg-slate-50 border-l-4 border-transparent text-slate-700"
+                    }`}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{s.supplier_name}</div>
-                        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{s.mobile_number || s.phone || "No phone"}</div>
+                    <div className="flex items-center justify-between">
+                      <div className="truncate pr-2">
+                        <div className="font-bold text-xs text-slate-900 truncate">
+                          {s.supplier_name}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5 truncate">
+                          {s.mobile_number || s.phone || "No phone"}
+                        </div>
                       </div>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: pt > 0 ? "#ef4444" : "#94a3b8" }}>
+                      <div
+                        className={`text-xs font-bold shrink-0 ${
+                          pt > 0 ? "text-rose-600 font-extrabold" : "text-slate-400"
+                        }`}
+                      >
                         ₹{fmt(pt)}
                       </div>
                     </div>
@@ -449,68 +499,63 @@ export default function PurchaseList() {
         </div>
 
         {/* ── RIGHT PANEL: Invoice Table ── */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-          
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[560px]">
           {selectedSupplier && (
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/40">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>
+                  <h2 className="text-lg font-bold text-slate-900">
                     {selectedSupplier.supplier_name}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-                    <Phone size={13} /> {selectedSupplier.mobile_number || selectedSupplier.phone || "N/A"}
-                    {selectedSupplier.alt_mobile && <span style={{ color: "#94a3b8" }}> / {selectedSupplier.alt_mobile}</span>}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-                    <Mail size={13} /> {selectedSupplier.email || "N/A"}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b" }}>
-                    <MapPin size={13} /> {selectedSupplier.address || "No address"}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 mt-1 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <Phone size={13} className="text-slate-400" />
+                      {selectedSupplier.mobile_number || selectedSupplier.phone || "N/A"}
+                      {selectedSupplier.alt_mobile && (
+                        <span className="text-slate-400"> / {selectedSupplier.alt_mobile}</span>
+                      )}
+                    </span>
+                    {selectedSupplier.email && (
+                      <span className="flex items-center gap-1.5">
+                        <Mail size={13} className="text-slate-400" /> {selectedSupplier.email}
+                      </span>
+                    )}
+                    {selectedSupplier.address && (
+                      <span className="flex items-center gap-1.5">
+                        <MapPin size={13} className="text-slate-400" /> {selectedSupplier.address}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div className="flex items-center gap-2.5 flex-wrap">
                   {/* Payment History Button */}
                   <button
                     onClick={() => openSupplierHistoryModal(selectedSupplier)}
-                    style={{
-                      background: "#f1f5f9", border: "1.5px solid #e2e8f0",
-                      borderRadius: 10, padding: "8px 14px", fontWeight: 700,
-                      cursor: "pointer", display: "flex", alignItems: "center",
-                      gap: 6, fontSize: 13, color: "#475569"
-                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer"
                   >
-                    <History size={15} /> Payment History
+                    <History size={14} />
+                    <span>Payment History</span>
                   </button>
 
-                  {/* Pay All Pending Button – only show if supplier has pending balance */}
+                  {/* Pay All Pending Button */}
                   {selectedSupplierPendingTotal > 0 && (
                     <button
                       onClick={openBulkPayModal}
-                      style={{
-                        background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                        border: "none", borderRadius: 10, padding: "8px 16px",
-                        fontWeight: 700, cursor: "pointer",
-                        display: "flex", alignItems: "center",
-                        gap: 6, fontSize: 13, color: "#ffffff",
-                        boxShadow: "0 4px 12px rgba(217,119,6,0.3)"
-                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer"
                     >
-                      <Wallet size={15} /> Pay All Pending
+                      <Wallet size={14} />
+                      <span>Pay All Pending</span>
                     </button>
                   )}
 
                   {/* Total Pending Balance Badge */}
                   {selectedSupplierPendingTotal > 0 && (
-                    <div style={{
-                      background: "#fef2f2", border: "1px solid #fecaca",
-                      borderRadius: 12, padding: "8px 16px", textAlign: "center"
-                    }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: ".5px" }}>
+                    <div className="bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 text-center">
+                      <div className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">
                         Pending Balance
                       </div>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: "#dc2626" }}>
+                      <div className="text-base font-black text-rose-700">
                         ₹{fmt(selectedSupplierPendingTotal)}
                       </div>
                     </div>
@@ -522,232 +567,217 @@ export default function PurchaseList() {
 
           {/* Bills Search Toolbar */}
           {selectedSupplier && (
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
-              <Search size={15} style={{ color: "#94a3b8" }} />
-              <input
-                placeholder="Search bills by Invoice/Bill No..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  flex: 1, padding: "8px 12px",
-                  borderRadius: 8, border: "1px solid #e2e8f0",
-                  outline: "none", fontSize: 13
-                }}
-              />
+            <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  placeholder="Search bills by Invoice/Bill No..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition"
+                />
+              </div>
             </div>
           )}
 
-          {/* Table Header */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr 1fr 1fr",
-            padding: "11px 20px",
-            background: "#f8fafc",
-            borderBottom: "1px solid #e5e7eb",
-            fontWeight: 700, fontSize: 12, color: "#64748b",
-            textTransform: "uppercase", letterSpacing: ".5px",
-            textAlign: "center", flexShrink: 0
-          }}>
-            <span style={{ textAlign: "left" }}>Date</span>
-            <span style={{ textAlign: "left" }}>Bill No</span>
-            <span>Total</span>
-            <span>Paid</span>
-            <span>Pending</span>
-            <span>Status</span>
-            <span>Actions</span>
-          </div>
-
-          {/* Invoice Table Rows */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
+          {/* Standardized Invoice Table */}
+          <div className="flex-1 flex flex-col">
             {!selectedSupplier ? (
-              <div style={{
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
-                padding: 48, color: "#94a3b8", textAlign: "center"
-              }}>
-                <div style={{ fontSize: 52, marginBottom: 14 }}>🏢</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>No Supplier Selected</div>
-                <p style={{ fontSize: 13, marginTop: 6, maxWidth: 300, lineHeight: 1.6 }}>
-                  Select a supplier from the left sidebar to view purchase invoices and billing histories.
-                </p>
-              </div>
+              <TableEmptyState
+                title="No Supplier Selected"
+                description="Select a supplier from the left sidebar to view purchase invoices and billing history."
+              />
             ) : filteredBills.length === 0 ? (
-              <div style={{
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
-                padding: 48, color: "#94a3b8", textAlign: "center"
-              }}>
-                <div style={{ fontSize: 52, marginBottom: 14 }}>📄</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>No Purchase Invoices</div>
-                <p style={{ fontSize: 13, marginTop: 6, maxWidth: 300, lineHeight: 1.6 }}>
-                  There are no purchase invoices matching your search for this supplier.
-                </p>
-              </div>
+              <TableEmptyState
+                title="No Purchase Invoices"
+                description="There are no purchase invoices matching your search for this supplier."
+              />
             ) : (
-              filteredBills.map((p) => {
-                const isPaid = Number(p.balance_amount) <= 0;
-                return (
-                  <div
-                    key={p.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr 1fr 1fr",
-                      padding: "14px 20px",
-                      alignItems: "center", textAlign: "center",
-                      borderBottom: "1px solid #f8fafc",
-                      background: "#fff",
-                      transition: "background .15s"
-                    }}
-                  >
-                    <div style={{ textAlign: "left", fontSize: 13, color: "#334155" }}>
-                      {p.purchase_date}
-                    </div>
-                    <div style={{ textAlign: "left", fontWeight: 600, fontSize: 13, color: "#0f172a" }}>
-                      {p.purchase_no || "N/A"}
-                    </div>
-                    <div style={{ fontSize: 13, color: "#334155" }}>₹{fmt(p.total_amount)}</div>
-                    <div style={{ fontWeight: 700, color: "#16a34a", fontSize: 13 }}>
-                      ₹{fmt(p.paid_amount)}
-                    </div>
-                    <div>
-                      <span style={{
-                        background: isPaid ? "#f0fdf4" : "#fee2e2",
-                        color: isPaid ? "#16a34a" : "#dc2626",
-                        padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700
-                      }}>
-                        ₹{fmt(p.balance_amount)}
-                      </span>
-                    </div>
-                    <div>
-                      <span style={{
-                        padding: "5px 14px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                        background: p.status === "submitted" ? "#dcfce7" : "#fee2e2",
-                        color: p.status === "submitted" ? "#15803d" : "#dc2626",
-                        display: "inline-block", minWidth: 72, textAlign: "center"
-                      }}>
-                        {p.status}
-                      </span>
-                    </div>
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-                        {p.status === "draft" ? (
-                          <>
-                            <button
-                              onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                              title="Edit Draft"
-                              style={{
-                                border: "none", background: "#f0fdf4", color: "#16a34a",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(p.id)}
-                              title="Delete Draft"
-                              style={{
-                                border: "none", background: "#fef2f2", color: "#dc2626",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                              title="View Details"
-                              style={{
-                                border: "none", background: "#eff6ff", color: "#2563eb",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Eye size={14} />
-                            </button>
-                            <div style={{ position: "relative" }}>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveShareId(activeShareId === p.id ? null : p.id);
-                                }}
-                                title="Share Invoice"
-                                style={{
-                                  border: "none", background: "#f1f5f9", color: "#475569",
-                                  padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                                }}
+              <>
+                <Table>
+                  <Thead>
+                    <tr>
+                      {visibleColumns.date && <Th>Date</Th>}
+                      {visibleColumns.bill_no && <Th>Bill No</Th>}
+                      {visibleColumns.total && <Th align="right">Total</Th>}
+                      {visibleColumns.paid && <Th align="right">Paid</Th>}
+                      {visibleColumns.pending && <Th align="right">Pending</Th>}
+                      {visibleColumns.status && <Th align="center">Status</Th>}
+                      {visibleColumns.actions && <Th align="center">Actions</Th>}
+                    </tr>
+                  </Thead>
+                  <Tbody>
+                    {paginatedBills.map((p) => {
+                      const isPaid = Number(p.balance_amount) <= 0;
+                      return (
+                        <Tr key={p.id}>
+                          {visibleColumns.date && (
+                            <Td className="text-slate-600 whitespace-nowrap">
+                              {p.purchase_date}
+                            </Td>
+                          )}
+                          {visibleColumns.bill_no && (
+                            <Td className="font-bold text-slate-900 whitespace-nowrap font-mono">
+                              {p.purchase_no || "N/A"}
+                            </Td>
+                          )}
+                          {visibleColumns.total && (
+                            <Td align="right" className="font-semibold text-slate-800">
+                              ₹{fmt(p.total_amount)}
+                            </Td>
+                          )}
+                          {visibleColumns.paid && (
+                            <Td align="right" className="font-semibold text-emerald-600">
+                              ₹{fmt(p.paid_amount)}
+                            </Td>
+                          )}
+                          {visibleColumns.pending && (
+                            <Td align="right">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-xs font-bold ${
+                                  isPaid
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-rose-50 text-rose-700 border border-rose-200"
+                                }`}
                               >
-                                <Share2 size={14} />
-                              </button>
-                              <ShareTransactionPopover
-                                isOpen={activeShareId === p.id}
-                                onClose={() => setActiveShareId(null)}
-                                transaction={p}
-                                type="Purchase Bill"
+                                ₹{fmt(p.balance_amount)}
+                              </span>
+                            </Td>
+                          )}
+                          {visibleColumns.status && (
+                            <Td align="center">
+                              <TableStatusBadge
+                                variant={p.status === "submitted" ? "success" : "warning"}
+                                label={p.status}
                               />
-                            </div>
-                            {Number(p.balance_amount) > 0 && (
-                              <button
-                                onClick={() => openPayModal(p)}
-                                title="Pay Pending Balance"
-                                style={{
-                                  border: "none", background: "#fef3c7", color: "#d97706",
-                                  padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                                }}
-                              >
-                                <CreditCard size={14} />
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+                            </Td>
+                          )}
+                          {visibleColumns.actions && (
+                            <Td align="center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                {p.status === "draft" ? (
+                                  <>
+                                    <button
+                                      onClick={() => navigate(`/purchases/edit/${p.id}`)}
+                                      title="Edit Draft"
+                                      className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition cursor-pointer"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(p.id)}
+                                      title="Delete Draft"
+                                      className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => navigate(`/purchases/edit/${p.id}`)}
+                                      title="View Details"
+                                      className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition cursor-pointer"
+                                    >
+                                      <Eye size={14} />
+                                    </button>
+                                    <div className="relative">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveShareId(activeShareId === p.id ? null : p.id);
+                                        }}
+                                        title="Share Invoice"
+                                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition cursor-pointer"
+                                      >
+                                        <Share2 size={14} />
+                                      </button>
+                                      <ShareTransactionPopover
+                                        isOpen={activeShareId === p.id}
+                                        onClose={() => setActiveShareId(null)}
+                                        transaction={p}
+                                        type="Purchase Bill"
+                                      />
+                                    </div>
+                                    {Number(p.balance_amount) > 0 && (
+                                      <button
+                                        onClick={() => openPayModal(p)}
+                                        title="Pay Pending Balance"
+                                        className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition cursor-pointer"
+                                      >
+                                        <CreditCard size={14} />
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </Td>
+                          )}
+                        </Tr>
+                      );
+                    })}
+                  </Tbody>
+                </Table>
+
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredBills.length}
+                  rowsPerPage={rowsPerPage}
+                  onPageChange={(page) => setCurrentPage(page)}
+                  onRowsPerPageChange={(size) => {
+                    setRowsPerPage(size);
+                    setCurrentPage(1);
+                  }}
+                  itemLabel="invoices"
+                />
+              </>
             )}
           </div>
-
         </div>
-
       </div>
 
       {/* ── PAY MODAL ── */}
       {showPayModal && paymentPurchase && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.4)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "450px",
-            borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden",
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-          }}>
-            <div style={{ padding: "20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>Record Supplier Payment</h3>
-              <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
-                Bill No: <span style={{ fontWeight: "700", color: "#334155" }}>{paymentPurchase.purchase_no || "N/A"}</span>
-              </p>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl border border-slate-200 overflow-hidden shadow-xl">
+            <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Record Supplier Payment</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Bill No: <span className="font-semibold text-slate-700">{paymentPurchase.purchase_no || "N/A"}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPayModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            <form onSubmit={submitPayment} style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "15px" }}>
-              
+            <form onSubmit={submitPayment} className="p-5 flex flex-col gap-4">
               {/* Balances Display */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", padding: "12px", background: "#fef3c7", borderRadius: "12px", border: "1px solid #fde68a" }}>
+              <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50/70 rounded-xl border border-amber-200">
                 <div>
-                  <span style={{ fontSize: "11px", color: "#92400e", fontWeight: "700", textTransform: "uppercase" }}>Paid Amount</span>
-                  <div style={{ fontSize: "16px", fontWeight: "800", color: "#b45309" }}>₹{fmt(paymentPurchase.paid_amount)}</div>
+                  <span className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">Paid Amount</span>
+                  <div className="text-base font-bold text-amber-900">₹{fmt(paymentPurchase.paid_amount)}</div>
                 </div>
                 <div>
-                  <span style={{ fontSize: "11px", color: "#92400e", fontWeight: "700", textTransform: "uppercase" }}>Pending Balance</span>
-                  <div style={{ fontSize: "16px", fontWeight: "800", color: "#dc2626" }}>₹{fmt(paymentPurchase.balance_amount)}</div>
+                  <span className="text-[10px] text-rose-800 font-bold uppercase tracking-wider">Pending Balance</span>
+                  <div className="text-base font-bold text-rose-700">₹{fmt(paymentPurchase.balance_amount)}</div>
                 </div>
               </div>
 
               {/* Pay Amount input */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Payment Amount (₹) *</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-600">Payment Amount (₹) *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -756,23 +786,17 @@ export default function PurchaseList() {
                   min="0.01"
                   value={payAmount}
                   onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px"
-                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-sm font-semibold"
                 />
               </div>
 
               {/* Payment Method select */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Payment Method *</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-600">Payment Method *</label>
                 <select
                   value={payMethod}
                   onChange={(e) => setPayMethod(e.target.value)}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px", background: "#ffffff"
-                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-xs bg-white text-slate-700"
                 >
                   <option value="cash">Cash</option>
                   <option value="online">Online Transfer / Netbanking</option>
@@ -782,55 +806,42 @@ export default function PurchaseList() {
               </div>
 
               {/* Payment Date input */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Payment Date *</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-600">Payment Date *</label>
                 <input
                   type="date"
                   required
                   value={payDate}
                   onChange={(e) => setPayDate(e.target.value)}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px"
-                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-xs text-slate-700"
                 />
               </div>
 
               {/* Notes */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Notes / Reference</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-600">Notes / Reference</label>
                 <textarea
                   value={payNotes}
                   onChange={(e) => setPayNotes(e.target.value)}
                   placeholder="e.g. UPI Transaction ID or Cheque No."
                   rows="2"
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px", fontFamily: "inherit"
-                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-xs text-slate-700"
                 />
               </div>
 
               {/* Buttons */}
-              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowPayModal(false)}
-                  style={{
-                    flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #cbd5e1",
-                    background: "#ffffff", color: "#475569", fontWeight: "600", fontSize: "14px", cursor: "pointer"
-                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingPayment}
-                  style={{
-                    flex: 1, padding: "12px", borderRadius: "10px", border: "none",
-                    background: "#10b981", color: "#ffffff", fontWeight: "700", fontSize: "14px", cursor: "pointer",
-                    boxShadow: "0 4px 12px rgba(16,185,129,0.15)"
-                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm transition cursor-pointer disabled:opacity-50"
                 >
                   {submittingPayment ? "Recording..." : "Record Payment"}
                 </button>
@@ -842,113 +853,84 @@ export default function PurchaseList() {
 
       {/* ── SUPPLIER PAYMENT HISTORY MODAL ── */}
       {showHistoryModal && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "700px",
-            borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden",
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-            maxHeight: "80vh", display: "flex", flexDirection: "column"
-          }}>
+        <div className="fixed inset-0 bg-slate-900/45 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-2xl rounded-2xl border border-slate-200 overflow-hidden shadow-xl max-h-[80vh] flex flex-col">
             {/* Modal Header */}
-            <div style={{ padding: "18px 22px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50 flex-shrink-0">
+              <div className="flex justify-between items-center">
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
-                    Payment History
-                  </h3>
-                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
+                  <h3 className="text-base font-bold text-slate-900">Payment History</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
                     All payments recorded for <strong>{selectedSupplier?.supplier_name}</strong>
                   </p>
                 </div>
                 <button
                   onClick={() => setShowHistoryModal(false)}
-                  style={{
-                    border: "none", background: "#f1f5f9", color: "#475569",
-                    padding: "8px 14px", borderRadius: 10, fontWeight: 700,
-                    fontSize: 13, cursor: "pointer"
-                  }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
                 >
-                  ✕ Close
+                  <X size={16} />
                 </button>
               </div>
 
               {/* Summary bar */}
               {!loadingHistory && paymentHistory.length > 0 && (
-                <div style={{
-                  marginTop: 12, background: "#f0fdf4", border: "1px solid #bbf7d0",
-                  borderRadius: 10, padding: "10px 14px",
-                  display: "flex", gap: 24, alignItems: "center"
-                }}>
+                <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex gap-6 items-center">
                   <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#15803d", textTransform: "uppercase" }}>Total Paid</span>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#15803d" }}>
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Total Paid</span>
+                    <div className="text-base font-bold text-emerald-700">
                       ₹{fmt(paymentHistory.reduce((s, h) => s + Number(h.amount || 0), 0))}
                     </div>
                   </div>
                   <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Transactions</span>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#334155" }}>{paymentHistory.length}</div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Transactions</span>
+                    <div className="text-base font-bold text-slate-800">{paymentHistory.length}</div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Modal Body */}
-<div className="supplier-sidebar-scroll" style={{ overflowY: "scroll", flex: 1, minHeight: 0 }}>
+            {/* Modal Body Table */}
+            <div className="overflow-y-auto flex-1 p-0">
               {loadingHistory ? (
-                <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Loading payment records...</div>
+                <TableLoadingState message="Loading payment records..." />
               ) : paymentHistory.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>
-                  <div style={{ fontSize: 40, marginBottom: 10 }}>🧾</div>
-                  No payment records found for this supplier yet.
-                </div>
+                <TableEmptyState
+                  title="No Payment Records"
+                  description="No payment records found for this supplier yet."
+                />
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                  <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
-                    <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill No</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Invoice Date</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Pay Date</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Amount Paid</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Method</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Notes</th>
+                <Table>
+                  <Thead>
+                    <tr>
+                      <Th>Bill No</Th>
+                      <Th>Invoice Date</Th>
+                      <Th>Pay Date</Th>
+                      <Th align="right">Amount Paid</Th>
+                      <Th align="center">Method</Th>
+                      <Th>Notes</Th>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {paymentHistory.map((h, idx) => (
-                      <tr key={h.id} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#0f172a", fontWeight: "700" }}>
+                  </Thead>
+                  <Tbody>
+                    {paymentHistory.map((h) => (
+                      <Tr key={h.id}>
+                        <Td className="font-bold text-slate-900 font-mono">
                           {h.purchase_no || "N/A"}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
-                          {h.invoice_date || "-"}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#334155", fontWeight: "500" }}>
-                          {h.payment_date}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#16a34a", fontWeight: "700" }}>
+                        </Td>
+                        <Td className="text-slate-500">{h.invoice_date || "-"}</Td>
+                        <Td className="text-slate-700 font-medium">{h.payment_date}</Td>
+                        <Td align="right" className="font-bold text-emerald-600">
                           ₹{fmt(h.amount)}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#475569", textTransform: "capitalize" }}>
-                          <span style={{
-                            padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                            background: h.payment_method === "cash" ? "#f0fdf4" : "#eff6ff",
-                            color: h.payment_method === "cash" ? "#15803d" : "#2563eb"
-                          }}>
+                        </Td>
+                        <Td align="center">
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 capitalize">
                             {h.payment_method}
                           </span>
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
-                          {h.notes || "-"}
-                        </td>
-                      </tr>
+                        </Td>
+                        <Td className="text-slate-500 text-xs">{h.notes || "-"}</Td>
+                      </Tr>
                     ))}
-                  </tbody>
-                </table>
+                  </Tbody>
+                </Table>
               )}
             </div>
           </div>
@@ -957,59 +939,65 @@ export default function PurchaseList() {
 
       {/* ── BULK PAY MODAL ── */}
       {showBulkPayModal && selectedSupplier && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.5)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "620px",
-            borderRadius: "20px", border: "1px solid #e2e8f0",
-            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.15)",
-            maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden"
-          }}>
-
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-xl rounded-2xl border border-slate-200 shadow-2xl max-h-[88vh] flex flex-col overflow-hidden">
             {/* Header */}
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "linear-gradient(135deg, #fefce8, #fffbeb)", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="p-5 border-b border-slate-100 bg-amber-50/50 flex-shrink-0">
+              <div className="flex justify-between items-start">
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
-                    <Wallet size={20} color="#d97706" /> Pay All Pending
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Wallet size={18} className="text-amber-600" />
+                    <span>Pay All Pending</span>
                   </h3>
-                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
-                    Payment will be split across pending invoices oldest-first (FIFO) for <strong>{selectedSupplier.supplier_name}</strong>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Payment will be split across pending invoices oldest-first (FIFO) for{" "}
+                    <strong>{selectedSupplier.supplier_name}</strong>
                   </p>
                 </div>
                 <button
                   onClick={() => setShowBulkPayModal(false)}
-                  style={{ border: "none", background: "#f1f5f9", color: "#475569", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
                 >
-                  ✕ Cancel
+                  <X size={16} />
                 </button>
               </div>
 
               {/* Summary row */}
-              <div style={{ marginTop: 14, display: "flex", gap: 16 }}>
-                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "8px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#dc2626", textTransform: "uppercase" }}>Total Pending</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#dc2626" }}>₹{fmt(selectedSupplierPendingTotal)}</div>
+              <div className="mt-3 flex gap-3">
+                <div className="bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 text-center flex-1">
+                  <div className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">
+                    Total Pending
+                  </div>
+                  <div className="text-base font-bold text-rose-700">
+                    ₹{fmt(selectedSupplierPendingTotal)}
+                  </div>
                 </div>
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#15803d", textTransform: "uppercase" }}>Pending Invoices</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#15803d" }}>
-                    {supplierBills.filter(p => Number(p.balance_amount) > 0 && p.status === "submitted").length}
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 text-center flex-1">
+                  <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                    Pending Invoices
+                  </div>
+                  <div className="text-base font-bold text-emerald-700">
+                    {
+                      supplierBills.filter(
+                        (p) => Number(p.balance_amount) > 0 && p.status === "submitted"
+                      ).length
+                    }
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Form + Preview */}
-            <form onSubmit={submitBulkPayment} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-
+            <form
+              onSubmit={submitBulkPayment}
+              className="flex-1 overflow-y-auto flex flex-col"
+            >
+              <div className="p-5 flex flex-col gap-3.5">
                 {/* Amount Input */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Amount (₹) *</label>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                    Payment Amount (₹) *
+                  </label>
                   <input
                     type="number"
                     step="0.01"
@@ -1019,22 +1007,18 @@ export default function PurchaseList() {
                     value={bulkAmount}
                     onChange={(e) => handleBulkAmountChange(e.target.value)}
                     placeholder={`Max: ₹${fmt(selectedSupplierPendingTotal)}`}
-                    style={{
-                      width: "100%", padding: "11px 14px", borderRadius: "10px",
-                      border: "1.5px solid #e2e8f0", outline: "none", fontSize: "15px",
-                      fontWeight: "700", boxSizing: "border-box"
-                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-sm font-bold"
                   />
                 </div>
 
                 {/* Method + Date row */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Method</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-slate-600">Payment Method</label>
                     <select
                       value={bulkMethod}
                       onChange={(e) => setBulkMethod(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", background: "#fff", boxSizing: "border-box" }}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-xs bg-white text-slate-700"
                     >
                       <option value="cash">Cash</option>
                       <option value="online">Online Transfer</option>
@@ -1043,69 +1027,82 @@ export default function PurchaseList() {
                       <option value="cheque">Cheque</option>
                     </select>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Date</label>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-slate-600">Payment Date</label>
                     <input
                       type="date"
                       value={bulkDate}
                       onChange={(e) => setBulkDate(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", boxSizing: "border-box" }}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-xs text-slate-700"
                     />
                   </div>
                 </div>
 
                 {/* Notes */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Notes / Reference</label>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600">Notes / Reference</label>
                   <input
                     type="text"
                     value={bulkNotes}
                     onChange={(e) => setBulkNotes(e.target.value)}
                     placeholder="e.g. Cheque No. or UPI Ref."
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", boxSizing: "border-box" }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-500 outline-none text-xs text-slate-700"
                   />
                 </div>
 
                 {/* Live Split Preview */}
                 {bulkPreview.length > 0 && (
-                  <div style={{ borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "12px", fontWeight: "700", color: "#334155", textTransform: "uppercase", letterSpacing: ".5px" }}>
+                  <div className="rounded-xl border border-slate-200 overflow-hidden mt-1">
+                    <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                       📊 Distribution Preview (FIFO – Oldest Invoice First)
                     </div>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                    <table className="w-full border-collapse text-left text-xs">
                       <thead>
-                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill No</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Date</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Pending</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Applying</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>New Balance</th>
+                        <tr className="bg-slate-50/70 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase">
+                          <th className="py-2 px-3">Bill No</th>
+                          <th className="py-2 px-3">Date</th>
+                          <th className="py-2 px-3">Pending</th>
+                          <th className="py-2 px-3">Applying</th>
+                          <th className="py-2 px-3">New Balance</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {bulkPreview.map((p, idx) => {
+                      <tbody className="divide-y divide-slate-100">
+                        {bulkPreview.map((p) => {
                           const willPay = Number(p._applying) > 0;
                           const fullyClear = Number(p._newBalance) <= 0;
                           return (
-                            <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9", background: willPay ? (fullyClear ? "#f0fdf4" : "#fffbeb") : "#fff" }}>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>
+                            <tr
+                              key={p.id}
+                              className={
+                                willPay
+                                  ? fullyClear
+                                    ? "bg-emerald-50/50"
+                                    : "bg-amber-50/40"
+                                  : "bg-white"
+                              }
+                            >
+                              <td className="py-2 px-3 font-bold text-slate-900 font-mono">
                                 {p.purchase_no || "N/A"}
                               </td>
-                              <td style={{ padding: "9px 12px", fontSize: "12px", color: "#64748b" }}>
+                              <td className="py-2 px-3 text-slate-500 text-[11px]">
                                 {p.purchase_date}
                               </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", color: "#dc2626", fontWeight: "600" }}>
+                              <td className="py-2 px-3 text-rose-600 font-semibold">
                                 ₹{fmt(p.balance_amount)}
                               </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700", color: willPay ? "#16a34a" : "#94a3b8" }}>
+                              <td className="py-2 px-3 font-bold text-emerald-600">
                                 {willPay ? `₹${fmt(p._applying)}` : "—"}
                               </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700" }}>
-                                <span style={{
-                                  padding: "3px 8px", borderRadius: 20, fontSize: 12,
-                                  background: fullyClear ? "#dcfce7" : (willPay ? "#fef9c3" : "#f1f5f9"),
-                                  color: fullyClear ? "#15803d" : (willPay ? "#92400e" : "#94a3b8")
-                                }}>
+                              <td className="py-2 px-3 font-bold">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[11px] ${
+                                    fullyClear
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : willPay
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "bg-slate-100 text-slate-500"
+                                  }`}
+                                >
                                   {fullyClear ? "✓ Cleared" : `₹${fmt(p._newBalance)}`}
                                 </span>
                               </td>
@@ -1114,40 +1111,39 @@ export default function PurchaseList() {
                         })}
                       </tbody>
                     </table>
-                    {/* Leftover notice */}
-                    {Number(bulkAmount) > selectedSupplierPendingTotal && (
-                      <div style={{ padding: "10px 14px", background: "#eff6ff", borderTop: "1px solid #bfdbfe", fontSize: "12.5px", color: "#2563eb", fontWeight: "600" }}>
-                        ℹ️ Amount exceeds total pending. Only ₹{fmt(selectedSupplierPendingTotal)} will be applied.
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
 
               {/* Footer Buttons */}
-              <div style={{ padding: "16px 24px", borderTop: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", gap: 10, flexShrink: 0 }}>
+              <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-2.5 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowBulkPayModal(false)}
-                  style={{
-                    flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #cbd5e1",
-                    background: "#ffffff", color: "#475569", fontWeight: "600", fontSize: "14px", cursor: "pointer"
-                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingBulk || !bulkAmount || Number(bulkAmount) <= 0}
-                  style={{
-                    flex: 2, padding: "12px", borderRadius: "10px", border: "none",
-                    background: submittingBulk ? "#94a3b8" : "linear-gradient(135deg, #f59e0b, #d97706)",
-                    color: "#ffffff", fontWeight: "700", fontSize: "14px", cursor: submittingBulk ? "not-allowed" : "pointer",
-                    boxShadow: "0 4px 12px rgba(217,119,6,0.2)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-                  }}
+                  className="flex-2 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-sm transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  <Wallet size={16} />
-                  {submittingBulk ? "Processing..." : `Record Payment of ₹${bulkAmount ? fmt(Math.min(Number(bulkAmount), selectedSupplierPendingTotal)) : "0"}`}
+                  <Wallet size={15} />
+                  <span>
+                    {submittingBulk
+                      ? "Processing..."
+                      : `Record Payment of ₹${
+                          bulkAmount
+                            ? fmt(
+                                Math.min(
+                                  Number(bulkAmount),
+                                  selectedSupplierPendingTotal
+                                )
+                              )
+                            : "0"
+                        }`}
+                  </span>
                 </button>
               </div>
             </form>
@@ -1167,7 +1163,19 @@ export default function PurchaseList() {
           }
         }}
       />
-      </div>
-    </>
+
+      {/* Table Column Customizer Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide columns in Purchase Bills table"
+      />
+    </div>
   );
 }

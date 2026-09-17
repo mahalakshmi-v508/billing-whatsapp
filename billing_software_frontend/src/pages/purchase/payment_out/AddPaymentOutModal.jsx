@@ -283,11 +283,11 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shadow-xs">
               <Truck size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-black text-slate-900 tracking-tight">
+              <h2 className="text-sm font-bold text-slate-900 tracking-tight">
                 {editPayment ? "Edit Payment-Out Voucher" : "Record Payment-Out Voucher"}
               </h2>
               <p className="text-[11px] text-slate-500 font-medium">Direct vendor payout disbursement entry</p>
@@ -339,7 +339,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                     value={partyQuery}
                     onChange={(e) => handleSearchSuppliers(e.target.value)}
                     onFocus={() => setShowPartyDropdown(true)}
-                    className="w-full px-3.5 py-2.5 pr-8 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition"
+                    className="w-full px-3.5 py-2.5 pr-8 rounded-xl border border-slate-200 font-bold text-slate-900 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition bg-slate-50/50 focus:bg-white"
                   />
                   <ChevronDown
                     size={14}
@@ -350,7 +350,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
 
                 {/* Selected Supplier Live Unpaid Balance */}
                 {selectedSupplier && (
-                  <div className="flex justify-between items-center mt-1.5 px-1 text-[11px] bg-slate-50 py-1 rounded-lg border border-slate-200">
+                  <div className="flex justify-between items-center mt-1.5 px-2 text-[11px] bg-slate-50 py-1.5 rounded-lg border border-slate-200">
                     <span className="text-slate-500 font-medium">Pending Due:</span>
                     <span className={`font-black ${Number(selectedSupplier.pending_balance || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
                       ₹ {Number(selectedSupplier.pending_balance || 0).toFixed(2)}
@@ -372,7 +372,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                         <button
                           key={sup.id}
                           onClick={() => selectSupplier(sup)}
-                          className="w-full text-left px-3.5 py-2 text-xs hover:bg-purple-50 flex items-center justify-between border-b border-slate-50 cursor-pointer"
+                          className="w-full text-left px-3.5 py-2 text-xs hover:bg-blue-50 flex items-center justify-between border-b border-slate-50 cursor-pointer"
                         >
                           <div>
                             <div className="font-bold text-slate-900">{sup.supplier_name || sup.name}</div>
@@ -403,7 +403,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                       onClick={() => setPaymentType(type)}
                       className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
                         paymentType === type
-                          ? "bg-purple-600 text-white border-purple-600 shadow-xs shadow-purple-600/30"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs"
                           : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                       }`}
                     >
@@ -424,7 +424,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                     type="text"
                     value={receiptNo}
                     onChange={(e) => setReceiptNo(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 text-xs outline-none focus:border-purple-600 transition"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono font-bold text-slate-900 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition bg-slate-50/50 focus:bg-white"
                   />
                 </div>
 
@@ -435,7 +435,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                     type="date"
                     value={paymentDate}
                     onChange={(e) => setPaymentDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold text-slate-800 text-xs outline-none focus:border-purple-600 transition"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-semibold text-slate-800 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition bg-slate-50/50 focus:bg-white"
                   />
                 </div>
               </div>
@@ -452,7 +452,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                   step="any"
                   value={paidAmount}
                   onChange={(e) => setPaidAmount(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-black text-slate-900 text-base outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 font-black text-slate-900 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition bg-slate-50/50 focus:bg-white"
                 />
               </div>
             </div>
@@ -466,7 +466,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
               placeholder="Optional remarks, cheque/UTR reference"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 outline-none focus:border-purple-600 transition"
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition bg-slate-50/50 focus:bg-white"
             />
           </div>
         </div>
@@ -476,7 +476,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
           >
             Cancel
           </button>
@@ -484,7 +484,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
             type="button"
             onClick={handleSavePaymentOut}
             disabled={saving}
-            className="px-6 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-purple-600/30 transition cursor-pointer disabled:opacity-50"
+            className="app-btn-primary h-9 px-6 rounded-xl text-xs font-semibold shadow-sm cursor-pointer disabled:opacity-50"
           >
             {saving ? "Recording..." : "Save Payment"}
           </button>

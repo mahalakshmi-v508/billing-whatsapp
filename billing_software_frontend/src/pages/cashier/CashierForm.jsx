@@ -21,7 +21,7 @@ const STYLE = `
     border-radius: 14px;
     padding: 13px 14px 13px 46px;
     font-size: 14px;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     color: #1e3a8a;
     outline: none;
     transition: border-color .2s, box-shadow .2s, background .2s;
@@ -43,7 +43,7 @@ const STYLE = `
     padding: 14px;
     font-size: 15px;
     font-weight: 700;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     cursor: pointer;
     transition: all .22s;
     box-shadow: 0 6px 22px rgba(29,78,216,.3);
@@ -63,7 +63,7 @@ const STYLE = `
   .cf-back {
     background: none; border: none; cursor: pointer;
     color: #64748b; font-size: 13.5px; font-weight: 600;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     display: flex; align-items: center; gap: 6px;
     padding: 9px 14px; border-radius: 10px;
     transition: all .18s;

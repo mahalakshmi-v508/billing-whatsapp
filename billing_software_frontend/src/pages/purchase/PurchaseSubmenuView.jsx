@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, ArrowLeft, FileText, ShoppingCart, ArrowDownRight, Receipt, Undo2 } from "lucide-react";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 
 export default function PurchaseSubmenuView({ title = "Purchase Document", type = "document", subtitle }) {
   const navigate = useNavigate();
@@ -61,6 +62,8 @@ export default function PurchaseSubmenuView({ title = "Purchase Document", type 
             <Plus size={18} />
             <span>{defaultMeta.btnText}</span>
           </button>
+
+          <HeaderSettingsButton variant="list" />
         </div>
       </div>
 
