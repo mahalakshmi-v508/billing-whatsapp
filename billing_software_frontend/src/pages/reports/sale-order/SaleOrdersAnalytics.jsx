@@ -19,6 +19,7 @@ import {
   X,
   Sparkles,
   BarChart2,
+  ArrowLeft,
 } from "lucide-react";
 
 const STATUS_COLORS = {
@@ -83,6 +84,7 @@ export default function SaleOrdersAnalytics({
   symbol = "₹",
   fromDate = "",
   toDate = "",
+  orderType = "sale_order",
   onClose,
 }) {
   const [granularity, setGranularity] = useState("auto"); // "auto" | "daily" | "weekly" | "monthly"
@@ -276,37 +278,39 @@ export default function SaleOrdersAnalytics({
   }, [orders]);
 
   return (
-    <div className="bg-slate-50/70 rounded-3xl p-4 sm:p-6 border border-indigo-100/80 shadow-sm space-y-6 animate-fadeIn transition-all">
-      {/* Analytics Panel Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
-            <BarChart2 className="w-5 h-5" />
+    <div className="space-y-6 animate-fadeIn transition-all">
+      {/* View Header Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Orders & Fulfillment</span>
+            <span>•</span>
+            <span>{orderType === "sale_order" ? "Sales Pipeline Analytics" : "Procurement Analytics"}</span>
+            <span>•</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <Sparkles className="w-3 h-3 text-indigo-500" />
+              Live Filtered
+            </span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                Sale Orders Analytics
-              </h2>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                <Sparkles className="w-3 h-3 text-indigo-500" />
-                Live Filtered Data
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Insights derived directly from active report filters and matching orders
-            </p>
-          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            {orderType === "sale_order" ? "Sale Orders Analytics" : "Purchase Orders Analytics"}
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Active Period: <span className="font-semibold text-slate-700">{fromDate || "All"}</span> to{" "}
+            <span className="font-semibold text-slate-700">{toDate || "All"}</span> •{" "}
+            <span className="font-semibold text-indigo-600">{orders.length}</span> {orders.length === 1 ? "order" : "orders"} matching filter criteria
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-center">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {onClose && (
             <button
+              type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-all cursor-pointer shadow-2xs"
-              title="Close Analytics"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+              title="Return to Sale Orders Report"
             >
-              <X className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-4 h-4 text-slate-500" />
               <span>Close</span>
             </button>
           )}
