@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import api from "../../../services/api";
 import { getCurrencySymbol } from "../../../utils/expenseDocument";
-import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search, ShoppingBag, DollarSign, Clock, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search, ShoppingBag, DollarSign, Clock, CheckCircle2, AlertCircle, X, BarChart3 } from "lucide-react";
 import * as XLSX from "xlsx";
 import ReportPagination from "../../../components/reports/ReportPagination";
 import { showToast } from "../../../utils/reportToast";
+import SaleOrdersAnalytics from "./SaleOrdersAnalytics";
 
 const toInputDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -56,6 +57,7 @@ export default function SaleOrders() {
   const [symbol, setSymbol] = useState("₹");
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -301,6 +303,19 @@ export default function SaleOrders() {
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Print</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setShowAnalytics((v) => !v)}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all shadow-2xs cursor-pointer ${
+              showAnalytics
+                ? "border-indigo-600 bg-indigo-600 text-white shadow-xs"
+                : "border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80 hover:border-indigo-300"
+            }`}
+            title="Toggle Analytics Dashboard"
+          >
+            <BarChart3 className={`w-4 h-4 ${showAnalytics ? "text-white" : "text-indigo-600"}`} />
+            <span>Analytics</span>
+          </button>
         </div>
       </div>
 
@@ -471,6 +486,17 @@ export default function SaleOrders() {
           </div>
         </div>
       </div>
+
+      {/* Analytics Section */}
+      {showAnalytics && (
+        <SaleOrdersAnalytics
+          orders={filteredOrders}
+          symbol={symbol}
+          fromDate={fromDate}
+          toDate={toDate}
+          onClose={() => setShowAnalytics(false)}
+        />
+      )}
 
       {/* Modern Data Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
