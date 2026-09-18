@@ -238,15 +238,7 @@ export default function PurchaseForm() {
       if (!item.product_name || !item.product_name.trim()) {
         errors.push("Product name is required");
       }
-      if (!item.category_id && !item.category_name) {
-        errors.push("Category is required");
-      }
-      if (!item.subcategory_id && !item.subcategory_name) {
-        errors.push("Subcategory is required");
-      }
-      if (!item.brand_id && !item.brand_name) {
-        errors.push("Brand is required");
-      }
+      // Barcode, Category, Subcategory, Brand are optional fields
       if (item.price === undefined || item.price === null || parseFloat(item.price) <= 0) {
         errors.push("Supplier price must be greater than 0");
       }
@@ -1001,10 +993,10 @@ export default function PurchaseForm() {
                       <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "40px" }}>Status</th>
                       <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "150px" }}>Product Name *</th>
                       <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Product Code</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Barcode</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Category</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Subcategory</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "120px" }}>Brand</th>
+                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Barcode <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>
+                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Category <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>
+                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Subcategory <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>
+                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "120px" }}>Brand <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>
                       <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Supplier Price</th>
                       <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Selling Price</th>
                       <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Selling Price Unit</th>
@@ -1104,6 +1096,7 @@ export default function PurchaseForm() {
                                 type="text"
                                 value={item.barcode}
                                 disabled={isLocked}
+                                placeholder="Optional"
                                 onChange={(e) => updateRowField(index, "barcode", e.target.value)}
                                 style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
                               />
@@ -1114,9 +1107,9 @@ export default function PurchaseForm() {
                                 value={item.category_id || ""}
                                 disabled={isLocked || !selectedCompany}
                                 onChange={(e) => handleCategoryChange(index, e.target.value)}
-                                style={{ width: "100%", padding: "6px 4px", border: isRowErrored && !item.category_id && !item.category_name ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
                               >
-                                <option value="">Select Category</option>
+                                <option value="">Select Category (Opt)</option>
                                 {categories.map(c => (
                                   <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
@@ -1128,9 +1121,9 @@ export default function PurchaseForm() {
                                 value={item.subcategory_id || ""}
                                 disabled={isLocked || !item.category_id}
                                 onChange={(e) => handleSubcategoryChange(index, e.target.value)}
-                                style={{ width: "100%", padding: "6px 4px", border: isRowErrored && !item.subcategory_id && !item.subcategory_name ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
                               >
-                                <option value="">Select Subcategory</option>
+                                <option value="">Select Subcategory (Opt)</option>
                                 {(companySubcategories[item.category_id] || []).map(s => (
                                   <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
@@ -1142,9 +1135,9 @@ export default function PurchaseForm() {
                                 value={item.brand_id || ""}
                                 disabled={isLocked || !item.subcategory_id}
                                 onChange={(e) => handleBrandChange(index, e.target.value)}
-                                style={{ width: "100%", padding: "6px 4px", border: isRowErrored && !item.brand_id && !item.brand_name ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
                               >
-                                <option value="">Select Brand</option>
+                                <option value="">Select Brand (Opt)</option>
                                 {(companyBrands[`${item.category_id}-${item.subcategory_id}`] || []).map(b => (
                                   <option key={b.id} value={b.id}>{b.name}</option>
                                 ))}

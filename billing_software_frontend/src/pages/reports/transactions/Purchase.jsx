@@ -23,6 +23,11 @@ import {
   Undo2,
   Upload,
   X,
+  ArrowDownLeft,
+  ArrowUpRight,
+  ShoppingCart,
+  Wallet,
+  Building2,
 } from "lucide-react";
 import PurchaseDocument from "./PurchaseDocument";
 import AddPaymentOutModal from "../../purchase/payment_out/AddPaymentOutModal";
@@ -1189,15 +1194,7 @@ export default function Purchase() {
   const pagedHistoryRows = historyList.slice((historySafePage - 1) * rowsPerPage2, historySafePage * rowsPerPage2);
 
   return (
-    <div
-      className="purchase-bills-page"
-      style={{
-        padding: "28px 30px 36px",
-        background: "#f8fafc",
-        minHeight: "100vh",
-        color: "#26364d",
-      }}
-    >
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
       {/* SHARE DROPDOWN */}
       {shareMenu && shareMenuRow && (
         <>
@@ -1732,166 +1729,52 @@ export default function Purchase() {
           HEADER
       ===================================================== */}
 
-      <div
-        className="pb-header pb-no-print"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          gap: "20px",
-          flexWrap: "wrap",
-        }}
-      >
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+      <div className="pb-no-print flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "24px",
-              lineHeight: "1.25",
-              fontWeight: "800",
-              color: "#17243a",
-              letterSpacing: "-0.4px",
-            }}
-          >
+          <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
             Purchase Bills
           </h1>
-
-          <p
-            style={{
-              margin: "5px 0 0",
-              fontSize: "13px",
-              color: "#64748b",
-            }}
-          >
-            Manage supplier purchase invoices, drafts & credit
-            payments
+          <p className="text-xs text-slate-500 mt-1 font-medium">
+            Manage supplier purchase invoices, drafts & credit payments
           </p>
         </div>
 
         {/* HEADER ACTIONS */}
-        <div
-          className="pb-header-actions"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          {/* Upload */}
-          <div
-            style={{
-              position: "relative",
-            }}
-          >
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Upload Purchase Bills */}
+          <div className="relative">
             <button
-              className="pb-upload"
-              onClick={() =>
-                setUploadOpen((v) => !v)
-              }
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "9px",
-                height: "42px",
-                padding: "0 14px",
-                borderRadius: "9px",
-                border:
-                  "1px solid #ef233c",
-                background: "#ffffff",
-                color: "#ef233c",
-                fontSize: "13px",
-                fontWeight: "600",
-                cursor: "pointer",
-              }}
+              onClick={() => setUploadOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
             >
-              <Upload size={16} />
-
-              <span>
-                Upload Purchase Bills
-              </span>
-
-              <ChevronDown size={15} />
+              <Upload size={15} className="text-slate-500" />
+              <span>Upload Bills</span>
+              <ChevronDown size={14} className="text-slate-400" />
             </button>
 
             {uploadOpen && (
               <>
                 <div
-                  onClick={() =>
-                    setUploadOpen(false)
-                  }
-                  style={{
-                    position: "fixed",
-                    inset: 0,
-                    zIndex: 30,
-                  }}
+                  onClick={() => setUploadOpen(false)}
+                  className="fixed inset-0 z-30"
                 />
-
-                <div
-                  style={{
-                    position: "absolute",
-                    right: 0,
-                    top: "calc(100% + 7px)",
-                    zIndex: 40,
-                    width: "245px",
-                    background: "#fff",
-                    border:
-                      "1px solid #e2e8f0",
-                    borderRadius: "10px",
-                    boxShadow:
-                      "0 10px 30px rgba(15,23,42,0.14)",
-                    overflow: "hidden",
-                  }}
-                >
+                <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-60 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-1.5">
                   <div
                     onClick={() => {
                       setUploadOpen(false);
-                      navigate(
-                        "/purchases/new"
-                      );
+                      navigate("/purchases/new");
                     }}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "10px",
-                      padding: "13px 14px",
-                      cursor: "pointer",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background =
-                        "#f8fafc";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background =
-                        "#ffffff";
-                    }}
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer transition"
                   >
-                    <FileText
-                      size={17}
-                      style={{
-                        color: "#ef233c",
-                        marginTop: "2px",
-                      }}
-                    />
-
+                    <FileText size={16} className="text-indigo-600 mt-0.5 shrink-0" />
                     <div>
-                      <div
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: "600",
-                          color: "#1e293b",
-                        }}
-                      >
-                        Upload / New Purchase Bill
+                      <div className="text-xs font-bold text-slate-800">
+                        Upload / New Bill
                       </div>
-
-                      <div
-                        style={{
-                          marginTop: "3px",
-                          fontSize: "11.5px",
-                          lineHeight: "1.4",
-                          color: "#64748b",
-                        }}
-                      >
+                      <div className="text-[11px] text-slate-400 mt-0.5">
                         Open the Add Purchase screen
                       </div>
                     </div>
@@ -1903,82 +1786,32 @@ export default function Purchase() {
 
           {/* Add Purchase */}
           <button
-            className="pb-add"
-            onClick={() =>
-              navigate("/purchases/new")
-            }
-            style={{
-              height: "42px",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "7px",
-              padding: "0 16px",
-              border: "none",
-              borderRadius: "9px",
-              background: "#ef233c",
-              color: "#ffffff",
-              fontSize: "13px",
-              fontWeight: "700",
-              cursor: "pointer",
-              boxShadow:
-                "0 3px 8px rgba(239,35,60,0.18)",
-            }}
+            onClick={() => navigate("/purchases/new")}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition cursor-pointer active:scale-95"
           >
             <Plus size={16} />
-            Add Purchase
+            <span>Add Purchase</span>
           </button>
 
-          {/* Excel Report - Vyapar compact icon style */}
+          {/* Excel Report */}
           <button
-            className="pb-icon-action"
             title="Excel Report"
             onClick={exportToExcel}
             disabled={purchases.length === 0}
-            style={{
-              ...compactAction,
-              color:
-                purchases.length === 0
-                  ? "#a8b2c1"
-                  : "#3d6d8f",
-              opacity:
-                purchases.length === 0
-                  ? 0.65
-                  : 1,
-            }}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <FileSpreadsheet size={22} />
-
-            <span
-              style={{
-                fontSize: "10px",
-                lineHeight: "1",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Excel Report
-            </span>
+            <FileSpreadsheet size={16} />
+            <span>Excel Report</span>
           </button>
 
-          {/* Print - Vyapar compact icon style */}
+          {/* Print */}
           <button
-            className="pb-icon-action"
             title="Print"
             onClick={handlePrint}
-            style={{
-              ...compactAction,
-              color: "#53657b",
-            }}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
           >
-            <Printer size={21} />
-
-            <span
-              style={{
-                fontSize: "10px",
-                lineHeight: "1",
-              }}
-            >
-              Print
-            </span>
+            <Printer size={16} />
+            <span>Print</span>
           </button>
         </div>
       </div>
@@ -1986,272 +1819,61 @@ export default function Purchase() {
       {/* =====================================================
           FILTERS
       ===================================================== */}
+      <div className="pb-no-print bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+          {/* Period */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100/50 transition">
+            <span className="text-[11px] font-bold text-slate-400 uppercase">Period:</span>
+            <select
+              value={period}
+              onChange={(e) => handlePeriodChange(e.target.value)}
+              className="border-none outline-none text-xs font-bold text-slate-800 bg-transparent cursor-pointer"
+            >
+              {PERIODS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <div
-        className="pb-filter-card pb-no-print"
-        style={{
-          ...cardShadow,
-          padding: "13px 16px",
-          marginBottom: "18px",
-          display: "flex",
-          alignItems: "flex-end",
-          gap: "13px",
-          flexWrap: "wrap",
-        }}
-      >
-        {/* Period */}
-        <div
-          className="pb-filter-item"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "5px",
-          }}
-        >
-          <label
-            style={{
-              fontSize: "10.5px",
-              fontWeight: "700",
-              color: "#64748b",
-              textTransform: "uppercase",
-            }}
-          >
-            Period
-          </label>
-
-          <select
-            value={period}
-            onChange={(e) =>
-              handlePeriodChange(
-                e.target.value
-              )
-            }
-            style={{
-              height: "40px",
-              minWidth: "118px",
-              padding: "0 10px",
-              border:
-                "1px solid #dce3ec",
-              borderRadius: "9px",
-              background: "#fff",
-              color: "#334155",
-              fontSize: "13px",
-              cursor: "pointer",
-            }}
-          >
-            {PERIODS.map((o) => (
-              <option
-                key={o.value}
-                value={o.value}
-              >
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Between */}
-        <div
-          style={{
-            height: "40px",
-            display: "flex",
-            alignItems: "center",
-            color: "#94a3b8",
-            fontSize: "13px",
-            fontWeight: "600",
-          }}
-        >
-          Between
-        </div>
-
-        {/* From */}
-        <div
-          className="pb-filter-item"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "5px",
-          }}
-        >
-          <label
-            style={{
-              fontSize: "10.5px",
-              fontWeight: "700",
-              color: "#64748b",
-              textTransform: "uppercase",
-            }}
-          >
-            From Date
-          </label>
-
-          <div
-            style={{
-              position: "relative",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <Calendar
-              size={15}
-              style={{
-                position: "absolute",
-                left: "10px",
-                color: "#94a3b8",
-                pointerEvents: "none",
-              }}
-            />
-
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100/50 transition">
+            <Calendar size={14} className="text-slate-400 shrink-0" />
+            <span className="text-[11px] font-bold text-slate-400 uppercase">From:</span>
             <input
-              className="pb-date-input"
               type="date"
               value={fromDate}
-              onChange={(e) =>
-                handleFromChange(
-                  e.target.value
-                )
-              }
-              style={{
-                height: "40px",
-                width: "166px",
-                padding:
-                  "0 10px 0 32px",
-                border:
-                  "1px solid #dce3ec",
-                borderRadius: "9px",
-                color: "#334155",
-                background: "#fff",
-                fontSize: "13px",
-              }}
+              onChange={(e) => handleFromChange(e.target.value)}
+              className="border-none outline-none text-xs font-bold text-slate-800 bg-transparent cursor-pointer"
             />
           </div>
-        </div>
 
-        {/* To */}
-        <div
-          style={{
-            height: "40px",
-            display: "flex",
-            alignItems: "center",
-            color: "#94a3b8",
-            fontSize: "13px",
-            fontWeight: "600",
-          }}
-        >
-          To
-        </div>
-
-        {/* To date */}
-        <div
-          className="pb-filter-item"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "5px",
-          }}
-        >
-          <label
-            style={{
-              fontSize: "10.5px",
-              fontWeight: "700",
-              color: "#64748b",
-              textTransform: "uppercase",
-            }}
-          >
-            To Date
-          </label>
-
-          <div
-            style={{
-              position: "relative",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <Calendar
-              size={15}
-              style={{
-                position: "absolute",
-                left: "10px",
-                color: "#94a3b8",
-                pointerEvents: "none",
-              }}
-            />
-
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100/50 transition">
+            <Calendar size={14} className="text-slate-400 shrink-0" />
+            <span className="text-[11px] font-bold text-slate-400 uppercase">To:</span>
             <input
-              className="pb-date-input"
               type="date"
               value={toDate}
-              onChange={(e) =>
-                handleToChange(
-                  e.target.value
-                )
-              }
-              style={{
-                height: "40px",
-                width: "166px",
-                padding:
-                  "0 10px 0 32px",
-                border:
-                  "1px solid #dce3ec",
-                borderRadius: "9px",
-                color: "#334155",
-                background: "#fff",
-                fontSize: "13px",
-              }}
+              onChange={(e) => handleToChange(e.target.value)}
+              className="border-none outline-none text-xs font-bold text-slate-800 bg-transparent cursor-pointer"
             />
           </div>
         </div>
 
         {/* Firm */}
-        <div
-          className="pb-firm-control"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "5px",
-            marginLeft: "auto",
-          }}
-        >
-          <label
-            style={{
-              fontSize: "10.5px",
-              fontWeight: "700",
-              color: "#64748b",
-              textTransform: "uppercase",
-            }}
-          >
-            Firm
-          </label>
-
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100/50 transition shrink-0">
+          <Building2 size={15} className="text-slate-400 shrink-0" />
+          <span className="text-[11px] font-bold text-slate-400 uppercase">Firm:</span>
           <select
             value={companyFilter}
-            onChange={(e) =>
-              handleCompanyChange(
-                e.target.value
-              )
-            }
-            style={{
-              height: "40px",
-              minWidth: "170px",
-              padding: "0 11px",
-              border:
-                "1px solid #dce3ec",
-              borderRadius: "9px",
-              background: "#fff",
-              color: "#334155",
-              fontSize: "13px",
-              cursor: "pointer",
-            }}
+            onChange={(e) => handleCompanyChange(e.target.value)}
+            className="border-none outline-none text-xs font-bold text-slate-800 bg-transparent cursor-pointer"
           >
-            <option value="all">
-              ALL FIRMS
-            </option>
-
+            <option value="all">All Firms</option>
             {companies.map((c) => (
-              <option
-                key={c.id}
-                value={String(c.id)}
-              >
+              <option key={c.id} value={String(c.id)}>
                 {c.company_name}
               </option>
             ))}
@@ -2260,272 +1882,96 @@ export default function Purchase() {
       </div>
 
       {/* =====================================================
-          SUMMARY
+          3 MODERN KPI CARDS
       ===================================================== */}
-
-      <div
-        className="pb-summary"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-          marginBottom: "20px",
-        }}
-      >
-        {/* PAID */}
-        <div
-          className="pb-summary-card"
-          style={{
-            flex: "1 1 200px",
-            maxWidth: "270px",
-            padding: "13px 16px",
-            borderRadius: "9px",
-            background: "#b8eee7",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "12px",
-              color: "#335c60",
-              marginBottom: "3px",
-            }}
-          >
-            Paid
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+              Total Purchases
+            </div>
+            <div className="text-xl md:text-2xl font-extrabold text-slate-800 mt-1">
+              {fmtMoney(total)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Total Invoiced Volume</div>
           </div>
-
-          <div
-            style={{
-              fontSize: "19px",
-              fontWeight: "800",
-              color: "#24515a",
-            }}
-          >
-            {fmtMoney(paid)}
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <ShoppingCart size={24} />
           </div>
         </div>
 
-        <div
-          className="pb-summary-symbol"
-          style={{
-            fontSize: "22px",
-            fontWeight: "700",
-            color: "#64748b",
-            padding: "0 2px",
-          }}
-        >
-          +
-        </div>
-
-        {/* UNPAID */}
-        <div
-          className="pb-summary-card"
-          style={{
-            flex: "1 1 200px",
-            maxWidth: "270px",
-            padding: "13px 16px",
-            borderRadius: "9px",
-            background: "#b9d8f8",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "12px",
-              color: "#365675",
-              marginBottom: "3px",
-            }}
-          >
-            Unpaid
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+              Paid Amount
+            </div>
+            <div className="text-xl md:text-2xl font-extrabold text-emerald-600 mt-1">
+              {fmtMoney(paid)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Settled Payments</div>
           </div>
-
-          <div
-            style={{
-              fontSize: "19px",
-              fontWeight: "800",
-              color: "#2c4b69",
-            }}
-          >
-            {fmtMoney(unpaid)}
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <ArrowDownLeft size={24} />
           </div>
         </div>
 
-        <div
-          className="pb-summary-symbol"
-          style={{
-            fontSize: "22px",
-            fontWeight: "700",
-            color: "#64748b",
-            padding: "0 2px",
-          }}
-        >
-          =
-        </div>
-
-        {/* TOTAL */}
-        <div
-          className="pb-summary-card"
-          style={{
-            flex: "1 1 200px",
-            maxWidth: "270px",
-            padding: "13px 16px",
-            borderRadius: "9px",
-            background: "#f7c67e",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "12px",
-              color: "#725331",
-              marginBottom: "3px",
-            }}
-          >
-            Total
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+              Remaining Balance
+            </div>
+            <div className="text-xl md:text-2xl font-extrabold text-rose-600 mt-1">
+              {fmtMoney(unpaid)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Outstanding Dues</div>
           </div>
-
-          <div
-            style={{
-              fontSize: "19px",
-              fontWeight: "800",
-              color: "#5f462d",
-            }}
-          >
-            {fmtMoney(total)}
+          <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+            <ArrowUpRight size={24} />
           </div>
         </div>
       </div>
 
       {/* =====================================================
-          TRANSACTIONS
+          TRANSACTIONS TABLE CARD
       ===================================================== */}
-
       <div
         id="purchase-bills-print-area"
-        style={{
-          ...cardShadow,
-          overflow: "hidden",
-        }}
+        className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden"
       >
         {/* Transaction Header */}
-        <div
-          className="pb-trans-header"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "15px",
-            padding: "14px 16px",
-            borderBottom:
-              "1px solid #e3e8ef",
-          }}
-        >
-          <div>
-            <h4
-              style={{
-                margin: 0,
-                fontSize: "15px",
-                fontWeight: "700",
-                color: "#26364d",
-              }}
-            >
-              TRANSACTIONS
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/40">
+          <div className="flex items-center gap-2.5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Transactions
             </h4>
-
-            <p
-              style={{
-                margin: "3px 0 0",
-                fontSize: "11.5px",
-                color: "#94a3b8",
-              }}
-            >
-              {filtered.length} bill
-              {filtered.length === 1
-                ? ""
-                : "s"}
-            </p>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">
+              {filtered.length} bill{filtered.length === 1 ? "" : "s"}
+            </span>
           </div>
 
           {/* Search */}
-          <div
-            className="pb-no-print"
-            style={{
-              position: "relative",
-            }}
-          >
+          <div className="pb-no-print relative">
             <Search
-              size={15}
-              style={{
-                position: "absolute",
-                left: "11px",
-                top: "50%",
-                transform:
-                  "translateY(-50%)",
-                color: "#94a3b8",
-              }}
+              size={14}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
             />
-
             <input
-              className="pb-search"
               type="text"
-              placeholder="Search..."
+              placeholder="Search bills, party..."
               value={search}
-              onChange={(e) =>
-                setSearch(
-                  e.target.value
-                )
-              }
-              style={{
-                height: "40px",
-                width: "240px",
-                padding:
-                  "0 12px 0 34px",
-                border:
-                  "1px solid #dce3ec",
-                borderRadius: "9px",
-                background: "#fff",
-                fontSize: "13px",
-                color: "#334155",
-              }}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-56 md:w-64 bg-white border border-slate-200 rounded-xl pl-9 pr-3.5 py-1.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
             />
           </div>
         </div>
 
         {/* Table */}
-        <div className="pb-scroll">
-          <table
-            className="pb-table"
-            style={{
-              width: "100%",
-              minWidth: "900px",
-              borderCollapse:
-                "collapse",
-              textAlign: "left",
-            }}
-          >
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] border-collapse text-left text-xs">
             <thead>
-              <tr
-                style={{
-                  background:
-                    "#f7f9fc",
-                  borderBottom:
-                    "1px solid #dfe5ed",
-                }}
-              >
+              <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 {COLUMNS.map((c) => (
-                  <th
-                    key={c.key}
-                    style={{
-                      padding:
-                        "11px 16px",
-                      fontSize:
-                        "10.5px",
-                      fontWeight: "700",
-                      color: "#64748b",
-                      whiteSpace:
-                        "nowrap",
-                      letterSpacing:
-                        "0.025em",
-                    }}
-                  >
+                  <th key={c.key} className="px-4 py-3.5 whitespace-nowrap">
                     {c.label}
                   </th>
                 ))}
@@ -2627,233 +2073,73 @@ export default function Purchase() {
                 </tr>
               ) : (
                 pagedRows.map((p) => {
-                  const isDraft =
-                    p.status ===
-                    "draft";
-
-                  const isPaidFully =
-                    Number(
-                      p.balance_amount ||
-                      0
-                    ) <= 0;
+                  const isDraft = p.status === "draft";
+                  const isPaidFully = Number(p.balance_amount || 0) <= 0;
 
                   return (
                     <tr
                       key={p.id}
-                      style={{
-                        borderBottom:
-                          "1px solid #eef2f6",
-                        transition:
-                          "background 0.15s",
-                      }}
+                      className="hover:bg-slate-50/80 transition-colors border-b border-slate-100"
                     >
                       {/* DATE */}
-                      <td
-                        style={{
-                          padding:
-                            "13px 16px",
-                          fontSize:
-                            "12.5px",
-                          color:
-                            "#334155",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {displayDate(
-                          p.purchase_date
-                        )}
+                      <td className="px-4 py-3.5 text-xs text-slate-700 whitespace-nowrap font-medium">
+                        {displayDate(p.purchase_date)}
                       </td>
 
                       {/* INVOICE */}
-                      <td
-                        style={{
-                          padding:
-                            "13px 16px",
-                          fontSize:
-                            "12.5px",
-                          fontWeight:
-                            "600",
-                          color:
-                            "#24364d",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {p.purchase_no ||
-                          "-"}
+                      <td className="px-4 py-3.5 text-xs font-bold text-slate-800 whitespace-nowrap">
+                        {p.purchase_no || "-"}
                       </td>
 
                       {/* PARTY */}
-                      <td
-                        style={{
-                          padding:
-                            "13px 16px",
-                          fontSize:
-                            "12.5px",
-                          color:
-                            "#475569",
-                        }}
-                      >
-                        {p.supplier_name ||
-                          "-"}
+                      <td className="px-4 py-3.5 text-xs text-slate-700 font-medium">
+                        {p.supplier_name || "-"}
                       </td>
 
                       {/* TRANSACTION */}
-                      <td
-                        style={{
-                          padding:
-                            "13px 16px",
-                          fontSize:
-                            "12.5px",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
+                      <td className="px-4 py-3.5 whitespace-nowrap">
                         <span
-                          style={{
-                            display:
-                              "inline-flex",
-                            alignItems:
-                              "center",
-                            padding:
-                              "4px 10px",
-                            borderRadius:
-                              "20px",
-                            fontSize:
-                              "11px",
-                            fontWeight:
-                              "600",
-                            background:
-                              isDraft
-                                ? "#fff1cc"
-                                : "#d8f7e5",
-                            color:
-                              isDraft
-                                ? "#9a6700"
-                                : "#087443",
-                          }}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center ${
+                            isDraft
+                              ? "bg-amber-50 text-amber-700 border border-amber-200/60"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                          }`}
                         >
-                          {txLabel(
-                            p.status
-                          )}
+                          {txLabel(p.status)}
                         </span>
                       </td>
 
                       {/* PAYMENT TYPE */}
-                      <td
-                        style={{
-                          padding:
-                            "13px 16px",
-                          fontSize:
-                            "12.5px",
-                          color:
-                            "#64748b",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {p.payment_type ||
-                          "-"}
+                      <td className="px-4 py-3.5 text-xs text-slate-500 font-medium whitespace-nowrap capitalize">
+                        {p.payment_type || "-"}
                       </td>
 
                       {/* AMOUNT */}
-                      <td
-                        style={{
-                          padding:
-                            "13px 16px",
-                          fontSize:
-                            "12.5px",
-                          fontWeight:
-                            "700",
-                          color:
-                            "#17243a",
-                          whiteSpace:
-                            "nowrap",
-                          textAlign:
-                            "right",
-                        }}
-                      >
-                        {fmtMoney(
-                          p.total_amount
-                        )}
+                      <td className="px-4 py-3.5 text-xs font-extrabold text-slate-800 whitespace-nowrap text-right">
+                        {fmtMoney(p.total_amount)}
                       </td>
 
                       {/* BALANCE */}
                       <td
-                        style={{
-                          padding:
-                            "13px 16px",
-                          fontSize:
-                            "12.5px",
-                          fontWeight:
-                            "600",
-                          color:
-                            isPaidFully
-                              ? "#047857"
-                              : "#e11d48",
-                          whiteSpace:
-                            "nowrap",
-                          textAlign:
-                            "right",
-                        }}
+                        className={`px-4 py-3.5 text-xs font-extrabold whitespace-nowrap text-right ${
+                          isPaidFully ? "text-emerald-600" : "text-rose-600"
+                        }`}
                       >
-                        {fmtMoney(
-                          p.balance_amount
-                        )}
+                        {fmtMoney(p.balance_amount)}
                       </td>
 
                       {/* ACTIONS */}
-                      <td
-                        className="pb-no-print"
-                        style={{
-                          padding:
-                            "10px 16px",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display:
-                              "flex",
-                            alignItems:
-                              "center",
-                            gap: "5px",
-                          }}
-                        >
+                      <td className="pb-no-print px-4 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
                           <button
                             data-share-trigger
                             data-purchase-id={p.id}
-                            title="Share"
+                            title="Share via WhatsApp"
                             aria-label="Share purchase"
-                            onClick={(e) =>
-                              toggleShareMenu(e, p)
-                            }
-                            style={{
-                              width:
-                                "31px",
-                              height:
-                                "31px",
-                              display:
-                                "inline-flex",
-                              alignItems:
-                                "center",
-                              justifyContent:
-                                "center",
-                              border:
-                                "1px solid #dce3ec",
-                              borderRadius:
-                                "7px",
-                              background:
-                                "#fff",
-                              color:
-                                "#2563eb",
-                              cursor:
-                                "pointer",
-                            }}
+                            onClick={(e) => toggleShareMenu(e, p)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-emerald-600 transition cursor-pointer"
                           >
-                            <Share2 size={15} />
+                            <Share2 size={14} />
                           </button>
 
                           {/* THREE DOT MENU */}
@@ -2861,38 +2147,10 @@ export default function Purchase() {
                             data-action-trigger
                             data-purchase-id={p.id}
                             title="More actions"
-                            onClick={(e) =>
-                              toggleActionMenu(
-                                e,
-                                p
-                              )
-                            }
-                            style={{
-                              width:
-                                "31px",
-                              height:
-                                "31px",
-                              display:
-                                "inline-flex",
-                              alignItems:
-                                "center",
-                              justifyContent:
-                                "center",
-                              border:
-                                "1px solid #dce3ec",
-                              borderRadius:
-                                "7px",
-                              background:
-                                "#fff",
-                              color:
-                                "#3b4a5f",
-                              cursor:
-                                "pointer",
-                            }}
+                            onClick={(e) => toggleActionMenu(e, p)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
                           >
-                            <MoreVertical
-                              size={15}
-                            />
+                            <MoreVertical size={14} />
                           </button>
                         </div>
                       </td>

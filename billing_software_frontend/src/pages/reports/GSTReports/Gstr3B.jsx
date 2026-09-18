@@ -1050,19 +1050,21 @@ export default function Gstr3B() {
   const sectionTitleStyle = {
     fontSize: 13,
     fontWeight: 800,
-    color: NAVY,
-    textTransform: "uppercase",
+    color: "#1e1b4b",
     letterSpacing: "0.2px",
-    marginBottom: 8,
+    marginBottom: 10,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
   };
 
   const thStyle = {
-    padding: "7px 9px",
-    fontSize: 10.5,
+    padding: "10px 12px",
+    fontSize: 11,
     fontWeight: 700,
-    color: "#334155",
-    background: HEADER_BG,
-    border: "1px solid " + BORDER,
+    color: "#475569",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
     textAlign: "left",
     whiteSpace: "nowrap",
   };
@@ -1070,18 +1072,18 @@ export default function Gstr3B() {
   const thNumStyle = { ...thStyle, textAlign: "right" };
 
   const tdStyle = {
-    padding: "6px 9px",
-    fontSize: 11.5,
-    border: "1px solid " + BORDER,
-    color: "#1e293b",
+    padding: "9px 12px",
+    fontSize: 12,
+    border: "1px solid #e2e8f0",
+    color: "#334155",
   };
 
   const tdNumStyle = { ...tdStyle, textAlign: "right", whiteSpace: "nowrap" };
 
   const totalRowStyle = {
-    background: TOTAL_BG,
+    background: "#f1f5f9",
     fontWeight: 800,
-    color: "#1e1b4b",
+    color: "#0f172a",
   };
 
   /* ───────────────────────────────────────────────────────────
@@ -1507,263 +1509,167 @@ export default function Gstr3B() {
   const s3IneligPaged = section3.ineligible.slice((s3IneligSafePage - 1) * s3IneligRowsPerPage, s3IneligSafePage * s3IneligRowsPerPage);
 
   return (
-    <div style={{ fontFamily: FONT, padding: "6px 14px 20px" }}>
-      {/* ── HEADER ─────────────────────────────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 10,
-          flexWrap: "wrap",
-        }}
-      >
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
-            background: INDIGO,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            flexShrink: 0,
-          }}
-        >
-          <ClipboardList size={16} />
-        </div>
-
-        <div>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 800,
-              color: "#1e1b4b",
-              lineHeight: 1.2,
-            }}
-          >
-            GSTR3 REPORT
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
+      {/* ═══════════════════════════════════════════════════════════════
+          1. HEADER & FILTER BAR
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        {/* Left: Date inputs, firm, and checkbox */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">From</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
+            />
+            <span className="text-xs font-semibold text-slate-400">To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
+            />
           </div>
 
-          <div
-            style={{
-              fontSize: 11,
-              color: "#9ca3af",
-              lineHeight: 1.2,
-            }}
-          >
-            GSTR-3B — Outward supplies, ITC &amp; inward supplies
+          {/* Firm */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">Firm</span>
+            <select
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer max-w-[180px]"
+            >
+              <option value="">Select firm…</option>
+              {companies.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.company_name}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      </div>
 
-      {/* ── FILTER BAR ─────────────────────────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-          gap: 10,
-          marginBottom: 10,
-        }}
-      >
-        {/* FROM */}
-        <div>
-          <div style={fieldLabelStyle}>From</div>
-
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            style={dateInputStyle}
-          />
+          {/* Checkbox */}
+          <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <input
+              type="checkbox"
+              checked={considerExempt}
+              onChange={(e) => setConsiderExempt(e.target.checked)}
+              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+            />
+            <span>Consider non-tax as exempted</span>
+          </label>
         </div>
 
-        {/* TO */}
-        <div>
-          <div style={fieldLabelStyle}>To</div>
-
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            style={dateInputStyle}
-          />
-        </div>
-
-        {/* INVALID RANGE */}
-        {dateError && (
-          <div
-            style={{
-              flexBasis: "100%",
-              fontSize: 10.5,
-              fontWeight: 600,
-              color: "#dc2626",
-              fontFamily: FONT,
-            }}
-          >
-            From date cannot be later than To date. No data will be shown for
-            an inverted range.
-          </div>
-        )}
-
-        {/* FIRM */}
-        <div>
-          <div style={fieldLabelStyle}>Firm</div>
-
-          <select
-            value={selectedCompany}
-            onChange={(e) => setSelectedCompany(e.target.value)}
-            style={{ ...selectStyle, minWidth: 170 }}
-          >
-            <option value="">Select firm…</option>
-            {companies.map((c) => (
-              <option key={c.id} value={String(c.id)}>
-                {c.company_name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* CHECKBOX */}
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            height: 34,
-            fontSize: 10.5,
-            fontWeight: 700,
-            color: "#475569",
-            cursor: "pointer",
-            userSelect: "none",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={considerExempt}
-            onChange={(e) => setConsiderExempt(e.target.checked)}
-            style={{
-              cursor: "pointer",
-              accentColor: INDIGO,
-              width: 15,
-              height: 15,
-              margin: 0,
-            }}
-          />
-          CONSIDER NON-TAX AS EXEMPTED
-        </label>
-
-        {/* ACTION BUTTONS */}
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            flexWrap: "wrap",
-          }}
-        >
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={exportJson}
-            title="Export JSON"
-            aria-label="Export JSON"
-            style={selectedCompany ? iconBtn : iconBtnDisabled}
             disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-cyan-200 bg-cyan-50/80 text-cyan-700 hover:bg-cyan-100/80 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FileJson size={17} color="#64748b" />
+            <FileJson size={15} />
+            <span>JSON</span>
           </button>
 
           <button
             type="button"
             onClick={exportXls}
-            title="Export Excel"
-            aria-label="Export Excel"
-            style={selectedCompany ? iconBtn : iconBtnDisabled}
             disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FileSpreadsheet size={17} color="#16a34a" />
+            <FileSpreadsheet size={15} />
+            <span>Excel</span>
           </button>
 
           <button
             type="button"
             onClick={handlePrint}
-            title="Print"
-            aria-label="Print"
-            style={selectedCompany ? iconBtn : iconBtnDisabled}
             disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Printer size={17} color={INDIGO} />
+            <Printer size={15} />
+            <span>Print</span>
           </button>
         </div>
       </div>
 
-      {/* ── STATUS STRIP ───────────────────────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          fontSize: 11.5,
-          color: "#64748b",
-          marginBottom: 10,
-        }}
-      >
-        {loading && (
-          <RefreshCw
-            size={14}
-            className="animate-spin"
-            style={{ animation: "spin 1s linear infinite" }}
-          />
-        )}
+      {dateError && (
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-700">
+          From date cannot be later than To date. No data will be shown for an inverted range.
+        </div>
+      )}
 
-        <span>
-          Period: <strong>{formatDateForDisplay(start) || "All"}</strong> →{" "}
-          <strong>{formatDateForDisplay(end) || "All"}</strong>
-        </span>
+      {/* ═══════════════════════════════════════════════════════════════
+          2. KPI SUMMARY CARDS RIBBON
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Sales Invoices</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <ClipboardList size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-slate-900">{invoices.length}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Total outward supplies billed</div>
+          </div>
+        </div>
 
-        <span>·</span>
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Purchase Invoices</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <ClipboardList size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-slate-900">{purchases.length}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Total inward vendor purchases</div>
+          </div>
+        </div>
 
-        <span>
-          Sales: <strong>{invoices.length}</strong>
-        </span>
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Outward Taxable Value</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <ClipboardList size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-emerald-600">₹{fmtNum(section1Totals.value)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Total net taxable value (Sec 1)</div>
+          </div>
+        </div>
 
-        <span>·</span>
-
-        <span>
-          Purchases: <strong>{purchases.length}</strong>
-        </span>
+        <div className="bg-white rounded-2xl p-4 border border-indigo-100 shadow-xs flex flex-col justify-between bg-gradient-to-br from-white via-indigo-50/20 to-indigo-50/40">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-indigo-900">Total Tax Liability</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <ClipboardList size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-indigo-700">
+              ₹{fmtNum(section1Totals.igst + section1Totals.cgst + section1Totals.sgst + section1Totals.cess)}
+            </div>
+            <div className="text-[10px] text-indigo-500 font-semibold mt-0.5">
+              Integrated + Central + State + Cess
+            </div>
+          </div>
+        </div>
       </div>
 
       {!selectedCompany ? (
-        <div
-          style={{
-            border: "1.5px dashed " + BORDER,
-            borderRadius: 10,
-            background: "#fff",
-            padding: 48,
-            textAlign: "center",
-            color: "#94a3b8",
-            fontSize: 13,
-          }}
-        >
-          Select a firm to generate the GSTR-3B report.
+        <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-12 text-center text-slate-400">
+          <div className="text-sm font-bold text-slate-700 mb-1">Select a firm</div>
+          <div className="text-xs">Choose a firm from the dropdown to generate the GSTR-3B report.</div>
         </div>
       ) : (
-        <div
-          ref={tableWrapRef}
-          style={{
-            maxHeight: "calc(100vh - 205px)",
-            overflow: "auto",
-            paddingRight: 4,
-            display: "flex",
-            flexDirection: "column",
-            gap: 26,
-          }}
-        >
+        <div ref={tableWrapRef} className="space-y-6">
           {/* ════════ SECTION 1 ════════ */}
           <div>
             <div style={sectionTitleStyle}>

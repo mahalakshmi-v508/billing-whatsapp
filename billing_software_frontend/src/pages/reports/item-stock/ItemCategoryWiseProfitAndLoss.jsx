@@ -1,15 +1,9 @@
-﻿import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronRight, Search, Printer, FileSpreadsheet, RefreshCw, AlertCircle, Check } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Calendar, ChevronDown, ChevronRight, Search, Printer, FileSpreadsheet, RefreshCw, AlertCircle, TrendingUp, Layers, ShoppingCart, Percent } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
-
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const NAVY = "#1e1b4b";
-const GRAY_TEXT = "#64748b";
-const LIGHT_BORDER = "#e2e8f0";
 
 const PERIODS = [
   { label: "This Month", value: "this_month" },
@@ -25,7 +19,6 @@ const ITEM_STATUSES = [
   { label: "Inactive Items", value: "inactive" },
 ];
 
-/* ── Helpers ─────────────────────────────────────────────────────────── */
 function getAuth() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -78,7 +71,6 @@ function applyPeriod(period) {
   return { from: new Date(2000, 0, 1), to: t };
 }
 
-/** Print a DOM node without leaving the app (hidden iframe). */
 function printElement(element, title) {
   const iframe = document.createElement("iframe");
   Object.assign(iframe.style, {
@@ -115,28 +107,23 @@ function printElement(element, title) {
   else win.addEventListener("load", fire);
 }
 
-/* Exactly the 12 required columns — nothing else. */
 const COLUMNS = [
-  { key: "name", label: "Category Name", width: 210, min: 190, txt: true },
-  { key: "sale", label: "Sale", width: 92, min: 84 },
-  { key: "sale_return", label: "Cr. Note / Sale Return", width: 118, min: 108 },
-  { key: "purchase", label: "Purchase", width: 92, min: 84 },
-  { key: "purchase_return", label: "Dr. Note / Purchase Return", width: 120, min: 110 },
-  { key: "opening_stock", label: "Opening Stock", width: 92, min: 84 },
-  { key: "closing_stock", label: "Closing Stock", width: 92, min: 84 },
-  { key: "tax_receivable", label: "Tax Receivable", width: 96, min: 86 },
-  { key: "tax_payable", label: "Tax Payable", width: 88, min: 80 },
-  { key: "mfg_cost", label: "Mfg. Cost", width: 78, min: 72 },
-  { key: "consumption_cost", label: "Consumption Cost", width: 96, min: 88 },
-  { key: "net_profit", label: "Net Profit/Loss", width: 104, min: 96 },
+  { key: "name", label: "Category Name", txt: true },
+  { key: "sale", label: "Sale" },
+  { key: "sale_return", label: "Cr. Note / Sale Return" },
+  { key: "purchase", label: "Purchase" },
+  { key: "purchase_return", label: "Dr. Note / Purchase Return" },
+  { key: "opening_stock", label: "Opening Stock" },
+  { key: "closing_stock", label: "Closing Stock" },
+  { key: "tax_receivable", label: "Tax Receivable" },
+  { key: "tax_payable", label: "Tax Payable" },
+  { key: "mfg_cost", label: "Mfg. Cost" },
+  { key: "consumption_cost", label: "Consumption Cost" },
+  { key: "net_profit", label: "Net Profit/Loss" },
 ];
 
-const TABLE_MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + c.min, 0);
-
-/* ── Main Component ─────────────────────────────────────────────────── */
 export default function ItemCategoryWiseProfitAndLoss() {
   const { adminId } = getAuth();
-
   const [period, setPeriod] = useState("this_month");
   const [{ from: startDate, to: endDate }, setRange] = useState(applyPeriod("this_month"));
 
@@ -145,7 +132,6 @@ export default function ItemCategoryWiseProfitAndLoss() {
 
   const [itemStatus, setItemStatus] = useState("active");
   const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const [rows, setRows] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
@@ -161,7 +147,6 @@ export default function ItemCategoryWiseProfitAndLoss() {
 
   const periodRef = useRef(null);
   const statusRef = useRef(null);
-  const searchRef = useRef(null);
 
   useEffect(() => {
     function onDoc(e) {
@@ -172,7 +157,6 @@ export default function ItemCategoryWiseProfitAndLoss() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Resolve the firm silently (no visible firm filter) — existing project logic.
   useEffect(() => {
     if (!adminId) return;
     api
@@ -191,7 +175,6 @@ export default function ItemCategoryWiseProfitAndLoss() {
       .catch(() => setError("Failed to load companies."));
   }, [adminId]);
 
-  // Fetch report on any filter change.
   useEffect(() => {
     if (companyId === null) return;
     const t = setTimeout(() => {
@@ -241,7 +224,14 @@ export default function ItemCategoryWiseProfitAndLoss() {
     });
   };
 
-  // Search over category / subcategory names (compact — no extra cards).
+  const expandAll = () => {
+    setExpanded(new Set(rows.filter((p) => (p.children || []).length > 0).map((p) => String(p.id))));
+  };
+
+  const collapseAll = () => {
+    setExpanded(new Set());
+  };
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
@@ -255,7 +245,6 @@ export default function ItemCategoryWiseProfitAndLoss() {
       .filter(Boolean);
   }, [rows, query]);
 
-  // Flatten displayed rows (parents + expanded children) for table/report totals.
   const displayRows = useMemo(() => {
     const list = [];
     visible.forEach((p) => {
@@ -267,7 +256,6 @@ export default function ItemCategoryWiseProfitAndLoss() {
     return list;
   }, [visible, expanded]);
 
-  // Totals over top-level rows (parents aggregate their children).
   const shownTotals = useMemo(() => {
     const t = {};
     COLUMNS.forEach((c) => { if (!c.txt) t[c.key] = 0; });
@@ -284,12 +272,10 @@ export default function ItemCategoryWiseProfitAndLoss() {
   const statusLabel = ITEM_STATUSES.find((s) => s.value === itemStatus)?.label || "Active Items";
   const metaLabel = `${prettyFrom} to ${prettyTo} | ${companyName} | ${statusLabel}`;
 
-  // UI-only pagination over the displayed rows (calculations/totals untouched).
   const totalPages = Math.max(1, Math.ceil(displayRows.length / rowsPerPage));
   const safePage = Math.min(page, totalPages);
   const pagedRows = displayRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
-  /* ── Excel (exactly the 12 required columns) ── */
   const handleExcel = () => {
     try {
       const sheetData = [
@@ -299,42 +285,57 @@ export default function ItemCategoryWiseProfitAndLoss() {
         COLUMNS.map((c) => c.label),
       ];
       displayRows.forEach((r) => {
-        sheetData.push(COLUMNS.map((c) => (c.txt ? (r.isChild ? "  " + r[c.key] : r[c.key]) || "-" : fmtINRNum(r[c.key]))));
+        sheetData.push(
+          COLUMNS.map((c) => {
+            if (c.txt) return (r.isChild ? "    " : "") + (r[c.key] || "-");
+            return Number(r[c.key] || 0);
+          })
+        );
       });
-      sheetData.push(COLUMNS.map((c) => (c.txt ? "Total" : fmtINRNum(shownTotals[c.key] || 0))));
+      sheetData.push(
+        COLUMNS.map((c) => {
+          if (c.txt) return "Total";
+          return Number(shownTotals[c.key] || 0);
+        })
+      );
       const ws = XLSX.utils.aoa_to_sheet(sheetData);
-      ws["!cols"] = COLUMNS.map((c) => ({ wch: Math.max(13, c.label.length + 3) }));
+      ws["!cols"] = COLUMNS.map((c) => ({ wch: c.txt ? 28 : 16 }));
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Item Category Wise P & L");
+      XLSX.utils.book_append_sheet(wb, ws, "Profit & Loss");
       const buf = XLSX.write(wb, { bookType: "xlsx", type: "array", bookSST: false });
       saveAs(
         new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-        `Item_Category_Wise_Profit_And_Loss_${formatDateISO(startDate)}_to_${formatDateISO(endDate)}.xlsx`
+        `Item_Category_Wise_Profit_Loss_${formatDateISO(startDate)}_to_${formatDateISO(endDate)}.xlsx`
       );
     } catch {
       setError("Excel export failed. Please try again.");
     }
   };
 
-  /* ── Print ── */
   const handlePrint = () => {
     const th = COLUMNS.map((c) => `<th class="${c.txt ? "" : "r"}">${c.label}</th>`).join("");
-    const buildRow = (r) => {
+    const buildRow = (r, isChild) => {
       const cells = COLUMNS.map((c) => {
         if (c.txt) {
-          const nm = r.isChild ? "&nbsp;&nbsp;&nbsp;" + (r[c.key] || "-") : r[c.key] || "-";
-          return `<td class="${r.isChild ? "child" : ""}"><strong>${nm}</strong></td>`;
+          const prefix = isChild ? "&nbsp;&nbsp;&nbsp;&bull;&nbsp;" : "";
+          return `<td class="${isChild ? "child" : ""}">${prefix}${r[c.key] || "-"}</td>`;
         }
         const val = Number(r[c.key] || 0);
-        const cls = c.key === "net_profit" ? (val >= 0 ? "g" : "neg") + " r" : "r";
-        return `<td class="${cls}"><strong>${fmtINR(val)}</strong></td>`;
+        const cls = c.key === "net_profit" ? (val >= 0 ? "r g" : "r neg") : "r";
+        return `<td class="${cls}">${fmtINR(val)}</td>`;
       }).join("");
       return `<tr>${cells}</tr>`;
     };
-    const body = displayRows.map((r) => buildRow(r)).join("") + buildRow(
-      Object.fromEntries(COLUMNS.map((c) => (c.txt ? [c.key, "Total"] : [c.key, shownTotals[c.key] || 0]))),
-      true
-    );
+    const body =
+      displayRows.map((r) => buildRow(r, r.isChild)).join("") +
+      (displayRows.length
+        ? `<tr>${COLUMNS.map((c) => {
+            if (c.txt) return "<td><strong>Total</strong></td>";
+            const val = Number(shownTotals[c.key] || 0);
+            const cls = c.key === "net_profit" ? (val >= 0 ? "r g" : "r neg") : "r";
+            return `<td class="${cls}"><strong>${fmtINR(val)}</strong></td>`;
+          }).join("")}</tr>`
+        : "");
 
     const el = document.createElement("div");
     el.innerHTML =
@@ -344,180 +345,260 @@ export default function ItemCategoryWiseProfitAndLoss() {
          <thead><tr>${th}</tr></thead>
          <tbody>${body}</tbody>
        </table>
-       <div class="summary">Total Amount: <span>${fmtINR(shownTotals.net_profit)}</span></div>`;
+       <div class="summary">Net Profit / Loss: <span>${fmtINR(shownTotals.net_profit)}</span></div>`;
     printElement(el, "Item Category Wise Profit And Loss");
   };
 
   return (
-    <div style={{ fontFamily: FONT, padding: "2px 0", display: "flex", flexDirection: "column", height: "100%", background: "#fff" }}>
-      {/* ═══════════════════════════════════════════════════════════════
-          1. FILTER BAR — Filter by: [period] From/To dates [All Items]
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={filterBarStyle}>
-        <span style={filterByLabelStyle}>Filter by:</span>
-
-        <div ref={periodRef} style={{ position: "relative" }}>
-          <button onClick={() => setPeriodOpen((v) => !v)} style={compactSelectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY, fontSize: 12.5 }}>
-              {PERIODS.find((p) => p.value === period)?.label || "This Month"}
-            </span>
-            <ChevronDown size={14} style={{ color: "#94a3b8", transform: periodOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-          {periodOpen && (
-            <div style={dropdownPanelStyle}>
-              {PERIODS.map((p) => (
-                <button
-                  key={p.value}
-                  onClick={() => selectPeriod(p)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: p.value === period ? "#eef2ff" : "transparent",
-                    color: p.value === period ? INDIGO : "#334155",
-                    fontWeight: p.value === period ? 700 : 500,
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          )}
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Header & Export Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Financial & P&L</span>
+            <span>•</span>
+            <span>Category Profitability</span>
+          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            Item Category Wise Profit & Loss
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Hierarchical margins, direct costs, tax obligations, and net profit per product category
+          </p>
         </div>
 
-        <div style={dateFieldStyle}>
-          <input
-            type="date"
-            value={formatDateISO(startDate)}
-            onChange={(e) => { setRange({ from: parseDateISO(e.target.value), to: endDate }); setPeriod("custom"); }}
-            style={compactDateInputStyle}
-            title="From date"
-          />
-          <span style={{ fontSize: 11, color: GRAY_TEXT, fontWeight: 600 }}>To</span>
-          <input
-            type="date"
-            value={formatDateISO(endDate)}
-            onChange={(e) => { setRange({ from: startDate, to: parseDateISO(e.target.value) }); setPeriod("custom"); }}
-            style={compactDateInputStyle}
-            title="To date"
-          />
-        </div>
-
-        <div ref={statusRef} style={{ position: "relative" }}>
-          <button onClick={() => setStatusOpen((v) => !v)} style={compactSelectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY, fontSize: 12.5 }}>{statusLabel}</span>
-            <ChevronDown size={14} style={{ color: "#94a3b8", transform: statusOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+            title="Export Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Excel</span>
           </button>
-          {statusOpen && (
-            <div style={statusDropdownPanelStyle}>
-              {ITEM_STATUSES.map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => selectStatus(s.value)}
-                  style={{
-                    ...dropdownItemStyle,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 10,
-                    background: s.value === itemStatus ? "#eef2ff" : "transparent",
-                    color: s.value === itemStatus ? INDIGO : "#334155",
-                    fontWeight: s.value === itemStatus ? 700 : 500,
-                  }}
-                >
-                  <span>{s.label}</span>
-                  {s.value === itemStatus && <Check size={14} color={INDIGO} style={{ flexShrink: 0 }} />}
-                </button>
-              ))}
-            </div>
-          )}
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print</span>
+          </button>
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          2. DETAILS — search / print / excel icon buttons
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={detailsRowStyle}>
-        <span style={detailsTitleStyle}>Details</span>
-        <div style={{ display: "flex", gap: 6, marginLeft: "auto", alignItems: "center" }}>
-          {searchOpen ? (
-            <div ref={searchRef} style={{ position: "relative", display: "flex", alignItems: "center" }}>
-              <Search size={14} color="#94a3b8" style={{ position: "absolute", left: 9, zIndex: 1 }} />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search category / item"
-                style={{
-                  width: 190,
-                  padding: "6px 10px 6px 28px",
-                  border: `1px solid ${LIGHT_BORDER}`,
-                  borderRadius: 6,
-                  fontSize: 12.5,
-                  fontFamily: FONT,
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-          ) : (
-            <button onClick={() => { setSearchOpen(true); setQuery(""); }} title="Search" style={iconBtnStyle}>
-              <Search size={16} color="#475569" />
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Period selector */}
+          <div ref={periodRef} className="relative">
+            <button
+              onClick={() => setPeriodOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              <span>{PERIODS.find((p) => p.value === period)?.label || "Custom"}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
-          )}
-          <button onClick={handlePrint} title="Print" style={iconBtnStyle}>
-            <Printer size={16} color="#475569" />
+            {periodOpen && (
+              <div className="absolute left-0 top-[calc(100%+4px)] min-w-[150px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => selectPeriod(p)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+            <input
+              type="date"
+              value={formatDateISO(startDate)}
+              onChange={(e) => {
+                setRange({ from: parseDateISO(e.target.value), to: endDate });
+                setPeriod("custom");
+              }}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+            <input
+              type="date"
+              value={formatDateISO(endDate)}
+              onChange={(e) => {
+                setRange({ from: startDate, to: parseDateISO(e.target.value) });
+                setPeriod("custom");
+              }}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* Status Dropdown */}
+          <div ref={statusRef} className="relative">
+            <button
+              onClick={() => setStatusOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              <span>{ITEM_STATUSES.find((s) => s.value === itemStatus)?.label || "Active Items"}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+            {statusOpen && (
+              <div className="absolute left-0 top-[calc(100%+4px)] min-w-[150px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                {ITEM_STATUSES.map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => selectStatus(s.value)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors"
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative w-48 sm:w-60">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search category / item..."
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+              className="w-full pl-8 pr-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 ml-auto">
+          <button
+            onClick={expandAll}
+            className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all cursor-pointer"
+            title="Expand all categories"
+          >
+            Expand All
           </button>
-          <button onClick={handleExcel} title="Excel" style={iconBtnStyle}>
-            <FileSpreadsheet size={16} color={INDIGO} />
+          <button
+            onClick={collapseAll}
+            className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all cursor-pointer"
+            title="Collapse all categories"
+          >
+            Collapse All
+          </button>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          3. TABLE — one continuous scrollable 12-column table
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={tableContainerStyle}>
-        <div style={{ overflowX: "auto", flex: 1 }}>
-          <table style={{ ...tableStyle, minWidth: TABLE_MIN_WIDTH }}>
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <Layers className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Categories</div>
+            <div className="text-xl font-black text-slate-800 mt-0.5">{visible.length}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Top-level categories</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Sales</div>
+            <div className="text-xl font-black text-emerald-600 mt-0.5">
+              {fmtINR(shownTotals.sale)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Gross turnover value</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <ShoppingCart className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Purchase</div>
+            <div className="text-xl font-black text-blue-600 mt-0.5">
+              {fmtINR(shownTotals.purchase)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Direct item acquisitions</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
+            shownTotals.net_profit >= 0 ? "bg-emerald-50 border-emerald-100" : "bg-rose-50 border-rose-100"
+          }`}>
+            <Percent className={`w-6 h-6 ${shownTotals.net_profit >= 0 ? "text-emerald-600" : "text-rose-600"}`} />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Net Profit / Loss</div>
+            <div className={`text-xl font-black mt-0.5 ${
+              shownTotals.net_profit >= 0 ? "text-emerald-600" : "text-rose-600"
+            }`}>
+              {fmtINR(shownTotals.net_profit)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Category aggregate margin</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Data Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left min-w-[1100px]">
             <thead>
-              <tr>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
                 {COLUMNS.map((c) => (
-                  <th key={c.key} style={{ ...thStyle, width: c.width, minWidth: c.min, textAlign: c.txt ? "left" : "center" }}>
+                  <th
+                    key={c.key}
+                    className={`px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 ${
+                      c.txt ? "text-left" : "text-right"
+                    }`}
+                  >
                     {c.label}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>Loading...</div>
+                  <td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                    Loading category P&L...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} style={emptyCellStyle}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                      <AlertCircle size={24} color="#dc2626" />
-                      <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 600 }}>{error}</div>
+                  <td colSpan={COLUMNS.length} className="px-4 py-12 text-center text-rose-500 font-medium">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle className="w-6 h-6 text-rose-500" />
+                      <span>{error}</span>
                       <button
                         onClick={() => setReloadKey((k) => k + 1)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "6px 14px",
-                          borderRadius: 6,
-                          border: `1px solid ${LIGHT_BORDER}`,
-                          background: "#fff",
-                          color: INDIGO,
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          fontFamily: FONT,
-                          cursor: "pointer",
-                        }}
+                        className="px-3 py-1 bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 hover:bg-rose-100 cursor-pointer"
                       >
-                        <RefreshCw size={13} />
                         Retry
                       </button>
                     </div>
@@ -525,289 +606,103 @@ export default function ItemCategoryWiseProfitAndLoss() {
                 </tr>
               ) : displayRows.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>No data available</div>
+                  <td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    No category data available.
                   </td>
                 </tr>
               ) : (
-                pagedRows.map((r) => (
-                  <tr key={(r.isChild ? "sub-" : "cat-") + r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}`, background: r.isChild ? "#fcfcfd" : "#fff" }}>
-                    <td style={{ ...tdStyle, paddingLeft: r.isChild ? 34 : 10 }}>
-                      {!r.isChild && (r.children || []).length > 0 && (
-                        <button
-                          onClick={() => toggleExpanded(r.id)}
-                          title={expanded.has(String(r.id)) ? "Collapse" : "Expand"}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: 0,
-                            marginRight: 6,
-                            verticalAlign: "middle",
-                            display: "inline-flex",
-                          }}
-                        >
-                          {expanded.has(String(r.id)) ? (
-                            <ChevronDown size={14} color="#94a3b8" />
-                          ) : (
-                            <ChevronRight size={14} color="#94a3b8" />
+                pagedRows.map((r) => {
+                  const hasChildren = (r.children || []).length > 0;
+                  const isExp = expanded.has(String(r.id));
+                  const profit = Number(r.net_profit || 0);
+
+                  return (
+                    <tr
+                      key={`${r.id}-${r.isChild ? "child" : "parent"}`}
+                      className={`transition-colors ${
+                        r.isChild
+                          ? "bg-slate-50/40 hover:bg-slate-100/60 text-slate-600"
+                          : "hover:bg-slate-50/80 font-medium text-slate-800"
+                      }`}
+                    >
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-1.5" style={{ paddingLeft: r.isChild ? "20px" : "0px" }}>
+                          {!r.isChild && hasChildren && (
+                            <button
+                              onClick={() => toggleExpanded(r.id)}
+                              className="p-1 rounded hover:bg-slate-200/80 text-slate-500 transition-colors cursor-pointer"
+                            >
+                              {isExp ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                            </button>
                           )}
-                        </button>
-                      )}
-                      {!r.isChild && (r.children || []).length === 0 && (
-                        <span style={{ display: "inline-block", width: 20 }} />
-                      )}
-                      <span style={{ fontSize: 12.5, fontWeight: r.isChild ? 500 : 700, color: r.isChild ? "#475569" : NAVY }}>
-                        {r.name || "-"}
-                      </span>
-                    </td>
-                    {COLUMNS.filter((c) => !c.txt).map((c) => {
-                      const val = Number(r[c.key] || 0);
-                      const isNet = c.key === "net_profit" && val !== 0;
-                      return (
-                        <td
-                          key={c.key}
-                          style={{
-                            ...tdStyle,
-                            textAlign: "right",
-                            fontWeight: r.isChild ? 600 : 700,
-                            color: isNet ? (val >= 0 ? "#15803d" : "#dc2626") : r.isChild ? "#475569" : "#334155",
-                          }}
-                        >
-                          {fmtINR(val)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))
+                          {!r.isChild && !hasChildren && <span className="w-5.5 inline-block" />}
+                          {r.isChild && <span className="text-slate-400 text-xs font-mono">&bull;</span>}
+                          <span className={r.isChild ? "text-slate-600 font-medium" : "font-bold text-slate-900"}>
+                            {r.name || "-"}
+                          </span>
+                          {!r.isChild && hasChildren && (
+                            <span className="ml-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                              {r.children.length}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-700">{fmtINRNum(r.sale)}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-rose-600">{fmtINRNum(r.sale_return)}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-700">{fmtINRNum(r.purchase)}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-emerald-600">{fmtINRNum(r.purchase_return)}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-600">{fmtINRNum(r.opening_stock)}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-600">{fmtINRNum(r.closing_stock)}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-600">{fmtINRNum(r.tax_receivable)}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-600">{fmtINRNum(r.tax_payable)}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-600">{fmtINRNum(r.mfg_cost)}</td>
+                      <td className="px-3 py-2.5 text-right font-medium text-slate-600">{fmtINRNum(r.consumption_cost)}</td>
+                      <td className={`px-3 py-2.5 text-right font-bold ${
+                        profit >= 0 ? "text-emerald-700 bg-emerald-50/40" : "text-rose-700 bg-rose-50/40"
+                      }`}>
+                        {fmtINR(profit)}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
             {!loading && !error && displayRows.length > 0 && (
-              <tfoot>
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50/90 font-bold text-slate-800 text-xs">
                 <tr>
-                  <td style={{ ...tdStyle, background: "#f2f4f7", fontWeight: 800, color: NAVY, fontSize: 12.5 }}>Total</td>
-                  {COLUMNS.filter((c) => !c.txt).map((c) => (
-                    <td key={c.key} style={{ ...tdStyle, background: "#f2f4f7", fontWeight: 700, color: NAVY, fontSize: 12.5, textAlign: "right" }}>
-                      {fmtINR(shownTotals[c.key] || 0)}
-                    </td>
-                  ))}
+                  <td className="px-3 py-3 uppercase tracking-wider font-extrabold text-slate-900">Total</td>
+                  <td className="px-3 py-3 text-right font-bold text-slate-900">{fmtINRNum(shownTotals.sale)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-rose-700">{fmtINRNum(shownTotals.sale_return)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-slate-900">{fmtINRNum(shownTotals.purchase)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-emerald-700">{fmtINRNum(shownTotals.purchase_return)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-slate-800">{fmtINRNum(shownTotals.opening_stock)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-slate-800">{fmtINRNum(shownTotals.closing_stock)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-slate-800">{fmtINRNum(shownTotals.tax_receivable)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-slate-800">{fmtINRNum(shownTotals.tax_payable)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-slate-800">{fmtINRNum(shownTotals.mfg_cost)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-slate-800">{fmtINRNum(shownTotals.consumption_cost)}</td>
+                  <td className={`px-3 py-3 text-right font-extrabold ${
+                    shownTotals.net_profit >= 0 ? "text-emerald-800 bg-emerald-100/50" : "text-rose-800 bg-rose-100/50"
+                  }`}>
+                    {fmtINR(shownTotals.net_profit)}
+                  </td>
                 </tr>
               </tfoot>
             )}
           </table>
         </div>
-        {!loading && !error && displayRows.length > 0 && (
-          <div style={totalAmountBarStyle}>
-            Total Amount:&nbsp;
-            <span style={{ color: Number(shownTotals.net_profit) >= 0 ? "#15803d" : "#dc2626" }}>
-              {fmtINR(shownTotals.net_profit)}
-            </span>
-          </div>
-        )}
+
+        <ReportPagination
+          total={displayRows.length}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
+        />
       </div>
-      <ReportPagination
-        total={displayRows.length}
-        page={safePage}
-        rowsPerPage={rowsPerPage}
-        onPageChange={setPage}
-        onRowsPerPageChange={(v) => {
-          setRowsPerPage(v);
-          setPage(1);
-        }}
-      />
     </div>
   );
 }
-
-/* ═════════════════════════════════════════════════════════════════════
-   STYLES — compact accounting-report look (Vyapar style)
-   ═════════════════════════════════════════════════════════════════════ */
-
-const filterBarStyle = {
-  display: "flex",
-  gap: 10,
-  alignItems: "center",
-  flexWrap: "wrap",
-  padding: "8px 12px",
-  background: "#f5f7fb",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  marginBottom: 10,
-};
-
-const filterByLabelStyle = {
-  fontSize: 11,
-  fontWeight: 700,
-  color: GRAY_TEXT,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-};
-
-const compactSelectBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "5px 10px",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
-
-const compactDateInputStyle = {
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  padding: "4px 6px",
-  fontSize: 12,
-  fontFamily: FONT,
-  color: "#334155",
-  background: "#fff",
-  outline: "none",
-  width: 118,
-};
-
-const dateFieldStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  whiteSpace: "nowrap",
-};
-
-const dropdownPanelStyle = {
-  position: "absolute",
-  top: "calc(100% + 5px)",
-  left: 0,
-  minWidth: 160,
-  zIndex: 60,
-  background: "#fff",
-  border: `1.5px solid #e0e7ff`,
-  borderRadius: 8,
-  boxShadow: "0 12px 32px rgba(30,27,75,.12)",
-  overflow: "hidden",
-  fontFamily: FONT,
-};
-
-const statusDropdownPanelStyle = {
-  position: "absolute",
-  top: "calc(100% + 5px)",
-  left: 0,
-  width: 180,
-  padding: 4,
-  zIndex: 80,
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  boxShadow: "0 8px 24px rgba(15,23,42,.10)",
-  fontFamily: FONT,
-};
-
-const dropdownItemStyle = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "7px 12px",
-  background: "transparent",
-  border: "none",
-  fontSize: 12.5,
-  fontFamily: FONT,
-  cursor: "pointer",
-  transition: "background .1s",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
-
-const iconBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 30,
-  height: 30,
-  borderRadius: 6,
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  cursor: "pointer",
-  flexShrink: 0,
-};
-
-const detailsRowStyle = {
-  display: "flex",
-  alignItems: "center",
-  padding: "6px 0",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  marginBottom: 10,
-};
-
-const detailsTitleStyle = {
-  fontSize: 10.5,
-  fontWeight: 800,
-  color: "#475569",
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-};
-
-const tableContainerStyle = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  overflow: "hidden",
-  background: "#fff",
-  minHeight: 0,
-};
-
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontFamily: FONT,
-  tableLayout: "fixed",
-};
-
-const thStyle = {
-  padding: "7px 8px",
-  fontSize: 10,
-  fontWeight: 700,
-  color: "#475569",
-  textTransform: "uppercase",
-  letterSpacing: "0.03em",
-  background: "#f2f4f7",
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  whiteSpace: "normal",
-  lineHeight: 1.3,
-  userSelect: "none",
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-  verticalAlign: "middle",
-};
-
-const emptyCellStyle = {
-  padding: "70px 24px",
-  textAlign: "center",
-  verticalAlign: "middle",
-};
-
-const tdStyle = {
-  padding: "6px 8px",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 12,
-  color: "#334155",
-  verticalAlign: "middle",
-};
-
-const totalAmountBarStyle = {
-  display: "flex",
-  justifyContent: "flex-end",
-  alignItems: "center",
-  padding: "8px 14px",
-  background: "#fff",
-  borderTop: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 13,
-  fontWeight: 800,
-  color: NAVY,
-};

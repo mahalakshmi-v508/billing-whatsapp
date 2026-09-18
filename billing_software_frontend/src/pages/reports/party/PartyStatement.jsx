@@ -14,7 +14,15 @@ import {
   X,
   AlertCircle,
   Share2,
-  EllipsisVertical,
+  MoreVertical,
+  Users,
+  TrendingUp,
+  TrendingDown,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Wallet,
+  Eye,
+  Edit2,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import * as XLSX from "xlsx";
@@ -23,12 +31,6 @@ import api from "../../../services/api";
 import { generateInvoicePdfBase64 } from "../../../utils/invoiceShare";
 import ReportPagination from "../../../components/reports/ReportPagination";
 import { showToast } from "../../../utils/reportToast";
-
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const NAVY = "#1e1b4b";
-const GRAY_TEXT = "#6b7280";
-const LIGHT_BORDER = "#e5e7eb";
 
 /* ── Time-period presets ───────────────────────────────────────────── */
 const TIME_PRESETS = [
@@ -45,14 +47,14 @@ const TIME_PRESETS = [
 
 /* ── Table columns ─────────────────────────────────────────────────── */
 const COLUMNS = [
-  { key: "date", label: "DATE", width: 100, sortable: true, filterable: true },
-  { key: "txn", label: "TXN TYPE", width: 120, sortable: true, filterable: true },
-  { key: "ref", label: "REF NO.", width: 120, sortable: true, filterable: true },
-  { key: "total", label: "TOTAL", width: 100, sortable: true, filterable: false },
-  { key: "receivedPaid", label: "RECEIVED/PAID", width: 120, sortable: true, filterable: false },
-  { key: "txnBalance", label: "TXN BALANCE", width: 120, sortable: true, filterable: false },
-  { key: "receivableBal", label: "RECEIVABLE BALANCE", width: 150, sortable: true, filterable: false },
-  { key: "payableBal", label: "PAYABLE BALANCE", width: 130, sortable: true, filterable: false },
+  { key: "date", label: "DATE", width: "110px", sortable: true, filterable: true },
+  { key: "txn", label: "TXN TYPE", width: "130px", sortable: true, filterable: true },
+  { key: "ref", label: "REF NO.", width: "130px", sortable: true, filterable: true },
+  { key: "total", label: "TOTAL", width: "120px", sortable: true, filterable: false, align: "right" },
+  { key: "receivedPaid", label: "RECEIVED / PAID", width: "140px", sortable: true, filterable: false, align: "right" },
+  { key: "txnBalance", label: "TXN BALANCE", width: "130px", sortable: true, filterable: false, align: "right" },
+  { key: "receivableBal", label: "RECEIVABLE BAL", width: "150px", sortable: true, filterable: false, align: "right" },
+  { key: "payableBal", label: "PAYABLE BAL", width: "140px", sortable: true, filterable: false, align: "right" },
 ];
 
 /* ── Helpers ────────────────────────────────────────────────────────── */
@@ -93,7 +95,6 @@ function getRange(preset) {
   }
 }
 
-/* ── Money / auth / print helpers ───────────────────────────────────── */
 function getAuth() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -108,7 +109,20 @@ const fmtINR = (n) =>
 const fmtINRNum = (n) =>
   Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** Print a DOM node without leaving the app (hidden iframe). */
+function formatDateISO(d) {
+  if (!d) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseDateISO(s) {
+  if (!s) return new Date();
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function printElement(element, title) {
   const iframe = document.createElement("iframe");
   Object.assign(iframe.style, {
@@ -121,16 +135,16 @@ function printElement(element, title) {
   doc.write(
     `<html><head><title>${title || "Party Statement"}</title>
      <style>
-       body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:28px;color:#1e1b4b;}
-       h2{margin:0 0 4px;font-size:18px;}
+       body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:28px;color:#0f172a;}
+       h2{margin:0 0 4px;font-size:18px;color:#1e1b4b;}
        .meta{color:#64748b;font-size:12px;margin-bottom:18px;}
        table{width:100%;border-collapse:collapse;font-size:11px;}
        th,td{border:1px solid #e2e8f0;padding:7px 9px;text-align:left;}
-       th{background:#f1f5f9;color:#334155;}
+       th{background:#f8fafc;color:#475569;font-weight:bold;}
        td.r,th.r{text-align:right;}
        .sum{margin-top:16px;font-size:12px;}
-       .sum div{display:flex;justify-content:space-between;max-width:360px;padding:3px 0;}
-       .net{border-top:1.5px solid #4338ca;font-weight:700;margin-top:4px;}
+       .sum div{display:flex;justify-content:space-between;max-width:360px;padding:4px 0;}
+       .net{border-top:1.5px solid #4f46e5;font-weight:700;margin-top:4px;}
      </style></head>
      <body>${element.innerHTML}</body></html>`
   );
@@ -139,6 +153,15 @@ function printElement(element, title) {
   const fire = () => { try { win.focus(); win.print(); } finally { setTimeout(() => iframe.remove(), 1500); } };
   if (doc.readyState === "complete") fire();
   else win.addEventListener("load", fire);
+}
+
+function getTxnBadgeClasses(type) {
+  const t = String(type || "").toLowerCase();
+  if (t.includes("sale") && !t.includes("return")) return "bg-emerald-50 text-emerald-700 border-emerald-200/80";
+  if (t.includes("sale") && t.includes("return")) return "bg-amber-50 text-amber-700 border-amber-200/80";
+  if (t.includes("purchase")) return "bg-rose-50 text-rose-700 border-rose-200/80";
+  if (t.includes("payment")) return "bg-indigo-50 text-indigo-700 border-indigo-200/80";
+  return "bg-slate-50 text-slate-700 border-slate-200/80";
 }
 
 /* ── Main Component ─────────────────────────────────────────────────── */
@@ -168,7 +191,6 @@ export default function PartyStatement() {
 
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
-  const [summaryOpen, setSummaryOpen] = useState(true);
   const [filterOpen, setFilterOpen] = useState(null);
 
   const [page, setPage] = useState(1);
@@ -194,13 +216,15 @@ export default function PartyStatement() {
       if (menuPopupRef.current && !menuPopupRef.current.contains(e.target) && !e.target.closest('[data-menu-btn]')) {
         setMenuPopup({ open: false, row: null, position: { top: 0, left: 0 } });
       }
-      setFilterOpen(null);
+      if (!e.target.closest('[data-filter-box]')) {
+        setFilterOpen(null);
+      }
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Load the companies for this admin, default to the saved / single company
+  // Load companies
   useEffect(() => {
     if (!adminId) return;
     api
@@ -221,7 +245,7 @@ export default function PartyStatement() {
       .catch(() => setError("Failed to load companies."));
   }, [adminId]);
 
-  // React to firm change → load parties
+  // Load parties for company
   useEffect(() => {
     if (companyId === null) return;
     api
@@ -230,7 +254,7 @@ export default function PartyStatement() {
       .catch(() => setParties([]));
   }, [companyId, adminId]);
 
-  // Fetch the statement whenever party / date / firm changes
+  // Fetch statement on party/date/firm change
   useEffect(() => {
     if (!selectedParty || !companyId) return;
     const t = setTimeout(() => {
@@ -373,7 +397,6 @@ export default function PartyStatement() {
     printElement(el, "Party Statement");
   };
 
-  /* ── Print a single transaction row ── */
   const printSingleRow = (t) => {
     const el = document.createElement("div");
     el.innerHTML =
@@ -392,32 +415,14 @@ export default function PartyStatement() {
     printElement(el, "Party Statement Transaction");
   };
 
-  /* ── Share a single transaction row ── */
   const handleShareClick = (t, event) => {
     const btn = event.currentTarget;
     const rect = btn.getBoundingClientRect();
-    const POPUP_WIDTH = 132;
-    const POPUP_HEIGHT = 74;
-    const GAP = 8;
-    const MARGIN = 8;
-
-    let left = rect.left - 42;
-    if (left < MARGIN) left = MARGIN;
-    if (left + POPUP_WIDTH > window.innerWidth - MARGIN) {
-      left = window.innerWidth - MARGIN - POPUP_WIDTH;
-    }
-
-    let top = rect.bottom + GAP;
-    if (top + POPUP_HEIGHT > window.innerHeight - MARGIN) {
-      top = rect.top - GAP - POPUP_HEIGHT;
-    }
-    if (top < MARGIN) top = MARGIN;
-
     setMenuPopup({ open: false, row: null, position: { top: 0, left: 0 } });
     setSharePopup({
       open: true,
       row: t,
-      position: { top, left },
+      position: { top: rect.bottom + 6, left: Math.max(10, rect.left - 40) },
     });
   };
 
@@ -425,32 +430,14 @@ export default function PartyStatement() {
     setSharePopup({ open: false, row: null, position: { top: 0, left: 0 } });
   };
 
-  /* ── 3-dot menu for a transaction row ── */
   const handleMenuClick = (t, event) => {
     const btn = event.currentTarget;
     const rect = btn.getBoundingClientRect();
-    const MENU_WIDTH = 132;
-    const MENU_HEIGHT = 84;
-    const GAP = 8;
-    const MARGIN = 8;
-
-    let left = rect.left;
-    if (left + MENU_WIDTH > window.innerWidth - MARGIN) {
-      left = window.innerWidth - MARGIN - MENU_WIDTH;
-    }
-    if (left < MARGIN) left = MARGIN;
-
-    let top = rect.bottom + GAP;
-    if (top + MENU_HEIGHT > window.innerHeight - MARGIN) {
-      top = rect.top - GAP - MENU_HEIGHT;
-    }
-    if (top < MARGIN) top = MARGIN;
-
     setSharePopup({ open: false, row: null, position: { top: 0, left: 0 } });
     setMenuPopup({
       open: true,
       row: t,
-      position: { top, left },
+      position: { top: rect.bottom + 6, left: Math.max(10, rect.left - 80) },
     });
   };
 
@@ -458,7 +445,6 @@ export default function PartyStatement() {
     setMenuPopup({ open: false, row: null, position: { top: 0, left: 0 } });
   };
 
-  /* ── View a transaction (reuse existing view routes) ── */
   const handleView = (t) => {
     closeMenuPopup();
     if (t.kind === "sale" && t.ref_no) {
@@ -466,7 +452,6 @@ export default function PartyStatement() {
     }
   };
 
-  /* ── Edit a transaction (reuse existing edit routes by txn type) ── */
   const handleEdit = (t) => {
     closeMenuPopup();
     switch (t.kind) {
@@ -485,7 +470,6 @@ export default function PartyStatement() {
     }
   };
 
-  /* ── Build a hidden DOM element for the transaction (reuses print logic) ── */
   const buildTransactionElement = (t) => {
     const el = document.createElement("div");
     el.innerHTML =
@@ -504,7 +488,6 @@ export default function PartyStatement() {
     return el;
   };
 
-  /* ── Share via WhatsApp ── */
   const shareViaWhatsApp = async (t) => {
     if (whatsappSending) return;
     setWhatsappSending(true);
@@ -555,7 +538,6 @@ export default function PartyStatement() {
     }
   };
 
-  /* ── Excel ── */
   const handleExcel = () => {
     try {
       const title = summary.party_name || selectedParty?.name || "Party";
@@ -592,250 +574,375 @@ export default function PartyStatement() {
         new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
         `Party_Statement_${title.replace(/[^a-z0-9]+/gi, "_")}_${formatDateISO(startDate)}_to_${formatDateISO(endDate)}.xlsx`
       );
+      showToast("Excel exported successfully.", "success");
     } catch {
       setError("Excel export failed. Please try again.");
     }
   };
 
   return (
-    <div style={{ fontFamily: FONT, padding: "6px 2px", display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
       {/* ═══════════════════════════════════════════════════════════════
           1. TOP FILTER SECTION
           ═══════════════════════════════════════════════════════════════ */}
-      <div style={filterRowStyle}>
-        {/* LEFT: Period dropdown */}
-        <div ref={periodRef} style={{ position: "relative" }}>
-          <button onClick={() => { setPeriodOpen((v) => !v); setPartyOpen(false); }} style={periodBtnStyle}>
-            <Calendar size={15} color={INDIGO} />
-            <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{periodLabel}</span>
-            <ChevronDown size={15} style={{ color: "#94a3b8", transform: periodOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-          {periodOpen && (
-            <div style={dropdownPanelStyle}>
-              {TIME_PRESETS.map((p) => (
-                <button
-                  key={p.value}
-                  onClick={() => handlePeriodSelect(p.value)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: p.value === period ? "#eef2ff" : "transparent",
-                    color: p.value === period ? INDIGO : "#334155",
-                    fontWeight: p.value === period ? 700 : 500,
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Date range */}
-        <div style={dateRangeBoxStyle}>
-          <span style={{ fontSize: 13, color: GRAY_TEXT, fontWeight: 500 }}>Between</span>
-          <input
-            type="date"
-            value={formatDateISO(startDate)}
-            onChange={(e) => { setStartDate(parseDateISO(e.target.value)); setPeriod("custom"); }}
-            style={dateInputStyle}
-          />
-          <span style={{ fontSize: 12, color: "#9ca3af" }}>To</span>
-          <input
-            type="date"
-            value={formatDateISO(endDate)}
-            onChange={(e) => { setEndDate(parseDateISO(e.target.value)); setPeriod("custom"); }}
-            style={dateInputStyle}
-          />
-        </div>
-
-        {/* Party selector */}
-        <div ref={partyRef} style={{ position: "relative", minWidth: 180 }}>
-          <button onClick={() => { setPartyOpen((v) => !v); setPeriodOpen(false); }} style={partyBtnStyle}>
-            <Search size={14} color="#94a3b8" />
-            <span style={{ fontSize: 13, color: selectedParty ? NAVY : "#94a3b8", fontWeight: selectedParty ? 600 : 400, flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {selectedParty ? selectedParty.name : "Select Party"}
-            </span>
-            {selectedParty ? (
-              <button onClick={(e) => { e.stopPropagation(); setSelectedParty(null); setPartyQuery(""); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex" }}>
-                <X size={14} color="#94a3b8" />
-              </button>
-            ) : (
-              <ChevronDown size={15} style={{ color: "#94a3b8", transform: partyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-            )}
-          </button>
-          {partyOpen && (
-            <div style={dropdownPanelStyle}>
-              <div style={{ padding: 8, borderBottom: `1px solid ${LIGHT_BORDER}` }}>
-                <div style={{ position: "relative" }}>
-                  <Search size={14} color="#94a3b8" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
-                  <input
-                    value={partyQuery}
-                    onChange={(e) => setPartyQuery(e.target.value)}
-                    placeholder="Search party..."
-                    style={{ ...dateInputStyle, width: "100%", paddingLeft: 32, boxSizing: "border-box", fontSize: 13 }}
-                  />
-                </div>
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        {/* Left: Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Period selector */}
+          <div ref={periodRef} className="relative">
+            <button
+              onClick={() => { setPeriodOpen((v) => !v); setPartyOpen(false); }}
+              className="inline-flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200/80 rounded-xl hover:bg-slate-100 transition shadow-2xs"
+            >
+              <Calendar size={14} className="text-indigo-600" />
+              <span>{periodLabel}</span>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform duration-150 ${periodOpen ? "rotate-180" : ""}`} />
+            </button>
+            {periodOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in zoom-in-95 duration-100">
+                {TIME_PRESETS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => handlePeriodSelect(p.value)}
+                    className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                      p.value === period
+                        ? "bg-indigo-50 text-indigo-700 font-bold"
+                        : "text-slate-700 hover:bg-slate-50 font-medium"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
               </div>
-              <div style={{ maxHeight: 240, overflowY: "auto", padding: 4 }}>
-                {parties.length === 0 ? (
-                  <div style={{ padding: "14px 12px", textAlign: "center", color: "#9ca3af", fontSize: 12 }}>
-                    No parties available yet.
-                    <div style={{ fontSize: 11, color: "#cbd5e1", marginTop: 2 }}>Connect party data to populate this list.</div>
+            )}
+          </div>
+
+          {/* Date range inputs */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">Between</span>
+            <input
+              type="date"
+              value={formatDateISO(startDate)}
+              onChange={(e) => { setStartDate(parseDateISO(e.target.value)); setPeriod("custom"); }}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
+            />
+            <span className="text-xs font-semibold text-slate-400">To</span>
+            <input
+              type="date"
+              value={formatDateISO(endDate)}
+              onChange={(e) => { setEndDate(parseDateISO(e.target.value)); setPeriod("custom"); }}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
+            />
+          </div>
+
+          {/* Party Selector Dropdown */}
+          <div ref={partyRef} className="relative min-w-[220px]">
+            <button
+              onClick={() => { setPartyOpen((v) => !v); setPeriodOpen(false); }}
+              className="w-full inline-flex items-center justify-between gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200/80 rounded-xl hover:bg-slate-100 transition shadow-2xs"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <Users size={14} className="text-indigo-600 flex-shrink-0" />
+                <span className={selectedParty ? "text-slate-800 font-bold truncate" : "text-slate-400 font-normal"}>
+                  {selectedParty ? selectedParty.name : "Select Party"}
+                </span>
+              </div>
+              {selectedParty ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => { e.stopPropagation(); setSelectedParty(null); setPartyQuery(""); }}
+                  className="text-slate-400 hover:text-rose-600 transition p-0.5"
+                >
+                  <X size={14} />
+                </span>
+              ) : (
+                <ChevronDown size={14} className={`text-slate-400 transition-transform duration-150 ${partyOpen ? "rotate-180" : ""}`} />
+              )}
+            </button>
+
+            {partyOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                <div className="p-2 border-b border-slate-100 bg-slate-50/50">
+                  <div className="relative">
+                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={partyQuery}
+                      onChange={(e) => setPartyQuery(e.target.value)}
+                      placeholder="Search party..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium"
+                    />
                   </div>
-                ) : (
-                  parties
-                    .filter((p) => !partyQuery || (p.name || "").toLowerCase().includes(partyQuery.toLowerCase()))
-                    .map((p) => (
-                      <button
-                        key={p.role + "-" + p.id}
-                        onClick={() => selectParty(p)}
-                        style={{
-                          ...dropdownItemStyle,
-                          background: selectedParty?.id === p.id && selectedParty?.role === p.role ? "#eef2ff" : "transparent",
-                          color: selectedParty?.id === p.id && selectedParty?.role === p.role ? INDIGO : "#334155",
-                        }}
-                      >
-                        <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: p.role === "customer" ? "#eff6ff" : "#fef2f2", color: p.role === "customer" ? "#1d4ed8" : "#dc2626", flexShrink: 0 }}>
+                </div>
+                <div className="max-h-60 overflow-y-auto p-1 divide-y divide-slate-50">
+                  {parties.length === 0 ? (
+                    <div className="p-4 text-center text-slate-400 text-xs font-medium">
+                      No parties found.
+                    </div>
+                  ) : (
+                    parties
+                      .filter((p) => !partyQuery || (p.name || "").toLowerCase().includes(partyQuery.toLowerCase()))
+                      .map((p) => (
+                        <button
+                          key={`${p.role}-${p.id}`}
+                          onClick={() => selectParty(p)}
+                          className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between rounded-lg transition-colors ${
+                            selectedParty?.id === p.id && selectedParty?.role === p.role
+                              ? "bg-indigo-50 text-indigo-700 font-bold"
+                              : "text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          <span className="truncate pr-2 font-medium">{p.name}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${
+                            p.role === "customer"
+                              ? "bg-blue-50 text-blue-700 border-blue-200/80"
+                              : "bg-purple-50 text-purple-700 border-purple-200/80"
+                          }`}>
                             {p.role === "customer" ? "Customer" : "Supplier"}
                           </span>
-                        </span>
-                      </button>
-                    ))
-                )}
+                        </button>
+                      ))
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* RIGHT: Actions */}
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
-          <button onClick={handleExcel} style={actionBtnStyle}>
-            <FileSpreadsheet size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Excel Report</span>
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 transition-all shadow-2xs"
+          >
+            <FileSpreadsheet size={15} />
+            <span>Excel</span>
           </button>
-          <button onClick={handlePrint} style={actionBtnStyle}>
-            <Printer size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Print</span>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-2xs"
+          >
+            <Printer size={15} />
+            <span>Print</span>
           </button>
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          2. TRANSACTION TABLE
+          2. KPI SUMMARY CARDS RIBBON
           ═══════════════════════════════════════════════════════════════ */}
-      <div style={tableContainerStyle}>
-        <div style={{ overflowX: "auto", flex: 1 }}>
-          <table style={tableStyle}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {/* Total Sale */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Total Sale</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <TrendingUp size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-slate-900">{fmtINR(summary.total_sale)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Sale net of returns</div>
+          </div>
+        </div>
+
+        {/* Money-In */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Total Money-In</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <ArrowDownLeft size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-emerald-600">{fmtINR(summary.total_money_in)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Payments received</div>
+          </div>
+        </div>
+
+        {/* Total Purchase */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Total Purchase</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <TrendingDown size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-slate-900">{fmtINR(summary.total_purchase)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Purchases net of returns</div>
+          </div>
+        </div>
+
+        {/* Money-Out */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Total Money-Out</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <ArrowUpRight size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-rose-600">{fmtINR(summary.total_money_out)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Payments made</div>
+          </div>
+        </div>
+
+        {/* Receivable / Payable */}
+        <div className="bg-white rounded-2xl p-4 border border-indigo-100 shadow-xs flex flex-col justify-between bg-gradient-to-br from-white via-indigo-50/20 to-indigo-50/40">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-indigo-900">
+              {summary.party_role === "supplier" ? "Total Payable" : "Total Receivable"}
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Wallet size={16} />
+            </div>
+          </div>
+          <div>
+            <div className={`text-xl md:text-2xl font-black ${summary.party_role === "supplier" ? "text-rose-600" : "text-indigo-600"}`}>
+              {fmtINR(summary.party_role === "supplier" ? summary.total_payable : summary.total_receivable)}
+            </div>
+            <div className="text-[10px] text-indigo-500 font-semibold mt-0.5">
+              Net balance outstanding
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          3. TRANSACTION TABLE
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr>
+              <tr className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 {COLUMNS.map((col) => (
-                  <th key={col.key} style={{ ...thStyle, width: col.width, minWidth: col.width }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <th
+                    key={col.key}
+                    style={{ width: col.width }}
+                    className={`px-4 py-3.5 ${col.align === "right" ? "text-right" : "text-left"}`}
+                  >
+                    <div className={`inline-flex items-center gap-1.5 ${col.align === "right" ? "justify-end w-full" : ""}`}>
                       <span>{col.label}</span>
                       {col.sortable && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleSort(col.key); }}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex" }}
+                          className="text-slate-400 hover:text-slate-600 transition"
                         >
                           {sortCol === col.key ? (
-                            sortDir === "asc" ? <ArrowUp size={12} color="#94a3b8" /> : <ArrowDown size={12} color="#94a3b8" />
+                            sortDir === "asc" ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />
                           ) : (
-                            <ArrowUpDown size={12} color="#cbd5e1" />
+                            <ArrowUpDown size={12} className="opacity-40" />
                           )}
                         </button>
                       )}
                       {col.filterable && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setFilterOpen(filterOpen === col.key ? null : col.key); }}
-                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", position: "relative" }}
-                        >
-                          <Filter size={12} color={filterOpen === col.key ? INDIGO : "#cbd5e1"} />
+                        <div className="relative" data-filter-box>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setFilterOpen(filterOpen === col.key ? null : col.key); }}
+                            className={`transition ${filterOpen === col.key || colText[col.key] ? "text-indigo-600" : "text-slate-400 hover:text-slate-600"}`}
+                          >
+                            <Filter size={12} />
+                          </button>
                           {filterOpen === col.key && (
-                            <div style={filterPopupStyle} onClick={(e) => e.stopPropagation()}>
-                              <div style={{ padding: 10 }}>
-                                <input
-                                  value={colText[col.key] || ""}
-                                  onChange={(e) => setColText((p) => ({ ...p, [col.key]: e.target.value }))}
-                                  placeholder={`Filter ${col.label.toLowerCase()}...`}
-                                  style={{ width: "100%", padding: "6px 8px", border: `1px solid ${LIGHT_BORDER}`, borderRadius: 6, fontSize: 12, outline: "none", boxSizing: "border-box" }}
-                                />
-                              </div>
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute top-full left-0 mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-xl p-2.5 z-50 normal-case tracking-normal"
+                            >
+                              <input
+                                type="text"
+                                autoFocus
+                                value={colText[col.key] || ""}
+                                onChange={(e) => setColText((p) => ({ ...p, [col.key]: e.target.value }))}
+                                placeholder={`Filter ${col.label.toLowerCase()}...`}
+                                className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                              />
                             </div>
                           )}
-                        </button>
+                        </div>
                       )}
                     </div>
                   </th>
                 ))}
-                <th key="actions" style={{ ...thStyle, width: 110, minWidth: 110, textAlign: "center" }}>
-                  ACTIONS
-                </th>
+                <th className="px-4 py-3.5 text-center w-24">ACTIONS</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={COLUMNS.length + 1} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>Loading…</div>
+                  <td colSpan={COLUMNS.length + 1} className="py-16 text-center text-slate-400">
+                    <div className="inline-flex items-center gap-2 font-medium">
+                      <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                      Loading statement transactions...
+                    </div>
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={COLUMNS.length + 1} style={emptyCellStyle}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                      <AlertCircle size={26} color="#dc2626" />
-                      <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 600 }}>{error}</div>
+                  <td colSpan={COLUMNS.length + 1} className="py-16 text-center text-rose-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle size={28} className="text-rose-500" />
+                      <span className="font-semibold">{error}</span>
                     </div>
                   </td>
                 </tr>
               ) : displayed.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length + 1} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af" }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: NAVY, marginBottom: 4 }}>No transactions to show</div>
-                      <div style={{ fontSize: 12 }}>Select a party and date range to view transactions.</div>
+                  <td colSpan={COLUMNS.length + 1} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <Users size={32} className="text-slate-300" />
+                      <div className="text-sm font-bold text-slate-700">No transactions to show</div>
+                      <div className="text-xs text-slate-400">Select a party and date range above to view account statement.</div>
                     </div>
                   </td>
                 </tr>
               ) : (
                 pagedRows.map((t, i) => (
-                  <tr key={i} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
-                    <td style={tdStyle}>{t.date || "-"}</td>
-                    <td style={tdStyle}>
-                      <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: txnBadge(t.txn_type).bg, color: txnBadge(t.txn_type).color }}>
+                  <tr key={i} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 text-slate-600 font-medium whitespace-nowrap">{t.date || "-"}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${getTxnBadgeClasses(t.txn_type)}`}>
                         {t.txn_type || "-"}
                       </span>
                     </td>
-                    <td style={tdStyle}>{t.ref_no || "-"}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: NAVY }}>{fmtINR(t.total)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", color: Number(t.received) > 0 ? "#15803d" : Number(t.paid) > 0 ? "#dc2626" : "#9ca3af" }}>
+                    <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{t.ref_no || "-"}</td>
+                    <td className="px-4 py-3 text-right font-black text-slate-900 whitespace-nowrap">{fmtINR(t.total)}</td>
+                    <td className={`px-4 py-3 text-right font-bold whitespace-nowrap ${
+                      Number(t.received) > 0 ? "text-emerald-600" : Number(t.paid) > 0 ? "text-rose-600" : "text-slate-400"
+                    }`}>
                       {fmtINR(Number(t.received) || Number(t.paid))}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: NAVY }}>{fmtINR(t.txn_balance)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmtINR(t.receivable_bal)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmtINR(t.payable_bal)}</td>
-                    <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap" }}>
-                      <button onClick={() => printSingleRow(t)} title="Print" style={rowIconBtnStyle("#4338ca")}>
-                        <Printer size={13} />
-                      </button>
-                      <button
-                        data-share-btn
-                        onClick={(e) => handleShareClick(t, e)}
-                        title="Share"
-                        style={rowIconBtnStyle("#0891b2")}
-                      >
-                        <Share2 size={13} />
-                      </button>
-                      <button
-                        data-menu-btn
-                        onClick={(e) => handleMenuClick(t, e)}
-                        title="Actions"
-                        style={{ ...rowIconBtnStyle("#475569"), marginRight: 0 }}
-                      >
-                        <EllipsisVertical size={13} />
-                      </button>
+                    <td className="px-4 py-3 text-right font-black text-slate-900 whitespace-nowrap">{fmtINR(t.txn_balance)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-700 whitespace-nowrap">{fmtINR(t.receivable_bal)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-700 whitespace-nowrap">{fmtINR(t.payable_bal)}</td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          onClick={() => printSingleRow(t)}
+                          title="Print Entry"
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                        >
+                          <Printer size={14} />
+                        </button>
+                        <button
+                          data-share-btn
+                          onClick={(e) => handleShareClick(t, e)}
+                          title="Share Entry"
+                          className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                        >
+                          <Share2 size={14} />
+                        </button>
+                        <button
+                          data-menu-btn
+                          onClick={(e) => handleMenuClick(t, e)}
+                          title="Options"
+                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -844,6 +951,7 @@ export default function PartyStatement() {
           </table>
         </div>
 
+        {/* Modern Universal Pagination */}
         <ReportPagination
           total={totalRows}
           page={safePage}
@@ -854,7 +962,7 @@ export default function PartyStatement() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-           SHARE POPUP (WhatsApp) — anchored to the Share button
+           SHARE POPUP (WhatsApp)
           ═══════════════════════════════════════════════════════════════ */}
       {sharePopup.open &&
         sharePopup.row &&
@@ -866,31 +974,24 @@ export default function PartyStatement() {
               top: sharePopup.position.top,
               left: sharePopup.position.left,
               zIndex: 9999,
-              background: "#fff",
-              borderRadius: 10,
-              boxShadow: "0 6px 18px rgba(0,0,0,.14)",
-              border: "1px solid #e5e7eb",
-              padding: "8px 14px",
-              fontFamily: FONT,
             }}
             onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-xl border border-slate-200 p-2 animate-in fade-in zoom-in-95 duration-100"
           >
-            {/* WhatsApp */}
             <button
               onClick={() => shareViaWhatsApp(sharePopup.row)}
               disabled={whatsappSending}
-              title="Share via WhatsApp"
-              style={shareOptionStyle}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition w-full disabled:opacity-50"
             >
-              <SiWhatsapp size={26} color="#25D366" />
-              <span style={shareLabelStyle}>WhatsApp</span>
+              <SiWhatsapp size={18} className="text-[#25D366]" />
+              <span>WhatsApp</span>
             </button>
           </div>,
           document.body
         )}
 
       {/* ═══════════════════════════════════════════════════════════════
-           ROW MENU POPUP (View / Edit) — anchored to the 3-dot button
+           ROW MENU POPUP (View / Edit)
           ═══════════════════════════════════════════════════════════════ */}
       {menuPopup.open &&
         menuPopup.row &&
@@ -902,382 +1003,27 @@ export default function PartyStatement() {
               top: menuPopup.position.top,
               left: menuPopup.position.left,
               zIndex: 9999,
-              background: "#fff",
-              borderRadius: 10,
-              boxShadow: "0 6px 18px rgba(0,0,0,.14)",
-              border: "1px solid #e5e7eb",
-              padding: "6px",
-              fontFamily: FONT,
-              minWidth: 120,
             }}
             onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 w-32 animate-in fade-in zoom-in-95 duration-100"
           >
             <button
               onClick={() => handleView(menuPopup.row)}
-              title="View"
-              style={{ ...menuItemStyle, borderBottom: `1px solid ${LIGHT_BORDER}` }}
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition"
             >
-              View
+              <Eye size={13} className="text-slate-400" />
+              <span>View</span>
             </button>
             <button
               onClick={() => handleEdit(menuPopup.row)}
-              title="Edit"
-              style={menuItemStyle}
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition"
             >
-              Edit
+              <Edit2 size={13} className="text-slate-400" />
+              <span>Edit</span>
             </button>
           </div>,
           document.body
         )}
-
-
-      {/* ═══════════════════════════════════════════════════════════════
-      4. BOTTOM SUMMARY PANEL
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={summaryContainerStyle}>
-        <button onClick={() => setSummaryOpen((v) => !v)} style={summaryHeaderStyle}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Party Statement Summary</span>
-          <ChevronDown size={18} style={{ color: "#94a3b8", transform: summaryOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-        </button>
-        {summaryOpen && (
-          <div style={summaryBodyStyle}>
-            {/* LEFT: Sale + Money-In */}
-            <div style={summaryColStyle}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Total Sale: <span style={{ fontWeight: 400 }}>{fmtINR(summary.total_sale)}</span></div>
-                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>(Sale - Sale Return)</div>
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Total Money-In: <span style={{ fontWeight: 400 }}>{fmtINR(summary.total_money_in)}</span></div>
-              </div>
-            </div>
-
-            {/* MIDDLE: Purchase + Money-Out */}
-            <div style={summaryColStyle}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Total Purchase: <span style={{ fontWeight: 400 }}>{fmtINR(summary.total_purchase)}</span></div>
-                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>(Purchase - Purchase Return)</div>
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Total Money-out: <span style={{ fontWeight: 400 }}>{fmtINR(summary.total_money_out)}</span></div>
-              </div>
-            </div>
-
-            {/* Expense */}
-            <div style={summaryColStyle}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Total Expense: <span style={{ fontWeight: 400 }}>{fmtINR(summary.total_expense)}</span></div>
-              </div>
-            </div>
-
-            {/* VERTICAL DIVIDER */}
-            <div style={verticalDividerStyle} />
-
-            {/* RIGHT: Receivable / Payable */}
-            <div style={summaryReceivableStyle}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: GRAY_TEXT }}>Total Receivable</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#059669", marginTop: 4 }}>{fmtINR(summary.total_receivable)}</div>
-              {summary.party_role === "supplier" && (
-                <>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: GRAY_TEXT, marginTop: 14 }}>Total Payable</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: "#dc2626", marginTop: 4 }}>{fmtINR(summary.total_payable)}</div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
-
-/* ── Date helpers ───────────────────────────────────────────────────── */
-function formatDateISO(d) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function parseDateISO(s) {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-/* ═════════════════════════════════════════════════════════════════════
-   STYLES
-   ═════════════════════════════════════════════════════════════════════ */
-
-const filterRowStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  flexWrap: "wrap",
-  marginBottom: 10,
-  padding: "6px 0",
-};
-
-const periodBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "7px 14px",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
-
-const dateRangeBoxStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "6px 12px",
-  background: "#f9fafb",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  whiteSpace: "nowrap",
-};
-
-const dateInputStyle = {
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  padding: "5px 8px",
-  fontSize: 13,
-  fontFamily: FONT,
-  color: "#334155",
-  background: "#fff",
-  outline: "none",
-  width: 130,
-};
-
-const partyBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "7px 12px",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  width: "100%",
-};
-
-const actionBtnStyle = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: 2,
-  padding: "6px 14px",
-  background: "transparent",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
-
-const rowIconBtnStyle = (color) => ({
-  width: 28,
-  height: 28,
-  borderRadius: 6,
-  border: `1px solid ${LIGHT_BORDER}`,
-  background: "#fff",
-  color,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  marginRight: 6,
-});
-
-const shareOptionStyle = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: 3,
-  background: "transparent",
-  border: "none",
-  cursor: "pointer",
-  padding: "3px 5px",
-  borderRadius: 8,
-  fontFamily: FONT,
-  transition: "background .1s",
-};
-
-const shareLabelStyle = {
-  fontSize: 10,
-  fontWeight: 600,
-  color: "#334155",
-  whiteSpace: "nowrap",
-};
-
-const menuItemStyle = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "8px 12px",
-  background: "transparent",
-  border: "none",
-  fontSize: 13,
-  fontWeight: 500,
-  fontFamily: FONT,
-  color: "#334155",
-  cursor: "pointer",
-  borderRadius: 6,
-  transition: "background .1s",
-};
-
-const dropdownPanelStyle = {
-  position: "absolute",
-  top: "calc(100% + 6px)",
-  left: 0,
-  minWidth: 200,
-  zIndex: 60,
-  background: "#fff",
-  border: `1.5px solid #e0e7ff`,
-  borderRadius: 10,
-  boxShadow: "0 12px 32px rgba(30,27,75,.12)",
-  overflow: "hidden",
-  fontFamily: FONT,
-};
-
-const dropdownItemStyle = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "8px 14px",
-  background: "transparent",
-  border: "none",
-  fontSize: 13,
-  fontFamily: FONT,
-  cursor: "pointer",
-  transition: "background .1s",
-};
-
-const tableContainerStyle = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  overflow: "hidden",
-  background: "#fff",
-  minHeight: 0,
-};
-
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontFamily: FONT,
-  tableLayout: "fixed",
-};
-
-const thStyle = {
-  padding: "10px 12px",
-  fontSize: 11,
-  fontWeight: 700,
-  color: GRAY_TEXT,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  textAlign: "left",
-  background: "#f9fafb",
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  whiteSpace: "nowrap",
-  userSelect: "none",
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-};
-
-const emptyCellStyle = {
-  padding: "80px 24px",
-  textAlign: "center",
-  verticalAlign: "middle",
-};
-
-const tdStyle = {
-  padding: "10px 12px",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 12.5,
-  color: "#334155",
-  verticalAlign: "middle",
-};
-
-function txnBadge(t) {
-  const map = {
-    sale: { bg: "#f0fdf4", color: "#15803d" },
-    "sale return": { bg: "#fffbeb", color: "#b45309" },
-    purchase: { bg: "#fef2f2", color: "#dc2626" },
-    payment: { bg: "#eef2ff", color: "#4338ca" },
-    "payment in": { bg: "#eef2ff", color: "#4338ca" },
-  };
-  return map[String(t || "").toLowerCase()] || { bg: "#f1f5f9", color: "#475569" };
-}
-
-const filterPopupStyle = {
-  position: "absolute",
-  top: "calc(100% + 4px)",
-  left: -40,
-  zIndex: 70,
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  boxShadow: "0 8px 24px rgba(0,0,0,.1)",
-  width: 200,
-};
-
-/* ── Summary panel ──────────────────────────────────────────────────── */
-const summaryContainerStyle = {
-  marginTop: 8,
-  background: "#fff",
-  borderTop: `1px solid ${LIGHT_BORDER}`,
-  boxShadow: "0 -4px 16px rgba(0,0,0,.04)",
-  borderRadius: "8px 8px 0 0",
-  flexShrink: 0,
-};
-
-const summaryHeaderStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  width: "100%",
-  padding: "12px 16px",
-  background: "transparent",
-  border: "none",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  cursor: "pointer",
-  fontFamily: FONT,
-};
-
-const summaryBodyStyle = {
-  display: "flex",
-  alignItems: "flex-start",
-  gap: 24,
-  padding: "16px 20px",
-  flexWrap: "wrap",
-};
-
-const summaryColStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 0,
-  minWidth: 160,
-};
-
-const verticalDividerStyle = {
-  width: 1,
-  alignSelf: "stretch",
-  background: LIGHT_BORDER,
-  flexShrink: 0,
-};
-
-const summaryReceivableStyle = {
-  minWidth: 140,
-  textAlign: "right",
-  marginLeft: "auto",
-};

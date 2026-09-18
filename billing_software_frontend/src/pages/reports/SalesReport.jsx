@@ -1899,7 +1899,7 @@ function useStyles() {
       .rp-filter-input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.08) !important; outline: none; }
       .rp-dl-btn:hover:not(:disabled) { opacity:.88; transform:translateY(-1px); }
       .rp-dl-btn { transition: all .18s; }
-      .rp-cb { width:15px; height:15px; cursor:pointer; accent-color:#4338ca; }
+      .rp-cb { width:15px; height:15px; cursor:pointer; accent-color:#6366f1; }
       .rp-type-btn { transition: all .18s; }
     `;
     document.head.appendChild(s);
@@ -1908,8 +1908,8 @@ function useStyles() {
 }
 
 /* ─── Constants ─────────────────────────────────────── */
-const FONT   = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
+const FONT   = "'Inter', 'Plus Jakarta Sans', sans-serif";
+const INDIGO = "#6366f1";
 
 const PAYMENT_METHODS  = ["all", "cash", "online", "upi", "credit"];
 const METHOD_LABEL     = { all:"All Methods", cash:"Cash", online:"Online", upi:"UPI", credit:"Credit" };

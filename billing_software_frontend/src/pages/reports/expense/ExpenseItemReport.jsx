@@ -1,10 +1,9 @@
-﻿import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPortal } from "react-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import { getCurrencySymbol, parseRowItems } from "../../../utils/expenseDocument";
-import { Calendar, ChevronDown, FileSpreadsheet, Filter, Plus, Printer, Search } from "lucide-react";
+import { Calendar, ChevronDown, FileSpreadsheet, Plus, Printer, RefreshCw, Search, Package, TrendingUp, DollarSign } from "lucide-react";
 import ReportPagination from "../../../components/reports/ReportPagination";
 import { showToast } from "../../../utils/reportToast";
 
@@ -21,8 +20,6 @@ const PERIOD_OPTIONS = [
   { value: "year", label: "This Year" },
   { value: "custom", label: "Custom" },
 ];
-
-const periodLabel = (value) => PERIOD_OPTIONS.find((option) => option.value === value)?.label || "This Month";
 
 const getPeriodDates = (value) => {
   const current = today();
@@ -47,13 +44,6 @@ const getPeriodDates = (value) => {
   return { from: toInputDate(start), to: toInputDate(end) };
 };
 
-const FILTER_COLUMNS = [
-  { key: "EXPENSE ITEM", field: "item_name" },
-  { key: "UNIT PRICE", field: "unit_price" },
-  { key: "QUANTITY", field: "quantity" },
-  { key: "AMOUNT", field: "amount" },
-];
-
 const formatAmount = (symbol, n) =>
   `${symbol}${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -77,6 +67,8 @@ export default function ExpenseItemReport() {
   const [companyId, setCompanyId] = useState(savedCompanyId || 0);
   const [symbol, setSymbol] = useState("₹");
   const [period, setPeriod] = useState("month");
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const [companyOpen, setCompanyOpen] = useState(false);
   const [fromDate, setFromDate] = useState(toInputDate(firstOfMonth()));
   const [toDate, setToDate] = useState(toInputDate(today()));
   const [expenses, setExpenses] = useState([]);
@@ -84,13 +76,6 @@ export default function ExpenseItemReport() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const [periodMenuPosition, setPeriodMenuPosition] = useState(null);
-  const [activeFilterCol, setActiveFilterCol] = useState("");
-  const [filterAnchor, setFilterAnchor] = useState(null);
-  const [filterPos, setFilterPos] = useState(null);
-  const filterRef = useRef(null);
-  const [colFilters, setColFilters] = useState({ "EXPENSE ITEM": "", "UNIT PRICE": "", QUANTITY: "", AMOUNT: "" });
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +98,6 @@ export default function ExpenseItemReport() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminId, user?.role]);
 
   useEffect(() => {
@@ -151,41 +135,7 @@ export default function ExpenseItemReport() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, fromDate, toDate]);
-
-  useEffect(() => {
-    const closeOnOutside = (event) => {
-      if (!event.target.closest("[data-eir-menu-container]")) {
-        setPeriodMenuPosition(null);
-        setActiveFilterCol("");
-        setFilterAnchor(null);
-        setFilterPos(null);
-      }
-    };
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") {
-        setPeriodMenuPosition(null);
-        setActiveFilterCol("");
-        setFilterAnchor(null);
-        setFilterPos(null);
-      }
-    };
-    document.addEventListener("mousedown", closeOnOutside);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", closeOnOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    if (filterRef.current && filterAnchor) {
-      const { width } = filterRef.current.getBoundingClientRect();
-      const left = Math.max(8, Math.min(filterAnchor.left, window.innerWidth - width - 8));
-      setFilterPos({ top: filterAnchor.bottom + 4, left });
-    }
-  }, [filterAnchor, activeFilterCol]);
 
   const handlePeriodChange = (value) => {
     setPeriod(value);
@@ -194,31 +144,7 @@ export default function ExpenseItemReport() {
       setFromDate(dates.from);
       setToDate(dates.to);
     }
-    setPeriodMenuPosition(null);
-  };
-
-  const togglePeriodMenu = (event) => {
-    if (periodMenuPosition) {
-      setPeriodMenuPosition(null);
-      return;
-    }
-    const rect = event.currentTarget.getBoundingClientRect();
-    setPeriodMenuPosition({ top: rect.bottom + 4, left: rect.left, width: rect.width });
-  };
-
-  const toggleFilterMenu = (event, key) => {
-    event.stopPropagation();
-    if (activeFilterCol === key) {
-      setActiveFilterCol("");
-      setFilterAnchor(null);
-      setFilterPos(null);
-      return;
-    }
-    const rect = event.currentTarget.getBoundingClientRect();
-    setPeriodMenuPosition(null);
-    setFilterAnchor({ top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width });
-    setFilterPos(null);
-    setActiveFilterCol(key);
+    setPeriodOpen(false);
   };
 
   const itemRows = useMemo(() => {
@@ -239,20 +165,9 @@ export default function ExpenseItemReport() {
 
   const displayedRows = useMemo(() => {
     const q = (search || "").trim().toLowerCase();
-    let rows = itemRows;
-    if (q) rows = rows.filter((r) => r.item_name.toLowerCase().includes(q));
-
-    const active = FILTER_COLUMNS.filter((c) => (colFilters[c.key] || "").trim());
-    if (active.length > 0) {
-      rows = rows.filter((row) =>
-        active.every((c) => {
-          const cell = String(row[c.field] ?? "");
-          return cell.toLowerCase().includes((colFilters[c.key] || "").trim().toLowerCase());
-        })
-      );
-    }
-    return rows;
-  }, [itemRows, search, colFilters]);
+    if (!q) return itemRows;
+    return itemRows.filter((r) => r.item_name.toLowerCase().includes(q));
+  }, [itemRows, search]);
 
   const totals = useMemo(() => {
     let quantity = 0;
@@ -303,748 +218,254 @@ export default function ExpenseItemReport() {
   const pagedRows = displayedRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
-    <div className="expense-item-report-root">
-      <style>{`
-        .expense-item-report-root {
-          min-width: 100%;
-          height: 100%;
-          background: #ffffff;
-          border-radius: 10px;
-          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-          color: #334155;
-          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-        }
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Header & Export Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Expenses & Overheads</span>
+            <span>•</span>
+            <span>Itemized Procurement</span>
+          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            Expense Item Report
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Audit specific consumables, unit costs, purchase volumes, and line amounts across expense vouchers
+          </p>
+        </div>
 
-        .eir-wrap {
-          padding: 18px 22px 22px;
-          background: #ffffff;
-        }
-
-        .eir-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .eir-filter-strip {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-          min-width: 0;
-          flex: 1 1 auto;
-        }
-
-        .eir-period-btn {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          height: 34px;
-          padding: 0 12px;
-          font-size: 12.5px;
-          font-weight: 700;
-          color: #1e293b;
-          background: #f1f5f9;
-          border: 1px solid #d8e0ea;
-          border-radius: 7px;
-          cursor: pointer;
-          font-family: inherit;
-          white-space: nowrap;
-        }
-
-        .eir-period-btn:hover {
-          background: #e9eef4;
-        }
-
-        .eir-between-label {
-          font-size: 12.5px;
-          font-weight: 600;
-          color: #64748b;
-          white-space: nowrap;
-        }
-
-        .eir-date-group {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-        }
-
-        .eir-date-input {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          height: 34px;
-          width: 150px;
-          padding: 0 8px;
-          font-size: 12.5px;
-          font-weight: 600;
-          color: #1e293b;
-          border: 1px solid #d8e0ea;
-          border-radius: 7px;
-          background: #fff;
-          cursor: pointer;
-        }
-
-        .eir-date-input:focus-within {
-          border-color: #c3cdd9;
-          box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.06);
-        }
-
-        .eir-date-input svg {
-          width: 14px;
-          height: 14px;
-          color: #94a3b8;
-          flex-shrink: 0;
-        }
-
-        .eir-date-input input {
-          border: none;
-          outline: none;
-          background: transparent;
-          font: inherit;
-          color: inherit;
-          width: 100%;
-          min-width: 0;
-        }
-
-        .eir-company-select {
-          height: 34px;
-          width: 150px;
-          padding: 0 10px;
-          font-size: 12.5px;
-          font-weight: 600;
-          color: #1e293b;
-          border: 1px solid #d8e0ea;
-          border-radius: 7px;
-          background: #fff;
-          cursor: pointer;
-          outline: none;
-        }
-
-        .eir-actions {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-shrink: 0;
-        }
-
-        .eir-action {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          height: 34px;
-          padding: 0 12px;
-          border: 1px solid #e2e8f0;
-          border-radius: 9999px;
-          background: #fff;
-          color: #475569;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.03em;
-          text-transform: uppercase;
-          cursor: pointer;
-          font-family: inherit;
-          white-space: nowrap;
-          transition: background 0.15s ease, color 0.15s ease;
-        }
-
-        .eir-action svg {
-          width: 15px;
-          height: 15px;
-          color: #ee3444;
-        }
-
-        .eir-action:hover {
-          background: #f8fafc;
-          color: #1e293b;
-        }
-
-        .eir-period-menu {
-          position: fixed;
-          z-index: 10000;
-          min-width: 150px;
-          background: #fff;
-          border: 1px solid #d8e0ea;
-          border-radius: 8px;
-          box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
-          overflow: hidden;
-          padding: 4px;
-        }
-
-        .eir-period-menu button {
-          display: block;
-          width: 100%;
-          padding: 8px 12px;
-          border: none;
-          background: #fff;
-          color: #334155;
-          font-size: 12px;
-          font-weight: 600;
-          text-align: left;
-          cursor: pointer;
-          border-radius: 5px;
-        }
-
-        .eir-period-menu button:hover {
-          background: #f1f5f9;
-        }
-
-        .eir-table-area {
-          margin-top: 18px;
-        }
-
-        .eir-table-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 14px;
-          flex-wrap: wrap;
-          margin-bottom: 12px;
-        }
-
-        .eir-search-wrap {
-          position: relative;
-          width: 240px;
-          max-width: 100%;
-        }
-
-        .eir-search-wrap > svg {
-          position: absolute;
-          left: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #94a3b8;
-          width: 15px;
-          height: 15px;
-          pointer-events: none;
-        }
-
-        .eir-search {
-          width: 100%;
-          height: 34px;
-          padding: 7px 12px 7px 32px;
-          border: 1px solid #d8e0ea;
-          border-radius: 7px;
-          background: #fff;
-          color: #334155;
-          font-size: 12.5px;
-          outline: none;
-        }
-
-        .eir-search:focus {
-          border-color: #c3cdd9;
-          box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.06);
-        }
-
-        .eir-add-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          height: 34px;
-          padding: 0 16px;
-          background: linear-gradient(135deg, #ee3444 0%, #cc1f2c 100%);
-          color: #fff;
-          font-size: 12.5px;
-          font-weight: 800;
-          border-radius: 9999px;
-          border: none;
-          cursor: pointer;
-          box-shadow: 0 2px 6px rgba(204, 31, 44, 0.28);
-          white-space: nowrap;
-          font-family: inherit;
-          transition: filter 0.15s ease;
-        }
-
-        .eir-add-btn svg {
-          width: 14px;
-          height: 14px;
-        }
-
-        .eir-add-btn:hover {
-          filter: brightness(1.05);
-        }
-
-        .eir-table-scroll {
-          width: 100%;
-          overflow-x: auto;
-        }
-
-        .eir-table {
-          width: 100%;
-          border-collapse: collapse;
-          min-width: 560px;
-        }
-
-        .eir-table thead th {
-          padding: 10px 8px;
-          border-bottom: 1px solid #e2e8f0;
-          color: #64748b;
-          font-size: 10.5px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          white-space: nowrap;
-          position: relative;
-        }
-
-        .eir-table thead th.eir-left { text-align: left; }
-        .eir-table thead th.eir-right { text-align: right; }
-
-        .eir-th-inner {
-          display: inline-flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 5px;
-          width: 100%;
-        }
-
-        .eir-table thead th.eir-left .eir-th-inner { justify-content: flex-start; }
-
-        .eir-filter-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 20px;
-          height: 20px;
-          border: none;
-          background: transparent;
-          border-radius: 4px;
-          cursor: pointer;
-          padding: 0;
-          color: #cbd5e1;
-          flex-shrink: 0;
-        }
-
-        .eir-filter-btn:hover {
-          background: #e9eef4;
-          color: #64748b;
-        }
-
-        .eir-filter-btn.is-active {
-          color: #ee3444;
-        }
-
-        .eir-table tbody td {
-          padding: 11px 8px;
-          border-bottom: 1px solid #f1f5f9;
-          color: #334155;
-          font-size: 13px;
-          font-weight: 500;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 340px;
-        }
-
-        .eir-table tbody tr:last-child td {
-          border-bottom: none;
-        }
-
-        .eir-table tbody td.eir-left { text-align: left; }
-        .eir-table tbody td.eir-right {
-          text-align: right;
-          font-variant-numeric: tabular-nums;
-        }
-
-        .eir-table tbody td.eir-item {
-          font-weight: 600;
-          color: #1e293b;
-        }
-
-        .eir-table tbody td.eir-money {
-          font-weight: 700;
-          color: #1e293b;
-        }
-
-        .eir-empty-cell {
-          padding: 42px 12px !important;
-          text-align: center !important;
-          color: #94a3b8;
-          font-size: 13px;
-          font-weight: 600;
-          max-width: none !important;
-          white-space: normal !important;
-        }
-
-        .eir-foot {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 28px;
-          margin-top: 14px;
-          padding-top: 12px;
-          border-top: 2px solid #eef2f7;
-        }
-
-        .eir-foot .eir-foot-qty {
-          font-size: 13px;
-          font-weight: 800;
-          color: #1e293b;
-        }
-
-        .eir-foot .eir-foot-amt {
-          font-size: 15px;
-          font-weight: 800;
-          color: #1e293b;
-          font-variant-numeric: tabular-nums;
-        }
-
-        .eir-foot .eir-foot-label {
-          font-size: 12.5px;
-          font-weight: 700;
-          color: #64748b;
-          margin-right: 6px;
-        }
-
-        .eir-filter-pop {
-          position: fixed;
-          z-index: 10000;
-          width: 208px;
-          background: #fff;
-          border: 1px solid #d8e0ea;
-          border-radius: 8px;
-          box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
-          overflow: hidden;
-          padding: 8px;
-        }
-
-        .eir-filter-input {
-          width: 100%;
-          height: 32px;
-          padding: 6px 10px;
-          font-size: 12.5px;
-          border: 1px solid #d8e0ea;
-          border-radius: 5px;
-          background: #fff;
-          color: #334155;
-          outline: none;
-          box-sizing: border-box;
-        }
-
-        .eir-filter-input:focus {
-          border-color: #c3cdd9;
-          box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.06);
-        }
-
-        .eir-filter-pop-actions {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 8px;
-          margin-top: 8px;
-        }
-
-        .eir-filter-pop-actions button {
-          border: none;
-          background: transparent;
-          font-size: 12px;
-          font-weight: 700;
-          color: #64748b;
-          cursor: pointer;
-          padding: 3px 6px;
-          border-radius: 4px;
-          font-family: inherit;
-        }
-
-        .eir-filter-pop-actions button:hover {
-          background: #f1f5f9;
-          color: #111827;
-        }
-
-        /* Print-only report sheet */
-        .eir-print-sheet {
-          display: none;
-        }
-
-        @media print {
-          .eir-print-sheet {
-            display: block;
-          }
-          body * { visibility: hidden !important; }
-          #expense-item-print-area, #expense-item-print-area * { visibility: visible !important; }
-          #expense-item-print-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 10mm !important;
-            background: #ffffff !important;
-            box-shadow: none !important;
-            border: none !important;
-          }
-          .eir-no-print { display: none !important; }
-        }
-
-        @media (max-width: 900px) {
-          .eir-toolbar {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .eir-filter-strip {
-            width: 100%;
-          }
-          .eir-actions {
-            justify-content: flex-end;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .eir-filter-strip {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .eir-date-group {
-            width: 100%;
-          }
-          .eir-date-input {
-            width: 100%;
-          }
-          .eir-company-select {
-            width: 100%;
-          }
-          .eir-search-wrap {
-            width: 100%;
-          }
-        }
-      `}</style>
-
-      <div className="eir-wrap">
-        <div className="eir-toolbar eir-no-print">
-          <div className="eir-filter-strip">
-            <button type="button" className="eir-period-btn" data-eir-menu-container onClick={togglePeriodMenu}>
-              {periodLabel(period)}
-              <ChevronDown size={14} style={{ color: "#64748b" }} />
-            </button>
-
-            <span className="eir-between-label">Between</span>
-
-            <div className="eir-date-group">
-              <label className="eir-date-input">
-                <Calendar />
-                <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-              </label>
-              <span className="eir-between-label">To</span>
-              <label className="eir-date-input">
-                <Calendar />
-                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-              </label>
-            </div>
-
-            <select
-              className="eir-company-select"
-              value={companyId}
-              onChange={(e) => {
-                const v = e.target.value;
-                setCompanyId(v);
-                localStorage.setItem("selected_company_id", String(v));
-              }}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Company Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setCompanyOpen((v) => !v)}
+              className="inline-flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer min-w-[160px]"
             >
-              <option value="0">ALL FIRMS</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>{c.company_name || c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="eir-actions">
-            <button type="button" className="eir-action" onClick={handleExportExcel} title="Export to Excel">
-              <FileSpreadsheet /> Excel Report
+              <span className="truncate">{firmLabel}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </button>
-            <button type="button" className="eir-action" onClick={handlePrint} title="Print report">
-              <Printer /> Print
-            </button>
-          </div>
-        </div>
-
-        <div className="eir-table-area">
-          <div className="eir-table-toolbar eir-no-print">
-            <div className="eir-search-wrap">
-              <Search size={15} />
-              <input value={search} placeholder="Search expense item" onChange={(e) => setSearch(e.target.value)} className="eir-search" />
-            </div>
-
-            <button type="button" className="eir-add-btn" onClick={() => navigate("/purchases/expenses/add")}>
-              <Plus /> Add Expense
-            </button>
-          </div>
-
-          <div className="eir-table-scroll">
-            <table className="eir-table">
-              <thead>
-                <tr>
-                  {FILTER_COLUMNS.map((c, i) => (
-                    <th key={c.key} className={i === 0 ? "eir-left" : "eir-right"}>
-                      <span className="eir-th-inner">
-                        {c.key}
-                        <button
-                          type="button"
-                          className={`eir-filter-btn ${(colFilters[c.key] || "").trim() ? "is-active" : ""}`}
-                          data-eir-menu-container
-                          onClick={(e) => toggleFilterMenu(e, c.key)}
-                          title={`Filter ${c.key.toLowerCase()}`}
-                        >
-                          <Filter size={11} />
-                        </button>
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="4" className="eir-empty-cell">Loading...</td></tr>
-                ) : displayedRows.length === 0 ? (
-                  <tr><td colSpan="4" className="eir-empty-cell">No expense items found.</td></tr>
-                ) : (
-                  pagedRows.map((r) => (
-                    <tr key={r.key}>
-                      <td className="eir-left eir-item" title={r.item_name}>{r.item_name}</td>
-                      <td className="eir-right eir-money">{formatAmount(symbol, r.unit_price)}</td>
-                      <td className="eir-right">{formatQty(r.quantity)}</td>
-                      <td className="eir-right eir-money">{formatAmount(symbol, r.amount)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            {companyOpen && (
+              <div className="absolute right-0 top-[calc(100%+4px)] min-w-[190px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                {companies.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setCompanyId(c.id);
+                      localStorage.setItem("selected_company_id", String(c.id));
+                      setCompanyOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors block"
+                  >
+                    {c.company_name || c.name || `Firm ${c.id}`}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="eir-foot">
-            <span>
-              <span className="eir-foot-label">Total Quantity:</span>
-              <span className="eir-foot-qty">{formatQty(totals.quantity)}</span>
-            </span>
-            <span>
-              <span className="eir-foot-label">Total Amount:</span>
-              <span className="eir-foot-amt">{formatAmount(symbol, totals.amount)}</span>
-            </span>
-          </div>
-        </div>
-
-        <div className="eir-no-print">
-          <ReportPagination
-            total={totalRows}
-            page={safePage}
-            rowsPerPage={rowsPerPage}
-            onPageChange={setPage}
-            onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
-          />
+          <button
+            onClick={() => navigate("/purchases/expenses/add")}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Expense</span>
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+            title="Export Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print</span>
+          </button>
         </div>
       </div>
 
-      {periodMenuPosition && createPortal(
-        <div className="eir-period-menu" data-eir-menu-container style={periodMenuPosition}>
-          {PERIOD_OPTIONS.map((option) => (
-            <button key={option.value} type="button" onClick={() => handlePeriodChange(option.value)}>
-              {option.label}
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Period selector */}
+          <div className="relative">
+            <button
+              onClick={() => setPeriodOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              <span>{PERIOD_OPTIONS.find((p) => p.value === period)?.label || "Custom"}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-
-      {activeFilterCol && createPortal(
-        <div ref={filterRef} className="eir-filter-pop" data-eir-menu-container style={filterPos || { visibility: "hidden", top: 0, left: 0 }}>
-          <input
-            autoFocus
-            className="eir-filter-input"
-            placeholder={`Filter ${activeFilterCol.toLowerCase()}...`}
-            value={colFilters[activeFilterCol] || ""}
-            onChange={(e) => setColFilters((p) => ({ ...p, [activeFilterCol]: e.target.value }))}
-          />
-          <div className="eir-filter-pop-actions">
-            <button type="button" onClick={() => { setColFilters((p) => ({ ...p, [activeFilterCol]: "" })); setActiveFilterCol(""); setFilterAnchor(null); }}>Clear</button>
-            <button type="button" onClick={() => { setActiveFilterCol(""); setFilterAnchor(null); }}>Done</button>
-          </div>
-        </div>,
-        document.body,
-      )}
-
-      <div className="eir-print-sheet" id="expense-item-print-area">
-        <style>{`
-          #expense-item-print-area {
-            font-family: Arial, Helvetica, sans-serif;
-            color: #111827;
-            font-size: 12px;
-          }
-          #expense-item-print-area .eirp-head {
-            font-size: 16px;
-            font-weight: 800;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-          }
-          #expense-item-print-area .eirp-meta {
-            font-size: 11px;
-            color: #374151;
-            margin-bottom: 3px;
-          }
-          #expense-item-print-area table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-          }
-          #expense-item-print-area th,
-          #expense-item-print-area td {
-            border: 1px solid #9ca3af;
-            padding: 5px 7px;
-            text-align: left;
-            font-size: 11.5px;
-          }
-          #expense-item-print-area th {
-            background: #f3f4f6;
-            font-weight: 700;
-            text-transform: uppercase;
-          }
-          #expense-item-print-area td.num,
-          #expense-item-print-area th.num {
-            text-align: right;
-          }
-          #expense-item-print-area .eirp-total {
-            margin-top: 8px;
-            text-align: right;
-            font-weight: 700;
-            font-size: 12px;
-          }
-        `}</style>
-        <div className="eirp-head">Expense Item Report</div>
-        <div className="eirp-meta">
-          Date Range: {new Date(`${fromDate}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-          {" - "}
-          {new Date(`${toDate}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-        </div>
-        <div className="eirp-meta">Firm: {firmLabel}</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Expense Item</th>
-              <th className="num">Unit Price</th>
-              <th className="num">Quantity</th>
-              <th className="num">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="4">Loading...</td></tr>
-            ) : displayedRows.length === 0 ? (
-              <tr><td colSpan="4">No expense items found.</td></tr>
-            ) : (
-              displayedRows.map((r) => (
-                <tr key={r.key}>
-                  <td>{r.item_name}</td>
-                  <td className="num">{formatAmount(symbol, r.unit_price)}</td>
-                  <td className="num">{formatQty(r.quantity)}</td>
-                  <td className="num">{formatAmount(symbol, r.amount)}</td>
-                </tr>
-              ))
+            {periodOpen && (
+              <div className="absolute left-0 top-[calc(100%+4px)] min-w-[150px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                {PERIOD_OPTIONS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => handlePeriodChange(p.value)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors block"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             )}
-          </tbody>
-        </table>
-        <div className="eirp-total">
-          Total Quantity: {formatQty(totals.quantity)}&nbsp;&nbsp;&nbsp;&nbsp;Total Amount: {formatAmount(symbol, totals.amount)}
+          </div>
+
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPeriod("custom");
+              }}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPeriod("custom");
+              }}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* Search Input */}
+          <div className="relative w-48 sm:w-60">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search expense item..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="w-full pl-8 pr-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+            />
+          </div>
         </div>
+      </div>
+
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <Package className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Distinct Items</div>
+            <div className="text-xl font-black text-slate-800 mt-0.5">{displayedRows.length}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Purchased item lines</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <DollarSign className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Quantity</div>
+            <div className="text-xl font-black text-blue-600 mt-0.5">
+              {Number(totals.quantity).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Units consumed</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6 text-rose-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Line Cost</div>
+            <div className="text-xl font-black text-rose-600 mt-0.5">{formatAmount(symbol, totals.amount)}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Net procurement total</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Data Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Expense Item</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Unit Price</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Quantity</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                    Loading expense items...
+                  </td>
+                </tr>
+              ) : displayedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    No expense item records found for the selected period.
+                  </td>
+                </tr>
+              ) : (
+                pagedRows.map((r) => (
+                  <tr key={r.key} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-slate-800">{r.item_name}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-600">{formatAmount(symbol, r.unit_price)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-600">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                        {formatQty(r.quantity)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-rose-600">{formatAmount(symbol, r.amount)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {!loading && displayedRows.length > 0 && (
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50/90 font-bold text-slate-800 text-xs">
+                <tr>
+                  <td colSpan={2} className="px-4 py-3 uppercase tracking-wider font-extrabold text-slate-900">Total</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-slate-900">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800">
+                      {formatQty(totals.quantity)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-extrabold text-rose-700">{formatAmount(symbol, totals.amount)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
+        />
       </div>
     </div>
   );

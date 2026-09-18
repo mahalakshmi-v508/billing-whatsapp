@@ -1,7 +1,7 @@
-﻿import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import api from "../../../services/api";
 import { getCurrencySymbol } from "../../../utils/expenseDocument";
-import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search } from "lucide-react";
+import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search, ShoppingBag, DollarSign, Clock, CheckCircle2, AlertCircle, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import ReportPagination from "../../../components/reports/ReportPagination";
 import { showToast } from "../../../utils/reportToast";
@@ -19,11 +19,6 @@ const fmtDate = (d) => {
     if (isNaN(dt.getTime())) return String(d);
     return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   } catch { return String(d); }
-};
-
-const fmtStatus = (s) => {
-  const m = { paid: "Paid", not_paid: "Unpaid", pending: "Partial", overdue: "Overdue" };
-  return m[s] || s || "-";
 };
 
 const ORDER_TYPES = [
@@ -58,8 +53,9 @@ export default function SaleOrders() {
   const [selectedParty, setSelectedParty] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [symbol, setSymbol] = useState("\u20B9");
-  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [symbol, setSymbol] = useState("₹");
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -74,10 +70,13 @@ export default function SaleOrders() {
   }, []);
 
   const debounceRef = useRef(null);
+  const partyWrapRef = useRef(null);
+  const typeRef = useRef(null);
+  const statusRef = useRef(null);
 
   useEffect(() => {
     let m = true;
-    getCurrencySymbol(companyId).then((s) => { if (m) setSymbol(s || "\u20B9"); });
+    getCurrencySymbol(companyId).then((s) => { if (m) setSymbol(s || "₹"); });
     return () => { m = false; };
   }, [companyId]);
 
@@ -177,28 +176,23 @@ export default function SaleOrders() {
     () => filteredOrders.reduce((s, o) => s + o.total, 0),
     [filteredOrders]
   );
+  const totalAdvance = useMemo(
+    () => filteredOrders.reduce((s, o) => s + (o.advance || 0), 0),
+    [filteredOrders]
+  );
+  const totalBalance = useMemo(
+    () => filteredOrders.reduce((s, o) => s + (o.balance || 0), 0),
+    [filteredOrders]
+  );
 
   useEffect(() => {
-    if (!activeDropdown && !partyResults.length) return;
     const handler = (e) => {
-      if (!e.target.closest(".so-dropdown") && !e.target.closest(".so-party-wrap")) {
-        setActiveDropdown(null);
-        setPartyResults([]);
-      }
+      if (partyWrapRef.current && !partyWrapRef.current.contains(e.target)) setPartyResults([]);
+      if (typeRef.current && !typeRef.current.contains(e.target)) setTypeDropdownOpen(false);
+      if (statusRef.current && !statusRef.current.contains(e.target)) setStatusDropdownOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [activeDropdown, partyResults.length]);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "Escape") {
-        setActiveDropdown(null);
-        setPartyResults([]);
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
   }, []);
 
   const handlePartyInput = (e) => {
@@ -228,7 +222,7 @@ export default function SaleOrders() {
       "Order No.": o.orderNo,
       Name: o.name,
       "Due Date": fmtDate(o.dueDate),
-      Status: fmtStatus(o.status),
+      Status: o.status,
       Type: o.type,
       Total: o.total,
       Advance: o.advance,
@@ -236,8 +230,8 @@ export default function SaleOrders() {
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sale Orders");
-    XLSX.writeFile(wb, `SaleOrders_${fromDate}_${toDate}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, `Orders_${fromDate}_${toDate}.xlsx`);
   };
 
   const handlePrint = () => { window.print(); };
@@ -245,247 +239,294 @@ export default function SaleOrders() {
   const fmtMoney = (n) =>
     `${symbol}${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const selectedTypeLabel = ORDER_TYPES.find((t) => t.value === orderType)?.label || "Sale Order";
-  const selectedStatusLabel = ORDER_STATUSES.find((s) => s.value === orderStatus)?.label || "All Orders";
-
   const totalRows = filteredOrders.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
   const safePage = Math.min(page, totalPages);
   const pagedOrders = filteredOrders.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
-  return (
-    <>
-      <style>{`
-        .so-page{padding:16px 20px;max-width:1200px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-        .so-top-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
-        .so-date-group{display:flex;align-items:center;gap:6px}
-        .so-date-field{display:flex;align-items:center;gap:4px}
-        .so-date-field input[type="date"]{padding:5px 8px;font-size:13px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;outline:none;color:#334155}
-        .so-date-field input[type="date"]:focus{border-color:#3b82f6}
-        .so-date-sep{font-size:13px;color:#64748b}
-        .so-actions{display:flex;align-items:center;gap:8px}
-        .so-action-btn{display:flex;align-items:center;gap:4px;padding:5px 12px;font-size:12px;font-weight:500;border-radius:16px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#475569;transition:background .15s}
-        .so-action-btn:hover{background:#f1f5f9}
-        .so-filter-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-        .so-filter-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
-        .so-party-wrap{position:relative;flex:0 1 220px;min-width:140px}
-        .so-party-input{width:100%;padding:5px 10px;font-size:13px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;outline:none}
-        .so-party-input:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.12)}
-        .so-party-results{position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.1);z-index:1100;max-height:200px;overflow-y:auto}
-        .so-party-item{padding:7px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;flex-direction:column;gap:1px}
-        .so-party-item:last-child{border-bottom:none}
-        .so-party-item:hover{background:#f8fafc}
-        .so-party-item-name{font-weight:500;color:#1e293b}
-        .so-party-item-phone{font-size:11px;color:#94a3b8}
-        .so-dropdown{position:relative}
-        .so-dropdown-trigger{display:flex;align-items:center;gap:4px;padding:5px 10px;font-size:13px;font-weight:500;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap;color:#334155;transition:background .15s}
-        .so-dropdown-trigger:hover{background:#f8fafc}
-        .so-dropdown-trigger svg{color:#94a3b8}
-        .so-dropdown-menu{position:absolute;top:calc(100% + 2px);left:0;min-width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.1);z-index:1100;overflow:hidden}
-        .so-dropdown-item{padding:7px 12px;font-size:13px;cursor:pointer;white-space:nowrap;color:#334155;transition:background .12s}
-        .so-dropdown-item:hover{background:#f1f5f9}
-        .so-dropdown-item.so-active{background:#eff6ff;color:#2563eb;font-weight:500}
-        .so-table-wrap{border:1px solid #e2e8f0;border-radius:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;background:#fff}
-        .so-table{width:100%;border-collapse:collapse;min-width:740px}
-        .so-table th{padding:8px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap}
-        .so-table th.so-r{text-align:right}
-        .so-table th.so-c{text-align:center}
-        .so-table td{padding:7px 10px;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9}
-        .so-table td.so-r{text-align:right;font-variant-numeric:tabular-nums}
-        .so-table td.so-c{text-align:center}
-        .so-table tbody tr:hover{background:#f8fafc}
-        .so-status-paid{color:#16a34a;font-weight:500}
-        .so-status-not_paid{color:#dc2626;font-weight:500}
-        .so-status-pending{color:#d97706;font-weight:500}
-        .so-status-overdue{color:#dc2626;font-weight:500;font-style:italic}
-        .so-empty{padding:48px 20px;text-align:center;color:#94a3b8;font-size:14px}
-        .so-loading{padding:24px;text-align:center;color:#94a3b8;font-size:13px}
-        .so-total-bar{display:flex;justify-content:flex-end;padding:10px 16px;font-size:14px;font-weight:600;color:#1e293b}
-        .so-print-area{display:none}
-        @media print{
-          .so-print-area{display:block}
-          body *{visibility:hidden!important}
-          #sale-orders-print-area,#sale-orders-print-area *{visibility:visible!important}
-          #sale-orders-print-area{position:absolute!important;left:0!important;top:0!important;width:100%!important;margin:0!important;padding:10mm!important;background:#fff!important;box-shadow:none!important;border:none!important}
-          .so-no-print{display:none!important}
-        }
-        .so-print-title{font-size:16px;font-weight:700;margin-bottom:6px;color:#1e293b}
-        .so-print-meta{font-size:11px;color:#475569;margin-bottom:10px;line-height:1.7}
-        .so-print-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}
-        .so-print-table th,.so-print-table td{padding:4px 6px;border:1px solid #cbd5e1}
-        .so-print-table th{background:#f1f5f9;font-weight:600;font-size:10px;text-transform:uppercase}
-        .so-print-table td.so-r{text-align:right}
-        .so-print-total{margin-top:8px;font-weight:600;font-size:12px;text-align:right}
-        @media(max-width:900px){.so-top-bar{flex-wrap:wrap}.so-filter-row{gap:8px}}
-        @media(max-width:600px){.so-top-bar{flex-direction:column;align-items:stretch}.so-date-group{flex-wrap:wrap}.so-filter-row{flex-direction:column;align-items:stretch}.so-party-wrap{flex:1 1 100%}}
-      `}</style>
+  const getStatusBadge = (status) => {
+    if (status === "paid") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <CheckCircle2 className="w-3 h-3" /> Paid
+        </span>
+      );
+    }
+    if (status === "pending") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+          <Clock className="w-3 h-3" /> Partial
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+        <AlertCircle className="w-3 h-3" /> Unpaid
+      </span>
+    );
+  };
 
-      <div id="sale-orders-print-area" className="so-print-area">
-        <div className="so-print-title">SALE ORDERS</div>
-        <div className="so-print-meta">
-          <div>Date Range: {fmtDate(fromDate)} - {fmtDate(toDate)}</div>
-          <div>Party: {selectedParty?.name || "All"}</div>
-          <div>Order Type: {selectedTypeLabel}</div>
-          <div>Status: {selectedStatusLabel}</div>
+  return (
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Header Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Orders & Fulfillment</span>
+            <span>•</span>
+            <span>{orderType === "sale_order" ? "Sales Pipeline" : "Procurement"}</span>
+          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            {orderType === "sale_order" ? "Sale Orders Report" : "Purchase Orders Report"}
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Monitor fulfillment stages, advances paid/received, and outstanding order balances
+          </p>
         </div>
-        <table className="so-print-table">
-          <thead>
-            <tr>
-              <th>Date</th><th>Order No.</th><th>Name</th><th>Due Date</th>
-              <th>Status</th><th>Type</th><th className="so-r">Total</th>
-              <th className="so-r">Advance</th><th className="so-r">Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredOrders.map((o, i) => (
-              <tr key={i}>
-                <td>{fmtDate(o.date)}</td><td>{o.orderNo}</td><td>{o.name}</td>
-                <td>{fmtDate(o.dueDate)}</td><td>{fmtStatus(o.status)}</td><td>{o.type}</td>
-                <td className="so-r">{fmtMoney(o.total)}</td>
-                <td className="so-r">{fmtMoney(o.advance)}</td>
-                <td className="so-r">{fmtMoney(o.balance)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="so-print-total">Total Amount: {fmtMoney(totalAmount)}</div>
+
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+            title="Export Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print</span>
+          </button>
+        </div>
       </div>
 
-      <div className="so-page so-no-print">
-        <div className="so-top-bar">
-          <div className="so-date-group">
-            <div className="so-date-field">
-              <Calendar size={14} color="#94a3b8" />
-              <span className="so-date-sep">From</span>
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            </div>
-            <div className="so-date-field">
-              <span className="so-date-sep">To</span>
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-            </div>
-          </div>
-          <div className="so-actions">
-            <button className="so-action-btn" onClick={handleExportExcel}>
-              <FileSpreadsheet size={14} /> Excel Report
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Order Type Selector */}
+          <div ref={typeRef} className="relative">
+            <button
+              onClick={() => setTypeDropdownOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              <span>{ORDER_TYPES.find((t) => t.value === orderType)?.label}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
-            <button className="so-action-btn" onClick={handlePrint}>
-              <Printer size={14} /> Print
-            </button>
+            {typeDropdownOpen && (
+              <div className="absolute left-0 top-[calc(100%+4px)] min-w-[150px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                {ORDER_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    onClick={() => {
+                      setOrderType(t.value);
+                      setSelectedParty(null);
+                      setPartyQuery("");
+                      setTypeDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors block"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
 
-        <div className="so-filter-row">
-          <span className="so-filter-label">Filters</span>
+          {/* Order Status Selector */}
+          <div ref={statusRef} className="relative">
+            <button
+              onClick={() => setStatusDropdownOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              <span>{ORDER_STATUSES.find((s) => s.value === orderStatus)?.label}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+            {statusDropdownOpen && (
+              <div className="absolute left-0 top-[calc(100%+4px)] min-w-[160px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                {ORDER_STATUSES.map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => {
+                      setOrderStatus(s.value);
+                      setStatusDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors block"
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-          <div className="so-party-wrap">
-            <div style={{ position: "relative" }}>
-              <Search size={13} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
+          {/* Party Search */}
+          <div ref={partyWrapRef} className="relative w-56">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
-                className="so-party-input"
-                style={{ paddingLeft: 26 }}
-                placeholder="Party filter"
+                type="text"
+                placeholder={orderType === "sale_order" ? "Search customer..." : "Search supplier..."}
                 value={partyQuery}
                 onChange={handlePartyInput}
+                className="w-full pl-8 pr-7 py-1.5 text-xs font-medium rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
               />
-              {selectedParty && (
+              {partyQuery && (
                 <button
                   onClick={clearParty}
-                  style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 14, lineHeight: 1 }}
-                  title="Clear"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
                 >
-                  &times;
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
             {partyResults.length > 0 && (
-              <div className="so-party-results">
-                {partyResults.map((p, i) => (
-                  <div key={p.id || i} className="so-party-item" onClick={() => { selectParty(p); setActiveDropdown(null); }}>
-                    <span className="so-party-item-name">{p.name}</span>
-                    {p.phone && <span className="so-party-item-phone">{p.phone}</span>}
-                  </div>
+              <div className="absolute left-0 top-[calc(100%+4px)] w-full bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-56 overflow-y-auto py-1">
+                {partyResults.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => selectParty(p)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer block border-b border-slate-100 last:border-0"
+                  >
+                    <div className="font-semibold text-slate-800">{p.name}</div>
+                    {p.phone && <div className="text-[10px] text-slate-400">{p.phone}</div>}
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="so-dropdown">
-            <button className="so-dropdown-trigger" onClick={() => setActiveDropdown(activeDropdown === "type" ? null : "type")}>
-              {selectedTypeLabel} <ChevronDown size={14} />
-            </button>
-            {activeDropdown === "type" && (
-              <div className="so-dropdown-menu">
-                {ORDER_TYPES.map((t) => (
-                  <div
-                    key={t.value}
-                    className={`so-dropdown-item${orderType === t.value ? " so-active" : ""}`}
-                    onClick={() => { setOrderType(t.value); setActiveDropdown(null); }}
-                  >
-                    {t.label}
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
           </div>
 
-          <div className="so-dropdown">
-            <button className="so-dropdown-trigger" onClick={() => setActiveDropdown(activeDropdown === "status" ? null : "status")}>
-              {selectedStatusLabel} <ChevronDown size={14} />
-            </button>
-            {activeDropdown === "status" && (
-              <div className="so-dropdown-menu">
-                {ORDER_STATUSES.map((s) => (
-                  <div
-                    key={s.value}
-                    className={`so-dropdown-item${orderStatus === s.value ? " so-active" : ""}`}
-                    onClick={() => { setOrderStatus(s.value); setActiveDropdown(null); }}
-                  >
-                    {s.label}
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <ShoppingBag className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Orders</div>
+            <div className="text-xl font-black text-slate-800 mt-0.5">{filteredOrders.length}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Matching filter criteria</div>
           </div>
         </div>
 
-        <div className="so-table-wrap">
-          <table className="so-table">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+            <DollarSign className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Order Value</div>
+            <div className="text-xl font-black text-emerald-600 mt-0.5">{fmtMoney(totalAmount)}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Gross contracted sum</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Advance Settled</div>
+            <div className="text-xl font-black text-blue-600 mt-0.5">{fmtMoney(totalAdvance)}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Deposit / paid upfront</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+            <Clock className="w-6 h-6 text-amber-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Balance Pending</div>
+            <div className="text-xl font-black text-amber-600 mt-0.5">{fmtMoney(totalBalance)}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">To be collected/paid</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Data Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr>
-                <th>DATE</th>
-                <th>ORDER NO.</th>
-                <th>NAME</th>
-                <th>DUE DATE</th>
-                <th className="so-c">STATUS</th>
-                <th className="so-c">TYPE</th>
-                <th className="so-r">TOTAL</th>
-                <th className="so-r">ADVANCE</th>
-                <th className="so-r">BALANCE</th>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Date</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Order No.</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Party Name</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Due Date</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center">Status</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Total Amount</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Advance</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Balance</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
-                <tr><td colSpan={9} className="so-loading">Loading...</td></tr>
-              ) : filteredOrders.length === 0 ? (
-                <tr><td colSpan={9} className="so-empty">No Sale Orders found.</td></tr>
+                <tr>
+                  <td colSpan={8} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    <Clock className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                    Loading orders...
+                  </td>
+                </tr>
+              ) : pagedOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    No orders found for the selected period.
+                  </td>
+                </tr>
               ) : (
-                pagedOrders.map((o, i) => (
-                  <tr key={i}>
-                    <td>{fmtDate(o.date)}</td>
-                    <td>{o.orderNo}</td>
-                    <td>{o.name}</td>
-                    <td>{fmtDate(o.dueDate)}</td>
-                    <td className="so-c">
-                      <span className={`so-status-${o.status}`}>{fmtStatus(o.status)}</span>
-                    </td>
-                    <td className="so-c">{o.type}</td>
-                    <td className="so-r">{fmtMoney(o.total)}</td>
-                    <td className="so-r">{fmtMoney(o.advance)}</td>
-                    <td className="so-r">{fmtMoney(o.balance)}</td>
+                pagedOrders.map((o, idx) => (
+                  <tr key={`${o.orderNo}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-medium text-slate-600">{fmtDate(o.date)}</td>
+                    <td className="px-4 py-3 font-bold text-indigo-600">{o.orderNo}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-800">{o.name}</td>
+                    <td className="px-4 py-3 text-slate-500">{fmtDate(o.dueDate)}</td>
+                    <td className="px-4 py-3 text-center">{getStatusBadge(o.status)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{fmtMoney(o.total)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-blue-600">{fmtMoney(o.advance)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-amber-600">{fmtMoney(o.balance)}</td>
                   </tr>
                 ))
               )}
             </tbody>
+            {!loading && filteredOrders.length > 0 && (
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50/90 font-bold text-slate-800 text-xs">
+                <tr>
+                  <td colSpan={5} className="px-4 py-3 uppercase tracking-wider font-extrabold text-slate-900">Total</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-slate-900">{fmtMoney(totalAmount)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-blue-700">{fmtMoney(totalAdvance)}</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-amber-700">{fmtMoney(totalBalance)}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
@@ -494,13 +535,12 @@ export default function SaleOrders() {
           page={safePage}
           rowsPerPage={rowsPerPage}
           onPageChange={setPage}
-          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
         />
-
-        <div className="so-total-bar">
-          Total Amount: {fmtMoney(totalAmount)}
-        </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -1,24 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-
 import {
-  Pencil,
-  ChevronLeft,
-  ChevronRight,
-  Phone,
-  MapPin,
+  Pencil, ChevronLeft, ChevronRight, Phone, MapPin, Mail,
+  Search, Plus, Building2, UserCheck, ShieldAlert, Users,
+  RefreshCw, X, PackageCheck
 } from "lucide-react";
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 8;
 
 export default function SupplierList() {
-
   const navigate = useNavigate();
 
   const [suppliers, setSuppliers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"); // "all" | "active" | "inactive"
   const [loading, setLoading] = useState(true);
 
   const [companies, setCompanies] = useState([]);
@@ -27,23 +24,27 @@ export default function SupplierList() {
   );
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
     if (!user?.id) return;
 
     api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
-      .then(res => {
+      .then((res) => {
         if (res.data.status) {
           setCompanies(res.data.data);
-
-          // Auto-fetch suppliers for saved company on mount
           const savedId = localStorage.getItem("selected_company_id");
-          if (savedId) {
-            fetchSuppliers(savedId);
+          const activeId = savedId || (res.data.data.length > 0 ? res.data.data[0].id : "");
+          if (activeId) {
+            setSelectedCompany(activeId);
+            fetchSuppliers(activeId);
+          } else {
+            setLoading(false);
           }
+        } else {
+          setLoading(false);
         }
-      });
+      })
+      .catch(() => setLoading(false));
   }, []);
-
 
   useEffect(() => {
     if (selectedCompany) {
@@ -59,7 +60,7 @@ export default function SupplierList() {
     try {
       const res = await api.get(`/supplier/get_all?company_id=${companyId}`);
       if (res.data.status) {
-        setSuppliers(res.data.data);
+        setSuppliers(res.data.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -68,17 +69,14 @@ export default function SupplierList() {
     }
   };
 
-  const handleCompanyChange = (e) => {
-    const companyId = e.target.value;
+  const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);
     localStorage.setItem("selected_company_id", companyId);
     setCurrentPage(1);
   };
 
   const toggleStatus = async (supplier) => {
-
     const newStatus = supplier.status === "active" ? "inactive" : "active";
-
     try {
       const res = await api.post("/supplier/toggle_supplier_status", {
         id: supplier.id,
@@ -94,30 +92,43 @@ export default function SupplierList() {
       }
     } catch (err) {
       console.error(err);
-      alert("Server error");
+      alert("Server error toggling status");
     }
   };
 
-  // Navigate to the "add product" form for a specific supplier,
-  // passing along the supplier's name so the form can show it in the header.
- const goToProductList = (supplier) => {
-  navigate(`/supplier/${supplier.id}/products`, {
-    state: { supplierName: supplier.supplier_name },
-  });
-};
+  const goToProductList = (supplier) => {
+    navigate(`/supplier/${supplier.id}/products`, {
+      state: { supplierName: supplier.supplier_name },
+    });
+  };
 
-  
+  // KPI Calculations
+  const metrics = useMemo(() => {
+    const total = suppliers.length;
+    const active = suppliers.filter((s) => s.status === "active").length;
+    const inactive = total - active;
+    const withGst = suppliers.filter((s) => Boolean(s.gst_number)).length;
+    return { total, active, inactive, withGst };
+  }, [suppliers]);
 
-  const filtered = suppliers.filter((s) => {
-    const q = search.toLowerCase();
-    return (
-      s.supplier_name?.toLowerCase().includes(q) ||
-      s.email?.toLowerCase().includes(q) ||
-      s.gst_number?.toLowerCase().includes(q) ||
-      s.mobile_number?.toLowerCase().includes(q) ||
-      s.city?.toLowerCase().includes(q)
-    );
-  });
+  // Filtering
+  const filtered = useMemo(() => {
+    return suppliers.filter((s) => {
+      const q = search.toLowerCase();
+      const matchesSearch =
+        s.supplier_name?.toLowerCase().includes(q) ||
+        s.email?.toLowerCase().includes(q) ||
+        s.gst_number?.toLowerCase().includes(q) ||
+        s.mobile_number?.toLowerCase().includes(q) ||
+        s.city?.toLowerCase().includes(q);
+
+      if (!matchesSearch) return false;
+
+      if (statusFilter === "active") return s.status === "active";
+      if (statusFilter === "inactive") return s.status !== "active";
+      return true;
+    });
+  }, [suppliers, search, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
@@ -127,322 +138,362 @@ export default function SupplierList() {
   );
 
   return (
-    <>
-      <style>{`
-
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-        .sl-page{ font-family:'Plus Jakarta Sans',sans-serif; min-height:100vh; background:#f0f4ff; padding:2rem; }
-
-        .sl-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px; }
-        .sl-header h1{ margin:0; font-size:24px; font-weight:800; color:#0f172a; }
-        .sl-header p{ margin-top:4px; color:#64748b; font-size:13px; }
-
-        .sl-add-btn{
-          padding:11px 20px; border:none; border-radius:12px;
-          background:linear-gradient(135deg,#1d4ed8,#3b82f6);
-          color:#fff; font-size:14px; font-weight:700; cursor:pointer;
-          box-shadow:0 4px 16px rgba(37,99,235,0.35);
-        }
-
-        .sl-search-wrap{ position:relative; margin-bottom:1.5rem; }
-        .sl-search{
-          width:100%; padding:12px 16px; border-radius:12px;
-          border:1.5px solid #e2e8f0; font-size:14px; outline:none; box-sizing:border-box;
-        }
-
-        .sl-card{
-          background:#fff; border-radius:20px; overflow:hidden;
-          border:1px solid #e2e8f0; box-shadow:0 4px 24px rgba(37,99,235,0.08);
-        }
-
-        .sl-table-wrap{ overflow-x:auto; }
-        .sl-table{ width:100%; border-collapse:collapse; min-width:920px; }
-        .sl-table thead{ background:linear-gradient(135deg,#1d4ed8,#3b82f6); }
-        .sl-table th{
-          padding:15px; font-size:11px; font-weight:700; color:#fff;
-          text-transform:uppercase; letter-spacing:0.08em; text-align:left; white-space:nowrap;
-        }
-        .sl-table th.center{ text-align:center; }
-        .sl-table td{ padding:15px; border-bottom:1px solid #f1f5f9; font-size:14px; vertical-align:top; }
-
-        .sl-index{
-          width:28px; height:28px; border-radius:999px; background:#f1f5f9;
-          display:flex; align-items:center; justify-content:center;
-          font-size:12px; font-weight:700; color:#64748b;
-        }
-
-        .sl-name{ font-weight:700; color:#0f172a; }
-        .sl-name-btn{
-          font-weight:700; color:#2563eb; background:none; border:none;
-          padding:0; cursor:pointer; font-family:'Plus Jakarta Sans',sans-serif;
-          font-size:14px; text-align:left; text-decoration:underline;
-          text-decoration-color:transparent; transition:text-decoration-color 0.15s;
-        }
-        .sl-name-btn:hover{ text-decoration-color:#2563eb; }
-        .sl-sub{ font-size:12px; color:#94a3b8; margin-top:2px; }
-        .sl-plain{ font-size:13px; color:#475569; }
-
-        .sl-contact{ display:flex; flex-direction:column; gap:4px; }
-        .sl-contact-row{ display:flex; align-items:center; gap:6px; font-size:13px; color:#475569; }
-        .sl-contact-row svg{ flex-shrink:0; color:#94a3b8; }
-
-        .sl-location{ display:flex; align-items:flex-start; gap:6px; font-size:13px; color:#475569; max-width:200px; }
-        .sl-location svg{ flex-shrink:0; color:#94a3b8; margin-top:2px; }
-
-        .sl-actions{ display:flex; align-items:center; justify-content:center; gap:10px; }
-
-        .sl-btn-edit{
-          width:34px; height:34px; border:none; border-radius:10px;
-          background:#eff6ff; color:#2563eb; display:flex; align-items:center;
-          justify-content:center; cursor:pointer;
-        }
-        .sl-btn-edit:hover{ background:#dbeafe; }
-
-        .sl-switch { position: relative; display: inline-block; width: 45px; height: 20px; }
-        .sl-switch input { opacity: 0; width: 0; height: 0; }
-        .sl-slider {
-          position: absolute; cursor: pointer; inset: 0;
-          background: #d1d5db; transition: 0.4s; border-radius: 999px;
-        }
-        .sl-slider:before {
-          position: absolute; content: ""; height: 14px; width: 15px;
-          left: 3px; top: 3px; background: white; transition: 0.4s;
-          border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-        }
-        .sl-switch input:checked + .sl-slider { background: linear-gradient(135deg, #1d4ed8, #3b82f6); }
-        .sl-switch input:checked + .sl-slider:before { transform: translateX(24px); }
-
-        .sl-status{ display:inline-block; padding:5px 12px; border-radius:999px; font-size:12px; font-weight:700; }
-        .sl-status.active{ background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; }
-        .sl-status.inactive{ background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; }
-
-        .sl-empty{ padding:3rem; text-align:center; color:#94a3b8; }
-
-        .sl-page-btn{
-          width:34px; height:34px; border-radius:9px; display:flex;
-          align-items:center; justify-content:center; border:1.5px solid #e2e8f0;
-          background:#fff; color:#64748b; cursor:pointer; font-weight:600; transition:.2s;
-        }
-        .sl-page-btn:hover:not(:disabled){ background:#eff6ff; color:#2563eb; border-color:#3b82f6; }
-        .sl-page-btn:disabled{ opacity:.4; cursor:not-allowed; }
-        .sl-page-btn.active{ background:linear-gradient(135deg,#1d4ed8,#3b82f6); color:#fff; border:none; }
-
-      `}</style>
-
-      <div className="sl-page">
-
-        <div className="sl-header">
-          <div>
-            <h1>🚚 Suppliers</h1>
-            <p>Manage your suppliers · click a supplier's name to add a product for them</p>
+    <div className="space-y-6 min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 font-sans animate-in fade-in duration-300">
+      
+      {/* ── 1. HEADER (PaySplitX Style) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center shadow-md shadow-indigo-100 ring-2 ring-indigo-50">
+              <Building2 size={20} />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-display">
+              Suppliers Directory
+            </h1>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+              {suppliers.length} Registered
+            </span>
           </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Maintain supplier relationships, GST registrations, product inventories, and contact information.
+          </p>
+        </div>
 
-          <button className="sl-add-btn" onClick={() => navigate("/supplier/add")}>
-            + Add Supplier
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => navigate("/purchases")}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl shadow-xs transition cursor-pointer"
+          >
+            <span>View Purchase Bills</span>
+          </button>
+          <button
+            onClick={() => navigate("/supplier/add")}
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-200 transition transform active:scale-95 cursor-pointer"
+          >
+            <Plus size={15} strokeWidth={2.6} />
+            <span>+ Add Supplier</span>
           </button>
         </div>
+      </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px",
-            marginBottom: "20px",
-          }}
-        >
-          {companies.map((c) => {
-            const isActive = Number(selectedCompany) === Number(c.id);
-            return (
-              <button
-                key={c.id}
-                onClick={() => handleCompanyChange({ target: { value: String(c.id) } })}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: "12px",
-                  fontSize: "13.5px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  border: isActive ? "2px solid #2563eb" : "1.5px solid #e2e8f0",
-                  backgroundColor: isActive ? "#2563eb" : "#ffffff",
-                  color: isActive ? "#ffffff" : "#475569",
-                  boxShadow: isActive ? "0 4px 12px rgba(37,99,235,0.25)" : "0 1px 4px rgba(0,0,0,0.06)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                <span>🏢</span> {c.company_name}
-              </button>
-            );
-          })}
+      {/* ── 2. 4-CARD KPI STRIP ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Suppliers */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Suppliers</span>
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Users size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+            {metrics.total}
+          </div>
+          <div className="text-[11px] text-slate-500">
+            <span>Enrolled vendor partners</span>
+          </div>
         </div>
 
-        <div className="sl-search-wrap">
+        {/* Active Accounts */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Status</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <UserCheck size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-emerald-600 tracking-tight my-1 font-display">
+            {metrics.active}
+          </div>
+          <div className="text-[11px] text-slate-500">
+            <span className="font-semibold text-slate-700">Operational</span> vendor accounts
+          </div>
+        </div>
+
+        {/* Inactive / Paused */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Suspended</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <ShieldAlert size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-amber-600 tracking-tight my-1 font-display">
+            {metrics.inactive}
+          </div>
+          <div className="text-[11px] text-slate-500">
+            <span>Inactive or disabled</span>
+          </div>
+        </div>
+
+        {/* GST Registered */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">GST Compliant</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Building2 size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-blue-600 tracking-tight my-1 font-display">
+            {metrics.withGst}
+          </div>
+          <div className="text-[11px] text-slate-500">
+            <span>Verified GSTIN tax profiles</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. TOOLBAR (Search + Firm + Status Filter) ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Search */}
+        <div className="relative flex-1 max-w-md">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
-            type="text"
-            className="sl-search"
-            placeholder="Search by name, company, mobile, city..."
+            placeholder="Search supplier name, mobile, email, city or GSTIN..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white font-medium transition"
           />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
 
-        <div className="sl-card">
-          <div className="sl-table-wrap">
-            <table className="sl-table">
+        {/* Firm Filter + Status Filter */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {companies.length > 1 && (
+            <select
+              value={selectedCompany}
+              onChange={(e) => handleCompanyChange(e.target.value)}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-slate-50 text-slate-700 outline-none"
+            >
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  🏢 {c.company_name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+            {[
+              { id: "all", label: "All" },
+              { id: "active", label: "Active" },
+              { id: "inactive", label: "Inactive" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setStatusFilter(tab.id);
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  statusFilter === tab.id
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. SUPPLIERS DIRECTORY TABLE ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="p-16 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+              <RefreshCw size={15} className="animate-spin text-indigo-500" />
+              <span>Loading suppliers directory...</span>
+            </div>
+          ) : paginated.length === 0 ? (
+            <div className="p-16 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                <Building2 size={28} />
+              </div>
+              <h3 className="font-bold text-sm text-slate-800">No Suppliers Found</h3>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                No vendors found for the current search filter. Add a new supplier to start recording purchases.
+              </p>
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs">
               <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Supplier Name</th>
-                  <th>Email</th>
-                  <th>Contact</th>
-                  <th>GST No</th>
-                  <th>Location</th>
-                  <th className="center">Action</th>
-                  <th className="center">Status</th>
+                <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                  <th className="py-3 px-4 w-12 text-center">#</th>
+                  <th className="py-3 px-4">Supplier & Products</th>
+                  <th className="py-3 px-4">Contact Details</th>
+                  <th className="py-3 px-4">Address & City</th>
+                  <th className="py-3 px-4">GST Number</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="8" className="sl-empty">Loading...</td></tr>
-                ) : !selectedCompany ? (
-                  <tr><td colSpan="8" className="sl-empty">Select a company to view suppliers</td></tr>
-                ) : filtered.length === 0 ? (
-                  <tr><td colSpan="8" className="sl-empty">No suppliers found</td></tr>
-                ) : (
-                  paginated.map((s, i) => (
-                    <tr key={s.id}>
-                      <td>
-                        <div className="sl-index">{(safePage - 1) * ITEMS_PER_PAGE + i + 1}</div>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {paginated.map((s, index) => {
+                  const initial = (s.supplier_name || "S").charAt(0).toUpperCase();
+                  const isActive = s.status === "active";
+                  return (
+                    <tr key={s.id} className="hover:bg-indigo-50/20 transition-colors text-slate-700">
+                      <td className="py-3.5 px-4 text-center text-slate-400 font-bold">
+                        {(safePage - 1) * ITEMS_PER_PAGE + index + 1}
                       </td>
-
-                      <td>
-                        <button
-                          className="sl-name-btn"
-                          onClick={() => goToProductList(s)}
-                          title="Add a product for this supplier"
-                        >
-                          {s.supplier_name}
-                        </button>
-                      </td>
-
-                      <td>
-                        <span className="sl-plain">{s.email || "—"}</span>
-                      </td>
-
-                      <td>
-                        <div className="sl-contact">
-                          <div className="sl-contact-row"><Phone size={13} /> {s.mobile_number}</div>
-                          {/* {s.alt_mobile && <div className="sl-contact-row"><Phone size={13} /> {s.alt_mobile}</div>} */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
+                            {initial}
+                          </div>
+                          <div>
+                            <button
+                              onClick={() => goToProductList(s)}
+                              className="font-bold text-slate-900 hover:text-indigo-600 transition text-left cursor-pointer flex items-center gap-1 group"
+                              title="Click to view supplier's products"
+                            >
+                              <span>{s.supplier_name}</span>
+                              <span className="text-[10px] text-indigo-500 opacity-0 group-hover:opacity-100 transition">
+                                (View Products)
+                              </span>
+                            </button>
+                            <div className="text-[11px] text-slate-400 mt-0.5">
+                              {s.contact_person ? `Attn: ${s.contact_person}` : "Supplier"}
+                            </div>
+                          </div>
                         </div>
                       </td>
-
-                      <td>
-                        <span className="sl-plain">{s.gst_number || "—"}</span>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 text-slate-700">
+                            <Phone size={11} className="text-slate-400" />
+                            <span>{s.mobile_number || s.phone || "—"}</span>
+                          </div>
+                          {s.email && (
+                            <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+                              <Mail size={11} />
+                              <span>{s.email}</span>
+                            </div>
+                          )}
+                        </div>
                       </td>
-
-                      <td>
-                        <div className="sl-location">
-                          <MapPin size={13} />
-                          <span>
-                            {[s.city, s.district, s.state, s.country].filter(Boolean).join(", ") || "—"}
-                            {s.pincode && ` - ${s.pincode}`}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-slate-600 max-w-[200px] truncate">
+                          <MapPin size={12} className="text-slate-400 shrink-0" />
+                          <span className="truncate">{s.address || s.city || "—"}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {s.gst_number ? (
+                          <span className="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                            {s.gst_number}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">Unregistered</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={isActive}
+                            onClick={() => toggleStatus(s)}
+                            className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${
+                              isActive ? "bg-indigo-600" : "bg-slate-300"
+                            }`}
+                          >
+                            <span
+                              className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                                isActive ? "left-[18px]" : "left-0.5"
+                              }`}
+                            />
+                          </button>
+                          <span
+                            className={`text-[11px] font-bold ${
+                              isActive ? "text-emerald-700" : "text-slate-400"
+                            }`}
+                          >
+                            {isActive ? "Active" : "Off"}
                           </span>
                         </div>
                       </td>
-
-                      <td>
-                        <div className="sl-actions">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
-                            className="sl-btn-edit"
+                            onClick={() => goToProductList(s)}
+                            title="Supplier Products"
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                          >
+                            <PackageCheck size={15} />
+                          </button>
+                          <button
                             onClick={() => navigate(`/supplier/edit/${s.id}`)}
+                            title="Edit Supplier Details"
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
                           >
                             <Pencil size={15} />
                           </button>
-
-                          <label className="sl-switch">
-                            <input
-                              type="checkbox"
-                              checked={s.status === "active"}
-                              onChange={() => toggleStatus(s)}
-                            />
-                            <span className="sl-slider"></span>
-                          </label>
                         </div>
                       </td>
-
-                      <td className="center">
-                        <span className={`sl-status ${s.status}`}>{s.status}</span>
-                      </td>
                     </tr>
-                  ))
-                )}
+                  );
+                })}
               </tbody>
             </table>
-          </div>
-
-          {filtered.length > ITEMS_PER_PAGE && (
-            <div
-              style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "16px 20px", borderTop: "1px solid #e2e8f0",
-                background: "#fafbff", flexWrap: "wrap", gap: 10,
-              }}
-            >
-              <div style={{ fontSize: 13, color: "#64748b" }}>
-                Showing{" "}
-                <strong>
-                  {(safePage - 1) * ITEMS_PER_PAGE + 1}–
-                  {Math.min(safePage * ITEMS_PER_PAGE, filtered.length)}
-                </strong>{" "}
-                of <strong>{filtered.length}</strong> suppliers
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button
-                  disabled={safePage === 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                  className="sl-page-btn"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
-                  .reduce((acc, p, i, arr) => {
-                    if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((item, i) =>
-                    item === "..." ? (
-                      <span key={i} style={{ padding: "0 5px", color: "#94a3b8" }}>…</span>
-                    ) : (
-                      <button
-                        key={item}
-                        onClick={() => setCurrentPage(item)}
-                        className={`sl-page-btn ${safePage === item ? "active" : ""}`}
-                      >
-                        {item}
-                      </button>
-                    )
-                  )}
-
-                <button
-                  disabled={safePage === totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="sl-page-btn"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
           )}
         </div>
+
+        {/* Pagination Footer */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <span className="text-xs text-slate-500 font-medium">
+              Showing page <strong className="text-slate-800">{safePage}</strong> of{" "}
+              <strong className="text-slate-800">{totalPages}</strong> ({filtered.length} suppliers)
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={safePage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 flex items-center justify-center hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    safePage === i + 1
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                disabled={safePage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 flex items-center justify-center hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }

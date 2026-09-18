@@ -1,15 +1,9 @@
-﻿import { useEffect, useRef, useState } from "react";
-import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle, Calendar, Receipt, TrendingUp, ShoppingBag, DollarSign } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
-
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const NAVY = "#1e1b4b";
-const GRAY_TEXT = "#64748b";
-const BORDER = "#e2e8f0";
 
 const getAuth = () => {
   try {
@@ -105,36 +99,252 @@ export default function GSTRateReport() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
-  return <div style={pageStyle}>
-    <div style={topBarStyle}>
-      <div style={dateFieldStyle}><span>From</span><input type="date" value={formatDate(fromDate)} onChange={(event) => setFromDate(parseDate(event.target.value))} style={dateInputStyle} /></div>
-      <div style={dateFieldStyle}><span>To</span><input type="date" value={formatDate(toDate)} onChange={(event) => setToDate(parseDate(event.target.value))} style={dateInputStyle} /></div>
-      <div ref={companyRef} style={{ ...companyWrapStyle, marginLeft: "auto" }}><button onClick={() => setCompanyOpen((value) => !value)} style={companyButtonStyle}>{companyName}<ChevronDown size={14} color="#94a3b8" /></button>{companyOpen && <div style={dropdownStyle}>{companies.map((company) => <button key={company.id} onClick={() => { setCompanyId(Number(company.id)); setCompanyName(company.company_name || "My Company"); setCompanyOpen(false); }} style={dropdownItemStyle}>{company.company_name || "My Company"}</button>)}</div>}</div>
-      <button onClick={exportExcel} title="Excel Report" style={actionStyle}><FileSpreadsheet size={17} color={INDIGO} /></button><button onClick={print} title="Print" style={actionStyle}><Printer size={17} color={INDIGO} /></button>
+  const netTax = (totals.tax_in || 0) - (totals.tax_out || 0);
+
+  return (
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Header & Export Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Taxation Reports</span>
+            <span>•</span>
+            <span>GST Slab Analysis</span>
+          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            GST Tax Rate Report
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Breakdown of taxable sales, input tax credit (ITC), and tax collections per rate bracket
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Company Selector */}
+          <div ref={companyRef} className="relative">
+            <button
+              onClick={() => setCompanyOpen((v) => !v)}
+              className="inline-flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer min-w-[160px]"
+            >
+              <span className="truncate">{companyName}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            </button>
+            {companyOpen && (
+              <div className="absolute right-0 top-[calc(100%+4px)] min-w-[190px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                {companies.map((company) => (
+                  <button
+                    key={company.id}
+                    onClick={() => {
+                      setCompanyId(Number(company.id));
+                      setCompanyName(company.company_name || "My Company");
+                      setCompanyOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors block"
+                  >
+                    {company.company_name || "My Company"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={exportExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+            title="Export Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={print}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+            <input
+              type="date"
+              value={formatDate(fromDate)}
+              onChange={(event) => setFromDate(parseDate(event.target.value))}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+            <input
+              type="date"
+              value={formatDate(toDate)}
+              onChange={(event) => setToDate(parseDate(event.target.value))}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all cursor-pointer ml-auto"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <Receipt className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Tax Slabs</div>
+            <div className="text-xl font-black text-slate-800 mt-0.5">{rows.length}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Active rate groups</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Tax In</div>
+            <div className="text-xl font-black text-emerald-600 mt-0.5">
+              {money(totals.tax_in)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Collected on sales</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <ShoppingBag className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Tax Out</div>
+            <div className="text-xl font-black text-blue-600 mt-0.5">
+              {money(totals.tax_out)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Paid on purchase/expenses</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+            <DollarSign className="w-6 h-6 text-amber-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Net Tax Payable</div>
+            <div className={`text-xl font-black mt-0.5 ${netTax >= 0 ? "text-slate-800" : "text-emerald-600"}`}>
+              {money(netTax)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Tax In minus Tax Out</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Data Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                {["Tax Name", "Tax Percent", "Taxable Sale Amount", "Tax In", "Taxable Purchase/Expense Amount", "Tax Out"].map((label, index) => (
+                  <th
+                    key={label}
+                    className={`px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 ${
+                      index === 0 ? "text-left" : "text-right"
+                    }`}
+                  >
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                    Loading GST rate report...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-rose-500 font-medium">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle className="w-6 h-6 text-rose-500" />
+                      <span>{error}</span>
+                      <button
+                        onClick={() => setReloadKey((k) => k + 1)}
+                        className="px-3 py-1 bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 hover:bg-rose-100 cursor-pointer"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : pagedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    No GST rate data available.
+                  </td>
+                </tr>
+              ) : (
+                pagedRows.map((row) => (
+                  <tr key={`${row.tax_percent}-${row.tax_name}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-slate-800">{row.tax_name}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-600">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                        {row.tax_percent}%
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-700">{money(row.taxable_sale_amount)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-600">{money(row.tax_in)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-700">{money(row.taxable_purchase_expense_amount)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-600">{money(row.tax_out)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {!loading && !error && rows.length > 0 && (
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50/90 font-bold text-slate-800 text-xs">
+                <tr>
+                  <td colSpan={3} className="px-4 py-3 uppercase tracking-wider font-extrabold text-slate-900">Total</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-emerald-700">{money(totals.tax_in)}</td>
+                  <td className="px-4 py-3"></td>
+                  <td className="px-4 py-3 text-right font-extrabold text-blue-700">{money(totals.tax_out)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
+        />
+      </div>
     </div>
-    <div style={titleStyle}>GST TAX RATE REPORT</div>
-    <div style={tableWrapStyle}><div style={scrollStyle}><table style={tableStyle}><thead><tr>{["Tax Name", "Tax Percent", "Taxable Sale Amount", "Tax In", "Taxable Purchase/Expense Amount", "Tax Out"].map((label, index) => <th key={label} style={{ ...thStyle, textAlign: index === 0 ? "left" : "right" }}>{label}</th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={6} style={emptyStyle}>Loading...</td></tr> : error ? <tr><td colSpan={6} style={emptyStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : pagedRows.map((row) => <tr key={`${row.tax_percent}-${row.tax_name}`}><td style={tdStyle}>{row.tax_name}</td><td style={{ ...tdStyle, textAlign: "right" }}>{row.tax_percent}%</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.taxable_sale_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.tax_in)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.taxable_purchase_expense_amount)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{money(row.tax_out)}</td></tr>)}</tbody></table></div><ReportPagination total={totalRows} page={safePage} rowsPerPage={rowsPerPage} onPageChange={setPage} onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }} /></div>
-    <div style={totalsStyle}><span>Total Tax In: <strong>{money(totals.tax_in)}</strong></span><span>Total Tax Out: <strong>{money(totals.tax_out)}</strong></span></div>
-  </div>;
+  );
 }
-
-const pageStyle = { fontFamily: FONT, padding: "2px 0", minHeight: "100%", background: "#fff", color: NAVY };
-const topBarStyle = { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "8px 0", borderBottom: `1px solid ${BORDER}` };
-const dateFieldStyle = { display: "flex", alignItems: "center", gap: 6, color: GRAY_TEXT, fontSize: 12, whiteSpace: "nowrap" };
-const dateInputStyle = { width: 122, padding: "6px 7px", border: `1px solid ${BORDER}`, borderRadius: 5, color: NAVY, fontFamily: FONT, fontSize: 12, outline: "none" };
-const companyWrapStyle = { position: "relative" };
-const companyButtonStyle = { width: 190, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "7px 10px", border: `1px solid ${BORDER}`, borderRadius: 5, background: "#fff", color: NAVY, fontFamily: FONT, fontSize: 12, cursor: "pointer" };
-const dropdownStyle = { position: "absolute", right: 0, top: "calc(100% + 4px)", minWidth: 190, zIndex: 10, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 5, boxShadow: "0 8px 20px rgba(30,27,75,.12)" };
-const dropdownItemStyle = { display: "block", width: "100%", padding: "8px 10px", textAlign: "left", border: 0, background: "#fff", color: NAVY, fontFamily: FONT, fontSize: 12, cursor: "pointer" };
-const actionStyle = { width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${BORDER}`, background: "#fff", cursor: "pointer" };
-const titleStyle = { padding: "14px 0 10px", fontSize: 14, fontWeight: 700 };
-const tableWrapStyle = { border: `1px solid ${BORDER}`, overflow: "hidden", background: "#fff" };
-const scrollStyle = { overflowX: "auto", padding: "0 14px" };
-const tableStyle = { width: "100%", minWidth: 940, borderCollapse: "collapse", tableLayout: "fixed" };
-const thStyle = { padding: "8px", background: "#f2f4f7", borderRight: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}`, color: "#475569", fontSize: 11.5, fontWeight: 700, lineHeight: 1.25 };
-const tdStyle = { padding: "7px 8px", borderRight: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}`, fontSize: 13, color: NAVY };
-const emptyStyle = { height: 450, textAlign: "center", color: "#94a3b8", fontSize: 13 };
-const errorStyle = { display: "flex", flexDirection: "column", alignItems: "center", gap: 10 };
-const retryStyle = { display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", border: `1px solid ${BORDER}`, borderRadius: 5, background: "#fff", color: INDIGO, cursor: "pointer" };
-const totalsStyle = { display: "flex", justifyContent: "flex-end", gap: 90, padding: "10px 0", color: "#0f9f95", fontSize: 13, borderTop: `1px solid ${BORDER}` };
-

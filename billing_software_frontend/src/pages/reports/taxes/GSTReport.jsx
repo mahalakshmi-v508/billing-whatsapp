@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   FileSpreadsheet,
   Printer,
@@ -269,152 +269,176 @@ export default function GSTReport() {
   const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
-    <div style={{ fontFamily: FONT, padding: "6px 2px", display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* ═══════════════════════════════════════════════════════════════
-          HEADER ROW: Date Filters + Company + Actions
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
-        {/* From Date */}
-        <div style={dateBoxStyle}>
-          <Calendar size={14} color={GRAY_TEXT} style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: GRAY_TEXT, fontWeight: 500 }}>From:</span>
-          <input
-            type="date"
-            value={formatDateISO(fromDate)}
-            onChange={handleDateChange(setFromDate)}
-            style={dateInputStyle}
-          />
-        </div>
-
-        {/* To Date */}
-        <div style={dateBoxStyle}>
-          <Calendar size={14} color={GRAY_TEXT} style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: GRAY_TEXT, fontWeight: 500 }}>To:</span>
-          <input
-            type="date"
-            value={formatDateISO(toDate)}
-            onChange={handleDateChange(setToDate)}
-            style={dateInputStyle}
-          />
-        </div>
-
-        {dateError && (
-          <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600 }}>{dateError}</span>
-        )}
-
-        {/* Company */}
-        <div ref={companyRef} style={{ position: "relative" }}>
-          <button onClick={() => setCompanyOpen((v) => !v)} style={selectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY }}>{companyName}</span>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: companyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-          {companyOpen && (
-            <div style={dropdownPanelStyle}>
-              {companies.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => selectCompany(c)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: Number(c.id) === Number(companyId) ? "#eef2ff" : "transparent",
-                    color: Number(c.id) === Number(companyId) ? INDIGO : "#334155",
-                    fontWeight: Number(c.id) === Number(companyId) ? 700 : 500,
-                  }}
-                >
-                  {c.company_name || "My Company"}
-                </button>
-              ))}
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Between Date Range */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Date Range</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={formatDateISO(fromDate)}
+                onChange={handleDateChange(setFromDate)}
+                className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer"
+              />
+              <span className="text-xs font-bold text-slate-400">to</span>
+              <input
+                type="date"
+                value={formatDateISO(toDate)}
+                onChange={handleDateChange(setToDate)}
+                className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer"
+              />
             </div>
+          </div>
+
+          {dateError && (
+            <span className="text-xs font-bold text-rose-600 mt-4 sm:mt-0">{dateError}</span>
           )}
+
+          {/* Company */}
+          <div ref={companyRef} className="relative flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Firm / Company</span>
+            <button
+              type="button"
+              onClick={() => setCompanyOpen((v) => !v)}
+              className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer inline-flex items-center gap-2 min-w-[160px] justify-between"
+            >
+              <span className="truncate">{companyName}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${companyOpen ? "rotate-180" : ""}`}>
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            {companyOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
+                {companies.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => selectCompany(c)}
+                    className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                      Number(c.id) === Number(companyId)
+                        ? "bg-blue-50 text-blue-700 font-bold"
+                        : "text-slate-700 hover:bg-slate-50 font-medium"
+                    }`}
+                  >
+                    {c.company_name || "My Company"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* RIGHT: Actions */}
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
-          <button onClick={handleExcel} style={actionBtnStyle} title="Export to Excel">
-            <FileSpreadsheet size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Excel</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            title="Export Excel"
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <FileSpreadsheet size={15} className="text-emerald-600" />
+            Excel
           </button>
-          <button onClick={handlePrint} style={actionBtnStyle} title="Print Report">
-            <Printer size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Print</span>
+          <button
+            type="button"
+            title="Print"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <Printer size={15} className="text-slate-600" />
+            Print
           </button>
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          REPORT TITLE
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={{ fontSize: 17, fontWeight: 800, color: NAVY, marginBottom: 10 }}>
-        GST TAX REPORT
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-indigo-50/60 to-white p-4 rounded-2xl border border-indigo-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-indigo-700 uppercase">Active Parties</span>
+          <div className="text-xl font-black text-slate-800 tracking-tight mt-1">{rows.length}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Tax Invoiced Parties</div>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-50/60 to-white p-4 rounded-2xl border border-emerald-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase">Total Tax In (Sales)</span>
+          <div className="text-xl font-black text-emerald-900 tracking-tight mt-1">{fmtINR(totals.tax_in)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Collected Output Tax</div>
+        </div>
+        <div className="bg-gradient-to-br from-amber-50/60 to-white p-4 rounded-2xl border border-amber-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-amber-700 uppercase">Total Tax Out (Input)</span>
+          <div className="text-xl font-black text-amber-900 tracking-tight mt-1">{fmtINR(totals.tax_out)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Paid on Purchases & Expenses</div>
+        </div>
+        <div className="bg-gradient-to-br from-blue-50/60 to-white p-4 rounded-2xl border border-blue-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-blue-700 uppercase">Net Tax Balance</span>
+          <div className="text-xl font-black text-blue-900 tracking-tight mt-1">{fmtINR(totals.tax_in - totals.tax_out)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Output Tax − Input Tax</div>
+        </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          GST TABLE
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={tableContainerStyle}>
-        <div style={{ overflowX: "auto", flex: 1 }}>
-          <table style={tableStyle}>
+      {/* Table Section */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr>
-                <th style={{ ...thStyle, width: "40%", minWidth: 180 }}>Party Name</th>
-                <th style={{ ...thStyle, width: "30%", minWidth: 120, textAlign: "right" }}>Sale Tax</th>
-                <th style={{ ...thStyle, width: "30%", minWidth: 160, textAlign: "right" }}>Purchase / Expense Tax</th>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">Party Name</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Sale Tax</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Purchase / Expense Tax</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={3} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>Loading…</div>
+                  <td colSpan={3} className="px-4 py-12 text-center text-slate-500 text-xs">
+                    Loading GST records…
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={3} style={emptyCellStyle}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                      <AlertCircle size={26} color="#dc2626" />
-                      <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 600 }}>{error}</div>
+                  <td colSpan={3} className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center gap-2 text-rose-600 text-xs font-bold">
+                      <AlertCircle size={22} />
+                      <span>{error}</span>
                     </div>
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={3} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af" }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: NAVY, marginBottom: 4 }}>No GST records found</div>
-                      <div style={{ fontSize: 12 }}>Try adjusting the date range.</div>
-                    </div>
+                  <td colSpan={3} className="px-4 py-12 text-center text-slate-500 text-xs font-medium">
+                    No GST records found for this period.
                   </td>
                 </tr>
               ) : (
                 pagedRows.map((r, i) => (
-                  <tr key={i} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
-                    <td style={{ ...tdStyle, fontWeight: 600, color: NAVY }}>{r.party_name}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmtINR(r.sale_tax)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmtINR(r.purchase_expense_tax)}</td>
+                  <tr key={i} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{r.party_name}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700 text-right tabular-nums">{fmtINR(r.sale_tax)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-slate-700 text-right tabular-nums">{fmtINR(r.purchase_expense_tax)}</td>
                   </tr>
                 ))
               )}
             </tbody>
+            {rows.length > 0 && (
+              <tfoot>
+                <tr className="bg-slate-50/90 font-bold border-t border-slate-200/80 text-slate-800">
+                  <td className="px-4 py-3 text-xs text-slate-900">Total</td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-emerald-700">{fmtINR(totals.tax_in)}</td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-slate-900">{fmtINR(totals.tax_out)}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
-          <ReportPagination total={totalRows} page={safePage} rowsPerPage={rowsPerPage} onPageChange={setPage} onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }} />
         </div>
-      </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          BOTTOM TOTALS
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={totalsContainerStyle}>
-        <div style={totalRowStyle}>
-          <span style={totalLabelStyle}>Total Tax In:</span>
-          <span style={totalValueStyle}>{fmtINR(totals.tax_in)}</span>
-        </div>
-        <div style={totalRowStyle}>
-          <span style={totalLabelStyle}>Total Tax Out:</span>
-          <span style={totalValueStyle}>{fmtINR(totals.tax_out)}</span>
-        </div>
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
     </div>
   );

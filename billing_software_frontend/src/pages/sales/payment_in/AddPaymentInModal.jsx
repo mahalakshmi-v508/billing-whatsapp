@@ -3,18 +3,16 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
-  Calculator,
-  Settings,
-  Calendar,
   ChevronDown,
-  Camera,
-  AlignLeft,
-  Share2,
-  Check,
-  Search,
-  User,
-  RefreshCw,
+  TrendingUp,
+  AlertCircle,
+  CreditCard,
+  Building2,
+  Calendar,
+  DollarSign,
   CheckCircle2,
+  RefreshCw,
+  UserCheck
 } from "lucide-react";
 
 export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialParty = null }) {
@@ -31,12 +29,10 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
   const [searchingParty, setSearchingParty] = useState(false);
 
   const [paymentType, setPaymentType] = useState("Cash");
-  const [showPaymentTypeDropdown, setShowPaymentTypeDropdown] = useState(false);
   const [receiptNo, setReceiptNo] = useState(1);
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [receivedAmount, setReceivedAmount] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
-  const [showDescription, setShowDescription] = useState(false);
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -44,7 +40,7 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
 
   const partyRef = useRef(null);
 
-  // Auto-calculated Total
+  // Auto-calculated Total (Received + Discount)
   const totalAmount = useMemo(() => {
     const recv = parseFloat(receivedAmount) || 0;
     const disc = parseFloat(discountAmount) || 0;
@@ -54,24 +50,32 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
   // Load next receipt number from settings
   useEffect(() => {
     if (!isOpen) return;
+    let cancelled = false;
+
     const loadReceiptNo = async () => {
       try {
         const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_in`);
+        if (cancelled) return;
         if (numRes.data?.status && numRes.data?.formatted_number) {
           setReceiptNo(numRes.data.formatted_number);
           return;
         }
         const res = await api.get(`/invoice/get_customer_payments?customer_id=0`);
+        if (cancelled) return;
         if (res.data?.data) {
           setReceiptNo(`PAYIN-${String((res.data.data.length || 0) + 1).padStart(4, "0")}`);
         } else {
-          setReceiptNo(`PAYIN-0001`);
+          setReceiptNo("PAYIN-0001");
         }
       } catch {
-        setReceiptNo(`PAYIN-0001`);
+        if (!cancelled) setReceiptNo("PAYIN-0001");
       }
     };
+
     loadReceiptNo();
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, companyId]);
 
   // Fetch customer suggestions helper without forcing dropdown open
@@ -80,7 +84,7 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     setSearchingParty(true);
     try {
       const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${encodeURIComponent(q || "")}`);
-      if (res.data.status) {
+      if (res.data?.status) {
         setPartySuggestions(res.data.data || []);
       }
     } catch (err) {
@@ -90,19 +94,23 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     }
   };
 
-  // Reset states and preload customer list quietly on modal open
+  // Reset states and preload customer list on modal open
   useEffect(() => {
     if (isOpen && adminId) {
       setShowPartyDropdown(false);
-      setShowPaymentTypeDropdown(false);
       setErrorMsg("");
       fetchCustomerSuggestions("");
       if (initialParty) {
         setSelectedParty(initialParty);
         setPartyQuery(initialParty.name || initialParty.customer_name || "");
+        const pending = parseFloat(initialParty.pending_amount ?? initialParty.balance ?? 0);
+        if (pending > 0) setReceivedAmount(String(pending));
       } else {
         setSelectedParty(null);
         setPartyQuery("");
+        setReceivedAmount("");
+        setDiscountAmount("");
+        setDescription("");
       }
     }
   }, [isOpen, adminId, initialParty]);
@@ -167,7 +175,7 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
       };
 
       const res = await api.post("/invoice/pay_customer_bulk", payload);
-      if (res.data.status) {
+      if (res.data?.status) {
         const savedReceiptNo = res.data.invoice_no || res.data.receipt_no || finalReceiptNo;
         if (onSuccess) onSuccess(savedReceiptNo);
 
@@ -182,7 +190,6 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
           setReceivedAmount("");
           setDiscountAmount("");
           setDescription("");
-          setShowDescription(false);
 
           // Fetch / increment next receipt number
           try {
@@ -190,17 +197,21 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
             if (numRes.data?.status && numRes.data?.formatted_number) {
               setReceiptNo(numRes.data.formatted_number);
             } else {
-              setReceiptNo(prev => typeof prev === 'number' ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : 1);
+              setReceiptNo((prev) =>
+                typeof prev === "number" ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : "PAYIN-0001"
+              );
             }
           } catch (e) {
-            setReceiptNo(prev => typeof prev === 'number' ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : 1);
+            setReceiptNo((prev) =>
+              typeof prev === "number" ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : "PAYIN-0001"
+            );
           }
         } else {
           onClose();
           navigate(`/invoice/${savedReceiptNo}`);
         }
       } else {
-        setErrorMsg(res.data.message || "Failed to record payment.");
+        setErrorMsg(res.data?.message || "Failed to record payment.");
       }
     } catch (err) {
       console.error(err);
@@ -214,48 +225,36 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
-        style={{ minHeight: 460 }}
+        className="bg-white rounded-2xl w-full max-w-xl shadow-2xl border border-slate-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── 1. HEADER (Title, Calculator, Settings, Close) ── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
-          <h2 className="text-base font-bold text-slate-800 tracking-tight">Payment-In</h2>
-
-          <div className="flex items-center gap-3.5">
-            <button
-              type="button"
-              className="text-slate-400 hover:text-slate-700 transition cursor-pointer"
-              title="Calculator"
-            >
-              <Calculator size={18} />
-            </button>
-
-            <button
-              type="button"
-              className="text-slate-400 hover:text-slate-700 relative transition cursor-pointer"
-              title="Settings"
-            >
-              <Settings size={18} />
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer ml-1"
-              title="Close"
-            >
-              <X size={15} />
-            </button>
+        {/* ── 1. HEADER (Matching AddPaymentOutModal Style) ── */}
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 shadow-xs">
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-slate-900 tracking-tight">
+                Record Payment-In Voucher
+              </h2>
+              <p className="text-[11px] text-slate-500 font-medium">Direct customer inward payment collection entry</p>
+            </div>
           </div>
+
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+          >
+            <X size={16} />
+          </button>
         </div>
 
-        {/* ── 2. SUCCESS TOAST & ERROR ALERT ── */}
+        {/* ── 2. SUCCESS TOAST & ERROR ALERTS ── */}
         {toast && (
           <div className="mx-6 mt-3 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center justify-between shadow-xs animate-in fade-in duration-150">
             <div className="flex items-center gap-2">
@@ -268,285 +267,215 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
           </div>
         )}
 
-        {errorMsg && (
-          <div className="mx-6 mt-3 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-lg flex items-center justify-between">
-            <span>{errorMsg}</span>
-            <button onClick={() => setErrorMsg("")} className="text-red-500 hover:text-red-700">
-              <X size={13} />
-            </button>
-          </div>
-        )}
+        {/* Form Body */}
+        <div className="p-6 space-y-4">
+          {errorMsg && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
-        {/* ── 3. BODY (Two-Column Layout Matching media_1787829100659.png) ── */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 flex-1">
-          {/* ── LEFT COLUMN ── */}
-          <div className="space-y-5">
-            {/* Party Selection (Floating Label Box) */}
-            <div ref={partyRef} className="relative">
-              <div
-                className={`relative border rounded-lg px-3 pt-3 pb-2 transition cursor-pointer ${
-                  showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-300 hover:border-blue-400"
-                }`}
-                onClick={() => {
-                  setShowPartyDropdown(true);
-                  if (partySuggestions.length === 0) {
-                    fetchCustomerSuggestions(partyQuery);
-                  }
-                }}
-              >
-                <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-semibold text-blue-600 pointer-events-none">
-                  Party *
+          {/* ── 3. 2-COLUMN GRID (Matching AddPaymentOutModal) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+            {/* Left Column: Customer Party & Payment Mode */}
+            <div className="space-y-3.5">
+              {/* Customer Selector */}
+              <div ref={partyRef} className="relative">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Customer / Party *
                 </label>
-                <div className="flex items-center justify-between">
+                <div className="relative">
                   <input
                     type="text"
+                    placeholder="Search customer..."
                     value={partyQuery}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowPartyDropdown(true);
-                      if (partySuggestions.length === 0) {
-                        fetchCustomerSuggestions(partyQuery);
-                      }
-                    }}
                     onChange={(e) => handleSearchParty(e.target.value)}
-                    placeholder="Search or select party..."
-                    className="w-full bg-transparent text-sm text-slate-800 font-medium outline-none"
+                    onFocus={() => setShowPartyDropdown(true)}
+                    className="w-full px-3.5 py-2.5 pr-8 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 transition"
                   />
                   <ChevronDown
-                    size={16}
-                    className="text-slate-400 hover:text-slate-600 transition cursor-pointer ml-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowPartyDropdown((prev) => !prev);
-                    }}
+                    size={14}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"
+                    onClick={() => setShowPartyDropdown(!showPartyDropdown)}
                   />
                 </div>
-              </div>
 
-              {/* Suggestions Dropdown */}
-              {showPartyDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50 py-1">
-                  {searchingParty ? (
-                    <div className="p-3 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                      <RefreshCw size={12} className="animate-spin text-blue-500" />
-                      <span>Searching parties...</span>
-                    </div>
-                  ) : partySuggestions.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-slate-400">No parties found.</div>
-                  ) : (
-                    partySuggestions.map((cust) => (
-                      <div
-                        key={cust.id}
-                        onClick={() => selectParty(cust)}
-                        className="px-3.5 py-2 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-none"
-                      >
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">{cust.name || cust.customer_name}</div>
-                          {cust.phone && <div className="text-[11px] text-slate-400">{cust.phone}</div>}
-                        </div>
-                        {(cust.pending_amount !== undefined || cust.balance !== undefined) && (
-                          <div className="text-right">
-                            <span className="text-[10px] text-slate-400 block">Pending</span>
-                            <span className="text-xs font-bold text-red-600">
-                              ₹{parseFloat(cust.pending_amount ?? cust.balance ?? 0).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {/* Selected Customer Balance Preview */}
-              {selectedParty && (
-                <div className="mt-1.5 text-xs text-slate-500 flex items-center justify-between px-1">
-                  <span>Selected: <strong className="text-slate-700">{selectedParty.name || selectedParty.customer_name}</strong></span>
-                  {(selectedParty.pending_amount !== undefined || selectedParty.balance !== undefined) && (
-                    <span className="text-red-600 font-semibold">
-                      Current Bal: ₹{parseFloat(selectedParty.pending_amount ?? selectedParty.balance ?? 0).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Payment Type */}
-            <div className="relative">
-              <div className="relative border border-slate-300 rounded-lg px-3 pt-3 pb-2">
-                <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-medium text-slate-500">
-                  Payment Type
-                </label>
-                <div
-                  onClick={() => setShowPaymentTypeDropdown(!showPaymentTypeDropdown)}
-                  className="flex items-center justify-between cursor-pointer"
-                >
-                  <span className="text-sm font-medium text-slate-800">{paymentType}</span>
-                  <ChevronDown size={16} className="text-slate-400" />
-                </div>
-              </div>
-
-              {showPaymentTypeDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
-                  {["Cash", "Online / Bank Transfer", "UPI / GooglePay", "Cheque"].map((type) => (
-                    <div
-                      key={type}
-                      onClick={() => {
-                        setPaymentType(type);
-                        setShowPaymentTypeDropdown(false);
-                      }}
-                      className={`px-3 py-2 text-xs font-medium cursor-pointer hover:bg-slate-50 flex items-center justify-between ${
-                        paymentType === type ? "text-blue-600 font-bold bg-blue-50/50" : "text-slate-700"
+                {/* Selected Customer Pending Balance Box */}
+                {selectedParty && (
+                  <div className="flex justify-between items-center mt-1.5 px-2.5 py-1 text-[11px] bg-slate-50 rounded-lg border border-slate-200">
+                    <span className="text-slate-500 font-medium">Pending Due:</span>
+                    <span
+                      className={`font-black ${
+                        Number(selectedParty.pending_amount ?? selectedParty.balance ?? 0) > 0
+                          ? "text-rose-600"
+                          : "text-emerald-600"
                       }`}
                     >
-                      <span>{type}</span>
-                      {paymentType === type && <Check size={13} className="text-blue-600" />}
-                    </div>
+                      ₹ {Number(selectedParty.pending_amount ?? selectedParty.balance ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Customer Suggestions Dropdown */}
+                {showPartyDropdown && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-48 overflow-y-auto z-50 py-1">
+                    {searchingParty ? (
+                      <div className="p-3 text-xs text-slate-400 text-center font-medium">Searching customers...</div>
+                    ) : partySuggestions.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-600">No matching customer found.</div>
+                    ) : (
+                      partySuggestions.map((cust) => (
+                        <button
+                          key={cust.id}
+                          type="button"
+                          onClick={() => selectParty(cust)}
+                          className="w-full text-left px-3.5 py-2 text-xs hover:bg-emerald-50 flex items-center justify-between border-b border-slate-50 cursor-pointer"
+                        >
+                          <div>
+                            <div className="font-bold text-slate-900">{cust.name || cust.customer_name}</div>
+                            {cust.phone && <div className="text-[10px] text-slate-400">{cust.phone}</div>}
+                          </div>
+                          {(cust.pending_amount !== undefined || cust.balance !== undefined) && (
+                            <span className="font-bold text-rose-600 text-[11px]">
+                              Due: ₹{parseFloat(cust.pending_amount ?? cust.balance ?? 0).toFixed(2)}
+                            </span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Mode Selector Buttons (Matching AddPaymentOutModal) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Payment Mode *
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {["Cash", "UPI", "Online", "Cheque"].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setPaymentType(type)}
+                      className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
+                        paymentType === type
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs shadow-emerald-600/30"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {type}
+                    </button>
                   ))}
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* + ADD DESCRIPTION Toggle & Textarea */}
-            <div>
-              {!showDescription ? (
-                <button
-                  type="button"
-                  onClick={() => setShowDescription(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
-                >
-                  <AlignLeft size={13} />
-                  <span>ADD DESCRIPTION</span>
-                </button>
-              ) : (
-                <div className="border border-slate-200 rounded-lg p-2 bg-slate-50/50">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-bold text-slate-600">Description / Notes</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowDescription(false);
-                        setDescription("");
-                      }}
-                      className="text-slate-400 hover:text-slate-600 text-xs"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                  <textarea
-                    rows={2}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Enter any reference notes or remarks..."
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800 outline-none focus:border-blue-500 resize-none"
+            {/* Right Column: Receipt #, Date, Amount, Discount */}
+            <div className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Receipt No */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Receipt #</label>
+                  <input
+                    type="text"
+                    value={receiptNo}
+                    onChange={(e) => setReceiptNo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 transition"
                   />
                 </div>
-              )}
-            </div>
 
-            {/* Attachment Camera Icon */}
-            <div>
-              <button
-                type="button"
-                className="w-8 h-8 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 flex items-center justify-center transition cursor-pointer"
-                title="Attach photo or slip"
-              >
-                <Camera size={16} />
-              </button>
+                {/* Date */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Payment Date</label>
+                  <input
+                    type="date"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold text-slate-800 text-xs outline-none focus:border-emerald-600 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Received Amount */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Received Amount (₹) *
+                </label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0.01"
+                  value={receivedAmount}
+                  onChange={(e) => setReceivedAmount(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-black text-slate-900 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 transition"
+                />
+              </div>
+
+              {/* Discount Amount */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Discount (₹)
+                </label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  value={discountAmount}
+                  onChange={(e) => setDiscountAmount(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-semibold text-slate-700 text-xs outline-none focus:border-emerald-600 transition"
+                />
+              </div>
+
+              {/* Net Total Summary Strip */}
+              <div className="flex justify-between items-center px-3 py-2 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs">
+                <span className="text-emerald-800 font-bold">Total Voucher:</span>
+                <span className="text-emerald-800 font-black text-sm">₹ {totalAmount.toFixed(2)}</span>
+              </div>
             </div>
           </div>
 
-          {/* ── RIGHT COLUMN ── */}
-          <div className="space-y-4">
-            {/* Receipt No */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Receipt No</span>
-              <input
-                type="text"
-                value={receiptNo}
-                onChange={(e) => setReceiptNo(e.target.value)}
-                className="w-36 text-right border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500"
-              />
-            </div>
-
-            {/* Date */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Date</span>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-36 text-right text-xs font-semibold text-slate-800 outline-none border-b border-slate-200 pb-1 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            {/* Received Input */}
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs font-medium text-slate-500">Received</span>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                placeholder="0"
-                value={receivedAmount}
-                onChange={(e) => setReceivedAmount(e.target.value)}
-                className="w-40 border border-slate-300 rounded-md px-3 py-1.5 text-right text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Discount Input */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Discount</span>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                placeholder="0"
-                value={discountAmount}
-                onChange={(e) => setDiscountAmount(e.target.value)}
-                className="w-40 border border-slate-300 rounded-md px-3 py-1.5 text-right text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Total Display */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <span className="text-sm font-bold text-slate-800">Total</span>
-              <span className="text-lg font-black text-blue-600">
-                ₹{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-              </span>
-            </div>
+          {/* Full-Width Description / Notes */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Notes / Remarks
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Cleared via UPI / Invoice settlement reference..."
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 outline-none focus:border-emerald-600 transition"
+            />
           </div>
         </div>
 
-        {/* ── 4. BOTTOM ACTION BAR (Share | Save) ── */}
-        <div className="px-6 py-3.5 border-t border-slate-200 bg-white flex items-center justify-end gap-3">
-          {/* Share Split Button */}
-          <div className="inline-flex rounded-md border border-blue-500 shadow-xs">
-            <button
-              type="button"
-              className="px-3.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 transition cursor-pointer"
-            >
-              Share
-            </button>
-            <button
-              type="button"
-              className="px-1.5 py-1.5 text-blue-600 border-l border-blue-500 hover:bg-blue-50 transition cursor-pointer"
-            >
-              <ChevronDown size={13} />
-            </button>
-          </div>
-
-          {/* Primary Save Button */}
+        {/* ── 4. FOOTER (Matching AddPaymentOutModal) ── */}
+        <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-200 flex items-center justify-end gap-2.5">
           <button
             type="button"
-            disabled={saving}
-            onClick={handleSavePaymentIn}
-            className="px-8 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
           >
-            {saving && <RefreshCw size={14} className="animate-spin" />}
-            <span><u>S</u>ave</span>
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSavePaymentIn}
+            disabled={saving}
+            className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl shadow-md shadow-emerald-500/25 transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+          >
+            {saving ? (
+              <>
+                <RefreshCw size={13} className="animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <span>Record Payment-In</span>
+            )}
           </button>
         </div>
       </div>

@@ -1,50 +1,73 @@
 import { useState, useEffect } from "react";
 import api from "../../services/api";
 import Barcode from "react-barcode";
+import {
+  PackagePlus,
+  Package,
+  X,
+  Sparkles,
+  Check,
+  RefreshCw,
+  Tag,
+  Layers,
+  Boxes,
+  Percent,
+  ChevronDown,
+  ChevronUp,
+  Hash,
+  Scale,
+  IndianRupee,
+  CheckCircle2,
+  AlertCircle,
+  Plus,
+} from "lucide-react";
 
 function useToast() {
   const [toasts, setToasts] = useState([]);
   const show = (type, title, msg) => {
     const id = Date.now();
-    setToasts(p => [...p, { id, type, title, msg }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3600);
+    setToasts((p) => [...p, { id, type, title, msg }]);
+    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 3600);
   };
-  const remove = id => setToasts(p => p.filter(t => t.id !== id));
+  const remove = (id) => setToasts((p) => p.filter((t) => t.id !== id));
   return { toasts, show, remove };
 }
 
 function ToastPortal({ toasts, remove }) {
   return (
-    <div style={{ position: "fixed", top: 22, right: 22, zIndex: 99999, display: "flex", flexDirection: "column", gap: 9, pointerEvents: "none" }}>
-      {toasts.map(t => (
-        <div key={t.id} style={{
-          pointerEvents: "auto", display: "flex", alignItems: "center", gap: 11,
-          minWidth: 280, maxWidth: 360, padding: "12px 15px", borderRadius: 15,
-          position: "relative", overflow: "hidden", boxShadow: "0 8px 28px rgba(0,0,0,0.12)",
-          animation: "apmToastIn 0.4s cubic-bezier(0.22,1,0.36,1) both",
-          fontFamily: "'Plus Jakarta Sans',sans-serif",
-          background: t.type === "success" ? "#f0fdf4" : t.type === "error" ? "#fff1f2" : "#fffbeb",
-          border: `1px solid ${t.type === "success" ? "#bbf7d0" : t.type === "error" ? "#fecdd3" : "#fde68a"}`
-        }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 14, fontWeight: 800, flexShrink: 0,
-            background: t.type === "success" ? "#dcfce7" : t.type === "error" ? "#ffe4e6" : "#fef9c3",
-            color: t.type === "success" ? "#16a34a" : t.type === "error" ? "#e11d48" : "#b45309"
-          }}>
+    <div className="fixed top-5 right-5 z-[99999] flex flex-col gap-2.5 pointer-events-none">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className={`pointer-events-auto flex items-center gap-3 min-w-[280px] max-w-[380px] px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-4 duration-200 border ${
+            t.type === "success"
+              ? "bg-slate-900/90 border-emerald-500/40 text-white"
+              : t.type === "error"
+              ? "bg-red-950/90 border-red-500/40 text-white"
+              : "bg-amber-950/90 border-amber-500/40 text-white"
+          }`}
+        >
+          <div
+            className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+              t.type === "success"
+                ? "bg-emerald-500 text-white"
+                : t.type === "error"
+                ? "bg-red-500 text-white"
+                : "bg-amber-500 text-white"
+            }`}
+          >
             {t.type === "success" ? "✓" : t.type === "error" ? "✕" : "!"}
           </div>
-          <div style={{ flex: 1 }}>
-            <p style={{
-              fontSize: 13, fontWeight: 700, margin: "0 0 2px",
-              color: t.type === "success" ? "#15803d" : t.type === "error" ? "#be123c" : "#92400e"
-            }}>{t.title}</p>
-            {t.msg && <p style={{
-              fontSize: 12, margin: 0,
-              color: t.type === "success" ? "#16a34a" : t.type === "error" ? "#e11d48" : "#b45309"
-            }}>{t.msg}</p>}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold leading-tight">{t.title}</p>
+            {t.msg && <p className="text-[11px] opacity-80 mt-0.5 leading-snug">{t.msg}</p>}
           </div>
-          <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, opacity: 0.4, flexShrink: 0, padding: 2 }} onClick={() => remove(t.id)}>✕</button>
+          <button
+            onClick={() => remove(t.id)}
+            className="text-white/60 hover:text-white text-xs p-1 cursor-pointer transition-colors"
+          >
+            ✕
+          </button>
         </div>
       ))}
     </div>
@@ -69,13 +92,21 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
   const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
 
   const [form, setForm] = useState({
-    name: "", product_code: "", price: "", stock: "",
-    gst: "", barcode: "", unit: "",
-    sale_price: "", purchase_price: "",
-    category_id: "", subcategory_id: "", brand_id: ""
+    name: "",
+    product_code: "",
+    price: "",
+    stock: "",
+    gst: "",
+    barcode: "",
+    unit: "",
+    sale_price: "",
+    purchase_price: "",
+    category_id: "",
+    subcategory_id: "",
+    brand_id: "",
   });
 
-  const set = (field, val) => setForm(p => ({ ...p, [field]: val }));
+  const set = (field, val) => setForm((p) => ({ ...p, [field]: val }));
 
   const fetchCompanyGST = async () => {
     setGstLoading(true);
@@ -84,6 +115,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
       if (!company_id) return;
       const res = await api.post("/company/get_company_by_id", { id: company_id });
       if (res.data.status) {
+        // Pre-fill toggle with company preference, but user can freely toggle enable/disable
         setGstEnabled(res.data.data.gst_type === "with_gst");
       }
     } catch (err) {
@@ -123,7 +155,9 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
     }
     setSubCategoryLoading(true);
     try {
-      const res = await api.get(`/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${categoryId}`);
+      const res = await api.get(
+        `/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${categoryId}`
+      );
       if (res.data.status) {
         setSubCategories(res.data.data || []);
       } else {
@@ -164,7 +198,20 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
 
     if (isOpen) {
       const timer = setTimeout(() => {
-        setForm({ name: "", product_code: "", price: "", stock: "", gst: "", barcode: "", unit: "", sale_price: "", purchase_price: "", category_id: "", subcategory_id: "", brand_id: "" });
+        setForm({
+          name: "",
+          product_code: "",
+          price: "",
+          stock: "",
+          gst: "",
+          barcode: "",
+          unit: "",
+          sale_price: "",
+          purchase_price: "",
+          category_id: "",
+          subcategory_id: "",
+          brand_id: "",
+        });
         setShowAdditional(false);
         setSubCategories([]);
         fetchCompanyGST();
@@ -185,25 +232,45 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);
-    setForm(p => ({ ...p, barcode: code }));
-    setBarcodeKey(k => k + 1);
+    setForm((p) => ({ ...p, barcode: code }));
+    setBarcodeKey((k) => k + 1);
   };
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) { show("warn", "Missing Field", "Product name is required."); return; }
-    if (!form.stock) { show("warn", "Missing Field", "Stock quantity is required."); return; }
-    if (isNaN(Number(form.stock)) || Number(form.stock) < 0) { show("warn", "Invalid Stock", "Please enter a valid stock quantity."); return; }
-    if (!form.unit.trim()) { show("warn", "Missing Field", "Unit is required."); return; }
-    if (gstEnabled && !form.gst) { show("warn", "Missing Field", "GST percentage is required."); return; }
-    if (gstEnabled && (isNaN(Number(form.gst)) || Number(form.gst) < 0 || Number(form.gst) > 100)) {
-      show("warn", "Invalid GST", "Please enter a valid GST percentage (0–100)."); return;
+    if (!form.name.trim()) {
+      show("warn", "Missing Field", "Product name is required.");
+      return;
+    }
+    if (!form.stock) {
+      show("warn", "Missing Field", "Stock quantity is required.");
+      return;
+    }
+    if (isNaN(Number(form.stock)) || Number(form.stock) < 0) {
+      show("warn", "Invalid Stock", "Please enter a valid stock quantity.");
+      return;
+    }
+    if (!form.unit.trim()) {
+      show("warn", "Missing Field", "Unit is required.");
+      return;
+    }
+
+    // GST validation: Only required if GST is enabled!
+    if (gstEnabled) {
+      if (!form.gst || String(form.gst).trim() === "") {
+        show("warn", "Missing Field", "GST percentage is required when GST is enabled.");
+        return;
+      }
+      if (isNaN(Number(form.gst)) || Number(form.gst) < 0 || Number(form.gst) > 100) {
+        show("warn", "Invalid GST", "Please enter a valid GST percentage (0–100).");
+        return;
+      }
     }
 
     setLoading(true);
     try {
       const res = await api.post("/product/add", {
-        product_name: form.name,
-        product_code: form.product_code,
+        product_name: form.name.trim(),
+        product_code: form.product_code.trim(),
         category_id: Number(form.category_id) || 0,
         subcategory_id: Number(form.subcategory_id) || 0,
         brand_id: Number(form.brand_id) || 0,
@@ -212,23 +279,24 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
         sale_price: form.sale_price || 0,
         purchase_price: form.purchase_price || 0,
         stock: form.stock,
-        gst_percentage: gstEnabled ? form.gst : 0,
-        barcode: form.barcode,
-        unit: form.unit,
-        supplier_id: 0
+        gst_percentage: gstEnabled ? Number(form.gst) || 0 : 0,
+        barcode: form.barcode.trim(),
+        unit: form.unit.trim(),
+        supplier_id: 0,
       });
+
       if (res.data.status) {
-        show("success", "Product Added!", `"${form.name}" saved successfully.`);
+        show("success", "Product Added!", `"${form.name}" has been created successfully.`);
         setTimeout(() => {
           onProductAdded && onProductAdded();
           onClose();
-        }, 1000);
+        }, 800);
       } else {
         show("error", "Failed", res.data.message || "Something went wrong.");
       }
     } catch (err) {
       console.error(err);
-      show("error", "Server Error", "Unable to reach server. Try again.");
+      show("error", "Server Error", "Unable to connect to server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -236,463 +304,518 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
 
   if (!isOpen) return null;
 
+  const COMMON_GST_RATES = ["0", "5", "12", "18", "28"];
+
+  const UNITS = [
+    "Piece",
+    "Kg",
+    "Gram",
+    "Litre",
+    "ML",
+    "Meter",
+    "Feet",
+    "Box",
+    "Pack",
+    "Dozen",
+    "Pair",
+    "Roll",
+    "Bag",
+    "Bottle",
+    "Can",
+    "Set",
+    "Quintal",
+    "Ton",
+  ];
+
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        @keyframes apmPopIn { from{opacity:0;transform:scale(.94) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
-        @keyframes apmToastIn { from{opacity:0;transform:translateX(60px) scale(0.9)} to{opacity:1;transform:translateX(0) scale(1)} }
-        @keyframes apmSpin { to{transform:rotate(360deg)} }
-        @keyframes apmFadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes apmSkel { to{background-position:-200% 0} }
-        .apm-input:focus { border-color:#3b82f6 !important; background:#fff !important; box-shadow:0 0 0 4px rgba(59,130,246,0.1) !important; }
-        .apm-select:focus { border-color:#3b82f6 !important; background:#fff !important; box-shadow:0 0 0 4px rgba(59,130,246,0.1) !important; }
-        .apm-submit:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 10px 28px rgba(37,99,235,0.45) !important; }
-        .apm-close:hover { background:#f1f5f9 !important; }
-      `}</style>
-
       <ToastPortal toasts={toasts} remove={remove} />
 
       <div
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-        style={{
-          position: "fixed", inset: 0, zIndex: 9999,
-          background: "rgba(15,23,42,.55)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 20
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
         }}
+        className="fixed inset-0 z-[10000] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
       >
-        <div style={{
-          background: "#fff", borderRadius: 20, width: "100%", maxWidth: 620,
-          maxHeight: "88vh", display: "flex", flexDirection: "column",
-          boxShadow: "0 25px 50px -12px rgba(0,0,0,0.15)",
-          animation: "apmPopIn .25s cubic-bezier(.34,1.56,.64,1)", overflow: "hidden"
-        }}>
-
-          {/* Header */}
-          <div style={{
-            padding: "18px 24px", borderBottom: "1px solid #e2e8f0",
-            background: "linear-gradient(135deg, #eff6ff, #dbeafe)", flexShrink: 0,
-            display: "flex", justifyContent: "space-between", alignItems: "center"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{
-                width: 42, height: 42, borderRadius: 12, background: "rgba(37,99,235,0.12)",
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20
-              }}>📦</div>
+        <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col font-['Plus_Jakarta_Sans',sans-serif] max-h-[90vh] transition-all animate-in zoom-in-95 duration-200">
+          {/* ── HEADER ── */}
+          <div className="px-6 sm:px-7 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/70 to-white flex-shrink-0">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+                <PackagePlus size={20} />
+              </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#0f172a" }}>Add Product</h3>
-                <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>Fill in the details to create a new product</p>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                  Add Product
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Register new catalog item, pricing, taxation & inventory
+                </p>
               </div>
             </div>
-            <button className="apm-close" onClick={onClose} style={{
-              border: "none", background: "#f1f5f9", color: "#475569",
-              padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer"
-            }}>✕ Close</button>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              title="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
 
-          {/* Scrollable Body */}
-          <div style={{ overflowY: "auto", flex: 1, padding: "18px 24px" }}>
-
-            {/* Basic Info */}
-            <p style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#3b82f6", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 8 }}>
-              Basic Info <span style={{ flex: 1, height: 1, background: "#e8f0fe" }} />
-            </p>
-
-            {/* Product Name */}
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                Product Name <span style={{ color: "#ef4444" }}>*</span>
-              </label>
-              <input
-                className="apm-input"
-                placeholder="e.g. Bisleri Water 1L"
-                value={form.name}
-                onChange={e => set("name", e.target.value)}
-                style={{
-                  width: "100%", padding: "11px 14px", borderRadius: 10,
-                  border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                  fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                }}
-              />
-            </div>
-
-            {/* HSN Code + Unit */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                  HSN / Product Code
-                </label>
-                <input
-                  className="apm-input"
-                  placeholder="e.g. PRD001"
-                  value={form.product_code}
-                  onChange={e => set("product_code", e.target.value.toUpperCase().replace(/\s/g, ""))}
-                  style={{
-                    width: "100%", padding: "11px 14px", borderRadius: 10,
-                    border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                    fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                  }}
-                />
+          {/* ── SCROLLABLE BODY ── */}
+          <div className="px-6 sm:px-7 py-6 overflow-y-auto flex-1 space-y-6">
+            {/* SECTION 1: BASIC INFORMATION */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                <Tag size={14} className="text-indigo-600" />
+                <span>Basic Details</span>
+                <div className="flex-1 h-px bg-slate-100 ml-2" />
               </div>
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                  Unit <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <select
-                  className="apm-select"
-                  value={form.unit}
-                  onChange={e => set("unit", e.target.value)}
-                  style={{
-                    width: "100%", padding: "11px 14px", borderRadius: 10,
-                    border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                    fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s",
-                    appearance: "none"
-                  }}
-                >
-                  <option value="">Select Unit</option>
-                  <option value="Piece">Piece</option>
-                  <option value="Kg">Kg</option>
-                  <option value="Gram">Gram</option>
-                  <option value="Litre">Litre</option>
-                  <option value="ML">ML</option>
-                  <option value="Meter">Meter</option>
-                  <option value="Feet">Feet</option>
-                  <option value="Box">Box</option>
-                  <option value="Pack">Pack</option>
-                  <option value="Dozen">Dozen</option>
-                  <option value="Pair">Pair</option>
-                  <option value="Roll">Roll</option>
-                  <option value="Bag">Bag</option>
-                  <option value="Bottle">Bottle</option>
-                  <option value="Can">Can</option>
-                  <option value="Set">Set</option>
-                </select>
-              </div>
-            </div>
 
-            {/* Pricing */}
-            <p style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#3b82f6", margin: "16px 0 12px", display: "flex", alignItems: "center", gap: 8 }}>
-              Pricing & Stock <span style={{ flex: 1, height: 1, background: "#e8f0fe" }} />
-            </p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+              {/* Product Name */}
               <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                  Sale Price (₹)
+                <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                  Product Name <span className="text-red-500">*</span>
                 </label>
-                <div style={{ position: "relative" }}>
-                  <span style={{
-                    position: "absolute", left: 0, top: 0, bottom: 0, width: 36,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    borderRight: "1.5px solid #e2e8f0", borderRadius: "10px 0 0 10px",
-                    background: "#f1f5f9", fontSize: 13, fontWeight: 700, color: "#64748b"
-                  }}>₹</span>
-                  <input type="number" className="apm-input" placeholder="0.00"
-                    value={form.sale_price}
-                    onChange={e => set("sale_price", e.target.value)}
-                    style={{
-                      width: "100%", padding: "11px 14px 11px 44px", borderRadius: 10,
-                      border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                      fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                    }}
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                  Purchase Price (₹)
-                </label>
-                <div style={{ position: "relative" }}>
-                  <span style={{
-                    position: "absolute", left: 0, top: 0, bottom: 0, width: 36,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    borderRight: "1.5px solid #e2e8f0", borderRadius: "10px 0 0 10px",
-                    background: "#f1f5f9", fontSize: 13, fontWeight: 700, color: "#64748b"
-                  }}>₹</span>
-                  <input type="number" className="apm-input" placeholder="0.00"
-                    value={form.purchase_price}
-                    onChange={e => set("purchase_price", e.target.value)}
-                    style={{
-                      width: "100%", padding: "11px 14px 11px 44px", borderRadius: 10,
-                      border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                      fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                    }}
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                  Stock Qty <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <input type="number" className="apm-input" placeholder="0"
-                  value={form.stock}
-                  onChange={e => set("stock", e.target.value)}
-                  style={{
-                    width: "100%", padding: "11px 14px", borderRadius: 10,
-                    border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                    fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* GST */}
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                GST
-                {!gstLoading && (
-                  <span style={{
-                    display: "inline-flex", alignItems: "center", gap: 5,
-                    padding: "3px 10px", borderRadius: 100, fontSize: 10.5, fontWeight: 700, marginLeft: 8,
-                    background: gstEnabled ? "#dcfce7" : "#fee2e2", color: gstEnabled ? "#15803d" : "#b91c1c",
-                    border: `1px solid ${gstEnabled ? "#bbf7d0" : "#fecaca"}`
-                  }}>
-                    {gstEnabled ? "✓ Enabled" : "✕ Disabled"}
-                  </span>
-                )}
-              </label>
-              {gstLoading ? (
-                <div style={{
-                  height: 42, borderRadius: 10,
-                  background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)",
-                  backgroundSize: "200% 100%", animation: "apmSkel 1.4s ease infinite"
-                }} />
-              ) : gstEnabled ? (
-                <div style={{ position: "relative", animation: "apmFadeIn 0.3s ease both" }}>
-                  <span style={{
-                    position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)",
-                    fontSize: 13, fontWeight: 700, color: "#64748b", pointerEvents: "none"
-                  }}>%</span>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Package size={15} />
+                  </div>
                   <input
-                    type="number" className="apm-input"
-                    placeholder="Enter GST % (e.g. 18)"
-                    value={form.gst} min="0" max="100"
-                    onChange={e => set("gst", e.target.value)}
-                    style={{
-                      width: "100%", padding: "11px 14px 11px 34px", borderRadius: 10,
-                      border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                      fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                    }}
+                    type="text"
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                    placeholder="e.g. Bisleri Mineral Water 1L"
+                    value={form.name}
+                    onChange={(e) => set("name", e.target.value)}
+                    autoFocus
                   />
+                </div>
+              </div>
+
+              {/* HSN & Unit Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                    HSN / Product Code
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Hash size={14} />
+                    </div>
+                    <input
+                      type="text"
+                      className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold uppercase tracking-wider text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                      placeholder="e.g. PRD001 / 2202"
+                      value={form.product_code}
+                      onChange={(e) =>
+                        set("product_code", e.target.value.toUpperCase().replace(/\s/g, ""))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                    Measuring Unit <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Scale size={14} />
+                    </div>
+                    <select
+                      className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all appearance-none cursor-pointer"
+                      value={form.unit}
+                      onChange={(e) => set("unit", e.target.value)}
+                    >
+                      <option value="">Select Unit</option>
+                      {UNITS.map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={14}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 2: PRICING & INVENTORY */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                <Boxes size={14} className="text-indigo-600" />
+                <span>Pricing & Stock</span>
+                <div className="flex-1 h-px bg-slate-100 ml-2" />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Sale Price */}
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                    Sale Price (₹)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
+                      ₹
+                    </div>
+                    <input
+                      type="number"
+                      step="any"
+                      className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                      placeholder="0.00"
+                      value={form.sale_price}
+                      onChange={(e) => set("sale_price", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Purchase Price */}
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                    Purchase Price (₹)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
+                      ₹
+                    </div>
+                    <input
+                      type="number"
+                      step="any"
+                      className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                      placeholder="0.00"
+                      value={form.purchase_price}
+                      onChange={(e) => set("purchase_price", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Stock Qty */}
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                    Opening Stock <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                    placeholder="0"
+                    value={form.stock}
+                    onChange={(e) => set("stock", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 3: GST TAXATION (ENABLE / DISABLE TOGGLE) */}
+            <div className="bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-slate-200/80 space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Percent size={15} className="text-indigo-600" />
+                    <span className="text-xs font-bold text-slate-900">GST Taxation</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Enable GST to apply tax percentage, or disable for non-taxable / exempt items
+                  </p>
+                </div>
+
+                {/* Enable / Disable Toggle Switcher */}
+                <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGstEnabled(false);
+                      set("gst", "");
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      !gstEnabled
+                        ? "bg-slate-800 text-white shadow-xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    Disabled
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGstEnabled(true)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      gstEnabled
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    Enabled
+                  </button>
+                </div>
+              </div>
+
+              {/* Conditional Display: If enabled, show GST input & chips. If disabled, hide field (optional) */}
+              {gstEnabled ? (
+                <div className="pt-2 border-t border-slate-200/70 space-y-2.5 animate-in fade-in duration-150">
+                  <label className="block text-[11.5px] font-semibold text-slate-700">
+                    GST Percentage Rate (%) <span className="text-red-500">*</span>
+                  </label>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
+                        %
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="any"
+                        className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                        placeholder="e.g. 18"
+                        value={form.gst}
+                        onChange={(e) => set("gst", e.target.value)}
+                      />
+                    </div>
+
+                    {/* Quick rate selection chips */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {COMMON_GST_RATES.map((rate) => (
+                        <button
+                          type="button"
+                          key={rate}
+                          onClick={() => set("gst", rate)}
+                          className={`px-2.5 py-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                            String(form.gst) === rate
+                              ? "bg-indigo-50 border-indigo-500 text-indigo-700"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          {rate}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "10px 14px", borderRadius: 10,
-                  background: "#f8faff", border: "1.5px dashed #e2e8f0",
-                  fontSize: 12.5, color: "#94a3b8", fontWeight: 500
-                }}>
-                  <span>🚫</span>
-                  <span>GST not applicable for this company (without GST plan)</span>
+                <div className="pt-2 border-t border-slate-200/70 flex items-center gap-2 text-xs text-slate-500">
+                  <span className="w-2 h-2 rounded-full bg-slate-400" />
+                  <span>GST field is disabled — 0% tax will be recorded for this item.</span>
                 </div>
               )}
             </div>
 
-            {/* Barcode */}
-            <p style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#3b82f6", margin: "16px 0 12px", display: "flex", alignItems: "center", gap: 8 }}>
-              Barcode <span style={{ flex: 1, height: 1, background: "#e8f0fe" }} />
-            </p>
-
-            <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                  Barcode Number
-                </label>
-                <input className="apm-input" placeholder="Enter or auto-generate"
-                  value={form.barcode}
-                  onChange={e => set("barcode", e.target.value)}
-                  style={{
-                    width: "100%", padding: "11px 14px", borderRadius: 10,
-                    border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                    fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s"
-                  }}
-                />
+            {/* SECTION 4: BARCODE */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                <Hash size={14} className="text-indigo-600" />
+                <span>Barcode Tracking</span>
+                <div className="flex-1 h-px bg-slate-100 ml-2" />
               </div>
-              <button onClick={generateBarcode} style={{
-                padding: "11px 18px", borderRadius: 10, border: "none",
-                cursor: "pointer", fontFamily: "'Plus Jakarta Sans',sans-serif",
-                fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap",
-                background: "linear-gradient(135deg,#6366f1,#818cf8)",
-                color: "#fff", boxShadow: "0 4px 14px rgba(99,102,241,0.35)"
-              }}>⚡ Auto</button>
+
+              <div className="flex gap-2.5 items-center">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                    placeholder="Enter or generate barcode"
+                    value={form.barcode}
+                    onChange={(e) => set("barcode", e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={generateBarcode}
+                  className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                >
+                  <Sparkles size={14} /> Auto Generate
+                </button>
+              </div>
+
+              {form.barcode && (
+                <div
+                  key={barcodeKey}
+                  className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 flex flex-col items-center justify-center animate-in fade-in duration-150"
+                >
+                  <p className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                    Barcode Scan Preview
+                  </p>
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                    <Barcode value={form.barcode} height={45} fontSize={12} margin={0} />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {form.barcode && (
-              <div key={barcodeKey} style={{
-                background: "#f8faff", borderRadius: 12, border: "1.5px solid #e2e8f0",
-                padding: 14, textAlign: "center", marginBottom: 12
-              }}>
-                <p style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", margin: "0 0 8px" }}>Barcode Preview</p>
-                <Barcode value={form.barcode} height={50} fontSize={12} margin={0} />
-              </div>
-            )}
-
-            {/* Additional Fields Toggle */}
-            <button
-              onClick={() => setShowAdditional(v => !v)}
-              style={{
-                width: "100%", padding: "12px 14px", borderRadius: 12,
-                border: "1.5px dashed #c7d2fe", background: showAdditional ? "#eef2ff" : "#f8faff",
-                color: "#4338ca", fontWeight: 700, fontSize: 13, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                transition: "all 0.2s", boxSizing: "border-box"
-              }}
-            >
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 15 }}>{showAdditional ? "🔽" : "➕"}</span>
-                Additional Fields
-              </span>
-              <span style={{
-                fontSize: 10.5, background: showAdditional ? "#e0e7ff" : "#eef2ff",
-                color: "#4338ca", padding: "3px 9px", borderRadius: 99, fontWeight: 800
-              }}>
-                Optional
-              </span>
-            </button>
-
-            {showAdditional && (
-              <div style={{ animation: "apmFadeIn 0.25s ease both", marginTop: 12, paddingTop: 2 }}>
-                <p style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#3b82f6", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 8 }}>
-                  Category & Brand <span style={{ flex: 1, height: 1, background: "#e8f0fe" }} />
-                </p>
-
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                    Category
-                  </label>
-                  {categoryLoading ? (
-                    <div style={{
-                      height: 42, borderRadius: 10,
-                      background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)",
-                      backgroundSize: "200% 100%", animation: "apmSkel 1.4s ease infinite"
-                    }} />
-                  ) : (
-                    <select
-                      className="apm-select"
-                      value={form.category_id}
-                      onChange={(e) => {
-                        const categoryId = e.target.value;
-                        set("category_id", categoryId);
-                        set("subcategory_id", "");
-                        set("brand_id", "");
-                        setSubCategories([]);
-                        if (categoryId) fetchSubCategories(categoryId);
-                      }}
-                      style={{
-                        width: "100%", padding: "11px 14px", borderRadius: 10,
-                        border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                        fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s",
-                        appearance: "none"
-                      }}
-                    >
-                      <option value="">Select Category</option>
-                      {categories.length === 0 ? (
-                        <option value="" disabled>No categories found</option>
-                      ) : categories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  )}
+            {/* SECTION 5: ADDITIONAL FIELDS (CATEGORY / BRAND) */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowAdditional((v) => !v)}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200 hover:border-indigo-300 bg-slate-50/50 hover:bg-indigo-50/30 text-indigo-600 font-bold text-xs flex items-center justify-between transition-all cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Layers size={15} />
+                  <span>Category, Subcategory & Brand</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700">
+                    Optional
+                  </span>
+                  {showAdditional ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </div>
+              </button>
 
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                    Subcategory
-                  </label>
-                  {subCategoryLoading ? (
-                    <div style={{
-                      height: 42, borderRadius: 10,
-                      background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)",
-                      backgroundSize: "200% 100%", animation: "apmSkel 1.4s ease infinite"
-                    }} />
-                  ) : (
-                    <select
-                      className="apm-select"
-                      value={form.subcategory_id}
-                      onChange={(e) => {
-                        set("subcategory_id", e.target.value);
-                        set("brand_id", "");
-                      }}
-                      disabled={!form.category_id}
-                      style={{
-                        width: "100%", padding: "11px 14px", borderRadius: 10,
-                        border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                        fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s",
-                        appearance: "none"
-                      }}
-                    >
-                      <option value="">{form.category_id ? "Select Subcategory" : "Select a category first"}</option>
-                      {form.category_id && subCategories.length === 0 ? (
-                        <option value="" disabled>No subcategories found</option>
-                      ) : subCategories.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  )}
+              {showAdditional && (
+                <div className="mt-4 p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-4 animate-in fade-in duration-150">
+                  {/* Category */}
+                  <div>
+                    <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                      Category
+                    </label>
+                    {categoryLoading ? (
+                      <div className="h-10 rounded-xl bg-slate-200/60 animate-pulse" />
+                    ) : (
+                      <div className="relative">
+                        <select
+                          className="w-full px-3.5 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 appearance-none cursor-pointer"
+                          value={form.category_id}
+                          onChange={(e) => {
+                            const categoryId = e.target.value;
+                            set("category_id", categoryId);
+                            set("subcategory_id", "");
+                            set("brand_id", "");
+                            setSubCategories([]);
+                            if (categoryId) fetchSubCategories(categoryId);
+                          }}
+                        >
+                          <option value="">Select Category</option>
+                          {categories.length === 0 ? (
+                            <option value="" disabled>
+                              No categories found
+                            </option>
+                          ) : (
+                            categories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        <ChevronDown
+                          size={14}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Subcategory */}
+                  <div>
+                    <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                      Subcategory
+                    </label>
+                    {subCategoryLoading ? (
+                      <div className="h-10 rounded-xl bg-slate-200/60 animate-pulse" />
+                    ) : (
+                      <div className="relative">
+                        <select
+                          className="w-full px-3.5 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 appearance-none cursor-pointer disabled:opacity-50 disabled:bg-slate-100"
+                          value={form.subcategory_id}
+                          onChange={(e) => {
+                            set("subcategory_id", e.target.value);
+                            set("brand_id", "");
+                          }}
+                          disabled={!form.category_id}
+                        >
+                          <option value="">
+                            {form.category_id
+                              ? "Select Subcategory"
+                              : "Select a category first"}
+                          </option>
+                          {form.category_id && subCategories.length === 0 ? (
+                            <option value="" disabled>
+                              No subcategories found
+                            </option>
+                          ) : (
+                            subCategories.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        <ChevronDown
+                          size={14}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Brand */}
+                  <div>
+                    <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                      Brand
+                    </label>
+                    {brandLoading ? (
+                      <div className="h-10 rounded-xl bg-slate-200/60 animate-pulse" />
+                    ) : (
+                      <div className="relative">
+                        <select
+                          className="w-full px-3.5 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 appearance-none cursor-pointer"
+                          value={form.brand_id}
+                          onChange={(e) => set("brand_id", e.target.value)}
+                        >
+                          <option value="">Select Brand</option>
+                          {brands.length === 0 ? (
+                            <option value="" disabled>
+                              No brands found
+                            </option>
+                          ) : (
+                            brands.map((b) => (
+                              <option key={b.id} value={b.id}>
+                                {b.name}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        <ChevronDown
+                          size={14}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94a3b8", marginBottom: 6 }}>
-                    Brand
-                  </label>
-                  {brandLoading ? (
-                    <div style={{
-                      height: 42, borderRadius: 10,
-                      background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)",
-                      backgroundSize: "200% 100%", animation: "apmSkel 1.4s ease infinite"
-                    }} />
-                  ) : (
-                    <select
-                      className="apm-select"
-                      value={form.brand_id}
-                      onChange={(e) => set("brand_id", e.target.value)}
-                      style={{
-                        width: "100%", padding: "11px 14px", borderRadius: 10,
-                        border: "1.5px solid #e2e8f0", background: "#f8faff", outline: "none",
-                        fontSize: 14, fontWeight: 500, boxSizing: "border-box", transition: "all 0.22s",
-                        appearance: "none"
-                      }}
-                    >
-                      <option value="">Select Brand</option>
-                      {brands.length === 0 ? (
-                        <option value="" disabled>No brands found</option>
-                      ) : brands.map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-            )}
-
+              )}
+            </div>
           </div>
 
-          {/* Sticky Footer */}
-          <div style={{ padding: "14px 24px", borderTop: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", gap: 10, flexShrink: 0 }}>
-            <button onClick={onClose} style={{
-              flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #cbd5e1",
-              background: "#fff", color: "#475569", fontWeight: 600, fontSize: 14, cursor: "pointer"
-            }}>Cancel</button>
-            <button className="apm-submit" onClick={handleSubmit} disabled={loading || gstLoading} style={{
-              flex: 2, padding: "12px", borderRadius: 10, border: "none",
-              background: loading ? "#94a3b8" : "linear-gradient(135deg, #2563eb, #1d4ed8)",
-              color: "#fff", fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer",
-              boxShadow: "0 4px 12px rgba(37,99,235,0.2)",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              transition: "all 0.25s"
-            }}>
+          {/* ── STICKY FOOTER ACTIONS ── */}
+          <div className="px-6 sm:px-7 py-4 bg-slate-50/90 border-t border-slate-200/80 flex items-center justify-between flex-shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading || gstLoading}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-200 flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {loading ? (
                 <>
-                  <div style={{
-                    width: 16, height: 16, border: "2.5px solid rgba(255,255,255,0.3)",
-                    borderTopColor: "#fff", borderRadius: "50%", animation: "apmSpin 0.7s linear infinite"
-                  }} />
-                  Saving...
+                  <RefreshCw size={14} className="animate-spin" /> Saving Product...
                 </>
-              ) : "💾 Save Product"}
+              ) : (
+                <>
+                  <Plus size={15} strokeWidth={2.5} /> Save Product
+                </>
+              )}
             </button>
           </div>
-
         </div>
       </div>
     </>

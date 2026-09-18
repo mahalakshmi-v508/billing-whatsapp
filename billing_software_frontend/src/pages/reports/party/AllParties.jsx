@@ -6,34 +6,37 @@ import {
   Printer,
   X,
   AlertCircle,
+  Users,
+  Building2,
+  Calendar,
+  Wallet,
+  ArrowDownLeft,
+  ArrowUpRight,
+  ShieldCheck,
+  Mail,
+  Phone,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
-
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const NAVY = "#1e1b4b";
-const GRAY_TEXT = "#6b7280";
-const LIGHT_BORDER = "#e5e7eb";
+import { showToast } from "../../../utils/reportToast";
 
 const PARTY_TYPES = [
-  { label: "All parties", value: "all" },
+  { label: "All Parties", value: "all" },
   { label: "Receivable", value: "receivable" },
   { label: "Payable", value: "payable" },
 ];
 
-/* ── Columns ─────────────────────────────────────────────────────────── */
 const COLUMNS = [
-  { key: "index", label: "#", width: 50 },
-  { key: "name", label: "PARTY NAME", width: 200 },
-  { key: "type", label: "PARTY TYPE", width: 120 },
-  { key: "email", label: "EMAIL", width: 200 },
-  { key: "phone", label: "PHONE NO.", width: 140 },
-  { key: "receivable", label: "RECEIVABLE BALANCE", width: 170 },
-  { key: "payable", label: "PAYABLE BALANCE", width: 160 },
-  { key: "creditLimit", label: "CREDIT LIMIT", width: 130 },
+  { key: "index", label: "#", width: "50px", align: "center" },
+  { key: "name", label: "PARTY NAME", width: "220px" },
+  { key: "type", label: "PARTY TYPE", width: "130px" },
+  { key: "email", label: "EMAIL", width: "200px" },
+  { key: "phone", label: "PHONE NO.", width: "140px" },
+  { key: "receivable", label: "RECEIVABLE BAL", width: "160px", align: "right" },
+  { key: "payable", label: "PAYABLE BAL", width: "160px", align: "right" },
+  { key: "creditLimit", label: "CREDIT LIMIT", width: "140px", align: "right" },
 ];
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -52,6 +55,7 @@ const fmtINRNum = (n) =>
   Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function formatDateISO(d) {
+  if (!d) return "";
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
@@ -59,11 +63,11 @@ function formatDateISO(d) {
 }
 
 function parseDateISO(s) {
+  if (!s) return new Date();
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-/** Print a DOM node without leaving the app (hidden iframe). */
 function printElement(element, title) {
   const iframe = document.createElement("iframe");
   Object.assign(iframe.style, {
@@ -76,12 +80,12 @@ function printElement(element, title) {
   doc.write(
     `<html><head><title>${title || "All Parties"}</title>
      <style>
-       body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:28px;color:#1e1b4b;}
-       h2{margin:0 0 4px;font-size:18px;}
+       body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:28px;color:#0f172a;}
+       h2{margin:0 0 4px;font-size:18px;color:#1e1b4b;}
        .meta{color:#64748b;font-size:12px;margin-bottom:18px;}
        table{width:100%;border-collapse:collapse;font-size:11px;}
        th,td{border:1px solid #e2e8f0;padding:7px 9px;text-align:left;}
-       th{background:#f1f5f9;color:#334155;}
+       th{background:#f8fafc;color:#475569;font-weight:bold;}
        td.r,th.r{text-align:right;}
      </style></head>
      <body>${element.innerHTML}</body></html>`
@@ -125,7 +129,7 @@ export default function AllParties() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Load the companies for this admin, default to saved / single company
+  // Load companies
   useEffect(() => {
     if (!adminId) return;
     api
@@ -146,7 +150,7 @@ export default function AllParties() {
       .catch(() => setError("Failed to load companies."));
   }, [adminId]);
 
-  // Fetch parties whenever company / date filter / range changes
+  // Fetch parties
   useEffect(() => {
     if (companyId === null) return;
     const t = setTimeout(() => {
@@ -194,6 +198,21 @@ export default function AllParties() {
     return list;
   }, [parties, partyType, query]);
 
+  // Totals for KPI cards
+  const kpiTotals = useMemo(() => {
+    let totalReceivable = 0;
+    let totalPayable = 0;
+    filtered.forEach((p) => {
+      totalReceivable += Number(p.receivable || 0);
+      totalPayable += Number(p.payable || 0);
+    });
+    return {
+      totalReceivable,
+      totalPayable,
+      net: totalReceivable - totalPayable,
+    };
+  }, [filtered]);
+
   const prettyFrom = startDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -234,6 +253,7 @@ export default function AllParties() {
         new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
         `All_Parties_${dateFilter ? `${formatDateISO(startDate)}_to_${formatDateISO(endDate)}` : "All_Time"}.xlsx`
       );
+      showToast("Excel exported successfully.", "success");
     } catch {
       setError("Excel export failed. Please try again.");
     }
@@ -269,165 +289,297 @@ export default function AllParties() {
   };
 
   return (
-    <div style={{ fontFamily: FONT, padding: "6px 2px", display: "flex", flexDirection: "column", height: "100%" }}>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
       {/* ═══════════════════════════════════════════════════════════════
-          1. FILTER SECTION
+          1. TOP FILTER BAR
           ═══════════════════════════════════════════════════════════════ */}
-      <div style={filterRowStyle}>
-        {/* LEFT: Date Filter checkbox */}
-        <label style={dateFilterLabelStyle}>
-          <input
-            type="checkbox"
-            checked={dateFilter}
-            onChange={(e) => setDateFilter(e.target.checked)}
-            style={{ width: 15, height: 15, cursor: "pointer", accentColor: INDIGO }}
-          />
-          <span style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>Date Filter</span>
-        </label>
-
-        {/* Date range (only when Date Filter is enabled) */}
-        {dateFilter && (
-          <div style={dateRangeBoxStyle}>
-            <span style={{ fontSize: 13, color: GRAY_TEXT, fontWeight: 500 }}>Between</span>
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Date Filter Toggle */}
+          <label className="inline-flex items-center gap-2.5 px-3 py-2 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer hover:bg-slate-100 transition select-none shadow-2xs">
             <input
-              type="date"
-              value={formatDateISO(startDate)}
-              onChange={(e) => setStartDate(parseDateISO(e.target.value))}
-              style={dateInputStyle}
+              type="checkbox"
+              checked={dateFilter}
+              onChange={(e) => setDateFilter(e.target.checked)}
+              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
             />
-            <span style={{ fontSize: 12, color: "#9ca3af" }}>To</span>
-            <input
-              type="date"
-              value={formatDateISO(endDate)}
-              onChange={(e) => setEndDate(parseDateISO(e.target.value))}
-              style={dateInputStyle}
-            />
-          </div>
-        )}
+            <span className="text-xs font-bold text-slate-700">Filter By Date</span>
+          </label>
 
-        {/* Party type dropdown */}
-        <div ref={typeRef} style={{ position: "relative" }}>
-          <button onClick={() => setTypeOpen((v) => !v)} style={typeBtnStyle}>
-            <span style={{ flex: 1, textAlign: "left", fontWeight: 600, color: NAVY }}>
-              {PARTY_TYPES.find((t) => t.value === partyType)?.label || "All parties"}
-            </span>
-            <ChevronDown size={15} style={{ color: "#94a3b8", transform: typeOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-          {typeOpen && (
-            <div style={dropdownPanelStyle}>
-              {PARTY_TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  onClick={() => handleSelectType(t.value)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: t.value === partyType ? "#eef2ff" : "transparent",
-                    color: t.value === partyType ? INDIGO : "#334155",
-                    fontWeight: t.value === partyType ? 700 : 500,
-                  }}
-                >
-                  {t.label}
-                </button>
-              ))}
+          {/* Date range (shown only when dateFilter is true) */}
+          {dateFilter && (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs animate-in fade-in duration-100">
+              <Calendar size={13} className="text-indigo-600" />
+              <span className="text-xs font-semibold text-slate-500">Between</span>
+              <input
+                type="date"
+                value={formatDateISO(startDate)}
+                onChange={(e) => setStartDate(parseDateISO(e.target.value))}
+                className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-slate-400">To</span>
+              <input
+                type="date"
+                value={formatDateISO(endDate)}
+                onChange={(e) => setEndDate(parseDateISO(e.target.value))}
+                className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
+              />
             </div>
           )}
+
+          {/* Party Type Dropdown */}
+          <div ref={typeRef} className="relative min-w-[160px]">
+            <button
+              onClick={() => setTypeOpen((v) => !v)}
+              className="w-full inline-flex items-center justify-between gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200/80 rounded-xl hover:bg-slate-100 transition shadow-2xs"
+            >
+              <div className="flex items-center gap-2">
+                <Users size={14} className="text-indigo-600 flex-shrink-0" />
+                <span>{PARTY_TYPES.find((t) => t.value === partyType)?.label || "All Parties"}</span>
+              </div>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform duration-150 ${typeOpen ? "rotate-180" : ""}`} />
+            </button>
+            {typeOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in zoom-in-95 duration-100">
+                {PARTY_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    onClick={() => handleSelectType(t.value)}
+                    className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                      t.value === partyType
+                        ? "bg-indigo-50 text-indigo-700 font-bold"
+                        : "text-slate-700 hover:bg-slate-50 font-medium"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* RIGHT: Actions */}
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
-          <button onClick={handleExcel} style={actionBtnStyle}>
-            <FileSpreadsheet size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Excel Report</span>
+        {/* Actions */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 transition-all shadow-2xs"
+          >
+            <FileSpreadsheet size={15} />
+            <span>Excel</span>
           </button>
-          <button onClick={handlePrint} style={actionBtnStyle}>
-            <Printer size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Print</span>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-2xs"
+          >
+            <Printer size={15} />
+            <span>Print</span>
           </button>
         </div>
-      </div>
-
-      {/* Search field */}
-      <div style={{ position: "relative", marginBottom: 10 }}>
-        <Search size={15} color="#94a3b8" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", zIndex: 1 }} />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by party name, email or phone..."
-          style={searchInputStyle}
-        />
-        {query && (
-          <button onClick={() => setQuery("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", display: "flex" }}>
-            <X size={14} color="#94a3b8" />
-          </button>
-        )}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          2. PARTIES TABLE
+          2. KPI SUMMARY CARDS RIBBON
           ═══════════════════════════════════════════════════════════════ */}
-      <div style={tableContainerStyle}>
-        <div style={{ overflowX: "auto", flex: 1 }}>
-          <table style={tableStyle}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Parties */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Total Parties</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Users size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-slate-900">{filtered.length}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Customers & suppliers</div>
+          </div>
+        </div>
+
+        {/* Total Receivable */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Total Receivable</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <ArrowDownLeft size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-emerald-600">{fmtINR(kpiTotals.totalReceivable)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Amount to receive</div>
+          </div>
+        </div>
+
+        {/* Total Payable */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Total Payable</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <ArrowUpRight size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-rose-600">{fmtINR(kpiTotals.totalPayable)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Amount to pay out</div>
+          </div>
+        </div>
+
+        {/* Net Outstanding */}
+        <div className="bg-white rounded-2xl p-4 border border-indigo-100 shadow-xs flex flex-col justify-between bg-gradient-to-br from-white via-indigo-50/20 to-indigo-50/40">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-indigo-900">Net Balance</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Wallet size={16} />
+            </div>
+          </div>
+          <div>
+            <div className={`text-xl md:text-2xl font-black ${kpiTotals.net >= 0 ? "text-indigo-600" : "text-rose-600"}`}>
+              {fmtINR(kpiTotals.net)}
+            </div>
+            <div className="text-[10px] text-indigo-500 font-semibold mt-0.5">
+              Receivable vs Payable difference
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          3. PARTIES DATA TABLE CARD
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        {/* Table Search Bar */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
+          <div className="relative w-full max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by party name, email or phone..."
+              className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200/80 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr>
+              <tr className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 {COLUMNS.map((col) => (
-                  <th key={col.key} style={{ ...thStyle, width: col.width, minWidth: col.width }}>
+                  <th
+                    key={col.key}
+                    style={{ width: col.width }}
+                    className={`px-4 py-3.5 ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"}`}
+                  >
                     {col.label}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>Loading…</div>
+                  <td colSpan={COLUMNS.length} className="py-16 text-center text-slate-400">
+                    <div className="inline-flex items-center gap-2 font-medium">
+                      <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                      Loading parties ledger...
+                    </div>
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} style={emptyCellStyle}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                      <AlertCircle size={26} color="#dc2626" />
-                      <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 600 }}>{error}</div>
+                  <td colSpan={COLUMNS.length} className="py-16 text-center text-rose-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle size={28} className="text-rose-500" />
+                      <span className="font-semibold">{error}</span>
                     </div>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af" }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: NAVY, marginBottom: 4 }}>
-                        {partyType === "all" ? "No parties found" : `No ${partyType} parties found`}
-                      </div>
-                      <div style={{ fontSize: 12 }}>Try adjusting the filters or search.</div>
+                  <td colSpan={COLUMNS.length} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <Users size={32} className="text-slate-300" />
+                      <div className="text-sm font-bold text-slate-700">No parties found</div>
+                      <div className="text-xs text-slate-400">Try adjusting your filters or search keywords.</div>
                     </div>
                   </td>
                 </tr>
               ) : (
                 pagedRows.map((p, i) => (
-                  <tr key={p.role + "-" + p.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={{ ...tdStyle, fontSize: 13, fontWeight: 600, color: NAVY }}>{p.name || "-"}</td>
-                    <td style={tdStyle}>
-                      <span style={typeBadgeStyle(p.group)}>{p.group === "Supplier" ? "Supplier" : "Customer"}</span>
+                  <tr key={`${p.id}-${i}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 text-center text-slate-400 font-medium">
+                      {(safePage - 1) * rowsPerPage + i + 1}
                     </td>
-                    <td style={{ ...tdStyle, color: p.email ? GRAY_TEXT : "#cbd5e1" }}>{p.email || "—"}</td>
-                    <td style={{ ...tdStyle, color: p.phone ? GRAY_TEXT : "#cbd5e1" }}>{p.phone || "—"}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: Number(p.receivable) > 0 ? "#15803d" : "#9ca3af" }}>
+                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">
+                      {p.name || "-"}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase border bg-slate-50 text-slate-700 border-slate-200">
+                        {p.group || "General"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                      {p.email ? (
+                        <div className="inline-flex items-center gap-1.5">
+                          <Mail size={12} className="text-slate-400" />
+                          <span>{p.email}</span>
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                      {p.phone ? (
+                        <div className="inline-flex items-center gap-1.5">
+                          <Phone size={12} className="text-slate-400" />
+                          <span>{p.phone}</span>
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-black text-emerald-600 whitespace-nowrap">
                       {fmtINR(p.receivable)}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: Number(p.payable) > 0 ? "#dc2626" : "#9ca3af" }}>
+                    <td className="px-4 py-3 text-right font-black text-rose-600 whitespace-nowrap">
                       {fmtINR(p.payable)}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmtINR(p.credit_limit)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-700 whitespace-nowrap">
+                      {fmtINR(p.credit_limit)}
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
+            {filtered.length > 0 && (
+              <tfoot>
+                <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold text-xs text-slate-800">
+                  <td colSpan={5} className="px-4 py-3.5 text-slate-600 uppercase tracking-wider text-[11px]">
+                    Total ({filtered.length} Parties)
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-black text-emerald-600">
+                    {fmtINR(kpiTotals.totalReceivable)}
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-black text-rose-600">
+                    {fmtINR(kpiTotals.totalPayable)}
+                  </td>
+                  <td className="px-4 py-3.5 text-right text-slate-400">-</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
+        {/* Universal Pagination */}
         <ReportPagination
           total={totalRows}
           page={safePage}
@@ -438,187 +590,4 @@ export default function AllParties() {
       </div>
     </div>
   );
-}
-
-/* ═════════════════════════════════════════════════════════════════════
-   STYLES
-   ═════════════════════════════════════════════════════════════════════ */
-
-const filterRowStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  flexWrap: "wrap",
-  marginBottom: 10,
-  padding: "6px 0",
-};
-
-const dateFilterLabelStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "8px 14px",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-  userSelect: "none",
-};
-
-const dateRangeBoxStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "6px 12px",
-  background: "#f9fafb",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  whiteSpace: "nowrap",
-};
-
-const dateInputStyle = {
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  padding: "5px 8px",
-  fontSize: 13,
-  fontFamily: FONT,
-  color: "#334155",
-  background: "#fff",
-  outline: "none",
-  width: 130,
-};
-
-const typeBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "8px 14px",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  width: 150,
-  whiteSpace: "nowrap",
-};
-
-const actionBtnStyle = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: 2,
-  padding: "6px 14px",
-  background: "transparent",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
-
-const dropdownPanelStyle = {
-  position: "absolute",
-  top: "calc(100% + 6px)",
-  left: 0,
-  minWidth: 150,
-  zIndex: 60,
-  background: "#fff",
-  border: `1.5px solid #e0e7ff`,
-  borderRadius: 10,
-  boxShadow: "0 12px 32px rgba(30,27,75,.12)",
-  overflow: "hidden",
-  fontFamily: FONT,
-};
-
-const dropdownItemStyle = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "8px 14px",
-  background: "transparent",
-  border: "none",
-  fontSize: 13,
-  fontFamily: FONT,
-  cursor: "pointer",
-  transition: "background .1s",
-};
-
-const searchInputStyle = {
-  width: "100%",
-  padding: "10px 36px 10px 38px",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  fontSize: 13,
-  fontFamily: FONT,
-  color: "#334155",
-  background: "#fff",
-  outline: "none",
-  boxSizing: "border-box",
-};
-
-const tableContainerStyle = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  overflow: "hidden",
-  background: "#fff",
-  minHeight: 0,
-};
-
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontFamily: FONT,
-  tableLayout: "fixed",
-};
-
-const thStyle = {
-  padding: "10px 12px",
-  fontSize: 11,
-  fontWeight: 700,
-  color: GRAY_TEXT,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  textAlign: "left",
-  background: "#f9fafb",
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  whiteSpace: "nowrap",
-  userSelect: "none",
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-};
-
-const emptyCellStyle = {
-  padding: "80px 24px",
-  textAlign: "center",
-  verticalAlign: "middle",
-};
-
-const tdStyle = {
-  padding: "10px 12px",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 12.5,
-  color: "#334155",
-  verticalAlign: "middle",
-};
-
-function typeBadgeStyle(group) {
-  const isSupplier = group === "Supplier";
-  return {
-    fontSize: 11,
-    fontWeight: 700,
-    padding: "3px 10px",
-    borderRadius: 6,
-    display: "inline-flex",
-    alignItems: "center",
-    whiteSpace: "nowrap",
-    background: isSupplier ? "#fef2f2" : "#eff6ff",
-    color: isSupplier ? "#dc2626" : "#1d4ed8",
-  };
 }

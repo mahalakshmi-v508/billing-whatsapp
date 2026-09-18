@@ -1442,1143 +1442,294 @@ export default function GstR2() {
   const safePage = Math.min(page, totalPages);
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = activeRows.slice(pagedStart, pagedStart + rowsPerPage);
-
-  return (
-    <div
-      style={{
-        fontFamily: FONT,
-        padding:
-          "8px 18px 20px",
-      }}
-    >
-      {/* ── HEADER ───────────────────────────────────────────── */}
-
-      <div
-        style={{
-          display:
-            "flex",
-
-          alignItems:
-            "center",
-
-          gap: 12,
-
-          marginBottom: 14,
-
-          flexWrap:
-            "wrap",
-        }}
-      >
-        <div
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-
-            background:
-              "linear-gradient(135deg,#0ea5e9,#4338ca)",
-
-            display:
-              "flex",
-
-            alignItems:
-              "center",
-
-            justifyContent:
-              "center",
-
-            color: "#fff",
-
-            flexShrink: 0,
-          }}
-        >
-          <Truck size={19} />
-        </div>
-
-        <div>
-          <div
-            style={{
-              fontSize: 17,
-              fontWeight: 800,
-              color: "#1e1b4b",
-            }}
-          >
-            GST R2 — Inward Supplies
-          </div>
-
-          <div
-            style={{
-              fontSize: 12,
-              color: "#9ca3af",
-            }}
-          >
-            Purchases &amp; purchase
-            returns GST return
-          </div>
-        </div>
-      </div>
-
-      {/* ── FILTERS ──────────────────────────────────────────── */}
-
-      <div
-        style={{
-          display:
-            "flex",
-
-          flexWrap:
-            "wrap",
-
-          alignItems:
-            "flex-end",
-
-          gap: 12,
-
-          marginBottom: 14,
-        }}
-      >
-        {/* FROM */}
-
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#64748b",
-              marginBottom: 5,
-            }}
-          >
-            From
-          </div>
-
-          <div
-            style={{
-              display:
-                "flex",
-
-              gap: 8,
-            }}
-          >
+return (
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
+      {/* ═══════════════════════════════════════════════════════════════
+          1. HEADER & FILTER BAR
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        {/* Left: Date Filters, Firm & Checkbox */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* FROM MONTH / YEAR */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">From</span>
             <select
               value={fromMonth}
-              onChange={(e) =>
-                setFromMonth(
-                  Number(
-                    e.target.value
-                  )
-                )
-              }
-              style={
-                selectStyle
-              }
+              onChange={(e) => setFromMonth(Number(e.target.value))}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
             >
-              {monthNames.map(
-                (
-                  month,
-                  index
-                ) => (
-                  <option
-                    key={month}
-                    value={
-                      index + 1
-                    }
-                  >
-                    {month}
-                  </option>
-                )
-              )}
+              {monthNames.map((month, index) => (
+                <option key={month} value={index + 1}>
+                  {month}
+                </option>
+              ))}
             </select>
-
             <select
               value={fromYear}
-              onChange={(e) =>
-                setFromYear(
-                  Number(
-                    e.target.value
-                  )
-                )
-              }
-              style={
-                selectStyle
-              }
+              onChange={(e) => setFromYear(Number(e.target.value))}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
             >
-              {Array.from(
-                {
-                  length: 12,
-                },
-                (_, index) =>
-                  now.getFullYear() -
-                  5 +
-                  index
-              ).map(
-                (year) => (
-                  <option
-                    key={year}
-                    value={year}
-                  >
-                    {year}
-                  </option>
-                )
-              )}
+              {Array.from({ length: 12 }, (_, index) => now.getFullYear() - 5 + index).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
             </select>
           </div>
-        </div>
 
-        {/* TO */}
-
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#64748b",
-              marginBottom: 5,
-            }}
-          >
-            To
-          </div>
-
-          <div
-            style={{
-              display:
-                "flex",
-
-              gap: 8,
-            }}
-          >
+          {/* TO MONTH / YEAR */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">To</span>
             <select
               value={toMonth}
-              onChange={(e) =>
-                setToMonth(
-                  Number(
-                    e.target.value
-                  )
-                )
-              }
-              style={
-                selectStyle
-              }
+              onChange={(e) => setToMonth(Number(e.target.value))}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
             >
-              {monthNames.map(
-                (
-                  month,
-                  index
-                ) => (
-                  <option
-                    key={month}
-                    value={
-                      index + 1
-                    }
-                  >
-                    {month}
-                  </option>
-                )
-              )}
+              {monthNames.map((month, index) => (
+                <option key={month} value={index + 1}>
+                  {month}
+                </option>
+              ))}
             </select>
-
             <select
               value={toYear}
-              onChange={(e) =>
-                setToYear(
-                  Number(
-                    e.target.value
-                  )
-                )
-              }
-              style={
-                selectStyle
-              }
+              onChange={(e) => setToYear(Number(e.target.value))}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
             >
-              {Array.from(
-                {
-                  length: 12,
-                },
-                (_, index) =>
-                  now.getFullYear() -
-                  5 +
-                  index
-              ).map(
-                (year) => (
-                  <option
-                    key={year}
-                    value={year}
-                  >
-                    {year}
-                  </option>
-                )
-              )}
+              {Array.from({ length: 12 }, (_, index) => now.getFullYear() - 5 + index).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
             </select>
           </div>
-        </div>
 
-        {/* FIRM */}
-
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#64748b",
-              marginBottom: 5,
-            }}
-          >
-            Firm
+          {/* FIRM */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">Firm</span>
+            <select
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer max-w-[180px]"
+            >
+              <option value="">Select firm…</option>
+              {companies.map((company) => (
+                <option key={company.id} value={String(company.id)}>
+                  {company.company_name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <select
-            value={
-              selectedCompany
-            }
-            onChange={(e) =>
-              setSelectedCompany(
-                e.target.value
-              )
-            }
-            style={
-              selectStyle
-            }
-          >
-            <option value="">
-              Select firm…
-            </option>
+          {/* CONSIDER EXEMPT CHECKBOX */}
+          <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <input
+              type="checkbox"
+              checked={considerExempt}
+              onChange={(e) => setConsiderExempt(e.target.checked)}
+              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+            />
+            <span>Consider non-tax as exempted</span>
+          </label>
+        </div>
 
-            {companies.map(
-              (company) => (
-                <option
-                  key={
-                    company.id
-                  }
-                  value={String(
-                    company.id
-                  )}
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={exportJson}
+            disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-cyan-200 bg-cyan-50/80 text-cyan-700 hover:bg-cyan-100/80 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileJson size={15} />
+            <span>JSON</span>
+          </button>
+
+          <button
+            onClick={exportXls}
+            disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileDown size={15} />
+            <span>Excel</span>
+          </button>
+
+          <button
+            onClick={handlePrint}
+            disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Printer size={15} />
+            <span>Print</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          2. KPI SUMMARY CARDS RIBBON
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Total Inward Entries */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Total Records</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Truck size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-slate-900">{activeRows.length}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+              {activeTab === "purchase" ? "Purchase invoices recorded" : "Purchase return entries"}
+            </div>
+          </div>
+        </div>
+
+        {/* Total Inward Supplies Value */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Inward Value (₹)</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <Truck size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-purple-600">₹{fmtNum(totals.value)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Total eligible inward purchases</div>
+          </div>
+        </div>
+
+        {/* Current Filing Period */}
+        <div className="bg-white rounded-2xl p-4 border border-indigo-100 shadow-xs flex flex-col justify-between bg-gradient-to-br from-white via-indigo-50/20 to-indigo-50/40">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-indigo-900">Return Type</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+              GSTR-2
+            </span>
+          </div>
+          <div>
+            <div className="text-lg md:text-xl font-black text-indigo-700">
+              {monthNames[fromMonth - 1]?.slice(0, 3)} {fromYear} – {monthNames[toMonth - 1]?.slice(0, 3)} {toYear}
+            </div>
+            <div className="text-[10px] text-indigo-500 font-semibold mt-0.5">
+              Inward Supply Period
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          3. TABS AND TABLE CONTAINER
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        {/* Tab Headers */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-4 bg-slate-50/50">
+          <div className="flex items-center gap-2">
+            {[
+              { key: "purchase", label: "Purchase / Inward Supplies", icon: Truck },
+              { key: "return", label: "Purchase Return", icon: ArrowUpRight },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => { setActiveTab(tab.key); setPage(1); }}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs ${
+                    isActive
+                      ? "bg-indigo-600 text-white shadow-indigo-100"
+                      : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                  }`}
                 >
-                  {
-                    company.company_name
-                  }
-                </option>
-              )
-            )}
-          </select>
+                  <Icon size={14} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="text-xs font-semibold text-slate-500 flex items-center gap-2">
+            {loading && <RefreshCw size={13} className="animate-spin text-indigo-600" />}
+            <span><strong>{activeRows.length}</strong> record(s)</span>
+          </div>
         </div>
 
-        {/* ── CHECKBOX ───────────────────────────────────────── */}
-
-        <label
-          style={{
-            display:
-              "inline-flex",
-
-            alignItems:
-              "center",
-
-            gap: 7,
-
-            paddingBottom: 9,
-
-            cursor:
-              "pointer",
-
-            userSelect:
-              "none",
-
-            fontSize: 12,
-
-            fontWeight: 600,
-
-            color:
-              "#475569",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={
-              considerExempt
-            }
-            onChange={(e) =>
-              setConsiderExempt(
-                e.target.checked
-              )
-            }
-            style={{
-              width: 16,
-              height: 16,
-              accentColor:
-                "#4338ca",
-              cursor:
-                "pointer",
-            }}
-          />
-
-          Consider non-tax as
-          exempted
-        </label>
-
-        {/* ACTION BUTTONS */}
-
-        <div
-          style={{
-            marginLeft:
-              "auto",
-
-            display:
-              "flex",
-
-            gap: 8,
-
-            flexWrap:
-              "wrap",
-          }}
-        >
-          <button
-            onClick={
-              exportJson
-            }
-            disabled={
-              !selectedCompany
-            }
-            style={{
-              ...actionBtn(
-                "#0891b2"
-              ),
-
-              opacity:
-                !selectedCompany
-                  ? 0.5
-                  : 1,
-
-              cursor:
-                !selectedCompany
-                  ? "not-allowed"
-                  : "pointer",
-            }}
-          >
-            <FileJson
-              size={15}
-            />
-
-            Export JSON
-          </button>
-
-          <button
-            onClick={
-              exportXls
-            }
-            disabled={
-              !selectedCompany
-            }
-            style={{
-              ...actionBtn(
-                "#16a34a"
-              ),
-
-              opacity:
-                !selectedCompany
-                  ? 0.5
-                  : 1,
-
-              cursor:
-                !selectedCompany
-                  ? "not-allowed"
-                  : "pointer",
-            }}
-          >
-            <FileDown
-              size={15}
-            />
-
-            Export XLS
-          </button>
-
-          <button
-            onClick={
-              handlePrint
-            }
-            disabled={
-              !selectedCompany
-            }
-            style={{
-              ...actionBtn(
-                "#dc2626"
-              ),
-
-              opacity:
-                !selectedCompany
-                  ? 0.5
-                  : 1,
-
-              cursor:
-                !selectedCompany
-                  ? "not-allowed"
-                  : "pointer",
-            }}
-          >
-            <Printer
-              size={15}
-            />
-
-            Print
-          </button>
-        </div>
-      </div>
-
-      {/* ── TABS ─────────────────────────────────────────────── */}
-
-      <div
-        style={{
-          display:
-            "flex",
-
-          gap: 8,
-
-          marginBottom: 12,
-
-          flexWrap:
-            "wrap",
-        }}
-      >
-        <button
-          onClick={() =>
-            setActiveTab(
-              "purchase"
-            )
-          }
-          style={{
-            display:
-              "inline-flex",
-
-            alignItems:
-              "center",
-
-            gap: 6,
-
-            padding:
-              "8px 16px",
-
-            borderRadius: 9,
-
-            border:
-              "1.5px solid " +
-              (activeTab ===
-              "purchase"
-                ? INDIGO
-                : BORDER),
-
-            background:
-              activeTab ===
-              "purchase"
-                ? INDIGO
-                : "#fff",
-
-            color:
-              activeTab ===
-              "purchase"
-                ? "#fff"
-                : "#475569",
-
-            fontSize: 12,
-
-            fontWeight: 700,
-
-            cursor:
-              "pointer",
-
-            fontFamily:
-              FONT,
-          }}
-        >
-          <ArrowUpRight
-            size={14}
-          />
-
-          Purchase / Inward
-        </button>
-
-        <button
-          onClick={() =>
-            setActiveTab(
-              "return"
-            )
-          }
-          style={{
-            display:
-              "inline-flex",
-
-            alignItems:
-              "center",
-
-            gap: 6,
-
-            padding:
-              "8px 16px",
-
-            borderRadius: 9,
-
-            border:
-              "1.5px solid " +
-              (activeTab ===
-              "return"
-                ? INDIGO
-                : BORDER),
-
-            background:
-              activeTab ===
-              "return"
-                ? INDIGO
-                : "#fff",
-
-            color:
-              activeTab ===
-              "return"
-                ? "#fff"
-                : "#475569",
-
-            fontSize: 12,
-
-            fontWeight: 700,
-
-            cursor:
-              "pointer",
-
-            fontFamily:
-              FONT,
-          }}
-        >
-          <ArrowUpRight
-            size={14}
-          />
-
-          Purchase Return
-        </button>
-
-        {/* RECORD COUNT */}
-
-        <div
-          style={{
-            marginLeft:
-              "auto",
-
-            alignSelf:
-              "center",
-
-            display:
-              "flex",
-
-            alignItems:
-              "center",
-
-            gap: 8,
-
-            fontSize: 12,
-
-            color:
-              "#64748b",
-          }}
-        >
-          {loading && (
-            <RefreshCw
-              size={14}
-              style={{
-                animation:
-                  "spin 1s linear infinite",
-              }}
-            />
-          )}
-
-          <strong>
-            {
-              activeRows.length
-            }
-          </strong>
-
-          record(s)
-        </div>
-      </div>
-
-      {/* ── TABLE ────────────────────────────────────────────── */}
-
-      <div
-        style={{
-          border:
-            "1.5px solid " +
-            BORDER,
-
-          borderRadius: 10,
-
-          background:
-            "#fff",
-
-          overflow:
-            "hidden",
-        }}
-      >
-        <div
-          ref={
-            tableWrapRef
-          }
-          style={{
-            overflowX:
-              "auto",
-          }}
-        >
-          <table
-            style={{
-              width:
-                "100%",
-
-              borderCollapse:
-                "collapse",
-
-              fontSize: 12,
-
-              minWidth:
-                850,
-            }}
-          >
-            {/* HEADER */}
-
+        {/* Data Table */}
+        <div ref={tableWrapRef} className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr
-                style={{
-                  background:
-                    "#f8fafc",
-
-                  borderBottom:
-                    "1.5px solid " +
-                    BORDER,
-                }}
-              >
-                <th
-                  style={{
-                    padding:
-                      "10px 12px",
-
-                    fontSize: 11,
-
-                    fontWeight: 700,
-
-                    color:
-                      "#334155",
-
-                    borderRight:
-                      "1px solid " +
-                      BORDER,
-
-                    whiteSpace:
-                      "nowrap",
-
-                    textAlign:
-                      "left",
-                  }}
-                >
-                  GSTIN/UIN
-                </th>
-
-                <th
-                  style={{
-                    padding:
-                      "10px 12px",
-
-                    fontSize: 11,
-
-                    fontWeight: 700,
-
-                    color:
-                      "#334155",
-
-                    borderRight:
-                      "1px solid " +
-                      BORDER,
-
-                    whiteSpace:
-                      "nowrap",
-
-                    textAlign:
-                      "left",
-                  }}
-                >
-                  Party Name
-                </th>
-
-                {/* BILL DETAILS */}
-
-                <th
-                  style={{
-                    padding:
-                      "6px 12px 2px",
-
-                    fontSize: 10,
-
-                    fontWeight: 600,
-
-                    color:
-                      "#64748b",
-
-                    borderRight:
-                      "1px solid " +
-                      BORDER,
-
-                    whiteSpace:
-                      "nowrap",
-
-                    textAlign:
-                      "center",
-                  }}
-                >
-                  Bill Details
-
-                  <div
-                    style={{
-                      fontSize: 11,
-
-                      fontWeight: 700,
-
-                      color:
-                        "#334155",
-
-                      marginTop: 3,
-                    }}
-                  >
-                    No.
-                  </div>
-                </th>
-
-                <th
-                  style={{
-                    padding:
-                      "10px 12px",
-
-                    fontSize: 11,
-
-                    fontWeight: 700,
-
-                    color:
-                      "#334155",
-
-                    borderRight:
-                      "1px solid " +
-                      BORDER,
-
-                    whiteSpace:
-                      "nowrap",
-
-                    textAlign:
-                      "left",
-                  }}
-                >
-                  Date
-                </th>
-
-                <th
-                  style={{
-                    padding:
-                      "10px 12px",
-
-                    fontSize: 11,
-
-                    fontWeight: 700,
-
-                    color:
-                      "#334155",
-
-                    borderRight:
-                      "1px solid " +
-                      BORDER,
-
-                    whiteSpace:
-                      "nowrap",
-
-                    textAlign:
-                      "right",
-                  }}
-                >
-                  Value
-                </th>
-
-                <th
-                  style={{
-                    padding:
-                      "10px 12px",
-
-                    fontSize: 11,
-
-                    fontWeight: 700,
-
-                    color:
-                      "#334155",
-
-                    whiteSpace:
-                      "nowrap",
-
-                    textAlign:
-                      "right",
-                  }}
-                >
-                  Rate
-                </th>
+              <tr className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <th className="px-4 py-3.5">GSTIN / UIN</th>
+                <th className="px-4 py-3.5">PARTY NAME</th>
+                <th className="px-4 py-3.5">INVOICE NO.</th>
+                <th className="px-4 py-3.5">DATE</th>
+                <th className="px-4 py-3.5 text-right">VALUE (₹)</th>
+                <th className="px-4 py-3.5 text-right">TAX RATE</th>
               </tr>
             </thead>
-
-            {/* BODY */}
-
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: 48,
-
-                      textAlign:
-                        "center",
-
-                      color:
-                        "#94a3b8",
-                    }}
-                  >
-                    Loading GST R2
-                    data…
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
+                    <div className="inline-flex items-center gap-2 font-medium">
+                      <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                      Loading GST R2 inward supplies data...
+                    </div>
                   </td>
                 </tr>
               ) : !selectedCompany ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: 48,
-
-                      textAlign:
-                        "center",
-
-                      color:
-                        "#94a3b8",
-                    }}
-                  >
-                    Select a firm to
-                    generate the
-                    report.
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <Truck size={32} className="text-slate-300" />
+                      <div className="text-sm font-bold text-slate-700">Select a firm</div>
+                      <div className="text-xs text-slate-400">Please choose a firm from the top dropdown to generate GST R2.</div>
+                    </div>
                   </td>
                 </tr>
-              ) : activeRows.length ===
-                0 ? (
+              ) : activeRows.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: 48,
-
-                      textAlign:
-                        "center",
-
-                      color:
-                        "#64748b",
-                    }}
-                  >
-                    {considerExempt
-                      ? "No non-tax / exempted records found."
-                      : "No records found for the selected period."}
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <Truck size={32} className="text-slate-300" />
+                      <div className="text-sm font-bold text-slate-700">No records found</div>
+                      <div className="text-xs text-slate-400">No inward supplies found for the selected period.</div>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                pagedRows.map(
-                  (
-                    row,
-                    index
-                  ) => (
-                    <tr
-                      key={
-                        row.id ||
-                        index
-                      }
-                      style={{
-                        borderBottom:
-                          "1px solid #f1f5f9",
-                      }}
-                    >
-                      {/* GSTIN */}
-
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-
-                          fontFamily:
-                            "monospace",
-
-                          color:
-                            "#64748b",
-
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {
-                          row.gstin
-                        }
-                      </td>
-
-                      {/* PARTY */}
-
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-
-                          fontWeight: 600,
-
-                          color:
-                            "#1e293b",
-
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {
-                          row.party_name
-                        }
-                      </td>
-
-                      {/* BILL NO */}
-
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-
-                          color:
-                            "#334155",
-
-                          whiteSpace:
-                            "nowrap",
-
-                          textAlign:
-                            "center",
-                        }}
-                      >
-                        {
-                          row.invoice_no
-                        }
-                      </td>
-
-                      {/* DATE */}
-
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-
-                          color:
-                            "#475569",
-
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {formatDate(
-                          row.date
-                        )}
-                      </td>
-
-                      {/* VALUE */}
-
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-
-                          textAlign:
-                            "right",
-
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {fmtNum(
-                          row.value
-                        )}
-                      </td>
-
-                      {/* RATE */}
-
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-
-                          textAlign:
-                            "right",
-
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {
-                          row.tax_rate
-                        }
-                      </td>
-                    </tr>
-                  )
-                )
+                pagedRows.map((row, index) => (
+                  <tr key={row.id || index} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-mono text-slate-500 whitespace-nowrap">{row.gstin}</td>
+                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{row.party_name}</td>
+                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{row.invoice_no}</td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(row.date)}</td>
+                    <td className="px-4 py-3 text-right font-black text-slate-900 whitespace-nowrap">
+                      ₹{fmtNum(row.value)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-indigo-600 whitespace-nowrap">
+                      {row.tax_rate}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
-
-            {/* TOTAL */}
-
-            {activeRows.length >
-              0 &&
-              !loading &&
-              selectedCompany && (
-                <tfoot>
-                  <tr
-                    style={{
-                      background:
-                        "#fff",
-
-                      borderTop:
-                        "1px solid " +
-                        BORDER,
-                    }}
-                  >
-                    <td
-                      colSpan={4}
-                      style={{
-                        padding:
-                          "10px 12px",
-
-                        fontWeight:
-                          600,
-
-                        color:
-                          "#475569",
-                      }}
-                    >
-                      Total
-                    </td>
-
-                    <td
-                      style={{
-                        padding:
-                          "10px 12px",
-
-                        textAlign:
-                          "right",
-
-                        fontWeight:
-                          700,
-
-                        color:
-                          "#1e293b",
-                      }}
-                    >
-                      {fmtNum(
-                        totals.value
-                      )}
-                    </td>
-
-                    <td />
-                  </tr>
-                </tfoot>
-              )}
+            {activeRows.length > 0 && !loading && selectedCompany && (
+              <tfoot>
+                <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold text-xs text-slate-800">
+                  <td colSpan={4} className="px-4 py-3.5 uppercase tracking-wider text-[11px] text-slate-600">
+                    Total
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-black text-slate-900">
+                    ₹{fmtNum(totals.value)}
+                  </td>
+                  <td className="px-4 py-3.5 text-right text-slate-400">-</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
+
+        {/* Universal Pagination */}
         <ReportPagination
           total={totalRows}
           page={safePage}

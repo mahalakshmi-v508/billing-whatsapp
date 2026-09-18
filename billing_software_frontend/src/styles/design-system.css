@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+/* PaySplitX Design System Variables */
+:root {
+  --sidebar-navy-950: #070b14;
+  --sidebar-navy-900: #0b0f19;
+  --sidebar-navy-850: #0f1629;
+  --sidebar-navy-800: #141d33;
+  --sidebar-navy-700: #1f2b4c;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --brand-primary: #6366f1;
+  --brand-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --brand-gradient-hover: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  --card-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
+  --card-shadow-hover: 0 12px 28px -6px rgba(15, 23, 42, 0.09), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #f8faff;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* PaySplitX Scrollbars */
+.paysplitx-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.paysplitx-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.paysplitx-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+.paysplitx-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.paysplitx-scrollbar-light::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.paysplitx-scrollbar-light::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.paysplitx-scrollbar-light::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.paysplitx-scrollbar-light::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* PaySplitX Stat Card */
+.psx-card {
+  background: #ffffff;
+  border: 1px solid #e8edf5;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.psx-card:hover {
+  box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Glass panel */
+.psx-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* PaySplitX Buttons */
+.psx-btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+  transition: all 0.18s ease;
+}
+.psx-btn-primary:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  transform: translateY(-1px);
+}
+
+.psx-btn-secondary {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+}
+.psx-btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+/* PaySplitX Table Standard */
+.psx-table-container {
+  background: #ffffff;
+  border: 1px solid #e8edf5;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04);
+}
+
+.psx-table th {
+  background: #f8faff;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 18px;
+  border-bottom: 1px solid #e8edf5;
+}
+
+.psx-table td {
+  padding: 14px 18px;
+  font-size: 13.5px;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.15s ease;
+}
+
+.psx-table tr:hover td {
+  background-color: #f8faff !important;
+}
+
+/* Input Styles */
+.psx-input {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13.5px;
+  color: #0f172a;
+  transition: all 0.15s ease;
+}
+.psx-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}

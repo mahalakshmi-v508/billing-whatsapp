@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -319,80 +319,90 @@ export default function ItemWiseProfitAndLoss() {
   const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
-    <div style={{ fontFamily: FONT, padding: "2px 0", display: "flex", flexDirection: "column", height: "100%", background: "#fff" }}>
-      {/* ═══════════════════════════════════════════════════════════════
-          1. TOP BAR — compact From / To dates, checkbox, company, actions
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={topBarStyle}>
-        {/* Period preset (keeps existing quick-range behaviour) */}
-        <div ref={periodRef} style={{ position: "relative", flexShrink: 0 }}>
-          <button onClick={() => setPeriodOpen((v) => !v)} style={compactSelectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY, fontSize: 12.5 }}>
-              {PERIODS.find((p) => p.value === period)?.label || "This Month"}
-            </span>
-            <ChevronDown size={14} style={{ color: "#94a3b8", transform: periodOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-          {periodOpen && (
-            <div style={dropdownPanelStyle}>
-              {PERIODS.map((p) => (
-                <button
-                  key={p.value}
-                  onClick={() => selectPeriod(p)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: p.value === period ? "#eef2ff" : "transparent",
-                    color: p.value === period ? INDIGO : "#334155",
-                    fontWeight: p.value === period ? 700 : 500,
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Period preset */}
+          <div ref={periodRef} className="relative flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Period</span>
+            <button
+              type="button"
+              onClick={() => setPeriodOpen((v) => !v)}
+              className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer inline-flex items-center gap-2 min-w-[130px] justify-between"
+            >
+              <span className="truncate">{PERIODS.find((p) => p.value === period)?.label || "This Month"}</span>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
+            </button>
+            {periodOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => selectPeriod(p)}
+                    className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                      p.value === period
+                        ? "bg-blue-50 text-blue-700 font-bold"
+                        : "text-slate-700 hover:bg-slate-50 font-medium"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Date range */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Between</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={formatDateISO(startDate)}
+                onChange={(e) => {
+                  setRange({ from: parseDateISO(e.target.value), to: endDate });
+                  setPeriod("custom");
+                }}
+                className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer"
+              />
+              <span className="text-xs font-bold text-slate-400">to</span>
+              <input
+                type="date"
+                value={formatDateISO(endDate)}
+                onChange={(e) => {
+                  setRange({ from: startDate, to: parseDateISO(e.target.value) });
+                  setPeriod("custom");
+                }}
+                className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer"
+              />
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* From / To dates */}
-        <div style={dateFieldStyle}>
-          <span style={dateLabelStyle}>From</span>
-          <input
-            type="date"
-            value={formatDateISO(startDate)}
-            onChange={(e) => { setRange({ from: parseDateISO(e.target.value), to: endDate }); setPeriod("custom"); }}
-            style={compactDateInputStyle}
-          />
-        </div>
-        <div style={dateFieldStyle}>
-          <span style={dateLabelStyle}>To</span>
-          <input
-            type="date"
-            value={formatDateISO(endDate)}
-            onChange={(e) => { setRange({ from: startDate, to: parseDateISO(e.target.value) }); setPeriod("custom"); }}
-            style={compactDateInputStyle}
-          />
-        </div>
-
-        {checkbox(itemsHavingSale, (e) => setItemsHavingSale(e.target.checked))}
-
-        {/* Right: company selector + Excel / Print icons */}
-        <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: "auto", flexShrink: 0 }}>
-          <div ref={companyRef} style={{ position: "relative" }}>
-            <button onClick={() => setCompanyOpen((v) => !v)} style={compactSelectBtnStyle} title="Firm">
-              <span style={{ fontWeight: 600, color: NAVY, fontSize: 12.5 }}>{companyName}</span>
-              <ChevronDown size={14} style={{ color: "#94a3b8", transform: companyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+          {/* Company dropdown */}
+          <div ref={companyRef} className="relative flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Firm / Company</span>
+            <button
+              type="button"
+              onClick={() => setCompanyOpen((v) => !v)}
+              className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer inline-flex items-center gap-2 min-w-[150px] justify-between"
+            >
+              <span className="truncate">{companyName}</span>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform ${companyOpen ? "rotate-180" : ""}`} />
             </button>
             {companyOpen && (
-              <div style={{ ...dropdownPanelStyle, right: 0, left: "auto" }}>
+              <div className="absolute top-full left-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
                 {companies.map((c) => (
                   <button
                     key={c.id}
+                    type="button"
                     onClick={() => selectCompany(c)}
-                    style={{
-                      ...dropdownItemStyle,
-                      background: Number(c.id) === Number(companyId) ? "#eef2ff" : "transparent",
-                      color: Number(c.id) === Number(companyId) ? INDIGO : "#334155",
-                      fontWeight: Number(c.id) === Number(companyId) ? 700 : 500,
-                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                      Number(c.id) === Number(companyId)
+                        ? "bg-blue-50 text-blue-700 font-bold"
+                        : "text-slate-700 hover:bg-slate-50 font-medium"
+                    }`}
                   >
                     {c.company_name || "My Company"}
                   </button>
@@ -400,73 +410,107 @@ export default function ItemWiseProfitAndLoss() {
               </div>
             )}
           </div>
-          <button onClick={handleExcel} title="Excel Report" style={circleBtnStyle}>
-            <FileSpreadsheet size={16} color={INDIGO} />
+
+          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors pt-4 sm:pt-4">
+            <input
+              type="checkbox"
+              checked={itemsHavingSale}
+              onChange={(e) => setItemsHavingSale(e.target.checked)}
+              className="w-4 h-4 rounded-md text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+            />
+            <span>Show Only Items Having Sale</span>
+          </label>
+
+          {loading && (
+            <RefreshCw size={15} className="animate-spin text-blue-600 ml-2" />
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            title="Export Excel"
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <FileSpreadsheet size={15} className="text-emerald-600" />
+            Excel
           </button>
-          <button onClick={handlePrint} title="Print" style={circleBtnStyle}>
-            <Printer size={16} color={INDIGO} />
+          <button
+            type="button"
+            title="Print"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <Printer size={15} className="text-slate-600" />
+            Print
           </button>
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          2. DETAILS → FILTERS
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={detailsSectionStyle}>
-        <div style={detailsTitleStyle}>Details</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 6 }}>
-          <span style={filtersLabelStyle}>Filters</span>
-          {checkbox(itemsHavingSale, (e) => setItemsHavingSale(e.target.checked))}
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-indigo-50/60 to-white p-4 rounded-2xl border border-indigo-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-indigo-700 uppercase">Total Items</span>
+          <div className="text-xl font-black text-slate-800 tracking-tight mt-1">{rows.length}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Evaluated Products</div>
+        </div>
+        <div className="bg-gradient-to-br from-blue-50/60 to-white p-4 rounded-2xl border border-blue-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-blue-700 uppercase">Total Sale</span>
+          <div className="text-xl font-black text-slate-800 tracking-tight mt-1">{fmtINR(shownTotals.sale || 0)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Gross Revenue</div>
+        </div>
+        <div className="bg-gradient-to-br from-amber-50/60 to-white p-4 rounded-2xl border border-amber-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-amber-700 uppercase">Total Purchase Cost</span>
+          <div className="text-xl font-black text-amber-900 tracking-tight mt-1">{fmtINR(shownTotals.purchase || 0)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Cost of Goods</div>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-50/60 to-white p-4 rounded-2xl border border-emerald-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase">Net Profit / Loss</span>
+          <div className={`text-xl font-black tracking-tight mt-1 ${Number(shownTotals.net_profit) >= 0 ? "text-emerald-900" : "text-rose-900"}`}>
+            {fmtINR(shownTotals.net_profit || 0)}
+          </div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Net Item Realization</div>
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          3. REPORT TABLE — one continuous scrollable table
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={tableContainerStyle}>
-        <div style={{ overflowX: "auto", flex: 1 }}>
-          <table style={{ ...tableStyle, minWidth: TABLE_MIN_WIDTH }}>
+      {/* Table Section */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse" style={{ minWidth: TABLE_MIN_WIDTH }}>
             <thead>
-              <tr>
-                <th style={{ ...thStyle, width: 34, minWidth: 34 }}>#</th>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                <th className="px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center w-10">#</th>
                 {COLUMNS.map((c) => (
-                  <th key={c.key} style={{ ...thStyle, width: c.width, minWidth: c.min, textAlign: c.right ? "center" : "left" }}>
+                  <th
+                    key={c.key}
+                    className={`px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 ${c.right ? "text-right" : "text-left"}`}
+                  >
                     {c.label}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={13} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>Loading...</div>
+                  <td colSpan={13} className="px-4 py-12 text-center text-slate-500 text-xs">
+                    <RefreshCw size={18} className="inline animate-spin mr-2 text-blue-600" />
+                    Loading item profit and loss data…
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={13} style={emptyCellStyle}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                      <AlertCircle size={24} color="#dc2626" />
-                      <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 600 }}>{error}</div>
+                  <td colSpan={13} className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center gap-2 text-rose-600 text-xs font-bold">
+                      <AlertCircle size={22} />
+                      <span>{error}</span>
                       <button
+                        type="button"
                         onClick={() => setReloadKey((k) => k + 1)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "6px 14px",
-                          borderRadius: 6,
-                          border: `1px solid ${LIGHT_BORDER}`,
-                          background: "#fff",
-                          color: INDIGO,
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          fontFamily: FONT,
-                          cursor: "pointer",
-                        }}
+                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
                       >
-                        <RefreshCw size={13} />
+                        <RefreshCw size={12} />
                         Retry
                       </button>
                     </div>
@@ -474,18 +518,20 @@ export default function ItemWiseProfitAndLoss() {
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={13} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>No data available</div>
+                  <td colSpan={13} className="px-4 py-12 text-center text-slate-500 text-xs font-medium">
+                    No data available for the selected period.
                   </td>
                 </tr>
               ) : (
                 pagedRows.map((r, i) => (
-                  <tr key={r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
-                    <td style={{ ...tdStyle, textAlign: "center", color: GRAY_TEXT }}>{i + 1}</td>
+                  <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-3 py-3 text-xs text-center font-medium text-slate-400">
+                      {(safePage - 1) * rowsPerPage + i + 1}
+                    </td>
                     {COLUMNS.map((c) => {
                       if (c.txt) {
                         return (
-                          <td key={c.key} style={{ ...tdStyle, fontSize: 12.5, fontWeight: 600, color: NAVY }}>
+                          <td key={c.key} className="px-3 py-3 text-xs font-bold text-slate-800">
                             {r[c.key] || "-"}
                           </td>
                         );
@@ -495,12 +541,13 @@ export default function ItemWiseProfitAndLoss() {
                       return (
                         <td
                           key={c.key}
-                          style={{
-                            ...tdStyle,
-                            textAlign: "right",
-                            fontWeight: 700,
-                            color: isNet ? (val >= 0 ? "#15803d" : "#dc2626") : "#334155",
-                          }}
+                          className={`px-3 py-3 text-xs text-right tabular-nums ${
+                            isNet
+                              ? val >= 0
+                                ? "font-bold text-emerald-700"
+                                : "font-bold text-rose-600"
+                              : "font-medium text-slate-700"
+                          }`}
                         >
                           {fmtINR(val)}
                         </td>
@@ -512,11 +559,11 @@ export default function ItemWiseProfitAndLoss() {
             </tbody>
             {!loading && !error && rows.length > 0 && (
               <tfoot>
-                <tr>
-                  <td style={{ ...tdStyle, background: "#f2f4f7", fontWeight: 700, color: NAVY, fontSize: 12.5, textAlign: "center" }}></td>
-                  <td style={{ ...tdStyle, background: "#f2f4f7", fontWeight: 800, color: NAVY, fontSize: 12.5 }}>Total</td>
+                <tr className="bg-slate-50/90 font-bold border-t border-slate-200/80 text-slate-800">
+                  <td className="px-3 py-3 text-xs text-center"></td>
+                  <td className="px-3 py-3 text-xs text-slate-900 font-extrabold">Total</td>
                   {COLUMNS.filter((c) => !c.txt).map((c) => (
-                    <td key={c.key} style={{ ...tdStyle, background: "#f2f4f7", fontWeight: 700, color: NAVY, fontSize: 12.5, textAlign: "right" }}>
+                    <td key={c.key} className="px-3 py-3 text-xs text-right tabular-nums text-slate-900 font-extrabold">
                       {fmtINR(shownTotals[c.key] || 0)}
                     </td>
                   ))}
@@ -525,22 +572,15 @@ export default function ItemWiseProfitAndLoss() {
             )}
           </table>
         </div>
-        {!loading && !error && rows.length > 0 && (
-          <div style={totalAmountBarStyle}>
-            Total Amount:&nbsp;
-            <span style={{ color: Number(shownTotals.net_profit) >= 0 ? "#15803d" : "#dc2626" }}>
-              {fmtINR(shownTotals.net_profit)}
-            </span>
-          </div>
-        )}
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
-      <ReportPagination
-        total={totalRows}
-        page={safePage}
-        rowsPerPage={rowsPerPage}
-        onPageChange={setPage}
-        onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
-      />
     </div>
   );
 }

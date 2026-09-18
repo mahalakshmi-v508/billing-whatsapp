@@ -16,6 +16,9 @@ import {
   Trash2,
   Edit,
   AlertTriangle,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Wallet,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -486,20 +489,36 @@ export default function DayBook() {
   };
 
   const headerCell = (col, alignRight = false) => (
-    <th key={col} style={{ padding: "9px 12px", textAlign: alignRight ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#334155", borderRight: "1px solid " + BORDER, whiteSpace: "nowrap" }}>
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort(col)}>
+    <th
+      key={col}
+      className={`px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-50/90 border-b border-slate-200 select-none ${
+        alignRight ? "text-right" : "text-left"
+      }`}
+    >
+      <div
+        className="inline-flex items-center gap-1.5 cursor-pointer hover:text-slate-800 transition"
+        onClick={() => toggleSort(col)}
+      >
         <span>{col}</span>
-        {sortKey === col && <span style={{ fontSize: 9, color: INDIGO }}>{sortDir === 1 ? "▲" : "▼"}</span>}
+        {sortKey === col && (
+          <span className="text-[10px] text-indigo-600 font-extrabold">
+            {sortDir === 1 ? "▲" : "▼"}
+          </span>
+        )}
       </div>
       <button
-        onClick={(e) => { e.stopPropagation(); clickFilterIcon(col); }}
-        title={`Filter ${col}`}
-        style={{
-          border: "none", background: "transparent", cursor: "pointer",
-          color: colFilters[col] ? INDIGO : "#94a3b8", marginLeft: 5, verticalAlign: "middle",
+        onClick={(e) => {
+          e.stopPropagation();
+          clickFilterIcon(col);
         }}
+        title={`Filter ${col}`}
+        className={`ml-1.5 p-1 rounded-md transition cursor-pointer ${
+          colFilters[col]
+            ? "text-indigo-600 bg-indigo-50"
+            : "text-slate-400 hover:bg-slate-200/60 hover:text-slate-600"
+        }`}
       >
-        <Filter size={11} fill={colFilters[col] ? "#c7d2fe" : "none"} />
+        <Filter size={11} fill={colFilters[col] ? "currentColor" : "none"} />
       </button>
     </th>
   );
@@ -510,93 +529,160 @@ export default function DayBook() {
   const pagedRows = displayed.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
-    <div style={{ fontFamily: FONT, padding: "8px 18px 20px" }}>
-      {/* ── TOP CONTROL ROW ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 12 }}>
-        {/* date */}
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, border: "1.5px solid " + BORDER, borderRadius: 8, padding: "7px 10px", background: "#fff" }}>
-          <CalendarDays size={15} color="#64748b" />
-          <input
-            type="date"
-            value={date}
-            max={todayStr()}
-            onChange={(e) => { setDate(e.target.value || todayStr()); setSearch(""); }}
-            style={{ border: "none", outline: "none", fontSize: 12, fontFamily: FONT, color: "#1e293b", background: "transparent", padding: 0 }}
-          />
-        </div>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
+      {/* ── TOP CONTROL CARD ── */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+          {/* Date Selector */}
+          <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100/50 transition">
+            <CalendarDays size={16} className="text-slate-400 shrink-0" />
+            <input
+              type="date"
+              value={date}
+              max={todayStr()}
+              onChange={(e) => {
+                setDate(e.target.value || todayStr());
+                setSearch("");
+              }}
+              className="border-none outline-none text-xs font-bold text-slate-800 bg-transparent cursor-pointer"
+            />
+          </div>
 
-        {/* firm dropdown */}
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, border: "1.5px solid " + BORDER, borderRadius: 8, padding: "6px 10px", background: "#fff" }}>
-          <Building2 size={15} color="#64748b" />
-          <select
-            value={firm}
-            onChange={onFirmChange}
-            style={{ border: "none", outline: "none", fontSize: 12, fontFamily: FONT, color: "#1e293b", background: "transparent", cursor: "pointer", fontWeight: 600 }}
-          >
-            <option value="all">ALL FIRMS</option>
-            {companies.map((c) => (
-              <option key={c.id} value={String(c.id)}>{c.company_name}</option>
-            ))}
-          </select>
-        </div>
+          {/* Firm Dropdown */}
+          <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100/50 transition">
+            <Building2 size={16} className="text-slate-400 shrink-0" />
+            <select
+              value={firm}
+              onChange={onFirmChange}
+              className="border-none outline-none text-xs font-bold text-slate-800 bg-transparent cursor-pointer"
+            >
+              <option value="all">All Firms</option>
+              {companies.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.company_name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* search — same row as Date and Company */}
-        <div style={{ flex: "1 1 240px", maxWidth: 420, minWidth: 200 }}>
-          <div style={{ position: "relative" }}>
-            <Search size={15} color="#64748b" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} />
+          {/* Search Bar */}
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search
+              size={15}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            />
             <input
               value={search}
               onChange={onSearchChange}
-              placeholder="Search"
-              style={{
-                width: "100%", padding: "8px 12px 8px 34px",
-                border: "1.5px solid " + BORDER, borderRadius: 8, fontSize: 12,
-                fontFamily: FONT, outline: "none", background: "#fff", color: "#1e293b",
-              }}
+              placeholder="Search by party, reference, type..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-medium text-slate-800 placeholder:text-slate-400 hover:bg-slate-100/50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
             />
           </div>
         </div>
 
-        {/* actions on the right */}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={handleExcel} style={actionBtn("#16a34a")}>
-            <FileSpreadsheet size={15} /> Excel Report
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+          >
+            <FileSpreadsheet size={15} />
+            <span>Excel Report</span>
           </button>
-          <button onClick={handlePrint} style={actionBtn("#dc2626")}>
-            <Printer size={15} /> Print
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+          >
+            <Printer size={15} />
+            <span>Print</span>
           </button>
         </div>
       </div>
 
-      {/* ── SUMMARY LINE ── */}
-      <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 12, fontSize: 12.5 }}>
-        <div>Total Money-In: <strong style={{ color: MONEY_IN }}>{fmtINR(summary.money_in)}</strong></div>
-        <div>Total Money-Out: <strong style={{ color: MONEY_OUT }}>{fmtINR(summary.money_out)}</strong></div>
-        <div>Total Money In - Total Money Out: <strong style={{ color: INDIGO }}>{fmtINR(summary.net)}</strong></div>
+      {/* ── 3 MODERN KPI CARDS ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+              Total Money-In
+            </div>
+            <div className="text-xl md:text-2xl font-extrabold text-emerald-600 mt-1">
+              {fmtINR(summary.money_in)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Collections & Inflows</div>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <ArrowDownLeft size={24} />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+              Total Money-Out
+            </div>
+            <div className="text-xl md:text-2xl font-extrabold text-rose-600 mt-1">
+              {fmtINR(summary.money_out)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Purchases & Outflows</div>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+            <ArrowUpRight size={24} />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+              Net Cash Flow
+            </div>
+            <div className="text-xl md:text-2xl font-extrabold text-indigo-600 mt-1">
+              {fmtINR(summary.net)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Money-In − Money-Out</div>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Wallet size={24} />
+          </div>
+        </div>
       </div>
 
-      {/* ── TABLE ── */}
-      <div style={{ border: "1.5px solid " + BORDER, borderRadius: 8, background: "#fff", overflow: "visible" }}>
-        {/* column filter panel */}
+      {/* ── TABLE CARD ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-visible">
+        {/* Column Filter Panel */}
         {openFilter && (
-          <div style={{ padding: "10px 12px", borderBottom: "1px solid " + BORDER, background: "#f8fafc", display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", whiteSpace: "nowrap" }}>Filter: {openFilter}</span>
+          <div className="p-3 border-b border-slate-200 bg-slate-50/80 flex items-center gap-3">
+            <span className="text-xs font-bold text-slate-600 whitespace-nowrap">
+              Filter: {openFilter}
+            </span>
             <input
               autoFocus
               value={colFilters[openFilter] || ""}
-              onChange={(e) => setColFilters((p) => ({ ...p, [openFilter]: e.target.value }))}
+              onChange={(e) =>
+                setColFilters((p) => ({ ...p, [openFilter]: e.target.value }))
+              }
               placeholder={`Filter ${openFilter.toLowerCase()}…`}
-              style={{ flex: 1, minWidth: 180, padding: "6px 10px", border: "1.5px solid " + BORDER, borderRadius: 6, fontSize: 12, fontFamily: FONT, outline: "none" }}
+              className="flex-1 min-w-[180px] bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
             />
-            <button onClick={() => setColFilters((p) => ({ ...p, [openFilter]: "" }))} style={miniBtn}><X size={12} /> Clear</button>
-            <button onClick={() => setOpenFilter("")} style={{ ...miniBtn, fontWeight: 700 }}>Done</button>
+            <button
+              onClick={() => setColFilters((p) => ({ ...p, [openFilter]: "" }))}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer"
+            >
+              <X size={12} /> Clear
+            </button>
+            <button
+              onClick={() => setOpenFilter("")}
+              className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer"
+            >
+              Done
+            </button>
           </div>
         )}
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900, fontSize: 12 }}>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-[900px] text-xs">
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid " + BORDER }}>
+              <tr>
                 {headerCell("Name")}
                 {headerCell("Ref. No")}
                 {headerCell("Type")}
@@ -604,135 +690,191 @@ export default function DayBook() {
                 {headerCell("Total", true)}
                 {headerCell("Money In", true)}
                 {headerCell("Money Out", true)}
-                <th style={{ padding: "9px 12px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#334155", whiteSpace: "nowrap" }}>Actions</th>
+                <th className="px-4 py-3.5 text-center text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-50/90 border-b border-slate-200 whitespace-nowrap">
+                  Actions
+                </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={8} style={{ padding: 54, textAlign: "center", color: "#94a3b8" }}>Loading…</td></tr>
+                <tr>
+                  <td colSpan={8} className="py-16 text-center text-slate-400 font-medium">
+                    Loading transactions…
+                  </td>
+                </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: 54, textAlign: "center" }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                      <AlertCircle size={30} color="#dc2626" />
-                      <span style={{ color: "#dc2626", fontWeight: 600 }}>{error}</span>
+                  <td colSpan={8} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle size={28} className="text-rose-500" />
+                      <span className="text-xs font-bold text-rose-600">{error}</span>
                     </div>
                   </td>
                 </tr>
-              ) : displayed.length > 0 ? pagedRows.map((t, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1e293b" }}>{t.name || "-"}</td>
-                  <td style={{ padding: "10px 12px", color: "#64748b" }}>{t.reference || "-"}</td>
-                  <td style={{ padding: "10px 12px" }}>
-                    <span style={{ padding: "4px 9px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: typeBadge(t.type).bg, color: typeBadge(t.type).color }}>
-                      {t.type}
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px 12px" }}>
-                    <span style={{ padding: "4px 9px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: methodBadge(t.payment_type).bg, color: methodBadge(t.payment_type).color }}>
-                      {t.payment_type || "-"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "#1e293b" }}>{fmtINR(t.total)}</td>
-                  <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: MONEY_IN }}>{fmtINR(t.money_in)}</td>
-                  <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: MONEY_OUT }}>{fmtINR(t.money_out)}</td>
-                  <td style={{ padding: "10px 12px", textAlign: "center", whiteSpace: "nowrap" }}>
-                    {/* eslint-disable-next-line react-hooks/refs -- false positive: printSingleRow is a plain function, not a ref */}
-                    <button onClick={() => printSingleRow(t)} title="Print" style={rowIconBtn("#4338ca")}><Printer size={13} /></button>
-                    <div style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}>
-                      <button onClick={(e) => toggleShare(e, t)} title="Share" disabled={sharingNo === t.reference} style={rowIconBtn("#0891b2")}><Share2 size={13} /></button>
-
-                      {shareOpen === t.reference && sharePos && (
-                        <div
-                          ref={shareRef}
-                          style={{
-                            position: "fixed", right: sharePos.right, top: sharePos.top, marginTop: 6, minWidth: 92,
-                            background: "#fff", borderRadius: 10, border: "1px solid " + BORDER,
-                            boxShadow: "0 8px 30px rgba(30, 27, 75, 0.14)", padding: "8px 10px",
-                            zIndex: 99999, textAlign: "center", fontFamily: FONT,
-                          }}
-                        >
-                          <button
-                            type="button"
-                            title="WhatsApp"
-                            aria-label="WhatsApp"
-                            disabled={sharingNo === shareTarget.reference}
-                            onClick={() => shareRow(shareTarget)}
-                            style={{
-                              width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
-                              background: "#25D366", color: "#fff", display: "inline-flex", alignItems: "center",
-                              justifyContent: "center", boxShadow: "0 8px 20px rgba(37, 211, 102, 0.4)",
-                              transition: "transform 0.15s ease", opacity: sharingNo === shareTarget.reference ? 0.6 : 1,
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.06)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-                          >
-                            <WhatsAppIcon size={17} />
-                          </button>
-                          <div
-                            onClick={() => shareRow(shareTarget)}
-                            style={{ marginTop: 4, fontSize: 10, fontWeight: 600, color: "#475569", cursor: "pointer" }}
-                          >
-                            WhatsApp
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}>
-                      <button
-                        onClick={(e) => toggleMenu(e, t.reference)}
-                        title="More actions"
-                        style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + BORDER, background: "#fff", color: "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              ) : displayed.length > 0 ? (
+                pagedRows.map((t, i) => (
+                  <tr key={i} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-bold text-slate-800">{t.name || "-"}</td>
+                    <td className="px-4 py-3 text-slate-500 font-medium">{t.reference || "-"}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className="px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center"
+                        style={{
+                          background: typeBadge(t.type).bg,
+                          color: typeBadge(t.type).color,
+                        }}
                       >
-                        <MoreVertical size={14} />
-                      </button>
-
-                      {activeMenu === t.reference && menuPos && (
-                        <div
-                          ref={menuRef}
-                          style={{
-                            position: "fixed", right: menuPos.right, bottom: menuPos.bottom, marginBottom: 8, minWidth: 160,
-                            background: "#fff", borderRadius: 12, border: "1px solid " + BORDER,
-                            boxShadow: "0 -10px 30px rgba(30, 27, 75, 0.15)", padding: "5px 0",
-                            zIndex: 99999, textAlign: "left", fontFamily: FONT,
-                          }}
+                        {t.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className="px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center capitalize"
+                        style={{
+                          background: methodBadge(t.payment_type).bg,
+                          color: methodBadge(t.payment_type).color,
+                        }}
+                      >
+                        {t.payment_type || "-"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-extrabold text-slate-800">
+                      {fmtINR(t.total)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-extrabold text-emerald-600">
+                      {fmtINR(t.money_in)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-extrabold text-rose-600">
+                      {fmtINR(t.money_out)}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          onClick={() => printSingleRow(t)}
+                          title="Print"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-indigo-600 transition cursor-pointer"
                         >
+                          <Printer size={13} />
+                        </button>
+                        <div className="relative inline-flex">
                           <button
-                            onClick={(e) => { e.stopPropagation(); setActiveMenu(null); navigate(`/invoice/${t.reference}`); }}
-                            style={menuItemBtn}
+                            onClick={(e) => toggleShare(e, t)}
+                            title="Share via WhatsApp"
+                            disabled={sharingNo === t.reference}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-emerald-600 transition cursor-pointer disabled:opacity-40"
                           >
-                            <Eye size={14} color="#64748b" /> View Invoice
+                            <Share2 size={13} />
                           </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setActiveMenu(null); navigate(`/sales/edit/${t.reference}`); }}
-                            style={menuItemBtn}
-                          >
-                            <Edit size={14} color="#4338ca" /> Edit
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setActiveMenu(null); navigate(`/invoice/${t.reference}`); }}
-                            style={menuItemBtn}
-                          >
-                            <Printer size={14} color="#15803d" /> Print POS
-                          </button>
-                          <div style={{ borderTop: "1px solid #f1f5f9", margin: "4px 0" }} />
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setActiveMenu(null); setDeleteTarget(t); }}
-                            style={{ ...menuItemBtn, color: "#dc2626" }}
-                          >
-                            <Trash2 size={14} color="#dc2626" /> Delete
-                          </button>
+
+                          {shareOpen === t.reference && sharePos && (
+                            <div
+                              ref={shareRef}
+                              style={{
+                                position: "fixed",
+                                right: sharePos.right,
+                                top: sharePos.top,
+                                marginTop: 6,
+                                zIndex: 99999,
+                              }}
+                              className="min-w-[92px] bg-white rounded-xl border border-slate-200 shadow-xl p-2.5 text-center"
+                            >
+                              <button
+                                type="button"
+                                title="WhatsApp"
+                                aria-label="WhatsApp"
+                                disabled={sharingNo === shareTarget.reference}
+                                onClick={() => shareRow(shareTarget)}
+                                className="w-9 h-9 rounded-full bg-[#25D366] text-white inline-flex items-center justify-center shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition cursor-pointer disabled:opacity-50"
+                              >
+                                <WhatsAppIcon size={17} />
+                              </button>
+                              <div
+                                onClick={() => shareRow(shareTarget)}
+                                className="mt-1 text-[10px] font-bold text-slate-600 cursor-pointer hover:text-slate-900"
+                              >
+                                WhatsApp
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )) : (
+
+                        <div className="relative inline-flex">
+                          <button
+                            onClick={(e) => toggleMenu(e, t.reference)}
+                            title="More actions"
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+
+                          {activeMenu === t.reference && menuPos && (
+                            <div
+                              ref={menuRef}
+                              style={{
+                                position: "fixed",
+                                right: menuPos.right,
+                                bottom: menuPos.bottom,
+                                marginBottom: 8,
+                                zIndex: 99999,
+                              }}
+                              className="min-w-[160px] bg-white rounded-xl border border-slate-200 shadow-xl py-1 text-left"
+                            >
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenu(null);
+                                  navigate(`/invoice/${t.reference}`);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                              >
+                                <Eye size={14} className="text-slate-500" /> View Invoice
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenu(null);
+                                  navigate(`/sales/edit/${t.reference}`);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 cursor-pointer"
+                              >
+                                <Edit size={14} /> Edit
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenu(null);
+                                  navigate(`/invoice/${t.reference}`);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 cursor-pointer"
+                              >
+                                <Printer size={14} /> Print POS
+                              </button>
+                              <div className="border-t border-slate-100 my-1" />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenu(null);
+                                  setDeleteTarget(t);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
+                              >
+                                <Trash2 size={14} /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
                 <tr>
-                  <td colSpan={8} style={{ padding: 54, textAlign: "center" }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                      <Inbox size={30} color="#cbd5e1" />
-                      <span style={{ color: "#64748b", fontWeight: 600 }}>No transactions to show</span>
+                  <td colSpan={8} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <Inbox size={32} className="text-slate-300" />
+                      <span className="text-xs font-bold text-slate-500">
+                        No transactions to show
+                      </span>
                     </div>
                   </td>
                 </tr>
@@ -746,40 +888,43 @@ export default function DayBook() {
           page={safePage}
           rowsPerPage={rowsPerPage}
           onPageChange={setPage}
-          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
         />
       </div>
 
       {/* ── DELETE CONFIRMATION MODAL ── */}
       {deleteTarget && deleteTarget.kind === "sale" && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 99998, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15, 23, 42, 0.5)", backdropFilter: "blur(2px)", padding: 20 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4"
           onClick={() => setDeleteTarget(null)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 16, boxShadow: "0 20px 50px rgba(30, 27, 75, 0.3)", maxWidth: 420, width: "100%", padding: 22 }}
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-slate-200"
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-              <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <AlertTriangle size={22} color="#dc2626" />
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle size={22} />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a" }}>Delete Invoice?</h3>
-                <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b", fontFamily: "monospace" }}>
+                <h3 className="text-base font-extrabold text-slate-900">Delete Invoice?</h3>
+                <p className="text-xs font-mono text-slate-500 mt-0.5">
                   Invoice #{deleteTarget.reference}
                 </p>
               </div>
             </div>
-            <p style={{ fontSize: 13, color: "#475569", margin: "0 0 16px", lineHeight: 1.6 }}>
-              Are you sure you want to permanently delete this invoice?
+            <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+              Are you sure you want to permanently delete this invoice? This transaction will be removed from your records.
             </p>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+            <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 disabled={deleting}
                 onClick={() => setDeleteTarget(null)}
-                style={{ ...miniBtn, padding: "8px 16px", fontSize: 12 }}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -787,7 +932,7 @@ export default function DayBook() {
                 type="button"
                 disabled={deleting}
                 onClick={handleDeleteInvoice}
-                style={{ ...miniBtn, padding: "8px 16px", fontSize: 12, color: "#fff", background: "#dc2626", border: "none", fontWeight: 700 }}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition cursor-pointer disabled:opacity-50"
               >
                 {deleting ? "Deleting..." : "Yes, Delete"}
               </button>
@@ -799,19 +944,16 @@ export default function DayBook() {
       {/* ── ACTION TOAST NOTIFICATION ── */}
       {actionToast && (
         <div
-          style={{
-            position: "fixed", top: 24, right: 28, zIndex: 99999, minWidth: 280, maxWidth: 420,
-            background: actionToast.ok ? "#10b981" : "#ef4444", color: "#fff", borderRadius: 6,
-            padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
-            gap: 14, boxShadow: actionToast.ok ? "0 6px 20px rgba(16, 185, 129, 0.4)" : "0 6px 20px rgba(239, 68, 68, 0.4)",
-          }}
+          className={`fixed top-6 right-6 z-50 min-w-[280px] max-w-md text-white rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-xl transition-all ${
+            actionToast.ok ? "bg-emerald-600" : "bg-rose-600"
+          }`}
         >
-          <span style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.35 }}>{actionToast.msg}</span>
+          <span className="text-xs font-bold">{actionToast.msg}</span>
           <button
             onClick={() => setActionToast(null)}
-            style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+            className="text-white hover:opacity-75 cursor-pointer p-0.5"
           >
-            <X size={16} strokeWidth={2.5} />
+            <X size={15} strokeWidth={2.5} />
           </button>
         </div>
       )}

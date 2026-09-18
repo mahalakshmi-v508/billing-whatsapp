@@ -24,10 +24,10 @@ const ZERO_ITC = { igst: 0, cgst: 0, sgst: 0, cess: 0 };
 
 const tdBase = {
   border: "1px solid " + BORDER,
-  padding: "6px 8px",
-  fontSize: 11.5,
+  padding: "8px 12px",
+  fontSize: 12,
   color: "#334155",
-  verticalAlign: "top",
+  verticalAlign: "middle",
   fontFamily: FONT,
 };
 
@@ -38,19 +38,21 @@ const tdNum = {
   fontVariantNumeric: "tabular-nums",
   width: 100,
   minWidth: 88,
+  fontWeight: 500,
 };
 
 const thBase = {
   ...tdBase,
-  background: HEADER_BG,
+  background: "#f8fafc",
   fontWeight: 700,
-  color: "#475569",
-  fontSize: 10.5,
-  letterSpacing: "0.3px",
+  color: "#64748b",
+  fontSize: 11,
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
 };
 
-const rowAlt = { background: "#fafafa" };
-const rowTotal = { background: TOTAL_BG, fontWeight: 700, color: NAVY };
+const rowAlt = { background: "#ffffff" };
+const rowTotal = { background: "#f8fafc", fontWeight: 700, color: "#0f172a" };
 
 function Head({ cols }) {
   return (
@@ -145,21 +147,28 @@ function SectionHeader({ num, title }) {
     <div
       style={{
         display: "flex",
-        alignItems: "baseline",
+        alignItems: "center",
         gap: 8,
-        background: HEADER_BG,
-        border: "1px solid " + BORDER,
-        padding: "7px 10px",
-        marginTop: 20,
-        marginBottom: 8,
+        background: "linear-gradient(to right, #f8fafc, #f1f5f9)",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        padding: "8px 12px",
+        marginTop: 24,
+        marginBottom: 10,
+        boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)",
       }}
     >
       <span
         style={{
           fontWeight: 800,
-          color: NAVY,
-          fontSize: 11.5,
+          color: "#2563eb",
+          background: "#eff6ff",
+          border: "1px solid #dbeafe",
+          padding: "2px 8px",
+          borderRadius: "6px",
+          fontSize: 11,
           textTransform: "uppercase",
+          letterSpacing: "0.5px",
           whiteSpace: "nowrap",
         }}
       >
@@ -169,9 +178,9 @@ function SectionHeader({ num, title }) {
         style={{
           fontSize: 12,
           fontWeight: 700,
-          color: "#334155",
+          color: "#1e293b",
           textTransform: "uppercase",
-          letterSpacing: "0.2px",
+          letterSpacing: "0.3px",
         }}
       >
         {title}
@@ -1221,7 +1230,12 @@ export default function Gstr9() {
   };
 
   const tableWrap = {
-    border: "1px solid " + BORDER,
+    background: "#fff",
+    borderRadius: "16px",
+    border: "1px solid #e2e8f0",
+    overflow: "hidden",
+    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+    marginBottom: "16px",
   };
 
   /* ── Export Excel ─────────────────────────────────────────── */
@@ -1411,58 +1425,72 @@ const checkboxInputStyle = {
   const hsnPagedRows = hsnOutward.rows.slice((hsnSafePage - 1) * hsnRowsPerPage, hsnSafePage * hsnRowsPerPage);
 
   return (
-    <div
-      style={{
-        height: "100%",
-        overflowY: "auto",
-        padding: "6px 14px 24px",
-        boxSizing: "border-box",
-        fontFamily: FONT,
-      }}
-    >
-      {/* Top filter + actions */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-          gap: 10,
-          marginBottom: 6,
-        }}
-      >
-        <div>
-          <div style={fieldLabelStyle}>Financial Year</div>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Top filter + actions card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Financial Year</span>
+            <select
+              value={financialYear}
+              onChange={(e) => setFinancialYear(e.target.value)}
+              className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer min-w-[140px]"
+            >
+              {fyOptions.map((fy) => (
+                <option key={fy} value={fy}>
+                  {fy}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={financialYear}
-            onChange={(e) => setFinancialYear(e.target.value)}
-            style={selectStyle}
-          >
-            {fyOptions.map((fy) => (
-              <option key={fy} value={fy}>
-                {fy}
-              </option>
-            ))}
-          </select>
+          {companies.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Firm / Company</span>
+              <select
+                value={selectedCompany}
+                onChange={(e) => setSelectedCompany(e.target.value)}
+                className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer min-w-[180px]"
+              >
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.firm_name || c.company_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors pt-4 sm:pt-4">
+            <input
+              type="checkbox"
+              checked={considerExempt}
+              onChange={(e) => setConsiderExempt(e.target.checked)}
+              className="w-4 h-4 rounded-md text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+            />
+            <span>Consider Non-Tax as Exempted</span>
+          </label>
+
+          {loading && (
+            <RefreshCw size={15} className="animate-spin text-blue-600 ml-2" />
+          )}
         </div>
 
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
+        <div className="flex items-center gap-2">
           <button
             type="button"
             title="Export Excel"
             aria-label="Export Excel"
             onClick={exportXls}
-            style={selectedCompany ? iconBtn : iconBtnDisabled}
             disabled={!selectedCompany}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all shadow-2xs ${
+              selectedCompany
+                ? "border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 cursor-pointer"
+                : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+            }`}
           >
-            <FileSpreadsheet size={17} color="#16a34a" />
+            <FileSpreadsheet size={15} className="text-emerald-600" />
+            Excel
           </button>
 
           <button
@@ -1470,67 +1498,45 @@ const checkboxInputStyle = {
             title="Print"
             aria-label="Print"
             onClick={handlePrint}
-            style={selectedCompany ? iconBtn : iconBtnDisabled}
             disabled={!selectedCompany}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all shadow-2xs ${
+              selectedCompany
+                ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 cursor-pointer"
+                : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+            }`}
           >
-            <Printer size={17} color="#4338ca" />
+            <Printer size={15} className="text-slate-600" />
+            Print
           </button>
         </div>
       </div>
 
-      {/* Title row */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 6,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
-            style={{
-              fontSize: 15,
-              fontWeight: 800,
-              color: "#1e1b4b",
-              lineHeight: 1.2,
-            }}
-          >
-            GSTR9 REPORT
-          </span>
-
-          {loading && (
-            <RefreshCw
-              size={13}
-              style={{ animation: "spin 1s linear infinite", color: "#94a3b8" }}
-            />
-          )}
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-indigo-50/60 to-white p-4 rounded-2xl border border-indigo-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-indigo-700 uppercase">Financial Year</span>
+          <div className="text-xl font-black text-slate-800 tracking-tight mt-1">{financialYear}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Annual Return Period</div>
         </div>
-
-        <label style={{ ...checkboxLabelStyle, marginLeft: "auto" }}>
-          <input
-            type="checkbox"
-            checked={considerExempt}
-            onChange={(e) => setConsiderExempt(e.target.checked)}
-            style={checkboxInputStyle}
-          />
-          CONSIDER NON-TAX AS EXEMPTED
-        </label>
+        <div className="bg-gradient-to-br from-blue-50/60 to-white p-4 rounded-2xl border border-blue-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-blue-700 uppercase">Taxable Outward Value</span>
+          <div className="text-xl font-black text-slate-800 tracking-tight mt-1">₹{fmtNum(outward?.taxable?.value || 0)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Pt. II Supplies Made</div>
+        </div>
+        <div className="bg-gradient-to-br from-amber-50/60 to-white p-4 rounded-2xl border border-amber-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-amber-700 uppercase">Total Tax Liability</span>
+          <div className="text-xl font-black text-amber-900 tracking-tight mt-1">₹{fmtNum(pt4Totals.payable)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Pt. IV Output Tax Payable</div>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-50/60 to-white p-4 rounded-2xl border border-emerald-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase">Total Tax Paid</span>
+          <div className="text-xl font-black text-emerald-900 tracking-tight mt-1">₹{fmtNum(pt4Totals.cash + pt4Totals.itc)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Cash: ₹{fmtNum(pt4Totals.cash)} + ITC: ₹{fmtNum(pt4Totals.itc)}</div>
+        </div>
       </div>
 
       {!selectedCompany ? (
-        <div
-          style={{
-            border: "1.5px dashed " + BORDER,
-            borderRadius: 10,
-            background: "#fff",
-            padding: 48,
-            textAlign: "center",
-            color: "#64748b",
-            fontSize: 13,
-          }}
-        >
+        <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500 font-medium">
           Select a firm to generate the GSTR-9 annual return.
         </div>
       ) : (
@@ -1538,6 +1544,7 @@ const checkboxInputStyle = {
           {/* Pt. I — Basic details */}
           <SectionHeader num="Pt. I" title="Basic Details" />
 
+          <div style={tableWrap}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <Head
               cols={[
@@ -1575,6 +1582,7 @@ const checkboxInputStyle = {
               </tr>
             </tbody>
           </table>
+          </div>
 
           {/* Pt. II — Outward & inward supplies */}
           <SectionHeader

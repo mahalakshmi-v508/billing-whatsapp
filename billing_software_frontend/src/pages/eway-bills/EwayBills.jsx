@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Truck,
   RefreshCw,
@@ -187,43 +187,149 @@ export default function EwayBills() {
 
   const items = (bill) => (Array.isArray(bill.item_details) ? bill.item_details : []);
 
+  // Compute summary metrics for PaySplitX KPI strip
+  const summary = useMemo(() => {
+    let totalValue = 0;
+    let activeCount = 0;
+    let cancelledCount = 0;
+    bills.forEach((b) => {
+      totalValue += Number(b.total_amount || 0);
+      if (ACTIVE_STATUSES.includes(b.status)) activeCount++;
+      if (b.status === "Cancelled" || b.status === "Expired") cancelledCount++;
+    });
+    return { count: bills.length, totalValue, activeCount, cancelledCount };
+  }, [bills]);
+
   return (
-    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
 
       {/* ── 1. PAGE HEADER ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200/80">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
-            <Truck size={22} />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0 select-none">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white flex items-center justify-center shadow-lg shadow-cyan-100 ring-4 ring-cyan-50/50 flex-shrink-0">
+            <Truck size={24} />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight">E-Way Bills Registry</h1>
-            <p className="text-[12.5px] text-slate-500 font-medium truncate">
-              Official electronic consignment tracking registry · synced from backend
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              E-Way Bills Registry
+            </h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
+              Consignment transport tracking, vehicle updates &amp; official GST portal sync
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={refresh}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-[13px] font-semibold hover:bg-slate-50 transition cursor-pointer"
-        >
-          <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={refresh}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition cursor-pointer shadow-xs"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin text-cyan-600" : "text-slate-400"} />
+            <span>Refresh Data</span>
+          </button>
+        </div>
       </div>
 
-      {/* ── 2. SEARCH / FILTER CARD ── */}
-      <form onSubmit={handleSearch} className="mt-5 bg-white border border-slate-200 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
+      {/* ── 2. METRIC KPI CARDS (PaySplitX 4-Card Strip) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Consignments */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-cyan-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total E-Way Bills</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                {summary.count}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center font-black">
+              <Truck size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Generated consigns</span>
+            <span className="text-[11px] font-semibold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full">
+              Registry count
+            </span>
+          </div>
+        </div>
+
+        {/* Card 2: Active in Transit */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Active In Transit</p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+                {summary.activeCount}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <Clock size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>En route shipments</span>
+            <span className="text-[11px] font-semibold text-emerald-600">
+              Valid consignments
+            </span>
+          </div>
+        </div>
+
+        {/* Card 3: Total Consignment Value */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Goods Value</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                {money(summary.totalValue)}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+              ₹
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Invoice goods sum</span>
+            <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+              Taxable + GST
+            </span>
+          </div>
+        </div>
+
+        {/* Card 4: Cancelled / Expired */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-rose-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Cancelled / Void</p>
+              <h3 className="text-2xl font-black text-rose-600 mt-1 tracking-tight">
+                {summary.cancelledCount}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+              <XCircle size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Void consignments</span>
+            <span className="text-[11px] font-semibold text-rose-600">Inactive</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. SEARCH & FILTER CARD ── */}
+      <form onSubmit={handleSearch} className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
         <div className="relative flex-1 min-w-0 sm:min-w-[220px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by EWB No, Invoice No or Customer"
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Search by EWB Number, Invoice No or Customer / GSTIN..."
+            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-medium"
           />
         </div>
 
@@ -231,23 +337,24 @@ export default function EwayBills() {
           <button
             type="button"
             onClick={() => setFilterOpen((v) => !v)}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-600 text-[13px] font-semibold hover:bg-slate-50 transition cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xs font-bold hover:bg-slate-100 transition cursor-pointer"
           >
-            <SlidersHorizontal size={15} />
-            <span className="hidden sm:inline">{status === "All Status" ? "Filter" : status}</span>
-            <ChevronDown size={14} className={`transition-transform ${filterOpen ? "rotate-180" : ""}`} />
+            <SlidersHorizontal size={14} className="text-slate-400" />
+            <span>{status === "All Status" ? "Filter Status" : status}</span>
+            <ChevronDown size={13} className={`text-slate-400 transition-transform ${filterOpen ? "rotate-180" : ""}`} />
           </button>
           {filterOpen && (
-            <div className="absolute right-0 top-12 w-44 z-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute right-0 top-12 w-48 z-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 animate-in fade-in zoom-in-95 duration-100">
               {STATUS_OPTIONS.map((opt) => (
                 <div
                   key={opt}
                   onClick={() => handleStatusPick(opt)}
-                  className={`px-3 py-2 text-[13px] font-medium cursor-pointer transition ${
-                    status === opt ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  className={`px-3.5 py-2 text-xs font-semibold cursor-pointer transition flex items-center justify-between ${
+                    status === opt ? "bg-cyan-50 text-cyan-700 font-bold" : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {opt}
+                  <span>{opt}</span>
+                  {status === opt && <div className="w-1.5 h-1.5 rounded-full bg-cyan-600" />}
                 </div>
               ))}
             </div>
@@ -256,10 +363,10 @@ export default function EwayBills() {
 
         <button
           type="submit"
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold shadow-sm cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white text-xs font-bold shadow-md shadow-cyan-200 cursor-pointer transition"
         >
-          <Search size={15} />
-          Search
+          <Search size={14} />
+          <span>Apply Filter</span>
         </button>
       </form>
 

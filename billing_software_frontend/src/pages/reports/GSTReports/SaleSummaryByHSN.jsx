@@ -683,38 +683,19 @@ console.warn(
   const pagedRows = filtered.slice(pagedStart, pagedStart + rowsPerPage);
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", fontFamily: FONT }}>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
       <div ref={printHeaderRef} style={{ display: "none" }}>
         <b>Firm:</b> {firmLabel} | <b>Period:</b> {filterMeta}
         {search.trim() ? ` | Search: ${search.trim()}` : ""}
       </div>
 
-      <div style={{ padding: "12px 16px 0" }}>
-        <h2
-          style={{
-            margin: 0,
-            fontSize: 15,
-            fontWeight: 700,
-            color: NAVY,
-            paddingBottom: 10,
-          }}
-        >
-          Sale Summary By HSN
-        </h2>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "flex-end",
-            gap: 12,
-            rowGap: 10,
-          }}
-        >
-          <div>
-            <div style={labelStyle}>Period</div>
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Period</span>
             <select
-              style={{ ...selectStyle, minWidth: 150 }}
+              className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer min-w-[140px]"
               value={periodKey}
               onChange={onPeriodChange}
             >
@@ -726,29 +707,29 @@ console.warn(
             </select>
           </div>
 
-          <div>
-            <div style={labelStyle}>Between</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Between</span>
+            <div className="flex items-center gap-2">
               <input
                 type="date"
-                style={dateInputStyle}
+                className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer"
                 value={fromDate}
                 onChange={onFromDateChange}
               />
-              <span style={{ fontSize: 12, color: GREY, fontWeight: 600 }}>To</span>
+              <span className="text-xs font-bold text-slate-400">to</span>
               <input
                 type="date"
-                style={dateInputStyle}
+                className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer"
                 value={toDate}
                 onChange={onToDateChange}
               />
             </div>
           </div>
 
-          <div>
-            <div style={labelStyle}>Firm</div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Firm</span>
             <select
-              style={{ ...selectStyle, minWidth: 160 }}
+              className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer min-w-[160px]"
               value={selectedFirm}
               onChange={(e) => setSelectedFirm(e.target.value)}
             >
@@ -761,171 +742,156 @@ console.warn(
             </select>
           </div>
 
-          <div style={{ flex: 1, minWidth: 20 }} />
-
-          <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-            <button
-              type="button"
-              title="Export Excel"
-              style={{ ...iconBtnStyle, color: "#15803d" }}
-              onClick={exportXls}
-            >
-              <FileSpreadsheet size={17} />
-            </button>
-            <button
-              type="button"
-              title="Print"
-              style={{ ...iconBtnStyle, color: "#4f46e5" }}
-              onClick={handlePrint}
-            >
-              <Printer size={17} />
-            </button>
-          </div>
+          {loading && (
+            <RefreshCw size={15} className="animate-spin text-blue-600 ml-2" />
+          )}
         </div>
 
-        <div style={{ display: "flex", marginTop: 12, marginBottom: 6 }}>
-          <div style={searchStyle}>
-            <Search size={14} color={GREY} />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            title="Export Excel"
+            onClick={exportXls}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <FileSpreadsheet size={15} className="text-emerald-600" />
+            Excel
+          </button>
+          <button
+            type="button"
+            title="Print"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <Printer size={15} className="text-slate-600" />
+            Print
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-indigo-50/60 to-white p-4 rounded-2xl border border-indigo-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-indigo-700 uppercase">Total HSN Groups</span>
+          <div className="text-xl font-black text-slate-800 tracking-tight mt-1">{filtered.length}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Active HSN Codes</div>
+        </div>
+        <div className="bg-gradient-to-br from-blue-50/60 to-white p-4 rounded-2xl border border-blue-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-blue-700 uppercase">Total Value</span>
+          <div className="text-xl font-black text-slate-800 tracking-tight mt-1">{fmtMoney(totals.total)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Gross Invoiced Value</div>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-50/60 to-white p-4 rounded-2xl border border-emerald-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase">Taxable Value</span>
+          <div className="text-xl font-black text-emerald-900 tracking-tight mt-1">{fmtMoney(totals.base)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Net Taxable Base</div>
+        </div>
+        <div className="bg-gradient-to-br from-purple-50/60 to-white p-4 rounded-2xl border border-purple-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-purple-700 uppercase">Total Tax Amount</span>
+          <div className="text-xl font-black text-purple-900 tracking-tight mt-1">
+            {fmtMoney(totals.igst + totals.cgst + totals.sgst + totals.cess)}
+          </div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">IGST + CGST + SGST + Cess</div>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        {/* Table Search Header */}
+        <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+          <div className="relative min-w-[240px] max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input
-              style={searchInputStyle}
+              type="text"
               placeholder="Search by HSN / item name…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all"
             />
-            {search ? (
+            {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                style={{
-                  border: "none",
-                  background: "none",
-                  cursor: "pointer",
-                  color: GREY,
-                  fontSize: 13,
-                  lineHeight: 1,
-                  padding: 0,
-                }}
-                title="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
               >
                 ×
               </button>
-            ) : null}
+            )}
+          </div>
+          <div className="text-xs font-semibold text-slate-500">
+            Showing {filtered.length} HSN items
           </div>
         </div>
-      </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "6px 16px 8px" }}>
-        <div style={{ border: B, borderRadius: 8, overflow: "hidden" }}>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ borderCollapse: "collapse", width: "100%" }}>
-              <thead>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center w-12">#</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">HSN</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Total Value</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Taxable Value</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">IGST Amount</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">CGST Amount</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">SGST Amount</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Add. Cess</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
                 <tr>
-                  <th style={{ ...thBase, width: 40, textAlign: "center" }}>
-                    #{" "}
-                    <ArrowUpDown
-                      size={10}
-                      style={{ verticalAlign: "-1px", marginLeft: 2 }}
-                      color={GREY}
-                    />
-                  </th>
-                  <th style={{ ...thBase, minWidth: 200 }}>
-                    Hsn{" "}
-                    <ArrowUpDown
-                      size={10}
-                      style={{ verticalAlign: "-1px", marginLeft: 2 }}
-                      color={GREY}
-                    />
-                  </th>
-                  <th style={{ ...thBase, textAlign: "right", minWidth: 120 }}>
-                    Total Value{" "}
-                    <Filter
-                      size={10}
-                      style={{ verticalAlign: "-1px", marginLeft: 3 }}
-                      color={GREY}
-                    />
-                  </th>
-                  <th style={{ ...thBase, textAlign: "right", minWidth: 120 }}>
-                    Taxable Value
-                  </th>
-                  <th style={{ ...thBase, textAlign: "right", minWidth: 110 }}>
-                    Igst Amount
-                  </th>
-                  <th style={{ ...thBase, textAlign: "right", minWidth: 110 }}>
-                    Cgst Amount
-                  </th>
-                  <th style={{ ...thBase, textAlign: "right", minWidth: 110 }}>
-                    Sgst Amount
-                  </th>
-                  <th style={{ ...thBase, textAlign: "right", minWidth: 110 }}>
-                    Add. Cess
-                  </th>
+                  <td colSpan={8} className="px-4 py-12 text-center text-slate-500 text-xs">
+                    <RefreshCw size={18} className="inline animate-spin mr-2 text-blue-600" />
+                    Loading HSN data…
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={8} style={{ ...tdBase, textAlign: "center", color: GREY }}>
-                      <RefreshCw size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
-                      Loading…
-                    </td>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-slate-500 text-xs font-medium">
+                    No records found for the selected period and firm.
+                  </td>
+                </tr>
+              ) : (
+                pagedRows.map((g, i) => (
+                  <tr key={`${g.hsn}-${i}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 text-xs text-center font-medium text-slate-400">{pagedStart + i + 1}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{g.hsn}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-900 text-right tabular-nums">{fmtMoney(g.total)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-slate-700 text-right tabular-nums">{fmtMoney(g.base)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right tabular-nums">{taxCell(g.igst)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right tabular-nums">{taxCell(g.cgst)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right tabular-nums">{taxCell(g.sgst)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right tabular-nums">{taxCell(g.cess)}</td>
                   </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} style={{ ...tdBase, textAlign: "center", color: GREY }}>
-                      No records found for the selected period and firm.
-                    </td>
-                  </tr>
-                ) : (
-                  pagedRows.map((g, i) => (
-                    <tr key={`${g.hsn}-${i}`} style={{ background: i % 2 ? ALT_BG : "#fff" }}>
-                      <td style={{ ...tdBase, textAlign: "center" }}>{pagedStart + i + 1}</td>
-                      <td style={{ ...tdBase, fontWeight: 600 }}>{g.hsn}</td>
-                      <td style={{ ...tdBase, ...tdNum }}>{fmtMoney(g.total)}</td>
-                      <td style={{ ...tdBase, ...tdNum }}>{fmtMoney(g.base)}</td>
-                      <td style={{ ...tdBase, ...tdNum }}>{taxCell(g.igst)}</td>
-                      <td style={{ ...tdBase, ...tdNum }}>{taxCell(g.cgst)}</td>
-                      <td style={{ ...tdBase, ...tdNum }}>{taxCell(g.sgst)}</td>
-                      <td style={{ ...tdBase, ...tdNum }}>{taxCell(g.cess)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <ReportPagination
-            total={totalRows}
-            page={safePage}
-            rowsPerPage={rowsPerPage}
-            onPageChange={setPage}
-            onRowsPerPageChange={(v) => {
-              setRowsPerPage(v);
-              setPage(1);
-            }}
-          />
+                ))
+              )}
+            </tbody>
+            {filtered.length > 0 && (
+              <tfoot>
+                <tr className="bg-slate-50/90 font-bold border-t border-slate-200/80 text-slate-800">
+                  <td className="px-4 py-3 text-xs text-center" colSpan={2}>Total</td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-slate-900">{fmtMoney(totals.total)}</td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-slate-900">{fmtMoney(totals.base)}</td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-slate-900">{taxCell(totals.igst)}</td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-slate-900">{taxCell(totals.cgst)}</td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-slate-900">{taxCell(totals.sgst)}</td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-slate-900">{taxCell(totals.cess)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
         </div>
-      </div>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "10px 16px 14px",
-          borderTop: B,
-          gap: 10,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: NAVY }}>
-          Total Value:{" "}
-          <span style={{ fontWeight: 700 }}>{fmtMoney(totals.total)}</span>
-          <span style={{ color: GREY, fontWeight: 400, marginLeft: 12 }}>
-            (Taxable: {fmtMoney(totals.base)})
-          </span>
-        </div>
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: NAVY }}>
-          Total Items: <span style={{ fontWeight: 700 }}>{filtered.length}</span>
-        </div>
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
+        />
       </div>
     </div>
   );

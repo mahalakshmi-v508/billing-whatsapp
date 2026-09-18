@@ -1,531 +1,538 @@
-
-
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import {
+  Building2,
+  Hash,
+  MapPin,
+  Phone,
+  Percent,
+  Upload,
+  X,
+  Plus,
+  RefreshCw,
+  Image as ImageIcon,
+  CheckCircle2,
+  AlertCircle,
+  Building,
+} from "lucide-react";
 
-/* ── Global CSS ─────────────────────────────────────────────────────────── */
-const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Syne:wght@700;800;900&display=swap');
-
-  @keyframes slideDown  { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:none} }
-  @keyframes slideUp    { from{opacity:0;transform:translateY(12px)}  to{opacity:1;transform:none} }
-  @keyframes toastIn    { from{opacity:0;transform:translateX(110px)} to{opacity:1;transform:none} }
-  @keyframes toastOut   { from{opacity:1;transform:none} to{opacity:0;transform:translateX(110px)} }
-  @keyframes spin       { to{transform:rotate(360deg)} }
-  @keyframes fadeScale  { from{opacity:0;transform:scale(.93)} to{opacity:1;transform:scale(1)} }
-  @keyframes pulse      { 0%,100%{opacity:1} 50%{opacity:.5} }
-
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Outfit',sans-serif; }
-
-  .rc-input {
-    width:100%;
-    background:#f8faff;
-    border:1.5px solid #dde4f0;
-    border-radius:11px;
-    padding:11px 14px;
-    color:#1e2a45;
-    font-size:14px;
-    font-family:'Outfit',sans-serif;
-    outline:none;
-    transition:all .2s;
-  }
-  .rc-input:focus {
-    border-color:#3b82f6;
-    background:#fff;
-    box-shadow:0 0 0 3px rgba(59,130,246,.13);
-  }
-  .rc-input::placeholder { color:#a0aec0; }
-
-  .rc-select {
-    width:100%;
-    background:#f8faff;
-    border:1.5px solid #dde4f0;
-    border-radius:11px;
-    padding:11px 14px;
-    color:#1e2a45;
-    font-size:14px;
-    font-family:'Outfit',sans-serif;
-    outline:none;
-    appearance:none;
-    cursor:pointer;
-    transition:all .2s;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;
-    background-position:right 14px center;
-  }
-  .rc-select:focus {
-    border-color:#3b82f6;
-    background-color:#fff;
-    box-shadow:0 0 0 3px rgba(59,130,246,.13);
-  }
-
-  .rc-label {
-    display:block;
-    font-size:11px;
-    font-weight:700;
-    color:#3b82f6;
-    letter-spacing:.08em;
-    text-transform:uppercase;
-    margin-bottom:6px;
-  }
-
-  .rc-submit {
-    width:100%; padding:14px; border:none; border-radius:12px;
-    background:linear-gradient(135deg,#1d4ed8,#3b82f6,#60a5fa);
-    color:#fff; font-size:15px; font-weight:700;
-    font-family:'Outfit',sans-serif; cursor:pointer;
-    letter-spacing:.02em;
-    transition:all .22s;
-  }
-  .rc-submit:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(59,130,246,.38); }
-  .rc-submit:active { transform:translateY(0); }
-  .rc-submit:disabled { opacity:.6; cursor:not-allowed; transform:none; box-shadow:none; }
-
-  .rc-file-area {
-    width:100%; border:2px dashed #bfdbfe;
-    border-radius:12px; padding:20px 16px;
-    text-align:center; cursor:pointer;
-    background:#f0f7ff;
-    transition:all .2s;
-    position:relative;
-  }
-  .rc-file-area:hover { border-color:#3b82f6; background:#e0f0ff; }
-
-  .section-divider {
-    display:flex; align-items:center; gap:12px;
-    margin:6px 0 18px;
-  }
-  .section-divider::before,
-  .section-divider::after {
-    content:''; flex:1; height:1px; background:#e2e8f0;
-  }
-`;
-
-/* ── SVG Icons ───────────────────────────────────────────────────────────── */
-const IcoBuilding = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="3" width="20" height="18" rx="2"/><path d="M9 22V12h6v10"/><path d="M9 7h1"/><path d="M14 7h1"/><path d="M9 12h1"/><path d="M14 12h1"/>
-  </svg>
-);
-const IcoUser = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-  </svg>
-);
-const IcoImage = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-  </svg>
-);
-const IcoCheck = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 6 9 17 4 12"/>
-  </svg>
-);
-const IcoX = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-  </svg>
-);
-const IcoWarn = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-  </svg>
-);
-
-/* ── Toast ──────────────────────────────────────────────────────────────── */
-function Toast({ toasts }) {
-  return (
-    <div style={{ position:"fixed", top:20, right:20, zIndex:99999, display:"flex", flexDirection:"column", gap:10, pointerEvents:"none" }}>
-      {toasts.map(t => {
-        const cfg = {
-          success: { bg:"linear-gradient(135deg,#0369a1,#0ea5e9)", icon:<IcoCheck /> },
-          error:   { bg:"linear-gradient(135deg,#b91c1c,#ef4444)", icon:<IcoX /> },
-          warning: { bg:"linear-gradient(135deg,#b45309,#f59e0b)", icon:<IcoWarn /> },
-        }[t.type] || { bg:"linear-gradient(135deg,#1d4ed8,#3b82f6)", icon:<IcoCheck /> };
-        return (
-          <div key={t.id} style={{
-            display:"flex", alignItems:"center", gap:10,
-            background: cfg.bg,
-            color:"#fff", borderRadius:13, padding:"12px 18px",
-            fontWeight:600, fontSize:13.5,
-            animation:"toastIn .32s cubic-bezier(.4,0,.2,1) both",
-            fontFamily:"'Outfit',sans-serif",
-            minWidth:270, maxWidth:340,
-            pointerEvents:"auto",
-          }}>
-            <span style={{
-              width:24, height:24, borderRadius:7,
-              background:"rgba(255,255,255,.2)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              flexShrink:0,
-            }}>
-              {cfg.icon}
-            </span>
-            <span style={{ flex:1, lineHeight:1.4 }}>{t.msg}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ── Field wrapper ───────────────────────────────────────────────────────── */
-function Field({ label, children, error }) {
-  return (
-    <div style={{ marginBottom:16 }}>
-      {label && <label className="rc-label">{label}</label>}
-      {children}
-      {error && (
-        <div style={{ fontSize:11.5, color:"#ef4444", marginTop:5, fontWeight:500, display:"flex", alignItems:"center", gap:4 }}>
-          <IcoX /> {error}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Section header ─────────────────────────────────────────────────────── */
-function SectionHead({ icon, title, sub }) {
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}>
-      <div style={{
-        width:32, height:32, borderRadius:9,
-        background:"linear-gradient(135deg,#1d4ed8,#3b82f6)",
-        display:"flex", alignItems:"center", justifyContent:"center",
-        color:"#fff", flexShrink:0,
-      }}>{icon}</div>
-      <div>
-        <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f", letterSpacing:".03em" }}>{title}</div>
-        {sub && <div style={{ fontSize:11.5, color:"#94a3b8", marginTop:1 }}>{sub}</div>}
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   MAIN COMPONENT
-══════════════════════════════════════════════════════════════════════════ */
-export default function CompanyForm() {
+export default function CompanyForm({ isOpen = true, onClose, onSuccess }) {
   const navigate = useNavigate();
-
-  const [form, setForm] = useState({
-    name:"", code:"", address:"", gstin:"",
-    gst_type:"with_gst", phone:"", logo:null,
-   
-  });
-
-  const [errors, setErrors]   = useState({});
-  const [toasts, setToasts]   = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [showPass, setShowPass] = useState(false);
   const fileRef = useRef(null);
 
-  useEffect(() => {
-    const s = document.createElement("style");
-    s.innerHTML = GLOBAL_CSS;
-    document.head.appendChild(s);
-    return () => document.head.removeChild(s);
-  }, []);
+  const [form, setForm] = useState({
+    name: "",
+    code: "",
+    address: "",
+    gstin: "",
+    gst_type: "with_gst",
+    phone: "",
+    logo: null,
+  });
+
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [toasts, setToasts] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   /* ── Toast helper ── */
   const toast = (msg, type = "error") => {
     const id = Date.now() + Math.random();
-    setToasts(p => [...p, { id, msg, type }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
+    setToasts((p) => [...p, { id, msg, type }]);
+    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 3500);
   };
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      navigate("/company");
+    }
+  };
+
+  const set = (key, val) => {
+    setForm((p) => ({ ...p, [key]: val }));
+    if (errors[key]) setErrors((p) => ({ ...p, [key]: undefined }));
+  };
+
+  /* ── File / Logo handling ── */
+  const handleLogoChange = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("Please select an image file (PNG, JPG, WEBP)", "error");
+      return;
+    }
+    setForm((p) => ({ ...p, logo: file }));
+    const reader = new FileReader();
+    reader.onload = (e) => setLogoPreview(e.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const removeLogo = (e) => {
+    e.stopPropagation();
+    setForm((p) => ({ ...p, logo: null }));
+    setLogoPreview(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const convertToBase64 = (file) =>
+    new Promise((res, rej) => {
+      const r = new FileReader();
+      r.readAsDataURL(file);
+      r.onload = () => res(r.result.split(",")[1]);
+      r.onerror = rej;
+    });
 
   /* ── Validation ── */
   const validate = () => {
     const e = {};
-    if (!form.name.trim())           e.name         = "Company name is required";
-    if (!form.code.trim())           e.code         = "Company code is required";
-    if (!form.address.trim())        e.address      = "Address is required";
-    // if (form.gst_type === "with_gst" && !form.gstin.trim())
-    //                                  e.gstin        = "GSTIN is required for GST registered company";
-     if (form.gst_type === "with_gst" && form.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(form.gstin))
-    //                                  e.gstin        = "Enter a valid GSTIN (e.g. 33ABCDE1234F1Z5)";
-    // GSTIN is optional now — only validate format if the user actually typed something
-if (form.gstin.trim() && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(form.gstin))
-                                 e.gstin        = "Enter a valid GSTIN (e.g. 33ABCDE1234F1Z5)";
-    if (!form.phone)                 e.phone        = "Phone number is required";
-    else if (form.phone.length !== 10) e.phone      = "Phone must be exactly 10 digits";
-   
-    return e;
+    if (!form.name.trim()) e.name = "Company name is required";
+    if (!form.code.trim()) e.code = "Company code is required";
+    if (!form.address.trim()) e.address = "Address is required";
+    if (
+      form.gstin.trim() &&
+      !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(
+        form.gstin.trim().toUpperCase()
+      )
+    ) {
+      e.gstin = "Enter a valid 15-digit GSTIN (e.g. 33ABCDE1234F1Z5)";
+    }
+    if (!form.phone.trim()) {
+      e.phone = "Phone number is required";
+    } else if (!/^[0-9]{10}$/.test(form.phone.trim())) {
+      e.phone = "Phone must be exactly 10 digits";
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const convertToBase64 = (file) => new Promise((res, rej) => {
-    const r = new FileReader();
-    r.readAsDataURL(file);
-    r.onload  = () => res(r.result.split(",")[1]);
-    r.onerror = rej;
-  });
-
-  const handleSubmit = async () => {
-
-    
-    const e = validate();
-    setErrors(e);
-
-    if (Object.keys(e).length > 0) {
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!validate()) {
+      toast("Please fix required fields marked in red", "error");
       return;
     }
 
     setLoading(true);
-     const user = JSON.parse(
-    localStorage.getItem("user")
-  );
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
     try {
       let base64Logo = "";
-      if (form.logo) base64Logo = await convertToBase64(form.logo);
-
-      
+      if (form.logo) {
+        base64Logo = await convertToBase64(form.logo);
+      }
 
       const payload = {
         admin_id: user?.id || 0,
-        company_name: form.name,
-        company_code: form.code,
-        company_address: form.address,
-        gstin: form.gstin,
+        company_name: form.name.trim(),
+        company_code: form.code.trim().toUpperCase(),
+        company_address: form.address.trim(),
+        gstin: form.gstin.trim().toUpperCase(),
         gst_type: form.gst_type,
-        phone: form.phone,
+        phone: form.phone.trim(),
         logo: base64Logo,
       };
 
       const res = await api.post("/company/add_company", payload);
-     
-
-
-
-      console.log("API Response:", res.data); // debug log
-
-      const isSuccess = res.data.status === true || res.data.status === 1 || res.data.status === "true" || res.data.status === "1" || res.data.status === "success";
+      const isSuccess =
+        res.data.status === true ||
+        res.data.status === 1 ||
+        res.data.status === "true" ||
+        res.data.status === "success";
 
       if (isSuccess) {
-        toast("Company created successfully!", "success");
-        setTimeout(() => navigate("/company"), 1200);
+        toast("Company registered successfully!", "success");
+        setTimeout(() => {
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/company");
+          }
+        }, 1000);
       } else {
-        toast(res.data.message || res.data.msg || res.data.error || "Something went wrong", "error");
+        toast(
+          res.data.message ||
+            res.data.msg ||
+            res.data.error ||
+            "Failed to register company",
+          "error"
+        );
       }
     } catch (err) {
       console.error(err);
       toast("Server error. Please try again.", "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const set = (key, val) => {
-    setForm(p => ({ ...p, [key]: val }));
-    if (errors[key]) setErrors(p => ({ ...p, [key]: undefined }));
-  };
+  if (!isOpen) return null;
 
-  /* ─────────────────────────────── RENDER ─────────────────────────────── */
-  return (
-    <div style={{ minHeight:"100vh", background:"#eef4ff", fontFamily:"'Outfit',sans-serif" }}>
-      <Toast toasts={toasts} />
-
-      {/* ── Hero Header ── */}
-      <div style={{
-        background:"linear-gradient(135deg,#0f2456 0%,#1d4ed8 55%,#3b82f6 100%)",
-        padding:"28px 36px 68px",
-        position:"relative", overflow:"hidden",
-      }}>
-        {/* Decorative circles */}
-        {[
-          { size:220, top:-70, right:-60, op:.07 },
-          { size:130, top:20,  right:180, op:.05 },
-          { size:80,  bottom:-30, left:60, op:.06 },
-        ].map((c,i) => (
-          <div key={i} style={{
-            position:"absolute", top:c.top, right:c.right, bottom:c.bottom, left:c.left,
-            width:c.size, height:c.size, borderRadius:"50%",
-            background:`rgba(255,255,255,${c.op})`, pointerEvents:"none",
-          }} />
-        ))}
-        <div style={{ position:"relative" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-            <div style={{ width:36, height:36, borderRadius:10, background:"rgba(255,255,255,.15)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff" }}>
-              <IcoBuilding />
-            </div>
-            <h1 style={{ fontFamily:"'Syne',sans-serif", fontSize:26, fontWeight:900, color:"#fff", letterSpacing:"-.02em" }}>
+  const content = (
+    <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col font-['Plus_Jakarta_Sans',sans-serif] max-h-[90vh] transition-all animate-in zoom-in-95 duration-200">
+      {/* ── HEADER ── */}
+      <div className="px-6 sm:px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/80 to-white flex-shrink-0">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+            <Building2 size={20} />
+          </div>
+          <div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
               Register Company
-            </h1>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Set up business entity profile, GST tax details &amp; branding
+            </p>
           </div>
-          <p style={{ fontSize:13, color:"rgba(255,255,255,.6)", fontWeight:400, marginLeft:46 }}>
-            Set up your company profile and admin account
-          </p>
         </div>
+
+        <button
+          type="button"
+          onClick={handleClose}
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          title="Close"
+        >
+          <X size={18} />
+        </button>
       </div>
 
-      {/* ── Form Card ── */}
-      <div style={{ padding:"0 24px 48px", marginTop:-44 }}>
-        <div style={{
-          background:"#fff",
-          borderRadius:20,
-          border:"1.5px solid #dde8f8",
-          padding:"28px 28px 24px",
-          animation:"fadeScale .4s ease both",
-        }}>
-
-          {/* ═══ SECTION 1: Company Info ═══ */}
-          <SectionHead
-            icon={<IcoBuilding />}
-            title="Company Information"
-            sub="Basic details about your business"
-          />
-
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 20px" }}>
-            <Field label="Company Name *" error={errors.name}>
-              <input className="rc-input" placeholder="e.g. Acme Pvt Ltd"
-                value={form.name}
-                onChange={e => set("name", e.target.value)}
-                style={errors.name ? { borderColor:"#fca5a5", background:"#fff5f5" } : {}}
-              />
-            </Field>
-            <Field label="Company Code *" error={errors.code}>
-              <input className="rc-input" placeholder="e.g. ACME001"
-                value={form.code}
-                onChange={e => set("code", e.target.value.toUpperCase())}
-                style={errors.code ? { borderColor:"#fca5a5", background:"#fff5f5" } : {}}
-              />
-            </Field>
+      {/* ── SCROLLABLE BODY ── */}
+      <form onSubmit={handleSubmit} className="px-6 sm:px-8 py-6 overflow-y-auto flex-1 space-y-6">
+        {/* SECTION 1: COMPANY IDENTIFICATION */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <Building size={14} className="text-indigo-600" />
+            <span>Company Identification</span>
+            <div className="flex-1 h-px bg-slate-100 ml-2" />
           </div>
 
-          <Field label="Address *" error={errors.address}>
-            <textarea className="rc-input" placeholder="Full business address" rows={3}
-              value={form.address}
-              onChange={e => set("address", e.target.value)}
-              style={{ resize:"none", ...(errors.address ? { borderColor:"#fca5a5", background:"#fff5f5" } : {}) }}
-            />
-          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Company Name */}
+            <div>
+              <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                Company Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Building2 size={15} />
+                </div>
+                <input
+                  type="text"
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none transition-all ${
+                    errors.name
+                      ? "border-red-500 focus:ring-3 focus:ring-red-100 text-red-900"
+                      : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 text-slate-900"
+                  }`}
+                  placeholder="e.g. Mahalakshmi Traders Pvt Ltd"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  autoFocus
+                />
+              </div>
+              {errors.name && (
+                <p className="mt-1 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                  <AlertCircle size={12} /> {errors.name}
+                </p>
+              )}
+            </div>
 
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 20px" }}>
-            {/* <Field label="GST Type *">
-              <select className="rc-select"
+            {/* Company Code */}
+            <div>
+              <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                Company Code <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Hash size={14} />
+                </div>
+                <input
+                  type="text"
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border rounded-xl text-xs font-semibold uppercase tracking-wider placeholder:text-slate-400 focus:outline-none transition-all ${
+                    errors.code
+                      ? "border-red-500 focus:ring-3 focus:ring-red-100 text-red-900"
+                      : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 text-slate-900"
+                  }`}
+                  placeholder="e.g. ML001"
+                  value={form.code}
+                  onChange={(e) =>
+                    set("code", e.target.value.toUpperCase().replace(/\s/g, ""))
+                  }
+                />
+              </div>
+              {errors.code && (
+                <p className="mt-1 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                  <AlertCircle size={12} /> {errors.code}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: TAX COMPLIANCE & GST */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <Percent size={14} className="text-indigo-600" />
+            <span>Taxation &amp; GST Details</span>
+            <div className="flex-1 h-px bg-slate-100 ml-2" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* GST Type */}
+            <div>
+              <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                GST Registration Type
+              </label>
+              <select
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all cursor-pointer"
                 value={form.gst_type}
-                onChange={e => set("gst_type", e.target.value)}>
-                <option value="with_gst">With GST</option>
-                <option value="without_gst">Without GST</option>
+                onChange={(e) => set("gst_type", e.target.value)}
+              >
+                <option value="with_gst">With GST (Regular GST Registered)</option>
+                <option value="without_gst">Without GST (Composition / Exempt)</option>
               </select>
-            </Field> */}
+            </div>
 
-            <Field label="Phone Number *" error={errors.phone}>
-              <input className="rc-input" placeholder="10-digit phone"
-                value={form.phone}
-                maxLength={10}
-                onChange={e => set("phone", e.target.value.replace(/\D/g,"").slice(0,10))}
-                style={errors.phone ? { borderColor:"#fca5a5", background:"#fff5f5" } : {}}
-              />
-            </Field>
-          </div>
-
-          {form.gst_type === "with_gst" && (
-            <Field label="GSTIN (Optional)" error={errors.gstin}>
-              <input className="rc-input" placeholder="e.g. 33ABCDE1234F1Z5"
+            {/* GSTIN */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11.5px] font-semibold text-slate-700">
+                  GSTIN (15 Digits)
+                </label>
+                <span className="text-[10.5px] text-slate-400">Optional</span>
+              </div>
+              <input
+                type="text"
+                maxLength={15}
+                className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-semibold uppercase tracking-wider placeholder:text-slate-400 focus:outline-none transition-all ${
+                  errors.gstin
+                    ? "border-red-500 focus:ring-3 focus:ring-red-100 text-red-900"
+                    : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 text-slate-900"
+                }`}
+                placeholder="33ABCDE1234F1Z5"
                 value={form.gstin}
-                 maxLength={15}
-                onChange={e => set("gstin", e.target.value.toUpperCase())}
-                style={errors.gstin ? { borderColor:"#fca5a5", background:"#fff5f5" } : {}}
+                onChange={(e) =>
+                  set("gstin", e.target.value.toUpperCase().slice(0, 15))
+                }
               />
-            </Field>
-          )}
-
-          {/* Logo upload */}
-          <Field label="Company Logo">
-            <div className="rc-file-area" onClick={() => fileRef.current?.click()}>
-              <input ref={fileRef} type="file" accept="image/*" style={{ display:"none" }}
-                onChange={e => set("logo", e.target.files[0])} />
-              {form.logo ? (
-                <div style={{ display:"flex", alignItems:"center", gap:14, justifyContent:"center" }}>
-                  <img src={URL.createObjectURL(form.logo)} alt="preview"
-                    style={{ height:60, width:60, objectFit:"contain", borderRadius:8, border:"1.5px solid #bfdbfe" }} />
-                  <div style={{ textAlign:"left" }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:"#1d4ed8" }}>{form.logo.name}</div>
-                    <div style={{ fontSize:11.5, color:"#64748b", marginTop:2 }}>Click to change</div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <IcoImage />
-                  <div style={{ fontSize:13, fontWeight:600, color:"#3b82f6", marginTop:6 }}>Click to upload logo</div>
-                  <div style={{ fontSize:11.5, color:"#94a3b8", marginTop:2 }}>PNG, JPG, SVG — max 2MB</div>
-                </div>
+              {errors.gstin && (
+                <p className="mt-1 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                  <AlertCircle size={12} /> {errors.gstin}
+                </p>
               )}
             </div>
-          </Field>
+          </div>
+        </div>
 
-          {/* ═══ SECTION 2: Owner Details ═══ */}
-          {/* <div className="section-divider" style={{ margin:"8px 0 20px" }}>
-            <span style={{ fontSize:11, fontWeight:700, color:"#94a3b8", letterSpacing:".08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>
-              Owner / Admin Account
-            </span>
+        {/* SECTION 3: CONTACT & LOCATION */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <MapPin size={14} className="text-indigo-600" />
+            <span>Contact &amp; Physical Address</span>
+            <div className="flex-1 h-px bg-slate-100 ml-2" />
           </div>
 
-          <SectionHead
-            icon={<IcoUser />}
-            title="Owner Details"
-            sub="This will be the primary admin account"
+          <div className="grid grid-cols-1 gap-4">
+            {/* Phone */}
+            <div>
+              <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                Contact Phone <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Phone size={14} />
+                </div>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  className={`w-full pl-10 pr-3.5 py-2.5 bg-white border rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none transition-all ${
+                    errors.phone
+                      ? "border-red-500 focus:ring-3 focus:ring-red-100 text-red-900"
+                      : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 text-slate-900"
+                  }`}
+                  placeholder="10-digit mobile number"
+                  value={form.phone}
+                  onChange={(e) =>
+                    set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))
+                  }
+                />
+              </div>
+              {errors.phone && (
+                <p className="mt-1 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                  <AlertCircle size={12} /> {errors.phone}
+                </p>
+              )}
+            </div>
+
+            {/* Address */}
+            <div>
+              <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                Business Address <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                className={`w-full p-3 bg-white border rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none transition-all resize-y ${
+                  errors.address
+                    ? "border-red-500 focus:ring-3 focus:ring-red-100 text-red-900"
+                    : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 text-slate-900"
+                }`}
+                placeholder="Full street address, city, state and pincode"
+                value={form.address}
+                onChange={(e) => set("address", e.target.value)}
+              />
+              {errors.address && (
+                <p className="mt-1 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                  <AlertCircle size={12} /> {errors.address}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 4: LOGO & BRANDING */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <ImageIcon size={14} className="text-indigo-600" />
+            <span>Company Logo (Optional)</span>
+            <div className="flex-1 h-px bg-slate-100 ml-2" />
+          </div>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleLogoChange(e.target.files[0])}
           />
 
-          <Field label="Owner Name *" error={errors.owner_name}>
-            <input className="rc-input" placeholder="Full name"
-              value={form.owner_name}
-              onChange={e => set("owner_name", e.target.value)}
-              style={errors.owner_name ? { borderColor:"#fca5a5", background:"#fff5f5" } : {}}
-            />
-          </Field>
-
-          <Field label="Owner Email *" error={errors.owner_email}>
-            <input className="rc-input" placeholder="admin@company.com" type="email"
-              value={form.owner_email}
-              onChange={e => set("owner_email", e.target.value)}
-              style={errors.owner_email ? { borderColor:"#fca5a5", background:"#fff5f5" } : {}}
-            />
-          </Field>
-
-          <Field label="Password *" error={errors.owner_password}>
-            <div style={{ position:"relative" }}>
-              <input
-                className="rc-input"
-                placeholder="Min 6 characters"
-                type={showPass ? "text" : "password"}
-                value={form.owner_password}
-                onChange={e => set("owner_password", e.target.value)}
-                style={{ paddingRight:42, ...(errors.owner_password ? { borderColor:"#fca5a5", background:"#fff5f5" } : {}) }}
-              />
-              <button type="button" onClick={() => setShowPass(p => !p)} style={{
-                position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
-                background:"none", border:"none", cursor:"pointer", color:"#94a3b8", fontSize:13,
-                fontFamily:"'Outfit',sans-serif", fontWeight:600,
-              }}>
-                {showPass ? "Hide" : "Show"}
-              </button>
+          {!logoPreview ? (
+            <div
+              onClick={() => fileRef.current?.click()}
+              className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/60 hover:bg-indigo-50/30 rounded-2xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 shadow-2xs">
+                <Upload size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-800 group-hover:text-indigo-600">
+                  Click to upload company logo
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  PNG, JPG or WEBP (Max 2MB, square recommended)
+                </p>
+              </div>
             </div>
-          </Field> */}
-
-          {/* ── Submit ── */}
-          <div style={{ marginTop:8 }}>
-            <button className="rc-submit" onClick={handleSubmit} disabled={loading}>
-              {loading ? (
-                <span style={{ display:"flex", alignItems:"center", gap:10, justifyContent:"center" }}>
-                  <span style={{ width:17, height:17, border:"2.5px solid rgba(255,255,255,.35)", borderTopColor:"#fff", borderRadius:"50%", display:"inline-block", animation:"spin .7s linear infinite" }} />
-                  Creating Company…
-                </span>
-              ) : (
-                <span style={{ display:"flex", alignItems:"center", gap:8, justifyContent:"center" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 5v14M5 12h14"/>
-                  </svg>
-                  Save Company
-                </span>
-              )}
-            </button>
-          </div>
-
+          ) : (
+            <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+              <div className="w-14 h-14 rounded-xl border border-slate-200 overflow-hidden bg-white p-1 flex items-center justify-center flex-shrink-0">
+                <img
+                  src={logoPreview}
+                  alt="Logo preview"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-800 truncate">
+                  {form.logo?.name || "Company Logo"}
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  {form.logo ? `${Math.round(form.logo.size / 1024)} KB` : "Uploaded"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200 cursor-pointer"
+                >
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={removeLogo}
+                  className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-white transition-colors cursor-pointer"
+                  title="Remove logo"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+
+        {/* ── FOOTER ACTIONS ── */}
+        <div className="pt-3 flex items-center justify-between gap-3 border-t border-slate-100 flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-200 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <RefreshCw size={14} className="animate-spin" /> Registering...
+              </>
+            ) : (
+              <>
+                <Plus size={15} strokeWidth={2.5} /> Save Company
+              </>
+            )}
+          </button>
+        </div>
+      </form>
     </div>
+  );
+
+  return (
+    <>
+      {/* Toast Portal */}
+      <div className="fixed top-5 right-5 z-[99999] flex flex-col gap-2.5 pointer-events-none">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`pointer-events-auto flex items-center gap-3 min-w-[280px] max-w-[380px] px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-4 duration-200 border ${
+              t.type === "success"
+                ? "bg-slate-900/90 border-emerald-500/40 text-white"
+                : "bg-red-950/90 border-red-500/40 text-white"
+            }`}
+          >
+            <div
+              className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                t.type === "success"
+                  ? "bg-emerald-500 text-white"
+                  : "bg-red-500 text-white"
+              }`}
+            >
+              {t.type === "success" ? "✓" : "✕"}
+            </div>
+            <span className="text-xs font-semibold leading-snug">{t.msg}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* When used inside a Modal popup */}
+      {onClose ? (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleClose();
+          }}
+          className="fixed inset-0 z-[10000] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+        >
+          {content}
+        </div>
+      ) : (
+        /* When accessed as standalone page at /company/add */
+        <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 flex items-center justify-center font-['Plus_Jakarta_Sans',sans-serif]">
+          {content}
+        </div>
+      )}
+    </>
   );
 }

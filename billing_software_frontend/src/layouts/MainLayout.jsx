@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import api from "../services/api";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import SettingsContext from "../pages/settings/SettingsContext";
@@ -14,8 +14,8 @@ import {
   Building2,
   Settings,
   ShieldCheck,
-   AlertCircle ,
-   User,
+  AlertCircle,
+  User,
   LogOut,
   FolderTree,
   Boxes,
@@ -27,7 +27,7 @@ import {
   UserCog,
   ClipboardList,
   Building,
-  HelpCircle,
+  Headset,
   MessageCircle,
   ChevronDown,
   ChevronLeft,
@@ -40,10 +40,81 @@ import {
   Play,
   ShoppingCart,
   X,
+  Sparkles,
+  Command,
+  Bell,
+  Store,
+  IndianRupee,
+  RotateCcw,
+  FileText,
+  FileMinus,
+  Wallet,
 } from "lucide-react";
+import HeaderQuickMenu from "../components/layout/HeaderQuickMenu";
 
-// 🎟️ Sale Ticket Icon with % symbol matching reference image
-const SaleIcon = ({ size = 20 }) => (
+function getHeaderBreadcrumbs(pathname) {
+  if (pathname === "/dashboard") {
+    return { section: "Executive", title: "Overview Dashboard", icon: Home };
+  }
+  if (pathname.startsWith("/sales/invoices")) {
+    return { section: "Sales & Invoicing", title: "Sale Invoices", icon: ReceiptText };
+  }
+  if (pathname.startsWith("/sales/add")) {
+    return { section: "Sales & Invoicing", title: "New Sale Invoice", icon: Plus };
+  }
+  if (pathname.startsWith("/sales/estimate-quotation")) {
+    return { section: "Sales & Invoicing", title: "Estimate & Quotation", icon: FileText };
+  }
+  if (pathname.startsWith("/sales/payment-in")) {
+    return { section: "Sales & Invoicing", title: "Payment-In Collections", icon: IndianRupee };
+  }
+  if (pathname.startsWith("/sales/credit-note")) {
+    return { section: "Sales & Invoicing", title: "Sale Return / Cr Note", icon: RotateCcw };
+  }
+  if (pathname.startsWith("/purchases/expenses")) {
+    return { section: "Purchases & Expenses", title: "Expense Management", icon: Wallet };
+  }
+  if (pathname.startsWith("/purchases/payment-out")) {
+    return { section: "Purchases & Expenses", title: "Payment-Out Disbursements", icon: IndianRupee };
+  }
+  if (pathname.startsWith("/purchases/return")) {
+    return { section: "Purchases & Expenses", title: "Debit Note / Dr Note", icon: FileMinus };
+  }
+  if (pathname.startsWith("/purchases")) {
+    return { section: "Purchases & Expenses", title: "Purchase Bills", icon: ShoppingCart };
+  }
+  if (pathname.startsWith("/customer")) {
+    return { section: "Parties & CRM", title: "Customer Directory", icon: User };
+  }
+  if (pathname.startsWith("/whatsapp")) {
+    return { section: "Marketing", title: "WhatsApp Connect", icon: MessageCircle };
+  }
+  if (pathname.startsWith("/products")) {
+    return { section: "Inventory", title: "Products & Stock Catalog", icon: PackageSearch };
+  }
+  if (pathname.startsWith("/e-way")) {
+    return { section: "Compliance", title: "E-Way Bills Portal", icon: Truck };
+  }
+  if (pathname.startsWith("/reports")) {
+    return { section: "Compliance & Audit", title: "Financial Reports Hub", icon: BarChart3 };
+  }
+  if (pathname.startsWith("/company")) {
+    return { section: "Administration", title: "Company Settings", icon: Building2 };
+  }
+  if (pathname.startsWith("/cashier")) {
+    return { section: "Administration", title: "Cashier Accounts", icon: UserCog };
+  }
+  if (pathname.startsWith("/helpdesk")) {
+    return { section: "Support Desk", title: "Helpdesk & Tickets", icon: Headset };
+  }
+  if (pathname.startsWith("/billing")) {
+    return { section: "POS Terminal", title: "POS Counter Billing", icon: Store };
+  }
+  return { section: "Workspace", title: "Smart Ledger", icon: Home };
+}
+
+// 🎟️ Sale Ticket Icon
+const SaleIcon = ({ size = 18 }) => (
   <svg
     width={size}
     height={size}
@@ -54,24 +125,16 @@ const SaleIcon = ({ size = 20 }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
     <path d="M15 9l-6 6" />
     <path d="M9 9h.01" />
     <path d="M15 15h.01" />
   </svg>
 );
 
-// Official WhatsApp logo glyph (inherits sidebar text color)
-const WhatsAppIcon = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-  </svg>
-);
-
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [hoveredPath, setHoveredPath] = useState(null);
   const [saleOpen, setSaleOpen] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(false);
@@ -79,9 +142,11 @@ export default function MainLayout() {
   const [settingsTab, setSettingsTab] = useState("general");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const quickAddRef = useRef(null);
+  const [sidebarSearch, setSidebarSearch] = useState("");
+  const searchInputRef = useRef(null);
   const [generalSettings, setGeneralSettings] = useState({});
 
-  // Fetch general settings so the Sale dropdown can react to "More Transactions" checkboxes
+  // Fetch general settings
   useEffect(() => {
     let mounted = true;
     fetchSettings().then((settings) => {
@@ -104,7 +169,6 @@ export default function MainLayout() {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem("sidebar_collapsed") === "true";
   });
-  const [sidebarHovered, setSidebarHovered] = useState(false);
 
   const toggleSidebar = () => {
     setIsCollapsed((prev) => {
@@ -132,6 +196,13 @@ export default function MainLayout() {
         e.preventDefault();
         setQuickAddOpen((prev) => !prev);
       }
+      if (e.ctrlKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setIsCollapsed(false);
+        setTimeout(() => {
+          if (searchInputRef.current) searchInputRef.current.focus();
+        }, 60);
+      }
       if (e.altKey) {
         const key = e.key.toLowerCase();
         if (key === "s") {
@@ -146,6 +217,42 @@ export default function MainLayout() {
           e.preventDefault();
           setQuickAddOpen(false);
           navigate("/sales/credit-note/add");
+        } else if (key === "q") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/sales/estimate-quotation");
+        } else if (key === "p") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/purchases/new");
+        } else if (key === "e") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/purchases/expenses/add");
+        } else if (key === "o") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/purchases/payment-out");
+        } else if (key === "l") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/purchases/debit-note/add");
+        } else if (key === "c") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/customer");
+        } else if (key === "d") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/products");
+        } else if (key === "b") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/billing");
+        } else if (key === "w") {
+          e.preventDefault();
+          setQuickAddOpen(false);
+          navigate("/e-way");
         } else if (key === "f") {
           e.preventDefault();
           setQuickAddOpen(false);
@@ -161,16 +268,13 @@ export default function MainLayout() {
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.role;
 
-  // Hide sidebar for cashier on billing page (full-screen POS mode)
-  const isCashierBilling = role === "cashier" && location.pathname === "/billing";
-
   useEffect(() => {
     if (!user) {
       navigate("/", { replace: true });
     }
   }, [user, navigate]);
 
-  // Auto-expand Sale, Purchase, Accounts, or Customer dropdown if current route is inside it
+  // Auto-expand dropdowns if current route is inside
   useEffect(() => {
     if (location.pathname.startsWith("/sales")) {
       setSaleOpen(true);
@@ -200,220 +304,297 @@ export default function MainLayout() {
     navigate("/");
   };
 
-  // 🔥 ROLE BASED MENU
-  // Sale submenu transaction items are driven by Settings > General >
-  // "More Transactions" checkboxes via the shared salesTransactionMap.
   const saleSubItemsFromSettings = SALES_TRANSACTION_MENU_ITEMS.filter(
     (item) => generalSettings[item.settingsKey] !== false && item.settingsKey !== "quotation"
   ).map((item) => ({ name: item.label, path: item.path }));
-  const menuItems = [
-    // COMMON FOR ALL ROLES
-    { name: "Helpdesk Support", path: "/helpdesk", icon: <HelpCircle size={20} /> },
 
+  const menuItems = [
     // ADMIN ONLY
     ...(role === "admin"
       ? [
-          { name: "Home", path: "/dashboard", icon: <Home size={20} /> },
+          { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
           {
-            name: "Customer",
-            icon: <User size={20} />,
+            name: "Customer & CRM",
+            icon: <User size={18} />,
             isDropdown: true,
             dropdownKey: "customer",
             subItems: [
-              { name: "Customers Details", path: "/customer", altPaths: ["/customer", "/customer/add", "/customer/edit"] },
-              { name: "WhatsApp", path: "/whatsapp", altPaths: ["/whatsapp"] },
-            ]
+              { name: "Customer Directory", path: "/customer", altPaths: ["/customer", "/customer/add", "/customer/edit"] },
+              { name: "WhatsApp Connect", path: "/whatsapp", altPaths: ["/whatsapp"] },
+            ],
           },
           {
-            name: "Sale",
-            icon: <SaleIcon size={20} />,
+            name: "Sales & Invoicing",
+            icon: <SaleIcon size={18} />,
             isDropdown: true,
             dropdownKey: "sale",
             subItems: [
               { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/sales/add", "/sales/edit"] },
-              { name: "Estimate/Quotation", path: "/sales/estimate-quotation", altPaths: ["/sales/estimate-quotation"] },
+              { name: "Estimate / Quotation", path: "/sales/estimate-quotation", altPaths: ["/sales/estimate-quotation"] },
               { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
-              { name: "Sale Return/ Credit Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
+              { name: "Sale Return / Cr. Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
               ...saleSubItemsFromSettings,
-            ]
+            ],
           },
-          { name: "E-Way", path: "/e-way", icon: <Truck size={20} /> },
-          { name: "Products", path: "/products", icon: <PackageSearch size={20} /> },
           {
-            name: "Purchase & Expense",
-            icon: <ShoppingCart size={20} />,
+            name: "Purchase & Expenses",
+            icon: <ShoppingCart size={18} />,
             isDropdown: true,
             dropdownKey: "purchase",
             subItems: [
               { name: "Purchase Bills", path: "/purchases", altPaths: ["/purchases", "/purchases/bills", "/purchases/new"] },
               { name: "Payment-Out", path: "/purchases/payment-out" },
-              { name: "Expenses", path: "/purchases/expenses", altPaths: ["/purchases/expenses", "/purchases/expenses/add"] },
-              { name: "Purchase Return/ Dr. Note", path: "/purchases/return", altPaths: ["/purchases/return", "/purchases/debit-note/add"] },
-            ]
+              { name: "Expense Vouchers", path: "/purchases/expenses", altPaths: ["/purchases/expenses", "/purchases/expenses/add"] },
+              { name: "Purchase Return / Dr. Note", path: "/purchases/return", altPaths: ["/purchases/return", "/purchases/debit-note/add"] },
+            ],
           },
+          { name: "Inventory Products", path: "/products", icon: <PackageSearch size={18} /> },
+          { name: "E-Way Bills", path: "/e-way", icon: <Truck size={18} /> },
           {
-            name: "Accounts",
-            icon: <Building2 size={20} />,
+            name: "Companies & Staff",
+            icon: <Building2 size={18} />,
             isDropdown: true,
             dropdownKey: "accounts",
             subItems: [
-              { name: "Company", path: "/company", altPaths: ["/company", "/company/add", "/company/edit"] },
-              { name: "Cashier", path: "/cashier", altPaths: ["/cashier", "/cashier/add", "/cashier/edit"] },
-            ]
+              { name: "Company Settings", path: "/company", altPaths: ["/company", "/company/add", "/company/edit"] },
+              { name: "Cashier Accounts", path: "/cashier", altPaths: ["/cashier", "/cashier/add", "/cashier/edit"] },
+            ],
           },
-          { name: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
-          { name: "Settings", path: "/settings", icon: <Settings size={20} /> },
+          { name: "Analytics & Reports", path: "/reports", icon: <BarChart3 size={18} /> },
+          { name: "Settings", path: "/settings", icon: <Settings size={18} /> },
         ]
       : []),
 
     // SUPERADMIN ONLY
     ...(role === "superadmin"
       ? [
-          { name: "Admin List", path: "/admin", icon: <UserCog size={20} /> },
-          { name: "Cashier Requests", path: "/cashier-requests", icon: <ClipboardList size={20} /> },
-          { name: "Company Requests", path: "/company-requests", icon: <Building size={20} /> }
+          { name: "Admin List", path: "/admin", icon: <UserCog size={18} /> },
+          { name: "Cashier Requests", path: "/cashier-requests", icon: <ClipboardList size={18} /> },
+          { name: "Company Requests", path: "/company-requests", icon: <Building size={18} /> },
         ]
       : []),
 
     // CASHIER ONLY
     ...(role === "cashier"
       ? [
-          { name: "Home", path: "/dashboard", icon: <Home size={20} /> },
-          { name: "Billing", path: "/billing", icon: <ReceiptText size={20} /> },
-          { name: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
-          { name: "Pending Invoice", path: "/payment-pending", icon: <AlertCircle  size={20} /> },
+          { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
+          { name: "Point of Sale (POS)", path: "/billing", icon: <ReceiptText size={18} /> },
+          { name: "Reports", path: "/reports", icon: <BarChart3 size={18} /> },
+          { name: "Pending Invoices", path: "/payment-pending", icon: <AlertCircle size={18} /> },
         ]
       : []),
 
     // DEVELOPER ONLY
     ...(role === "developer"
       ? [
-          { name: "Home", path: "/dashboard", icon: <Home size={20} /> },
-          { name: "Reports", path: "/reports", icon: <BarChart3 size={20} /> },
+          { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
+          { name: "Reports", path: "/reports", icon: <BarChart3 size={18} /> },
         ]
-      : [])
+      : []),
+
+    // SUPPORT / HELPDESK (LAST ITEM COMMON FOR ALL ROLES)
+    { name: "Support", path: "/helpdesk", icon: <Headset size={18} /> },
   ];
 
+  // Live sidebar search filtering
+  const filteredMenuItems = useMemo(() => {
+    if (!sidebarSearch.trim()) return menuItems;
+    const q = sidebarSearch.toLowerCase();
+    return menuItems.reduce((acc, item) => {
+      if (item.isDropdown) {
+        const parentMatches = item.name.toLowerCase().includes(q);
+        const matchingSubItems = (item.subItems || []).filter((sub) =>
+          sub.name.toLowerCase().includes(q)
+        );
+        if (parentMatches || matchingSubItems.length > 0) {
+          acc.push({
+            ...item,
+            subItems: parentMatches ? item.subItems : matchingSubItems,
+            forceOpen: true,
+          });
+        }
+      } else {
+        if (item.name.toLowerCase().includes(q)) {
+          acc.push(item);
+        }
+      }
+      return acc;
+    }, []);
+  }, [menuItems, sidebarSearch]);
 
   return (
-    <div className="flex h-screen bg-[#f0f4f9] overflow-hidden">
-
-      {/* SETTINGS SIDEBAR (replaces main sidebar on /settings) */}
+    <div className="flex h-screen bg-[#f8faff] overflow-hidden font-sans">
+      {/* ── SETTINGS SIDEBAR (when path is /settings) ── */}
       {location.pathname === "/settings" ? (
         <motion.div
           initial={false}
-          animate={{ width: 260 }}
-          transition={{ duration: 0.25, ease: "easeInOut" }}
-          className="bg-[#1e293b] text-white flex flex-col transition-all duration-300 relative select-none flex-shrink-0 px-3 py-5 h-screen"
+          animate={{ width: 270 }}
+          transition={{ duration: 0.22, ease: "easeInOut" }}
+          className="bg-[#0b0f19] text-white flex flex-col flex-shrink-0 px-4 py-5 h-screen border-r border-white/5 relative select-none"
         >
-          <div className="flex items-center justify-between mb-5 pr-0.5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Settings size={20} color="#ffffff" />
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center shadow-glow-brand">
+                <Settings size={20} className="text-white" />
               </div>
-              <h2 className="text-[15px] font-semibold tracking-wide whitespace-nowrap">Settings</h2>
+              <div>
+                <h2 className="text-sm font-bold tracking-tight text-white font-display">System Settings</h2>
+                <p className="text-[11px] text-slate-400">Configurations & Rules</p>
+              </div>
             </div>
             <button
               type="button"
               onClick={() => navigate("/dashboard")}
               title="Close Settings"
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all duration-200 cursor-pointer flex-shrink-0"
+              className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
             >
-              <X size={18} strokeWidth={2.5} />
+              <X size={16} strokeWidth={2.5} />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-0.5 scrollbar-thin scrollbar-thumb-white/20">
-            <nav className="space-y-0.5">
-              {[
-                { id: "general", label: "General" },
-                { id: "invoice-numbering", label: "Invoice Numbering" },
-                { id: "invoice-design", label: "Invoice Design" },
-                { id: "transaction", label: "Transaction" },
-                { id: "print", label: "Print" },
-                { id: "taxes", label: "Taxes & GST" },
-                { id: "eway-bill", label: "E-Way Bill", icon: <Truck size={18} /> },
-                { id: "txn-messages", label: "Transaction Message" },
-                { id: "party", label: "Party" },
-                { id: "item", label: "Item" },
-                { id: "service-reminders", label: "Service Reminders" },
-                { id: "accounting", label: "Accounting" },
-                { id: "multi-currency", label: "Multi Currency" },
-                { id: "eway-bill", label: "E-Way Bill" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setSettingsTab(tab.id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-[14px] font-medium transition cursor-pointer ${
-                    settingsTab === tab.id
-                      ? "bg-white text-slate-800"
-                      : "text-slate-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  {tab.icon ? (
-                    <span className="flex items-center gap-2.5">
-                      <span>{tab.icon}</span>
-                      <span>{tab.label}</span>
-                    </span>
-                  ) : (
-                    tab.label
-                  )}
-                </button>
-              ))}
-            </nav>
+          {/* Navigation Tabs */}
+          <div className="flex-1 overflow-y-auto paysplitx-scrollbar space-y-1 pr-1">
+            {[
+              { id: "general", label: "General Settings" },
+              { id: "invoice-numbering", label: "Invoice Numbering" },
+              { id: "invoice-design", label: "Invoice Design & Print" },
+              { id: "transaction", label: "Transaction Rules" },
+              { id: "taxes", label: "Taxes & GST Rates" },
+              { id: "eway-bill", label: "E-Way Bill Integration", icon: <Truck size={15} /> },
+              { id: "txn-messages", label: "WhatsApp & SMS Alerts" },
+              { id: "party", label: "Party & Ledger" },
+              { id: "item", label: "Items & Inventory" },
+              { id: "accounting", label: "Accounting Rules" },
+              { id: "multi-currency", label: "Multi Currency" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setSettingsTab(tab.id)}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition cursor-pointer flex items-center gap-2.5 ${
+                  settingsTab === tab.id
+                    ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-semibold"
+                    : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                }`}
+              >
+                {tab.icon && <span className="opacity-80">{tab.icon}</span>}
+                <span className="truncate">{tab.label}</span>
+              </button>
+            ))}
           </div>
         </motion.div>
       ) : (
-      <motion.div
-        initial={false}
-        animate={{ width: isCollapsed ? 72 : 260 }}
-        transition={{ duration: 0.25, ease: "easeInOut" }}
-        onMouseEnter={() => setSidebarHovered(true)}
-        onMouseLeave={() => setSidebarHovered(false)}
-        className={`bg-[#1e293b] text-white flex flex-col transition-all duration-300 relative select-none flex-shrink-0 h-screen overflow-hidden ${
-          isCollapsed ? "px-2 py-5" : "px-3 py-5"
-        }`}
-      >
-        {/* TOP BAR: SEARCH + COLLAPSE TOGGLE */}
-        {isCollapsed ? (
-          <div className="h-9 mb-5 relative">
-            {/* Toggle Arrow Button */}
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              title="Expand Sidebar"
-              className="w-6 h-6 absolute right-0 top-1/2 -translate-y-1/2 rounded-md bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-all duration-200 cursor-pointer"
-            >
-              <ChevronRight size={14} strokeWidth={2.5} />
-            </button>
+        /* ── MAIN PAYSPLITX SIDEBAR ── */
+        <motion.div
+          initial={false}
+          animate={{ width: isCollapsed ? 76 : 270 }}
+          transition={{ duration: 0.22, ease: "easeInOut" }}
+          className={`bg-[#0b0f19] text-white flex flex-col flex-shrink-0 h-screen border-r border-white/5 relative select-none ${
+            isCollapsed ? "px-2.5 py-5" : "px-4 py-5"
+          }`}
+        >
+          {/* BRAND LOGO AREA */}
+          <div className="flex items-center justify-between mb-5 pb-4 border-b border-white/5">
+            {!isCollapsed ? (
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center shadow-glow-brand flex-shrink-0">
+                  <Sparkles size={18} className="text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-bold text-white text-[15px] tracking-tight truncate">
+                      Smart Ledger
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                      v2.0
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 truncate block">
+                    Enterprise Billing
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="mx-auto">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center shadow-glow-brand">
+                  <Sparkles size={18} className="text-white" />
+                </div>
+              </div>
+            )}
+
+            {!isCollapsed && (
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                title="Collapse Sidebar"
+                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer flex-shrink-0"
+              >
+                <ChevronLeft size={14} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
-        ) : (
-          <div className="flex items-center gap-2 mb-5">
-            {/* Open Anything search-style bar */}
-            <div className="flex-1 min-w-0 h-9 flex items-center gap-2 bg-white/10 rounded-lg px-3">
-              <Search size={15} className="text-slate-400 flex-shrink-0" />
-              <span className="text-[13px] text-slate-300 truncate">Open Anything</span>
-              <span className="ml-auto px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-semibold text-slate-400 whitespace-nowrap flex-shrink-0">
-                Ctrl+F
-              </span>
+
+          {/* QUICK SEARCH BUTTON IN SIDEBAR */}
+          {isCollapsed ? (
+            <div className="mb-4 flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  toggleSidebar();
+                  setTimeout(() => {
+                    if (searchInputRef.current) searchInputRef.current.focus();
+                  }, 100);
+                }}
+                title="Quick Search Menus (Ctrl+F)"
+                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+              >
+                <Search size={16} />
+              </button>
             </div>
+          ) : (
+            <div className="mb-4">
+              <div className="relative w-full">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={sidebarSearch}
+                  onChange={(e) => setSidebarSearch(e.target.value)}
+                  placeholder="Quick Search Menus..."
+                  className="w-full h-9 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 focus:bg-white/10 rounded-xl pl-8 pr-12 text-xs text-white placeholder-slate-400 focus:outline-none transition shadow-inner"
+                />
+                {sidebarSearch ? (
+                  <button
+                    type="button"
+                    onClick={() => setSidebarSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center text-[10px] font-bold cursor-pointer"
+                    title="Clear Search"
+                  >
+                    ✕
+                  </button>
+                ) : (
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold bg-white/10 text-slate-400 px-1.5 py-0.5 rounded pointer-events-none">
+                    Ctrl+F
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
-            {/* Toggle Arrow Button */}
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              title="Collapse Sidebar"
-              className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center transition-all duration-200 cursor-pointer flex-shrink-0"
-            >
-              <ChevronLeft size={14} strokeWidth={2.5} />
-            </button>
-          </div>
-        )}
+          {/* NAVIGATION LIST */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden paysplitx-scrollbar space-y-1 pr-1">
+            {!isCollapsed && (
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-2 flex items-center justify-between">
+                <span>{sidebarSearch ? "SEARCH RESULTS" : "MAIN MENU"}</span>
+                {sidebarSearch && (
+                  <span className="text-[10px] text-indigo-400 font-medium lowercase">
+                    {filteredMenuItems.length} found
+                  </span>
+                )}
+              </div>
+            )}
 
-        {/* 🔥 SCROLLABLE MENU */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-0.5 min-w-0 scrollbar-thin scrollbar-thumb-white/20">
-          <nav className="space-y-0.5 min-w-0">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               if (item.isDropdown) {
                 const isDropdownItemActive = item.subItems.some(
                   (sub) =>
@@ -422,76 +603,72 @@ export default function MainLayout() {
                 );
 
                 const isOpen =
-                  item.dropdownKey === "purchase"
+                  item.forceOpen ||
+                  (item.dropdownKey === "purchase"
                     ? purchaseOpen
                     : item.dropdownKey === "accounts"
                     ? accountsOpen
                     : item.dropdownKey === "customer"
                     ? customerOpen
-                    : saleOpen;
+                    : saleOpen);
 
                 const toggleDropdown = () => {
-                  if (item.dropdownKey === "purchase") {
-                    setPurchaseOpen((prev) => !prev);
-                  } else if (item.dropdownKey === "accounts") {
-                    setAccountsOpen((prev) => !prev);
-                  } else if (item.dropdownKey === "customer") {
-                    setCustomerOpen((prev) => !prev);
-                  } else {
-                    setSaleOpen((prev) => !prev);
-                  }
+                  if (item.dropdownKey === "purchase") setPurchaseOpen((prev) => !prev);
+                  else if (item.dropdownKey === "accounts") setAccountsOpen((prev) => !prev);
+                  else if (item.dropdownKey === "customer") setCustomerOpen((prev) => !prev);
+                  else setSaleOpen((prev) => !prev);
                 };
 
                 if (isCollapsed) {
                   return (
-                    <motion.div
+                    <div
                       key={item.name}
                       onClick={() => navigate(item.subItems[0]?.path || "/dashboard")}
-                      whileHover={{ scale: 1.08 }}
                       title={item.name}
-                      className={`flex items-center justify-center p-3 rounded-xl cursor-pointer transition ${
-                        isDropdownItemActive ? "bg-white text-blue-600 shadow-sm" : "text-white/80 hover:bg-white/10 hover:text-white"
+                      className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${
+                        isDropdownItemActive
+                          ? "bg-indigo-600 text-white shadow-glow-brand"
+                          : "text-slate-400 hover:text-white hover:bg-white/5"
                       }`}
                     >
-                      <div className="flex-shrink-0">{item.icon}</div>
-                    </motion.div>
+                      {item.icon}
+                    </div>
                   );
                 }
 
                 return (
-                  <div key={item.name} className="flex flex-col">
-                    {/* Parent button */}
-                    <div
+                  <div key={item.name} className="flex flex-col mb-1">
+                    <button
+                      type="button"
                       onClick={toggleDropdown}
-                      className={`flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition select-none ${
-                        isDropdownItemActive && !isOpen
-                          ? "bg-white text-blue-600 font-semibold shadow-sm"
-                          : isDropdownItemActive && isOpen
-                          ? "bg-white/15 text-white font-semibold"
-                          : "text-white/90 hover:bg-white/10 hover:text-white"
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition cursor-pointer select-none ${
+                        isDropdownItemActive
+                          ? "text-white bg-white/5 font-semibold"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        {item.icon}
-                        <span className="font-medium text-[14px] whitespace-nowrap">{item.name}</span>
+                        <span className={isDropdownItemActive ? "text-indigo-400" : "text-slate-400"}>
+                          {item.icon}
+                        </span>
+                        <span className="truncate">{item.name}</span>
                       </div>
-
                       <ChevronDown
-                        size={16}
-                        className={`transition-transform duration-200 ${
-                          isOpen ? "rotate-180 text-white" : "text-white/70"
+                        size={14}
+                        className={`transition-transform duration-200 text-slate-400 ${
+                          isOpen ? "rotate-180 text-white" : ""
                         }`}
                       />
-                    </div>
+                    </button>
 
-                    {/* Submenu List */}
+                    {/* Submenu with left connector */}
                     <AnimatePresence>
                       {isOpen && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
-                          className="mt-1 mb-1 pl-4 pr-1 flex flex-col space-y-0.5"
+                          className="mt-1 ml-5 pl-3 border-l border-white/10 space-y-0.5"
                         >
                           {item.subItems.map((sub) => {
                             const isSubActive =
@@ -499,17 +676,19 @@ export default function MainLayout() {
                               (sub.altPaths && sub.altPaths.includes(location.pathname));
 
                             return (
-                              <div
+                              <button
                                 key={sub.name}
+                                type="button"
                                 onClick={() => navigate(sub.path)}
-                                className={`flex items-center py-2 px-3 rounded-lg text-[13.5px] cursor-pointer transition-all duration-100 min-w-0 ${
+                                className={`w-full text-left py-2 px-3 rounded-lg text-xs font-medium cursor-pointer transition flex items-center gap-2 ${
                                   isSubActive
-                                    ? "bg-white text-slate-800 font-medium"
-                                    : "text-slate-400 hover:bg-white/10 hover:text-white"
+                                    ? "bg-indigo-600 text-white font-semibold shadow-sm"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                                 }`}
                               >
+                                {isSubActive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
                                 <span className="truncate">{sub.name}</span>
-                              </div>
+                              </button>
                             );
                           })}
                         </motion.div>
@@ -525,472 +704,146 @@ export default function MainLayout() {
 
               if (isCollapsed) {
                 return (
-                  <motion.div
+                  <div
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    whileHover={{ scale: 1.06 }}
                     title={item.name}
-                    className={`flex items-center justify-center p-2.5 rounded-lg cursor-pointer transition mx-1 ${
-                      isActive ? "bg-white text-slate-800 shadow" : "text-slate-400 hover:bg-white/10 hover:text-white"
+                    className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${
+                      isActive
+                        ? "bg-indigo-600 text-white shadow-glow-brand"
+                        : "text-slate-400 hover:text-white hover:bg-white/5"
                     }`}
                   >
-                    <div className="flex-shrink-0">{item.icon}</div>
-                  </motion.div>
+                    {item.icon}
+                  </div>
                 );
               }
 
               return (
-                <motion.div
+                <button
                   key={item.path}
+                  type="button"
                   onClick={() => navigate(item.path)}
-                  whileHover={{ scale: 1.02, x: 5 }}
-                  title={item.name}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition min-w-0 ${
-                    isActive ? "bg-white text-slate-800 font-medium" : "text-slate-300 hover:bg-white/10 hover:text-white"
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] cursor-pointer transition select-none ${
+                    isActive
+                      ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-semibold shadow-glow-brand"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium"
                   }`}
                 >
-                  <div className="flex-shrink-0">{item.icon}</div>
-                  <span className="whitespace-nowrap truncate text-[14px]">{item.name}</span>
-                </motion.div>
+                  <span className={isActive ? "text-white" : "text-slate-400"}>
+                    {item.icon}
+                  </span>
+                  <span className="truncate">{item.name}</span>
+                </button>
               );
             })}
-          </nav>
-        </div>
 
-        {/* 🔥 FIXED USER PROFILE */}
-        <div className="mt-3 pt-3 border-t border-white/10">
-          {isCollapsed ? (
-            <div className="flex flex-col items-center gap-2">
-              <div
-                className="w-9 h-9 rounded-full bg-slate-600 text-white flex items-center justify-center font-bold shadow cursor-pointer"
-                title={`${user?.name || "User"} (${user?.role || ""})`}
-              >
-                {user?.name?.charAt(0)?.toUpperCase() || "U"}
-              </div>
-              <button
-                onClick={handleLogout}
-                title="Logout"
-                className="bg-red-500/70 hover:bg-red-600 p-1.5 rounded-md text-white transition cursor-pointer"
-              >
-                <LogOut size={15} />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2.5 bg-white/5 p-2.5 rounded-lg min-w-0">
-              <div className="w-9 h-9 rounded-full bg-slate-600 text-white flex items-center justify-center font-bold flex-shrink-0">
-                {user?.name?.charAt(0)?.toUpperCase() || "U"}
-              </div>
-
-              <div className="flex-1 overflow-hidden">
-                <p className="text-[13px] font-semibold truncate">{user?.name}</p>
-                <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
-                <p className="text-[10px] text-slate-500">{user?.role}</p>
-              </div>
-
-              <button
-                onClick={handleLogout}
-                title="Logout"
-                className="bg-red-500/70 hover:bg-red-600 p-1.5 rounded-md text-white transition cursor-pointer flex-shrink-0"
-              >
-                <LogOut size={15} />
-              </button>
-            </div>
-          )}
-        </div>
-      </motion.div>
-      )}
-
-      {/* RIGHT CONTENT AREA: FIXED TOP BAR + SCROLLABLE PAGE */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        
-        {/* 🔥 TOP FIXED BAR FOR ADMIN (Exact Same Buttons as in Dashboard) */}
-        {role === "admin" && (
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            gap: 10,
-            padding: "12px 24px 6px 24px",
-            background: "#f0f4f9",
-            position: "sticky",
-            top: 0,
-            zIndex: 110,
-            flexShrink: 0
-          }}>
-            {/* Add Sale & Add Purchase Buttons (Visible ONLY on Dashboard) */}
-            {location.pathname === "/dashboard" && (
-              <>
-                {/* Add Sale Button */}
+            {filteredMenuItems.length === 0 && (
+              <div className="py-8 px-2 text-center text-slate-400">
+                <Search size={20} className="mx-auto text-slate-500 mb-2" />
+                <p className="text-xs font-semibold text-slate-300">No menus match "{sidebarSearch}"</p>
                 <button
-                  onClick={() => navigate("/sales/add")}
-                  style={{
-                    height: 38,
-                    padding: "0 18px",
-                    borderRadius: "9999px",
-                    border: "none",
-                    background: "#ef4444",
-                    color: "#ffffff",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                    fontSize: 13.5,
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    boxShadow: "0 2px 8px rgba(239, 68, 68, 0.25)",
-                    transition: "all .15s ease",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.35)";
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = "none";
-                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(239, 68, 68, 0.25)";
-                  }}
+                  type="button"
+                  onClick={() => setSidebarSearch("")}
+                  className="mt-2 text-[11px] text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
                 >
-                  <Plus size={16} strokeWidth={2.8} />
-                  <span>Add Sale</span>
+                  Clear search
                 </button>
-
-                {/* Add Purchase Button */}
-                <button
-                  onClick={() => navigate("/purchases/new")}
-                  style={{
-                    height: 38,
-                    padding: "0 18px",
-                    borderRadius: "9999px",
-                    border: "none",
-                    background: "#1f8cff",
-                    color: "#ffffff",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                    fontSize: 13.5,
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    boxShadow: "0 2px 8px rgba(31, 140, 255, 0.25)",
-                    transition: "all .15s ease",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(31, 140, 255, 0.35)";
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = "none";
-                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(31, 140, 255, 0.25)";
-                  }}
-                >
-                  <Plus size={16} strokeWidth={2.8} />
-                  <span>Add Purchase</span>
-                </button>
-              </>
+              </div>
             )}
+          </div>
 
-            {/* Plus (+) Quick Action Button (Visible on ALL Pages) */}
-            <div ref={quickAddRef} style={{ position: "relative" }}>
-              <button
-                onClick={() => setQuickAddOpen(v => !v)}
-                title="Quick Actions"
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "9999px",
-                  border: "1.5px solid #dbeafe",
-                  background: quickAddOpen ? "#dbeafe" : "#eff6ff",
-                  color: "#1f8cff",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "all .15s ease",
-                }}
-                onMouseEnter={e => {
-                  if (!quickAddOpen) {
-                    e.currentTarget.style.background = "#dbeafe";
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!quickAddOpen) {
-                    e.currentTarget.style.background = "#eff6ff";
-                    e.currentTarget.style.transform = "none";
-                  }
-                }}
-              >
-                <Plus size={18} strokeWidth={2.6} />
-              </button>
-
-              {/* Quick Action Popover Dropdown (Matching media_1787899244680.png) */}
-              {quickAddOpen && (
+          {/* USER PROFILE CARD */}
+          <div className="mt-3 pt-3 border-t border-white/5">
+            {isCollapsed ? (
+              <div className="flex flex-col items-center gap-2">
                 <div
-                  style={{
-                    position: "absolute",
-                    right: -10,
-                    top: 48,
-                    width: 660,
-                    background: "#ffffff",
-                    borderRadius: 14,
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 20px 45px -10px rgba(15, 23, 42, 0.22), 0 4px 16px rgba(15, 23, 42, 0.08)",
-                    overflow: "hidden",
-                    zIndex: 99999,
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  }}
+                  className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-700 text-white flex items-center justify-center font-bold text-sm border border-white/10"
+                  title={`${user?.name || "User"} (${user?.role || ""})`}
                 >
-                  {/* Top Upward Pointer Arrow */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: 22,
-                      top: -6,
-                      width: 12,
-                      height: 12,
-                      background: "#ffffff",
-                      transform: "rotate(45deg)",
-                      borderLeft: "1px solid #cbd5e1",
-                      borderTop: "1px solid #cbd5e1",
-                      zIndex: 10,
-                    }}
-                  />
-
-                  {/* 3 Columns Section */}
-                  <div style={{ padding: "20px 24px 18px", display: "grid", gridTemplateColumns: "1.1fr 1.1fr 1fr", gap: 24 }}>
-                    {/* ── COLUMN 1: SALE ── */}
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: "#1e293b", letterSpacing: ".04em", marginBottom: 14, textTransform: "uppercase" }}>
-                        SALE
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {[
-                          { name: "Sale Invoice", shortcut: "ALT + S", path: "/sales/add", sub: "" },
-                          { name: "Payment-In", shortcut: "ALT + I", path: "/sales/payment-in", sub: "" },
-                          { name: "Sale Return", shortcut: "ALT + R", path: "/sales/credit-note/add", sub: "Cr Note" },
-                        ].map((item, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => {
-                              setQuickAddOpen(false);
-                              navigate(item.path);
-                            }}
-                            style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              justifyContent: "space-between",
-                              padding: "6px 8px",
-                              borderRadius: 7,
-                              cursor: "pointer",
-                              transition: "all .15s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "#eff6ff";
-                              const title = e.currentTarget.querySelector(".menu-title");
-                              if (title) title.style.color = "#1f8cff";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "transparent";
-                              const title = e.currentTarget.querySelector(".menu-title");
-                              if (title) title.style.color = "#334155";
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: 7, minWidth: 0 }}>
-                              <Play size={8} style={{ fill: "#1f8cff", color: "#1f8cff", marginTop: 5, flexShrink: 0 }} />
-                              <div>
-                                <div className="menu-title" style={{ fontSize: 13, fontWeight: 600, color: "#334155", transition: "color .15s" }}>
-                                  {item.name}
-                                </div>
-                                {item.sub && (
-                                  <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, marginTop: -1 }}>
-                                    {item.sub}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <span style={{ fontSize: 11, fontFamily: "monospace", color: "#94a3b8", fontWeight: 600, marginLeft: 8, whiteSpace: "nowrap", paddingTop: 2 }}>
-                              {item.shortcut}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* ── COLUMN 2: PURCHASE ── */}
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: "#1e293b", letterSpacing: ".04em", marginBottom: 14, textTransform: "uppercase" }}>
-                        PURCHASE
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {[
-                          { name: "Purchase Bill", shortcut: "ALT + P", path: "/purchases", sub: "" },
-                          { name: "Payment-Out", shortcut: "ALT + O", path: "/purchases", sub: "" },
-                          { name: "Purchase Return", shortcut: "ALT + L", path: "/purchases", sub: "Dr Note" },
-                          { name: "Purchase Order", shortcut: "ALT + G", path: "/purchases", sub: "" },
-                        ].map((item, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => {
-                              setQuickAddOpen(false);
-                              navigate(item.path);
-                            }}
-                            style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              justifyContent: "space-between",
-                              padding: "6px 8px",
-                              borderRadius: 7,
-                              cursor: "pointer",
-                              transition: "all .15s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "#eff6ff";
-                              const title = e.currentTarget.querySelector(".menu-title");
-                              if (title) title.style.color = "#1f8cff";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "transparent";
-                              const title = e.currentTarget.querySelector(".menu-title");
-                              if (title) title.style.color = "#334155";
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: 7, minWidth: 0 }}>
-                              <Play size={8} style={{ fill: "#1f8cff", color: "#1f8cff", marginTop: 5, flexShrink: 0 }} />
-                              <div>
-                                <div className="menu-title" style={{ fontSize: 13, fontWeight: 600, color: "#334155", transition: "color .15s" }}>
-                                  {item.name}
-                                </div>
-                                {item.sub && (
-                                  <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, marginTop: -1 }}>
-                                    {item.sub}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <span style={{ fontSize: 11, fontFamily: "monospace", color: "#94a3b8", fontWeight: 600, marginLeft: 8, whiteSpace: "nowrap", paddingTop: 2 }}>
-                              {item.shortcut}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* ── COLUMN 3: OTHERS ── */}
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: "#1e293b", letterSpacing: ".04em", marginBottom: 14, textTransform: "uppercase" }}>
-                        OTHERS
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {[
-                          { name: "Expenses", shortcut: "ALT + E", path: "/reports", sub: "" },
-                          { name: "Party To Party Transfer", shortcut: "ALT + J", path: "/customer", sub: "" },
-                        ].map((item, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => {
-                              setQuickAddOpen(false);
-                              navigate(item.path);
-                            }}
-                            style={{
-                              display: "flex",
-                              alignItems: "flex-start",
-                              justifyContent: "space-between",
-                              padding: "6px 8px",
-                              borderRadius: 7,
-                              cursor: "pointer",
-                              transition: "all .15s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "#eff6ff";
-                              const title = e.currentTarget.querySelector(".menu-title");
-                              if (title) title.style.color = "#1f8cff";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "transparent";
-                              const title = e.currentTarget.querySelector(".menu-title");
-                              if (title) title.style.color = "#334155";
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: 7, minWidth: 0 }}>
-                              <Play size={8} style={{ fill: "#1f8cff", color: "#1f8cff", marginTop: 5, flexShrink: 0 }} />
-                              <div>
-                                <div className="menu-title" style={{ fontSize: 13, fontWeight: 600, color: "#334155", transition: "color .15s" }}>
-                                  {item.name}
-                                </div>
-                                {item.sub && (
-                                  <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, marginTop: -1 }}>
-                                    {item.sub}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <span style={{ fontSize: 11, fontFamily: "monospace", color: "#94a3b8", fontWeight: 600, marginLeft: 8, whiteSpace: "nowrap", paddingTop: 2 }}>
-                              {item.shortcut}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  title="Logout"
+                  className="w-8 h-8 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition cursor-pointer"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0">
+                    {user?.name?.charAt(0)?.toUpperCase() || "U"}
                   </div>
-
-                  {/* ── BOTTOM LIGHT GREY BANNER (Matching theme) ── */}
-                  <div
-                    style={{
-                      background: "#f8fafc",
-                      borderTop: "1px solid #e2e8f0",
-                      padding: "9px 24px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#475569",
-                    }}
-                  >
-                    <span>Shortcut to open this menu :</span>
-                    <span
-                      style={{
-                        background: "#ffffff",
-                        border: "1px solid #cbd5e1",
-                        borderRadius: 5,
-                        padding: "2px 8px",
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: "#0f172a",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                      }}
-                    >
-                      Ctrl
-                    </span>
-                    <span style={{ color: "#94a3b8", fontWeight: 700 }}>+</span>
-                    <span
-                      style={{
-                        background: "#ffffff",
-                        border: "1px solid #cbd5e1",
-                        borderRadius: 5,
-                        padding: "2px 8px",
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: "#0f172a",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                      }}
-                    >
-                      Enter
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-white truncate">{user?.name}</p>
+                    <span className="inline-block px-1.5 py-0.2 rounded text-[10px] font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      {user?.role?.toUpperCase()}
                     </span>
                   </div>
                 </div>
-              )}
-            </div>
+                <button
+                  onClick={handleLogout}
+                  title="Logout"
+                  className="w-8 h-8 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center transition cursor-pointer flex-shrink-0"
+                >
+                  <LogOut size={15} />
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </motion.div>
+      )}
 
-        {/* MAIN CONTENT */}
-        <main className="flex-1 p-4 overflow-auto flex flex-col">
+      {/* ── RIGHT CONTENT AREA ── */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f8faff]">
+        {/* PAYSPLITX ADVANCED TOP HEADER BAR */}
+        <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between z-30 flex-shrink-0 shadow-2xs">
+          {/* Left: Dynamic Breadcrumbs Navigation */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            {(() => {
+              const crumb = getHeaderBreadcrumbs(location.pathname);
+              const CrumbIcon = crumb.icon;
+              return (
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100/80 text-indigo-600 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                    <CrumbIcon size={16} />
+                  </div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-xs font-semibold text-slate-400 hidden sm:inline truncate">
+                      {crumb.section}
+                    </span>
+                    <ChevronRight size={13} className="text-slate-300 flex-shrink-0 hidden sm:inline" />
+                    <h2 className="text-xs sm:text-sm font-bold text-slate-900 font-display tracking-tight truncate">
+                      {crumb.title}
+                    </h2>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Right: Quick Actions Command Menu & POS Launcher */}
+          <div className="flex items-center gap-3">
+            <HeaderQuickMenu
+              isOpen={quickAddOpen}
+              setIsOpen={setQuickAddOpen}
+              navigate={navigate}
+              role={role}
+              containerRef={quickAddRef}
+            />
+          </div>
+        </header>
+
+        {/* MAIN SCROLLABLE CONTENT */}
+        <main className="flex-1 p-6 overflow-auto paysplitx-scrollbar-light">
           <SettingsContext.Provider value={{ settingsTab, setSettingsTab }}>
             <Outlet context={{ settingsTab, setSettingsTab }} />
           </SettingsContext.Provider>
         </main>
       </div>
-
     </div>
   );
 }

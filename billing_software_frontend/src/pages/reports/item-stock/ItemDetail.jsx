@@ -1,15 +1,9 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Calendar, ChevronDown, FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, Calendar, ChevronDown, FileSpreadsheet, Package, Printer, RefreshCw, ShoppingCart, TrendingUp } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
-
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const NAVY = "#1e1b4b";
-const GRAY_TEXT = "#64748b";
-const LIGHT_BORDER = "#e2e8f0";
 
 const COLUMNS = [
   { key: "date", label: "Date", right: false },
@@ -49,6 +43,7 @@ function defaultRange() {
 }
 
 function formatDisplayDate(value) {
+  if (!value) return "-";
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
 }
@@ -204,75 +199,270 @@ export default function ItemDetail() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = visibleRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
+  const totalSaleQty = useMemo(() => visibleRows.reduce((s, r) => s + Number(r.sale_quantity || 0), 0), [visibleRows]);
+  const totalPurchaseQty = useMemo(() => visibleRows.reduce((s, r) => s + Number(r.purchase_quantity || 0), 0), [visibleRows]);
+  const latestClosingQty = visibleRows.length > 0 ? visibleRows[visibleRows.length - 1].closing_quantity : 0;
+
   return (
-    <div style={pageStyle}>
-      <div style={topBarStyle}>
-        <div style={dateFieldStyle}><span style={dateLabelStyle}>From</span><Calendar size={13} color="#94a3b8" /><input type="date" value={formatDateISO(startDate)} onChange={(event) => setRange({ from: parseDateISO(event.target.value), to: endDate })} style={dateInputStyle} /></div>
-        <div style={dateFieldStyle}><span style={dateLabelStyle}>To</span><Calendar size={13} color="#94a3b8" /><input type="date" value={formatDateISO(endDate)} onChange={(event) => setRange({ from: startDate, to: parseDateISO(event.target.value) })} style={dateInputStyle} /></div>
-        <div style={actionsStyle}>
-          <button onClick={handleExcel} title="Excel Report" style={circleButtonStyle}><FileSpreadsheet size={16} color={INDIGO} /></button>
-          <button onClick={handlePrint} title="Print" style={circleButtonStyle}><Printer size={16} color={INDIGO} /></button>
-        </div>
-      </div>
-
-      <div style={detailsStyle}>
-        <div style={detailsTitleStyle}>Details</div>
-        <div style={filtersStyle}>
-          <span style={filterLabelStyle}>Item name</span>
-          <div ref={itemRef} style={itemPickerStyle}>
-            <input value={itemQuery} placeholder="Select item" onFocus={() => setItemOpen(true)} onChange={(event) => { setItemQuery(event.target.value); setItemOpen(true); }} style={itemInputStyle} />
-            <ChevronDown size={14} color="#94a3b8" style={itemChevronStyle} />
-            {itemOpen && <div style={itemMenuStyle}>{filteredItems.length ? filteredItems.map((item) => <button key={item.id} onClick={() => selectItem(item)} style={itemOptionStyle}>{item.product_name || "Unnamed item"}</button>) : <div style={noItemsStyle}>No items found</div>}</div>}
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Header & Actions Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Inventory Reports</span>
+            <span>•</span>
+            <span>Stock Ledger</span>
           </div>
-          <label style={checkboxLabelStyle}><input type="checkbox" checked={hideInactive} onChange={(event) => setHideInactive(event.target.checked)} /> Hide inactive dates</label>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            Item Detail Report
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Detailed daily transactional movement, adjustments, and running stock balance
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+            title="Export Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print</span>
+          </button>
         </div>
       </div>
 
-      <div style={tableContainerStyle}>
-        <div style={tableScrollStyle}>
-          <table style={tableStyle}>
-            <thead><tr>{COLUMNS.map((column) => <th key={column.key} style={{ ...thStyle, textAlign: column.right ? "right" : "left" }}>{column.label}</th>)}</tr></thead>
-            <tbody>
-              {loading ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>Loading...</td></tr> : error ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}><div style={errorStyle}><AlertCircle size={22} color="#dc2626" /><span>{error}</span><button onClick={() => setReloadKey((key) => key + 1)} style={retryStyle}><RefreshCw size={13} /> Retry</button></div></td></tr> : visibleRows.length === 0 ? <tr><td colSpan={COLUMNS.length} style={emptyCellStyle}>No item details found for the selected period.</td></tr> : pagedRows.map((row, index) => <tr key={`${row.date}-${row.is_beginning ? "opening" : index}`}><td style={tdStyle}>{formatDisplayDate(row.date)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.sale_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{row.purchase_label || formatQuantity(row.purchase_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.adjustment_quantity)}</td><td style={{ ...tdStyle, textAlign: "right" }}>{formatQuantity(row.closing_quantity)}</td></tr>)}
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Item Autocomplete */}
+          <div ref={itemRef} className="relative w-72">
+            <div className="relative">
+              <input
+                value={itemQuery}
+                placeholder="Search & select item..."
+                onFocus={() => setItemOpen(true)}
+                onChange={(event) => {
+                  setItemQuery(event.target.value);
+                  setItemOpen(true);
+                }}
+                className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all pr-8"
+              />
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+            {itemOpen && (
+              <div className="absolute left-0 top-[calc(100%+4px)] w-full bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-60 overflow-y-auto py-1">
+                {filteredItems.length ? (
+                  filteredItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => selectItem(item)}
+                      className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors block"
+                    >
+                      {item.product_name || "Unnamed item"}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-xs text-slate-400">No items found</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+            <input
+              type="date"
+              value={formatDateISO(startDate)}
+              onChange={(event) => setRange({ from: parseDateISO(event.target.value), to: endDate })}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+            <input
+              type="date"
+              value={formatDateISO(endDate)}
+              onChange={(event) => setRange({ from: startDate, to: parseDateISO(event.target.value) })}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* Hide Inactive Dates Checkbox */}
+          <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all">
+            <input
+              type="checkbox"
+              checked={hideInactive}
+              onChange={(e) => setHideInactive(e.target.checked)}
+              className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+            />
+            <span>Hide inactive dates</span>
+          </label>
+        </div>
+
+        <button
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all cursor-pointer ml-auto"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <Package className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Selected Item</div>
+            <div className="text-base font-black text-slate-800 mt-0.5 truncate" title={selectedItem?.product_name || "None"}>
+              {selectedItem?.product_name || "Select an Item"}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">{visibleRows.length} activity records</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Sale Qty</div>
+            <div className="text-xl font-black text-emerald-600 mt-0.5">
+              {formatQuantity(totalSaleQty)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Total units dispatched</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <ShoppingCart className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Purchase Qty</div>
+            <div className="text-xl font-black text-blue-600 mt-0.5">
+              {formatQuantity(totalPurchaseQty)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Total units received</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center shrink-0">
+            <Package className="w-6 h-6 text-violet-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Closing Stock Qty</div>
+            <div className="text-xl font-black text-violet-600 mt-0.5">
+              {formatQuantity(latestClosingQty)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Ending inventory on hand</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Data Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                {COLUMNS.map((column) => (
+                  <th
+                    key={column.key}
+                    className={`px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 ${
+                      column.right ? "text-right" : "text-left"
+                    }`}
+                  >
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {loading ? (
+                <tr>
+                  <td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                    Loading item details...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={COLUMNS.length} className="px-4 py-12 text-center text-rose-500 font-medium">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle className="w-6 h-6 text-rose-500" />
+                      <span>{error}</span>
+                      <button
+                        onClick={() => setReloadKey((k) => k + 1)}
+                        className="px-3 py-1 bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 hover:bg-rose-100 cursor-pointer"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : visibleRows.length === 0 ? (
+                <tr>
+                  <td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    No item details found for the selected period.
+                  </td>
+                </tr>
+              ) : (
+                pagedRows.map((row, index) => (
+                  <tr key={`${row.date}-${row.is_beginning ? "opening" : index}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-slate-800">
+                      {formatDisplayDate(row.date)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-emerald-600">
+                      {formatQuantity(row.sale_quantity)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-blue-600">
+                      {row.purchase_label || formatQuantity(row.purchase_quantity)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-600">
+                      {formatQuantity(row.adjustment_quantity)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-800">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-100 text-slate-800">
+                        {formatQuantity(row.closing_quantity)}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
+        />
       </div>
-      <ReportPagination
-        total={totalRows}
-        page={safePage}
-        rowsPerPage={rowsPerPage}
-        onPageChange={setPage}
-        onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
-      />
     </div>
   );
 }
-
-const pageStyle = { fontFamily: FONT, padding: "2px 0", display: "flex", flexDirection: "column", height: "100%", background: "#fff" };
-const topBarStyle = { display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", padding: "8px 0", borderBottom: `1px solid ${LIGHT_BORDER}` };
-const dateFieldStyle = { display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" };
-const dateLabelStyle = { fontSize: 11, color: GRAY_TEXT, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" };
-const dateInputStyle = { border: `1px solid ${LIGHT_BORDER}`, borderRadius: 6, padding: "4px 6px", fontSize: 12, fontFamily: FONT, color: "#334155", background: "#fff", outline: "none", width: 122 };
-const actionsStyle = { display: "flex", gap: 10, alignItems: "center", marginLeft: "auto", flexShrink: 0 };
-const circleButtonStyle = { width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", border: `1px solid ${LIGHT_BORDER}`, cursor: "pointer", flexShrink: 0 };
-const detailsStyle = { padding: "10px 0", borderBottom: `1px solid ${LIGHT_BORDER}`, marginBottom: 10 };
-const detailsTitleStyle = { fontSize: 14, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em" };
-const filtersStyle = { display: "flex", alignItems: "center", gap: 10, marginTop: 8, flexWrap: "wrap" };
-const filterLabelStyle = { fontSize: 12.5, fontWeight: 600, color: "#334155", whiteSpace: "nowrap" };
-const itemPickerStyle = { position: "relative", width: 260, flexShrink: 0 };
-const itemInputStyle = { width: "100%", padding: "7px 30px 7px 10px", border: `1px solid ${LIGHT_BORDER}`, borderRadius: 6, fontFamily: FONT, fontSize: 13, color: NAVY, outline: "none", background: "#fff" };
-const itemChevronStyle = { position: "absolute", right: 9, top: 9, pointerEvents: "none" };
-const itemMenuStyle = { position: "absolute", top: "calc(100% + 5px)", left: 0, right: 0, maxHeight: 240, overflowY: "auto", zIndex: 10, background: "#fff", border: `1px solid ${LIGHT_BORDER}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(30,27,75,.12)" };
-const itemOptionStyle = { display: "block", width: "100%", padding: "8px 10px", textAlign: "left", border: 0, background: "#fff", color: NAVY, fontFamily: FONT, fontSize: 12.5, cursor: "pointer" };
-const noItemsStyle = { padding: "9px 10px", color: "#94a3b8", fontSize: 12.5 };
-const checkboxLabelStyle = { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#334155", whiteSpace: "nowrap", cursor: "pointer" };
-const tableContainerStyle = { flex: 1, display: "flex", flexDirection: "column", marginTop: 8, border: `1px solid ${LIGHT_BORDER}`, borderRadius: 6, overflow: "hidden", background: "#fff", minHeight: 0 };
-const tableScrollStyle = { overflowX: "auto", flex: 1, padding: "0 14px" };
-const tableStyle = { width: "100%", minWidth: 760, borderCollapse: "collapse", fontFamily: FONT, tableLayout: "fixed" };
-const thStyle = { padding: "7px 8px", fontSize: 12.5, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.03em", background: "#f2f4f7", borderRight: `1px solid ${LIGHT_BORDER}`, borderBottom: `1px solid ${LIGHT_BORDER}`, whiteSpace: "normal", lineHeight: 1.3, position: "sticky", top: 0, zIndex: 2, verticalAlign: "middle" };
-const tdStyle = { padding: "6px 8px", borderBottom: `1px solid ${LIGHT_BORDER}`, borderRight: `1px solid ${LIGHT_BORDER}`, fontSize: 14, color: NAVY, verticalAlign: "middle" };
-const emptyCellStyle = { padding: "70px 24px", textAlign: "center", color: "#9ca3af", fontSize: 13 };
-const errorStyle = { display: "flex", flexDirection: "column", alignItems: "center", gap: 10 };
-const retryStyle = { display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 6, border: `1px solid ${LIGHT_BORDER}`, background: "#fff", color: INDIGO, fontSize: 12.5, fontWeight: 600, fontFamily: FONT, cursor: "pointer" };
-

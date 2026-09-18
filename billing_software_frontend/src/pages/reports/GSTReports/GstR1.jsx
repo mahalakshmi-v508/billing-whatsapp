@@ -766,651 +766,284 @@ export default function GstR1() {
   const pagedRows = activeRows.slice(pagedStart, pagedStart + rowsPerPage);
 
   return (
-    <div
-      style={{
-        fontFamily: FONT,
-        padding: "8px 18px 20px",
-      }}
-    >
-      {/* ── HEADER ───────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 14,
-          flexWrap: "wrap",
-        }}
-      >
-        <div
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            background:
-              "linear-gradient(135deg,#8b5cf6,#4338ca)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            flexShrink: 0,
-          }}
-        >
-          <ReceiptText size={19} />
-        </div>
-
-        <div>
-          <div
-            style={{
-              fontSize: 17,
-              fontWeight: 800,
-              color: "#1e1b4b",
-            }}
-          >
-            GST R1 — Outward Supplies
-          </div>
-
-          <div
-            style={{
-              fontSize: 12,
-              color: "#9ca3af",
-            }}
-          >
-            Sales &amp; sale returns GST return
-          </div>
-        </div>
-      </div>
-
-      {/* ── FILTER BAR ────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-          gap: 12,
-          marginBottom: 14,
-        }}
-      >
-        {/* FROM */}
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#64748b",
-              marginBottom: 5,
-            }}
-          >
-            From
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-            }}
-          >
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
+      {/* ═══════════════════════════════════════════════════════════════
+          1. HEADER & FILTER BAR
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        {/* Left: Date Filters & Firm */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* FROM MONTH / YEAR */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">From</span>
             <select
               value={fromMonth}
-              onChange={(e) =>
-                setFromMonth(
-                  Number(e.target.value)
-                )
-              }
-              style={selectStyle}
+              onChange={(e) => setFromMonth(Number(e.target.value))}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
             >
-              {monthNames.map(
-                (m, i) => (
-                  <option
-                    key={i}
-                    value={i + 1}
-                  >
-                    {m}
-                  </option>
-                )
-              )}
+              {monthNames.map((m, i) => (
+                <option key={i} value={i + 1}>
+                  {m}
+                </option>
+              ))}
             </select>
-
             <select
               value={fromYear}
-              onChange={(e) =>
-                setFromYear(
-                  Number(e.target.value)
-                )
-              }
-              style={selectStyle}
+              onChange={(e) => setFromYear(Number(e.target.value))}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
             >
-              {Array.from(
-                {
-                  length: 12,
-                },
-                (_, i) =>
-                  now.getFullYear() -
-                  5 +
-                  i
-              ).map((y) => (
-                <option
-                  key={y}
-                  value={y}
-                >
+              {Array.from({ length: 12 }, (_, i) => now.getFullYear() - 5 + i).map((y) => (
+                <option key={y} value={y}>
                   {y}
                 </option>
               ))}
             </select>
           </div>
-        </div>
 
-        {/* TO */}
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#64748b",
-              marginBottom: 5,
-            }}
-          >
-            To
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-            }}
-          >
+          {/* TO MONTH / YEAR */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">To</span>
             <select
               value={toMonth}
-              onChange={(e) =>
-                setToMonth(
-                  Number(e.target.value)
-                )
-              }
-              style={selectStyle}
+              onChange={(e) => setToMonth(Number(e.target.value))}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
             >
-              {monthNames.map(
-                (m, i) => (
-                  <option
-                    key={i}
-                    value={i + 1}
-                  >
-                    {m}
-                  </option>
-                )
-              )}
+              {monthNames.map((m, i) => (
+                <option key={i} value={i + 1}>
+                  {m}
+                </option>
+              ))}
             </select>
-
             <select
               value={toYear}
-              onChange={(e) =>
-                setToYear(
-                  Number(e.target.value)
-                )
-              }
-              style={selectStyle}
+              onChange={(e) => setToYear(Number(e.target.value))}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
             >
-              {Array.from(
-                {
-                  length: 12,
-                },
-                (_, i) =>
-                  now.getFullYear() -
-                  5 +
-                  i
-              ).map((y) => (
-                <option
-                  key={y}
-                  value={y}
-                >
+              {Array.from({ length: 12 }, (_, i) => now.getFullYear() - 5 + i).map((y) => (
+                <option key={y} value={y}>
                   {y}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* FIRM SELECTOR */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">Firm</span>
+            <select
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer max-w-[180px]"
+            >
+              <option value="">Select firm…</option>
+              {companies.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.company_name}
                 </option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* FIRM */}
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#64748b",
-              marginBottom: 5,
-            }}
-          >
-            Firm
-          </div>
-
-          <select
-            value={selectedCompany}
-            onChange={(e) =>
-              setSelectedCompany(
-                e.target.value
-              )
-            }
-            style={selectStyle}
-          >
-            <option value="">
-              Select firm…
-            </option>
-
-            {companies.map((c) => (
-              <option
-                key={c.id}
-                value={String(c.id)}
-              >
-                {c.company_name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* ACTION BUTTONS */}
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-          }}
-        >
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2.5">
           <button
             onClick={exportJson}
-            style={actionBtn("#0891b2")}
             disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-cyan-200 bg-cyan-50/80 text-cyan-700 hover:bg-cyan-100/80 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FileJson size={15} />
-            Export JSON
+            <span>JSON</span>
           </button>
 
           <button
             onClick={exportXls}
-            style={actionBtn("#16a34a")}
             disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FileDown size={15} />
-            Export XLS
+            <span>Excel</span>
           </button>
 
           <button
             onClick={handlePrint}
-            style={actionBtn("#dc2626")}
             disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Printer size={15} />
-            Print
+            <span>Print</span>
           </button>
         </div>
       </div>
 
-      {/* ── TABS ──────────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginBottom: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        {[
-          {
-            key: "sale",
-            label: "Sale / Outward",
-          },
-          {
-            key: "return",
-            label: "Sale Return",
-          },
-        ].map((t) => (
-          <button
-            key={t.key}
-            onClick={() =>
-              setActiveTab(t.key)
-            }
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 16px",
-              borderRadius: 9,
-              border:
-                "1.5px solid " +
-                (activeTab === t.key
-                  ? INDIGO
-                  : BORDER),
-              background:
-                activeTab === t.key
-                  ? INDIGO
-                  : "#fff",
-              color:
-                activeTab === t.key
-                  ? "#fff"
-                  : "#475569",
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer",
-              fontFamily: FONT,
-            }}
-          >
-            {t.key === "sale" ? (
-              <ReceiptText size={14} />
-            ) : (
-              <ArrowDownLeft size={14} />
-            )}
+      {/* ═══════════════════════════════════════════════════════════════
+          2. KPI SUMMARY CARDS RIBBON
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Total Invoices / Records */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Total Records</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <ReceiptText size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-slate-900">{activeRows.length}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+              {activeTab === "sale" ? "Outward invoices billed" : "Credit notes / return entries"}
+            </div>
+          </div>
+        </div>
 
-            {t.label}
-          </button>
-        ))}
+        {/* Total Supplies Value */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Supplies Value (₹)</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <ReceiptText size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-emerald-600">₹{fmtNum(totals.value)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Total taxable and bill value</div>
+          </div>
+        </div>
 
-        {/* RECORD COUNT */}
-        <div
-          style={{
-            marginLeft: "auto",
-            alignSelf: "center",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: 12,
-            color: "#64748b",
-          }}
-        >
-          {loading && (
-            <RefreshCw
-              size={14}
-              className="animate-spin"
-              style={{
-                animation:
-                  "spin 1s linear infinite",
-              }}
-            />
-          )}
-
-          <strong>
-            {activeRows.length}
-          </strong>
-
-          record(s)
+        {/* Current Filing Period */}
+        <div className="bg-white rounded-2xl p-4 border border-indigo-100 shadow-xs flex flex-col justify-between bg-gradient-to-br from-white via-indigo-50/20 to-indigo-50/40">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-indigo-900">Return Type</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+              GSTR-1
+            </span>
+          </div>
+          <div>
+            <div className="text-lg md:text-xl font-black text-indigo-700">
+              {monthNames[fromMonth - 1]?.slice(0, 3)} {fromYear} – {monthNames[toMonth - 1]?.slice(0, 3)} {toYear}
+            </div>
+            <div className="text-[10px] text-indigo-500 font-semibold mt-0.5">
+              Filing Period Duration
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── TABLE ─────────────────────────────────────────────────── */}
-      <div
-        style={{
-          border:
-            "1.5px solid " + BORDER,
-          borderRadius: 10,
-          background: "#fff",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          ref={tableWrapRef}
-          style={{
-            overflowX: "auto",
-          }}
-        >
-          <table
-            style={{
-              width: "100%",
-              borderCollapse:
-                "collapse",
-              fontSize: 12,
-              minWidth: 720,
-            }}
-          >
+      {/* ═══════════════════════════════════════════════════════════════
+          3. TABS AND TABLE CONTAINER
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        {/* Tab Headers */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-4 bg-slate-50/50">
+          <div className="flex items-center gap-2">
+            {[
+              { key: "sale", label: "Sale / Outward Supplies", icon: ReceiptText },
+              { key: "return", label: "Sale Return (Credit Notes)", icon: ArrowDownLeft },
+            ].map((t) => {
+              const Icon = t.icon;
+              const isActive = activeTab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => { setActiveTab(t.key); setPage(1); }}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs ${
+                    isActive
+                      ? "bg-indigo-600 text-white shadow-indigo-100"
+                      : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                  }`}
+                >
+                  <Icon size={14} />
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="text-xs font-semibold text-slate-500 flex items-center gap-2">
+            {loading && <RefreshCw size={13} className="animate-spin text-indigo-600" />}
+            <span><strong>{activeRows.length}</strong> record(s)</span>
+          </div>
+        </div>
+
+        {/* Data Table */}
+        <div ref={tableWrapRef} className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr
-                style={{
-                  background: "#f8fafc",
-                  borderBottom:
-                    "1.5px solid " +
-                    BORDER,
-                }}
-              >
-                {[
-                  "GSTIN/UIN",
-                  "Party Name",
-                  "Invoice No.",
-                  "Date",
-                  "Value (₹)",
-                  "Tax Rate",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      padding:
-                        "10px 12px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#334155",
-                      borderRight:
-                        "1px solid " +
-                        BORDER,
-                      whiteSpace:
-                        "nowrap",
-                      textAlign: "left",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
+              <tr className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <th className="px-4 py-3.5">GSTIN / UIN</th>
+                <th className="px-4 py-3.5">PARTY NAME</th>
+                <th className="px-4 py-3.5">INVOICE NO.</th>
+                <th className="px-4 py-3.5">DATE</th>
+                <th className="px-4 py-3.5 text-right">VALUE (₹)</th>
+                <th className="px-4 py-3.5 text-right">TAX RATE</th>
               </tr>
             </thead>
-
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: 48,
-                      textAlign:
-                        "center",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Loading GST R1 data…
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
+                    <div className="inline-flex items-center gap-2 font-medium">
+                      <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                      Loading GST R1 outward supplies data...
+                    </div>
                   </td>
                 </tr>
               ) : !selectedCompany ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: 48,
-                      textAlign:
-                        "center",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    Select a firm to
-                    generate the
-                    report.
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <ReceiptText size={32} className="text-slate-300" />
+                      <div className="text-sm font-bold text-slate-700">Select a firm</div>
+                      <div className="text-xs text-slate-400">Please choose a firm from the top dropdown to generate GST R1.</div>
+                    </div>
                   </td>
                 </tr>
-              ) : activeRows.length ===
-                0 ? (
+              ) : activeRows.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: 48,
-                      textAlign:
-                        "center",
-                      color: "#64748b",
-                    }}
-                  >
-                    No records found
-                    for the selected
-                    period.
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <ReceiptText size={32} className="text-slate-300" />
+                      <div className="text-sm font-bold text-slate-700">No records found</div>
+                      <div className="text-xs text-slate-400">No transactions recorded for the selected period.</div>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                pagedRows.map(
-                  (r, i) => (
-                    <tr
-                      key={
-                        r.id || i
-                      }
-                      style={{
-                        borderBottom:
-                          "1px solid #f1f5f9",
-                      }}
-                    >
-                      {/* GSTIN/UIN */}
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-                          fontFamily:
-                            "monospace",
-                          color:
-                            "#64748b",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {r.gstin}
-                      </td>
-
-                      {/* PARTY */}
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-                          fontWeight: 600,
-                          color:
-                            "#1e293b",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {r.party_name}
-                      </td>
-
-                      {/* INVOICE */}
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-                          color:
-                            "#334155",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {r.invoice_no}
-                      </td>
-
-                      {/* DATE */}
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-                          color:
-                            "#475569",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {r.date
-                          ? new Date(
-                              r.date
-                            ).toLocaleDateString(
-                              "en-IN"
-                            )
-                          : "-"}
-                      </td>
-
-                      {/* VALUE */}
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-                          textAlign:
-                            "right",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {fmtNum(
-                          r.value
-                        )}
-                      </td>
-
-                      {/* TAX RATE */}
-                      <td
-                        style={{
-                          padding:
-                            "9px 12px",
-                          textAlign:
-                            "right",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {r.tax_rate}%
-                      </td>
-                    </tr>
-                  )
-                )
+                pagedRows.map((r, i) => (
+                  <tr key={r.id || i} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-mono text-slate-500 whitespace-nowrap">{r.gstin}</td>
+                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{r.party_name}</td>
+                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.invoice_no}</td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                      {r.date ? new Date(r.date).toLocaleDateString("en-IN") : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-black text-slate-900 whitespace-nowrap">
+                      ₹{fmtNum(r.value)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-indigo-600 whitespace-nowrap">
+                      {r.tax_rate}%
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
-
-            {/* TOTAL */}
-            {activeRows.length >
-              0 &&
-              !loading &&
-              selectedCompany && (
-                <tfoot>
-                  <tr
-                    style={{
-                      background:
-                        "#eef2ff",
-                      borderTop:
-                        "2px solid " +
-                        INDIGO,
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding:
-                          "10px 12px",
-                        fontWeight: 800,
-                        color:
-                          "#1e1b4b",
-                      }}
-                      colSpan={4}
-                    >
-                      TOTAL
-                    </td>
-
-                    <td
-                      style={{
-                        padding:
-                          "10px 12px",
-                        textAlign:
-                          "right",
-                        fontWeight: 800,
-                      }}
-                    >
-                      {fmtNum(
-                        totals.value
-                      )}
-                    </td>
-
-                    <td
-                      style={{
-                        padding:
-                          "10px 12px",
-                      }}
-                    />
-                  </tr>
-                </tfoot>
-              )}
+            {activeRows.length > 0 && !loading && selectedCompany && (
+              <tfoot>
+                <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold text-xs text-slate-800">
+                  <td colSpan={4} className="px-4 py-3.5 uppercase tracking-wider text-[11px] text-slate-600">
+                    Total
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-black text-slate-900">
+                    ₹{fmtNum(totals.value)}
+                  </td>
+                  <td className="px-4 py-3.5 text-right text-slate-400">-</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
+
+        {/* Universal Pagination */}
         <ReportPagination
           total={totalRows}
           page={safePage}

@@ -1,7 +1,7 @@
-﻿import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import api from "../../../services/api";
 import { getCurrencySymbol } from "../../../utils/expenseDocument";
-import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search } from "lucide-react";
+import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search, Package, ShoppingCart, DollarSign, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import ReportPagination from "../../../components/reports/ReportPagination";
 import { showToast } from "../../../utils/reportToast";
@@ -11,15 +11,6 @@ const toInputDate = (d) =>
 
 const TODAY = new Date();
 const FIRST_OF_MONTH = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
-
-const fmtDate = (d) => {
-  if (!d || d === "-") return "-";
-  try {
-    const dt = new Date(d);
-    if (isNaN(dt.getTime())) return String(d);
-    return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-  } catch { return String(d); }
-};
 
 const ORDER_TYPES = [
   { value: "sale_order", label: "Sale Order" },
@@ -76,8 +67,9 @@ export default function SaleOrderItem() {
   const [selectedParty, setSelectedParty] = useState(null);
   const [lines, setLines] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [symbol, setSymbol] = useState("\u20B9");
-  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [symbol, setSymbol] = useState("₹");
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -92,10 +84,13 @@ export default function SaleOrderItem() {
   }, []);
 
   const debounceRef = useRef(null);
+  const partyWrapRef = useRef(null);
+  const typeRef = useRef(null);
+  const statusRef = useRef(null);
 
   useEffect(() => {
     let m = true;
-    getCurrencySymbol(companyId).then((s) => { if (m) setSymbol(s || "\u20B9"); });
+    getCurrencySymbol(companyId).then((s) => { if (m) setSymbol(s || "₹"); });
     return () => { m = false; };
   }, [companyId]);
 
@@ -201,35 +196,14 @@ export default function SaleOrderItem() {
   const totalAmount = useMemo(() => reportedRows.reduce((s, r) => s + r.amount, 0), [reportedRows]);
 
   useEffect(() => {
-    if (!activeDropdown && !partyResults.length) return;
     const handler = (e) => {
-      if (!e.target.closest(".soi-dropdown") && !e.target.closest(".soi-party-wrap")) {
-        setActiveDropdown(null);
-        setPartyResults([]);
-      }
+      if (partyWrapRef.current && !partyWrapRef.current.contains(e.target)) setPartyResults([]);
+      if (typeRef.current && !typeRef.current.contains(e.target)) setTypeDropdownOpen(false);
+      if (statusRef.current && !statusRef.current.contains(e.target)) setStatusDropdownOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [activeDropdown, partyResults.length]);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "Escape") {
-        setActiveDropdown(null);
-        setPartyResults([]);
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
   }, []);
-
-  const handleOrderType = (value) => {
-    setOrderType(value);
-    setSelectedParty(null);
-    setPartyQuery("");
-    setPartyResults([]);
-    setActiveDropdown(null);
-  };
 
   const handlePartyInput = (e) => {
     const q = e.target.value;
@@ -260,19 +234,14 @@ export default function SaleOrderItem() {
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sale Order Item");
-    XLSX.writeFile(wb, `SaleOrderItem_${fromDate}_${toDate}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Order Items");
+    XLSX.writeFile(wb, `OrderItems_${fromDate}_${toDate}.xlsx`);
   };
 
   const handlePrint = () => { window.print(); };
 
   const fmtMoney = (n) =>
     `${symbol}${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const fmtQty = (n) =>
-    Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-
-  const selectedTypeLabel = ORDER_TYPES.find((t) => t.value === orderType)?.label || "Sale Order";
-  const selectedStatusLabel = STATUSES.find((s) => s.value === orderStatus)?.label || "All Status";
 
   const totalRows = reportedRows.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
@@ -280,217 +249,254 @@ export default function SaleOrderItem() {
   const pagedRows = reportedRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
-    <>
-      <style>{`
-        .soi-page{padding:16px 20px;max-width:1200px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-        .soi-top-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
-        .soi-date-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-        .soi-date-field{display:flex;align-items:center;gap:4px}
-        .soi-date-field input[type="date"]{padding:5px 8px;font-size:13px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;outline:none;color:#334155}
-        .soi-date-field input[type="date"]:focus{border-color:#3b82f6}
-        .soi-date-sep{font-size:13px;color:#64748b}
-        .soi-actions{display:flex;align-items:center;gap:8px}
-        .soi-action-btn{display:flex;align-items:center;gap:4px;padding:5px 12px;font-size:12px;font-weight:500;border-radius:16px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#475569;transition:background .15s}
-        .soi-action-btn:hover{background:#f1f5f9}
-        .soi-filter-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-        .soi-filter-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
-        .soi-party-wrap{position:relative;flex:0 1 220px;min-width:140px}
-        .soi-party-input{width:100%;padding:5px 10px;font-size:13px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;outline:none}
-        .soi-party-input:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.12)}
-        .soi-party-results{position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.1);z-index:1100;max-height:200px;overflow-y:auto}
-        .soi-party-item{padding:7px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;flex-direction:column;gap:1px}
-        .soi-party-item:last-child{border-bottom:none}
-        .soi-party-item:hover{background:#f8fafc}
-        .soi-party-item-name{font-weight:500;color:#1e293b}
-        .soi-party-item-phone{font-size:11px;color:#94a3b8}
-        .soi-dropdown{position:relative}
-        .soi-dropdown-trigger{display:flex;align-items:center;gap:4px;padding:5px 10px;font-size:13px;font-weight:500;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap;color:#334155;transition:background .15s}
-        .soi-dropdown-trigger:hover{background:#f8fafc}
-        .soi-dropdown-trigger svg{color:#94a3b8}
-        .soi-dropdown-menu{position:absolute;top:calc(100% + 2px);left:0;min-width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.1);z-index:1100;overflow:hidden}
-        .soi-dropdown-item{padding:7px 12px;font-size:13px;cursor:pointer;white-space:nowrap;color:#334155;transition:background .12s}
-        .soi-dropdown-item:hover{background:#f1f5f9}
-        .soi-dropdown-item.soi-active{background:#eff6ff;color:#2563eb;font-weight:500}
-        .soi-table-wrap{border:1px solid #e2e8f0;border-radius:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;background:#fff}
-        .soi-table{width:100%;border-collapse:collapse;min-width:380px}
-        .soi-table th{padding:8px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap}
-        .soi-table th.soi-r{text-align:right}
-        .soi-table td{padding:7px 10px;font-size:13px;color:#334155;border-bottom:1px solid #f1f5f9}
-        .soi-table td.soi-r{text-align:right;font-variant-numeric:tabular-nums}
-        .soi-table tbody tr:hover{background:#f8fafc}
-        .soi-table td.soi-name{font-weight:600;color:#1e293b}
-        .soi-empty{padding:48px 20px;text-align:center;color:#94a3b8;font-size:14px}
-        .soi-loading{padding:24px;text-align:center;color:#94a3b8;font-size:13px}
-        .soi-total-bar{display:flex;justify-content:flex-end;align-items:baseline;gap:16px;padding:10px 16px 2px;font-size:14px}
-        .soi-total-bar .soi-total-label{font-weight:600;color:#475569}
-        .soi-total-bar .soi-total-value{font-weight:700;color:#1e293b;font-variant-numeric:tabular-nums}
-        .soi-print-area{display:none}
-        @media print{
-          .soi-print-area{display:block}
-          body *{visibility:hidden!important}
-          #sale-order-item-print-area,#sale-order-item-print-area *{visibility:visible!important}
-          #sale-order-item-print-area{position:absolute!important;left:0!important;top:0!important;width:100%!important;margin:0!important;padding:10mm!important;background:#fff!important;box-shadow:none!important;border:none!important}
-          .soi-no-print{display:none!important}
-        }
-        .soi-print-title{font-size:16px;font-weight:700;margin-bottom:6px;color:#1e293b}
-        .soi-print-meta{font-size:11px;color:#475569;margin-bottom:10px;line-height:1.7}
-        .soi-print-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}
-        .soi-print-table th,.soi-print-table td{padding:4px 6px;border:1px solid #cbd5e1}
-        .soi-print-table th{background:#f1f5f9;font-weight:600;font-size:10px;text-transform:uppercase}
-        .soi-print-table td.soi-r{text-align:right}
-        .soi-print-total{margin-top:8px;font-weight:600;font-size:12px;text-align:right}
-        @media(max-width:900px){.soi-top-bar{flex-wrap:wrap}.soi-filter-row{gap:8px}}
-        @media(max-width:600px){.soi-top-bar{flex-direction:column;align-items:stretch}.soi-date-group{flex-wrap:wrap}.soi-filter-row{flex-direction:column;align-items:stretch}.soi-party-wrap{flex:1 1 100%}}
-      `}</style>
-
-      <div id="sale-order-item-print-area" className="soi-print-area">
-        <div className="soi-print-title">SALE ORDER ITEM REPORT</div>
-        <div className="soi-print-meta">
-          <div>Date: {fmtDate(fromDate)} - {fmtDate(toDate)}</div>
-          <div>Party: {selectedParty?.name || "All"}</div>
-          <div>Order Type: {selectedTypeLabel}</div>
-          <div>Status: {selectedStatusLabel}</div>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Header Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Orders & Fulfillment</span>
+            <span>•</span>
+            <span>Itemized Demand</span>
+          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            Order Items Summary
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Aggregated item-level quantities and order amounts across sales and purchase pipelines
+          </p>
         </div>
-        <table className="soi-print-table">
-          <thead>
-            <tr>
-              <th>Item Name</th><th className="soi-r">Quantity</th><th className="soi-r">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reportedRows.map((r, i) => (
-              <tr key={i}>
-                <td>{r.name}</td>
-                <td className="soi-r">{fmtQty(r.qty)}</td>
-                <td className="soi-r">{fmtMoney(r.amount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="soi-print-total">Total&nbsp;&nbsp;&nbsp;{fmtQty(totalQty)}&nbsp;&nbsp;&nbsp;{fmtMoney(totalAmount)}</div>
+
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+            title="Export Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print</span>
+          </button>
+        </div>
       </div>
 
-      <div className="soi-page soi-no-print">
-        <div className="soi-top-bar">
-          <div className="soi-date-group">
-            <div className="soi-date-field">
-              <Calendar size={14} color="#94a3b8" />
-              <span className="soi-date-sep">From</span>
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            </div>
-            <div className="soi-date-field">
-              <span className="soi-date-sep">To</span>
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-            </div>
-          </div>
-          <div className="soi-actions">
-            <button className="soi-action-btn" onClick={handleExportExcel}>
-              <FileSpreadsheet size={14} /> Excel Report
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Order Type */}
+          <div ref={typeRef} className="relative">
+            <button
+              onClick={() => setTypeDropdownOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              <span>{ORDER_TYPES.find((t) => t.value === orderType)?.label}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
-            <button className="soi-action-btn" onClick={handlePrint}>
-              <Printer size={14} /> Print
-            </button>
+            {typeDropdownOpen && (
+              <div className="absolute left-0 top-[calc(100%+4px)] min-w-[150px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                {ORDER_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    onClick={() => {
+                      setOrderType(t.value);
+                      setSelectedParty(null);
+                      setPartyQuery("");
+                      setTypeDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors block"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
 
-        <div className="soi-filter-row">
-          <span className="soi-filter-label">Filters</span>
+          {/* Status */}
+          <div ref={statusRef} className="relative">
+            <button
+              onClick={() => setStatusDropdownOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              <span>{STATUSES.find((s) => s.value === orderStatus)?.label}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+            {statusDropdownOpen && (
+              <div className="absolute left-0 top-[calc(100%+4px)] min-w-[160px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1">
+                {STATUSES.map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => {
+                      setOrderStatus(s.value);
+                      setStatusDropdownOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors block"
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-          <div className="soi-party-wrap">
-            <div style={{ position: "relative" }}>
-              <Search size={13} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
+          {/* Party Search */}
+          <div ref={partyWrapRef} className="relative w-56">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
-                className="soi-party-input"
-                style={{ paddingLeft: 26 }}
-                placeholder="Party filter"
+                type="text"
+                placeholder={orderType === "sale_order" ? "Search customer..." : "Search supplier..."}
                 value={partyQuery}
                 onChange={handlePartyInput}
+                className="w-full pl-8 pr-7 py-1.5 text-xs font-medium rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
               />
-              {selectedParty && (
+              {partyQuery && (
                 <button
                   onClick={clearParty}
-                  style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 14, lineHeight: 1 }}
-                  title="Clear"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
                 >
-                  &times;
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
             {partyResults.length > 0 && (
-              <div className="soi-party-results">
-                {partyResults.map((p, i) => (
-                  <div key={p.id || i} className="soi-party-item" onClick={() => { selectParty(p); setActiveDropdown(null); }}>
-                    <span className="soi-party-item-name">{p.name}</span>
-                    {p.phone && <span className="soi-party-item-phone">{p.phone}</span>}
-                  </div>
+              <div className="absolute left-0 top-[calc(100%+4px)] w-full bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-56 overflow-y-auto py-1">
+                {partyResults.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => selectParty(p)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer block border-b border-slate-100 last:border-0"
+                  >
+                    <div className="font-semibold text-slate-800">{p.name}</div>
+                    {p.phone && <div className="text-[10px] text-slate-400">{p.phone}</div>}
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="soi-dropdown">
-            <button className="soi-dropdown-trigger" onClick={() => setActiveDropdown(activeDropdown === "type" ? null : "type")}>
-              {selectedTypeLabel} <ChevronDown size={14} />
-            </button>
-            {activeDropdown === "type" && (
-              <div className="soi-dropdown-menu">
-                {ORDER_TYPES.map((t) => (
-                  <div
-                    key={t.value}
-                    className={`soi-dropdown-item${orderType === t.value ? " soi-active" : ""}`}
-                    onClick={() => handleOrderType(t.value)}
-                  >
-                    {t.label}
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
           </div>
 
-          <div className="soi-dropdown">
-            <button className="soi-dropdown-trigger" onClick={() => setActiveDropdown(activeDropdown === "status" ? null : "status")}>
-              {selectedStatusLabel} <ChevronDown size={14} />
-            </button>
-            {activeDropdown === "status" && (
-              <div className="soi-dropdown-menu">
-                {STATUSES.map((s) => (
-                  <div
-                    key={s.value}
-                    className={`soi-dropdown-item${orderStatus === s.value ? " soi-active" : ""}`}
-                    onClick={() => { setOrderStatus(s.value); setActiveDropdown(null); }}
-                  >
-                    {s.label}
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <Package className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Distinct Items</div>
+            <div className="text-xl font-black text-slate-800 mt-0.5">{reportedRows.length}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Unique products ordered</div>
           </div>
         </div>
 
-        <div className="soi-table-wrap">
-          <table className="soi-table">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <ShoppingCart className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Quantity</div>
+            <div className="text-xl font-black text-blue-600 mt-0.5">
+              {Number(totalQty).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Total units demanded</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+            <DollarSign className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Value</div>
+            <div className="text-xl font-black text-emerald-600 mt-0.5">{fmtMoney(totalAmount)}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Cumulative item amounts</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Data Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr>
-                <th>ITEM NAME</th>
-                <th className="soi-r">QUANTITY</th>
-                <th className="soi-r">AMOUNT</th>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Item Name</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Quantity</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Amount</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
-                <tr><td colSpan={3} className="soi-loading">Loading...</td></tr>
-              ) : reportedRows.length === 0 ? (
-                <tr><td colSpan={3} className="soi-empty">No sale order items found.</td></tr>
+                <tr>
+                  <td colSpan={3} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    <Package className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                    Loading order items...
+                  </td>
+                </tr>
+              ) : pagedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    No items found for the selected orders.
+                  </td>
+                </tr>
               ) : (
-                pagedRows.map((r, i) => (
-                  <tr key={i}>
-                    <td className="soi-name">{r.name}</td>
-                    <td className="soi-r">{fmtQty(r.qty)}</td>
-                    <td className="soi-r">{fmtMoney(r.amount)}</td>
+                pagedRows.map((r, idx) => (
+                  <tr key={`${r.name}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-slate-800">{r.name}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-600">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                        {Number(r.qty).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmtMoney(r.amount)}</td>
                   </tr>
                 ))
               )}
             </tbody>
+            {!loading && reportedRows.length > 0 && (
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50/90 font-bold text-slate-800 text-xs">
+                <tr>
+                  <td className="px-4 py-3 uppercase tracking-wider font-extrabold text-slate-900">Total</td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-900">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800">
+                      {Number(totalQty).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-extrabold text-emerald-700">{fmtMoney(totalAmount)}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
@@ -499,16 +505,12 @@ export default function SaleOrderItem() {
           page={safePage}
           rowsPerPage={rowsPerPage}
           onPageChange={setPage}
-          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
         />
-
-        <div className="soi-total-bar">
-          <span className="soi-total-label">Total Quantity:</span>
-          <span className="soi-total-value">{fmtQty(totalQty)}</span>
-          <span className="soi-total-label" style={{ marginLeft: 10 }}>Total Amount:</span>
-          <span className="soi-total-value">{fmtMoney(totalAmount)}</span>
-        </div>
       </div>
-    </>
+    </div>
   );
 }

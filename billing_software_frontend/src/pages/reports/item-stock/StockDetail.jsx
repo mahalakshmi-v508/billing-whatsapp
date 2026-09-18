@@ -1,17 +1,10 @@
-﻿import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Calendar, FileSpreadsheet, Printer, RefreshCw, AlertCircle } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { ChevronDown, Calendar, FileSpreadsheet, Printer, RefreshCw, AlertCircle, Package, Layers, TrendingUp, ShoppingCart, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
 
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const NAVY = "#1e1b4b";
-const GRAY_TEXT = "#64748b";
-const LIGHT_BORDER = "#e2e8f0";
-
-/* ── Helpers ─────────────────────────────────────────────────────────── */
 function getAuth() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -38,13 +31,11 @@ function parseDateISO(s) {
   return new Date(y, m - 1, d);
 }
 
-// Project default date range for reports: 1st of current month → today.
 function defaultRange() {
   const t = new Date();
   return { from: new Date(t.getFullYear(), t.getMonth(), 1), to: new Date(t.getFullYear(), t.getMonth(), t.getDate()) };
 }
 
-/** Print a DOM node without leaving the app (hidden iframe). */
 function printElement(element, title) {
   const iframe = document.createElement("iframe");
   Object.assign(iframe.style, {
@@ -86,12 +77,8 @@ const COLUMNS = [
   { key: "closing_qty", label: "Closing Quantity", qty: true, money: false },
 ];
 
-const TABLE_MIN_WIDTH = 820;
-
-/* ── Main Component ─────────────────────────────────────────────────── */
 export default function StockDetail() {
   const { adminId } = getAuth();
-
   const [{ from: startDate, to: endDate }, setRange] = useState(defaultRange);
   const [companyId, setCompanyId] = useState(null);
   const [companyName, setCompanyName] = useState("My Company");
@@ -105,6 +92,7 @@ export default function StockDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -118,7 +106,6 @@ export default function StockDetail() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Resolve the firm silently (saved / single company), no visible firm control.
   useEffect(() => {
     if (!adminId) return;
     api
@@ -137,7 +124,6 @@ export default function StockDetail() {
       .catch(() => setError("Failed to load companies."));
   }, [adminId]);
 
-  // All Categories dropdown — real categories from the DB/API.
   useEffect(() => {
     if (companyId === null) return;
     api
@@ -148,7 +134,6 @@ export default function StockDetail() {
       .catch(() => {});
   }, [companyId]);
 
-  // Fetch the report on any filter change.
   useEffect(() => {
     if (companyId === null) return;
     const t = setTimeout(() => {
@@ -181,7 +166,12 @@ export default function StockDetail() {
   const prettyFrom = startDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
-  /* ── Excel export (only the 7 report columns) ── */
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows;
+    const q = search.toLowerCase();
+    return rows.filter((r) => (r.item_name || "").toLowerCase().includes(q));
+  }, [rows, search]);
+
   const handleExcel = () => {
     try {
       const sheetData = [
@@ -190,7 +180,7 @@ export default function StockDetail() {
         [],
         COLUMNS.map((c) => c.label),
       ];
-      rows.forEach((r) => {
+      filteredRows.forEach((r) => {
         sheetData.push(
           COLUMNS.map((c) =>
             c.key === "item_name" ? r[c.key] || "-" : c.money ? fmtINR(r[c.key]) : fmtQty(r[c.key])
@@ -216,7 +206,6 @@ export default function StockDetail() {
     }
   };
 
-  /* ── Print ── */
   const handlePrint = () => {
     const th = COLUMNS.map((c) => `<th class="${c.qty || c.money ? "r" : ""}">${c.label}</th>`).join("");
     const buildRow = (r) => {
@@ -228,8 +217,8 @@ export default function StockDetail() {
       return `<tr>${cells}</tr>`;
     };
     const body =
-      rows.map((r) => buildRow(r)).join("") +
-      (rows.length ? buildRow(totals) : "");
+      filteredRows.map((r) => buildRow(r)).join("") +
+      (filteredRows.length ? buildRow(totals) : "");
 
     const el = document.createElement("div");
     el.innerHTML =
@@ -242,72 +231,66 @@ export default function StockDetail() {
     printElement(el, "Stock Detail");
   };
 
-  const totalRows = rows.length;
+  const totalRows = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
   const safePage = Math.min(page, totalPages);
-  const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+  const pagedRows = filteredRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
-    <div style={{ fontFamily: FONT, padding: "2px 0", display: "flex", flexDirection: "column", height: "100%", background: "#fff" }}>
-      {/* ═══════════════════════════════════════════════════════════════
-          1. TOP BAR — From / To dates, Excel / Print icons
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={topBarStyle}>
-        <div style={dateFieldStyle}>
-          <span style={dateLabelStyle}>From</span>
-          <Calendar size={13} style={{ color: "#94a3b8" }} />
-          <input
-            type="date"
-            value={formatDateISO(startDate)}
-            onChange={(e) => setRange({ from: parseDateISO(e.target.value), to: endDate })}
-            style={compactDateInputStyle}
-          />
-        </div>
-        <div style={dateFieldStyle}>
-          <span style={dateLabelStyle}>To</span>
-          <Calendar size={13} style={{ color: "#94a3b8" }} />
-          <input
-            type="date"
-            value={formatDateISO(endDate)}
-            onChange={(e) => setRange({ from: startDate, to: parseDateISO(e.target.value) })}
-            style={compactDateInputStyle}
-          />
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Header & Export Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Inventory Reports</span>
+            <span>•</span>
+            <span>Stock Detail</span>
+          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            Stock Detail Report
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Complete inward/outward breakdown, purchase and sales valuation, and opening/closing quantity
+          </p>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: "auto", flexShrink: 0 }}>
-          <button onClick={handleExcel} title="Excel Report" style={circleBtnStyle}>
-            <FileSpreadsheet size={16} color={INDIGO} />
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+            title="Export Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Excel</span>
           </button>
-          <button onClick={handlePrint} title="Print" style={circleBtnStyle}>
-            <Printer size={16} color={INDIGO} />
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print</span>
           </button>
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          2. DETAILS — Filter by Item Category
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={detailsSectionStyle}>
-        <div style={detailsTitleStyle}>Details</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
-          <span style={filtersLabelStyle}>Filter by Item Category</span>
-          <div ref={catRef} style={{ position: "relative", flexShrink: 0 }}>
-            <button onClick={() => setCatOpen((v) => !v)} style={compactSelectBtnStyle}>
-              <span style={{ fontWeight: 600, color: NAVY, fontSize: 12.5 }}>
-                {selectedCategory?.name || "All Categories"}
-              </span>
-              <ChevronDown size={14} style={{ color: "#94a3b8", transform: catOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Category Dropdown */}
+          <div ref={catRef} className="relative">
+            <button
+              onClick={() => setCatOpen((v) => !v)}
+              className="inline-flex items-center justify-between gap-2 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer min-w-[150px]"
+            >
+              <span>{selectedCategory?.name || "All Categories"}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
             {catOpen && (
-              <div style={dropdownPanelStyle}>
+              <div className="absolute left-0 top-[calc(100%+4px)] min-w-[180px] bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1 max-h-56 overflow-y-auto">
                 <button
                   onClick={() => { setCategoryId(0); setCatOpen(false); }}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: Number(categoryId) === 0 ? "#eef2ff" : "transparent",
-                    color: Number(categoryId) === 0 ? INDIGO : "#334155",
-                    fontWeight: Number(categoryId) === 0 ? 700 : 500,
-                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors"
                 >
                   All Categories
                 </button>
@@ -315,12 +298,7 @@ export default function StockDetail() {
                   <button
                     key={c.id}
                     onClick={() => { setCategoryId(Number(c.id)); setCatOpen(false); }}
-                    style={{
-                      ...dropdownItemStyle,
-                      background: Number(c.id) === Number(categoryId) ? "#eef2ff" : "transparent",
-                      color: Number(c.id) === Number(categoryId) ? INDIGO : "#334155",
-                      fontWeight: Number(c.id) === Number(categoryId) ? 700 : 500,
-                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium cursor-pointer transition-colors"
                   >
                     {c.name || "Category"}
                   </button>
@@ -328,271 +306,214 @@ export default function StockDetail() {
               </div>
             )}
           </div>
+
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+            <input
+              type="date"
+              value={formatDateISO(startDate)}
+              onChange={(e) => setRange({ from: parseDateISO(e.target.value), to: endDate })}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+            <input
+              type="date"
+              value={formatDateISO(endDate)}
+              onChange={(e) => setRange({ from: startDate, to: parseDateISO(e.target.value) })}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* Search Input */}
+          <div className="relative w-48 sm:w-60">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search item..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="w-full pl-8 pr-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all cursor-pointer ml-auto"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      {/* KPI Summary Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <Layers className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Products</div>
+            <div className="text-xl font-black text-slate-800 mt-0.5">{filteredRows.length}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Active stock items</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <ShoppingCart className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Quantity In (Purchase)</div>
+            <div className="text-xl font-black text-blue-600 mt-0.5">
+              {fmtQty(totals.quantity_in)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">{fmtINR(totals.purchase_amount)}</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Quantity Out (Sales)</div>
+            <div className="text-xl font-black text-emerald-600 mt-0.5">
+              {fmtQty(totals.quantity_out)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">{fmtINR(totals.sale_amount)}</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center shrink-0">
+            <Package className="w-6 h-6 text-violet-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Closing Stock</div>
+            <div className="text-xl font-black text-violet-600 mt-0.5">
+              {fmtQty(totals.closing_qty)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Units in inventory</div>
+          </div>
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          3. REPORT TABLE — one table, exactly 7 columns
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={tableContainerStyle}>
-        <div style={{ overflowX: "auto", flex: 1, padding: "0 14px" }}>
-          <table style={{ ...tableStyle, minWidth: TABLE_MIN_WIDTH }}>
+      {/* Modern Data Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
                 {COLUMNS.map((c) => (
-                  <th key={c.key} style={{ ...thStyle, textAlign: c.qty || c.money ? "right" : "left" }}>
+                  <th
+                    key={c.key}
+                    className={`px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 ${
+                      c.qty || c.money ? "text-right" : "text-left"
+                    }`}
+                  >
                     {c.label}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>Loading...</div>
+                  <td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                    Loading stock details...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} style={emptyCellStyle}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                      <AlertCircle size={24} color="#dc2626" />
-                      <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 600 }}>{error}</div>
+                  <td colSpan={COLUMNS.length} className="px-4 py-12 text-center text-rose-500 font-medium">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle className="w-6 h-6 text-rose-500" />
+                      <span>{error}</span>
                       <button
                         onClick={() => setReloadKey((k) => k + 1)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "6px 14px",
-                          borderRadius: 6,
-                          border: `1px solid ${LIGHT_BORDER}`,
-                          background: "#fff",
-                          color: INDIGO,
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          fontFamily: FONT,
-                          cursor: "pointer",
-                        }}
+                        className="px-3 py-1 bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 hover:bg-rose-100 cursor-pointer"
                       >
-                        <RefreshCw size={13} />
                         Retry
                       </button>
                     </div>
                   </td>
                 </tr>
-              ) : rows.length === 0 ? (
+              ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>No stock details found</div>
+                  <td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    No stock details found.
                   </td>
                 </tr>
               ) : (
                 pagedRows.map((r) => (
-                  <tr key={r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
-                    <td style={{ ...tdStyle, fontSize: 14, fontWeight: 600, color: NAVY }}>{r.item_name || "-"}</td>
-                    {COLUMNS.slice(1).map((c) => (
-                      <td key={c.key} style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: c.money ? "#334155" : "#475569" }}>
-                        {c.money ? fmtINR(r[c.key]) : fmtQty(r[c.key])}
-                      </td>
-                    ))}
+                  <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-slate-800">
+                      {r.item_name || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-600">
+                      {fmtQty(r.beginning_qty)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-blue-600">
+                      {fmtQty(r.quantity_in)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-700">
+                      {fmtINR(r.purchase_amount)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-emerald-600">
+                      {fmtQty(r.quantity_out)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-700">
+                      {fmtINR(r.sale_amount)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-extrabold text-slate-900">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-violet-50 text-violet-700 border border-violet-100">
+                        {fmtQty(r.closing_qty)}
+                      </span>
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
-            {!loading && !error && rows.length > 0 && (
-              <tfoot>
+            {!loading && !error && filteredRows.length > 0 && (
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50/90 font-bold text-slate-800 text-xs">
                 <tr>
-                  {COLUMNS.map((c) => (
-                    <td key={c.key} style={{ ...tdStyle, background: "#f2f4f7", fontWeight: 800, color: NAVY, fontSize: 14, textAlign: c.qty || c.money ? "right" : "left" }}>
-                      {c.key === "item_name" ? "Total" : c.money ? fmtINR(totals[c.key]) : fmtQty(totals[c.key])}
-                    </td>
-                  ))}
+                  <td className="px-4 py-3 uppercase tracking-wider font-extrabold text-slate-900">Total</td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-900">{fmtQty(totals.beginning_qty)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-blue-700">{fmtQty(totals.quantity_in)}</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-blue-800">{fmtINR(totals.purchase_amount)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-emerald-700">{fmtQty(totals.quantity_out)}</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-emerald-800">{fmtINR(totals.sale_amount)}</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-violet-800">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-violet-100 text-violet-900">
+                      {fmtQty(totals.closing_qty)}
+                    </span>
+                  </td>
                 </tr>
               </tfoot>
             )}
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => {
+            setRowsPerPage(v);
+            setPage(1);
+          }}
+        />
       </div>
-      <ReportPagination
-        total={totalRows}
-        page={safePage}
-        rowsPerPage={rowsPerPage}
-        onPageChange={setPage}
-        onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
-      />
     </div>
   );
 }
-
-/* ═════════════════════════════════════════════════════════════════════
-   STYLES — compact accounting-report look (Vyapar style)
-   ═════════════════════════════════════════════════════════════════════ */
-
-const topBarStyle = {
-  display: "flex",
-  gap: 16,
-  alignItems: "center",
-  flexWrap: "wrap",
-  padding: "8px 0",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-};
-
-const dateFieldStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  whiteSpace: "nowrap",
-};
-
-const dateLabelStyle = {
-  fontSize: 11,
-  color: GRAY_TEXT,
-  fontWeight: 600,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-};
-
-const compactDateInputStyle = {
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  padding: "4px 6px",
-  fontSize: 12,
-  fontFamily: FONT,
-  color: "#334155",
-  background: "#fff",
-  outline: "none",
-  width: 122,
-};
-
-const circleBtnStyle = {
-  width: 32,
-  height: 32,
-  borderRadius: "50%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  cursor: "pointer",
-  flexShrink: 0,
-};
-
-const detailsSectionStyle = {
-  padding: "10px 0",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  marginBottom: 10,
-};
-
-const detailsTitleStyle = {
-  fontSize: 10.5,
-  fontWeight: 800,
-  color: "#475569",
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-};
-
-const filtersLabelStyle = {
-  fontSize: 11.5,
-  fontWeight: 600,
-  color: "#334155",
-  whiteSpace: "nowrap",
-};
-
-const compactSelectBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "5px 10px",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
-
-const dropdownPanelStyle = {
-  position: "absolute",
-  top: "calc(100% + 5px)",
-  left: 0,
-  minWidth: 170,
-  maxHeight: 280,
-  overflowY: "auto",
-  zIndex: 60,
-  background: "#fff",
-  border: `1.5px solid #e0e7ff`,
-  borderRadius: 8,
-  boxShadow: "0 12px 32px rgba(30,27,75,.12)",
-  fontFamily: FONT,
-};
-
-const dropdownItemStyle = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "7px 12px",
-  background: "transparent",
-  border: "none",
-  fontSize: 12.5,
-  fontFamily: FONT,
-  cursor: "pointer",
-  transition: "background .1s",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
-
-const tableContainerStyle = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  marginTop: 8,
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  overflow: "hidden",
-  background: "#fff",
-  minHeight: 0,
-};
-
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontFamily: FONT,
-  tableLayout: "fixed",
-};
-
-const thStyle = {
-  padding: "7px 8px",
-  fontSize: 12.5,
-  fontWeight: 700,
-  color: "#475569",
-  textTransform: "uppercase",
-  letterSpacing: "0.03em",
-  background: "#f2f4f7",
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  whiteSpace: "normal",
-  lineHeight: 1.3,
-  userSelect: "none",
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-  verticalAlign: "middle",
-};
-
-const emptyCellStyle = {
-  padding: "70px 24px",
-  textAlign: "center",
-  verticalAlign: "middle",
-};
-
-const tdStyle = {
-  padding: "6px 8px",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 14,
-  color: "#334155",
-  verticalAlign: "middle",
-};

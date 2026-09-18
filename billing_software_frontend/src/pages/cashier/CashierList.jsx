@@ -1,447 +1,3 @@
-
-// import { useEffect, useState } from "react";
-// import api from "../../services/api";
-// import { Pencil, Trash2, Search, UserPlus, Users, ChevronLeft, ChevronRight } from "lucide-react";
-// import { useNavigate } from "react-router-dom";
-
-// const PER_PAGE = 5;
-
-// export default function CashierList() {
-//   const [cashiers, setCashiers] = useState([]);
-//   const [search, setSearch] = useState("");
-//   const [page, setPage] = useState(1);
-//   const navigate = useNavigate();
-
-//   const fetchCashiers = async () => {
-//     const user = JSON.parse(localStorage.getItem("user"));
-//     const res = await api.post("/cashier/get_cashiers", { company_id: user.company_id });
-//     if (res.data.status) setCashiers(res.data.data);
-//   };
-
-//   useEffect(() => { fetchCashiers(); }, []);
-
-//   const handleDelete = async (id) => {
-//     if (!window.confirm("Delete this cashier?")) return;
-//     const res = await api.post("/cashier/delete_cashier", { id });
-//     if (res.data.status) setCashiers(prev => prev.filter(c => c.id !== id));
-//   };
-
-//   const filtered = cashiers.filter(c =>
-//     c.name.toLowerCase().includes(search.toLowerCase()) ||
-//     c.email.toLowerCase().includes(search.toLowerCase())
-//   );
-
-//   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-//   const safePage = Math.min(page, totalPages);
-//   const paginated = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
-
-//   const handleSearch = (val) => { setSearch(val); setPage(1); };
-
-//   const getInitials = (name) => name?.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "??";
-
-//   const avatarColors = [
-//     ["#dbeafe","#1d4ed8"], ["#ede9fe","#6d28d9"], ["#dcfce7","#15803d"],
-//     ["#fef3c7","#b45309"], ["#fce7f3","#be185d"], ["#e0f2fe","#0369a1"]
-//   ];
-//   const getColor = (name) => avatarColors[(name?.charCodeAt(0) || 0) % avatarColors.length];
-
-//   return (
-//     <>
-//       <style>{`
-//         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap');
-
-//         .cl-root {
-//           font-family: 'DM Sans', sans-serif;
-//           padding: 2rem;
-//           min-height: 100vh;
-//           background: #f0f5ff;
-//           position: relative;
-//         }
-
-//         .cl-root::before {
-//           content: '';
-//           position: fixed;
-//           top: -200px; right: -200px;
-//           width: 500px; height: 500px;
-//           background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%);
-//           pointer-events: none;
-//           border-radius: 50%;
-//         }
-
-//         /* HEADER */
-//         .cl-header {
-//           display: flex;
-//           justify-content: space-between;
-//           align-items: center;
-//           margin-bottom: 1.75rem;
-//           animation: fadeDown 0.4s ease both;
-//         }
-
-//         .cl-title-group {}
-//         .cl-title {
-//           font-family: 'Sora', sans-serif;
-//           font-size: 26px;
-//           font-weight: 700;
-//           color: #1e3a8a;
-//           margin: 0;
-//           letter-spacing: -0.4px;
-//         }
-//         .cl-title-sub {
-//           font-size: 13px;
-//           color: #93a3b8;
-//           margin: 3px 0 0;
-//         }
-
-//         .cl-add-btn {
-//           display: flex; align-items: center; gap: 8px;
-//           background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-//           color: #fff;
-//           border: none;
-//           border-radius: 14px;
-//           padding: 11px 20px;
-//           font-family: 'Sora', sans-serif;
-//           font-size: 14px;
-//           font-weight: 600;
-//           cursor: pointer;
-//           box-shadow: 0 4px 14px rgba(37,99,235,0.4);
-//           transition: all 0.2s;
-//           position: relative; overflow: hidden;
-//         }
-//         .cl-add-btn::after {
-//           content: '';
-//           position: absolute; top: 0; left: -100%;
-//           width: 100%; height: 100%;
-//           background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-//           transition: left 0.35s;
-//         }
-//         .cl-add-btn:hover::after { left: 100%; }
-//         .cl-add-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(37,99,235,0.45); }
-//         .cl-add-btn:active { transform: translateY(0); }
-
-//         /* STATS ROW */
-//         .cl-stats {
-//           display: grid;
-//           grid-template-columns: repeat(3, 1fr);
-//           gap: 12px;
-//           margin-bottom: 1.5rem;
-//           animation: fadeDown 0.4s 0.05s ease both;
-//         }
-//         .cl-stat {
-//           background: rgba(255,255,255,0.85);
-//           border: 1px solid rgba(255,255,255,0.95);
-//           border-radius: 16px;
-//           padding: 1rem 1.25rem;
-//           backdrop-filter: blur(12px);
-//           box-shadow: 0 2px 10px rgba(37,99,235,0.07);
-//         }
-//         .cl-stat-label { font-size: 12px; color: #94a3b8; font-weight: 500; margin-bottom: 4px; }
-//         .cl-stat-value { font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 700; color: #1e3a8a; }
-//         .cl-stat-sub { font-size: 11px; color: #22c55e; font-weight: 500; margin-top: 2px; }
-
-//         /* SEARCH BAR */
-//         .cl-search-wrap {
-//           position: relative;
-//           margin-bottom: 1.5rem;
-//           animation: fadeDown 0.4s 0.08s ease both;
-//         }
-//         .cl-search-icon {
-//           position: absolute; left: 16px; top: 50%;
-//           transform: translateY(-50%);
-//           color: #93c5fd; pointer-events: none;
-//         }
-//         .cl-search {
-//           width: 100%;
-//           padding: 13px 16px 13px 46px;
-//           border-radius: 14px;
-//           border: 1.5px solid #e2e8f0;
-//           background: rgba(255,255,255,0.9);
-//           font-family: 'DM Sans', sans-serif;
-//           font-size: 14px;
-//           color: #1e293b;
-//           outline: none;
-//           box-sizing: border-box;
-//           transition: all 0.2s;
-//           box-shadow: 0 2px 8px rgba(37,99,235,0.06);
-//         }
-//         .cl-search::placeholder { color: #b0bec5; }
-//         .cl-search:focus {
-//           border-color: #3b82f6;
-//           background: #fff;
-//           box-shadow: 0 0 0 4px rgba(59,130,246,0.12), 0 2px 8px rgba(37,99,235,0.08);
-//         }
-
-//         /* TABLE CARD */
-//         .cl-card {
-//           background: rgba(255,255,255,0.92);
-//           border-radius: 22px;
-//           border: 1px solid rgba(255,255,255,0.95);
-//           box-shadow: 0 4px 24px rgba(37,99,235,0.1), 0 1px 3px rgba(37,99,235,0.06);
-//           overflow: hidden;
-//           backdrop-filter: blur(16px);
-//           animation: fadeUp 0.4s 0.1s ease both;
-//         }
-
-//         @keyframes fadeDown { from { opacity:0; transform:translateY(-14px);} to {opacity:1;transform:translateY(0);}}
-//         @keyframes fadeUp   { from { opacity:0; transform:translateY(14px); } to {opacity:1;transform:translateY(0);}}
-
-//         /* TABLE HEAD */
-//         .cl-thead {
-//           display: grid;
-//           grid-template-columns: 2fr 2.5fr 1fr;
-//           padding: 0 1.5rem;
-//           background: linear-gradient(to right, #eff6ff, #f0f9ff);
-//           border-bottom: 1.5px solid #e0ecff;
-//         }
-//         .cl-th {
-//           padding: 13px 0;
-//           font-size: 11px;
-//           font-weight: 700;
-//           letter-spacing: 0.07em;
-//           text-transform: uppercase;
-//           color: #3b82f6;
-//         }
-//         .cl-th:last-child { text-align: center; }
-
-//         /* ROWS */
-//         .cl-row {
-//           display: grid;
-//           grid-template-columns: 2fr 2.5fr 1fr;
-//           padding: 0 1.5rem;
-//           border-bottom: 1px solid #f1f5f9;
-//           align-items: center;
-//           transition: background 0.15s;
-//         }
-//         .cl-row:last-child { border-bottom: none; }
-//         .cl-row:hover { background: #f8fbff; }
-
-//         .cl-cell { padding: 14px 0; }
-
-//         .cl-name-wrap { display: flex; align-items: center; gap: 11px; }
-//         .cl-avatar {
-//           width: 36px; height: 36px; border-radius: 12px;
-//           display: flex; align-items: center; justify-content: center;
-//           font-family: 'Sora', sans-serif;
-//           font-size: 12px; font-weight: 700;
-//           flex-shrink: 0;
-//         }
-//         .cl-name { font-weight: 500; font-size: 14px; color: #1e293b; }
-//         .cl-id-badge {
-//           font-size: 10px; color: #94a3b8;
-//           background: #f1f5f9; border-radius: 6px;
-//           padding: 1px 6px; margin-top: 2px;
-//           display: inline-block;
-//         }
-
-//         .cl-email { font-size: 13.5px; color: #64748b; }
-
-//         .cl-actions { display: flex; justify-content: center; gap: 8px; }
-
-//         .cl-btn-edit, .cl-btn-del {
-//           width: 34px; height: 34px; border-radius: 10px;
-//           border: none; cursor: pointer;
-//           display: flex; align-items: center; justify-content: center;
-//           transition: all 0.18s;
-//         }
-//         .cl-btn-edit { background: #eff6ff; color: #2563eb; }
-//         .cl-btn-edit:hover { background: #2563eb; color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
-//         .cl-btn-del { background: #fff1f2; color: #e11d48; }
-//         .cl-btn-del:hover { background: #e11d48; color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(225,29,72,0.3); }
-
-//         /* EMPTY */
-//         .cl-empty {
-//           padding: 3.5rem 2rem;
-//           text-align: center;
-//         }
-//         .cl-empty-icon {
-//           width: 64px; height: 64px; border-radius: 20px;
-//           background: #eff6ff; display: flex; align-items: center;
-//           justify-content: center; margin: 0 auto 1rem;
-//         }
-//         .cl-empty-text { font-size: 15px; color: #94a3b8; font-weight: 500; }
-//         .cl-empty-sub { font-size: 13px; color: #b0bec5; margin-top: 4px; }
-
-//         /* PAGINATION */
-//         .cl-pagination {
-//           display: flex;
-//           align-items: center;
-//           justify-content: space-between;
-//           padding: 1rem 1.5rem;
-//           border-top: 1.5px solid #e0ecff;
-//           background: #f8fbff;
-//         }
-//         .cl-page-info { font-size: 12.5px; color: #64748b; }
-//         .cl-page-info b { color: #1e3a8a; }
-
-//         .cl-page-btns { display: flex; align-items: center; gap: 6px; }
-
-//         .cl-page-nav {
-//           width: 34px; height: 34px; border-radius: 10px;
-//           border: 1.5px solid #e2e8f0;
-//           background: #fff; color: #3b82f6;
-//           display: flex; align-items: center; justify-content: center;
-//           cursor: pointer; transition: all 0.18s;
-//         }
-//         .cl-page-nav:hover:not(:disabled) { background: #2563eb; color: #fff; border-color: #2563eb; box-shadow: 0 3px 10px rgba(37,99,235,0.3); }
-//         .cl-page-nav:disabled { color: #d1d5db; cursor: not-allowed; background: #f8fafc; }
-
-//         .cl-page-num {
-//           min-width: 34px; height: 34px; border-radius: 10px;
-//           border: 1.5px solid transparent;
-//           background: transparent; color: #64748b;
-//           display: flex; align-items: center; justify-content: center;
-//           cursor: pointer; font-size: 13px; font-weight: 500;
-//           transition: all 0.15s; padding: 0 4px;
-//         }
-//         .cl-page-num:hover { background: #eff6ff; color: #2563eb; }
-//         .cl-page-num.active {
-//           background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-//           color: #fff; border-color: transparent;
-//           box-shadow: 0 3px 10px rgba(37,99,235,0.35);
-//           font-family: 'Sora', sans-serif; font-weight: 600;
-//         }
-//         .cl-page-dots { color: #94a3b8; font-size: 13px; padding: 0 2px; }
-
-//         .cl-row-anim {
-//           animation: rowIn 0.25s ease both;
-//         }
-//         @keyframes rowIn { from {opacity:0;transform:translateX(-6px);} to {opacity:1;transform:none;} }
-//       `}</style>
-
-//       <div className="cl-root">
-
-//         {/* HEADER */}
-//         <div className="cl-header">
-//           <div className="cl-title-group">
-//             <h1 className="cl-title">Cashiers</h1>
-//             <p className="cl-title-sub">Manage your cashier accounts</p>
-//           </div>
-//           <button className="cl-add-btn" onClick={() => navigate("/cashier/add")}>
-//             <UserPlus size={16} />
-//             Add Cashier
-//           </button>
-//         </div>
-
-//         {/* STATS */}
-//         {/* <div className="cl-stats">
-//           <div className="cl-stat">
-//             <div className="cl-stat-label">Total Cashiers</div>
-//             <div className="cl-stat-value">{cashiers.length}</div>
-//             <div className="cl-stat-sub">↑ Active accounts</div>
-//           </div>
-//           <div className="cl-stat">
-//             <div className="cl-stat-label">Search Results</div>
-//             <div className="cl-stat-value">{filtered.length}</div>
-//             <div className="cl-stat-sub" style={{color:'#3b82f6'}}>matching records</div>
-//           </div>
-//           <div className="cl-stat">
-//             <div className="cl-stat-label">Current Page</div>
-//             <div className="cl-stat-value">{safePage} / {totalPages}</div>
-//             <div className="cl-stat-sub" style={{color:'#94a3b8'}}>{PER_PAGE} per page</div>
-//           </div>
-//         </div> */}
-
-//         {/* SEARCH */}
-//         <div className="cl-search-wrap">
-//           <Search size={16} className="cl-search-icon" />
-//           <input
-//             className="cl-search"
-//             type="text"
-//             placeholder="Search by name or email..."
-//             value={search}
-//             onChange={e => handleSearch(e.target.value)}
-//           />
-//         </div>
-
-//         {/* TABLE */}
-//         <div className="cl-card">
-//           <div className="cl-thead">
-//             <span className="cl-th">Cashier</span>
-//             <span className="cl-th">Email</span>
-//             <span className="cl-th" style={{textAlign:'center'}}>Actions</span>
-//           </div>
-
-//           {paginated.length > 0 ? paginated.map((c, i) => {
-//             const [bg, fg] = getColor(c.name);
-//             return (
-//               <div key={c.id} className="cl-row cl-row-anim" style={{animationDelay: `${i * 0.04}s`}}>
-//                 <div className="cl-cell">
-//                   <div className="cl-name-wrap">
-//                     <div className="cl-avatar" style={{background: bg, color: fg}}>
-//                       {getInitials(c.name)}
-//                     </div>
-//                     <div>
-//                       <div className="cl-name">{c.name}</div>
-//                       <span className="cl-id-badge">ID #{c.id}</span>
-//                     </div>
-//                   </div>
-//                 </div>
-//                 <div className="cl-cell">
-//                   <span className="cl-email">{c.email}</span>
-//                 </div>
-//                 <div className="cl-cell cl-actions">
-//                   <button className="cl-btn-edit" onClick={() => navigate(`/cashier/edit/${c.id}`)} title="Edit">
-//                     <Pencil size={14} />
-//                   </button>
-//                   <button className="cl-btn-del" onClick={() => handleDelete(c.id)} title="Delete">
-//                     <Trash2 size={14} />
-//                   </button>
-//                 </div>
-//               </div>
-//             );
-//           }) : (
-//             <div className="cl-empty">
-//               <div className="cl-empty-icon"><Users size={28} color="#93c5fd" /></div>
-//               <p className="cl-empty-text">No cashiers found</p>
-//               <p className="cl-empty-sub">{search ? "Try a different search term" : "Add your first cashier to get started"}</p>
-//             </div>
-//           )}
-
-//           {/* PAGINATION */}
-//           {filtered.length > PER_PAGE && (
-//             <div className="cl-pagination">
-//               <span className="cl-page-info">
-//                 Showing <b>{(safePage - 1) * PER_PAGE + 1}–{Math.min(safePage * PER_PAGE, filtered.length)}</b> of <b>{filtered.length}</b>
-//               </span>
-//               <div className="cl-page-btns">
-//                 <button className="cl-page-nav" disabled={safePage === 1} onClick={() => setPage(p => p - 1)}>
-//                   <ChevronLeft size={15} />
-//                 </button>
-
-//                 {Array.from({ length: totalPages }, (_, i) => i + 1)
-//                   .filter(n => n === 1 || n === totalPages || Math.abs(n - safePage) <= 1)
-//                   .reduce((acc, n, idx, arr) => {
-//                     if (idx > 0 && n - arr[idx - 1] > 1) acc.push("...");
-//                     acc.push(n);
-//                     return acc;
-//                   }, [])
-//                   .map((item, idx) =>
-//                     item === "..." ? (
-//                       <span key={`dots-${idx}`} className="cl-page-dots">•••</span>
-//                     ) : (
-//                       <button
-//                         key={item}
-//                         className={`cl-page-num${item === safePage ? " active" : ""}`}
-//                         onClick={() => setPage(item)}
-//                       >
-//                         {item}
-//                       </button>
-//                     )
-//                   )
-//                 }
-
-//                 <button className="cl-page-nav" disabled={safePage === totalPages} onClick={() => setPage(p => p + 1)}>
-//                   <ChevronRight size={15} />
-//                 </button>
-//               </div>
-//             </div>
-//           )}
-//         </div>
-//       </div>
-//     </>
-//   );
-// }
-
-
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import {
@@ -450,827 +6,438 @@ import {
   UserPlus,
   Users,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  UserCheck
 } from "lucide-react";
-
 import { useNavigate } from "react-router-dom";
+import CashierForm from "./CashierForm";
+import EditCashier from "./EditCashier";
 
 const PER_PAGE = 10;
+const MAX_CASHIERS = 3;
 
 export default function CashierList() {
-
   const [cashiers, setCashiers] = useState([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCashierId, setEditingCashierId] = useState(null);
 
   const navigate = useNavigate();
-const MAX_CASHIERS = 3;
+  const isLimitReached = cashiers.length >= MAX_CASHIERS;
 
-const isLimitReached =
-  cashiers.length >= MAX_CASHIERS;
-  /* FETCH */
-
+  /* FETCH CASHIERS */
   const fetchCashiers = async () => {
-
+    setLoading(true);
     try {
-
-      const user = JSON.parse(
-        localStorage.getItem("user")
-      );
-
-      const res = await api.post(
-        "/cashier/get_cashiers",
-        {
-          admin_id: user.id
-        }
-      );
-
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const res = await api.post("/cashier/get_cashiers", {
+        admin_id: user.id,
+      });
       if (res.data.status) {
-
-        setCashiers(res.data.data);
-
+        setCashiers(res.data.data || []);
       }
-
     } catch (err) {
-
       console.error(err);
-
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-
     fetchCashiers();
-
   }, []);
 
   /* TOGGLE STATUS */
-
   const toggleStatus = async (cashier) => {
-
-    const newStatus =
-      cashier.status === "active"
-        ? "inactive"
-        : "active";
-
+    const newStatus = cashier.status === "active" ? "inactive" : "active";
     try {
-
-      const res = await api.post(
-        "/cashier/toggle_status_cashier",
-        {
-          id: cashier.id,
-          status: newStatus,
-        }
-      );
-
+      const res = await api.post("/cashier/toggle_status_cashier", {
+        id: cashier.id,
+        status: newStatus,
+      });
       if (res.data.success) {
-
         setCashiers((prev) =>
-          prev.map((c) =>
-            c.id === cashier.id
-              ? { ...c, status: newStatus }
-              : c
-          )
+          prev.map((c) => (c.id === cashier.id ? { ...c, status: newStatus } : c))
         );
-
       } else {
-
-        alert(res.data.message);
-
+        alert(res.data.message || "Failed to update cashier status.");
       }
-
     } catch (err) {
-
       console.error(err);
       alert("Server Error");
-
     }
   };
 
-  /* SEARCH */
-
-  const filtered = cashiers.filter(c =>
-    c.name
-      ?.toLowerCase()
-      .includes(search.toLowerCase()) ||
-
-    c.email
-      ?.toLowerCase()
-      .includes(search.toLowerCase())
+  /* SEARCH & PAGINATION */
+  const filtered = cashiers.filter(
+    (c) =>
+      c.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.email?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filtered.length / PER_PAGE)
-  );
-
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const safePage = Math.min(page, totalPages);
-
-  const paginated = filtered.slice(
-    (safePage - 1) * PER_PAGE,
-    safePage * PER_PAGE
-  );
+  const paginated = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
 
   const handleSearch = (val) => {
-
     setSearch(val);
     setPage(1);
-
   };
 
   const getInitials = (name) =>
     name
       ?.split(" ")
-      .map(w => w[0])
+      .map((w) => w[0])
       .join("")
       .slice(0, 2)
       .toUpperCase() || "??";
 
   const avatarColors = [
-    ["#dbeafe","#1d4ed8"],
-    ["#ede9fe","#6d28d9"],
-    ["#dcfce7","#15803d"],
-    ["#fef3c7","#b45309"],
-    ["#fce7f3","#be185d"],
-    ["#e0f2fe","#0369a1"]
+    ["bg-indigo-50 text-indigo-700 ring-indigo-200"],
+    ["bg-blue-50 text-blue-700 ring-blue-200"],
+    ["bg-emerald-50 text-emerald-700 ring-emerald-200"],
+    ["bg-amber-50 text-amber-700 ring-amber-200"],
+    ["bg-purple-50 text-purple-700 ring-purple-200"],
+    ["bg-cyan-50 text-cyan-700 ring-cyan-200"]
   ];
 
   const getColor = (name) =>
-    avatarColors[
-      (name?.charCodeAt(0) || 0)
-      % avatarColors.length
-    ];
+    avatarColors[(name?.charCodeAt(0) || 0) % avatarColors.length][0];
+
+  const activeCount = cashiers.filter((c) => c.status === "active").length;
+  const inactiveCount = cashiers.filter((c) => c.status !== "active").length;
 
   return (
-    <>
-      <style>{`
-
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap');
-
-        .cl-root{
-          font-family:'DM Sans',sans-serif;
-          padding:2rem;
-          min-height:100vh;
-          background:#f0f5ff;
-        }
-
-        .cl-header{
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-          margin-bottom:1.75rem;
-        }
-
-        .cl-title{
-          font-family:'Sora',sans-serif;
-          font-size:26px;
-          font-weight:700;
-          color:#1e3a8a;
-          margin:0;
-        }
-
-        .cl-title-sub{
-          font-size:13px;
-          color:#93a3b8;
-          margin-top:4px;
-        }
-
-        .cl-add-btn{
-          display:flex;
-          align-items:center;
-          gap:8px;
-          background:linear-gradient(135deg,#1d4ed8,#3b82f6);
-          color:#fff;
-          border:none;
-          border-radius:14px;
-          padding:11px 20px;
-          font-family:'Sora',sans-serif;
-          font-size:14px;
-          font-weight:600;
-          cursor:pointer;
-          box-shadow:0 4px 14px rgba(37,99,235,0.4);
-        }
-
-        .cl-add-btn.disabled{
-  opacity:.6;
-  cursor:not-allowed;
-  box-shadow:none;
-}
-
-.cl-limit-note{
-  margin-bottom:18px;
-  background:#fff7ed;
-  border:1px solid #fdba74;
-  color:#c2410c;
-  padding:14px 16px;
-  border-radius:16px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:14px;
-  font-size:14px;
-  font-weight:500;
-}
-
-.cl-request-btn{
-  border:none;
-  background:linear-gradient(135deg,#ea580c,#f97316);
-  color:#fff;
-  padding:10px 16px;
-  border-radius:12px;
-  font-family:'Sora',sans-serif;
-  font-size:13px;
-  font-weight:600;
-  cursor:pointer;
-  white-space:nowrap;
-  box-shadow:0 4px 12px rgba(249,115,22,.25);
-}
-
-        .cl-search-wrap{
-          position:relative;
-          margin-bottom:1.5rem;
-        }
-
-        .cl-search-icon{
-          position:absolute;
-          left:16px;
-          top:50%;
-          transform:translateY(-50%);
-          color:#93c5fd;
-        }
-
-        .cl-search{
-          width:100%;
-          padding:13px 16px 13px 46px;
-          border-radius:14px;
-          border:1.5px solid #e2e8f0;
-          background:#fff;
-          font-size:14px;
-          outline:none;
-        }
-
-        .cl-card{
-          background:#fff;
-          border-radius:22px;
-          overflow:hidden;
-          border:1px solid #e2e8f0;
-          box-shadow:0 4px 24px rgba(37,99,235,0.08);
-        }
-
-        .cl-thead{
-          display:grid;
-          grid-template-columns:2fr 2.5fr 1fr 1fr;
-          padding:0 1.5rem;
-          background:linear-gradient(to right,#eff6ff,#f0f9ff);
-          border-bottom:1.5px solid #e0ecff;
-        }
-
-        .cl-th{
-          padding:13px 0;
-          font-size:11px;
-          font-weight:700;
-          letter-spacing:0.07em;
-          text-transform:uppercase;
-          color:#3b82f6;
-        }
-
-        .cl-row{
-          display:grid;
-          grid-template-columns:2fr 2.5fr 1fr 1fr;
-          padding:0 1.5rem;
-          border-bottom:1px solid #f1f5f9;
-          align-items:center;
-        }
-
-        .cl-row:last-child{
-          border-bottom:none;
-        }
-
-        .cl-row:hover{
-          background:#f8fbff;
-        }
-
-        .cl-cell{
-          padding:14px 0;
-        }
-
-        .cl-name-wrap{
-          display:flex;
-          align-items:center;
-          gap:11px;
-        }
-
-        .cl-avatar{
-          width:36px;
-          height:36px;
-          border-radius:12px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          font-family:'Sora',sans-serif;
-          font-size:12px;
-          font-weight:700;
-        }
-
-        .cl-name{
-          font-weight:500;
-          font-size:14px;
-          color:#1e293b;
-        }
-
-        .cl-id-badge{
-          font-size:10px;
-          color:#94a3b8;
-          background:#f1f5f9;
-          border-radius:6px;
-          padding:1px 6px;
-          margin-top:2px;
-          display:inline-block;
-        }
-
-        .cl-email{
-          font-size:13.5px;
-          color:#64748b;
-        }
-
-        .cl-actions{
-          display:flex;
-          justify-content:center;
-          align-items:center;
-          gap:10px;
-        }
-
-        .cl-btn-edit{
-          width:34px;
-          height:34px;
-          border-radius:10px;
-          border:none;
-          background:#eff6ff;
-          color:#2563eb;
-          cursor:pointer;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-        }
-
-        .cl-btn-edit:hover{
-          background:#2563eb;
-          color:#fff;
-        }
-
-        /* SWITCH */
-
-        .cl-switch{
-          position:relative;
-          display:inline-block;
-          width:46px;
-          height:24px;
-        }
-
-        .cl-switch input{
-          opacity:0;
-          width:0;
-          height:0;
-        }
-
-        .cl-slider{
-          position:absolute;
-          cursor:pointer;
-          inset:0;
-          background:#d1d5db;
-          transition:.4s;
-          border-radius:999px;
-        }
-
-        .cl-slider:before{
-          position:absolute;
-          content:"";
-          height:18px;
-          width:18px;
-          left:3px;
-          top:3px;
-          background:white;
-          transition:.4s;
-          border-radius:50%;
-          box-shadow:0 2px 6px rgba(0,0,0,0.25);
-        }
-
-        .cl-switch input:checked + .cl-slider{
-          background:linear-gradient(135deg,#1d4ed8,#3b82f6);
-        }
-
-        .cl-switch input:checked + .cl-slider:before{
-          transform:translateX(22px);
-        }
-
-        /* STATUS */
-
-        .cl-status-badge{
-          display:inline-flex;
-          align-items:center;
-          justify-content:center;
-          padding:4px 10px;
-          border-radius:999px;
-          font-size:11px;
-          font-weight:700;
-        }
-
-        .cl-status-active{
-          background:#dcfce7;
-          color:#15803d;
-          border:1px solid #bbf7d0;
-        }
-
-        .cl-status-inactive{
-          background:#f1f5f9;
-          color:#64748b;
-          border:1px solid #e2e8f0;
-        }
-
-        .cl-empty{
-          padding:3rem;
-          text-align:center;
-        }
-
-        .cl-pagination{
-          display:flex;
-          align-items:center;
-          justify-content:space-between;
-          padding:1rem 1.5rem;
-          border-top:1px solid #e2e8f0;
-          background:#f8fbff;
-        }
-
-        .cl-page-btns{
-          display:flex;
-          align-items:center;
-          gap:6px;
-        }
-
-        .cl-page-nav,
-        .cl-page-num{
-          min-width:34px;
-          height:34px;
-          border-radius:10px;
-          border:1px solid #e2e8f0;
-          background:#fff;
-          cursor:pointer;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-        }
-
-        .cl-page-num.active{
-          background:#2563eb;
-          color:#fff;
-          border-color:#2563eb;
-        }
-
-      `}</style>
-
-      <div className="cl-root">
-
-        {/* HEADER */}
-
-        <div className="cl-header">
-
+    <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* ── 1. PAGE HEADER ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 select-none">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100 ring-4 ring-indigo-50/50">
+            <Users size={24} />
+          </div>
           <div>
-            <h1 className="cl-title">
-              Cashiers
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Cashier Accounts
             </h1>
-
-            <p className="cl-title-sub">
-              Manage your cashier accounts
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Control operator roles, POS counter logins &amp; cashier account access status
             </p>
           </div>
+        </div>
 
-          {/* <button
-            className="cl-add-btn"
-            onClick={() =>
-              navigate("/cashier/add")
-            }
-          >
-            <UserPlus size={16} />
-            Add Cashier
-          </button> */}
-
+        <div className="flex items-center gap-2.5">
           <button
-  className={`cl-add-btn ${
-    isLimitReached
-      ? "disabled"
-      : ""
-  }`}
-  disabled={isLimitReached}
-  onClick={() => {
-
-    if (!isLimitReached) {
-
-      navigate("/cashier/add");
-
-    }
-
-  }}
->
-  <UserPlus size={16} />
-
-  {isLimitReached
-    ? "Add Cashier"
-    : "Add Cashier"}
-</button>
-
+            disabled={isLimitReached}
+            onClick={() => {
+              if (!isLimitReached) setShowAddModal(true);
+            }}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-lg transition-all transform active:scale-95 cursor-pointer ${
+              isLimitReached
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                : "bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-indigo-200"
+            }`}
+          >
+            <UserPlus size={16} strokeWidth={2.8} />
+            <span>Add Cashier</span>
+          </button>
         </div>
-{isLimitReached && (
-
-  <div className="cl-limit-note">
-
-    <div>
-      Maximum 3 cashiers only allowed.
-      To add more cashier accounts,
-      please send a request.
-    </div>
-
-    <button
-      className="cl-request-btn"
-      onClick={() =>
-         navigate("/cashier/add")
-      }
-    >
-      Request Cashier
-    </button>
-
-  </div>
-
-)}
-        {/* SEARCH */}
-
-        <div className="cl-search-wrap">
-
-          <Search
-            size={16}
-            className="cl-search-icon"
-          />
-
-          <input
-            className="cl-search"
-            type="text"
-            placeholder="Search by name or email..."
-            value={search}
-            onChange={(e) =>
-              handleSearch(e.target.value)
-            }
-          />
-
-        </div>
-
-        {/* TABLE */}
-
-        <div className="cl-card">
-
-          <div className="cl-thead">
-
-            <span className="cl-th">
-              Cashier
-            </span>
-
-            <span className="cl-th">
-              Email
-            </span>
-
-            <span
-              className="cl-th"
-              style={{ textAlign:"center" }}
-            >
-              Actions
-            </span>
-
-            <span
-              className="cl-th"
-              style={{ textAlign:"center" }}
-            >
-              Status
-            </span>
-
-          </div>
-
-          {paginated.length > 0 ? (
-
-            paginated.map((c, i) => {
-
-              const [bg, fg] =
-                getColor(c.name);
-
-              return (
-
-                <div
-                  key={c.id}
-                  className="cl-row"
-                >
-
-                  {/* NAME */}
-
-                  <div className="cl-cell">
-
-                    <div className="cl-name-wrap">
-
-                      <div
-                        className="cl-avatar"
-                        style={{
-                          background:bg,
-                          color:fg
-                        }}
-                      >
-                        {getInitials(c.name)}
-                      </div>
-
-                      <div>
-
-                        <div className="cl-name">
-                          {c.name}
-                        </div>
-
-                        <span className="cl-id-badge">
-                          ID #{c.id}
-                        </span>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                  {/* EMAIL */}
-
-                  <div className="cl-cell">
-
-                    <span className="cl-email">
-                      {c.email}
-                    </span>
-
-                  </div>
-
-                  {/* ACTIONS */}
-
-                  <div
-                    className="cl-cell cl-actions"
-                  >
-
-                    <button
-                      className="cl-btn-edit"
-                      onClick={() =>
-                        navigate(
-                          `/cashier/edit/${c.id}`
-                        )
-                      }
-                    >
-                      <Pencil size={14} />
-                    </button>
-
-                    <label className="cl-switch">
-
-                      <input
-                        type="checkbox"
-                        checked={
-                          c.status === "active"
-                        }
-                        onChange={() =>
-                          toggleStatus(c)
-                        }
-                      />
-
-                      <span className="cl-slider"></span>
-
-                    </label>
-
-                  </div>
-
-                  {/* STATUS */}
-
-                  <div
-                    className="cl-cell"
-                    style={{
-                      textAlign:"center"
-                    }}
-                  >
-
-                    <span
-                      className={`cl-status-badge ${
-                        c.status === "active"
-                          ? "cl-status-active"
-                          : "cl-status-inactive"
-                      }`}
-                    >
-                      {c.status}
-                    </span>
-
-                  </div>
-
-                </div>
-
-              );
-
-            })
-
-          ) : (
-
-            <div className="cl-empty">
-
-              <div
-                style={{
-                  marginBottom:"10px"
-                }}
-              >
-                <Users
-                  size={30}
-                  color="#93c5fd"
-                />
-              </div>
-
-              <p>
-                No cashiers found
-              </p>
-
-            </div>
-
-          )}
-
-          {/* PAGINATION */}
-
-          {filtered.length > PER_PAGE && (
-
-            <div className="cl-pagination">
-
-              <span>
-
-                Showing
-                {" "}
-                <b>
-                  {(safePage - 1)
-                  * PER_PAGE + 1}
-                  –
-                  {
-                    Math.min(
-                      safePage * PER_PAGE,
-                      filtered.length
-                    )
-                  }
-                </b>
-
-              </span>
-
-              <div className="cl-page-btns">
-
-                <button
-                  className="cl-page-nav"
-                  disabled={safePage === 1}
-                  onClick={() =>
-                    setPage(p => p - 1)
-                  }
-                >
-                  <ChevronLeft size={15} />
-                </button>
-
-                {Array.from(
-                  { length: totalPages },
-                  (_, i) => i + 1
-                ).map((item) => (
-
-                  <button
-                    key={item}
-                    className={`cl-page-num ${
-                      item === safePage
-                        ? "active"
-                        : ""
-                    }`}
-                    onClick={() =>
-                      setPage(item)
-                    }
-                  >
-                    {item}
-                  </button>
-
-                ))}
-
-                <button
-                  className="cl-page-nav"
-                  disabled={
-                    safePage === totalPages
-                  }
-                  onClick={() =>
-                    setPage(p => p + 1)
-                  }
-                >
-                  <ChevronRight size={15} />
-                </button>
-
-              </div>
-
-            </div>
-
-          )}
-
-        </div>
-
       </div>
-    </>
+
+      {/* ── 2. METRIC KPI CARDS (PaySplitX 4-Card Strip) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Cashiers */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Cashiers</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                {cashiers.length}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+              <Users size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>POS Operator Profiles</span>
+            <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+              Registered
+            </span>
+          </div>
+        </div>
+
+        {/* Card 2: Active Accounts */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Active Logins</p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+                {activeCount}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <UserCheck size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Ready for counter billing</span>
+            <span className="text-[11px] font-semibold text-emerald-600">
+              Online
+            </span>
+          </div>
+        </div>
+
+        {/* Card 3: Inactive Accounts */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Suspended / Off</p>
+              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight">
+                {inactiveCount}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <XCircle size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Temporarily disabled</span>
+            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+              Paused
+            </span>
+          </div>
+        </div>
+
+        {/* Card 4: Plan Limit */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-purple-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Account Quota</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                {cashiers.length} / {MAX_CASHIERS}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+              <ShieldCheck size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Maximum accounts allowed</span>
+            <span className={`text-[11px] font-semibold ${isLimitReached ? "text-rose-600" : "text-purple-600"}`}>
+              {isLimitReached ? "Limit Reached" : "Available"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. LIMIT WARNING BANNER ── */}
+      {isLimitReached && (
+        <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-900">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle size={18} className="text-amber-600 flex-shrink-0" />
+            <div>
+              <span className="font-bold">Account limit reached: </span>
+              Your current subscription allows a maximum of 3 cashiers. To add more counter operators, please request an upgrade.
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/cashier/add")}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl whitespace-nowrap transition cursor-pointer"
+          >
+            Request Upgrade
+          </button>
+        </div>
+      )}
+
+      {/* ── 4. SEARCH TOOLBAR ── */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search cashiers by name, email..."
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 font-medium"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">
+            {filtered.length} operators
+          </span>
+        </div>
+      </div>
+
+      {/* ── 5. DIRECTORY TABLE CARD ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs min-w-max">
+            <thead>
+              <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                <th className="py-3.5 px-5">Cashier Profile</th>
+                <th className="py-3.5 px-5">Login Email</th>
+                <th className="py-3.5 px-5 text-center">Status Toggle</th>
+                <th className="py-3.5 px-5 text-center">Status</th>
+                <th className="py-3.5 px-5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-14 text-center text-slate-400">
+                    Loading Cashier Accounts...
+                  </td>
+                </tr>
+              ) : paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mb-3">
+                        <Users size={32} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-800">No Cashiers Found</p>
+                      <p className="text-xs text-slate-400 mt-1">Add your store operators to permit counter access.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginated.map((c) => {
+                  const colorClass = getColor(c.name);
+                  return (
+                    <tr key={c.id} className="hover:bg-indigo-50/20 transition-colors">
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ring-2 ${colorClass}`}>
+                            {getInitials(c.name)}
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 text-xs sm:text-sm">{c.name}</div>
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                              ID #{c.id}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-5 text-slate-600 font-medium">
+                        {c.email}
+                      </td>
+
+                      <td className="py-3.5 px-5 text-center">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={c.status === "active"}
+                          onClick={() => toggleStatus(c)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            c.status === "active" ? "bg-indigo-600" : "bg-slate-200"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              c.status === "active" ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </td>
+
+                      <td className="py-3.5 px-5 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            c.status === "active"
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                              : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${c.status === "active" ? "bg-emerald-600" : "bg-slate-400"}`} />
+                          {c.status || "active"}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-5 text-right">
+                        <button
+                          onClick={() => setEditingCashierId(c.id)}
+                          className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+                          title="Edit Cashier"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── PAGINATION BAR ── */}
+        {filtered.length > PER_PAGE && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200/80 text-xs text-slate-600 bg-white">
+            <div>
+              Showing <strong className="font-bold text-slate-900">{(safePage - 1) * PER_PAGE + 1}</strong> to{" "}
+              <strong className="font-bold text-slate-900">{Math.min(safePage * PER_PAGE, filtered.length)}</strong> of{" "}
+              <strong className="font-bold text-slate-900">{filtered.length}</strong> operators
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                disabled={safePage === 1}
+                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <div className="px-3 py-1 font-bold text-slate-800">
+                {safePage} / {totalPages}
+              </div>
+              <button
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── ADD CASHIER MODAL POPUP ── */}
+      {showAddModal && (
+        <CashierForm
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            setShowAddModal(false);
+            fetchCashiers();
+          }}
+        />
+      )}
+
+      {/* ── EDIT CASHIER MODAL POPUP ── */}
+      {editingCashierId && (
+        <EditCashier
+          isOpen={Boolean(editingCashierId)}
+          id={editingCashierId}
+          onClose={() => setEditingCashierId(null)}
+          onSuccess={() => {
+            setEditingCashierId(null);
+            fetchCashiers();
+          }}
+        />
+      )}
+    </div>
   );
 }

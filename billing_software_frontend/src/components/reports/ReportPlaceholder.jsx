@@ -1,7 +1,5 @@
 import { FileText, Construction } from "lucide-react";
 
-const FONT = "'Plus Jakarta Sans', sans-serif";
-
 /**
  * Shared "coming soon" placeholder used by report pages that don't yet have a
  * full implementation. Keeps the whole Reports set navigable with a consistent
@@ -9,70 +7,32 @@ const FONT = "'Plus Jakarta Sans', sans-serif";
  */
 export default function ReportPlaceholder({ title, icon, notes }) {
   return (
-    <div style={{ fontFamily: FONT, padding: "6px 2px" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <div
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            background: "linear-gradient(135deg,#1f8cff,#4338ca)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-          }}
-        >
-          {icon || <FileText size={19} />}
-        </div>
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: "#1e1b4b" }}>{title}</div>
-          <div style={{ fontSize: 12, color: "#9ca3af" }}>Report</div>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      <div className="bg-white rounded-2xl p-5 md:p-6 border border-slate-200/80 shadow-xs flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600 shrink-0">
+            {icon || <FileText size={20} />}
+          </div>
+          <div>
+            <h1 className="text-base font-extrabold text-slate-900 tracking-tight">{title}</h1>
+            <p className="text-xs text-slate-500 font-medium">Report Overview & Analytics</p>
+          </div>
         </div>
       </div>
 
-      <div
-        style={{
-          background: "#fff",
-          border: "1.5px solid #e0e7ff",
-          borderRadius: 20,
-          padding: "60px 24px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 14,
-          textAlign: "center",
-          color: "#9ca3af",
-        }}
-      >
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 18,
-            background: "#eef2ff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#4338ca",
-          }}
-        >
-          <Construction size={28} />
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-12 md:p-16 flex flex-col items-center justify-center text-center">
+        <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center justify-center text-slate-400 mb-4 shadow-2xs">
+          <Construction size={28} className="text-blue-500" />
         </div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#1e1b4b" }}>{title}</div>
-        <div style={{ fontSize: 12, maxWidth: 420 }}>
-          The report is not implemented yet. The navigation and routing are ready —
-          connect the data source and filters here when available.
-        </div>
-        {notes && <div style={{ fontSize: 12, color: "#6366f1", fontWeight: 600 }}>{notes}</div>}
+        <h2 className="text-base font-bold text-slate-800 mb-1">{title}</h2>
+        <p className="text-xs text-slate-500 max-w-md font-medium leading-relaxed mb-2">
+          This report is currently under active development. Navigation, permissions, and routing are fully configured.
+        </p>
+        {notes && (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200/60 rounded-lg text-xs text-blue-700 font-semibold mt-2">
+            {notes}
+          </div>
+        )}
       </div>
     </div>
   );

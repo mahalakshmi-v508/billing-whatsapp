@@ -1,7 +1,31 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
-import { Settings, X, Info, Eye, EyeOff, Plus, RefreshCw, BadgeCheck } from "lucide-react";
+import {
+  X,
+  RefreshCw,
+  BadgeCheck,
+  UserPlus,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Building2,
+  CreditCard,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Plus,
+  ShieldCheck,
+  Lock,
+  Calendar,
+  Wallet,
+  Clock,
+  ArrowRight,
+} from "lucide-react";
 
 export default function CustomerForm({ onSuccess, onCancel }) {
   const navigate = useNavigate();
@@ -47,9 +71,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   const [errors, setErrors] = useState({});
 
   // ─── tab state ──────────────────────────────────────────────
-  // NOTE: default tab is explicitly "gst". This is the ONLY place
-  // activeTab is initialized, so "Credit & Balance" is never
-  // auto-selected unless the user clicks it themselves.
   const [activeTab, setActiveTab] = useState("gst");
 
   // ─── OTP state ──────────────────────────────────────────────
@@ -70,7 +91,6 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   const [isVerifyingGst, setIsVerifyingGst] = useState(false);
 
   // ─── confirm-popup state ────────────────────────────────────
-  // null | "close" | "clearBilling" | "clearShipping"
   const [confirmAction, setConfirmAction] = useState(null);
 
   useEffect(() => {
@@ -135,26 +155,15 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     setIsDirty(true);
     validateField(k, v);
   };
+
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3500);
   };
-
-  const isBillingFilled = () =>
-    form.billing_address.trim() ||
-    form.address_line1.trim() ||
-    form.address_line2.trim() ||
-    form.city.trim();
-
-  const isShippingFilled = () =>
-    form.shipping_address.trim() ||
-    form.shipping_address_line1.trim() ||
-    form.shipping_address_line2.trim() ||
-    form.shipping_city.trim();
 
   const getMissingRequiredFields = () => {
     const requiredFields = [
-      ["Party Name", form.name],
+      ["Customer Name", form.name],
       ["Phone Number", form.phone],
     ];
 
@@ -200,45 +209,16 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       setConfirmAction("close");
     } else if (onCancel) {
       onCancel();
+    } else {
+      navigate("/customer");
     }
-  };
-
-  const clearBillingFields = () => {
-    setForm((p) => ({
-      ...p,
-      billing_address: "",
-      address_line1: "",
-      address_line2: "",
-      city: "",
-      billing_country: "India",
-      billing_pincode: "",
-      show_detailed_address: false,
-    }));
-  };
-
-  const clearShippingFields = () => {
-    setForm((p) => ({
-      ...p,
-      shipping_address: "",
-      shipping_address_line1: "",
-      shipping_address_line2: "",
-      shipping_city: "",
-      shipping_country: "India",
-      shipping_pincode: "",
-      show_detailed_shipping_address: false,
-    }));
   };
 
   const handleConfirm = () => {
     if (confirmAction === "close") {
       setConfirmAction(null);
       if (onCancel) onCancel();
-    } else if (confirmAction === "clearBilling") {
-      clearBillingFields();
-      setConfirmAction(null);
-    } else if (confirmAction === "clearShipping") {
-      clearShippingFields();
-      setConfirmAction(null);
+      else navigate("/customer");
     }
   };
 
@@ -246,25 +226,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     setConfirmAction(null);
   };
 
-  const CONFIRM_COPY = {
-    close: {
-      title: "Discard changes?",
-      message: "You have unsaved changes. Are you sure you want to close without saving?",
-      confirmLabel: "Discard",
-    },
-    clearBilling: {
-      title: "Clear billing address?",
-      message: "This will empty the billing address fields you've entered.",
-      confirmLabel: "Clear",
-    },
-    clearShipping: {
-      title: "Clear shipping address?",
-      message: "This will empty the shipping address fields you've entered.",
-      confirmLabel: "Clear",
-    },
-  };
-
-  // ─── OTP handlers (unchanged) ──────────────────────────────
+  // ─── OTP handlers ──────────────────────────────
   const handleSendCreditOtp = async () => {
     setIsSendingOtp(true);
     try {
@@ -276,7 +238,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       if (res.data.status === "success") {
         setAdminEmail(res.data.email);
         setOtpSent(true);
-        showToast(res.data.message || "OTP sent successfully!");
+        showToast(res.data.message || "OTP sent successfully to admin email!");
       } else {
         showToast(res.data.message || "Failed to send OTP", false);
       }
@@ -348,125 +310,93 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   };
 
   const handleVerifyGst = async () => {
-  if (gstVerified) return;
+    if (gstVerified) return;
 
-  if (!gstSessionId) {
-    showToast("Please refresh the captcha", false);
-    return;
-  }
+    if (!gstSessionId) {
+      showToast("Please refresh the captcha", false);
+      return;
+    }
 
-  if (!enteredCaptcha.trim()) {
-    showToast("Enter the captcha code", false);
-    return;
-  }
+    if (!enteredCaptcha.trim()) {
+      showToast("Enter the captcha code", false);
+      return;
+    }
 
-  setIsVerifyingGst(true);
+    setIsVerifyingGst(true);
 
-  try {
-    const res = await api.post("/customer/getGSTDetails", {
-      sessionId: gstSessionId,
-      GSTIN: form.gst_no.trim().toUpperCase(),
-      captcha: enteredCaptcha.trim(),
-    });
+    try {
+      const res = await api.post("/customer/getGSTDetails", {
+        sessionId: gstSessionId,
+        GSTIN: form.gst_no.trim().toUpperCase(),
+        captcha: enteredCaptcha.trim(),
+      });
 
-    const payload = res.data;
+      const payload = res.data;
+      const gstDetails = payload?.data?.tp || payload?.tp || payload;
 
-    console.log("GST Verification Response:", payload);
+      if (gstDetails && gstDetails.gstin && gstDetails.lgnm) {
+        const address = gstDetails?.pradr?.adr || "";
+        const businessName = gstDetails.tradeNam || gstDetails.lgnm || "";
+        const gstType =
+          String(gstDetails.dty || "").toLowerCase() === "composition"
+            ? "Registered Business - Composition"
+            : "Registered Business - Regular";
 
-    // Backend directly returns GST details
-    const gstDetails =
-      payload?.data?.tp ||
-      payload?.tp ||
-      payload;
+        let state = "";
+        const stj = String(gstDetails.stj || "");
+        if (stj.toLowerCase().includes("tamil nadu")) {
+          state = "Tamil Nadu";
+        }
 
-    // Check whether GST details are actually available
-    if (
-      gstDetails &&
-      gstDetails.gstin &&
-      gstDetails.lgnm
-    ) {
-      const address = gstDetails?.pradr?.adr || "";
+        setForm((p) => ({
+          ...p,
+          name: businessName || p.name,
+          gst_no: gstDetails.gstin || p.gst_no,
+          gst_type: gstType,
+          state: state || p.state,
+          billing_country: "India",
+          billing_address: address || p.billing_address,
+        }));
 
-      const businessName =
-        gstDetails.tradeNam ||
-        gstDetails.lgnm ||
-        "";
+        setGstVerified(true);
+        setShowCaptchaBox(false);
+        setGstCaptchaImg("");
+        setGstSessionId("");
+        setEnteredCaptcha("");
+        setIsDirty(true);
 
-      const gstType =
-        String(gstDetails.dty || "").toLowerCase() === "composition"
-          ? "Registered Business - Composition"
-          : "Registered Business - Regular";
+        showToast("GST verified! Business details populated.");
+      } else {
+        const message =
+          payload?.error?.message ||
+          payload?.message ||
+          "Verification failed. Please check the GSTIN and captcha.";
 
-      // Extract state from jurisdiction string if possible
-      let state = "";
-
-      const stj = String(gstDetails.stj || "");
-
-      if (stj.toLowerCase().includes("tamil nadu")) {
-        state = "Tamil Nadu";
+        showToast(
+          String(message)
+            .replace(/<[^>]+>/g, "")
+            .slice(0, 120),
+          false
+        );
+        fetchCaptcha();
       }
-
-      setForm((p) => ({
-        ...p,
-
-        // Basic GST details
-        name: businessName || p.name,
-        gst_no: gstDetails.gstin || p.gst_no,
-
-        // GST type
-        gst_type: gstType,
-
-        // Address details
-        state: state || p.state,
-        billing_country: "India",
-        billing_address: address || p.billing_address,
-      }));
-
-      setGstVerified(true);
-
-      // Close captcha
-      setShowCaptchaBox(false);
-      setGstCaptchaImg("");
-      setGstSessionId("");
-      setEnteredCaptcha("");
-
-      setIsDirty(true);
-
-      showToast("GST verified! Details filled automatically.");
-    } else {
-      const message =
-        payload?.error?.message ||
-        payload?.message ||
-        "Verification failed. Please check the GSTIN and captcha.";
+    } catch (err) {
+      console.error("GST Verification Error:", err);
+      const serverMessage =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Server error while verifying GST";
 
       showToast(
-        String(message)
+        String(serverMessage)
           .replace(/<[^>]+>/g, "")
           .slice(0, 120),
         false
       );
-
-      // Get fresh captcha
-      fetchCaptcha();
+    } finally {
+      setIsVerifyingGst(false);
     }
- } catch (err) {
-    console.error("GST Verification Error:", err);
-
-    const serverMessage =
-      err?.response?.data?.message ||
-      err?.response?.data?.error ||
-      "Server error while verifying GST";
-
-    showToast(
-      String(serverMessage)
-        .replace(/<[^>]+>/g, "")
-        .slice(0, 120),
-      false
-    );
-  } finally {
-    setIsVerifyingGst(false);
-  }
-};
+  };
 
   // ─── submit ──────────────────────────────────────────────────
   const handleSubmit = async (andNew = false) => {
@@ -479,17 +409,12 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       return;
     }
 
-    // if (!gstVerified) {
-    //   showToast("Please verify GSTIN before saving", false);
-    //   return;
-    // }
-
     if (!form.name.trim()) {
-      showToast("Party Name is required", false);
+      showToast("Customer Name is required", false);
       return;
     }
     if (!/^[0-9]{10}$/.test(form.phone)) {
-      showToast("Enter a valid 10‑digit mobile number", false);
+      showToast("Enter a valid 10-digit mobile number", false);
       return;
     }
 
@@ -571,7 +496,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             name: "",
             phone: "",
             gst_no: "",
-gst_type: "Unregistered/Consumer",
+            gst_type: "Unregistered/Consumer",
             billing_address: "",
             address_line1: "",
             address_line2: "",
@@ -603,931 +528,872 @@ gst_type: "Unregistered/Consumer",
           setEnteredOtp("");
           resetGstVerify();
           setErrors({});
-          setActiveTab("gst"); // reset back to default tab, never "credit"
+          setActiveTab("gst");
           setIsDirty(false);
         } else if (onSuccess) {
           onSuccess();
         } else {
-          setTimeout(() => navigate("/customer"), 1500);
+          setTimeout(() => navigate("/customer"), 1000);
         }
       } else {
-        showToast(res.data.message || "Failed to create", false);
+        showToast(res.data.message || "Failed to create customer", false);
       }
     } catch (err) {
       console.error(err);
-      showToast("Server error", false);
+      showToast("Server error occurred while saving", false);
     }
     setLoading(false);
   };
 
   const TABS = [
-    { key: "gst", label: "GST & Address" },
-    { key: "credit", label: "Credit & Balance", badge: "New" },
-    { key: "additional", label: "Additional Fields" },
+    { key: "gst", label: "GST & Addresses", icon: MapPin },
+    { key: "credit", label: "Credit & Limits", icon: CreditCard, badge: form.credit_enabled ? "Enabled" : null },
+    { key: "additional", label: "Additional Info", icon: FileText },
   ];
 
-  // ─── render ──────────────────────────────────────────────────
   return (
     <>
+      {/* ─── TOAST NOTIFICATION ─── */}
       {toast && (
         <div
-          style={{
-            position: "fixed",
-            top: 20,
-            right: 20,
-            zIndex: 99999,
-            background: toast.ok
-              ? "linear-gradient(135deg,#2563eb,#3b82f6)"
-              : "linear-gradient(135deg,#dc2626,#ef4444)",
-            color: "#fff",
-            padding: "11px 18px",
-            borderRadius: 14,
-            boxShadow: "0 10px 30px rgba(0,0,0,.15)",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            fontWeight: 600,
-            fontSize: 12,
-            animation: "toastIn .25s ease",
-          }}
+          className={`fixed top-5 right-5 z-[99999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-white text-xs font-semibold backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-4 duration-200 ${
+            toast.ok
+              ? "bg-slate-900/90 border border-emerald-500/40 shadow-emerald-950/20"
+              : "bg-red-950/90 border border-red-500/40 shadow-red-950/20"
+          }`}
         >
           <div
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: 7,
-              background: "rgba(255,255,255,.2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 11,
-              fontWeight: 700,
-            }}
+            className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+              toast.ok ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
+            }`}
           >
             {toast.ok ? "✓" : "✕"}
           </div>
-          {toast.msg}
+          <span>{toast.msg}</span>
         </div>
       )}
 
+      {/* ─── GST CAPTCHA MODAL ─── */}
       {showCaptchaBox && gstCaptchaImg && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-labelledby="gst-captcha-title"
           onClick={() => setShowCaptchaBox(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100001,
-            background: "rgba(15, 23, 42, 0.48)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 20,
-          }}
+          className="fixed inset-0 z-[100001] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(380px, 100%)",
-              background: "#fff",
-              borderRadius: 14,
-              padding: 20,
-              boxShadow: "0 24px 70px rgba(15, 23, 42, 0.25)",
-            }}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 id="gst-captcha-title" style={{ margin: 0, color: "#0f172a", fontSize: 16 }}>
-                  Verify GSTIN
-                </h3>
-                <p style={{ margin: "5px 0 0", color: "#64748b", fontSize: 11.5 }}>
-                  Enter the captcha to continue
-                </p>
+                <h3 className="text-base font-bold text-slate-900">Verify GSTIN</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Enter characters from image below</p>
               </div>
               <button
                 type="button"
-                className="cf-icon-btn"
-                title="Close captcha"
                 onClick={() => setShowCaptchaBox(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+
+            <div className="flex items-center gap-3 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200">
               <img
                 src={gstCaptchaImg}
-                alt="GST verification captcha"
-                style={{ height: 44, borderRadius: 6, border: "1px solid #e2e8f0" }}
+                alt="GST Captcha"
+                className="h-10 rounded-lg border border-slate-200 object-contain bg-white px-2"
               />
               <button
                 type="button"
-                className="cf-icon-btn"
-                title="Refresh captcha"
                 onClick={fetchCaptcha}
                 disabled={isLoadingCaptcha}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-600 hover:bg-white hover:text-indigo-600 transition-all border border-transparent hover:border-slate-200 disabled:opacity-50"
+                title="Refresh Captcha"
               >
-                <RefreshCw size={16} />
+                <RefreshCw size={16} className={isLoadingCaptcha ? "animate-spin" : ""} />
               </button>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+
+            <div className="flex gap-2">
               <input
-                className="cf-input"
-                placeholder="Enter captcha"
+                className="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 tracking-wider uppercase focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 placeholder:text-slate-400"
+                placeholder="CAPTCHA"
                 value={enteredCaptcha}
                 onChange={(e) => setEnteredCaptcha(e.target.value.toUpperCase())}
                 autoFocus
               />
               <button
                 type="button"
-                className="cf-btn cf-btn-success"
                 onClick={handleVerifyGst}
                 disabled={isVerifyingGst || !enteredCaptcha.trim()}
-                style={{ padding: "8px 12px", whiteSpace: "nowrap", flexShrink: 0 }}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-indigo-200 disabled:opacity-50 flex items-center justify-center min-w-[75px]"
               >
-                {isVerifyingGst ? "..." : "Submit"}
+                {isVerifyingGst ? <RefreshCw size={14} className="animate-spin" /> : "Verify"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ─── Confirmation popup (close / clear billing / clear shipping) ─── */}
+      {/* ─── UNSAVED CONFIRMATION MODAL ─── */}
       {confirmAction && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100000,
-          }}
+          className="fixed inset-0 z-[100002] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={keepEditing}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#fff",
-              borderRadius: 14,
-              padding: 22,
-              width: 320,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-              fontFamily: "Inter, sans-serif",
-            }}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
           >
-            <h3 style={{ margin: "0 0 8px 0", fontSize: 15, color: "#0f172a" }}>
-              {CONFIRM_COPY[confirmAction].title}
-            </h3>
-            <p style={{ margin: "0 0 18px 0", fontSize: 12.5, color: "#64748b" }}>
-              {CONFIRM_COPY[confirmAction].message}
+            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center mb-3">
+              <AlertCircle size={22} />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">Discard Changes?</h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              You have unsaved form entries. If you leave now, all customer details entered will be lost.
             </p>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <button type="button" className="cf-btn cf-btn-ghost" onClick={keepEditing}>
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={keepEditing}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+              >
                 Keep Editing
               </button>
               <button
                 type="button"
-                className="cf-btn cf-btn-primary"
-                style={{ background: "#dc2626" }}
                 onClick={handleConfirm}
+                className="px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm transition-all"
               >
-                {CONFIRM_COPY[confirmAction].confirmLabel}
+                Discard & Close
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <style>{`
-        @keyframes toastIn {
-          from { opacity:0; transform:translateY(-10px) scale(.95); }
-          to   { opacity:1; transform:translateY(0) scale(1); }
-        }
-        .cf-input {
-          width: 100%;
-          padding: 8px 12px;
-          border: 1px solid #d1d5db;
-          border-radius: 8px;
-          outline: none;
-          font-size: 12.5px;
-          transition: all 0.15s;
-          background: #fff;
-          box-sizing: border-box;
-          color: #1e293b;
-        }
-        .cf-input::placeholder { color: #9ca3af; }
-        .cf-input:focus {
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
-        }
-        .cf-label {
-          font-size: 11.5px;
-          font-weight: 500;
-          color: #64748b;
-          margin-bottom: 5px;
-          display: block;
-        }
-        .cf-tab {
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-size: 13px;
-          font-weight: 600;
-          padding: 9px 2px;
-          color: #94a3b8;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          white-space: nowrap;
-        }
-        .cf-tab.active { color: #2563eb; }
-        .cf-link {
-          background: none;
-          border: none;
-          color: #2563eb;
-          font-weight: 600;
-          font-size: 12.5px;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 0;
-        }
-        .cf-btn {
-          padding: 8px 20px;
-          border-radius: 8px;
-          font-weight: 600;
-          font-size: 12.5px;
-          border: none;
-          cursor: pointer;
-          transition: all 0.15s;
-        }
-        .cf-btn-primary { background: #2563eb; color: #fff; }
-        .cf-btn-primary:hover { background: #1d4ed8; }
-        .cf-btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
-        .cf-btn-outline {
-          background: #fff;
-          border: 1.5px solid #2563eb;
-          color: #2563eb;
-        }
-        .cf-btn-outline:hover { background: #eff6ff; }
-        .cf-btn-outline:disabled {
-          background: #f1f5f9;
-          border-color: #d1d5db;
-          color: #9ca3af;
-          cursor: not-allowed;
-        }
-        .cf-btn-ghost {
-          background: #eef2f7;
-          border: none;
-          color: #64748b;
-        }
-        .cf-btn-ghost:hover { background: #e2e8f0; }
-        .cf-btn-success { background: #16a34a; color: #fff; }
-        .cf-btn-success:hover { background: #15803d; }
-        .cf-icon-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: #94a3b8;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 4px;
-          border-radius: 6px;
-        }
-        .cf-icon-btn:hover { background: #f1f5f9; color: #475569; }
-      `}</style>
-
-      {/* ─── MAIN CONTAINER – FIXED WIDTH ─── */}
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 20,
-          width: 900,                   /* ← fixed width */
-          margin: "0 auto",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
-          fontFamily: "Inter, sans-serif",
-          maxHeight: "90vh",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",           /* prevent outer overflow */
-        }}
-      >
-        {/* ── Header ─────────────────────────────────── */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "24px 28px 20px 28px",
-            borderBottom: "1px solid #eef1f5",
-            flexShrink: 0,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
-            Add Party
-          </h2>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-           
-            <button type="button" className="cf-icon-btn" onClick={handleCancelClick} title="Close">
-              <X size={20} />
-            </button>
+      {/* ─── MAIN MODAL CONTAINER ─── */}
+      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col font-['Plus_Jakarta_Sans',sans-serif] mx-auto max-h-[90vh] transition-all">
+        {/* ── HEADER ── */}
+        <div className="px-6 sm:px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/70 to-white flex-shrink-0">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+              <UserPlus size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 leading-tight">Add Customer</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Register new customer profile, GST details, billing & credit terms
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={handleCancelClick}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Close"
+          >
+            <X size={19} />
+          </button>
         </div>
 
-        {/* ── SCROLLABLE CONTENT – FIXED HEIGHT ── */}
-        <div
-          style={{
-            padding: "20px 28px 0 28px",
-            overflowY: "auto",
-            flex: "1 1 auto",
-            height: 420,                /* ← fixed height */
-            minHeight: 420,
-          }}
-        >
-          {/* Party Name / GSTIN / Phone row */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap: 16,
-              marginBottom: 24,
-            }}
-          >
-            <div>
-              <label className="cf-label">
-                Party Name <span style={{ color: "#ef4444" }}>*</span>
-              </label>
-              <input
-                className="cf-input"
-                placeholder=""
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="cf-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                GSTIN (15 Digits)
-              </label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ position: "relative", flex: 1 }}>
+        {/* ── SCROLLABLE FORM BODY ── */}
+        <div className="px-6 sm:px-8 py-6 overflow-y-auto flex-1 space-y-6">
+          {/* Top Quick Profile Section: Name, GSTIN & Phone */}
+          <div className="bg-slate-50/70 p-5 rounded-2xl border border-slate-200/70">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Customer Name */}
+              <div>
+                <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                  Customer Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <User size={15} />
+                  </div>
                   <input
-                    className="cf-input"
-                    placeholder="22ABCDE1234F1Z5"
-                    value={form.gst_no}
-                    maxLength={15}
-                    onChange={(e) => {
-                      if (gstVerified) return;
-                      set("gst_no", e.target.value.toUpperCase().slice(0, 15));
-                    }}
-                    onPaste={(e) => {
-                      if (gstVerified) e.preventDefault();
-                    }}
-                    onCut={(e) => {
-                      if (gstVerified) e.preventDefault();
-                    }}
-                    disabled={gstVerified}
-                    readOnly={gstVerified}
-                    style={{
-                      paddingRight: 34,
-                      ...(gstVerified
-                        ? {
-                            background: "#f1f5f9",
-                            color: "#111827",
-                            cursor: "not-allowed",
-                            opacity: 1,
-                          }
-                        : {}),
-                    }}
+                    type="text"
+                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                    placeholder="Enter full name or trade title"
+                    value={form.name}
+                    onChange={(e) => set("name", e.target.value)}
+                    autoFocus
                   />
-                  {gstVerified ? (
-                    <BadgeCheck
-                      size={14}
-                      color="#16a34a"
-                      style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}
-                    />
-                  ) : (
-                    <Info
-                      size={14}
-                      color="#94a3b8"
-                      style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}
-                    />
-                  )}
                 </div>
-                <button
-                  type="button"
-                  className="cf-btn cf-btn-outline"
-                  onClick={fetchCaptcha}
-                  disabled={isLoadingCaptcha || !form.gst_no.trim() || gstVerified}
-                  style={{ padding: "8px 10px", whiteSpace: "nowrap", flexShrink: 0 }}
-                >
-                  {gstVerified ? "Verified" : isLoadingCaptcha ? "Loading..." : "Verify"}
-                </button>
               </div>
 
-            </div>
-            <div>
-              <label className="cf-label">Phone Number</label>
-              <input
-                className="cf-input"
-                placeholder=""
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
-                style={phoneExists ? { borderColor: "#ef4444" } : {}}
-              />
-              {phoneExists && (
-                <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
-                  Phone number already exists
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* ── Tabs ─────────────────────────────────── */}
-          <div
-            style={{
-              display: "flex",
-              gap: 32,
-              borderBottom: "1px solid #eef1f5",
-              marginBottom: 24,
-            }}
-          >
-            {TABS.map((t) => (
-              <button
-                type="button"
-                key={t.key}
-                className={`cf-tab ${activeTab === t.key ? "active" : ""}`}
-                onClick={() => setActiveTab(t.key)}
-                style={{
-                  position: "relative",
-                  borderBottom: activeTab === t.key ? "2px solid #2563eb" : "2px solid transparent",
-                }}
-              >
-                {t.label}
-                {t.badge && (
-                  <span
-                    style={{
-                      background: "#ef4444",
-                      color: "#fff",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      padding: "2px 6px",
-                      borderRadius: 5,
-                    }}
-                  >
-                    {t.badge}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* ── Tab content ──────────────────────────── */}
-          <div>
-            {activeTab === "gst" && (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1px 1fr 1px 1fr",
-                  gap: 24,
-                }}
-              >
-                <div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label className="cf-label">GST Type</label>
-                    <select
-                      className="cf-input"
-                      value={form.gst_type}
-                      onChange={(e) => set("gst_type", e.target.value)}
-                    >
-                      <option value="Unregistered/Consumer">Unregistered/Consumer</option>
-                      <option value="Registered Business - Regular">Registered Business - Regular</option>
-                      <option value="Registered Business - Composition">Registered Business - Composition</option>
-                    </select>
-                  </div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label className="cf-label">State</label>
-                    <input
-                      className="cf-input"
-                      placeholder=""
-                      value={form.state}
-                      onChange={(e) => set("state", e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="cf-label">Email ID</label>
-                    <input
-                      className="cf-input"
-                      placeholder=""
-                      value={form.email}
-                      onChange={(e) => set("email", e.target.value)}
-                      style={errors.email ? { borderColor: "#ef4444" } : {}}
-                    />
-                    {errors.email && (
-                      <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
-                        {errors.email}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ background: "#eef1f5" }} />
-
-                <div>
-                  <label className="cf-label" style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>
-                    Billing Address
+              {/* GSTIN (15 Digits) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11.5px] font-semibold text-slate-700">
+                    GSTIN (15 Digits)
                   </label>
-                  <textarea
-                    className="cf-input"
-                    placeholder="Billing Address"
-                    value={form.billing_address}
-                    onChange={(e) => set("billing_address", e.target.value)}
-                    rows={5}
-                    style={{ resize: "vertical" }}
-                  />
+                  {gstVerified && (
+                    <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      <BadgeCheck size={12} /> Verified
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Building2 size={15} />
+                    </div>
+                    <input
+                      type="text"
+                      className={`w-full pl-9 pr-3 py-2.5 border rounded-xl text-xs font-semibold uppercase tracking-wider transition-all placeholder:text-slate-400 focus:outline-none ${
+                        gstVerified
+                          ? "bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed"
+                          : "bg-white text-slate-900 border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                      }`}
+                      placeholder="22ABCDE1234F1Z5"
+                      value={form.gst_no}
+                      maxLength={15}
+                      onChange={(e) => {
+                        if (gstVerified) return;
+                        set("gst_no", e.target.value.toUpperCase().slice(0, 15));
+                      }}
+                      disabled={gstVerified}
+                      readOnly={gstVerified}
+                    />
+                  </div>
                   <button
                     type="button"
-                    className="cf-link"
-                    style={{ marginTop: 10 }}
-                    onClick={() => set("show_detailed_address", !form.show_detailed_address)}
+                    onClick={fetchCaptcha}
+                    disabled={isLoadingCaptcha || !form.gst_no.trim() || gstVerified}
+                    className={`px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap shadow-xs ${
+                      gstVerified
+                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-default"
+                        : "bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50/60 disabled:opacity-50"
+                    }`}
                   >
-                    {form.show_detailed_address ? <EyeOff size={13} /> : <Eye size={13} />}
-                    {form.show_detailed_address ? "Hide Detailed Address" : "Show Detailed Address"}
+                    {isLoadingCaptcha ? (
+                      <RefreshCw size={13} className="animate-spin" />
+                    ) : gstVerified ? (
+                      <BadgeCheck size={14} />
+                    ) : (
+                      "Verify"
+                    )}
                   </button>
+                </div>
+              </div>
 
-                  {form.show_detailed_address && (
-                    <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                      <input
-                        className="cf-input"
-                        placeholder="Address Line 1"
-                        value={form.address_line1}
-                        onChange={(e) => set("address_line1", e.target.value)}
-                      />
-                      <input
-                        className="cf-input"
-                        placeholder="Address Line 2"
-                        value={form.address_line2}
-                        onChange={(e) => set("address_line2", e.target.value)}
-                      />
-                      <input
-                        className="cf-input"
-                        placeholder="City"
-                        value={form.city}
-                        onChange={(e) => set("city", e.target.value)}
-                      />
-                      <select
-                        className="cf-input"
-                        value={form.billing_country}
-                        onChange={(e) => set("billing_country", e.target.value)}
-                      >
-                        <option value="India">India</option>
-                      </select>
-                      <input
-                        className="cf-input"
-                        placeholder="Pincode"
-                        value={form.billing_pincode}
-                        maxLength={6}
-                        onChange={(e) => set("billing_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      />
-                    </div>
+              {/* Phone Number */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11.5px] font-semibold text-slate-700">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  {checkingPhone && (
+                    <span className="text-[10.5px] text-slate-400">Checking...</span>
                   )}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Phone size={15} />
+                  </div>
+                  <input
+                    type="tel"
+                    className={`w-full pl-9 pr-3 py-2.5 bg-white border rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none transition-all ${
+                      phoneExists
+                        ? "border-red-500 focus:ring-3 focus:ring-red-100 text-red-900"
+                        : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 text-slate-900"
+                    }`}
+                    placeholder="10-digit mobile number"
+                    value={form.phone}
+                    maxLength={10}
+                    onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  />
+                </div>
+                {phoneExists && (
+                  <p className="mt-1 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                    <AlertCircle size={12} /> This phone number is already registered
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
 
+          {/* ── SEGMENTED TAB STRIP ── */}
+          <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200/60 w-full sm:w-max">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  type="button"
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    isActive
+                      ? "bg-white text-indigo-600 shadow-sm shadow-slate-200 border border-slate-200/60"
+                      : "text-slate-500 hover:text-slate-900 hover:bg-white/50"
+                  }`}
+                >
+                  <Icon size={14} className={isActive ? "text-indigo-600" : "text-slate-400"} />
+                  <span>{tab.label}</span>
+                  {tab.badge && (
+                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-700">
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── TAB 1: GST & ADDRESSES ── */}
+          {activeTab === "gst" && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Profile Tax & Contact Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                    GST Classification
+                  </label>
+                  <select
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                    value={form.gst_type}
+                    onChange={(e) => set("gst_type", e.target.value)}
+                  >
+                    <option value="Unregistered/Consumer">Unregistered / Consumer</option>
+                    <option value="Registered Business - Regular">Registered Business - Regular</option>
+                    <option value="Registered Business - Composition">Registered Business - Composition</option>
+                  </select>
                 </div>
 
-                <div style={{ background: "#eef1f5" }} />
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                    State / Jurisdiction
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                    placeholder="e.g. Tamil Nadu"
+                    value={form.state}
+                    onChange={(e) => set("state", e.target.value)}
+                  />
+                </div>
 
                 <div>
-                  <label className="cf-label" style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>
-                    Shipping Address
-                  </label>
-                  {!form.enable_shipping ? (
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11.5px] font-semibold text-slate-700">Email Address</label>
+                    {errors.email && (
+                      <span className="text-[10.5px] text-red-500">{errors.email}</span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Mail size={15} />
+                    </div>
+                    <input
+                      type="email"
+                      className={`w-full pl-9 pr-3 py-2.5 bg-white border rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none transition-all ${
+                        errors.email
+                          ? "border-red-500 focus:ring-3 focus:ring-red-100"
+                          : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                      }`}
+                      placeholder="customer@domain.com"
+                      value={form.email}
+                      onChange={(e) => set("email", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Addresses Split (Billing & Shipping) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                {/* Billing Address Card */}
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin size={16} className="text-indigo-600" />
+                      <span className="text-xs font-bold text-slate-800">Billing Address</span>
+                    </div>
                     <button
                       type="button"
-                      className="cf-link"
-                      onClick={() => set("enable_shipping", true)}
+                      onClick={() => set("show_detailed_address", !form.show_detailed_address)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
                     >
-                      <Plus size={14} />
-                      Enable Shipping Address
+                      {form.show_detailed_address ? <EyeOff size={13} /> : <Eye size={13} />}
+                      {form.show_detailed_address ? "Simple View" : "Detailed Fields"}
                     </button>
-                  ) : (
-                    <>
-                      <textarea
-                        className="cf-input"
-                        placeholder="Shipping Address"
-                        value={form.shipping_address}
-                        onChange={(e) => set("shipping_address", e.target.value)}
-                        rows={5}
-                        style={{ resize: "vertical" }}
-                      />
+                  </div>
 
-                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                  <textarea
+                    rows={form.show_detailed_address ? 2 : 4}
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 resize-y"
+                    placeholder="Enter full billing street address..."
+                    value={form.billing_address}
+                    onChange={(e) => set("billing_address", e.target.value)}
+                  />
+
+                  {/* Detailed Billing Fields */}
+                  {form.show_detailed_address && (
+                    <div className="pt-2 grid grid-cols-2 gap-2.5 animate-in fade-in duration-150">
+                      <div className="col-span-2">
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                          placeholder="Address Line 1"
+                          value={form.address_line1}
+                          onChange={(e) => set("address_line1", e.target.value)}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                          placeholder="Address Line 2"
+                          value={form.address_line2}
+                          onChange={(e) => set("address_line2", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                          placeholder="City"
+                          value={form.city}
+                          onChange={(e) => set("city", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                          placeholder="Pincode (6-digit)"
+                          value={form.billing_pincode}
+                          onChange={(e) => set("billing_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Shipping Address Card */}
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin size={16} className="text-emerald-600" />
+                      <span className="text-xs font-bold text-slate-800">Shipping Address</span>
+                    </div>
+
+                    {!form.enable_shipping ? (
+                      <button
+                        type="button"
+                        onClick={() => set("enable_shipping", true)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                      >
+                        <Plus size={13} /> Enable Shipping
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-3">
                         <button
                           type="button"
-                          className="cf-link"
                           onClick={() =>
                             set("show_detailed_shipping_address", !form.show_detailed_shipping_address)
                           }
+                          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
                         >
-                          {form.show_detailed_shipping_address ? (
-                            <EyeOff size={13} />
-                          ) : (
-                            <Eye size={13} />
-                          )}
-                          {form.show_detailed_shipping_address
-                            ? "Hide Detailed Address"
-                            : "Show Detailed Address"}
+                          {form.show_detailed_shipping_address ? <EyeOff size={13} /> : <Eye size={13} />}
+                          {form.show_detailed_shipping_address ? "Simple" : "Detailed"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            set("enable_shipping", false);
+                            set("shipping_address", "");
+                          }}
+                          className="text-[11px] font-semibold text-red-500 hover:text-red-700"
+                        >
+                          Disable
                         </button>
                       </div>
+                    )}
+                  </div>
 
+                  {!form.enable_shipping ? (
+                    <div className="h-28 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center p-4 text-center bg-white/50">
+                      <p className="text-xs text-slate-400 font-medium">
+                        Shipping address disabled (Billing address will be used by default)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => set("enable_shipping", true)}
+                        className="mt-2 text-xs font-semibold text-indigo-600 hover:underline"
+                      >
+                        Click here to specify separate shipping destination
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 animate-in fade-in duration-150">
+                      <textarea
+                        rows={form.show_detailed_shipping_address ? 2 : 4}
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 resize-y"
+                        placeholder="Enter full shipping delivery address..."
+                        value={form.shipping_address}
+                        onChange={(e) => set("shipping_address", e.target.value)}
+                      />
+
+                      {/* Detailed Shipping Fields */}
                       {form.show_detailed_shipping_address && (
-                        <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                          <input
-                            className="cf-input"
-                            placeholder="Address Line 1"
-                            value={form.shipping_address_line1}
-                            onChange={(e) => set("shipping_address_line1", e.target.value)}
-                          />
-                          <input
-                            className="cf-input"
-                            placeholder="Address Line 2"
-                            value={form.shipping_address_line2}
-                            onChange={(e) => set("shipping_address_line2", e.target.value)}
-                          />
-                          <input
-                            className="cf-input"
-                            placeholder="City"
-                            value={form.shipping_city}
-                            onChange={(e) => set("shipping_city", e.target.value)}
-                          />
-                          <select
-                            className="cf-input"
-                            value={form.shipping_country}
-                            onChange={(e) => set("shipping_country", e.target.value)}
-                          >
-                            <option value="India">India</option>
-                          </select>
-                          <input
-                            className="cf-input"
-                            placeholder="Pincode"
-                            value={form.shipping_pincode}
-                            maxLength={6}
-                            onChange={(e) => set("shipping_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
-                          />
+                        <div className="pt-2 grid grid-cols-2 gap-2.5 animate-in fade-in duration-150">
+                          <div className="col-span-2">
+                            <input
+                              type="text"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                              placeholder="Shipping Line 1"
+                              value={form.shipping_address_line1}
+                              onChange={(e) => set("shipping_address_line1", e.target.value)}
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <input
+                              type="text"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                              placeholder="Shipping Line 2"
+                              value={form.shipping_address_line2}
+                              onChange={(e) => set("shipping_address_line2", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <input
+                              type="text"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                              placeholder="Shipping City"
+                              value={form.shipping_city}
+                              onChange={(e) => set("shipping_city", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <input
+                              type="text"
+                              maxLength={6}
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                              placeholder="Shipping Pincode"
+                              value={form.shipping_pincode}
+                              onChange={(e) => set("shipping_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            />
+                          </div>
                         </div>
                       )}
-
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {activeTab === "credit" && (
-              <div style={{ maxWidth: 480 }}>
-                <div style={{ marginBottom: 18 }}>
-                  <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
-                    <label style={{ fontWeight: 600, color: "#1e293b", fontSize: 12 }}>
-                      Credit Enabled
-                    </label>
-                    {[
-                      { label: "Yes", val: 1 },
-                      { label: "No", val: 0 },
-                    ].map((opt) => (
-                      <label
-                        key={opt.val}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          fontSize: 12,
-                          fontWeight: 500,
-                          color: "#475569",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="credit_enabled"
-                          value={opt.val}
-                          checked={form.credit_enabled === opt.val}
-                          onChange={(e) => {
-                            const val = Number(e.target.value);
-                            set("credit_enabled", val);
-                            if (val === 0) {
-                              setIsCreditAuthorized(false);
-                              setOtpSent(false);
-                              setEnteredOtp("");
-                            }
-                          }}
-                        />
-                        {opt.label}
-                      </label>
-                    ))}
+          {/* ── TAB 2: CREDIT & LIMITS ── */}
+          {activeTab === "credit" && (
+            <div className="space-y-6 max-w-2xl animate-in fade-in duration-150">
+              {/* Credit Enabled Switcher Card */}
+              <div className="p-5 bg-slate-50/70 rounded-2xl border border-slate-200/80">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                      <CreditCard size={16} className="text-indigo-600" /> Credit Facilities & Ledger Limits
+                    </h4>
+                    <p className="text-[11.5px] text-slate-500 mt-0.5">
+                      Authorize revolving credit terms, payment days and opening ledger balances
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        set("credit_enabled", 0);
+                        setIsCreditAuthorized(false);
+                        setOtpSent(false);
+                        setEnteredOtp("");
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        form.credit_enabled === 0
+                          ? "bg-slate-800 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Disabled
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => set("credit_enabled", 1)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        form.credit_enabled === 1
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Enabled
+                    </button>
                   </div>
                 </div>
 
+                {/* Sub-section when credit enabled */}
                 {form.credit_enabled === 1 && (
-                  <div
-                    style={{
-                      background: "#f8fafc",
-                      padding: 16,
-                      borderRadius: 10,
-                      border: "1px solid #e2e8f0",
-                    }}
-                  >
+                  <div className="mt-5 pt-5 border-t border-slate-200">
                     {!isCreditAuthorized ? (
-                      <div>
-                        <p style={{ margin: "0 0 10px 0", fontSize: 12, fontWeight: 500, color: "#475569" }}>
-                          Admin OTP verification required to enable credit.
-                        </p>
+                      /* Admin OTP Authorization Box */
+                      <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-5">
+                        <div className="flex items-start gap-3.5 mb-4">
+                          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                            <Lock size={18} />
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-amber-900">Admin Authorization Required</h5>
+                            <p className="text-[11.5px] text-amber-700 mt-0.5">
+                              To prevent unapproved exposure, credit allocation requires a 2-factor OTP sent to admin email.
+                            </p>
+                          </div>
+                        </div>
+
                         {!otpSent ? (
                           <button
                             type="button"
                             onClick={handleSendCreditOtp}
                             disabled={isSendingOtp}
-                            className="cf-btn cf-btn-primary"
-                            style={{ width: "100%" }}
+                            className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                           >
-                            {isSendingOtp ? "Sending OTP..." : "Verify Admin Email OTP"}
+                            {isSendingOtp ? (
+                              <RefreshCw size={14} className="animate-spin" />
+                            ) : (
+                              <ShieldCheck size={16} />
+                            )}
+                            {isSendingOtp ? "Dispatching OTP..." : "Send Verification OTP to Admin Email"}
                           </button>
                         ) : (
-                          <div>
-                            <p style={{ margin: "0 0 8px 0", fontSize: 11, color: "#64748b" }}>
-                              OTP sent to <strong>{adminEmail}</strong>
+                          <div className="space-y-3 bg-white p-4 rounded-xl border border-amber-200">
+                            <p className="text-xs text-slate-600">
+                              Verification code sent to: <strong className="text-slate-900">{adminEmail}</strong>
                             </p>
-                            <div style={{ display: "flex", gap: 8 }}>
+                            <div className="flex items-center gap-2.5 max-w-sm">
                               <input
-                                className="cf-input"
-                                placeholder="Enter OTP"
-                                value={enteredOtp}
+                                type="text"
                                 maxLength={6}
+                                placeholder="Enter 6-digit OTP"
+                                value={enteredOtp}
                                 onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ""))}
-                                style={{ flex: 1 }}
+                                className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold tracking-widest text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white"
                               />
                               <button
                                 type="button"
                                 onClick={handleVerifyCreditOtp}
-                                disabled={isVerifyingOtp}
-                                className="cf-btn cf-btn-success"
+                                disabled={isVerifyingOtp || !enteredOtp.trim()}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                               >
-                                {isVerifyingOtp ? "Verifying..." : "Verify"}
+                                {isVerifyingOtp ? "Verifying..." : "Verify & Unlock"}
                               </button>
                             </div>
                             <button
                               type="button"
                               onClick={handleSendCreditOtp}
                               disabled={isSendingOtp}
-                              className="cf-link"
-                              style={{ fontSize: 11, marginTop: 8 }}
+                              className="text-[11px] font-semibold text-indigo-600 hover:underline inline-block"
                             >
-                              Resend OTP
+                              Didn't get code? Resend OTP
                             </button>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <>
-                      {/* Credit Authorized section*/}
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-                          <span style={{ color: "#10b981", fontWeight: 700, fontSize: 12.5 }}>✓ Credit Authorized</span>
+                      /* Authorized Form Fields */
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 w-max text-xs font-bold">
+                          <CheckCircle2 size={15} /> Credit Facility Authorized
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label className="cf-label" style={{ fontSize: 11 }}>Credit Limit (₹)</label>
-                            <input
-                              type="number"
-                              className="cf-input"
-                              placeholder="Limit"
-                              value={form.credit_limit}
-                              onChange={(e) => set("credit_limit", e.target.value)}
-                            />
+                            <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                              Credit Limit (₹) <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
+                                ₹
+                              </div>
+                              <input
+                                type="number"
+                                className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                                placeholder="0.00"
+                                value={form.credit_limit}
+                                onChange={(e) => set("credit_limit", e.target.value)}
+                              />
+                            </div>
                           </div>
-                           <div>
-                            <label className="cf-label" style={{ fontSize: 11 }}>Credit Days</label>
-                            <input
-                              type="number"
-                              className="cf-input"
-                              placeholder="Days"
-                              value={form.credit_days}
-                              onChange={(e) => set("credit_days", e.target.value)}
-                            />
+
+                          <div>
+                            <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                              Credit Days <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <Clock size={15} />
+                              </div>
+                              <input
+                                type="number"
+                                className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                                placeholder="e.g. 30"
+                                value={form.credit_days}
+                                onChange={(e) => set("credit_days", e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                              Opening Advance Balance (₹) <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <Wallet size={15} />
+                              </div>
+                              <input
+                                type="number"
+                                className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                                placeholder="0.00"
+                                value={form.balance}
+                                onChange={(e) => set("balance", e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+                              Pending Due Amount (₹) <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
+                                ₹
+                              </div>
+                              <input
+                                type="number"
+                                className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                                placeholder="0.00"
+                                value={form.pending}
+                                onChange={(e) => set("pending", e.target.value)}
+                              />
+                            </div>
                           </div>
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
-                          <div>
-                            <label className="cf-label" style={{ fontSize: 11 }}>Balance (₹)</label>
-                            <input
-                              type="number"
-                              className="cf-input"
-                              placeholder="Balance"
-                              value={form.balance}
-                              onChange={(e) => set("balance", e.target.value)}
-                            />
-                          </div>
-                          <div>
-                            <label className="cf-label" style={{ fontSize: 11 }}>Pending (₹)</label>
-                            <input
-                              type="number"
-                              className="cf-input"
-                              placeholder="Pending"
-                              value={form.pending}
-                              onChange={(e) => set("pending", e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {activeTab === "additional" && (
-              <div style={{ maxWidth: 420 }}>
-                <div style={{ marginBottom: 16 }}>
-                  <label className="cf-label">Account Number</label>
+          {/* ── TAB 3: ADDITIONAL FIELDS ── */}
+          {activeTab === "additional" && (
+            <div className="space-y-4 max-w-xl animate-in fade-in duration-150">
+              <div className="p-5 bg-slate-50/70 rounded-2xl border border-slate-200/80 space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11.5px] font-semibold text-slate-700">Bank Account Number</label>
+                    {errors.account_number && (
+                      <span className="text-[10.5px] text-red-500 font-medium">{errors.account_number}</span>
+                    )}
+                  </div>
                   <input
-                    className="cf-input"
-                    placeholder="Account Number"
+                    type="text"
+                    className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none transition-all ${
+                      errors.account_number
+                        ? "border-red-500 focus:ring-3 focus:ring-red-100"
+                        : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                    }`}
+                    placeholder="e.g. 91823019283"
                     value={form.account_number}
                     onChange={(e) => set("account_number", e.target.value.replace(/[^0-9]/g, "").slice(0, 18))}
-                    style={errors.account_number ? { borderColor: "#ef4444" } : {}}
                   />
-                  {errors.account_number && (
-                    <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
-                      {errors.account_number}
-                    </p>
-                  )}
                 </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label className="cf-label">PAN Number</label>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11.5px] font-semibold text-slate-700">PAN Number</label>
+                    {errors.pan_number && (
+                      <span className="text-[10.5px] text-red-500 font-medium">{errors.pan_number}</span>
+                    )}
+                  </div>
                   <input
-                    className="cf-input"
+                    type="text"
+                    maxLength={10}
+                    className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-semibold uppercase tracking-wider placeholder:text-slate-400 focus:outline-none transition-all ${
+                      errors.pan_number
+                        ? "border-red-500 focus:ring-3 focus:ring-red-100"
+                        : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                    }`}
                     placeholder="ABCDE1234F"
                     value={form.pan_number}
-                    maxLength={10}
                     onChange={(e) => set("pan_number", e.target.value.toUpperCase().slice(0, 10))}
-                    style={errors.pan_number ? { borderColor: "#ef4444" } : {}}
                   />
-                  {errors.pan_number && (
-                    <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
-                      {errors.pan_number}
-                    </p>
-                  )}
                 </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label className="cf-label">Date of Birth</label>
-                  <input
-                    type="date"
-                    className="cf-input"
-                    value={form.date_of_birth}
-                    max={new Date().toISOString().split("T")[0]}
-                    onChange={(e) => set("date_of_birth", e.target.value)}
-                    style={errors.date_of_birth ? { borderColor: "#ef4444" } : {}}
-                  />
-                  {errors.date_of_birth && (
-                    <p style={{ margin: "4px 0 0 0", fontSize: 10.5, color: "#ef4444", fontWeight: 500 }}>
-                      {errors.date_of_birth}
-                    </p>
-                  )}
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11.5px] font-semibold text-slate-700">Date of Birth</label>
+                    {errors.date_of_birth && (
+                      <span className="text-[10.5px] text-red-500 font-medium">{errors.date_of_birth}</span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      max={new Date().toISOString().split("T")[0]}
+                      className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-xs font-medium text-slate-800 focus:outline-none transition-all ${
+                        errors.date_of_birth
+                          ? "border-red-500 focus:ring-3 focus:ring-red-100"
+                          : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                      }`}
+                      value={form.date_of_birth}
+                      onChange={(e) => set("date_of_birth", e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* ── Footer action bar ───────────────────────── */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 12,
-            padding: "8px 28px",
-            borderTop: "1px solid #eef1f5",
-            flexShrink: 0,
-          }}
-        >
+        {/* ── FOOTER ACTIONS BAR ── */}
+        <div className="px-6 sm:px-8 py-4 bg-slate-50/90 border-t border-slate-200/80 flex items-center justify-between flex-shrink-0">
           <button
             type="button"
-            className="cf-btn cf-btn-outline"
-            onClick={() => handleSubmit(true)}
-            disabled={loading || checkingPhone || phoneExists || hasMissingRequiredFields}
+            onClick={handleCancelClick}
+            className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition-colors"
           >
-            Save & New
+            Cancel
           </button>
-          <button
-            type="button"
-            className="cf-btn cf-btn-primary"
-            onClick={() => handleSubmit(false)}
-            disabled={loading || checkingPhone || phoneExists || hasMissingRequiredFields}
-          >
-            {loading ? "Creating..." : "Save"}
-          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => handleSubmit(true)}
+              disabled={loading || checkingPhone || phoneExists || hasMissingRequiredFields}
+              className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Save & New
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit(false)}
+              disabled={loading || checkingPhone || phoneExists || hasMissingRequiredFields}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-200 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" /> Saving Customer...
+                </>
+              ) : (
+                <>
+                  Save Customer <ArrowRight size={14} />
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </>

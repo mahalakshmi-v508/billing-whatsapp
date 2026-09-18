@@ -1,9 +1,9 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import { getCurrencySymbol } from "../../../utils/expenseDocument";
-import { Calendar, FileSpreadsheet, Plus, Printer } from "lucide-react";
+import { Calendar, FileSpreadsheet, Plus, Printer, RefreshCw, Layers, TrendingUp, DollarSign } from "lucide-react";
 import ReportPagination from "../../../components/reports/ReportPagination";
 import { showToast } from "../../../utils/reportToast";
 
@@ -34,6 +34,7 @@ export default function ExpenseCategoryReport() {
   const [toDate, setToDate] = useState(toInputDate(today()));
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -74,7 +75,7 @@ export default function ExpenseCategoryReport() {
     return () => {
       cancelled = true;
     };
-  }, [companyId, adminId, fromDate, toDate]);
+  }, [companyId, adminId, fromDate, toDate, reloadKey]);
 
   const reportRows = useMemo(() => {
     return rows
@@ -135,384 +136,186 @@ export default function ExpenseCategoryReport() {
   const pagedRows = reportRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
-    <div className="expense-category-report-root">
-      <style>{`
-        .expense-category-report-root {
-          min-width: 100%;
-          height: 100%;
-          background: #ffffff;
-          border-radius: 10px;
-          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-          color: #334155;
-          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-        }
-
-        .ecr-wrap {
-          padding: 18px 22px 22px;
-          background: #ffffff;
-        }
-
-        .ecr-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          flex-wrap: wrap;
-        }
-
-        .ecr-dates {
-          display: flex;
-          align-items: flex-end;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .ecr-date-field {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .ecr-date-label {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          color: #94a3b8;
-        }
-
-        .ecr-date-label svg {
-          width: 13px;
-          height: 13px;
-          color: #64748b;
-        }
-
-        .ecr-date-input {
-          height: 34px;
-          width: 150px;
-          padding: 5px 10px;
-          font-size: 13px;
-          font-weight: 600;
-          color: #1e293b;
-          border: 1px solid #d8e0ea;
-          border-radius: 7px;
-          background: #fff;
-          outline: none;
-          box-shadow: none;
-        }
-
-        .ecr-date-input:focus {
-          border-color: #c3cdd9;
-          box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.06);
-        }
-
-        .ecr-actions {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-shrink: 0;
-        }
-
-        .ecr-icon-btn {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 3px;
-          width: 50px;
-          height: 46px;
-          border: 1px solid #e2e8f0;
-          border-radius: 9999px;
-          background: #fff;
-          color: #475569;
-          cursor: pointer;
-          transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-        }
-
-        .ecr-icon-btn svg {
-          width: 17px;
-          height: 17px;
-          color: #ee3444;
-        }
-
-        .ecr-icon-btn span {
-          font-size: 9.5px;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          color: #64748b;
-        }
-
-        .ecr-icon-btn:hover {
-          background: #f8fafc;
-          border-color: #d8e0ea;
-        }
-
-        .ecr-title-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          margin-top: 22px;
-        }
-
-        .ecr-title {
-          font-size: 22px;
-          font-weight: 800;
-          letter-spacing: 0.02em;
-          text-transform: uppercase;
-          color: #1e293b;
-          margin: 0;
-          line-height: 1.2;
-        }
-
-        .ecr-divider {
-          height: 1px;
-          background: #eef2f7;
-          margin: 12px 0 6px;
-        }
-
-        .ecr-add-row {
-          display: flex;
-          justify-content: flex-end;
-          margin-bottom: 12px;
-        }
-
-        .ecr-add-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          height: 34px;
-          padding: 0 16px;
-          background: linear-gradient(135deg, #ee3444 0%, #cc1f2c 100%);
-          color: #fff;
-          font-size: 12.5px;
-          font-weight: 800;
-          border-radius: 9999px;
-          border: none;
-          cursor: pointer;
-          box-shadow: 0 2px 6px rgba(204, 31, 44, 0.28);
-          white-space: nowrap;
-          font-family: inherit;
-          transition: filter 0.15s ease;
-        }
-
-        .ecr-add-btn svg {
-          width: 14px;
-          height: 14px;
-        }
-
-        .ecr-add-btn:hover {
-          filter: brightness(1.05);
-        }
-
-        .ecr-table-scroll {
-          width: 100%;
-          overflow-x: auto;
-        }
-
-        .ecr-table {
-          width: 100%;
-          border-collapse: collapse;
-          min-width: 520px;
-        }
-
-        .ecr-table thead th {
-          padding: 10px 8px;
-          border-bottom: 1px solid #e2e8f0;
-          color: #64748b;
-          font-size: 10.5px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          text-align: left;
-          white-space: nowrap;
-        }
-
-        .ecr-table thead th.ecr-amount {
-          text-align: right;
-        }
-
-        .ecr-table tbody td {
-          padding: 11px 8px;
-          border-bottom: 1px solid #f1f5f9;
-          color: #334155;
-          font-size: 13px;
-          font-weight: 500;
-          text-align: left;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 320px;
-        }
-
-        .ecr-table tbody tr:last-child td {
-          border-bottom: none;
-        }
-
-        .ecr-table tbody td.ecr-name {
-          font-weight: 600;
-          color: #1e293b;
-        }
-
-        .ecr-table tbody td.ecr-amount {
-          text-align: right;
-          font-weight: 700;
-          color: #1e293b;
-          font-variant-numeric: tabular-nums;
-        }
-
-        .ecr-empty-cell {
-          padding: 42px 12px !important;
-          text-align: center !important;
-          color: #94a3b8;
-          font-size: 13px;
-          font-weight: 600;
-          max-width: none !important;
-          white-space: normal !important;
-        }
-
-        .ecr-total-row {
-          display: flex;
-          justify-content: flex-end;
-          align-items: baseline;
-          gap: 8px;
-          margin-top: 14px;
-          padding-top: 12px;
-          border-top: 2px solid #eef2f7;
-        }
-
-        .ecr-total-label {
-          font-size: 13px;
-          font-weight: 700;
-          color: #475569;
-          letter-spacing: 0.02em;
-        }
-
-        .ecr-total-value {
-          font-size: 15px;
-          font-weight: 800;
-          color: #1e293b;
-          font-variant-numeric: tabular-nums;
-        }
-
-        @media (max-width: 700px) {
-          .ecr-toolbar {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .ecr-actions {
-            justify-content: flex-end;
-          }
-          .ecr-date-input {
-            width: 100%;
-          }
-          .ecr-dates {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 8px;
-          }
-          .ecr-title-row {
-            flex-wrap: wrap;
-          }
-        }
-      `}</style>
-
-      <div className="ecr-wrap" id="expense-cat-print-area">
-        <div className="ecr-toolbar">
-          <div className="ecr-dates">
-            <div className="ecr-date-field">
-              <label className="ecr-date-label">
-                <Calendar /> From
-              </label>
-              <input type="date" className="ecr-date-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            </div>
-            <div className="ecr-date-field">
-              <label className="ecr-date-label">
-                <Calendar /> To
-              </label>
-              <input type="date" className="ecr-date-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-            </div>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Header & Export Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Expenses & Overheads</span>
+            <span>•</span>
+            <span>Category Spending</span>
           </div>
-
-          <div className="ecr-actions ecr-no-print">
-            <button type="button" className="ecr-icon-btn" onClick={handleExportExcel} title="Export to Excel">
-              <FileSpreadsheet />
-              <span>Excel</span>
-            </button>
-            <button type="button" className="ecr-icon-btn" onClick={handlePrint} title="Print report">
-              <Printer />
-              <span>Print</span>
-            </button>
-          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            Expense Category Report
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Breakdown of corporate spending categorized into direct and indirect business overheads
+          </p>
         </div>
 
-        <div className="ecr-title-row">
-          <h1 className="ecr-title">EXPENSE</h1>
-          {fromDate && toDate && (
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: "#94a3b8", whiteSpace: "nowrap" }}>
-              {new Date(`${fromDate}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-              {" — "}
-              {new Date(`${toDate}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-            </span>
-          )}
-        </div>
-        <div className="ecr-divider" />
-
-        <div className="ecr-add-row ecr-no-print">
-          <button type="button" className="ecr-add-btn" onClick={() => navigate("/purchases/expenses/add")}>
-            <Plus /> Add Expense
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => navigate("/purchases/expenses/add")}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Expense</span>
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+            title="Export Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print</span>
           </button>
         </div>
+      </div>
 
-        <div className="ecr-table-scroll">
-          <table className="ecr-table">
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all cursor-pointer ml-auto"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <Layers className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Categories</div>
+            <div className="text-xl font-black text-slate-800 mt-0.5">{reportRows.length}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Active spending channels</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6 text-rose-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Expense</div>
+            <div className="text-xl font-black text-rose-600 mt-0.5">{formatAmount(symbol, totalAmount)}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Cumulative period outlays</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <DollarSign className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Avg / Category</div>
+            <div className="text-xl font-black text-blue-600 mt-0.5">
+              {formatAmount(symbol, reportRows.length ? totalAmount / reportRows.length : 0)}
+            </div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Mean category expenditure</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Data Table */}
+      <div id="expense-cat-print-area" className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr>
-                <th>Expense Category</th>
-                <th>Category Type</th>
-                <th className="ecr-amount">Amount</th>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Expense Category</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Category Type</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Amount</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan="3" className="ecr-empty-cell">Loading...</td>
+                  <td colSpan={3} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                    Loading categories...
+                  </td>
                 </tr>
               ) : reportRows.length === 0 ? (
                 <tr>
-                  <td colSpan="3" className="ecr-empty-cell">No expense records found for the selected date range.</td>
+                  <td colSpan={3} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    No expense records found for the selected date range.
+                  </td>
                 </tr>
               ) : (
                 pagedRows.map((r) => (
-                  <tr key={r.id}>
-                    <td className="ecr-name" title={r.name || ""}>{r.name || "-"}</td>
-                    <td title={r.type || ""}>{r.type || "Direct Expense"}</td>
-                    <td className="ecr-amount">{formatAmount(symbol, r.total_amount)}</td>
+                  <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-slate-800">{r.name || "-"}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                        {r.type || "Direct Expense"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-rose-600">
+                      {formatAmount(symbol, r.total_amount)}
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
+            {!loading && reportRows.length > 0 && (
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50/90 font-bold text-slate-800 text-xs">
+                <tr>
+                  <td colSpan={2} className="px-4 py-3 uppercase tracking-wider font-extrabold text-slate-900">Total Expense</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-rose-700">{formatAmount(symbol, totalAmount)}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
-        <div className="ecr-total-row">
-          <span className="ecr-total-label">Total Expense:</span>
-          <span className="ecr-total-value">{formatAmount(symbol, totalAmount)}</span>
+        <div className="ecr-no-print">
+          <ReportPagination
+            total={totalRows}
+            page={safePage}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+          />
         </div>
-      </div>
-
-      <div className="ecr-no-print">
-        <ReportPagination
-          total={totalRows}
-          page={safePage}
-          rowsPerPage={rowsPerPage}
-          onPageChange={setPage}
-          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
-        />
       </div>
     </div>
   );

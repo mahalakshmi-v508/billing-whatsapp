@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import {
   BarChart3,
+  CheckCircle2,
+  Clock,
   Copy,
   Eye,
   FileSpreadsheet,
@@ -27,6 +29,7 @@ import {
   Printer,
   Search,
   Trash2,
+  TrendingUp,
   X,
 } from "lucide-react";
 import ExpenseDocument from "./ExpenseDocument";
@@ -840,449 +843,268 @@ export default function ExpenseReport() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = filteredExpenses.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
+  const totalExpenseAmount = useMemo(() => filteredExpenses.reduce((s, e) => s + Number(e.total_amount || 0), 0), [filteredExpenses]);
+  const totalBalanceDue = useMemo(() => filteredExpenses.reduce((s, e) => s + Number(e.balance_amount || 0), 0), [filteredExpenses]);
+  const totalPaidAmount = useMemo(() => totalExpenseAmount - totalBalanceDue, [totalExpenseAmount, totalBalanceDue]);
+
   return (
-    <div className="expense-report-page">
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
       <style>{`
-        * { box-sizing: border-box; }
-        .expense-report-page {
-          min-height: 100vh;
-          background: #eef2f6;
-          color: #293855;
-          font-family: Arial, Helvetica, sans-serif;
-        }
-        .expense-report-shell {
-          max-width: 1200px;
-          margin: 0 auto;
-          background: #f8fafc;
-          min-height: 760px;
-          box-shadow: 0 0 16px rgba(0,0,0,.08);
-          border-left: 1px solid #dde2ea;
-          border-right: 1px solid #dde2ea;
-          padding: 16px 24px 32px;
-        }
-        .expense-report-topbar {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          min-height: 56px;
-          flex-wrap: wrap;
-        }
-        .report-title {
-          font-size: 22px;
-          font-weight: 700;
-          color: #304254;
-          margin: 0;
-        }
-        .date-range-row {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-        .control-box {
-          height: 36px;
-          border: 1px solid #ccd4dc;
-          border-radius: 6px;
-          background: #fff;
-          display: flex;
-          align-items: center;
-          padding: 0 12px;
-          color: #63748d;
-          font-weight: 700;
-          min-width: 160px;
-        }
-        .control-box select,
-        .control-box input {
-          border: none;
-          background: transparent;
-          outline: none;
-          width: 100%;
-          color: #304254;
-          font-weight: 700;
-        }
-        .between-label {
-          color: #66768a;
-          font-weight: 700;
-          margin: 0 8px;
-        }
-        .report-actions {
-          display: flex;
-          align-items: center;
-          gap: 18px;
-          margin-left: auto;
-          flex-wrap: wrap;
-        }
-        .graph-action,
-        .excel-action,
-        .print-action {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          color: #40536b;
-          font-weight: 700;
-          font-size: 14px;
-          cursor: pointer;
-          background: transparent;
-          border: none;
-        }
-        .graph-action svg,
-        .excel-action svg,
-        .print-action svg { width: 17px; height: 17px; }
-        .heading-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 16px;
-        }
-        .heading-row h2 {
-          font-size: 22px;
-          font-weight: 800;
-          margin: 0;
-          color: #344258;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-.add-expense-button {
-          background: linear-gradient(135deg, #e72a48, #d82727);
-          color: #fff;
-          border: none;
-          border-radius: 28px;
-          padding: 11px 22px;
-          font-weight: 800;
-          font-size: 14px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          box-shadow: 0 3px 10px rgba(210,39,39,.25);
-        }
-        .search-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 12px;
-        }
-        .search-box {
-          width: 320px;
-          height: 40px;
-          background: #fff;
-          display: flex;
-          align-items: center;
-          border: 1px solid #ccd6df;
-          border-radius: 5px;
-          padding: 0 10px;
-          gap: 8px;
-        }
-        .search-box input {
-          border: none;
-          background: transparent;
-          outline: none;
-          width: 100%;
-          color: #304254;
-        }
-        .trans-table-wrap {
-          width: 100%;
-          border: 1px solid #b9c3d2;
-          border-radius: 4px;
-          background: #fff;
-          margin-top: 12px;
-          overflow-x: auto;
-          box-shadow: 0 1px 2px rgba(0,0,0,.04);
-        }
-        .expense-table {
-          width: 100%;
-          border-collapse: collapse;
-          table-layout: fixed;
-        }
-        .expense-table th {
-          background: #eef2f8;
-          border-bottom: 1px solid #aebbd1;
-          color: #526174;
-          font-size: 12px;
-          font-weight: 800;
-          text-transform: uppercase;
-          height: 44px;
-          text-align: left;
-          padding: 0 12px;
-          white-space: nowrap;
-        }
-        .expense-table td {
-          height: 50px;
-          padding: 12px 14px;
-          border-bottom: 1px solid #dde4ec;
-          color: #304254;
-          font-size: 13px;
-          background: #fdfefe;
-          vertical-align: middle;
-        }
-        .expense-table tbody tr:nth-child(even) td {
-          background: #eef6f8;
-        }
-        .expense-table tbody tr:hover td {
-          background: #eaf7f9;
-        }
-        .expense-table th:nth-child(1), .expense-table td:nth-child(1) { width: 11%; }
-        .expense-table th:nth-child(2), .expense-table td:nth-child(2) { width: 9%; }
-        .expense-table th:nth-child(3), .expense-table td:nth-child(3) { width: 11%; }
-        .expense-table th:nth-child(4), .expense-table td:nth-child(4) { width: 14%; }
-        .expense-table th:nth-child(5), .expense-table td:nth-child(5) { width: 12%; }
-        .expense-table th:nth-child(6), .expense-table td:nth-child(6) { width: 11%; text-align: right; }
-        .expense-table th:nth-child(7), .expense-table td:nth-child(7) { width: 11%; text-align: right; }
-        .expense-table th:nth-child(8), .expense-table td:nth-child(8) { width: 7%; text-align: center; }
-        .money-align { text-align: right !important; }
-        .row-menu {
-          position: relative;
-        }
-        .row-menu-button {
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          color: #526174;
-          padding: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .no-data {
-          padding: 50px 20px;
-          text-align: center;
-          color: #65748b;
-          font-size: 18px;
-          font-weight: 700;
-        }
-        .loading { padding: 50px; text-align: center; color: #65748b; }
-        .expense-graph {
-          background: #fff;
-          border: 1px solid #dde2ea;
-          border-radius: 12px;
-          padding: 18px 20px 12px;
-          margin-top: 18px;
-          box-shadow: 0 1px 2px rgba(0,0,0,.04);
-        }
-        .expense-graph-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          flex-wrap: wrap;
-          padding-bottom: 14px;
-          border-bottom: 1px solid #eef2f8;
-        }
-        .expense-graph-title {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 800;
-          color: #304254;
-        }
-        .expense-graph-tabs {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          flex-wrap: wrap;
-        }
-        .expense-graph-tab {
-          background: transparent;
-          border: none;
-          border-bottom: 2px solid transparent;
-          color: #94a3b8;
-          font-size: 13px;
-          font-weight: 700;
-          padding: 8px 14px;
-          cursor: pointer;
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
-        }
-        .expense-graph-tab:hover { color: #40536b; }
-        .expense-graph-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
-        .expense-graph-empty {
-          padding: 56px 20px;
-          text-align: center;
-          color: #94a3b8;
-          font-size: 14px;
-          font-weight: 600;
-        }
-        .expense-graph-tooltip {
-          background: #0f172a;
-          color: #fff;
-          border-radius: 8px;
-          padding: 8px 12px;
-          font-size: 12px;
-          font-weight: 600;
-          line-height: 1.55;
-          box-shadow: 0 10px 24px rgba(0,0,0,.18);
-          white-space: nowrap;
-        }
-        .expense-graph-tooltip-amount { color: #93c5fd; }
-        @media (max-width: 760px) {
-          .expense-graph { padding: 14px 10px 8px; }
-          .expense-graph-title { font-size: 16px; }
-          .expense-graph-tab { padding: 7px 10px; font-size: 12px; }
-        }
-        .modal-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(15,23,42,.45);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-        .preview-modal {
-          width: min(980px, calc(100vw - 30px));
-          background: #fff;
-          border-radius: 12px;
-          border: 1px solid #cbd5e1;
-          padding: 18px;
-          box-shadow: 0 16px 40px rgba(0,0,0,.28);
-        }
-        .preview-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 12px;
-        }
-        .preview-head h3 { margin: 0; font-size: 18px; }
-        .preview-content {
-          max-height: 70vh;
-          overflow: auto;
-          background: #f8fafc;
-          padding: 12px;
-          border-radius: 8px;
-          border: 1px solid #dde4ec;
-        }
-        .preview-content table { width: 100%; border-collapse: collapse; }
-        .preview-content th, .preview-content td { padding: 8px; border: 1px solid #cbd5e1; }
-        @media (max-width: 760px) {
-          .expense-report-shell { padding: 12px; }
-          .report-actions { margin-left: 0; }
-          .search-box { width: 100%; }
-          .expense-table { min-width: 760px; }
-        }
         @media print {
-          body * { visibility: hidden; }
+          body * { visibility: hidden !important; }
           #expense-report-print-area,
-          #expense-report-print-area * { visibility: visible; }
+          #expense-report-print-area * { visibility: visible !important; }
           #expense-report-print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            padding: 16px;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            padding: 16px !important;
+            background: #ffffff !important;
           }
           .expense-report-no-print { display: none !important; }
         }
-        @keyframes er-spin {
-          to { transform: rotate(360deg); }
-        }
       `}</style>
 
-      <div className="expense-report-shell">
-        <div className="expense-report-topbar expense-report-no-print">
-          <div className="report-title">This Month</div>
-          <div className="date-range-row">
-            <div className="control-box">
-              <select value={period} onChange={(e) => handlePeriodChange(e.target.value)}>
-                <option>This Month</option>
-                <option>Between</option>
-              </select>
-            </div>
+      {/* Header & Export Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs expense-report-no-print">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+            <span>Expenses & Overheads</span>
+            <span>•</span>
+            <span>Transactional Ledger</span>
+          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+            Expense Transactions
+          </h1>
+          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+            Log of operational expenditures, vendor payments, voucher numbers, and balance tracking
+          </p>
+        </div>
 
-            <span className="between-label">Between</span>
-            <div className="control-box">
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            </div>
-            <span className="between-label">To</span>
-            <div className="control-box">
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-            </div>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setGraphModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <BarChart3 className="w-4 h-4 text-indigo-600" />
+            <span>Graph</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/purchases/expenses/add")}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Expense</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+            title="Export Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Excel</span>
+          </button>
+          <button
+            type="button"
+            onClick={handlePrintReport}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+            title="Print Report"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print</span>
+          </button>
+        </div>
+      </div>
 
-            <div className="control-box" style={{ minWidth: 160 }}>
-              <select value={selectedFirm} onChange={(e) => setSelectedFirm(e.target.value)}>
-                <option value="all">ALL FIRMS</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>{company.company_name || company.name || `Firm ${company.id}`}</option>
-                ))}
-              </select>
-            </div>
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4 expense-report-no-print">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Period selector */}
+          <select
+            value={period}
+            onChange={(e) => handlePeriodChange(e.target.value)}
+            className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+          >
+            <option>This Month</option>
+            <option>Between</option>
+          </select>
+
+          {/* From Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">From:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
           </div>
 
-          <div className="report-actions">
-            <button
-              className="graph-action"
-              onClick={() => setGraphModalOpen(true)}
-            >
-              <BarChart3 /> <span>Graph</span>
-            </button>
-            <button className="excel-action" onClick={handleDownloadExcel}>
-              <FileSpreadsheet /> <span>Excel Report</span>
-            </button>
-            <button className="print-action" onClick={handlePrintReport}>
-              <Printer /> <span>Print</span>
-            </button>
+          {/* To Date */}
+          <div className="flex items-center gap-2 bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">To:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
+            />
+          </div>
+
+          {/* Firm Selector */}
+          <select
+            value={selectedFirm}
+            onChange={(e) => setSelectedFirm(e.target.value)}
+            className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer max-w-[200px]"
+          >
+            <option value="all">ALL FIRMS</option>
+            {companies.map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.company_name || company.name || `Firm ${company.id}`}
+              </option>
+            ))}
+          </select>
+
+          {/* Search */}
+          <div className="relative w-48 sm:w-60">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              placeholder="Search expenses..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 expense-report-no-print">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+            <FileText className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Transactions</div>
+            <div className="text-xl font-black text-slate-800 mt-0.5">{filteredExpenses.length}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Recorded expense vouchers</div>
           </div>
         </div>
 
-        <div id="expense-report-print-area">
-          <div className="heading-row">
-            <h2>Transactions</h2>
-            <button className="add-expense-button expense-report-no-print" onClick={() => navigate("/purchases/expenses/add")}>
-              <Plus size={16} /> Add Expense
-            </button>
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6 text-rose-600" />
           </div>
-
-          <div className="search-row expense-report-no-print">
-            <div className="search-box">
-              <Search size={16} />
-              <input placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Expenses</div>
+            <div className="text-xl font-black text-rose-600 mt-0.5">{money(totalExpenseAmount)}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Gross expenditure</div>
           </div>
+        </div>
 
-          {loading ? (
-            <div className="loading">Loading expenses...</div>
-          ) : error ? (
-            <div className="no-data">{error}</div>
-          ) : filteredExpenses.length === 0 ? (
-            <div className="no-data">No transactions found</div>
-          ) : (
-            <div className="trans-table-wrap">
-              <table className="expense-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Exp. No.</th>
-                    <th>Party</th>
-                    <th>Category Name</th>
-                    <th>Payment Type</th>
-                    <th>Amount</th>
-                    <th>Balance Due</th>
-                    <th>Action</th>
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Total Settled</div>
+            <div className="text-xl font-black text-emerald-600 mt-0.5">{money(totalPaidAmount)}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Disbursed payments</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+            <Clock className="w-6 h-6 text-amber-600" />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Balance Due</div>
+            <div className="text-xl font-black text-amber-600 mt-0.5">{money(totalBalanceDue)}</div>
+            <div className="text-[11px] font-medium text-slate-400 mt-0.5">Unsettled accounts payable</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Data Table */}
+      <div id="expense-report-print-area" className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Date</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Exp. No.</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Party</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-left">Category Name</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center">Payment Type</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Amount</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Balance Due</th>
+                <th className="px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center expense-report-no-print">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                    Loading expenses...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-rose-500 font-medium">
+                    {error}
+                  </td>
+                </tr>
+              ) : filteredExpenses.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-16 text-center text-slate-400 font-medium">
+                    No transactions found.
+                  </td>
+                </tr>
+              ) : (
+                pagedRows.map((expense) => (
+                  <tr key={expense.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-medium text-slate-600">{formatINDate(expense.expense_date)}</td>
+                    <td className="px-4 py-3 font-bold text-indigo-600">{expense.expense_no || expense.id}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-800">{expense.party_name || "-"}</td>
+                    <td className="px-4 py-3 text-slate-600" title={expense.category_name || "-"}>
+                      {expense.category_name || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                        {expense.payment_type || "Cash"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{money(expense.total_amount || 0)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-amber-600">{money(expense.balance_amount || 0)}</td>
+                    <td className="px-4 py-3 text-center expense-report-no-print">
+                      <button
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer inline-flex items-center justify-center"
+                        title="More actions"
+                        onClick={(e) => toggleActionMenu(e, expense)}
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {pagedRows.map((expense) => (
-                    <tr key={expense.id}>
-                      <td>{formatINDate(expense.expense_date)}</td>
-                      <td>{expense.expense_no || expense.id}</td>
-                      <td>{expense.party_name || "-"}</td>
-                      <td title={expense.category_name || "-"}>{expense.category_name || "-"}</td>
-                      <td>{expense.payment_type || "Cash"}</td>
-                      <td className="money-align">{money(expense.total_amount || 0)}</td>
-                      <td className="money-align">{money(expense.balance_amount || 0)}</td>
-                      <td className="row-menu">
-                        <button
-                          className="row-menu-button"
-                          title="More actions"
-                          onClick={(e) => toggleActionMenu(e, expense)}
-                        >
-                          <MoreHorizontal size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))
+              )}
+            </tbody>
+            {!loading && filteredExpenses.length > 0 && (
+              <tfoot className="border-t-2 border-slate-200 bg-slate-50/90 font-bold text-slate-800 text-xs">
+                <tr>
+                  <td colSpan={5} className="px-4 py-3 uppercase tracking-wider font-extrabold text-slate-900">Total</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-slate-900">{money(totalExpenseAmount)}</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-amber-700">{money(totalBalanceDue)}</td>
+                  <td className="expense-report-no-print"></td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
         </div>
 
         <div className="expense-report-no-print">
@@ -1295,6 +1117,7 @@ export default function ExpenseReport() {
           />
         </div>
       </div>
+
       {actionMenu && actionMenuExpense && (
         <>
           {/* Click-outside to close */}

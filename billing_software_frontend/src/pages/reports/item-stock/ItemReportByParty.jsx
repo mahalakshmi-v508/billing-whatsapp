@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   ChevronDown,
   Search,
@@ -345,247 +345,307 @@ export default function ItemReportByParty() {
   const pagedRows = filtered.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
-    <div style={{ fontFamily: FONT, padding: "6px 2px", display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* ═══════════════════════════════════════════════════════════════
-          1. HEADER / DATE + COMPANY SECTION
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-        {/* Period preset dropdown */}
-        <div ref={periodRef} style={{ position: "relative" }}>
-          <button onClick={() => setPeriodOpen((v) => !v)} style={selectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY }}>{PERIODS.find((p) => p.value === period)?.label || "This Month"}</span>
-            <ChevronDown size={15} style={{ color: "#94a3b8", transform: periodOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-          {periodOpen && (
-            <div style={dropdownPanelStyle}>
-              {PERIODS.map((p) => (
-                <button
-                  key={p.value}
-                  onClick={() => selectPeriod(p)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: p.value === period ? "#eef2ff" : "transparent",
-                    color: p.value === period ? INDIGO : "#334155",
-                    fontWeight: p.value === period ? 700 : 500,
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+      {/* Filter Card */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Period preset dropdown */}
+          <div ref={periodRef} className="relative flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Period</span>
+            <button
+              type="button"
+              onClick={() => setPeriodOpen((v) => !v)}
+              className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer inline-flex items-center gap-2 min-w-[130px] justify-between"
+            >
+              <span className="truncate">{PERIODS.find((p) => p.value === period)?.label || "This Month"}</span>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
+            </button>
+            {periodOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => selectPeriod(p)}
+                    className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                      p.value === period
+                        ? "bg-blue-50 text-blue-700 font-bold"
+                        : "text-slate-700 hover:bg-slate-50 font-medium"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Date range */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Between</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={formatDateISO(startDate)}
+                onChange={(e) => {
+                  setRange({ from: parseDateISO(e.target.value), to: endDate });
+                  setPeriod("custom");
+                }}
+                className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer"
+              />
+              <span className="text-xs font-bold text-slate-400">to</span>
+              <input
+                type="date"
+                value={formatDateISO(endDate)}
+                onChange={(e) => {
+                  setRange({ from: startDate, to: parseDateISO(e.target.value) });
+                  setPeriod("custom");
+                }}
+                className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer"
+              />
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Date range */}
-        <div style={dateRangeBoxStyle}>
-          <span style={{ fontSize: 13, color: GRAY_TEXT, fontWeight: 500 }}>Between</span>
-          <input
-            type="date"
-            value={formatDateISO(startDate)}
-            onChange={(e) => { setRange({ from: parseDateISO(e.target.value), to: endDate }); setPeriod("custom"); }}
-            style={dateInputStyle}
-          />
-          <span style={{ fontSize: 12, color: "#9ca3af" }}>To</span>
-          <input
-            type="date"
-            value={formatDateISO(endDate)}
-            onChange={(e) => { setRange({ from: startDate, to: parseDateISO(e.target.value) }); setPeriod("custom"); }}
-            style={dateInputStyle}
-          />
-        </div>
+          {/* Company dropdown */}
+          <div ref={companyRef} className="relative flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Firm / Company</span>
+            <button
+              type="button"
+              onClick={() => setCompanyOpen((v) => !v)}
+              className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer inline-flex items-center gap-2 min-w-[150px] justify-between"
+            >
+              <span className="truncate">{companyName}</span>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform ${companyOpen ? "rotate-180" : ""}`} />
+            </button>
+            {companyOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
+                {companies.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => selectCompany(c)}
+                    className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                      Number(c.id) === Number(companyId)
+                        ? "bg-blue-50 text-blue-700 font-bold"
+                        : "text-slate-700 hover:bg-slate-50 font-medium"
+                    }`}
+                  >
+                    {c.company_name || "My Company"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* Company dropdown */}
-        <div ref={companyRef} style={{ position: "relative" }}>
-          <button onClick={() => setCompanyOpen((v) => !v)} style={selectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY }}>{companyName}</span>
-            <ChevronDown size={15} style={{ color: "#94a3b8", transform: companyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-          {companyOpen && (
-            <div style={dropdownPanelStyle}>
-              {companies.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => selectCompany(c)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: Number(c.id) === Number(companyId) ? "#eef2ff" : "transparent",
-                    color: Number(c.id) === Number(companyId) ? INDIGO : "#334155",
-                    fontWeight: Number(c.id) === Number(companyId) ? 700 : 500,
-                  }}
-                >
-                  {c.company_name || "My Company"}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT: Actions */}
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
-          <button onClick={handleExcel} style={actionBtnStyle}>
-            <FileSpreadsheet size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Excel Report</span>
-          </button>
-          <button onClick={handlePrint} style={actionBtnStyle}>
-            <Printer size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Print</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          2. DETAILS → FILTERS (party)
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={detailsCardStyle}>
-        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: GRAY_TEXT, marginBottom: 8 }}>
-          Details
-        </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>
-            Filters
-          </span>
-          <div ref={partyRef} style={{ position: "relative" }}>
-            <button onClick={() => setPartyOpen((v) => !v)} style={selectBtnStyle}>
-              <span style={{ fontWeight: 600, color: NAVY }}>{partyName}</span>
-              <ChevronDown size={15} style={{ color: "#94a3b8", transform: partyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+          {/* Party dropdown */}
+          <div ref={partyRef} className="relative flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Party Filter</span>
+            <button
+              type="button"
+              onClick={() => setPartyOpen((v) => !v)}
+              className="bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-800 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer inline-flex items-center gap-2 min-w-[170px] justify-between"
+            >
+              <span className="truncate">{partyName}</span>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform ${partyOpen ? "rotate-180" : ""}`} />
             </button>
             {partyOpen && (
-              <div style={{ ...dropdownPanelStyle, maxHeight: 320, overflowY: "auto", minWidth: 220 }}>
+              <div className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 max-h-60 overflow-y-auto">
                 <button
+                  type="button"
                   onClick={() => selectParty(null)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: partyId === 0 ? "#eef2ff" : "transparent",
-                    color: partyId === 0 ? INDIGO : "#334155",
-                    fontWeight: partyId === 0 ? 700 : 500,
-                  }}
+                  className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                    partyId === 0
+                      ? "bg-blue-50 text-blue-700 font-bold"
+                      : "text-slate-700 hover:bg-slate-50 font-medium"
+                  }`}
                 >
                   All Parties
                 </button>
                 {parties.map((p) => (
                   <button
                     key={p.role + "-" + p.id}
+                    type="button"
                     onClick={() => selectParty(p)}
-                    style={{
-                      ...dropdownItemStyle,
-                      background: String(p.id) === String(partyId) ? "#eef2ff" : "transparent",
-                      color: String(p.id) === String(partyId) ? INDIGO : "#334155",
-                      fontWeight: String(p.id) === String(partyId) ? 700 : 500,
-                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                      String(p.id) === String(partyId)
+                        ? "bg-blue-50 text-blue-700 font-bold"
+                        : "text-slate-700 hover:bg-slate-50 font-medium"
+                    }`}
                   >
                     {p.name}
                   </button>
                 ))}
                 {parties.length === 0 && (
-                  <div style={{ padding: "10px 14px", fontSize: 12, color: "#9ca3af" }}>No parties found</div>
+                  <div className="px-3.5 py-2 text-xs text-slate-400">No parties found</div>
                 )}
               </div>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Search field */}
-      <div style={{ position: "relative", marginBottom: 10 }}>
-        <Search size={15} color="#94a3b8" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", zIndex: 1 }} />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by item name..."
-          style={searchInputStyle}
-        />
-        {query && (
-          <button onClick={() => setQuery("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", display: "flex" }}>
-            <X size={14} color="#94a3b8" />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            title="Export Excel"
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <FileSpreadsheet size={15} className="text-emerald-600" />
+            Excel
           </button>
-        )}
+          <button
+            type="button"
+            title="Print"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+          >
+            <Printer size={15} className="text-slate-600" />
+            Print
+          </button>
+        </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          3. REPORT TABLE
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={tableContainerStyle}>
-        <div style={{ overflowX: "auto", flex: 1 }}>
-          <table style={tableStyle}>
+      {/* KPI Ribbon */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-indigo-50/60 to-white p-4 rounded-2xl border border-indigo-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-indigo-700 uppercase">Total Items</span>
+          <div className="text-xl font-black text-slate-800 tracking-tight mt-1">{filtered.length}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Reported Product Lines</div>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-50/60 to-white p-4 rounded-2xl border border-emerald-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase">Total Sale Amount</span>
+          <div className="text-xl font-black text-emerald-900 tracking-tight mt-1">{fmtINR(totals.sale_amt)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Quantity: {fmtQty(totals.sale_qty)} units</div>
+        </div>
+        <div className="bg-gradient-to-br from-rose-50/60 to-white p-4 rounded-2xl border border-rose-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-rose-700 uppercase">Total Purchase Amount</span>
+          <div className="text-xl font-black text-rose-900 tracking-tight mt-1">{fmtINR(totals.purchase_amt)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Quantity: {fmtQty(totals.purchase_qty)} units</div>
+        </div>
+        <div className="bg-gradient-to-br from-blue-50/60 to-white p-4 rounded-2xl border border-blue-100/80 shadow-2xs">
+          <span className="text-[11px] font-bold tracking-wider text-blue-700 uppercase">Net Turnover</span>
+          <div className="text-xl font-black text-blue-900 tracking-tight mt-1">{fmtINR(totals.sale_amt - totals.purchase_amt)}</div>
+          <div className="text-[11px] font-medium text-slate-400 mt-0.5">Sale − Purchase Volume</div>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        {/* Table Search Header */}
+        <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+          <div className="relative min-w-[260px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by item name…"
+              className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <div className="text-xs font-semibold text-slate-500">
+            Showing {filtered.length} items
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr>
-                <th style={{ ...thStyle, width: 50, minWidth: 50 }}>#</th>
-                <th style={{ ...thStyle, width: 260, minWidth: 220 }}>ITEM NAME</th>
-                <th style={{ ...thStyle, width: 120, minWidth: 110 }}>SALE QUANTITY</th>
-                <th style={{ ...thStyle, width: 140, minWidth: 130 }}>SALE AMOUNT</th>
-                <th style={{ ...thStyle, width: 150, minWidth: 120 }}>PURCHASE QUANTITY</th>
-                <th style={{ ...thStyle, width: 160, minWidth: 140 }}>PURCHASE AMOUNT</th>
+              <tr className="border-b border-slate-200/80 bg-slate-50/75">
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center w-12">#</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 min-w-[220px]">Item Name</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Sale Quantity</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Sale Amount</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Purchase Quantity</th>
+                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 text-right">Purchase Amount</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>Loading…</div>
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500 text-xs">
+                    Loading item party data…
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={6} style={emptyCellStyle}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                      <AlertCircle size={26} color="#dc2626" />
-                      <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 600 }}>{error}</div>
+                  <td colSpan={6} className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center gap-2 text-rose-600 text-xs font-bold">
+                      <AlertCircle size={22} />
+                      <span>{error}</span>
                     </div>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af" }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: NAVY, marginBottom: 4 }}>No items found</div>
-                      <div style={{ fontSize: 12 }}>Try adjusting the date range, party or search.</div>
-                    </div>
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500 text-xs font-medium">
+                    No items found matching the selected filters.
                   </td>
                 </tr>
               ) : (
                 pagedRows.map((r, i) => (
-                  <tr key={r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={{ ...tdStyle, fontSize: 13, fontWeight: 600, color: NAVY }}>{r.item_name || "-"}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmtQty(r.sale_qty)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: Number(r.sale_amt) > 0 ? "#15803d" : "#9ca3af" }}>
+                  <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 text-xs text-center font-medium text-slate-400">
+                      {(safePage - 1) * rowsPerPage + i + 1}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">
+                      {r.item_name || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-700 text-right tabular-nums font-semibold">
+                      {fmtQty(r.sale_qty)}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-bold text-right tabular-nums text-emerald-700">
                       {fmtINR(r.sale_amt)}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmtQty(r.purchase_qty)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: Number(r.purchase_amt) > 0 ? "#dc2626" : "#9ca3af" }}>
+                    <td className="px-4 py-3 text-xs text-slate-700 text-right tabular-nums font-semibold">
+                      {fmtQty(r.purchase_qty)}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-bold text-right tabular-nums text-rose-700">
                       {fmtINR(r.purchase_amt)}
                     </td>
                   </tr>
                 ))
               )}
             </tbody>
-            <tfoot>
-              <tr style={{ borderTop: `2px solid ${INDIGO}`, background: "#eef2ff" }}>
-                <td colSpan={2} style={{ ...tdStyle, fontWeight: 800, color: NAVY, fontSize: 13 }}>Total</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 800, color: NAVY, fontSize: 13 }}>
-                  {fmtQty(totals.sale_qty)}
-                </td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 800, color: NAVY, fontSize: 13 }}>
-                  {fmtINR(totals.sale_amt)}
-                </td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 800, color: NAVY, fontSize: 13 }}>
-                  {fmtQty(totals.purchase_qty)}
-                </td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 800, color: NAVY, fontSize: 13 }}>
-                  {fmtINR(totals.purchase_amt)}
-                </td>
-              </tr>
-            </tfoot>
+            {filtered.length > 0 && (
+              <tfoot>
+                <tr className="bg-slate-50/90 font-bold border-t border-slate-200/80 text-slate-800">
+                  <td colSpan={2} className="px-4 py-3 text-xs text-slate-900">Total</td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-slate-900">
+                    {fmtQty(totals.sale_qty)}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-emerald-700">
+                    {fmtINR(totals.sale_amt)}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-slate-900">
+                    {fmtQty(totals.purchase_qty)}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-right tabular-nums text-rose-700">
+                    {fmtINR(totals.purchase_amt)}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
+
+        <ReportPagination
+          total={totalRows}
+          page={safePage}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setPage}
+          onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
+        />
       </div>
-      <ReportPagination
-        total={totalRows}
-        page={safePage}
-        rowsPerPage={rowsPerPage}
-        onPageChange={setPage}
-        onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
-      />
     </div>
   );
 }

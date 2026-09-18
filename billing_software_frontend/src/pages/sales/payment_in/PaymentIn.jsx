@@ -299,384 +299,383 @@ export default function PaymentIn() {
   };
 
   return (
-    <div className="p-5 max-w-[1400px] mx-auto min-h-screen space-y-4">
-      {/* ── 1. TOP HEADER (Payment-In ⌵ | + Add Payment-In | Settings) ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 cursor-pointer">
-          <h1 className="text-xl font-bold text-slate-800 tracking-tight">Payment-In</h1>
-          <ChevronDown size={18} className="text-slate-600 mt-0.5" />
+    <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* ── 1. TOP HEADER ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 select-none">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-100 ring-4 ring-emerald-50/50">
+            <TrendingUp size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Payment-In</h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Record customer inward payments, settle party ledger balances &amp; track inflows
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs rounded-full shadow-sm shadow-rose-500/30 transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-200 transition cursor-pointer"
           >
-            <Plus size={15} strokeWidth={2.6} />
+            <Plus size={16} strokeWidth={2.6} />
             <span>Add Payment-In</span>
           </button>
-
-          <button
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition cursor-pointer"
-            title="Settings"
-          >
-            <Settings size={18} />
-          </button>
         </div>
       </div>
 
-      {/* ── 2. FILTER BAR (Matching media_1787829087014.png) ── */}
-      <div className="flex flex-wrap items-center gap-3 py-1 text-xs">
-        <span className="font-semibold text-slate-500 mr-1">Filter by :</span>
-
-        {/* Period Selector (e.g. This Month) */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setPeriodOpen(!periodOpen);
-              setFirmOpen(false);
-              setUserOpen(false);
-            }}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-semibold rounded-full border border-blue-200/60 transition cursor-pointer"
-          >
-            <span className="capitalize">{period === "all_time" ? "All Time" : period.replace("_", " ")}</span>
-            <ChevronDown size={13} />
-          </button>
-
-          {periodOpen && (
-            <div className="absolute left-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95">
-              {[
-                { label: "All Time", val: "all_time" },
-                { label: "Today", val: "today" },
-                { label: "This Week", val: "this_week" },
-                { label: "This Month", val: "this_month" },
-                { label: "This Quarter", val: "this_quarter" },
-                { label: "This Year", val: "this_year" },
-              ].map((p) => (
-                <button
-                  key={p.val}
-                  onClick={() => setPresetDates(p.val)}
-                  className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                    period === p.val ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Date Range Pill */}
-        <div className="relative">
-          <button
-            onClick={() => setShowDatePicker(!showDatePicker)}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-semibold rounded-full border border-blue-200/60 transition cursor-pointer"
-          >
-            <Calendar size={13} className="text-blue-600" />
-            <span>
-              {fromDate && toDate
-                ? `${formatDateDMY(fromDate)} To ${formatDateDMY(toDate)}`
-                : "All Time"}
-            </span>
-          </button>
-
-          {showDatePicker && (
-            <div className="absolute left-0 mt-1 p-3 bg-white rounded-xl shadow-xl border border-slate-100 z-50 flex items-center gap-2 animate-in fade-in">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="border border-slate-200 rounded px-2 py-1 text-xs"
-              />
-              <span className="text-slate-400">to</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="border border-slate-200 rounded px-2 py-1 text-xs"
-              />
-              <button
-                onClick={() => setShowDatePicker(false)}
-                className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs font-bold"
-              >
-                Apply
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* All Firms Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setFirmOpen(!firmOpen);
-              setPeriodOpen(false);
-              setUserOpen(false);
-            }}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-semibold rounded-full border border-blue-200/60 transition cursor-pointer"
-          >
-            <span>
-              {selectedFirm === "all" ? "All Firms" : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
-            </span>
-            <ChevronDown size={13} />
-          </button>
-
-          {firmOpen && (
-            <div className="absolute left-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95">
-              <button
-                onClick={() => {
-                  setSelectedFirm("all");
-                  setFirmOpen(false);
-                }}
-                className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                  selectedFirm === "all" ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
-                }`}
-              >
-                All Firms
-              </button>
-              {companies.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => {
-                    setSelectedFirm(String(c.id));
-                    setFirmOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                    String(selectedFirm) === String(c.id) ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
-                  }`}
-                >
-                  {c.company_name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* All Users Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setUserOpen(!userOpen);
-              setPeriodOpen(false);
-              setFirmOpen(false);
-            }}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-50/70 hover:bg-blue-100/70 text-blue-700 font-semibold rounded-full border border-blue-200/60 transition cursor-pointer"
-          >
-            <span>
-              {selectedUser === "all" ? "All Users" : cashiers.find((c) => String(c.id) === String(selectedUser))?.name || "User"}
-            </span>
-            <ChevronDown size={13} />
-          </button>
-
-          {userOpen && (
-            <div className="absolute left-0 mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95">
-              <button
-                onClick={() => {
-                  setSelectedUser("all");
-                  setUserOpen(false);
-                }}
-                className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                  selectedUser === "all" ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
-                }`}
-              >
-                All Users
-              </button>
-              {cashiers.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => {
-                    setSelectedUser(String(u.id));
-                    setUserOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
-                    String(selectedUser) === String(u.id) ? "text-blue-600 font-bold bg-blue-50/40" : "text-slate-700"
-                  }`}
-                >
-                  {u.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── 3. METRIC CARD (Matching media_1787829087014.png) ── */}
-      <div className="pt-2">
-        <div className="w-[420px] max-w-full rounded-2xl border border-purple-200/80 bg-purple-50/20 p-4 shadow-xs">
+      {/* ── 2. METRIC KPI CARDS (PaySplitX 4-Card Strip) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Received */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs font-semibold text-slate-500 block">Total Amount</span>
-              <div className="text-2xl font-black text-slate-900 mt-1">
-                ₹ {metrics.total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-              </div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Received</p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+                ₹ {metrics.received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+              </h3>
             </div>
-
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[11px] font-bold">
-              <span>100%</span>
-              <TrendingUp size={12} />
-              <span className="text-[10px] text-slate-400 font-normal ml-0.5">vs last month</span>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black">
+              ₹
             </div>
           </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>{filteredPayments.length} Total records</span>
+            <span className="inline-flex items-center gap-1 font-bold text-emerald-600">
+              Inflow Active
+            </span>
+          </div>
+        </div>
 
-          <div className="mt-3 pt-2 border-t border-purple-100 grid grid-cols-3 gap-2 text-xs font-semibold text-slate-600">
+        {/* Card 2: Total Voucher Value */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+          <div className="flex items-start justify-between">
             <div>
-              Received:{" "}
-              <strong className="text-emerald-700 font-bold block sm:inline">
-                ₹ {metrics.received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-              </strong>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Value</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                ₹ {metrics.total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+              </h3>
             </div>
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              Tot
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Invoice allocations</span>
+            <span className="text-[11px] font-semibold text-slate-600">Aggregate</span>
+          </div>
+        </div>
+
+        {/* Card 3: Discount Given */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="flex items-start justify-between">
             <div>
-              Discount:{" "}
-              <strong className="text-amber-600 font-bold block sm:inline">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Discounts Given</p>
+              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight">
                 ₹ {metrics.discount.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-              </strong>
+              </h3>
             </div>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              %
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Settlement waivers</span>
+            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+              Cash discounts
+            </span>
+          </div>
+        </div>
+
+        {/* Card 4: Remaining Balance */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-rose-500" />
+          <div className="flex items-start justify-between">
             <div>
-              Balance:{" "}
-              <strong className="text-red-600 font-bold block sm:inline">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Balance Pending</p>
+              <h3 className="text-2xl font-black text-rose-600 mt-1 tracking-tight">
                 ₹ {metrics.balance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-              </strong>
+              </h3>
             </div>
+            <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+              Bal
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Unsettled invoice credit</span>
+            <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+              Due to collect
+            </span>
           </div>
         </div>
       </div>
 
-      {/* ── 4. TRANSACTIONS CARD ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        {/* Card Header: Title & Utility Icons */}
-        <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-white">
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Transactions</h2>
+      {/* ── 3. FILTER TOOLBAR ── */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
 
-          <div className="flex items-center gap-2">
-            {/* Search Input Toggle */}
-            {showSearchInput ? (
-              <div className="flex items-center bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs">
-                <Search size={13} className="text-slate-400 mr-1.5" />
+          {/* Period Selector */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setPeriodOpen(!periodOpen);
+                setFirmOpen(false);
+                setUserOpen(false);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            >
+              <span className="capitalize">{period === "all_time" ? "All Time" : period.replace("_", " ")}</span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {periodOpen && (
+              <div className="absolute left-0 mt-1.5 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                {[
+                  { label: "All Time", val: "all_time" },
+                  { label: "Today", val: "today" },
+                  { label: "This Week", val: "this_week" },
+                  { label: "This Month", val: "this_month" },
+                  { label: "This Quarter", val: "this_quarter" },
+                  { label: "This Year", val: "this_year" },
+                ].map((p) => (
+                  <button
+                    key={p.val}
+                    onClick={() => setPresetDates(p.val)}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                      period === p.val ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Date Range Pill */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition cursor-pointer"
+            >
+              <Calendar size={13} className="text-slate-400" />
+              <span>
+                {fromDate && toDate
+                  ? `${formatDateDMY(fromDate)} — ${formatDateDMY(toDate)}`
+                  : "Custom Date"}
+              </span>
+            </button>
+
+            {showDatePicker && (
+              <div className="absolute left-0 mt-1.5 p-3 bg-white rounded-xl shadow-xl border border-slate-200 z-50 flex items-center gap-2 animate-in fade-in">
                 <input
-                  type="text"
-                  autoFocus
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by party, ref..."
-                  className="bg-transparent text-xs outline-none text-slate-800 w-36"
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="border border-slate-200 rounded-lg px-2 py-1 text-xs outline-none"
+                />
+                <span className="text-slate-400 font-bold text-xs">to</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="border border-slate-200 rounded-lg px-2 py-1 text-xs outline-none"
                 />
                 <button
-                  onClick={() => {
-                    setShowSearchInput(false);
-                    setSearchQuery("");
-                  }}
-                  className="text-slate-400 hover:text-slate-600"
+                  onClick={() => setShowDatePicker(false)}
+                  className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold"
                 >
-                  <X size={13} />
+                  Apply
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setShowSearchInput(true)}
-                className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
-                title="Search"
-              >
-                <Search size={14} />
-              </button>
             )}
+          </div>
 
-            {/* Excel Export Button */}
+          {/* All Firms Dropdown */}
+          <div className="relative">
             <button
-              onClick={handleExportExcel}
-              className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 hover:bg-emerald-100 font-bold text-xs transition cursor-pointer"
-              title="Export to Excel"
+              onClick={() => {
+                setFirmOpen(!firmOpen);
+                setPeriodOpen(false);
+                setUserOpen(false);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              xls
+              <span>
+                {selectedFirm === "all" ? "All Firms" : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
+              </span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
             </button>
 
-            {/* Print Table Button */}
+            {firmOpen && (
+              <div className="absolute left-0 mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                <button
+                  onClick={() => {
+                    setSelectedFirm("all");
+                    setFirmOpen(false);
+                  }}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                    selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                  }`}
+                >
+                  All Firms
+                </button>
+                {companies.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedFirm(String(c.id));
+                      setFirmOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition cursor-pointer ${
+                      String(selectedFirm) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    {c.company_name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* All Users Dropdown */}
+          <div className="relative">
             <button
-              onClick={() => window.print()}
-              className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
-              title="Print Transactions"
+              onClick={() => {
+                setUserOpen(!userOpen);
+                setPeriodOpen(false);
+                setFirmOpen(false);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <Printer size={14} />
+              <span>
+                {selectedUser === "all" ? "All Users" : cashiers.find((c) => String(c.id) === String(selectedUser))?.name || "User"}
+              </span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${userOpen ? "rotate-180" : ""}`} />
             </button>
+
+            {userOpen && (
+              <div className="absolute left-0 mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                <button
+                  onClick={() => {
+                    setSelectedUser("all");
+                    setUserOpen(false);
+                  }}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                    selectedUser === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                  }`}
+                >
+                  All Users
+                </button>
+                {cashiers.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => {
+                      setSelectedUser(String(u.id));
+                      setUserOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition cursor-pointer ${
+                      String(selectedUser) === String(u.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    {u.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── TABLE ── */}
+        {/* Right Action Icons: Search + Export + Print */}
+        <div className="flex items-center gap-2">
+          {showSearchInput ? (
+            <div className="flex items-center bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs">
+              <Search size={13} className="text-slate-400 mr-1.5" />
+              <input
+                type="text"
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search party, ref..."
+                className="bg-transparent text-xs outline-none text-slate-800 w-36"
+              />
+              <button
+                onClick={() => {
+                  setShowSearchInput(false);
+                  setSearchQuery("");
+                }}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowSearchInput(true)}
+              className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
+              title="Search"
+            >
+              <Search size={14} />
+            </button>
+          )}
+
+          {/* Excel Export */}
+          <button
+            onClick={handleExportExcel}
+            className="px-3 h-8 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center gap-1.5 text-emerald-700 hover:bg-emerald-100 font-bold text-xs transition cursor-pointer"
+            title="Export to Excel"
+          >
+            <span>Excel</span>
+          </button>
+
+          {/* Print Table */}
+          <button
+            onClick={() => window.print()}
+            className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
+            title="Print Transactions"
+          >
+            <Printer size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── 4. DIRECTORY TABLE CARD ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs min-w-max">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/60 font-semibold text-slate-600">
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>Date</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Ref. no.</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>Party Name</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Total Amount</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Received</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Discount</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-4 border-r border-slate-200 text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Balance</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>Payment Type</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 border-r border-slate-200 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <span>Status</span>
-                    <Filter size={11} className="text-slate-400" />
-                  </div>
-                </th>
-                <th className="py-3 px-3.5 text-center whitespace-nowrap">Actions</th>
+              <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                <th className="py-3.5 px-4">Date</th>
+                <th className="py-3.5 px-4 text-right">Ref. No.</th>
+                <th className="py-3.5 px-4">Party Name</th>
+                <th className="py-3.5 px-4 text-right">Total Amount</th>
+                <th className="py-3.5 px-4 text-right">Received</th>
+                <th className="py-3.5 px-4 text-right">Discount</th>
+                <th className="py-3.5 px-4 text-right">Balance</th>
+                <th className="py-3.5 px-4">Payment Type</th>
+                <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="divide-y divide-slate-100 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
-                    <RefreshCw size={24} className="animate-spin text-blue-500 mx-auto mb-2" />
+                  <td colSpan={10} className="py-14 text-center text-slate-400">
+                    <RefreshCw size={24} className="animate-spin text-indigo-500 mx-auto mb-2" />
                     <span>Loading Payment-In Records...</span>
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
-                    <p className="font-semibold text-slate-500">No payment-in transactions found.</p>
-                    <p className="text-xs text-slate-400 mt-1">Click &quot;+ Add Payment-In&quot; to record customer credit payment.</p>
+                  <td colSpan={10} className="py-14 text-center text-slate-400">
+                    <p className="font-bold text-slate-700 text-sm">No payment-in transactions found.</p>
+                    <p className="text-xs text-slate-400 mt-1">Click &quot;+ Add Payment-In&quot; to record customer payment.</p>
                   </td>
                 </tr>
               ) : (
@@ -692,77 +691,85 @@ export default function PaymentIn() {
                   return (
                     <tr
                       key={p.id || idx}
-                      className="group hover:bg-[#eaedf2] transition-colors duration-150 text-slate-700"
+                      className="hover:bg-indigo-50/20 transition-colors duration-150 text-slate-700"
                     >
                       {/* Date */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-600 group-hover:text-slate-900 whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
                         {formatDateDMY(p.payment_date || p.created_at)}
                       </td>
 
                       {/* Ref. no. */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 text-right whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-bold text-indigo-600 text-right whitespace-nowrap">
                         #{refNo}
                       </td>
 
                       {/* Party Name */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-800 group-hover:text-slate-950 whitespace-nowrap">
-                        {p.customer_name || p.name || "Customer"}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="font-bold text-slate-900">{p.customer_name || p.name || "Customer"}</div>
+                        {p.phone && <div className="text-[10px] text-slate-400 font-normal">{p.phone}</div>}
                       </td>
 
                       {/* Total Amount */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-900 text-right whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-black text-slate-900 text-right whitespace-nowrap">
                         ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                       </td>
 
                       {/* Received */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-slate-900 text-right whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-black text-emerald-600 text-right whitespace-nowrap">
                         ₹ {received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                       </td>
 
                       {/* Discount */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-amber-600 group-hover:text-amber-700 text-right whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-bold text-amber-600 text-right whitespace-nowrap">
                         ₹ {discountAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                       </td>
 
                       {/* Balance */}
-                      <td className="py-3.5 px-4 border-r border-slate-200 font-medium group-hover:font-bold text-red-600 group-hover:text-red-700 text-right whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-bold text-rose-600 text-right whitespace-nowrap">
                         ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                       </td>
 
                       {/* Payment Type */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 capitalize text-slate-600 group-hover:text-slate-900 font-medium group-hover:font-bold whitespace-nowrap">
-                        {p.payment_method || "Cash"}
+                      <td className="py-3.5 px-4 capitalize whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                          {p.payment_method || "Cash"}
+                        </span>
                       </td>
 
                       {/* Status */}
-                      <td className="py-3.5 px-3.5 border-r border-slate-200 whitespace-nowrap font-bold">
-                        {status === "paid" ? (
-                          <span className="text-emerald-700">Paid</span>
-                        ) : (
-                          <span className="text-amber-600 font-bold">Partial</span>
-                        )}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            status === "paid"
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                              : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${status === "paid" ? "bg-emerald-600" : "bg-amber-600"}`} />
+                          {status}
+                        </span>
                       </td>
 
                       {/* Actions Column */}
-                      <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5 text-slate-400">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1 text-slate-400">
                           {/* Print POS */}
                           <button
                             onClick={() => navigate(`/invoice/${p.invoice_no}`)}
-                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
                             title="Print"
                           >
                             <Printer size={15} />
                           </button>
 
-                          {/* Share Icon with Popover */}
+                          {/* Share Popover */}
                           <div className="relative">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActiveShareId(activeShareId === p.id ? null : p.id);
                               }}
-                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
                               title="Share"
                             >
                               <Share2 size={15} />
@@ -779,7 +786,9 @@ export default function PaymentIn() {
                           <div className="relative">
                             <button
                               onClick={() => setActiveMenuId(isMenuOpen ? null : p.id)}
-                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
+                                isMenuOpen ? "text-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                              }`}
                               title="More actions"
                             >
                               <MoreVertical size={15} />
@@ -788,17 +797,17 @@ export default function PaymentIn() {
                             {isMenuOpen && (
                               <div
                                 ref={menuRef}
-                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                                className="absolute right-0 top-9 w-40 bg-white rounded-2xl shadow-2xl border border-slate-100 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                               >
                                 <button
                                   onClick={() => {
                                     setActiveMenuId(null);
                                     navigate(`/sales/edit/${p.invoice_no}`);
                                   }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition text-left cursor-pointer"
                                 >
-                                  <Edit size={14} className="text-blue-600" />
-                                  <span>Edit</span>
+                                  <Edit size={14} className="text-indigo-600" />
+                                  <span>Edit Invoice</span>
                                 </button>
                                 <button
                                   onClick={() => {
@@ -816,10 +825,10 @@ export default function PaymentIn() {
                                     setActiveMenuId(null);
                                     setDeleteTarget(p);
                                   }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition text-left cursor-pointer"
                                 >
-                                  <Trash2 size={14} className="text-red-600" />
-                                  <span>Delete</span>
+                                  <Trash2 size={14} className="text-rose-600" />
+                                  <span>Delete Voucher</span>
                                 </button>
                               </div>
                             )}
@@ -832,87 +841,58 @@ export default function PaymentIn() {
               )}
             </tbody>
           </table>
+        </div>
 
-          {/* ── PAGINATION BAR (Matching Sale Invoices) ── */}
-          {filteredPayments.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 text-xs text-slate-600 bg-white">
-              <div className="flex items-center gap-4">
-                <span>
-                  Showing <strong className="font-semibold text-slate-800">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
-                  <strong className="font-semibold text-slate-800">
-                    {Math.min(safePage * rowsPerPage, filteredPayments.length)}
-                  </strong>{" "}
-                  of <strong className="font-semibold text-slate-800">{filteredPayments.length}</strong> entries
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-slate-500">Rows:</span>
-                  <select
-                    value={rowsPerPage}
-                    onChange={(e) => {
-                      setRowsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-blue-500 cursor-pointer"
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={safePage === 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                  title="Previous Page"
+        {/* ── PAGINATION BAR ── */}
+        {filteredPayments.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200/80 text-xs text-slate-600 bg-white">
+            <div className="flex items-center gap-4">
+              <span>
+                Showing <strong className="font-bold text-slate-900">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
+                <strong className="font-bold text-slate-900">
+                  {Math.min(safePage * rowsPerPage, filteredPayments.length)}
+                </strong>{" "}
+                of <strong className="font-bold text-slate-900">{filteredPayments.length}</strong> entries
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-400">Rows:</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={(e) => {
+                    setRowsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none"
                 >
-                  <ChevronLeft size={15} />
-                </button>
-
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
-                  .reduce((acc, p, i, arr) => {
-                    if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((item, i) =>
-                    item === "..." ? (
-                      <span key={`dots-${i}`} className="px-2 text-slate-400 font-bold">
-                        …
-                      </span>
-                    ) : (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => setCurrentPage(item)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
-                          safePage === item
-                            ? "bg-blue-600 text-white font-bold shadow-sm"
-                            : "border border-slate-200 text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    )
-                  )}
-
-                <button
-                  type="button"
-                  disabled={safePage === totalPages}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                  title="Next Page"
-                >
-                  <ChevronRight size={15} />
-                </button>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
               </div>
             </div>
-          )}
-        </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                disabled={safePage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <div className="px-3 py-1 font-bold text-slate-800">
+                {safePage} / {totalPages}
+              </div>
+              <button
+                disabled={safePage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── 5. ADD PAYMENT-IN MODAL ── */}

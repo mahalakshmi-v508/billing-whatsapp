@@ -6,17 +6,20 @@ import {
   Printer,
   X,
   AlertCircle,
+  Building2,
+  Calendar,
+  Layers,
+  Package,
+  TrendingUp,
+  TrendingDown,
+  ShoppingBag,
+  ShoppingCart,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
-
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const NAVY = "#1e1b4b";
-const GRAY_TEXT = "#6b7280";
-const LIGHT_BORDER = "#e5e7eb";
+import { showToast } from "../../../utils/reportToast";
 
 const PERIODS = [
   { label: "This Month", value: "this_month" },
@@ -42,6 +45,7 @@ const fmtINRNum = (n) =>
   Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function formatDateISO(d) {
+  if (!d) return "";
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
@@ -49,6 +53,7 @@ function formatDateISO(d) {
 }
 
 function parseDateISO(s) {
+  if (!s) return new Date();
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
@@ -61,10 +66,7 @@ function today() {
 function applyPeriod(period) {
   const t = today();
   if (period === "this_month") {
-    return {
-      from: new Date(t.getFullYear(), t.getMonth(), 1),
-      to: t,
-    };
+    return { from: new Date(t.getFullYear(), t.getMonth(), 1), to: t };
   }
   if (period === "last_month") {
     const first = new Date(t.getFullYear(), t.getMonth() - 1, 1);
@@ -95,12 +97,12 @@ function printElement(element, title) {
   doc.write(
     `<html><head><title>${title || "Party Report By Item"}</title>
      <style>
-       body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:28px;color:#1e1b4b;}
-       h2{margin:0 0 4px;font-size:18px;}
+       body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:28px;color:#0f172a;}
+       h2{margin:0 0 4px;font-size:18px;color:#1e1b4b;}
        .meta{color:#64748b;font-size:12px;margin-bottom:18px;}
        table{width:100%;border-collapse:collapse;font-size:11px;}
        th,td{border:1px solid #e2e8f0;padding:7px 9px;text-align:left;}
-       th{background:#f1f5f9;color:#334155;}
+       th{background:#f8fafc;color:#475569;font-weight:bold;}
        td.r,th.r{text-align:right;}
      </style></head>
      <body>${element.innerHTML}</body></html>`
@@ -157,7 +159,7 @@ export default function PartyReportByItem() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Load companies for this admin, default to saved / single company
+  // Load companies
   useEffect(() => {
     if (!adminId) return;
     api
@@ -185,7 +187,7 @@ export default function PartyReportByItem() {
     setCompanyOpen(false);
   };
 
-  // Load categories for the selected company
+  // Load categories
   useEffect(() => {
     if (!companyId) return;
     api
@@ -194,7 +196,7 @@ export default function PartyReportByItem() {
       .catch(() => setCategories([]));
   }, [companyId]);
 
-  // Load items (products) for the selected company
+  // Load products
   useEffect(() => {
     if (!companyId) return;
     api
@@ -203,7 +205,6 @@ export default function PartyReportByItem() {
       .catch(() => setItems([]));
   }, [companyId]);
 
-  // Items available for the currently selected category (frontend filter of loaded products)
   const categoryItems = useMemo(() => {
     if (categoryId === 0) return items;
     return items.filter((it) => Number(it.category_id) === Number(categoryId));
@@ -218,7 +219,7 @@ export default function PartyReportByItem() {
     [categoryItems, itemId]
   );
 
-  // Fetch report from the backend on any filter change
+  // Fetch report data
   useEffect(() => {
     if (companyId === null) return;
     const t = setTimeout(() => {
@@ -256,7 +257,6 @@ export default function PartyReportByItem() {
     setPeriodOpen(false);
   };
 
-  // Search filter across party name
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
@@ -265,7 +265,6 @@ export default function PartyReportByItem() {
 
   const prettyFrom = startDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-
   const metaLabel = `${prettyFrom} to ${prettyTo}`;
 
   const totalRows = filtered.length;
@@ -308,6 +307,7 @@ export default function PartyReportByItem() {
         new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
         `Party_Report_By_Item_${formatDateISO(startDate)}_to_${formatDateISO(endDate)}.xlsx`
       );
+      showToast("Excel exported successfully.", "success");
     } catch {
       setError("Excel export failed. Please try again.");
     }
@@ -353,270 +353,363 @@ export default function PartyReportByItem() {
   };
 
   return (
-    <div style={{ fontFamily: FONT, padding: "6px 2px", display: "flex", flexDirection: "column", height: "100%" }}>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
       {/* ═══════════════════════════════════════════════════════════════
-          1. HEADER / DATE + COMPANY SECTION
+          1. HEADER CONTROLS (Period, Dates, Firm, Category, Item, Actions)
           ═══════════════════════════════════════════════════════════════ */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-        {/* This Month preset dropdown */}
-        <div ref={periodRef} style={{ position: "relative" }}>
-          <button onClick={() => setPeriodOpen((v) => !v)} style={selectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY }}>{PERIODS.find((p) => p.value === period)?.label || "This Month"}</span>
-            <ChevronDown size={15} style={{ color: "#94a3b8", transform: periodOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-          {periodOpen && (
-            <div style={dropdownPanelStyle}>
-              {PERIODS.map((p) => (
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Period selector */}
+          <div ref={periodRef} className="relative">
+            <button
+              onClick={() => setPeriodOpen((v) => !v)}
+              className="inline-flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200/80 rounded-xl hover:bg-slate-100 transition shadow-2xs"
+            >
+              <Calendar size={14} className="text-indigo-600" />
+              <span>{PERIODS.find((p) => p.value === period)?.label || "This Month"}</span>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform duration-150 ${periodOpen ? "rotate-180" : ""}`} />
+            </button>
+            {periodOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 animate-in fade-in zoom-in-95 duration-100">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => selectPeriod(p)}
+                    className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                      p.value === period
+                        ? "bg-indigo-50 text-indigo-700 font-bold"
+                        : "text-slate-700 hover:bg-slate-50 font-medium"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Date range inputs */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+            <span className="text-xs font-semibold text-slate-500">Between</span>
+            <input
+              type="date"
+              value={formatDateISO(startDate)}
+              onChange={(e) => { setRange({ from: parseDateISO(e.target.value), to: endDate }); setPeriod("custom"); }}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
+            />
+            <span className="text-xs font-semibold text-slate-400">To</span>
+            <input
+              type="date"
+              value={formatDateISO(endDate)}
+              onChange={(e) => { setRange({ from: startDate, to: parseDateISO(e.target.value) }); setPeriod("custom"); }}
+              className="bg-transparent border-0 text-xs font-bold text-slate-800 p-0 focus:ring-0 cursor-pointer"
+            />
+          </div>
+
+          {/* Company dropdown */}
+          <div ref={companyRef} className="relative min-w-[160px]">
+            <button
+              onClick={() => setCompanyOpen((v) => !v)}
+              className="w-full inline-flex items-center justify-between gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200/80 rounded-xl hover:bg-slate-100 transition shadow-2xs"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <Building2 size={14} className="text-indigo-600 flex-shrink-0" />
+                <span className="truncate">{companyName}</span>
+              </div>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform duration-150 ${companyOpen ? "rotate-180" : ""}`} />
+            </button>
+            {companyOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto p-1 animate-in fade-in zoom-in-95 duration-100">
+                {companies.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => selectCompany(c)}
+                    className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-colors truncate ${
+                      Number(c.id) === Number(companyId) ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {c.company_name || "My Company"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Categories dropdown */}
+          <div ref={catRef} className="relative min-w-[150px]">
+            <button
+              onClick={() => setCatOpen((v) => !v)}
+              className="w-full inline-flex items-center justify-between gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200/80 rounded-xl hover:bg-slate-100 transition shadow-2xs"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <Layers size={14} className="text-indigo-600 flex-shrink-0" />
+                <span className="truncate">{selectedCatLabel}</span>
+              </div>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform duration-150 ${catOpen ? "rotate-180" : ""}`} />
+            </button>
+            {catOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto p-1 animate-in fade-in zoom-in-95 duration-100">
                 <button
-                  key={p.value}
-                  onClick={() => selectPeriod(p)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: p.value === period ? "#eef2ff" : "transparent",
-                    color: p.value === period ? INDIGO : "#334155",
-                    fontWeight: p.value === period ? 700 : 500,
-                  }}
+                  onClick={() => { setCategoryId(0); setCatOpen(false); }}
+                  className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-colors ${
+                    categoryId === 0 ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
                 >
-                  {p.label}
+                  All Categories
                 </button>
-              ))}
-            </div>
-          )}
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setCategoryId(Number(c.id)); setItemId(0); setCatOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-colors truncate ${
+                      Number(c.id) === Number(categoryId) ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Item dropdown */}
+          <div ref={itemRef} className="relative min-w-[160px]">
+            <button
+              onClick={() => setItemOpen((v) => !v)}
+              className="w-full inline-flex items-center justify-between gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200/80 rounded-xl hover:bg-slate-100 transition shadow-2xs"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <Package size={14} className="text-indigo-600 flex-shrink-0" />
+                <span className="truncate">{selectedItemLabel}</span>
+              </div>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform duration-150 ${itemOpen ? "rotate-180" : ""}`} />
+            </button>
+            {itemOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto p-1 animate-in fade-in zoom-in-95 duration-100">
+                <button
+                  onClick={() => { setItemId(0); setItemOpen(false); }}
+                  className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-colors ${
+                    itemId === 0 ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  All Items
+                </button>
+                {categoryItems.map((it) => (
+                  <button
+                    key={it.id}
+                    onClick={() => { setItemId(Number(it.id)); setItemOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-colors truncate ${
+                      Number(it.id) === Number(itemId) ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {it.product_name}
+                  </button>
+                ))}
+                {categoryItems.length === 0 && (
+                  <div className="p-3 text-center text-slate-400 text-xs font-medium">No items found</div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Date range */}
-        <div style={dateRangeBoxStyle}>
-          <span style={{ fontSize: 13, color: GRAY_TEXT, fontWeight: 500 }}>Between</span>
-          <input
-            type="date"
-            value={formatDateISO(startDate)}
-            onChange={(e) => { setRange({ from: parseDateISO(e.target.value), to: endDate }); setPeriod("custom"); }}
-            style={dateInputStyle}
-          />
-          <span style={{ fontSize: 12, color: "#9ca3af" }}>To</span>
-          <input
-            type="date"
-            value={formatDateISO(endDate)}
-            onChange={(e) => { setRange({ from: startDate, to: parseDateISO(e.target.value) }); setPeriod("custom"); }}
-            style={dateInputStyle}
-          />
-        </div>
-
-        {/* Company dropdown */}
-        <div ref={companyRef} style={{ position: "relative" }}>
-          <button onClick={() => setCompanyOpen((v) => !v)} style={selectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY }}>{companyName}</span>
-            <ChevronDown size={15} style={{ color: "#94a3b8", transform: companyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+        {/* Actions */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 transition-all shadow-2xs"
+          >
+            <FileSpreadsheet size={15} />
+            <span>Excel</span>
           </button>
-          {companyOpen && (
-            <div style={dropdownPanelStyle}>
-              {companies.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => selectCompany(c)}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: Number(c.id) === Number(companyId) ? "#eef2ff" : "transparent",
-                    color: Number(c.id) === Number(companyId) ? INDIGO : "#334155",
-                    fontWeight: Number(c.id) === Number(companyId) ? 700 : 500,
-                  }}
-                >
-                  {c.company_name || "My Company"}
-                </button>
-              ))}
-            </div>
-          )}
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-2xs"
+          >
+            <Printer size={15} />
+            <span>Print</span>
+          </button>
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          2. FILTER ROW (categories + items) + ACTIONS
+          2. KPI SUMMARY CARDS RIBBON
           ═══════════════════════════════════════════════════════════════ */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-        {/* Categories */}
-        <div ref={catRef} style={{ position: "relative" }}>
-          <button onClick={() => setCatOpen((v) => !v)} style={selectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY }}>{selectedCatLabel}</span>
-            <ChevronDown size={15} style={{ color: "#94a3b8", transform: catOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-          {catOpen && (
-            <div style={dropdownPanelStyle}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Sale Qty */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Sale Quantity</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <ShoppingBag size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-slate-900">{Number(totals.sale_qty || 0).toLocaleString()}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Total units sold to parties</div>
+          </div>
+        </div>
+
+        {/* Sale Amount */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Sale Amount</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <TrendingUp size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-emerald-600">{fmtINR(totals.sale_amt)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Revenue from party sales</div>
+          </div>
+        </div>
+
+        {/* Purchase Qty */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Purchase Quantity</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <ShoppingCart size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-slate-900">{Number(totals.purchase_qty || 0).toLocaleString()}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Total units purchased from parties</div>
+          </div>
+        </div>
+
+        {/* Purchase Amount */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-[11px] font-bold tracking-wider uppercase">Purchase Amount</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <TrendingDown size={16} />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl md:text-2xl font-black text-rose-600">{fmtINR(totals.purchase_amt)}</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5">Expenses on party purchases</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          3. PARTY REPORT DATA TABLE
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+        {/* Table Search Bar */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
+          <div className="relative w-full max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by party name..."
+              className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200/80 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium text-slate-800"
+            />
+            {query && (
               <button
-                onClick={() => { setCategoryId(0); setCatOpen(false); }}
-                style={{
-                  ...dropdownItemStyle,
-                  background: categoryId === 0 ? "#eef2ff" : "transparent",
-                  color: categoryId === 0 ? INDIGO : "#334155",
-                  fontWeight: categoryId === 0 ? 700 : 500,
-                }}
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                All Categories
+                <X size={13} />
               </button>
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => { setCategoryId(Number(c.id)); setItemId(0); setCatOpen(false); }}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: Number(c.id) === Number(categoryId) ? "#eef2ff" : "transparent",
-                    color: Number(c.id) === Number(categoryId) ? INDIGO : "#334155",
-                    fontWeight: Number(c.id) === Number(categoryId) ? 700 : 500,
-                  }}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Items */}
-        <div ref={itemRef} style={{ position: "relative" }}>
-          <button onClick={() => setItemOpen((v) => !v)} style={selectBtnStyle}>
-            <span style={{ fontWeight: 600, color: NAVY }}>{selectedItemLabel}</span>
-            <ChevronDown size={15} style={{ color: "#94a3b8", transform: itemOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-          {itemOpen && (
-            <div style={{ ...dropdownPanelStyle, maxHeight: 320, overflowY: "auto" }}>
-              <button
-                onClick={() => { setItemId(0); setItemOpen(false); }}
-                style={{
-                  ...dropdownItemStyle,
-                  background: itemId === 0 ? "#eef2ff" : "transparent",
-                  color: itemId === 0 ? INDIGO : "#334155",
-                  fontWeight: itemId === 0 ? 700 : 500,
-                }}
-              >
-                All Items
-              </button>
-              {categoryItems.map((it) => (
-                <button
-                  key={it.id}
-                  onClick={() => { setItemId(Number(it.id)); setItemOpen(false); }}
-                  style={{
-                    ...dropdownItemStyle,
-                    background: Number(it.id) === Number(itemId) ? "#eef2ff" : "transparent",
-                    color: Number(it.id) === Number(itemId) ? INDIGO : "#334155",
-                    fontWeight: Number(it.id) === Number(itemId) ? 700 : 500,
-                  }}
-                >
-                  {it.product_name}
-                </button>
-              ))}
-              {categoryItems.length === 0 && (
-                <div style={{ padding: "10px 14px", fontSize: 12, color: "#9ca3af" }}>No items found</div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT: Actions */}
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
-          <button onClick={handleExcel} style={actionBtnStyle}>
-            <FileSpreadsheet size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Excel Report</span>
-          </button>
-          <button onClick={handlePrint} style={actionBtnStyle}>
-            <Printer size={18} color={INDIGO} />
-            <span style={{ fontSize: 11, color: NAVY, fontWeight: 600 }}>Print</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Search field */}
-      <div style={{ position: "relative", marginBottom: 10 }}>
-        <Search size={15} color="#94a3b8" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", zIndex: 1 }} />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by party name..."
-          style={searchInputStyle}
-        />
-        {query && (
-          <button onClick={() => setQuery("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", display: "flex" }}>
-            <X size={14} color="#94a3b8" />
-          </button>
-        )}
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          3. REPORT TABLE
-          ═══════════════════════════════════════════════════════════════ */}
-      <div style={tableContainerStyle}>
-        <div style={{ overflowX: "auto", flex: 1 }}>
-          <table style={tableStyle}>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr>
-                <th style={{ ...thStyle, width: 50, minWidth: 50 }}>#</th>
-                <th style={{ ...thStyle, width: 240, minWidth: 240 }}>PARTY NAME</th>
-                <th style={{ ...thStyle, width: 120, minWidth: 120 }}>SALE QUANTITY</th>
-                <th style={{ ...thStyle, width: 130, minWidth: 130 }}>SALE AMOUNT</th>
-                <th style={{ ...thStyle, width: 150, minWidth: 150 }}>PURCHASE QUANTITY</th>
-                <th style={{ ...thStyle, width: 160, minWidth: 160 }}>PURCHASE AMOUNT</th>
+              <tr className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <th className="px-4 py-3.5 w-12 text-center">#</th>
+                <th className="px-4 py-3.5">PARTY NAME</th>
+                <th className="px-4 py-3.5 text-right">SALE QTY</th>
+                <th className="px-4 py-3.5 text-right">SALE AMOUNT</th>
+                <th className="px-4 py-3.5 text-right">PURCHASE QTY</th>
+                <th className="px-4 py-3.5 text-right">PURCHASE AMOUNT</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af", fontSize: 13 }}>Loading…</div>
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
+                    <div className="inline-flex items-center gap-2 font-medium">
+                      <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                      Loading report by item...
+                    </div>
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={6} style={emptyCellStyle}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                      <AlertCircle size={26} color="#dc2626" />
-                      <div style={{ color: "#dc2626", fontSize: 13, fontWeight: 600 }}>{error}</div>
+                  <td colSpan={6} className="py-16 text-center text-rose-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle size={28} className="text-rose-500" />
+                      <span className="font-semibold">{error}</span>
                     </div>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={emptyCellStyle}>
-                    <div style={{ textAlign: "center", color: "#9ca3af" }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: NAVY, marginBottom: 4 }}>No parties found</div>
-                      <div style={{ fontSize: 12 }}>Try adjusting the filters, date range or search.</div>
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <Package size={32} className="text-slate-300" />
+                      <div className="text-sm font-bold text-slate-700">No party records found</div>
+                      <div className="text-xs text-slate-400">Try selecting a different item, category or date range.</div>
                     </div>
                   </td>
                 </tr>
               ) : (
                 pagedRows.map((r, i) => (
-                  <tr key={r.role + "-" + r.id} style={{ borderBottom: `1px solid ${LIGHT_BORDER}` }}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={{ ...tdStyle, fontSize: 13, fontWeight: 600, color: NAVY }}>{r.name || "-"}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{Number(r.sale_qty || 0)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: Number(r.sale_amt) > 0 ? "#15803d" : "#9ca3af" }}>
+                  <tr key={`${r.party_id || i}-${r.name}`} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 text-center text-slate-400 font-medium">
+                      {(safePage - 1) * rowsPerPage + i + 1}
+                    </td>
+                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">
+                      {r.name || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-700 whitespace-nowrap">
+                      {Number(r.sale_qty || 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right font-black text-emerald-600 whitespace-nowrap">
                       {fmtINR(r.sale_amt)}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{Number(r.purchase_qty || 0)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: Number(r.purchase_amt) > 0 ? "#dc2626" : "#9ca3af" }}>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-700 whitespace-nowrap">
+                      {Number(r.purchase_qty || 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right font-black text-rose-600 whitespace-nowrap">
                       {fmtINR(r.purchase_amt)}
                     </td>
                   </tr>
                 ))
               )}
             </tbody>
-            <tfoot>
-              <tr style={{ borderTop: `2px solid ${INDIGO}`, background: "#eef2ff" }}>
-                <td colSpan={2} style={{ ...tdStyle, fontWeight: 800, color: NAVY, fontSize: 13 }}>Total</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 800, color: NAVY, fontSize: 13 }}>
-                  {Number(totals.sale_qty || 0)}
-                </td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 800, color: NAVY, fontSize: 13 }}>
-                  {fmtINR(totals.sale_amt)}
-                </td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 800, color: NAVY, fontSize: 13 }}>
-                  {Number(totals.purchase_qty || 0)}
-                </td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 800, color: NAVY, fontSize: 13 }}>
-                  {fmtINR(totals.purchase_amt)}
-                </td>
-              </tr>
-            </tfoot>
+            {filtered.length > 0 && (
+              <tfoot>
+                <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold text-xs text-slate-800">
+                  <td colSpan={2} className="px-4 py-3.5 text-slate-600 uppercase tracking-wider text-[11px]">
+                    Total
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-black text-slate-900">
+                    {Number(totals.sale_qty || 0).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-black text-emerald-600">
+                    {fmtINR(totals.sale_amt)}
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-black text-slate-900">
+                    {Number(totals.purchase_qty || 0).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-black text-rose-600">
+                    {fmtINR(totals.purchase_amt)}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
+        {/* Universal Pagination */}
         <ReportPagination
           total={totalRows}
           page={safePage}
@@ -628,148 +721,3 @@ export default function PartyReportByItem() {
     </div>
   );
 }
-
-/* ═════════════════════════════════════════════════════════════════════
-   STYLES
-   ═════════════════════════════════════════════════════════════════════ */
-
-const selectBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "8px 14px",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
-
-const actionBtnStyle = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: 2,
-  padding: "6px 14px",
-  background: "transparent",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
-
-const dateRangeBoxStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "6px 12px",
-  background: "#f9fafb",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  whiteSpace: "nowrap",
-};
-
-const dateInputStyle = {
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  padding: "5px 8px",
-  fontSize: 13,
-  fontFamily: FONT,
-  color: "#334155",
-  background: "#fff",
-  outline: "none",
-  width: 130,
-};
-
-const dropdownPanelStyle = {
-  position: "absolute",
-  top: "calc(100% + 6px)",
-  left: 0,
-  minWidth: 170,
-  zIndex: 60,
-  background: "#fff",
-  border: `1.5px solid #e0e7ff`,
-  borderRadius: 10,
-  boxShadow: "0 12px 32px rgba(30,27,75,.12)",
-  overflow: "hidden",
-  fontFamily: FONT,
-};
-
-const dropdownItemStyle = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "8px 14px",
-  background: "transparent",
-  border: "none",
-  fontSize: 13,
-  fontFamily: FONT,
-  cursor: "pointer",
-  transition: "background .1s",
-  whiteSpace: "nowrap",
-};
-
-const searchInputStyle = {
-  width: "100%",
-  padding: "10px 36px 10px 38px",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  fontSize: 13,
-  fontFamily: FONT,
-  color: "#334155",
-  background: "#fff",
-  outline: "none",
-  boxSizing: "border-box",
-};
-
-const tableContainerStyle = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  overflow: "hidden",
-  background: "#fff",
-  minHeight: 0,
-};
-
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontFamily: FONT,
-  tableLayout: "fixed",
-};
-
-const thStyle = {
-  padding: "10px 12px",
-  fontSize: 11,
-  fontWeight: 700,
-  color: GRAY_TEXT,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  textAlign: "left",
-  background: "#f9fafb",
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  whiteSpace: "nowrap",
-  userSelect: "none",
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-};
-
-const emptyCellStyle = {
-  padding: "80px 24px",
-  textAlign: "center",
-  verticalAlign: "middle",
-};
-
-const tdStyle = {
-  padding: "10px 12px",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 12.5,
-  color: "#334155",
-  verticalAlign: "middle",
-};

@@ -17,23 +17,9 @@ import {
   RefreshCw,
   FileText,
   MoreVertical,
-  Pencil,
-  Settings,
-  TrendingUp,
-  Edit3,
-  SlidersHorizontal,
-  Building2,
-  Truck,
-  RotateCcw,
-  Receipt,
-  ArrowUpRight,
-  Sparkles,
-  CheckCircle2,
-  Clock,
-  CircleDot,
   Share2,
   Edit,
-  Eye
+  Eye,
 } from "lucide-react";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
 
@@ -41,7 +27,6 @@ export default function DebitNoteList() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
-  const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
 
   // Data states
   const [debitNotes, setDebitNotes] = useState([]);
@@ -57,14 +42,12 @@ export default function DebitNoteList() {
   const [selectedSupplier, setSelectedSupplier] = useState("all");
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState("all");
-  const [paymentFilterOpen, setPaymentFilterOpen] = useState(false);
 
   // Date range
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [showDatePickerModal, setShowDatePickerModal] = useState(false);
 
-  // Search & view toggles
+  // Search & Actions
   const [searchQuery, setSearchQuery] = useState("");
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [activeShareId, setActiveShareId] = useState(null);
@@ -74,18 +57,9 @@ export default function DebitNoteList() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(15);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  const periodLabels = {
-    all_time: "All Time",
-    today: "Today",
-    yesterday: "Yesterday",
-    this_week: "This Week",
-    this_month: "This Month",
-    this_quarter: "This Quarter",
-    this_year: "This Year",
-    custom: "Custom Date"
-  };
+  const menuRef = useRef(null);
 
   // Format Helper: DD/MM/YYYY
   const formatDateDMY = (dateStr) => {
@@ -104,6 +78,7 @@ export default function DebitNoteList() {
       setFromDate("");
       setToDate("");
       setPeriod("all_time");
+      setPeriodOpen(false);
       return;
     }
 
@@ -114,15 +89,10 @@ export default function DebitNoteList() {
     if (type === "today") {
       from = now;
       to = now;
-    } else if (type === "yesterday") {
-      const y = new Date();
-      y.setDate(y.getDate() - 1);
-      from = y;
-      to = y;
     } else if (type === "this_week") {
       const day = now.getDay() || 7;
       from.setDate(now.getDate() - day + 1);
-      to = new Date();
+      to = now;
     } else if (type === "this_month") {
       from = new Date(now.getFullYear(), now.getMonth(), 1);
       to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -144,14 +114,14 @@ export default function DebitNoteList() {
 
     setFromDate(fmt(from));
     setToDate(fmt(to));
+    setPeriod(type);
+    setPeriodOpen(false);
   };
 
+  // Initial setup: preset dates, companies, and suppliers
   useEffect(() => {
     setPresetDates("this_month");
-  }, []);
 
-  // Fetch Companies
-  useEffect(() => {
     if (adminId) {
       api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
         .then((res) => {
@@ -200,24 +170,19 @@ export default function DebitNoteList() {
     fetchDebitNotes();
   }, [selectedFirm, selectedSupplier, fromDate, toDate, adminId]);
 
-  // Close menus on outside click safely
+  // Close menus on outside click
   useEffect(() => {
     const handleOutsideClick = (e) => {
-      if (e.target.closest("[data-dropdown-container]")) {
-        return;
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setActiveMenuId(null);
       }
-      setActiveMenuId(null);
-      setPeriodOpen(false);
-      setFirmOpen(false);
-      setSupplierOpen(false);
-      setPaymentFilterOpen(false);
     };
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
-  // Filtered Debit Notes
-  const filteredDebitNotes = useMemo(() => {
+  // Filtered List
+  const filteredNotes = useMemo(() => {
     return debitNotes.filter((item) => {
       // Date filter
       if (fromDate && toDate && item.return_date) {
@@ -235,25 +200,27 @@ export default function DebitNoteList() {
         if (String(item.supplier_id) !== String(selectedSupplier)) return false;
       }
 
-      // Payment Type filter
+      // Payment filter
       if (paymentFilter !== "all") {
-        const pType = (item.payment_type || "").toLowerCase();
-        if (pType !== paymentFilter.toLowerCase()) return false;
+        const bal = parseFloat(item.balance_amount || 0);
+        const ref = parseFloat(item.refund_amount || 0);
+        if (paymentFilter === "unpaid" && !(bal > 0 && ref === 0)) return false;
+        if (paymentFilter === "partial" && !(bal > 0 && ref > 0)) return false;
+        if (paymentFilter === "paid" && !(bal <= 0)) return false;
+        if (paymentFilter === "cash" && (item.payment_type || "").toLowerCase() !== "cash") return false;
+        if (paymentFilter === "online" && (item.payment_type || "").toLowerCase() !== "online") return false;
+        if (paymentFilter === "upi" && (item.payment_type || "").toLowerCase() !== "upi") return false;
+        if (paymentFilter === "cheque" && (item.payment_type || "").toLowerCase() !== "cheque") return false;
       }
 
-      // Search Query
+      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const refNo = String(item.return_no || item.id || "").toLowerCase();
         const partyName = String(item.supplier_name || "").toLowerCase();
         const partyPhone = String(item.supplier_phone || "").toLowerCase();
         const total = String(item.total_amount || "");
-        if (
-          !refNo.includes(q) &&
-          !partyName.includes(q) &&
-          !partyPhone.includes(q) &&
-          !total.includes(q)
-        ) {
+        if (!refNo.includes(q) && !partyName.includes(q) && !partyPhone.includes(q) && !total.includes(q)) {
           return false;
         }
       }
@@ -262,76 +229,69 @@ export default function DebitNoteList() {
     });
   }, [debitNotes, fromDate, toDate, selectedFirm, selectedSupplier, paymentFilter, searchQuery]);
 
-  // Summary Metrics
-  const { totalAmount, totalRefund, totalBalance } = useMemo(() => {
-    let tot = 0;
-    let ref = 0;
-    let bal = 0;
-    filteredDebitNotes.forEach((item) => {
-      tot += parseFloat(item.total_amount || 0);
-      ref += parseFloat(item.refund_amount || 0);
-      bal += parseFloat(item.balance_amount || 0);
+  // Summary Totals
+  const totals = useMemo(() => {
+    let totalAmt = 0;
+    let balanceAmt = 0;
+    let refundAmt = 0;
+    filteredNotes.forEach((n) => {
+      totalAmt += parseFloat(n.total_amount || 0);
+      balanceAmt += parseFloat(n.balance_amount || 0);
+      refundAmt += parseFloat(n.refund_amount || 0);
     });
-    return { totalAmount: tot, totalRefund: ref, totalBalance: bal };
-  }, [filteredDebitNotes]);
+    return { totalAmt, balanceAmt, refundAmt };
+  }, [filteredNotes]);
 
-  // Reset page on filter changes
+  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [fromDate, toDate, selectedFirm, selectedSupplier, paymentFilter, searchQuery, period]);
+  }, [searchQuery, selectedFirm, selectedSupplier, fromDate, toDate, period, paymentFilter]);
 
   // Pagination calculation
-  const totalPages = Math.ceil(filteredDebitNotes.length / rowsPerPage) || 1;
-  const safePage = Math.min(Math.max(1, currentPage), totalPages);
-  const paginatedList = useMemo(() => {
+  const totalPages = Math.ceil(filteredNotes.length / rowsPerPage) || 1;
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedNotes = useMemo(() => {
     const start = (safePage - 1) * rowsPerPage;
-    return filteredDebitNotes.slice(start, start + rowsPerPage);
-  }, [filteredDebitNotes, safePage, rowsPerPage]);
+    return filteredNotes.slice(start, start + rowsPerPage);
+  }, [filteredNotes, safePage, rowsPerPage]);
 
-  const fmtCurrency = (n) =>
-    Number(n || 0).toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-
-  // Export to Excel
+  // Excel Export
   const handleExportExcel = () => {
-    if (filteredDebitNotes.length === 0) {
+    if (filteredNotes.length === 0) {
       alert("No data available to export.");
       return;
     }
-    const data = filteredDebitNotes.map((item, idx) => ({
+    const data = filteredNotes.map((n, idx) => ({
       "#": idx + 1,
-      "Date": formatDateDMY(item.return_date),
-      "Ref No.": item.return_no || item.id,
-      "Party Name": item.supplier_name || "-",
-      "Phone": item.supplier_phone || "-",
-      "Payment Type": item.payment_type || "Cash",
-      "Total Amount": parseFloat(item.total_amount || 0),
-      "Received/Refund": parseFloat(item.refund_amount || 0),
-      "Balance": parseFloat(item.balance_amount || 0),
-      "Status": Number(item.balance_amount || 0) <= 0 ? "Settled" : "Unpaid"
+      Date: formatDateDMY(n.return_date || n.created_at),
+      "Ref. no.": n.return_no || n.id,
+      "Party Name": n.supplier_name || "Supplier",
+      Type: "Debit Note",
+      "Payment Mode": n.payment_type || "Cash",
+      Total: parseFloat(n.total_amount || 0),
+      Refunded: parseFloat(n.refund_amount || 0),
+      Balance: parseFloat(n.balance_amount || 0),
+      Status: parseFloat(n.balance_amount || 0) <= 0 ? "Paid" : (parseFloat(n.refund_amount || 0) > 0 ? "Partial" : "Unpaid"),
     }));
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Purchase Return");
-    XLSX.writeFile(wb, `Purchase_Return_DebitNotes_${fromDate || "all"}.xlsx`);
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Debit Note");
+    XLSX.writeFile(workbook, `Purchase_Return_DebitNote_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   // Delete Action
-  const confirmDelete = async () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
       const res = await api.post("/debit_note/delete", { id: deleteTarget.id });
       if (res.data?.status) {
         setDebitNotes((prev) => prev.filter((d) => d.id !== deleteTarget.id));
-        setActionToast({ msg: "Debit Note deleted successfully.", ok: true });
+        setActionToast({ msg: "Debit note deleted and supplier balance adjusted.", ok: true });
         setDeleteTarget(null);
         setTimeout(() => setActionToast(null), 3500);
       } else {
-        setActionToast({ msg: res.data?.message || "Failed to delete.", ok: false });
+        setActionToast({ msg: res.data?.message || "Failed to delete debit note.", ok: false });
         setTimeout(() => setActionToast(null), 3500);
       }
     } catch (err) {
@@ -343,299 +303,217 @@ export default function DebitNoteList() {
     }
   };
 
-  const refundRate = totalAmount > 0 ? Math.round((totalRefund / totalAmount) * 100) : 0;
-
   return (
-    <div className="p-4 sm:p-6 max-w-[1520px] mx-auto min-h-screen space-y-4 bg-[#f8fafc] font-sans text-slate-800">
-      
-      {/* Toast Alert */}
-      {actionToast && (
-        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold transition-all flex items-center gap-2.5 backdrop-blur-md animate-in slide-in-from-top-3 duration-200 ${
-          actionToast.ok ? "bg-emerald-500/90 text-white border-emerald-400" : "bg-rose-500/90 text-white border-rose-400"
-        }`}>
-          {actionToast.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-          <span>{actionToast.msg}</span>
-        </div>
-      )}
-
-      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-500/20 shrink-0">
-            <RotateCcw size={22} />
+    <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* ── 1. TOP HEADER: Title + Actions ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 select-none">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-100 ring-4 ring-purple-50/50">
+            <FileText size={24} />
           </div>
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Purchase Return & Debit Notes</h1>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                {filteredDebitNotes.length} notes
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              Manage returned items, supplier debit adjustments, and refund settlements
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Purchase Return / Debit Notes
+            </h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Manage returned merchandise, supplier debit adjustments, and refund settlements
             </p>
           </div>
         </div>
 
-        {/* Header Action Tools */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={fetchDebitNotes}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Refresh Data"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin text-purple-600" : "text-slate-500"} />
-            <span>Refresh</span>
-          </button>
-
-          <button
-            onClick={handleExportExcel}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Export Excel"
-          >
-            <FileSpreadsheet size={14} className="text-emerald-600" />
-            <span>Export Excel</span>
-          </button>
-
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
-            title="Print View"
-          >
-            <Printer size={14} className="text-slate-500" />
-            <span>Print</span>
-          </button>
-
-          {/* Primary CTA */}
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate("/purchases/debit-note/add")}
-            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-purple-500/25 transition active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-purple-200 transition-all transform active:scale-95 cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.8} />
-            <span>+ Add Debit Note</span>
+            <span>Create Debit Note</span>
           </button>
         </div>
       </div>
 
-      {/* ── 2. SEGMENTED FINANCIAL INTELLIGENCE STRIP (3 KPIs) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-        {/* KPI 1: Total Return Amount */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-              Total Return Value
+      {/* ── 2. METRIC KPI CARDS (PaySplitX 4-Card Strip matching Credit Notes) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Return Value */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-purple-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Return Value</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                ₹ {totals.totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-black">
+              ₹
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>{filteredNotes.length} Total Debit Notes</span>
+            <span className="text-[11px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+              Vendor Returns
             </span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <RotateCcw size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              ₹ {fmtCurrency(totalAmount)}
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 font-semibold">
-              <span className="text-purple-600 font-bold">{filteredDebitNotes.length}</span> returns processed
-            </div>
-          </div>
-          <div className="w-full bg-purple-100 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div className="bg-purple-600 h-full rounded-full w-full" />
           </div>
         </div>
 
-        {/* KPI 2: Refund / Settled Amount */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700">
-              Refunded & Settled
+        {/* Card 2: Refund / Paid */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Refunded / Settled</p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+                ₹ {totals.refundAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              Paid
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Cash / Ledger Recovery</span>
+            <span className="text-[11px] font-semibold text-emerald-600">
+              {totals.totalAmt > 0 ? `${Math.round((totals.refundAmt / totals.totalAmt) * 100)}%` : "0%"} settled
             </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-black text-emerald-700 tracking-tight">
-              ₹ {fmtCurrency(totalRefund)}
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 font-semibold">
-              <span className="text-emerald-700 font-bold">{refundRate}%</span> recovery rate
-            </div>
-          </div>
-          <div className="w-full bg-emerald-100 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div
-              className="bg-emerald-600 h-full rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, Math.max(0, refundRate))}%` }}
-            />
           </div>
         </div>
 
-        {/* KPI 3: Pending Balance Due */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-600">
-              Pending Refund Balance
+        {/* Card 3: Pending Refund Balance */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Pending Balance</p>
+              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight">
+                ₹ {totals.balanceAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              Bal
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Supplier debit balance</span>
+            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+              Pending offset
             </span>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <Clock size={16} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className={`text-2xl sm:text-3xl font-black tracking-tight ${totalBalance > 0 ? "text-rose-600" : "text-slate-900"}`}>
-              ₹ {fmtCurrency(totalBalance)}
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 font-semibold">
-              <span>{totalBalance > 0 ? "Awaiting supplier credit note / cash refund" : "All returns fully settled"}</span>
-            </div>
-          </div>
-          <div className="w-full bg-rose-100 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div
-              className="bg-rose-500 h-full rounded-full transition-all duration-500"
-              style={{ width: `${totalAmount > 0 ? Math.min(100, (totalBalance / totalAmount) * 100) : 0}%` }}
-            />
           </div>
         </div>
 
+        {/* Card 4: Average Return Size */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Average Return</p>
+              <h3 className="text-2xl font-black text-indigo-600 mt-1 tracking-tight">
+                ₹ {filteredNotes.length > 0 ? (totals.totalAmt / filteredNotes.length).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              Avg
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Per return transaction</span>
+            <span className="text-[11px] font-semibold text-slate-600">Active period</span>
+          </div>
+        </div>
       </div>
 
-      {/* ── 3. SEGMENTED FILTER BAR ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        
-        {/* Left Filter Pill Group */}
-        <div className="flex flex-wrap items-center gap-2.5 text-xs">
-          <span className="font-extrabold text-slate-500 flex items-center gap-1.5 mr-1 uppercase text-[11px] tracking-wider">
-            <SlidersHorizontal size={13} />
-            <span>Filters</span>
-          </span>
+      {/* ── 3. FILTER TOOLBAR ── */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
 
-          {/* Period Dropdown Pill */}
-          <div data-dropdown-container className="relative">
+          {/* Period Selector */}
+          <div className="relative">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setPeriodOpen((v) => !v);
-                setFirmOpen(false);
-                setSupplierOpen(false);
-                setPaymentFilterOpen(false);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
+              onClick={() => setPeriodOpen(!periodOpen)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <Calendar size={13} className="text-slate-400" />
-              <span>{periodLabels[period] || "This Month"}</span>
+              <span>{period === "all_time" ? "All Time" : period === "this_month" ? "This Month" : period.replace("_", " ")}</span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
             {periodOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
-                {Object.entries(periodLabels).map(([key, label]) => (
+              <div className="absolute left-0 mt-1.5 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                {[
+                  { label: "All Time", val: "all_time" },
+                  { label: "Today", val: "today" },
+                  { label: "This Week", val: "this_week" },
+                  { label: "This Month", val: "this_month" },
+                  { label: "This Quarter", val: "this_quarter" },
+                  { label: "This Year", val: "this_year" },
+                ].map((p) => (
                   <button
-                    key={key}
-                    onClick={() => {
-                      setPeriod(key);
-                      setPeriodOpen(false);
-                      if (key === "custom") {
-                        setShowDatePickerModal(true);
-                      } else {
-                        setPresetDates(key);
-                      }
-                    }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                      period === key ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    key={p.val}
+                    onClick={() => setPresetDates(p.val)}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                      period === p.val ? "text-purple-600 font-bold bg-purple-50/50" : "text-slate-700"
                     }`}
                   >
-                    <span>{label}</span>
-                    {period === key && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                    {p.label}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Date Picker Button */}
-          <button
-            onClick={() => setShowDatePickerModal((v) => !v)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
-          >
-            <Calendar size={13} className="text-purple-600" />
-            <span>
-              {fromDate ? formatDateDMY(fromDate) : "01/09/2026"} - {toDate ? formatDateDMY(toDate) : "30/09/2026"}
-            </span>
-          </button>
+          {/* Date Range Picker */}
+          <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
+            <Calendar size={13} className="text-slate-400" />
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
+            <span className="text-slate-400 font-bold">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
+          </div>
 
-          {/* Date Range Modal Popover */}
-          {showDatePickerModal && (
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-purple-300 shadow-md">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
-                  setPeriod("custom");
-                }}
-                className="text-xs text-slate-700 font-bold outline-none bg-transparent cursor-pointer"
-              />
-              <span className="text-slate-400 text-xs font-bold">to</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
-                  setPeriod("custom");
-                }}
-                className="text-xs text-slate-700 font-bold outline-none bg-transparent cursor-pointer"
-              />
-            </div>
-          )}
-
-          {/* Firm Selector Pill */}
-          <div data-dropdown-container className="relative">
+          {/* ALL FIRMS Dropdown */}
+          <div className="relative">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setFirmOpen((v) => !v);
-                setPeriodOpen(false);
-                setSupplierOpen(false);
-                setPaymentFilterOpen(false);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
+              onClick={() => setFirmOpen(!firmOpen)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <Building2 size={13} className="text-slate-400" />
               <span>
                 {selectedFirm === "all"
-                  ? "All Firms"
-                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
+                  ? "All Companies"
+                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Company"}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
             </button>
 
             {firmOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
+              <div className="absolute left-0 mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
                 <button
                   onClick={() => {
                     setSelectedFirm("all");
                     setFirmOpen(false);
                   }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                    selectedFirm === "all" ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                    selectedFirm === "all" ? "text-purple-600 font-bold bg-purple-50/50" : "text-slate-700"
                   }`}
                 >
-                  <span>All Firms</span>
-                  {selectedFirm === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                  All Companies
                 </button>
                 {companies.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => {
-                      setSelectedFirm(c.id);
+                      setSelectedFirm(String(c.id));
                       setFirmOpen(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer truncate ${
-                      String(selectedFirm) === String(c.id) ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition cursor-pointer ${
+                      String(selectedFirm) === String(c.id) ? "text-purple-600 font-bold bg-purple-50/50" : "text-slate-700"
                     }`}
                   >
                     {c.company_name}
@@ -645,19 +523,12 @@ export default function DebitNoteList() {
             )}
           </div>
 
-          {/* Supplier Selector Pill */}
-          <div data-dropdown-container className="relative">
+          {/* Suppliers Dropdown */}
+          <div className="relative">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSupplierOpen((v) => !v);
-                setPeriodOpen(false);
-                setFirmOpen(false);
-                setPaymentFilterOpen(false);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
+              onClick={() => setSupplierOpen(!supplierOpen)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <Truck size={13} className="text-slate-400" />
               <span>
                 {selectedSupplier === "all"
                   ? "All Suppliers"
@@ -669,34 +540,29 @@ export default function DebitNoteList() {
             </button>
 
             {supplierOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-60 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
+              <div className="absolute left-0 mt-1.5 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95">
                 <button
                   onClick={() => {
                     setSelectedSupplier("all");
                     setSupplierOpen(false);
                   }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                    selectedSupplier === "all" ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                    selectedSupplier === "all" ? "text-purple-600 font-bold bg-purple-50/50" : "text-slate-700"
                   }`}
                 >
-                  <span>All Suppliers</span>
-                  {selectedSupplier === "all" && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
+                  All Suppliers
                 </button>
                 {suppliers.map((s) => {
                   const sName = s.supplier_name || s.name || `Supplier #${s.id}`;
-                  const isSelected = String(selectedSupplier) === String(s.id);
                   return (
                     <button
                       key={s.id}
                       onClick={() => {
-                        setSelectedSupplier(s.id);
+                        setSelectedSupplier(String(s.id));
                         setSupplierOpen(false);
                       }}
-                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer truncate ${
-                        isSelected ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
+                      className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition cursor-pointer truncate ${
+                        String(selectedSupplier) === String(s.id) ? "text-purple-600 font-bold bg-purple-50/50" : "text-slate-700"
                       }`}
                     >
                       {sName}
@@ -707,100 +573,73 @@ export default function DebitNoteList() {
             )}
           </div>
 
-          {/* Payment Filter Pill */}
-          <div data-dropdown-container className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setPaymentFilterOpen((v) => !v);
-                setPeriodOpen(false);
-                setFirmOpen(false);
-                setSupplierOpen(false);
-              }}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-slate-700 transition cursor-pointer shadow-2xs"
+          {/* Payment Status Dropdown */}
+          <div className="border border-slate-200 rounded-xl px-3 py-1.5 bg-slate-50 text-xs font-bold text-slate-700">
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              className="bg-transparent outline-none cursor-pointer text-xs font-semibold text-slate-700"
             >
-              <span>
-                {paymentFilter === "all"
-                  ? "All Payment Modes"
-                  : paymentFilter === "cash"
-                  ? "Cash"
-                  : paymentFilter === "online"
-                  ? "Online"
-                  : paymentFilter === "upi"
-                  ? "UPI"
-                  : paymentFilter === "cheque"
-                  ? "Cheque"
-                  : "Credit"}
-              </span>
-              <ChevronDown size={13} className={`text-slate-400 transition-transform ${paymentFilterOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {paymentFilterOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
-              >
-                {[
-                  { key: "all", label: "All Payment Modes" },
-                  { key: "cash", label: "Cash" },
-                  { key: "online", label: "Online" },
-                  { key: "upi", label: "UPI" },
-                  { key: "cheque", label: "Cheque" },
-                  { key: "credit", label: "Credit" },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => {
-                      setPaymentFilter(item.key);
-                      setPaymentFilterOpen(false);
-                    }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition cursor-pointer flex items-center justify-between ${
-                      paymentFilter === item.key ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>{item.label}</span>
-                    {paymentFilter === item.key && <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
-                  </button>
-                ))}
-              </div>
-            )}
+              <option value="all">All Payment</option>
+              <option value="unpaid">Unpaid / Pending</option>
+              <option value="partial">Partial</option>
+              <option value="paid">Paid / Settled</option>
+              <option value="cash">Mode: Cash</option>
+              <option value="online">Mode: Online</option>
+              <option value="upi">Mode: UPI</option>
+              <option value="cheque">Mode: Cheque</option>
+            </select>
           </div>
         </div>
 
-        {/* Global Search Input */}
-        <div className="relative w-full sm:w-72">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search ref #, party, phone..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition shadow-2xs"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
-              <X size={13} />
-            </button>
-          )}
+        {/* Right Tools: Search + Excel Report & Print */}
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search debit notes..."
+              className="bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 outline-none w-44 font-medium"
+            />
+          </div>
+
+          <button
+            onClick={handleExportExcel}
+            className="px-3 h-8 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center gap-1.5 text-emerald-700 hover:bg-emerald-100 font-bold text-xs transition cursor-pointer"
+            title="Export to Excel"
+          >
+            <FileSpreadsheet size={14} className="text-emerald-600" />
+            <span>Excel</span>
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
+            title="Print List"
+          >
+            <Printer size={14} />
+          </button>
         </div>
       </div>
 
-      {/* ── 4. MODERN TWO-TIER DATA TABLE ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+      {/* ── 4. DIRECTORY TABLE CARD ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs min-w-max">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-500 text-[11px] uppercase tracking-wider">
-                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">#</th>
-                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">Date</th>
-                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">Ref No</th>
-                <th className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap">Supplier / Party</th>
-                <th className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">Mode</th>
-                <th className="py-3.5 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Total Return</th>
-                <th className="py-3.5 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Received / Refund</th>
-                <th className="py-3.5 px-5 border-r border-slate-200/70 text-right whitespace-nowrap">Balance Due</th>
-                <th className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap">Status</th>
-                <th className="py-3.5 px-4 text-center whitespace-nowrap">Actions</th>
+              <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                <th className="py-3.5 px-4 text-center w-12">#</th>
+                <th className="py-3.5 px-4">Date</th>
+                <th className="py-3.5 px-4 text-right">Return No.</th>
+                <th className="py-3.5 px-4">Party Name</th>
+                <th className="py-3.5 px-4">Type</th>
+                <th className="py-3.5 px-4 text-right">Total</th>
+                <th className="py-3.5 px-4 text-right">Refunded</th>
+                <th className="py-3.5 px-4 text-right">Balance</th>
+                <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
 
@@ -809,141 +648,126 @@ export default function DebitNoteList() {
                 <tr>
                   <td colSpan={10} className="py-14 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-purple-600 mx-auto mb-2" />
-                    <span className="font-semibold text-xs">Loading debit note transactions...</span>
+                    <span>Loading Debit Notes...</span>
                   </td>
                 </tr>
-              ) : filteredDebitNotes.length === 0 ? (
+              ) : filteredNotes.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center text-slate-400">
-                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
-                      <RotateCcw size={26} />
+                  <td colSpan={10} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="w-16 h-16 mb-4 flex items-center justify-center rounded-2xl bg-purple-50 text-purple-400">
+                        <FileText size={32} strokeWidth={1.5} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-700">No debit notes found.</p>
+                      <p className="text-xs text-slate-400 mt-1">Create a new debit note to record purchase returns.</p>
                     </div>
-                    <p className="font-extrabold text-slate-800 text-sm">No Debit Notes Found</p>
-                    <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                      No purchase returns match your filter criteria. Record a new return to manage vendor adjustments.
-                    </p>
-                    <button
-                      onClick={() => navigate("/purchases/debit-note/add")}
-                      className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer active:scale-95"
-                    >
-                      <Plus size={15} /> + Add Debit Note
-                    </button>
                   </td>
                 </tr>
               ) : (
-                paginatedList.map((item, idx) => {
-                  const globalIdx = (currentPage - 1) * rowsPerPage + idx + 1;
-                  const isMenuOpen = activeMenuId === item.id;
-                  const isPaid = Number(item.balance_amount || 0) <= 0;
+                paginatedNotes.map((n, idx) => {
+                  const seqNo = (safePage - 1) * rowsPerPage + idx + 1;
+                  const isMenuOpen = activeMenuId === n.id;
+                  const total = parseFloat(n.total_amount || 0);
+                  const refund = parseFloat(n.refund_amount || 0);
+                  const balance = parseFloat(n.balance_amount || 0);
 
                   return (
                     <tr
-                      key={item.id || idx}
-                      className="group hover:bg-purple-50/30 transition-colors duration-150 text-slate-700"
+                      key={n.id || idx}
+                      className="hover:bg-purple-50/20 transition-colors text-slate-700"
                     >
-                      {/* S.NO */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 text-slate-400 font-semibold whitespace-nowrap">
-                        {globalIdx}
+                      <td className="py-3.5 px-4 text-center font-semibold text-slate-400">
+                        {seqNo}
                       </td>
 
-                      {/* DATE */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap text-slate-600 font-semibold">
-                        {formatDateDMY(item.return_date)}
+                      <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
+                        {formatDateDMY(n.return_date || n.created_at)}
                       </td>
 
-                      {/* REF NO */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
-                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
-                          #{item.return_no || item.id}
+                      <td className="py-3.5 px-4 text-right font-bold text-purple-600 whitespace-nowrap">
+                        #{n.return_no || n.id}
+                      </td>
+
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="font-bold text-slate-900">{n.supplier_name || "Supplier"}</div>
+                        {n.supplier_phone && <div className="text-[10px] text-slate-400 font-normal">{n.supplier_phone}</div>}
+                      </td>
+
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                          Debit Note
                         </span>
                       </td>
 
-                      {/* SUPPLIER NAME */}
-                      <td className="py-3.5 px-5 border-r border-slate-200/70 whitespace-nowrap">
-                        <div className="font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
-                          {item.supplier_name || "-"}
-                        </div>
-                        {item.supplier_phone && (
-                          <div className="text-[10px] text-slate-400 font-medium">{item.supplier_phone}</div>
-                        )}
+                      <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                        ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
-                      {/* PAYMENT TYPE */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 whitespace-nowrap">
-                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 uppercase">
-                          {item.payment_type || "Cash"}
+                      <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
+                        ₹ {refund.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right font-black text-purple-600 whitespace-nowrap">
+                        ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            balance <= 0
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                              : refund > 0
+                              ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                              : "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              balance <= 0 ? "bg-emerald-600" : refund > 0 ? "bg-amber-600" : "bg-purple-600"
+                            }`}
+                          />
+                          {balance <= 0 ? "Paid" : refund > 0 ? "Partial" : "Unpaid"}
                         </span>
                       </td>
 
-                      {/* TOTAL AMOUNT */}
-                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-extrabold text-slate-900 text-right whitespace-nowrap">
-                        ₹ {fmtCurrency(item.total_amount)}
-                      </td>
-
-                      {/* REFUND / RECEIVED AMOUNT */}
-                      <td className="py-3.5 px-5 border-r border-slate-200/70 font-bold text-emerald-700 text-right whitespace-nowrap">
-                        ₹ {fmtCurrency(item.refund_amount)}
-                      </td>
-
-                      {/* BALANCE AMOUNT */}
-                      <td className={`py-3.5 px-5 border-r border-slate-200/70 font-bold text-right whitespace-nowrap ${
-                        Number(item.balance_amount || 0) > 0 ? "text-rose-600" : "text-slate-600"
-                      }`}>
-                        ₹ {fmtCurrency(item.balance_amount)}
-                      </td>
-
-                      {/* STATUS */}
-                      <td className="py-3.5 px-4 border-r border-slate-200/70 text-center whitespace-nowrap font-bold">
-                        {isPaid ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Settled
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                            Pending
-                          </span>
-                        )}
-                      </td>
-
-                      {/* ACTIONS */}
-                      <td className="py-3.5 px-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5 text-slate-400">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1 text-slate-400">
                           {/* Print POS / Preview */}
                           <button
-                            onClick={() => navigate(`/invoice/${item.return_no || item.id}`)}
-                            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                            title="Print"
+                            onClick={() => navigate(`/invoice/${n.return_no || n.id}`)}
+                            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition cursor-pointer"
+                            title="Print / View Invoice"
                           >
                             <Printer size={15} />
                           </button>
 
-                          {/* Share Icon with Popover */}
+                          {/* Share Popover */}
                           <div className="relative">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setActiveShareId(activeShareId === item.id ? null : item.id);
+                                setActiveShareId(activeShareId === n.id ? null : n.id);
                               }}
-                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
                               title="Share"
                             >
                               <Share2 size={15} />
                             </button>
                             <ShareTransactionPopover
-                              isOpen={activeShareId === item.id}
+                              isOpen={activeShareId === n.id}
                               onClose={() => setActiveShareId(null)}
-                              transaction={item}
+                              transaction={n}
                               type="Debit Note"
                             />
                           </div>
 
                           {/* 3-Dot More Menu */}
-                          <div data-dropdown-container className="relative">
+                          <div className="relative">
                             <button
-                              onClick={() => setActiveMenuId(isMenuOpen ? null : item.id)}
-                              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
+                              onClick={() => setActiveMenuId(isMenuOpen ? null : n.id)}
+                              className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
+                                isMenuOpen ? "text-purple-600 bg-purple-50" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                              }`}
                               title="More actions"
                             >
                               <MoreVertical size={15} />
@@ -951,22 +775,23 @@ export default function DebitNoteList() {
 
                             {isMenuOpen && (
                               <div
-                                className="absolute right-0 top-8 w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+                                ref={menuRef}
+                                className="absolute right-0 top-9 w-40 bg-white rounded-2xl shadow-2xl border border-slate-100 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
                               >
                                 <button
                                   onClick={() => {
                                     setActiveMenuId(null);
-                                    navigate(`/purchases/debit-note/edit/${item.id}`);
+                                    navigate(`/purchases/debit-note/edit/${n.id}`);
                                   }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition text-left cursor-pointer"
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-purple-50 hover:text-purple-600 transition text-left cursor-pointer"
                                 >
-                                  <Edit size={14} className="text-blue-600" />
-                                  <span>Edit</span>
+                                  <Edit size={14} className="text-purple-600" />
+                                  <span>Edit Details</span>
                                 </button>
                                 <button
                                   onClick={() => {
                                     setActiveMenuId(null);
-                                    navigate(`/invoice/${item.return_no || item.id}`);
+                                    navigate(`/invoice/${n.return_no || n.id}`);
                                   }}
                                   className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
                                 >
@@ -977,12 +802,12 @@ export default function DebitNoteList() {
                                 <button
                                   onClick={() => {
                                     setActiveMenuId(null);
-                                    setDeleteTarget(item);
+                                    setDeleteTarget(n);
                                   }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition text-left cursor-pointer"
                                 >
-                                  <Trash2 size={14} className="text-red-600" />
-                                  <span className="text-red-600">Delete</span>
+                                  <Trash2 size={14} className="text-rose-600" />
+                                  <span>Delete Voucher</span>
                                 </button>
                               </div>
                             )}
@@ -998,26 +823,25 @@ export default function DebitNoteList() {
         </div>
 
         {/* ── PAGINATION BAR ── */}
-        {filteredDebitNotes.length > 0 && (
+        {filteredNotes.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 text-xs text-slate-600 bg-white">
             <div className="flex items-center gap-4">
               <span>
-                Showing <strong className="font-semibold text-slate-800">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
-                <strong className="font-semibold text-slate-800">{Math.min(safePage * rowsPerPage, filteredDebitNotes.length)}</strong> of{" "}
-                <strong className="font-semibold text-slate-800">{filteredDebitNotes.length}</strong> debit notes
+                Showing <strong>{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
+                <strong>{Math.min(safePage * rowsPerPage, filteredNotes.length)}</strong> of{" "}
+                <strong>{filteredNotes.length}</strong> entries
               </span>
               <div className="flex items-center gap-1.5">
-                <span className="text-slate-500">Rows:</span>
+                <span>Rows:</span>
                 <select
                   value={rowsPerPage}
                   onChange={(e) => {
                     setRowsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white text-slate-700 outline-none focus:border-purple-500 cursor-pointer"
+                  className="border border-slate-300 rounded px-1.5 py-0.5 text-xs"
                 >
                   <option value={10}>10</option>
-                  <option value={15}>15</option>
                   <option value={25}>25</option>
                   <option value={50}>50</option>
                   <option value={100}>100</option>
@@ -1027,49 +851,21 @@ export default function DebitNoteList() {
 
             <div className="flex items-center gap-1">
               <button
-                type="button"
                 disabled={safePage === 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                title="Previous Page"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
               >
                 <ChevronLeft size={15} />
               </button>
 
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
-                .reduce((acc, p, i, arr) => {
-                  if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((item, i) =>
-                  item === "..." ? (
-                    <span key={`dots-${i}`} className="px-2 text-slate-400 font-bold">
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setCurrentPage(item)}
-                      className={`w-8 h-8 flex items-center justify-center rounded-lg font-medium text-xs transition cursor-pointer ${
-                        safePage === item
-                          ? "bg-purple-600 text-white shadow-xs"
-                          : "border border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  )
-                )}
+              <span className="px-3 py-1 bg-purple-600 text-white font-bold rounded-lg text-xs">
+                {safePage}
+              </span>
 
               <button
-                type="button"
                 disabled={safePage === totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                title="Next Page"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
               >
                 <ChevronRight size={15} />
               </button>
@@ -1078,51 +874,94 @@ export default function DebitNoteList() {
         )}
       </div>
 
-      {/* ── MODAL: DELETE CONFIRMATION ── */}
+      {/* ── 5. BOTTOM SUMMARY BAR ── */}
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between text-xs font-bold">
+        <div className="text-slate-700">
+          Total Amount:{" "}
+          <span className="text-purple-600 font-extrabold text-sm ml-1">
+            ₹ {totals.totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
+
+        <div className="text-slate-700">
+          Balance:{" "}
+          <span className="text-slate-900 font-extrabold text-sm ml-1">
+            ₹ {totals.balanceAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
+      </div>
+
+      {/* ── DELETE MODAL ── */}
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
           onClick={() => setDeleteTarget(null)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-rose-200 bg-rose-50/70 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
-                <AlertTriangle size={20} />
+            <div className="flex items-center gap-3 text-rose-600 mb-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={22} className="text-rose-600" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-rose-900">Delete Debit Note</h3>
-                <p className="text-[11px] text-rose-600 font-medium">This action will remove the record permanently</p>
+                <h3 className="text-base font-bold text-slate-900">Delete Debit Note?</h3>
+                <p className="text-xs text-slate-500 font-mono">Return #{deleteTarget.return_no || deleteTarget.id}</p>
               </div>
             </div>
 
-            <div className="p-6 text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to delete Debit Note <b>#{deleteTarget.return_no || deleteTarget.id}</b> for supplier <b>{deleteTarget.supplier_name || "-"}</b> with amount <b>₹{fmtCurrency(deleteTarget.total_amount)}</b>?
-            </div>
+            <p className="text-sm text-slate-600 mb-4">
+              Deleting this debit note will revert the supplier ledger adjustment and remove the return voucher permanently.
+            </p>
 
-            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
-                type="button"
+                disabled={deleting}
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+                className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 rounded-xl"
               >
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={confirmDelete}
                 disabled={deleting}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/25 transition cursor-pointer disabled:opacity-50"
+                onClick={handleDelete}
+                className="px-5 py-2 text-sm font-bold text-white bg-rose-600 rounded-xl disabled:opacity-50 flex items-center gap-2"
               >
-                {deleting ? "Deleting..." : "Delete Note"}
+                {deleting && <RefreshCw size={14} className="animate-spin" />}
+                <span>Yes, Delete</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* ── ACTION TOAST ── */}
+      {actionToast && (
+        <div
+          style={{
+            position: "fixed",
+            top: 24,
+            right: 28,
+            zIndex: 99999,
+            minWidth: 320,
+            background: actionToast.ok ? "#10b981" : "#ef4444",
+            color: "#ffffff",
+            borderRadius: 6,
+            padding: "12px 16px",
+            boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 500 }}>{actionToast.msg}</span>
+          <button onClick={() => setActionToast(null)} className="text-white">
+            <X size={15} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

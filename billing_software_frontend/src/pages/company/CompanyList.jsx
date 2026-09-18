@@ -1,236 +1,51 @@
-// // import { useNavigate } from "react-router-dom";
-
-// // export default function CompanyList() {
-// //   const navigate = useNavigate();
-
-// //   const companies = [
-// //     {
-// //       name: "ABC Traders",
-// //       code: "CMP001",
-// //       address: "Chennai",
-// //     },
-// //   ];
-
-// //   return (
-// //     <div>
-// //       <div className="flex justify-between mb-4">
-// //         <h1 className="text-xl font-bold">Companies</h1>
-
-// //         <button
-// //           onClick={() => navigate("/company/add")}
-// //           className="bg-green-600 text-white px-4 py-2 rounded"
-// //         >
-// //           + Add Company
-// //         </button>
-// //       </div>
-
-// //       <table className="w-full bg-white rounded shadow">
-// //         <thead className="bg-gray-200">
-// //           <tr>
-// //             <th>Name</th>
-// //             <th>Code</th>
-// //             <th>Address</th>
-// //           </tr>
-// //         </thead>
-
-// //         <tbody>
-// //           {companies.map((c, i) => (
-// //             <tr key={i} className="text-center">
-// //               <td>{c.name}</td>
-// //               <td>{c.code}</td>
-// //               <td>{c.address}</td>
-// //             </tr>
-// //           ))}
-// //         </tbody>
-// //       </table>
-// //     </div>
-// //   );
-// // }
-
-// //api integration
-// import { useEffect, useState } from "react";
-// import { useNavigate } from "react-router-dom";
-// import api, { API_BASE_URL } from "../../services/api";
-// import { Pencil, Trash2 } from "lucide-react";
-
-// export default function CompanyList() {
-//   const navigate = useNavigate();
-//   const [companies, setCompanies] = useState([]);
-
-//   const fetchCompanies = async () => {
-//     try {
-//       const res = await api.get("/company/get_companies");
-//       if (res.data.status) {
-//         setCompanies(res.data.data);
-//       }
-//     } catch (err) {
-//       console.error(err);
-//     }
-//   };
-
-//   useEffect(() => {
-//     fetchCompanies();
-//   }, []);
-
-//   // const handleDelete = async (id) => {
-//   //   if (!window.confirm("Delete this company?")) return;
-
-//   //   try {
-//   //     const res = await api.post("/company/delete_company", { id });
-
-//   //     if (res.data.status) {
-//   //       fetchCompanies();
-//   //     } else {
-//   //       alert(res.data.message);
-//   //     }
-//   //   } catch (err) {
-//   //     console.error(err);
-//   //   }
-//   // };
-
-
-//  const handleDelete = async (id) => {
-//   if (!window.confirm("Delete this company permanently?")) return;
-
-//   try {
-//     const res = await api.post("/company/delete_company", { id });
-
-//     if (res.data.status === true) {
-//       alert("Deleted Permanently ✅");
-
-//       // 🔥 remove from UI instantly (no reload feel)
-//       setCompanies(prev => prev.filter(c => c.id !== id));
-
-//     } else {
-//       alert(res.data.message);
-//     }
-//   } catch (err) {
-//     console.error(err);
-//     alert("Server error");
-//   }
-// };
-//   return (
-//     <div className="p-6">
-
-//       {/* Header */}
-//       <div className="flex justify-between items-center mb-6">
-//         <h1 className="text-2xl font-semibold text-gray-700">
-//           Company List
-//         </h1>
-
-//         <button
-//           onClick={() => navigate("/company/add")}
-//           className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg shadow"
-//         >
-//           + Add Company
-//         </button>
-//       </div>
-
-//       {/* Table Card */}
-//       <div className="bg-white rounded-xl shadow overflow-hidden">
-
-//         <table className="w-full text-sm text-left">
-
-//          <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
-//   <tr>
-//     <th className="px-6 py-3">Logo</th>
-//     <th className="px-6 py-3">Company</th>
-//     <th className="px-6 py-3">Code</th>
-//     <th className="px-6 py-3">GSTIN</th>
-//     <th className="px-6 py-3">Phone</th>
-//     <th className="px-6 py-3">Address</th>
-//     <th className="px-6 py-3 text-center">Actions</th>
-//   </tr>
-// </thead>
-
-//           <tbody className="divide-y">
-//   {companies.map((c) => (
-//     <tr key={c.id} className="hover:bg-gray-50 transition">
-
-//       {/* Logo */}
-//       <td className="px-6 py-4">
-//         {c.logo && (
-//           <img
-//              src={`${API_BASE_URL}${c.logo}`}
-//             className="h-10 w-10 object-cover rounded"
-//           />
-//         )}
-//       </td>
-
-//       {/* Name */}
-//       <td className="px-6 py-4 font-medium text-gray-800">
-//         {c.company_name}
-//       </td>
-
-//       {/* Code */}
-//       <td className="px-6 py-4">{c.company_code}</td>
-
-//       {/* GSTIN */}
-//       <td className="px-6 py-4">{c.gstin}</td>
-
-//       {/* Phone */}
-//       <td className="px-6 py-4">{c.phone}</td>
-
-//       {/* Address */}
-//       <td className="px-6 py-4">{c.company_address}</td>
-
-//       {/* Actions */}
-//       <td className="px-6 py-4 flex justify-center gap-3">
-
-//         <button
-//           onClick={() => navigate(`/company/edit/${c.id}`)}
-//           className="p-2 bg-blue-50 text-blue-600 rounded"
-//         >
-//           <Pencil size={18} />
-//         </button>
-
-//         <button
-//           onClick={() => handleDelete(c.id)}
-//           className="p-2 bg-red-50 text-red-600 rounded"
-//         >
-//           <Trash2 size={18} />
-//         </button>
-
-//       </td>
-//     </tr>
-//   ))}
-// </tbody>
-
-//         </table>
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api, { API_BASE_URL, API_BASE_URL_IMAGE } from "../../services/api";
-import { Pencil, Power, Building2, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import api from "../../services/api";
+import CompanyForm from "./CompanyForm";
+import EditCompany from "./EditCompany";
+import {
+  Pencil,
+  Search,
+  Building2,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  MapPin,
+  Phone,
+  Hash,
+} from "lucide-react";
 
-const ITEMS_PER_PAGE = 5;
+const PER_PAGE = 10;
+const MAX_COMPANIES = 3;
 
 export default function CompanyList() {
   const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  // const [deleteId, setDeleteId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCompanyId, setEditingCompanyId] = useState(null);
 
-  const MAX_COMPANIES = 3;
+  const isLimitReached = companies.length >= MAX_COMPANIES;
 
-  const isLimitReached =
-    companies.length >= MAX_COMPANIES;
-
+  /* FETCH COMPANIES */
   const fetchCompanies = async () => {
+    setLoading(true);
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const res = await api.get(`/company/get_companies_by_admin?admin_id=${user.id}`);
-      if (res.data.status) setCompanies(res.data.data);
+      const res = await api.get(`/company/get_companies_by_admin?admin_id=${user?.id}`);
+      if (res.data.status) {
+        setCompanies(res.data.data || []);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching companies:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -238,578 +53,487 @@ export default function CompanyList() {
     fetchCompanies();
   }, []);
 
- 
-
-
-  // const toggleStatus = async (company) => {
-
-  //   const newStatus =
-  //     company.status === "active"
-  //       ? "inactive"
-  //       : "active";
-
-  //   try {
-
-  //     const res = await api.post(
-  //       "/company/toggle_company_status",
-  //       {
-  //         id: company.id,
-  //         company_status: newStatus,
-  //       }
-  //     );
-
-  //     if (res.data.success) {
-
-  //       setCompanies((prev) =>
-  //         prev.map((c) =>
-  //           c.id === company.id
-  //             ? { ...c, status: newStatus }
-  //             : c
-  //         )
-  //       );
-
-  //     } else {
-
-  //       alert(res.data.message);
-
-  //     }
-
-  //   } catch (err) {
-
-  //     console.error(err);
-  //     alert("Server error");
-
-  //   }
-  // };
-  
+  /* TOGGLE STATUS */
   const toggleStatus = async (company) => {
-  const newStatus = company.status === "active" ? "inactive" : "active";
-  try {
-    const res = await api.post(
-      "/company/toggle_company_status",
-      {
+    const newStatus = company.status === "active" ? "inactive" : "active";
+    try {
+      const res = await api.post("/company/toggle_company_status", {
         id: company.id,
-        status: newStatus,   // ✅ company_status -> status
-      }
-    );
+        status: newStatus,
+      });
 
-    if (res.data.status) {   // ✅ success -> status
-      setCompanies((prev) =>
-        prev.map((c) =>
-          c.id === company.id ? { ...c, status: newStatus } : c
-        )
-      );
-    } else {
-      alert(res.data.message);
+      if (res.data.status) {
+        setCompanies((prev) =>
+          prev.map((c) => (c.id === company.id ? { ...c, status: newStatus } : c))
+        );
+      } else {
+        alert(res.data.message || "Failed to update company status.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error while updating company status.");
     }
-  } catch (err) {
-    console.error(err);
-    alert("Server error");
-  }
-};
-  
-  const filtered = companies.filter(c =>
-    c.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-    c.company_code?.toLowerCase().includes(search.toLowerCase()) ||
-    c.gstin?.toLowerCase().includes(search.toLowerCase())
+  };
+
+  /* SEARCH & PAGINATION */
+  const filtered = companies.filter(
+    (c) =>
+      c.company_name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.company_code?.toLowerCase().includes(search.toLowerCase()) ||
+      c.gstin?.toLowerCase().includes(search.toLowerCase()) ||
+      c.phone?.toLowerCase().includes(search.toLowerCase()) ||
+      c.email?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginated = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
 
   const handleSearch = (val) => {
     setSearch(val);
-    setCurrentPage(1);
+    setPage(1);
   };
 
   const getInitials = (name) =>
-    name ? name.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase() : "?";
+    name
+      ?.split(" ")
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase() || "CP";
+
+  const avatarColors = [
+    "bg-indigo-50 text-indigo-700 ring-indigo-200",
+    "bg-blue-50 text-blue-700 ring-blue-200",
+    "bg-emerald-50 text-emerald-700 ring-emerald-200",
+    "bg-amber-50 text-amber-700 ring-amber-200",
+    "bg-purple-50 text-purple-700 ring-purple-200",
+    "bg-cyan-50 text-cyan-700 ring-cyan-200",
+  ];
+
+  const getColor = (name) =>
+    avatarColors[(name?.charCodeAt(0) || 0) % avatarColors.length];
+
+  const activeCount = companies.filter((c) => c.status === "active").length;
+  const inactiveCount = companies.filter((c) => c.status !== "active").length;
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* ── 1. PAGE HEADER (Matches CashierList) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 select-none">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100 ring-4 ring-indigo-50/50">
+            <Building2 size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Company Settings
+            </h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Manage registered business entities, tax settings, GSTIN compliance &amp; store branches
+            </p>
+          </div>
+        </div>
 
-        .cl-wrap {
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          min-height: 100vh;
-          background: #f0f4ff;
-          padding: 2rem 2rem;
-        }
+        <div className="flex items-center gap-2.5">
+          <button
+            disabled={isLimitReached}
+            onClick={() => {
+              if (!isLimitReached) setShowAddModal(true);
+            }}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-lg transition-all transform active:scale-95 cursor-pointer ${
+              isLimitReached
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                : "bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-indigo-200"
+            }`}
+          >
+            <Plus size={16} strokeWidth={2.8} />
+            <span>Add Company</span>
+          </button>
+        </div>
+      </div>
 
-        /* ── Header ── */
-        .cl-topbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.75rem;
-          flex-wrap: wrap;
-          gap: 12px;
-        }
-        .cl-title-group { display: flex; align-items: center; gap: 12px; }
-        .cl-icon-wrap {
-          width: 44px; height: 44px; border-radius: 12px;
-          background: linear-gradient(135deg, #1e40af, #3b82f6);
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0;
-        }
-        .cl-title { font-size: 22px; font-weight: 800; color: #1e293b; margin: 0; }
-        .cl-subtitle { font-size: 13px; color: #64748b; margin: 2px 0 0; }
-
-        .cl-add-btn {
-          display: inline-flex; align-items: center; gap: 7px;
-          padding: 10px 20px; border-radius: 12px; border: none;
-          background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-          color: #fff; font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 14px; font-weight: 700; cursor: pointer;
-          box-shadow: 0 4px 14px rgba(37,99,235,0.35);
-          transition: all 0.2s;
-        }
-        .cl-add-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(37,99,235,0.45); }
-
-        /* ── Search ── */
-        .cl-search-wrap {
-          position: relative; margin-bottom: 1.25rem;
-        }
-        .cl-search-icon {
-          position: absolute; left: 14px; top: 50%;
-          transform: translateY(-50%); color: #94a3b8;
-          pointer-events: none;
-        }
-        .cl-search {
-          width: 100%; padding: 11px 14px 11px 42px;
-          border-radius: 12px; border: 1.5px solid #e2e8f0;
-          background: #fff; font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 14px; color: #1e293b; outline: none;
-          box-sizing: border-box; transition: all 0.2s;
-        }
-        .cl-search::placeholder { color: #c4cdd6; }
-        .cl-search:focus { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
-
-        /* ── Card ── */
-        .cl-card {
-          background: #fff; border-radius: 20px;
-          border: 1px solid #e2e8f0;
-          box-shadow: 0 4px 24px rgba(37,99,235,0.08);
-          overflow: hidden;
-        }
-.cl-table-wrap {
-  overflow-x: auto;
-}
-.cl-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 900px;
-}
-        /* ── Table header stripe ── */
-        .cl-table-header {
-          background: linear-gradient(135deg, #1e40af, #2563eb);
-          padding: 0;
-        }
-        .cl-table { width: 100%; border-collapse: collapse; }
-
-        .cl-th {
-          padding: 14px 16px;
-          font-size: 11px; font-weight: 700;
-          text-transform: uppercase; letter-spacing: 0.08em;
-          color: rgba(255,255,255,0.8);
-          text-align: left; white-space: nowrap;
-        }
-        .cl-th.center { text-align: center; }
-
-        /* ── Rows ── */
-        .cl-tr { border-bottom: 1px solid #f1f5f9; transition: background 0.15s; }
-        .cl-tr:last-child { border-bottom: none; }
-        .cl-tr:hover { background: #f8faff; }
-
-        .cl-td { padding: 14px 16px; vertical-align: middle; }
-
-        /* avatar / logo */
-        .cl-avatar {
-          width: 40px; height: 40px; border-radius: 10px;
-          background: linear-gradient(135deg, #dbeafe, #eff6ff);
-          border: 1.5px solid #bfdbfe;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 700; color: #1d4ed8;
-          flex-shrink: 0; overflow: hidden;
-        }
-        .cl-avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-        .cl-company-cell { display: flex; align-items: center; gap: 10px; }
-        .cl-company-name { font-size: 14px; font-weight: 700; color: #1e293b; }
-        .cl-company-sub  { font-size: 12px; color: #64748b; margin-top: 2px; }
-
-        .cl-badge {
-          display: inline-block; padding: 3px 10px;
-          border-radius: 100px; font-size: 11.5px; font-weight: 700;
-        }
-        .cl-badge-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-        .cl-badge-gray { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
-
-        .cl-text-muted { font-size: 13.5px; color: #475569; }
-
-        /* action buttons */
-        .cl-actions { display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .cl-btn-edit, .cl-btn-del {
-          width: 34px; height: 34px; border-radius: 9px;
-          display: flex; align-items: center; justify-content: center;
-          border: none; cursor: pointer; transition: all 0.18s;
-        }
-        .cl-btn-edit { background: #eff6ff; color: #2563eb; }
-        .cl-btn-edit:hover { background: #dbeafe; transform: scale(1.08); }
-        .cl-btn-del  { background: #fff1f2; color: #e11d48; }
-        .cl-btn-del:hover  { background: #ffe4e6; transform: scale(1.08); }
-
-        /* ── Empty state ── */
-        .cl-empty {
-          text-align: center; padding: 3rem 1rem; color: #94a3b8;
-        }
-        .cl-empty-icon {
-          width: 56px; height: 56px; border-radius: 16px;
-          background: #f1f5f9; margin: 0 auto 12px;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .cl-empty p { font-size: 14px; font-weight: 600; color: #64748b; margin: 0 0 4px; }
-        .cl-empty span { font-size: 13px; }
-
-        /* ── Pagination ── */
-        .cl-pagination {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 20px; border-top: 1px solid #f1f5f9;
-          background: #fafbff;
-          flex-wrap: wrap; gap: 10px;
-        }
-        .cl-page-info { font-size: 13px; color: #64748b; }
-        .cl-page-info strong { color: #1e293b; font-weight: 700; }
-
-        .cl-page-btns { display: flex; align-items: center; gap: 5px; }
-        .cl-page-btn {
-          width: 34px; height: 34px; border-radius: 9px;
-          display: flex; align-items: center; justify-content: center;
-          border: 1.5px solid #e2e8f0; background: #fff;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 13px; font-weight: 600; color: #64748b;
-          cursor: pointer; transition: all 0.18s;
-        }
-        .cl-page-btn:hover:not(:disabled) { border-color: #3b82f6; color: #2563eb; background: #eff6ff; }
-        .cl-page-btn:disabled { opacity: 0.38; cursor: not-allowed; }
-        .cl-page-btn.active {
-          background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-          border-color: transparent; color: #fff;
-          box-shadow: 0 3px 10px rgba(37,99,235,0.35);
-      }
-       
-
-       
-      .cl-switch {
-  position: relative;
-  display: inline-block;
-  width: 45px;
-  height: 20px;
-}
-
-.cl-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.cl-slider {
-  position: absolute;
-  cursor: pointer;
-  inset: 0;
-  background: #d1d5db;
-  transition: 0.4s;
-  border-radius: 999px;
-}
-
-.cl-slider:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 15px;
-  left: 3px;
-  top: 3px;
-  background: white;
-  transition: 0.4s;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-}
-
-.cl-switch input:checked + .cl-slider {
-  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-}
-
-.cl-switch input:checked + .cl-slider:before {
-  transform: translateX(24px);
-}
-
-.cl-add-btn.disabled{
-  opacity:.6;
-  cursor:not-allowed;
-  box-shadow:none;
-}
-
-.cl-limit-note{
-  margin-bottom:18px;
-  background:#fff7ed;
-  border:1px solid #fdba74;
-  color:#c2410c;
-  padding:14px 16px;
-  border-radius:16px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:14px;
-  font-size:14px;
-  font-weight:500;
-}
-
-.cl-request-btn{
-  border:none;
-  background:linear-gradient(
-    135deg,
-    #ea580c,
-    #f97316
-  );
-  color:#fff;
-  padding:10px 16px;
-  border-radius:12px;
-  font-size:13px;
-  font-weight:600;
-  cursor:pointer;
-}
-      `}</style>
-
-      <div className="cl-wrap">
-
-        {/* Top bar */}
-        <div className="cl-topbar">
-          <div className="cl-title-group">
-            <div className="cl-icon-wrap">
-              <Building2 size={22} color="#fff" />
-            </div>
+      {/* ── 2. METRIC KPI CARDS (PaySplitX 4-Card Strip) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Companies */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+          <div className="flex items-start justify-between">
             <div>
-              <h1 className="cl-title">Companies</h1>
-              <p className="cl-subtitle">Manage your registered companies</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Total Companies
+              </p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                {companies.length}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+              <Building2 size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Registered Business Entities</span>
+            <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+              Profiles
+            </span>
+          </div>
+        </div>
+
+        {/* Card 2: Active Entities */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Active Entities
+              </p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+                {activeCount}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <CheckCircle2 size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Enabled for billing &amp; sales</span>
+            <span className="text-[11px] font-semibold text-emerald-600">Active</span>
+          </div>
+        </div>
+
+        {/* Card 3: Inactive / Suspended */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Inactive / Paused
+              </p>
+              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight">
+                {inactiveCount}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <XCircle size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Temporarily disabled</span>
+            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+              Paused
+            </span>
+          </div>
+        </div>
+
+        {/* Card 4: Company Quota */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-purple-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Company Quota
+              </p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                {companies.length} / {MAX_COMPANIES}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+              <ShieldCheck size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Maximum businesses allowed</span>
+            <span
+              className={`text-[11px] font-semibold ${
+                isLimitReached ? "text-rose-600" : "text-purple-600"
+              }`}
+            >
+              {isLimitReached ? "Limit Reached" : "Available"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. LIMIT WARNING BANNER ── */}
+      {isLimitReached && (
+        <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-900">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle size={18} className="text-amber-600 flex-shrink-0" />
+            <div>
+              <span className="font-bold">Company limit reached: </span>
+              Your plan allows a maximum of 3 registered companies. To register additional firms or branches, please request an increase.
             </div>
           </div>
           <button
-            className={`cl-add-btn ${isLimitReached
-                ? "disabled"
-                : ""
-              }`}
-            disabled={isLimitReached}
-            onClick={() => {
-
-              if (!isLimitReached) {
-
-                navigate("/company/add");
-
-              }
-
-            }}
+            onClick={() => navigate("/company/add")}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl whitespace-nowrap transition cursor-pointer"
           >
-            + Add Company
+            Request Company
           </button>
         </div>
+      )}
 
-        {isLimitReached && (
-
-          <div className="cl-limit-note">
-
-            <div>
-              Maximum 3 companies only allowed.
-              To add more companies,
-              please send a request.
-            </div>
-
-            <button
-              className="cl-request-btn"
-              onClick={() =>
-                navigate("/company/add")
-              }
-            >
-              Request Company
-            </button>
-
-          </div>
-
-        )}
-
-        {/* Search */}
-        <div className="cl-search-wrap">
-          <Search size={16} className="cl-search-icon" />
-          <input
-            className="cl-search"
-            placeholder="Search by name, code or GSTIN…"
-            value={search}
-            onChange={e => handleSearch(e.target.value)}
+      {/* ── 4. SEARCH TOOLBAR ── */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search
+            size={15}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
           />
+          <input
+            type="text"
+            placeholder="Search companies by name, code, GSTIN or phone..."
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-8 py-2 text-xs text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 font-medium transition"
+          />
+          {search && (
+            <button
+              onClick={() => handleSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
-        {/* Table card */}
-        <div className="cl-card">
-          <div className="cl-table-wrap">
-            <table className="cl-table">
-              <thead className="bg-blue-600">
-                <tr>
-                  <th className="cl-th">#</th>
-                  <th className="cl-th">Company</th>
-                  <th className="cl-th">Code</th>
-                  <th className="cl-th">GSTIN</th>
-                  <th className="cl-th">Phone</th>
-                  <th className="cl-th">Address</th>
-                  <th className="cl-th center">Actions</th>
-                  <th className="cl-th">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.length === 0 ? (
-                  <tr>
-                    <td colSpan={7}>
-                      <div className="cl-empty">
-                        <div className="cl-empty-icon">
-                          <Building2 size={26} color="#94a3b8" />
-                        </div>
-                        <p>{search ? "No companies match your search." : "No companies found."}</p>
-                        <span>{search ? "Try a different keyword." : "Click '+ Add Company' to get started."}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginated.map((c, idx) => (
-                    <tr key={c.id} className="cl-tr">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">
+            {filtered.length} companies
+          </span>
+        </div>
+      </div>
 
-                      {/* Serial */}
-                      <td className="cl-td">
-                        <span className="cl-badge cl-badge-gray">
-                          {(safePage - 1) * ITEMS_PER_PAGE + idx + 1}
+      {/* ── 5. DIRECTORY TABLE CARD (Exact CashierList structure) ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs min-w-max">
+            <thead>
+              <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                <th className="py-3.5 px-5">#</th>
+                <th className="py-3.5 px-5">Company Profile</th>
+                <th className="py-3.5 px-5">Company Code</th>
+                <th className="py-3.5 px-5">GSTIN</th>
+                <th className="py-3.5 px-5">Contact Phone</th>
+                <th className="py-3.5 px-5">Business Address</th>
+                <th className="py-3.5 px-5 text-center">Status Toggle</th>
+                <th className="py-3.5 px-5 text-center">Status</th>
+                <th className="py-3.5 px-5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="py-14 text-center text-slate-400">
+                    Loading Companies...
+                  </td>
+                </tr>
+              ) : paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mb-3">
+                        <Building2 size={32} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-800">No Companies Found</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {search
+                          ? "No registered entities match your search filter."
+                          : "Add your store companies to start multi-firm billing."}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginated.map((c, idx) => {
+                  const colorClass = getColor(c.company_name);
+                  return (
+                    <tr key={c.id} className="hover:bg-indigo-50/20 transition-colors">
+                      {/* Serial Number */}
+                      <td className="py-3.5 px-5">
+                        <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                          {(safePage - 1) * PER_PAGE + idx + 1}
                         </span>
                       </td>
 
-                      {/* Company name + logo */}
-                      <td className="cl-td">
-                        <div className="cl-company-cell">
-                          {/* <div className="cl-avatar">
-                            {c.logo
-                              ? <img src={c.logo.startsWith("http") ? c.logo : `${API_BASE_URL_IMAGE}/${c.logo}`} alt={c.company_name} />
-                              : getInitials(c.company_name)
-                            }
-                          </div> */}
+                      {/* Company Profile (Avatar + Name + Email) */}
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ring-2 ${colorClass}`}
+                          >
+                            {getInitials(c.company_name)}
+                          </div>
                           <div>
-                            <div className="cl-company-name">{c.company_name}</div>
-                            {c.email && <div className="cl-company-sub">{c.email}</div>}
+                            <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                              {c.company_name}
+                            </div>
+                            {c.email ? (
+                              <div className="text-[11px] text-slate-500 font-normal">
+                                {c.email}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                ID #{c.id}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
 
-                      {/* Code */}
-                      <td className="cl-td">
-                        <span className="cl-badge cl-badge-blue">{c.company_code || "—"}</span>
+                      {/* Company Code */}
+                      <td className="py-3.5 px-5">
+                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200/60">
+                          <Hash size={11} className="text-indigo-400" />
+                          {c.company_code || "—"}
+                        </span>
                       </td>
 
                       {/* GSTIN */}
-                      <td className="cl-td">
-                        <span className="cl-text-muted">{c.gstin || "—"}</span>
+                      <td className="py-3.5 px-5 font-mono text-xs font-semibold text-slate-700">
+                        {c.gstin || "—"}
                       </td>
 
                       {/* Phone */}
-                      <td className="cl-td">
-                        <span className="cl-text-muted">{c.phone || "—"}</span>
+                      <td className="py-3.5 px-5 text-slate-600">
+                        {c.phone ? (
+                          <div className="flex items-center gap-1.5">
+                            <Phone size={13} className="text-slate-400" />
+                            <span>{c.phone}</span>
+                          </div>
+                        ) : (
+                          "—"
+                        )}
                       </td>
 
                       {/* Address */}
-                      <td className="cl-td">
-                        <span className="cl-text-muted" style={{ maxWidth: 180, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {c.company_address || "—"}
+                      <td className="py-3.5 px-5 text-slate-600 max-w-[200px]">
+                        {c.company_address ? (
+                          <div
+                            className="flex items-center gap-1.5 truncate"
+                            title={c.company_address}
+                          >
+                            <MapPin size={13} className="text-slate-400 flex-shrink-0" />
+                            <span className="truncate">{c.company_address}</span>
+                          </div>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+
+                      {/* Status Toggle Switch (Matches CashierList) */}
+                      <td className="py-3.5 px-5 text-center">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={c.status === "active"}
+                          onClick={() => toggleStatus(c)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            c.status === "active" ? "bg-indigo-600" : "bg-slate-200"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              c.status === "active" ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-3.5 px-5 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            c.status === "active"
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                              : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              c.status === "active" ? "bg-emerald-600" : "bg-slate-400"
+                            }`}
+                          />
+                          {c.status || "active"}
                         </span>
                       </td>
 
                       {/* Actions */}
-                      <td className="cl-td">
-                        <div className="cl-actions">
-                          <button className="cl-btn-edit" title="Edit" onClick={() => navigate(`/company/edit/${c.id}`)}>
-                            <Pencil size={16} />
-                          </button>
-                          <label className="cl-switch">
-                            <input
-                              type="checkbox"
-                              checked={c.status === "active"}
-                              onChange={() => toggleStatus(c)}
-                            />
-                            <span className="cl-slider"></span>
-                          </label>
-                        </div>
-                      </td>
-
-                      <td className="cl-td">
-                        <span
-                          className={`cl-badge ${c.status === "active"
-                              ? "cl-badge-blue"
-                              : "cl-badge-gray"
-                            }`}
+                      <td className="py-3.5 px-5 text-right">
+                        <button
+                          onClick={() => setEditingCompanyId(c.id)}
+                          className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+                          title="Edit Company"
                         >
-                          {c.status}
-                        </span>
+                          <Pencil size={15} />
+                        </button>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          {/* Pagination */}
-          {filtered.length > ITEMS_PER_PAGE && (
-            <div className="cl-pagination">
-              <p className="cl-page-info">
-                Showing <strong>{(safePage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safePage * ITEMS_PER_PAGE, filtered.length)}</strong> of <strong>{filtered.length}</strong> companies
-              </p>
-              <div className="cl-page-btns">
-                <button
-                  className="cl-page-btn"
-                  disabled={safePage === 1}
-                  onClick={() => setCurrentPage(p => p - 1)}
-                >
-                  <ChevronLeft size={16} />
-                </button>
-
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
-                  .reduce((acc, p, i, arr) => {
-                    if (i > 0 && arr[i - 1] !== p - 1) acc.push("...");
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((item, i) =>
-                    item === "..." ? (
-                      <span key={`dots-${i}`} style={{ padding: "0 4px", color: "#94a3b8", fontSize: 13 }}>…</span>
-                    ) : (
-                      <button
-                        key={item}
-                        className={`cl-page-btn ${safePage === item ? "active" : ""}`}
-                        onClick={() => setCurrentPage(item)}
-                      >
-                        {item}
-                      </button>
-                    )
-                  )
-                }
-
-                <button
-                  className="cl-page-btn"
-                  disabled={safePage === totalPages}
-                  onClick={() => setCurrentPage(p => p + 1)}
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-          )}
-
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
+
+        {/* ── PAGINATION BAR (Matches CashierList) ── */}
+        {filtered.length > PER_PAGE && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200/80 text-xs text-slate-600 bg-white">
+            <div>
+              Showing <strong className="font-bold text-slate-900">{(safePage - 1) * PER_PAGE + 1}</strong> to{" "}
+              <strong className="font-bold text-slate-900">
+                {Math.min(safePage * PER_PAGE, filtered.length)}
+              </strong>{" "}
+              of <strong className="font-bold text-slate-900">{filtered.length}</strong> companies
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                disabled={safePage === 1}
+                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <div className="px-3 py-1 font-bold text-slate-800">
+                {safePage} / {totalPages}
+              </div>
+              <button
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-    </>
+
+      {/* ── ADD COMPANY MODAL POPUP ── */}
+      {showAddModal && (
+        <CompanyForm
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            setShowAddModal(false);
+            fetchCompanies();
+          }}
+        />
+      )}
+
+      {/* ── EDIT COMPANY MODAL POPUP ── */}
+      {editingCompanyId && (
+        <EditCompany
+          isOpen={Boolean(editingCompanyId)}
+          id={editingCompanyId}
+          onClose={() => setEditingCompanyId(null)}
+          onSuccess={() => {
+            setEditingCompanyId(null);
+            fetchCompanies();
+          }}
+        />
+      )}
+    </div>
   );
 }

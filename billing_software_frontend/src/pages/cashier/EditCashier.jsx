@@ -1,571 +1,341 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { Eye, EyeOff } from "lucide-react";
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  UserCheck,
+  X,
+  RefreshCw,
+  AlertCircle,
+  ShieldCheck,
+  Save,
+} from "lucide-react";
 
-export default function EditCashier() {
-  const { id } = useParams();
+export default function EditCashier({
+  isOpen = true,
+  id: propId,
+  onClose,
+  onSuccess,
+}) {
+  const params = useParams();
+  const id = propId || params.id;
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [focused, setFocused] = useState("");
+  const [fetching, setFetching] = useState(true);
   const [toast, setToast] = useState(null);
+  const [errors, setErrors] = useState({});
 
-  const fetchCashier = async () => {
-    const res = await api.get(`/cashier/get_cashier_by_id?id=${id}`);
-    if (res.data.status) {
-      setForm({ name: res.data.data.name, email: res.data.data.email, password: "" });
+  const showToast = (msg, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      navigate("/cashier");
     }
   };
-const showToast = (msg, ok = true) => {
 
-  setToast({ msg, ok });
-
-  setTimeout(() => {
-    setToast(null);
-  }, 3000);
-
-};
-  useEffect(() => { fetchCashier(); }, []);
-
- const handleUpdate = async () => {
-
-  if (!form.name.trim()) {
-    showToast("Name is required", false);
-    return;
-  }
-
-  if (!form.email.trim()) {
-    showToast("Email is required", false);
-    return;
-  }
-
-
-  if (form.password && form.password.trim().length < 6) {
-  showToast("Password must be at least 6 characters", false);
-  return;
-}
-
-  if (!/\S+@\S+\.\S+/.test(form.email)) {
-    showToast("Enter valid email", false);
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-
-    const res = await api.post(
-      "/cashier/update_cashier",
-      {
-        id,
-        name: form.name,
-        email: form.email,
-        password: form.password
+  const fetchCashier = async () => {
+    if (!id) return;
+    setFetching(true);
+    try {
+      const res = await api.get(`/cashier/get_cashier_by_id?id=${id}`);
+      if (res.data?.status) {
+        setForm({
+          name: res.data.data.name || "",
+          email: res.data.data.email || "",
+          password: "",
+        });
+      } else {
+        showToast("Failed to load cashier details", false);
       }
-    );
+    } catch {
+      showToast("Server error while loading cashier details", false);
+    } finally {
+      setFetching(false);
+    }
+  };
 
-    if (res.data.status) {
+  useEffect(() => {
+    fetchCashier();
+  }, [id]);
 
-      showToast(
-        res.data.message || "Cashier updated successfully!",
-        true
-      );
+  const set = (k, v) => {
+    setForm((p) => ({ ...p, [k]: v }));
+    if (errors[k]) setErrors((p) => ({ ...p, [k]: undefined }));
+  };
 
-      setTimeout(() => {
-        navigate("/cashier");
-      }, 1500);
+  const validate = () => {
+    const errs = {};
+    if (!form.name.trim()) errs.name = "Full name is required";
+    if (!form.email.trim()) {
+      errs.email = "Email address is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      errs.email = "Please enter a valid email address";
+    }
+    if (form.password && form.password.trim().length < 6) {
+      errs.password = "Password must be at least 6 characters";
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
-    } else {
-
-      showToast(
-        res.data.message || "Failed to update cashier",
-        false
-      );
-
+  const handleUpdate = async (e) => {
+    if (e) e.preventDefault();
+    if (!validate()) {
+      showToast("Please correct the errors in the form", false);
+      return;
     }
 
-  } catch (err) {
+    setLoading(true);
+    try {
+      const res = await api.post("/cashier/update_cashier", {
+        id,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+      });
 
-    console.error(err);
+      if (res.data?.status) {
+        showToast(res.data.message || "Cashier account updated successfully!", true);
+        setTimeout(() => {
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            navigate("/cashier");
+          }
+        }, 800);
+      } else {
+        showToast(res.data?.message || "Failed to update cashier", false);
+      }
+    } catch (err) {
+      console.error("Cashier update error:", err);
+      showToast("Server error. Try again.", false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    showToast(
-      "Server error. Try again.",
-      false
-    );
+  if (!isOpen) return null;
 
-  }
+  const content = (
+    <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col font-['Plus_Jakarta_Sans',sans-serif] transition-all animate-in zoom-in-95 duration-200">
+      {/* ── HEADER ── */}
+      <div className="px-6 sm:px-7 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/80 to-white flex-shrink-0">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+            <UserCheck size={20} />
+          </div>
+          <div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+              Edit Cashier Account
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Update operator profile, billing access email &amp; security
+            </p>
+          </div>
+        </div>
 
-  setLoading(false);
+        <button
+          type="button"
+          onClick={handleClose}
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          title="Close"
+        >
+          <X size={18} />
+        </button>
+      </div>
 
-};
+      {fetching ? (
+        <div className="p-10 flex flex-col items-center justify-center gap-3">
+          <RefreshCw size={26} className="animate-spin text-indigo-600" />
+          <span className="text-xs font-bold text-slate-600">Loading cashier details...</span>
+        </div>
+      ) : (
+        /* ── FORM BODY ── */
+        <form onSubmit={handleUpdate} className="p-6 sm:p-7 space-y-5">
+          {/* Full Name */}
+          <div>
+            <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+              Full Name <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <User size={15} />
+              </div>
+              <input
+                type="text"
+                className={`w-full pl-10 pr-3.5 py-2.5 bg-white border rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none transition-all ${
+                  errors.name
+                    ? "border-red-500 focus:ring-3 focus:ring-red-100 text-red-900"
+                    : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 text-slate-900"
+                }`}
+                placeholder="e.g. Rahul Sharma"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                autoFocus
+              />
+            </div>
+            {errors.name && (
+              <p className="mt-1 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                <AlertCircle size={12} /> {errors.name}
+              </p>
+            )}
+          </div>
+
+          {/* Login Email */}
+          <div>
+            <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
+              Login Email Address <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Mail size={15} />
+              </div>
+              <input
+                type="email"
+                className={`w-full pl-10 pr-3.5 py-2.5 bg-white border rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none transition-all ${
+                  errors.email
+                    ? "border-red-500 focus:ring-3 focus:ring-red-100 text-red-900"
+                    : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 text-slate-900"
+                }`}
+                placeholder="cashier@store.com"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+              />
+            </div>
+            {errors.email && (
+              <p className="mt-1 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                <AlertCircle size={12} /> {errors.email}
+              </p>
+            )}
+          </div>
+
+          {/* Password (Optional on Edit) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11.5px] font-semibold text-slate-700">
+                New Password
+              </label>
+              <span className="text-[10.5px] text-slate-400">Leave blank to keep unchanged</span>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Lock size={15} />
+              </div>
+              <input
+                type={showPassword ? "text" : "password"}
+                className={`w-full pl-10 pr-10 py-2.5 bg-white border rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none transition-all ${
+                  errors.password
+                    ? "border-red-500 focus:ring-3 focus:ring-red-100 text-red-900"
+                    : "border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 text-slate-900"
+                }`}
+                placeholder="Enter new password (min. 6 chars)"
+                value={form.password}
+                onChange={(e) => set("password", e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            {errors.password && (
+              <p className="mt-1 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                <AlertCircle size={12} /> {errors.password}
+              </p>
+            )}
+          </div>
+
+          {/* Security Notice */}
+          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-start gap-2.5 text-xs text-slate-600">
+            <ShieldCheck size={16} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-slate-800">Counter Operator Security: </span>
+              Updating credentials will take effect immediately. Keep password empty unless you need to change operator access.
+            </div>
+          </div>
+
+          {/* ── FOOTER ACTIONS ── */}
+          <div className="pt-3 flex items-center justify-between gap-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-200 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" /> Updating...
+                </>
+              ) : (
+                <>
+                  <Save size={15} /> Update Cashier
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap');
-
-        .ec-wrapper {
-          font-family: 'DM Sans', sans-serif;
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f0f4ff;
-          padding: 2rem;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .ec-blob {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(60px);
-          opacity: 0.35;
-          pointer-events: none;
-        }
-        .ec-blob-1 {
-          width: 420px; height: 420px;
-          background: #2563eb;
-          top: -120px; right: -80px;
-        }
-        .ec-blob-2 {
-          width: 300px; height: 300px;
-          background: #60a5fa;
-          bottom: -80px; left: -60px;
-        }
-        .ec-blob-3 {
-          width: 180px; height: 180px;
-          background: #93c5fd;
-          top: 50%; left: 40%;
-        }
-
-        .ec-card {
-          position: relative;
-          width: 100%;
-          max-width: 520px;
-          background: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border-radius: 28px;
-          border: 1px solid rgba(255,255,255,0.9);
-          box-shadow:
-            0 4px 24px rgba(37, 99, 235, 0.12),
-            0 1px 3px rgba(37, 99, 235, 0.08),
-            inset 0 1px 0 rgba(255,255,255,1);
-          overflow: hidden;
-          animation: slideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(32px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .ec-header {
-          background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #3b82f6 100%);
-          padding: 2rem 2rem 2.5rem;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .ec-header::before {
-          content: '';
-          position: absolute;
-          top: -40px; right: -40px;
-          width: 160px; height: 160px;
-          border-radius: 50%;
-          background: rgba(255,255,255,0.08);
-        }
-        .ec-header::after {
-          content: '';
-          position: absolute;
-          bottom: -20px; left: 30%;
-          width: 200px; height: 80px;
-          border-radius: 50%;
-          background: rgba(255,255,255,0.06);
-        }
-
-        .ec-header-top {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          position: relative;
-          z-index: 1;
-        }
-
-        .ec-avatar-ring {
-          width: 56px; height: 56px;
-          border-radius: 18px;
-          background: rgba(255,255,255,0.18);
-          border: 1.5px solid rgba(255,255,255,0.35);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 22px;
-          backdrop-filter: blur(8px);
-        }
-
-        .ec-title {
-          font-family: 'Sora', sans-serif;
-          font-size: 22px;
-          font-weight: 700;
-          color: #fff;
-          margin: 0;
-          letter-spacing: -0.3px;
-        }
-        .ec-subtitle {
-          font-size: 13px;
-          color: rgba(255,255,255,0.72);
-          margin: 3px 0 0;
-          font-weight: 400;
-        }
-
-        .ec-badge {
-          position: relative; z-index: 1;
-          margin-top: 1.2rem;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: rgba(255,255,255,0.15);
-          border: 1px solid rgba(255,255,255,0.25);
-          border-radius: 100px;
-          padding: 4px 12px 4px 6px;
-          font-size: 12px;
-          color: rgba(255,255,255,0.9);
-          font-weight: 500;
-        }
-        .ec-badge-dot {
-          width: 7px; height: 7px;
-          background: #4ade80;
-          border-radius: 50%;
-          box-shadow: 0 0 6px #4ade80;
-        }
-
-        .ec-body {
-          padding: 2rem;
-        }
-
-        .ec-field {
-          margin-bottom: 1.25rem;
-          animation: fadeIn 0.4s ease both;
-        }
-        .ec-field:nth-child(1) { animation-delay: 0.08s; }
-        .ec-field:nth-child(2) { animation-delay: 0.14s; }
-        .ec-field:nth-child(3) { animation-delay: 0.20s; }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .ec-label {
-          display: block;
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: #64748b;
-          margin-bottom: 8px;
-        }
-
-        .ec-input-wrap {
-          position: relative;
-        }
-
-        .ec-input-icon {
-          position: absolute;
-          left: 14px; top: 50%;
-          transform: translateY(-50%);
-          color: #94a3b8;
-          font-size: 16px;
-          transition: color 0.2s;
-          pointer-events: none;
-        }
-
-        .ec-input {
-          width: 100%;
-          padding: 13px 14px 13px 42px;
-          border-radius: 14px;
-          border: 1.5px solid #e2e8f0;
-          background: #f8faff;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 14.5px;
-          color: #1e293b;
-          outline: none;
-          box-sizing: border-box;
-          transition: all 0.25s;
-        }
-        .ec-input::placeholder { color: #b0bec5; }
-        .ec-input:hover { border-color: #93c5fd; background: #f0f6ff; }
-        .ec-input:focus {
-          border-color: #2563eb;
-          background: #fff;
-          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
-        }
-        .ec-input:focus + .ec-input-icon,
-        .ec-input-wrap:focus-within .ec-input-icon {
-          color: #2563eb;
-        }
-
-        .ec-pw-toggle {
-          position: absolute;
-          right: 14px; top: 50%;
-          transform: translateY(-50%);
-          background: none; border: none;
-          cursor: pointer; padding: 4px;
-          color: #94a3b8;
-          font-size: 17px;
-          transition: color 0.2s;
-          line-height: 1;
-        }
-        .ec-pw-toggle:hover { color: #2563eb; }
-
-        .ec-hint {
-          margin-top: 6px;
-          font-size: 11.5px;
-          color: #94a3b8;
-          display: flex; align-items: center; gap: 4px;
-        }
-
-        .ec-divider {
-          height: 1px;
-          background: linear-gradient(to right, transparent, #e2e8f0, transparent);
-          margin: 1.5rem 0;
-        }
-
-        .ec-btn {
-          width: 100%;
-          padding: 15px;
-          border-radius: 16px;
-          border: none;
-          cursor: pointer;
-          font-family: 'Sora', sans-serif;
-          font-size: 15px;
-          font-weight: 600;
-          letter-spacing: 0.01em;
-          position: relative;
-          overflow: hidden;
-          background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 60%, #3b82f6 100%);
-          color: #fff;
-          box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4), 0 1px 3px rgba(37,99,235,0.2);
-          transition: all 0.25s;
-          display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
-        .ec-btn::before {
-          content: '';
-          position: absolute;
-          top: 0; left: -100%;
-          width: 100%; height: 100%;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-          transition: left 0.4s;
-        }
-        .ec-btn:hover::before { left: 100%; }
-        .ec-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(37, 99, 235, 0.5), 0 2px 6px rgba(37,99,235,0.25);
-        }
-        .ec-btn:active { transform: translateY(0); }
-        .ec-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
-
-        .ec-back-btn {
-          width: 100%;
-          padding: 12px;
-          border-radius: 14px;
-          border: 1.5px solid #e2e8f0;
-          background: transparent;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 14px;
-          font-weight: 500;
-          color: #64748b;
-          cursor: pointer;
-          margin-top: 10px;
-          transition: all 0.2s;
-          display: flex; align-items: center; justify-content: center; gap: 6px;
-        }
-        .ec-back-btn:hover { background: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
-
-        .ec-spinner {
-          width: 18px; height: 18px;
-          border: 2.5px solid rgba(255,255,255,0.3);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 0.7s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .ec-id-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 11px;
-          font-weight: 600;
-          color: #2563eb;
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
-          border-radius: 8px;
-          padding: 3px 9px;
-          margin-bottom: 1.25rem;
-        }
-
-        @keyframes ec-toast {
-  from {
-    opacity: 0;
-    transform: translateY(-10px) scale(.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-      `}</style>
-
-{/* TOAST */}
-
-{toast && (
-
-  <div
-    style={{
-      position: "fixed",
-      top: 20,
-      right: 20,
-      zIndex: 99999,
-      background: toast.ok
-        ? "linear-gradient(135deg,#2563eb,#3b82f6)"
-        : "linear-gradient(135deg,#dc2626,#ef4444)",
-      color: "#fff",
-      padding: "13px 18px",
-      borderRadius: 14,
-      boxShadow: "0 10px 30px rgba(0,0,0,.15)",
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      fontWeight: 600,
-      fontSize: 14,
-      animation: "ec-toast .25s ease"
-    }}
-  >
-
-    <div
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: 7,
-        background: "rgba(255,255,255,.2)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 12,
-        fontWeight: 700
-      }}
-    >
-      {toast.ok ? "✓" : "✕"}
-    </div>
-
-    {toast.msg}
-
-  </div>
-
-)}
-      <div className="ec-wrapper">
-        <div className="ec-blob ec-blob-1" />
-        <div className="ec-blob ec-blob-2" />
-        <div className="ec-blob ec-blob-3" />
-
-        <div className="ec-card">
-          {/* Header */}
-          <div className="ec-header">
-            <div className="ec-header-top">
-              <div className="ec-avatar-ring">✏️</div>
-              <div>
-                <h1 className="ec-title">Edit Cashier</h1>
-                <p className="ec-subtitle">Update account details below</p>
-              </div>
+      {/* Toast Portal */}
+      {toast && (
+        <div className="fixed top-5 right-5 z-[99999] flex flex-col gap-2.5 pointer-events-none">
+          <div
+            className={`pointer-events-auto flex items-center gap-3 min-w-[280px] max-w-[380px] px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-4 duration-200 border ${
+              toast.ok
+                ? "bg-slate-900/90 border-emerald-500/40 text-white"
+                : "bg-red-950/90 border-red-500/40 text-white"
+            }`}
+          >
+            <div
+              className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                toast.ok ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
+              }`}
+            >
+              {toast.ok ? "✓" : "✕"}
             </div>
-            <div className="ec-badge">
-              <span className="ec-badge-dot" />
-              Active Account
-            </div>
-          </div>
-
-          {/* Body */}
-          <div className="ec-body">
-            <div className="ec-id-chip">
-              🔖 Cashier ID: #{id}
-            </div>
-
-            {/* Full Name */}
-            <div className="ec-field">
-              <label className="ec-label">Full Name</label>
-              <div className="ec-input-wrap">
-                <input
-                  type="text"
-                  className="ec-input"
-                  placeholder="Enter full name"
-                  value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })}
-                />
-                <span className="ec-input-icon">👤</span>
-              </div>
-            </div>
-
-            {/* Email */}
-            <div className="ec-field">
-              <label className="ec-label">Email Address</label>
-              <div className="ec-input-wrap">
-                <input
-                  type="email"
-                  className="ec-input"
-                  placeholder="email@example.com"
-                  value={form.email}
-                  onChange={e => setForm({ ...form, email: e.target.value })}
-                />
-                <span className="ec-input-icon">✉️</span>
-              </div>
-            </div>
-
-          
-
-            {/* Password */}
-<div className="ec-field">
-  <label className="ec-label">New Password</label>
-  <div className="ec-input-wrap">
-    <input
-      type={showPassword ? "text" : "password"}
-      className="ec-input"
-      placeholder="Leave blank to keep current"
-      value={form.password}
-      onChange={e => setForm({ ...form, password: e.target.value })}
-    />
-    <span className="ec-input-icon">🔒</span>
-    <button
-      type="button"
-      className="ec-pw-toggle"
-      onClick={() => setShowPassword(p => !p)}
-    >
-      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-    </button>
-  </div>
-  <p className="ec-hint">⚡ Min. 6 characters. Leave empty to keep unchanged.</p>
-</div>
-
-            <div className="ec-divider" />
-
-            {/* Submit */}
-            <button className="ec-btn" onClick={handleUpdate} disabled={loading}>
-              {loading ? (
-                <><div className="ec-spinner" /> Updating...</>
-              ) : (
-                <> ✨ Update Cashier</>
-              )}
-            </button>
-
-            {/* <button className="ec-back-btn" onClick={() => navigate("/cashier")}>
-              ← Back to Cashiers
-            </button> */}
+            <span className="text-xs font-semibold leading-snug">{toast.msg}</span>
           </div>
         </div>
-      </div>
+      )}
+
+      {onClose ? (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleClose();
+          }}
+          className="fixed inset-0 z-[10000] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+        >
+          {content}
+        </div>
+      ) : (
+        <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 flex items-center justify-center font-['Plus_Jakarta_Sans',sans-serif]">
+          {content}
+        </div>
+      )}
     </>
   );
 }
-

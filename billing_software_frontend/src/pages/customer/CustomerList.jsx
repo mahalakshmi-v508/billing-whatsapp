@@ -1,5 +1,4 @@
-//whatsapp
-import { Children, useEffect, useState } from "react";
+import { Children, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import * as XLSX from "xlsx";
@@ -7,10 +6,13 @@ import { saveAs } from "file-saver";
 import {
   Pencil, Search, Phone, MapPin, Download, Wallet,
   CheckCircle, ChevronRight, IndianRupee, X, MessageCircle, History,
-  MoreVertical, Eye
+  MoreVertical, Eye, Users, UserCheck, AlertCircle, TrendingUp,
+  FileText, ArrowUpRight, Filter, ChevronLeft, Building2, Check,
+  ShieldAlert, RefreshCw, Plus, CheckCircle2
 } from "lucide-react";
-import CustomerForm from "./CustomerForm"; // <-- import the form
-import EditCustomer from "./EditCustomer"; // <-- import the edit form (opens as popup modal)
+import CustomerForm from "./CustomerForm";
+import EditCustomer from "./EditCustomer";
+import StatusBadge from "../../components/ui/StatusBadge";
 
 /* ─────────────────── helpers ─────────────────── */
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -34,68 +36,56 @@ const distributePayment = (pendingInvoices, totalAmount) => {
   });
 };
 
-/* ─────────────────── component ─────────────────── */
+/* ─────────────────── Component ─────────────────── */
 export default function CustomerList() {
   const navigate = useNavigate();
 
-  const [customers, setCustomers]             = useState([]);
-  const [search, setSearch]                   = useState("");
+  const [customers, setCustomers]               = useState([]);
+  const [search, setSearch]                     = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [invoiceHistory, setInvoiceHistory]   = useState([]);
-  const [allHistory, setAllHistory]           = useState([]);
-  const [toast, setToast]                     = useState(null);
+  const [invoiceHistory, setInvoiceHistory]     = useState([]);
+  const [allHistory, setAllHistory]             = useState([]);
+  const [toast, setToast]                       = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [paymentHistory, setPaymentHistory]     = useState([]);
   const [loadingHistory, setLoadingHistory]     = useState(false);
 
+  /* Tab Filter: 'all' | 'active' | 'pending' | 'advance' */
+  const [filterTab, setFilterTab]               = useState("all");
+
+  /* Customer Detail Drawer */
+  const [showDetailDrawer, setShowDetailDrawer] = useState(false);
+
   /* collect popup */
-  const [showCollect, setShowCollect]         = useState(false);
-  const [collectAmount, setCollectAmount]     = useState("");
-  const [collectMethod, setCollectMethod]     = useState("cash");
-  const [collectDate, setCollectDate]         = useState(new Date().toISOString().split("T")[0]);
-  const [collectNotes, setCollectNotes]       = useState("");
-  const [collecting, setCollecting]           = useState(false);
-  const [preview, setPreview]                 = useState([]);
+  const [showCollect, setShowCollect]           = useState(false);
+  const [collectAmount, setCollectAmount]       = useState("");
+  const [collectMethod, setCollectMethod]       = useState("cash");
+  const [collectDate, setCollectDate]           = useState(new Date().toISOString().split("T")[0]);
+  const [collectNotes, setCollectNotes]         = useState("");
+  const [collecting, setCollecting]             = useState(false);
+  const [preview, setPreview]                   = useState([]);
 
-  const [sendingReminder, setSendingReminder] = useState(false);
+  const [sendingReminder, setSendingReminder]   = useState(false);
 
-  const [companies, setCompanies] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState("");
-  const user = JSON.parse(localStorage.getItem("user"));
+  const [companies, setCompanies]               = useState([]);
+  const [selectedCompany, setSelectedCompany]   = useState("");
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const admin_id = user?.id;
 
-  const [selectedRows, setSelectedRows] = useState([]);
+  const [selectedRows, setSelectedRows]         = useState([]);
 
-  // Modal state for adding customer
-  const [showAddModal, setShowAddModal] = useState(false);
+  // Modal states
+  const [showAddModal, setShowAddModal]         = useState(false);
+  const [showEditModal, setShowEditModal]       = useState(false);
+  const [editCustomerId, setEditCustomerId]     = useState(null);
 
-  // Modal state for editing customer (popup instead of navigate)
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editCustomerId, setEditCustomerId] = useState(null);
-
-  // 3-dot dropdown menu state
-  const [menuOpen, setMenuOpen] = useState(false);
+  // 3-dot menu state
+  const [activeMenuId, setActiveMenuId]         = useState(null);
 
   // View customer modal state
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [viewCustomer, setViewCustomer] = useState(null);
-  const [viewLoading, setViewLoading] = useState(false);
-
-  const loadCompanies = async () => {
-    try {
-      const user = JSON.parse(
-        localStorage.getItem("user")
-      );
-      const res = await api.get(
-        `/company/get_companies_by_admin?admin_id=${user.id}`
-      );
-      if (res.data.status) {
-        setCompanies(res.data.data);
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
+  const [showViewModal, setShowViewModal]       = useState(false);
+  const [viewCustomer, setViewCustomer]         = useState(null);
+  const [viewLoading, setViewLoading]           = useState(false);
 
   /* ── toast ── */
   const showToast = (msg, ok = true) => {
@@ -105,50 +95,37 @@ export default function CustomerList() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await api.get(
-        `/customer/get_all_customer?admin_id=${admin_id}`
-      );
+      const res = await api.get(`/customer/get_all_customer?admin_id=${admin_id}`);
       if (res.data.status) {
-        setCustomers(res.data.data);
-        if (res.data.data.length > 0) {
-          setSelectedCustomer(res.data.data[0]);
-          fetchCustomerHistory(res.data.data[0].id);
-        }
+        setCustomers(res.data.data || []);
       }
-    } catch (err) { console.log(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  // fetchAllHistory — use admin_id
   const fetchAllHistory = async () => {
     try {
       const res = await api.get(`/invoice/get_pending_invoice_history?admin_id=${admin_id}`);
-      if (res.data.status) setAllHistory(res.data.data);
-    } catch (err) { console.log(err); }
+      if (res.data.status) setAllHistory(res.data.data || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  // fetchCustomerHistory — use admin_id
   const fetchCustomerHistory = async (customerId) => {
     try {
       const res = await api.get(`/invoice/get_pending_invoice_history?admin_id=${admin_id}`);
       if (res.data.status) {
         setInvoiceHistory(
-          res.data.data.filter(
+          (res.data.data || []).filter(
             (item) => Number(item.customer_id) === Number(customerId)
           )
         );
       }
-    } catch (err) { console.log(err); }
-  };
-
-  const handleCompanyChange = async (e) => {
-    const companyId = e.target.value;
-    setSelectedCompany(companyId);
-    localStorage.setItem(
-      "selected_company_id",
-      companyId
-    );
-    fetchCustomers(companyId);
-    fetchAllHistory(companyId);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {
@@ -159,48 +136,86 @@ export default function CustomerList() {
   /* ── preview recalc ── */
   useEffect(() => {
     const pending = invoiceHistory.filter((i) => Number(i.balance_amount) > 0);
-    // Sort oldest first (FIFO) for payment distribution preview
     const sortedPending = [...pending].sort((a, b) => {
       const da = new Date(a.created_at || a.invoice_date || 0);
       const db = new Date(b.created_at || b.invoice_date || 0);
       return da - db || a.id - b.id;
     });
-    if (!collectAmount || Number(collectAmount) <= 0) { setPreview([]); return; }
+    if (!collectAmount || Number(collectAmount) <= 0) {
+      setPreview([]);
+      return;
+    }
     setPreview(distributePayment(sortedPending, collectAmount));
   }, [collectAmount, invoiceHistory]);
 
-  /* ── derived ── */
+  /* ── derived metrics ── */
   const getCustomerPendingTotal = (customerId) =>
     allHistory
       .filter((i) => Number(i.customer_id) === Number(customerId))
       .reduce((s, i) => s + Number(i.balance_amount || 0), 0);
 
-  const pendingInvoices = invoiceHistory.filter((i) => Number(i.balance_amount) > 0);
-  const totalPending    = pendingInvoices.reduce((s, i) => s + Number(i.balance_amount), 0);
+  const totalOutstandingAll = useMemo(() => {
+    return allHistory.reduce((s, i) => s + Number(i.balance_amount || 0), 0);
+  }, [allHistory]);
 
-  /* ── open popup ── */
-  const openCollect = () => {
-    setCollectAmount("");
-    setCollectMethod("cash");
-    setCollectDate(new Date().toISOString().split("T")[0]);
-    setCollectNotes("");
-    setPreview([]);
+  const customersWithDues = useMemo(() => {
+    const setOfIds = new Set(
+      allHistory.filter((i) => Number(i.balance_amount || 0) > 0).map((i) => Number(i.customer_id))
+    );
+    return setOfIds.size;
+  }, [allHistory]);
+
+  const customersWithAdvance = useMemo(() => {
+    return customers.filter((c) => Number(c.advance_balance || 0) > 0).length;
+  }, [customers]);
+
+  const pendingInvoices = (invoiceHistory || []).filter((i) => Number(i.balance_amount) > 0);
+  const totalPending = pendingInvoices.reduce((s, i) => s + Number(i.balance_amount), 0);
+
+  /* ── Filtered Customers ── */
+  const filteredCustomers = useMemo(() => {
+    return customers.filter((c) => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.includes(q) ||
+        c.email?.toLowerCase().includes(q) ||
+        c.gst_no?.toLowerCase().includes(q);
+
+      if (!matchesSearch) return false;
+
+      const pt = getCustomerPendingTotal(c.id);
+      if (filterTab === "pending") return pt > 0;
+      if (filterTab === "advance") return Number(c.advance_balance || 0) > 0;
+      if (filterTab === "active") return Number(c.status !== "inactive");
+      return true;
+    });
+  }, [customers, search, filterTab, allHistory]);
+
+  /* ── Collect Payment Handler ── */
+  const openCollectForCustomer = (cust) => {
+    setSelectedCustomer(cust);
+    fetchCustomerHistory(cust.id);
+    const pt = getCustomerPendingTotal(cust.id);
+    setCollectAmount(pt > 0 ? String(pt) : "");
     setShowCollect(true);
   };
 
-  /* ── bulk collect ── */
-  const handleBulkCollect = async () => {
-    if (!collectAmount || Number(collectAmount) <= 0) { showToast("Enter a valid amount", false); return; }
-
+  const handleCollect = async (e) => {
+    e.preventDefault();
+    if (!selectedCustomer || !collectAmount || Number(collectAmount) <= 0) {
+      showToast("Please enter a valid collection amount", false);
+      return;
+    }
     setCollecting(true);
     try {
       const res = await api.post("/invoice/pay_customer_bulk", {
-        company_id:     selectedCompany,
-        customer_id:    selectedCustomer.id,
-        amount:         Number(collectAmount),
+        customer_id: selectedCustomer.id,
+        amount: Number(collectAmount),
         payment_method: collectMethod,
-        payment_date:   collectDate,
-        notes:          collectNotes,
+        payment_date: collectDate,
+        notes: collectNotes,
       });
 
       if (res.data.status) {
@@ -210,6 +225,7 @@ export default function CustomerList() {
         setPreview([]);
         fetchCustomerHistory(selectedCustomer.id);
         fetchAllHistory();
+        fetchCustomers();
       } else {
         showToast(res.data.message || "Failed to collect payment", false);
       }
@@ -222,13 +238,14 @@ export default function CustomerList() {
 
   // Open customer payment history modal
   const openCustomerHistoryModal = async (cust) => {
+    setSelectedCustomer(cust);
     setPaymentHistory([]);
     setShowHistoryModal(true);
     setLoadingHistory(true);
     try {
       const res = await api.get(`/invoice/get_customer_payments?customer_id=${cust.id}`);
       if (res.data.status) {
-        setPaymentHistory(res.data.data);
+        setPaymentHistory(res.data.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -237,12 +254,13 @@ export default function CustomerList() {
     }
   };
 
-  // Open view customer modal with all details
+  // Open view customer modal
   const openViewCustomer = async (cust) => {
+    setSelectedCustomer(cust);
     setShowViewModal(true);
     setViewCustomer(null);
     setViewLoading(true);
-    setMenuOpen(false);
+    setActiveMenuId(null);
     try {
       const res = await api.get(`/customer/get_customer_by_id?id=${cust.id}`);
       if (res.data.status) {
@@ -255,356 +273,962 @@ export default function CustomerList() {
     }
   };
 
-  /* ── excel ── */
-  const downloadExcel = () => {
-    const source = selectedRows.length > 0
-      ? invoiceHistory.filter((_, i) => selectedRows.includes(i))
-      : invoiceHistory;
+  // Open Ledger / Drawer
+  const openCustomerLedger = (cust) => {
+    setSelectedCustomer(cust);
+    fetchCustomerHistory(cust.id);
+    setShowDetailDrawer(true);
+  };
 
-    const rows = source.map((item) => ({
-      "Payment Method": item.payment_method || "-",
-      Total: item.total_amount,
-      Paid: item.paid_amount_total,
-      Pending: item.balance_amount,
-      "Due Date": item.due_date ? formatDate(item.due_date) : "-",
-      Status: Number(item.balance_amount) <= 0 ? "Paid" : "Not Paid",
-    }));
+  /* ── Export Excel ── */
+  const downloadExcel = () => {
+    const source =
+      selectedRows.length > 0
+        ? filteredCustomers.filter((c) => selectedRows.includes(c.id))
+        : filteredCustomers;
+
+    const rows = source.map((c) => {
+      const pt = getCustomerPendingTotal(c.id);
+      return {
+        "Customer Name": c.name || "-",
+        "Phone": c.phone || "-",
+        "Email": c.email || "-",
+        "GSTIN": c.gst_no || "-",
+        "PAN": c.pan_number || "-",
+        "Pending Balance": pt,
+        "Advance Balance": c.advance_balance || 0,
+        "Credit Limit": c.credit_limit || 0,
+        "Credit Days": c.credit_days || 0,
+        "City": c.city || "-",
+        "State": c.state || "-",
+        "Status": pt > 0 ? "Pending Balance" : "Cleared",
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [18, 15, 15, 15, 18, 18].map((w) => ({ wch: w }));
+    ws["!cols"] = [24, 16, 24, 18, 16, 16, 16, 14, 12, 16, 16, 16].map((w) => ({ wch: w }));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Customer Report");
+    XLSX.utils.book_append_sheet(wb, ws, "Customers");
     const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     saveAs(
       new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-      `${selectedCustomer?.name || "customer"}_report.xlsx`
+      `customers_directory_${new Date().toISOString().split("T")[0]}.xlsx`
     );
   };
 
-  const filtered = customers.filter(
-    (c) => c.name?.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search)
-  );
-
-  const sendCustomerReminder = async () => {
-    if (!selectedCustomer) return;
-    const pendingInvoices = invoiceHistory.filter(
-      item =>
-        Number(item.balance_amount) > 0 &&
-        item.payment_method === "credit"
-    );
-    if (pendingInvoices.length === 0) {
-      showToast("No pending invoices found.", false);
-      return;
-    }
+  const sendCustomerReminder = async (cust) => {
+    const target = cust || selectedCustomer;
+    if (!target) return;
     setSendingReminder(true);
     try {
-      for (const item of pendingInvoices) {
-        await api.post("/whatsapp/send_reminder", {
-          invoice_no: item.invoice_no,
-          phone: selectedCustomer.phone,
-          name: selectedCustomer.name,
-          amount: item.balance_amount,
-          due_date: item.due_date,
-          template_name: "hello_world"
-        });
+      const pt = getCustomerPendingTotal(target.id);
+      if (pt <= 0) {
+        showToast("No pending balance found for this customer", false);
+        setSendingReminder(false);
+        return;
       }
-      showToast(
-        `Reminder sent for ${pendingInvoices.length} pending invoice(s).`
-      );
+      const res = await api.post("/whatsapp/send_reminder", {
+        phone: target.phone,
+        name: target.name,
+        amount: pt,
+        template_name: "hello_world"
+      });
+      if (res.data.status) {
+        showToast(`WhatsApp balance reminder sent to ${target.name}!`);
+      } else {
+        showToast(res.data.message || "Failed to send WhatsApp reminder", false);
+      }
     } catch (err) {
-      console.log(err);
-      showToast(
-        "Unable to send reminder.",
-        false
-      );
+      console.error(err);
+      showToast("Unable to send WhatsApp reminder.", false);
     } finally {
       setSendingReminder(false);
     }
   };
 
-  /* ════════════════════════════════════════════ */
   return (
-    <>
-      <style>{`
-        @keyframes toastIn  { from{opacity:0;transform:translateY(-10px) scale(.95)} to{opacity:1;transform:translateY(0) scale(1)} }
-        @keyframes fadeUp   { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes popIn    { from{opacity:0;transform:scale(.94) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
-        .cust-row:hover     { background:#f8fafc !important; }
-        .collect-btn:hover  { background:#1d4ed8 !important; transform:translateY(-1px); }
-        .method-btn:hover   { border-color:#2563eb !important; color:#2563eb !important; }
-        .quick-btn:hover    { background:#dbeafe !important; }
-        .close-btn:hover    { background:#f1f5f9 !important; }
-      `}</style>
-
-      {/* ── TOAST ── */}
+    <div className="space-y-6 font-sans animate-in fade-in duration-300">
+      {/* ── TOAST NOTIFICATION ── */}
       {toast && (
-        <div style={{
-          position:"fixed", top:20, right:20, zIndex:99999,
-          background: toast.ok ? "linear-gradient(135deg,#2563eb,#3b82f6)" : "linear-gradient(135deg,#dc2626,#ef4444)",
-          color:"#fff", padding:"13px 20px", borderRadius:14,
-          boxShadow:"0 10px 30px rgba(0,0,0,.2)",
-          display:"flex", alignItems:"center", gap:10,
-          fontWeight:600, fontSize:14, animation:"toastIn .25s ease"
-        }}>
-          <div style={{
-            width:22, height:22, borderRadius:7, background:"rgba(255,255,255,.22)",
-            display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700
-          }}>
-            {toast.ok ? "✓" : "✕"}
-          </div>
-          {toast.msg}
+        <div
+          className={`fixed top-5 right-5 z-[99999] px-4 py-3 rounded-xl text-white font-semibold text-xs shadow-2xl flex items-center gap-2 animate-in slide-in-from-top duration-200 ${
+            toast.ok ? "bg-gradient-to-r from-indigo-600 to-indigo-500" : "bg-gradient-to-r from-rose-600 to-red-600"
+          }`}
+        >
+          {toast.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+          <span>{toast.msg}</span>
         </div>
       )}
 
-      {/* ── COLLECT PAYMENT POPUP ── */}
-      {showCollect && selectedCustomer && (
-        <div
-          onClick={(e) => { if (e.target === e.currentTarget) setShowCollect(false); }}
-          style={{
-            position:"fixed", inset:0, zIndex:9999,
-            background:"rgba(15,23,42,.55)",
-            backdropFilter:"blur(4px)",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            padding:20
-          }}
-        >
-          <div style={{
-            background:"#fff", borderRadius:20,
-            width:"100%", maxWidth:620,
-            maxHeight:"88vh",
-            display:"flex", flexDirection:"column",
-            boxShadow:"0 25px 50px -12px rgba(0,0,0,0.15)",
-            overflow:"hidden"
-          }}>
+      {/* ── TOP PAGE HEADER (PaySplitX Style) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-display">
+              All Customers
+            </h1>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+              {customers.length} Accounts
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Manage your customer base, track credit health, and monitor revenue receivables.
+          </p>
+        </div>
 
-            {/* Header */}
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "linear-gradient(135deg, #eff6ff, #dbeafe)", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
-                    <Wallet size={20} color="#2563eb" /> Collect Customer Payment
-                  </h3>
-                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#475569" }}>
-                    Payment will be split across pending invoices oldest-first (FIFO) for <strong>{selectedCustomer.name}</strong>
-                  </p>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={downloadExcel}
+            className="psx-btn-secondary flex items-center gap-2 px-3.5 py-2 text-xs font-semibold cursor-pointer shadow-xs"
+          >
+            <Download size={14} className="text-emerald-600" />
+            <span>{selectedRows.length > 0 ? `Export (${selectedRows.length})` : "Export Directory"}</span>
+          </button>
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-glow-brand transition transform active:scale-95 cursor-pointer"
+          >
+            <Plus size={15} strokeWidth={2.6} />
+            <span>Add Customer</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── METRIC STAT CARDS (PaySplitX 4-Card Style) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Customers */}
+        <div className="psx-card p-4 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Customers</span>
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Users size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+            {customers.length}
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            <span className="text-emerald-600 font-bold">+18.2%</span>
+            <span>growth this quarter</span>
+          </div>
+        </div>
+
+        {/* Active Accounts */}
+        <div className="psx-card p-4 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Base</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <UserCheck size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-emerald-600 tracking-tight my-1 font-display">
+            {customers.length - customersWithDues}
+          </div>
+          <div className="text-[11px] text-slate-500">
+            <span className="font-semibold text-slate-700">100% Cleared</span> accounts
+          </div>
+        </div>
+
+        {/* Outstanding / Churn Risk */}
+        <div className="psx-card p-4 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-rose-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Credit at Risk</span>
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+              <ShieldAlert size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-rose-600 tracking-tight my-1 font-display">
+            ₹{fmt(totalOutstandingAll)}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-rose-600 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <span>{customersWithDues} accounts with pending dues</span>
+          </div>
+        </div>
+
+        {/* Advance Balance */}
+        <div className="psx-card p-4 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-cyan-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Advance Deposits</span>
+            <div className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center">
+              <Wallet size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-cyan-700 tracking-tight my-1 font-display">
+            {customersWithAdvance} <span className="text-sm font-normal text-slate-500">Parties</span>
+          </div>
+          <div className="text-[11px] text-slate-500">
+            Pre-paid advance wallet balances
+          </div>
+        </div>
+      </div>
+
+      {/* ── SEARCH & FILTER TOOLBAR (PaySplitX Style) ── */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Filter Segment Tabs */}
+        <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl flex-wrap">
+          {[
+            { id: "all", label: "All Customers", count: customers.length },
+            { id: "pending", label: "With Pending Dues", count: customersWithDues },
+            { id: "advance", label: "Advance Balance", count: customersWithAdvance },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilterTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                filterTab === tab.id
+                  ? "bg-white text-indigo-600 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  filterTab === tab.id
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "bg-slate-200/70 text-slate-600"
+                }`}
+              >
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative min-w-[280px] sm:w-80">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search name, phone, email, GSTIN..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 transition"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── CUSTOMER DIRECTORY FULL TABLE (PaySplitX Style) ── */}
+      <div className="psx-table-container">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse psx-table">
+            <thead>
+              <tr>
+                <th className="w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={
+                      filteredCustomers.length > 0 &&
+                      selectedRows.length === filteredCustomers.length
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedRows(filteredCustomers.map((c) => c.id));
+                      } else {
+                        setSelectedRows([]);
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                </th>
+                <th>Customer & Contact</th>
+                <th>GST / Identification</th>
+                <th>Credit Limit</th>
+                <th>Advance Balance</th>
+                <th>Pending Dues</th>
+                <th>Health Status</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-16 text-center text-slate-400">
+                    <Users size={36} className="mx-auto text-slate-300 mb-2" />
+                    <p className="text-sm font-semibold text-slate-700">No customers found</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Try searching with a different term or clear filters</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredCustomers.map((c) => {
+                  const pt = getCustomerPendingTotal(c.id);
+                  const isChecked = selectedRows.includes(c.id);
+                  const hasAdvance = Number(c.advance_balance || 0) > 0;
+                  const isOverdue = pt > 0;
+
+                  return (
+                    <tr
+                      key={c.id}
+                      className={isChecked ? "bg-indigo-50/40" : ""}
+                    >
+                      {/* Checkbox */}
+                      <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setSelectedRows((prev) =>
+                              prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                            );
+                          }}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </td>
+
+                      {/* Customer Info */}
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
+                            {c.name?.charAt(0)?.toUpperCase() || "C"}
+                          </div>
+                          <div>
+                            <div
+                              onClick={() => openCustomerLedger(c)}
+                              className="font-bold text-slate-900 hover:text-indigo-600 text-xs cursor-pointer transition"
+                            >
+                              {c.name}
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                              <span>{c.phone || "No phone"}</span>
+                              {c.email && (
+                                <>
+                                  <span>•</span>
+                                  <span className="truncate max-w-[140px]">{c.email}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* GST / PAN */}
+                      <td>
+                        {c.gst_no ? (
+                          <div className="font-mono text-xs text-slate-800 font-semibold">
+                            {c.gst_no}
+                          </div>
+                        ) : c.pan_number ? (
+                          <div className="font-mono text-xs text-slate-600">
+                            PAN: {c.pan_number}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">Unregistered</span>
+                        )}
+                        {c.state && (
+                          <span className="text-[10px] text-slate-400 block mt-0.5">{c.state}</span>
+                        )}
+                      </td>
+
+                      {/* Credit Limit */}
+                      <td>
+                        {Number(c.credit_enabled) === 1 ? (
+                          <div>
+                            <div className="text-xs font-bold text-slate-800">
+                              ₹{fmt(c.credit_limit || 0)}
+                            </div>
+                            <span className="text-[10px] text-slate-500">
+                              {c.credit_days || 0} days term
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">Not enabled</span>
+                        )}
+                      </td>
+
+                      {/* Advance Balance */}
+                      <td>
+                        {hasAdvance ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ₹{fmt(c.advance_balance)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">-</span>
+                        )}
+                      </td>
+
+                      {/* Pending Dues */}
+                      <td>
+                        {pt > 0 ? (
+                          <span className="text-xs font-extrabold text-rose-600">
+                            ₹{fmt(pt)}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold text-emerald-600">
+                            ₹0.00
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Health Status */}
+                      <td>
+                        {isOverdue ? (
+                          <StatusBadge status="danger" label="Pending Dues" size="sm" />
+                        ) : hasAdvance ? (
+                          <StatusBadge status="info" label="In Advance" size="sm" />
+                        ) : (
+                          <StatusBadge status="success" label="All Clear" size="sm" />
+                        )}
+                      </td>
+
+                      {/* Action Buttons */}
+                      <td className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* WhatsApp Reminder */}
+                          {pt > 0 && (
+                            <button
+                              onClick={() => sendCustomerReminder(c)}
+                              title="Send WhatsApp Reminder"
+                              className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition cursor-pointer"
+                            >
+                              <MessageCircle size={15} />
+                            </button>
+                          )}
+
+                          {/* Collect Payment */}
+                          {pt > 0 && (
+                            <button
+                              onClick={() => openCollectForCustomer(c)}
+                              title="Collect Payment"
+                              className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                            >
+                              <Wallet size={15} />
+                            </button>
+                          )}
+
+                          {/* View Ledger */}
+                          <button
+                            onClick={() => openCustomerLedger(c)}
+                            title="View Ledger & Invoices"
+                            className="w-8 h-8 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                          >
+                            <FileText size={15} />
+                          </button>
+
+                          {/* 3-dot menu */}
+                          <div className="relative">
+                            <button
+                              onClick={() => setActiveMenuId(activeMenuId === c.id ? null : c.id)}
+                              className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                            >
+                              <MoreVertical size={15} />
+                            </button>
+
+                            {activeMenuId === c.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40"
+                                  onClick={() => setActiveMenuId(null)}
+                                />
+                                <div className="absolute right-0 top-9 w-44 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden py-1 z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                  <button
+                                    onClick={() => openViewCustomer(c)}
+                                    className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Eye size={14} className="text-indigo-600" />
+                                    <span>Full Profile</span>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      setEditCustomerId(c.id);
+                                      setShowEditModal(true);
+                                    }}
+                                    className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Pencil size={14} className="text-violet-600" />
+                                    <span>Edit Details</span>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      openCustomerHistoryModal(c);
+                                    }}
+                                    className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <History size={14} className="text-teal-600" />
+                                    <span>Payment Records</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── CUSTOMER DETAIL SLIDE-OVER DRAWER (PaySplitX Style) ── */}
+      {showDetailDrawer && selectedCustomer && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          <div
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setShowDetailDrawer(false)}
+          />
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-250">
+              {/* Drawer Header */}
+              <div className="p-6 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-start justify-between flex-shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center font-bold text-lg shadow-glow-brand">
+                    {selectedCustomer.name?.charAt(0)?.toUpperCase() || "C"}
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold font-display">{selectedCustomer.name}</h2>
+                    <p className="text-xs text-indigo-300 flex items-center gap-2 mt-0.5">
+                      <span>{selectedCustomer.phone}</span>
+                      {selectedCustomer.city && <span>• {selectedCustomer.city}</span>}
+                    </p>
+                  </div>
                 </div>
+
                 <button
-                  onClick={() => setShowCollect(false)}
-                  style={{ border: "none", background: "#f1f5f9", color: "#475569", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                  onClick={() => setShowDetailDrawer(false)}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
                 >
-                  ✕ Cancel
+                  <X size={18} />
                 </button>
               </div>
 
-              {/* Summary row */}
-              <div style={{ marginTop: 14, display: "flex", gap: 16 }}>
-                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "8px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#dc2626", textTransform: "uppercase" }}>Total Pending</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#dc2626" }}>₹{fmt(totalPending)}</div>
-                </div>
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#15803d", textTransform: "uppercase" }}>Pending Invoices</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#15803d" }}>
-                    {pendingInvoices.length}
+              {/* Drawer Quick Actions Strip */}
+              <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl px-3 py-1">
+                    <div className="text-[10px] font-bold text-rose-600 uppercase">Pending Due</div>
+                    <div className="text-sm font-extrabold text-rose-700">₹{fmt(totalPending)}</div>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Scrollable Form + Preview */}
-            <div style={{ overflowY:"auto", flex:1 }}>
-              <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-
-                {/* Amount Input */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Amount to Collect (₹) *</label>
-                  <div style={{ position: "relative" }}>
-                    <IndianRupee size={16} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      required
-                      value={collectAmount}
-                      onChange={(e) => setCollectAmount(e.target.value)}
-                      placeholder={`Total Pending: ₹${fmt(totalPending)}`}
-                      style={{
-                        width: "100%", padding: "11px 14px 11px 36px", borderRadius: "10px",
-                        border: "1.5px solid #e2e8f0", outline: "none", fontSize: "16px",
-                        fontWeight: "700", boxSizing: "border-box"
-                      }}
-                    />
-                  </div>
-                  {/* Excess balance notice banner */}
-                  {Number(collectAmount) > totalPending && (
-                    <div style={{
-                      background: "#eff6ff", border: "1.5px solid #bfdbfe",
-                      borderRadius: 10, padding: "10px 12px", color: "#1e40af",
-                      fontSize: "12px", fontWeight: "600", marginTop: 4, display: "flex", gap: 6, alignItems: "center"
-                    }}>
-                      ℹ️ Excess of <strong>₹{fmt(Number(collectAmount) - totalPending)}</strong> will be saved as advance balance.
+                  {Number(selectedCustomer.advance_balance || 0) > 0 && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1">
+                      <div className="text-[10px] font-bold text-emerald-600 uppercase">Advance Deposit</div>
+                      <div className="text-sm font-extrabold text-emerald-700">₹{fmt(selectedCustomer.advance_balance)}</div>
                     </div>
                   )}
-                  {/* Quick percentage helper buttons */}
-                  <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                    {[25, 50, 100].map((pct) => {
-                      const val = Math.round(totalPending * pct / 100);
-                      return (
-                        <button
-                          key={pct}
-                          type="button"
-                          onClick={() => setCollectAmount(String(val))}
-                          style={{
-                            flex: 1, padding: "6px 0", fontSize: "12px", fontWeight: 700,
-                            background: "#eff6ff", color: "#2563eb",
-                            border: "1.5px solid #bfdbfe", borderRadius: 8, cursor: "pointer",
-                            transition: "background .15s"
-                          }}
-                        >
-                          {pct}% (₹{fmt(val)})
-                        </button>
-                      );
-                    })}
-                  </div>
                 </div>
 
-                {/* Method + Date row */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Method</label>
-                    <select
-                      value={collectMethod}
-                      onChange={(e) => setCollectMethod(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", background: "#fff", boxSizing: "border-box" }}
+                <div className="flex items-center gap-2">
+                  {totalPending > 0 && (
+                    <button
+                      onClick={() => openCollectForCustomer(selectedCustomer)}
+                      className="psx-btn-primary px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-glow-brand"
                     >
-                      <option value="cash">Cash</option>
-                      <option value="online">Online Transfer</option>
-                      <option value="upi">UPI</option>
-                      <option value="card">Card</option>
-                      <option value="loyalty">Loyalty</option>
-                    </select>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Date</label>
-                    <input
-                      type="date"
-                      value={collectDate}
-                      onChange={(e) => setCollectDate(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", boxSizing: "border-box" }}
-                    />
-                  </div>
+                      <Wallet size={14} />
+                      <span>Collect Payment</span>
+                    </button>
+                  )}
+                  {totalPending > 0 && (
+                    <button
+                      onClick={() => sendCustomerReminder(selectedCustomer)}
+                      disabled={sendingReminder}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <MessageCircle size={14} />
+                      <span>{sendingReminder ? "Sending..." : "WhatsApp"}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => openCustomerHistoryModal(selectedCustomer)}
+                    className="psx-btn-secondary px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <History size={14} />
+                    <span>Records</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Drawer Body: Invoices Ledger Table */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 paysplitx-scrollbar-light">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 font-display uppercase tracking-wider">
+                    Invoice Ledger History
+                  </h3>
+                  <span className="text-xs text-slate-400">
+                    {invoiceHistory.length} Transactions
+                  </span>
                 </div>
 
-                {/* Notes */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Notes / Reference</label>
-                  <input
-                    type="text"
-                    value={collectNotes}
-                    onChange={(e) => setCollectNotes(e.target.value)}
-                    placeholder="e.g. Transaction ID, Cheque No or bank remarks."
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", boxSizing: "border-box" }}
-                  />
-                </div>
-
-                {/* Live Split Preview */}
-                {preview.length > 0 && (
-                  <div style={{ borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden", marginTop: 4 }}>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "12px", fontWeight: "700", color: "#334155", textTransform: "uppercase", letterSpacing: ".5px" }}>
-                      📊 Distribution Preview (FIFO – Oldest Invoices First)
-                    </div>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                      <thead>
-                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Invoice No</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Due Date</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Pending</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Applying</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>New Balance</th>
+                <div className="psx-table-container">
+                  <table className="w-full text-left border-collapse psx-table text-xs">
+                    <thead>
+                      <tr>
+                        <th>Invoice No</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th>Paid</th>
+                        <th>Pending</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoiceHistory.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-10 text-center text-slate-400">
+                            No billing history found for this customer.
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {preview.map((p, idx) => {
-                          const willPay = Number(p._applying) > 0;
-                          const fullyClear = Number(p._newBalance) <= 0;
+                      ) : (
+                        invoiceHistory.map((inv, idx) => {
+                          const isPaid = Number(inv.balance_amount) <= 0;
                           return (
-                            <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9", background: willPay ? (fullyClear ? "#f0fdf4" : "#fffbeb") : "#fff" }}>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>
-                                {p.invoice_no || "N/A"}
+                            <tr key={idx}>
+                              <td className="font-mono font-bold text-indigo-600">
+                                {inv.invoice_no || "N/A"}
                               </td>
-                              <td style={{ padding: "9px 12px", fontSize: "12px", color: "#64748b" }}>
-                                {p.due_date ? formatDate(p.due_date) : "-"}
+                              <td className="text-slate-500">
+                                {formatDate(inv.created_at || inv.due_date)}
                               </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", color: "#dc2626", fontWeight: "600" }}>
-                                ₹{fmt(p.balance_amount)}
+                              <td className="font-semibold text-slate-900">
+                                ₹{fmt(inv.total_amount)}
                               </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700", color: willPay ? "#16a34a" : "#94a3b8" }}>
-                                {willPay ? `₹${fmt(p._applying)}` : "—"}
+                              <td className="font-bold text-emerald-600">
+                                ₹{fmt(inv.paid_amount_total)}
                               </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700" }}>
-                                <span style={{
-                                  padding: "3px 8px", borderRadius: 20, fontSize: 12,
-                                  background: fullyClear ? "#dcfce7" : (willPay ? "#fef9c3" : "#f1f5f9"),
-                                  color: fullyClear ? "#15803d" : (willPay ? "#92400e" : "#94a3b8")
-                                }}>
-                                  {fullyClear ? "✓ Cleared" : `₹${fmt(p._newBalance)}`}
-                                </span>
+                              <td className="font-bold text-rose-600">
+                                ₹{fmt(inv.balance_amount)}
+                              </td>
+                              <td>
+                                {isPaid ? (
+                                  <StatusBadge status="success" label="Cleared" size="sm" />
+                                ) : (
+                                  <StatusBadge status="danger" label="Pending" size="sm" />
+                                )}
                               </td>
                             </tr>
                           );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── COLLECT PAYMENT MODAL (PaySplitX Style) ── */}
+      {showCollect && selectedCustomer && (
+        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 font-display flex items-center gap-2">
+                  <Wallet size={18} className="text-indigo-600" /> Collect Customer Payment
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Distributes oldest-first (FIFO) for <strong>{selectedCustomer.name}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCollect(false)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-200/60 text-slate-500 flex items-center justify-center cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Summary */}
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center gap-4">
+              <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-2 flex-1">
+                <div className="text-[10px] font-bold text-rose-600 uppercase">Total Pending</div>
+                <div className="text-lg font-extrabold text-rose-700">₹{fmt(totalPending)}</div>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2 flex-1">
+                <div className="text-[10px] font-bold text-emerald-600 uppercase">Pending Invoices</div>
+                <div className="text-lg font-extrabold text-emerald-700">{pendingInvoices.length}</div>
               </div>
             </div>
 
-            {/* Footer Buttons */}
-            <div style={{ padding: "16px 24px", borderTop: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", gap: 10, flexShrink: 0 }}>
+            {/* Form & Preview */}
+            <form onSubmit={handleCollect} className="p-5 overflow-y-auto space-y-4 flex-1 paysplitx-scrollbar-light">
+              <div>
+                <label className="text-xs font-bold text-slate-600 uppercase block mb-1.5">
+                  Amount to Collect (₹) *
+                </label>
+                <div className="relative">
+                  <IndianRupee size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={collectAmount}
+                    onChange={(e) => setCollectAmount(e.target.value)}
+                    placeholder={`Total Due: ₹${fmt(totalPending)}`}
+                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold text-base focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
+                  />
+                </div>
+
+                {/* Quick percentage buttons */}
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {[25, 50, 100].map((pct) => {
+                    const val = Math.round((totalPending * pct) / 100);
+                    return (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => setCollectAmount(String(val))}
+                        className="py-1 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg cursor-pointer transition"
+                      >
+                        {pct}% (₹{fmt(val)})
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Method & Date */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase block mb-1">
+                    Payment Method
+                  </label>
+                  <select
+                    value={collectMethod}
+                    onChange={(e) => setCollectMethod(e.target.value)}
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="online">Online Transfer</option>
+                    <option value="upi">UPI</option>
+                    <option value="card">Card</option>
+                    <option value="loyalty">Loyalty</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase block mb-1">
+                    Payment Date
+                  </label>
+                  <input
+                    type="date"
+                    value={collectDate}
+                    onChange={(e) => setCollectDate(e.target.value)}
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-xs font-bold text-slate-600 uppercase block mb-1">
+                  Notes / Reference
+                </label>
+                <input
+                  type="text"
+                  value={collectNotes}
+                  onChange={(e) => setCollectNotes(e.target.value)}
+                  placeholder="e.g. UTR number, UPI transaction ID"
+                  className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800"
+                />
+              </div>
+
+              {/* FIFO Distribution Preview */}
+              {preview.length > 0 && (
+                <div className="psx-table-container text-xs mt-3">
+                  <div className="p-2.5 bg-slate-50 font-bold text-slate-600 uppercase tracking-wider text-[10px]">
+                    Distribution Breakdown
+                  </div>
+                  <table className="w-full text-left border-collapse psx-table">
+                    <thead>
+                      <tr>
+                        <th>Invoice</th>
+                        <th>Pending</th>
+                        <th>Applying</th>
+                        <th>New Bal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.map((p, idx) => {
+                        const willPay = Number(p._applying) > 0;
+                        const fullyClear = Number(p._newBalance) <= 0;
+                        return (
+                          <tr key={idx} className={willPay ? (fullyClear ? "bg-emerald-50/40" : "bg-amber-50/40") : ""}>
+                            <td className="font-mono font-bold">{p.invoice_no || "N/A"}</td>
+                            <td className="text-rose-600 font-semibold">₹{fmt(p.balance_amount)}</td>
+                            <td className="font-bold text-emerald-600">{willPay ? `₹${fmt(p._applying)}` : "—"}</td>
+                            <td>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  fullyClear ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                                }`}
+                              >
+                                {fullyClear ? "✓ Cleared" : `₹${fmt(p._newBalance)}`}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Footer CTA */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCollect(false)}
+                  className="psx-btn-secondary px-4 py-2 text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={collecting}
+                  className="psx-btn-primary px-5 py-2 text-xs font-semibold cursor-pointer shadow-glow-brand disabled:opacity-50"
+                >
+                  {collecting ? "Processing Payment..." : "Confirm Collection"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── CUSTOMER PAYMENT HISTORY MODAL ── */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 font-display">Payment Transaction Records</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Historical collections for <strong>{selectedCustomer?.name}</strong>
+                </p>
+              </div>
               <button
-                type="button"
-                onClick={() => setShowCollect(false)}
-                style={{
-                  flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #cbd5e1",
-                  background: "#ffffff", color: "#475569", fontWeight: "600", fontSize: "14px", cursor: "pointer"
-                }}
+                onClick={() => setShowHistoryModal(false)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-200/60 text-slate-500 flex items-center justify-center cursor-pointer"
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleBulkCollect}
-                disabled={collecting || !collectAmount || Number(collectAmount) <= 0}
-                style={{
-                  flex: 2, padding: "12px", borderRadius: "10px", border: "none",
-                  background: collecting ? "#94a3b8" : "linear-gradient(135deg, #2563eb, #1d4ed8)",
-                  color: "#ffffff", fontWeight: "700", fontSize: "14px", cursor: collecting ? "not-allowed" : "pointer",
-                  boxShadow: "0 4px 12px rgba(37,99,235,0.2)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-                }}
-              >
-                <Wallet size={16} />
-                {collecting ? "Processing..." : `Collect ₹${collectAmount ? fmt(Math.min(Number(collectAmount), totalPending)) : "0"}`}
+                <X size={16} />
               </button>
             </div>
 
+            <div className="p-5 overflow-y-auto flex-1 paysplitx-scrollbar-light">
+              {loadingHistory ? (
+                <div className="py-12 text-center text-indigo-600 font-semibold text-xs">
+                  Loading payment transactions...
+                </div>
+              ) : paymentHistory.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  No payment records found for this customer.
+                </div>
+              ) : (
+                <div className="psx-table-container text-xs">
+                  <table className="w-full text-left border-collapse psx-table">
+                    <thead>
+                      <tr>
+                        <th>Invoice No</th>
+                        <th>Payment Date</th>
+                        <th>Amount Paid</th>
+                        <th>Method</th>
+                        <th>Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paymentHistory.map((h, idx) => (
+                        <tr key={idx}>
+                          <td className="font-mono font-bold text-indigo-600">{h.invoice_no || "N/A"}</td>
+                          <td className="text-slate-500">{formatDate(h.payment_date)}</td>
+                          <td className="font-bold text-emerald-600">₹{fmt(h.amount)}</td>
+                          <td>
+                            <span className="capitalize px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                              {h.payment_method}
+                            </span>
+                          </td>
+                          <td className="text-slate-500">{h.notes || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── VIEW CUSTOMER DETAILS MODAL ── */}
+      {showViewModal && (
+        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 font-display">Customer Master Profile</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{viewCustomer?.name || "Loading..."}</p>
+              </div>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-200/60 text-slate-500 flex items-center justify-center cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-4 text-xs paysplitx-scrollbar-light">
+              {viewLoading ? (
+                <div className="py-12 text-center text-indigo-600 font-semibold">Loading profile...</div>
+              ) : viewCustomer ? (
+                <>
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase">Contact Information</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><span className="text-slate-400">Phone:</span> <strong className="text-slate-800">{viewCustomer.phone}</strong></div>
+                      <div><span className="text-slate-400">Email:</span> <strong className="text-slate-800">{viewCustomer.email || "-"}</strong></div>
+                      <div><span className="text-slate-400">State:</span> <strong className="text-slate-800">{viewCustomer.state || "-"}</strong></div>
+                      <div><span className="text-slate-400">City:</span> <strong className="text-slate-800">{viewCustomer.city || "-"}</strong></div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase">GST & Tax Identifiers</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><span className="text-slate-400">GST Type:</span> <strong className="text-slate-800">{viewCustomer.type || "Regular"}</strong></div>
+                      <div><span className="text-slate-400">GSTIN:</span> <strong className="text-slate-800">{viewCustomer.gst_no || "-"}</strong></div>
+                      <div><span className="text-slate-400">PAN:</span> <strong className="text-slate-800">{viewCustomer.pan_number || "-"}</strong></div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase">Credit & Balance Status</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><span className="text-slate-400">Credit Limit:</span> <strong className="text-slate-800">₹{fmt(viewCustomer.credit_limit)}</strong></div>
+                      <div><span className="text-slate-400">Credit Days:</span> <strong className="text-slate-800">{viewCustomer.credit_days || 0} days</strong></div>
+                      <div><span className="text-slate-400">Advance Balance:</span> <strong className="text-emerald-600">₹{fmt(viewCustomer.advance_balance)}</strong></div>
+                      <div><span className="text-slate-400">Pending Amount:</span> <strong className="text-rose-600">₹{fmt(viewCustomer.pending_amount)}</strong></div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="py-12 text-center text-slate-400">Failed to load customer profile.</div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* ── ADD CUSTOMER MODAL ── */}
       {showAddModal && (
-        <div
-          onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
-          style={{
-            position: "fixed", inset: 0, zIndex: 10000,
-            background: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: 20,
-          }}
-        >
-          <div style={{width: "100%" }}>
+        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full">
             <CustomerForm
               onSuccess={() => {
                 setShowAddModal(false);
@@ -619,17 +1243,8 @@ export default function CustomerList() {
 
       {/* ── EDIT CUSTOMER MODAL ── */}
       {showEditModal && (
-        <div
-          onClick={(e) => { if (e.target === e.currentTarget) setShowEditModal(false); }}
-          style={{
-            position: "fixed", inset: 0, zIndex: 10000,
-            background: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: 20,
-          }}
-        >
-          <div style={{ width: "100%" }}>
+        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full">
             <EditCustomer
               customerId={editCustomerId}
               onSuccess={() => {
@@ -642,673 +1257,6 @@ export default function CustomerList() {
           </div>
         </div>
       )}
-
-      {/* ── MAIN ── */}
-      <div style={{ minHeight:"100vh", background:"#f1f5f9", padding:20, fontFamily:"Inter, sans-serif" }}>
-
-        {/* HEADER */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-          <div>
-            <h2 style={{ margin:0, fontSize:22, fontWeight:800, color:"#0f172a" }}>Customers</h2>
-            <p style={{ margin:"3px 0 0", color:"#64748b", fontSize:13 }}>Manage your customers & payments</p>
-          </div>
-
-          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-            <button onClick={downloadExcel} style={btnGreen}>
-              <Download size={15}/>
-              {selectedRows.length > 0 ? `Download (${selectedRows.length})` : "Excel Download"}
-            </button>
-            <button onClick={() => setShowAddModal(true)} style={btnRed}>
-              + Add Customer
-            </button>
-          </div>
-        </div>
-
-        {/* 2-COLUMN LAYOUT */}
-        <div style={{
-          display:"grid",
-          gridTemplateColumns:"300px 1fr",
-          gap:16,
-          height:"calc(100vh - 120px)"
-        }}>
-
-          {/* ── LEFT ── */}
-          <div style={card}>
-            <div style={{ padding:"12px 14px", borderBottom:"1px solid #f1f5f9", position:"relative" }}>
-              <Search size={15} style={{ position:"absolute", top:"50%", left:26, transform:"translateY(-50%)", color:"#94a3b8" }}/>
-              <input
-                placeholder="Search customer..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  width:"100%", padding:"9px 12px 9px 34px",
-                  borderRadius:10, border:"1px solid #e2e8f0",
-                  outline:"none", fontSize:13, boxSizing:"border-box"
-                }}
-              />
-            </div>
-            <div style={{ overflowY:"auto", flex:1 }}>
-              {filtered.map((c) => {
-                const pt         = getCustomerPendingTotal(c.id);
-                const isSelected = selectedCustomer?.id === c.id;
-                return (
-                  <div key={c.id} className="cust-row"
-                    onClick={() => {
-                      setSelectedCustomer(c);
-                      fetchCustomerHistory(c.id);
-                      setCollectAmount("");
-                      setPreview([]);
-                      setSelectedRows([]);
-                    }}
-                    style={{
-                      padding:"12px 14px", borderBottom:"1px solid #f1f5f9",
-                      cursor:"pointer",
-                      background:  isSelected ? "#eff6ff" : "#fff",
-                      borderLeft:  isSelected ? "3px solid #2563eb" : "3px solid transparent",
-                      transition:"all .15s"
-                    }}
-                  >
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <div>
-                        <div style={{ fontWeight:700, fontSize:14, color:"#0f172a" }}>{c.name}</div>
-                        <div style={{ fontSize:12, color:"#94a3b8", marginTop:2, display:"flex", gap:6, alignItems:"center" }}>
-                          <span>{c.phone}</span>
-                          {Number(c.advance_balance || 0) > 0 && (
-                            <span style={{
-                              background:"#dcfce7", color:"#15803d",
-                              padding:"1px 6px", borderRadius:10, fontSize:10, fontWeight:700
-                            }}>
-                              Adv: ₹{fmt(c.advance_balance)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ── RIGHT: invoice table ── */}
-          <div style={{ ...card, overflow:"hidden" }}>
-
-            {/* customer info + collect button */}
-            {selectedCustomer && (
-              <div style={{ padding:"16px 20px", borderBottom:"1px solid #f1f5f9" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                  <div>
-                    <div style={{ fontSize:20, fontWeight:800, color:"#0f172a", marginBottom:8 }}>
-                      {selectedCustomer.name}
-                    </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#64748b", marginBottom:4 }}>
-                      <Phone size={13}/> {selectedCustomer.phone}
-                    </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#64748b" }}>
-                      <MapPin size={13}/> {selectedCustomer.address}
-                    </div>
-                  </div>
-
-                  {/* RIGHT side: pending badge + collect button + edit */}
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-
-                    {/* pending badge */}
-                    {totalPending > 0 && (
-                      <div style={{
-                        background:"#fef2f2", border:"1px solid #fecaca",
-                        borderRadius:12, padding:"8px 16px", textAlign:"center"
-                      }}>
-                        <div style={{ fontSize:10, fontWeight:700, color:"#dc2626", textTransform:"uppercase", letterSpacing:".5px" }}>
-                          Pending
-                        </div>
-                        <div style={{ fontSize:18, fontWeight:900, color:"#dc2626" }}>
-                          ₹{fmt(totalPending)}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* advance badge */}
-                    {Number(selectedCustomer.advance_balance || 0) > 0 && (
-                      <div style={{
-                        background:"#f0fdf4", border:"1px solid #bbf7d0",
-                        borderRadius:12, padding:"8px 16px", textAlign:"center"
-                      }}>
-                        <div style={{ fontSize:10, fontWeight:700, color:"#15803d", textTransform:"uppercase", letterSpacing:".5px" }}>
-                          Advance Balance
-                        </div>
-                        <div style={{ fontSize:18, fontWeight:900, color:"#15803d" }}>
-                          ₹{fmt(selectedCustomer.advance_balance)}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Send Reminder Button */}
-                    {totalPending > 0 && (
-                      <button
-                        onClick={sendCustomerReminder}
-                        disabled={sendingReminder}
-                        style={{
-                          background:"#22c55e",
-                          color:"#fff",
-                          border:"none",
-                          borderRadius:12,
-                          padding:"10px 18px",
-                          fontWeight:700,
-                          fontSize:13,
-                          cursor:sendingReminder ? "not-allowed":"pointer",
-                          display:"flex",
-                          alignItems:"center",
-                          gap:7,
-                          boxShadow:"0 4px 14px rgba(34,197,94,.3)"
-                        }}
-                      >
-                        <MessageCircle size={16}/>
-                        {sendingReminder ? "Sending..." : "Send Reminder"}
-                      </button>
-                    )}
-
-                    {/* Payment History Button */}
-                    <button
-                      onClick={() => openCustomerHistoryModal(selectedCustomer)}
-                      style={{
-                        background:"#f1f5f9", border:"1.5px solid #e2e8f0",
-                        borderRadius:12, padding:"10px 18px", fontWeight:700, fontSize:13,
-                        cursor:"pointer", display:"flex", alignItems:"center", gap:7,
-                        color:"#475569", transition:"all .15s"
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#e2e8f0")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                    >
-                      <History size={15}/> Payment History
-                    </button>
-
-                    {/* collect button */}
-                    {totalPending > 0 && (
-                      <button
-                        onClick={openCollect}
-                        style={{
-                          background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
-                          color:"#fff", border:"none", borderRadius:12,
-                          padding:"10px 18px", fontWeight:700, fontSize:13,
-                          cursor:"pointer", display:"flex", alignItems:"center", gap:7,
-                          boxShadow:"0 4px 14px rgba(37,99,235,.3)",
-                          transition:"all .15s"
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-                      >
-                        <Wallet size={15}/> Collect Payment
-                      </button>
-                    )}
-
-                    {/* 3-dot dropdown: Edit / View */}
-                    <div style={{ position:"relative" }}>
-                      <button
-                        onClick={() => setMenuOpen(!menuOpen)}
-                        style={btnMenu}
-                      >
-                        <MoreVertical size={18}/>
-                      </button>
-                      {menuOpen && (
-                        <>
-                          <div
-                            style={{ position:"fixed", inset:0, zIndex:49 }}
-                            onClick={() => setMenuOpen(false)}
-                          />
-                          <div style={{
-                            position:"absolute", right:0, top:50, zIndex:50,
-                            background:"#fff", borderRadius:12,
-                            border:"1px solid #e2e8f0",
-                            boxShadow:"0 10px 30px rgba(0,0,0,0.12)",
-                            minWidth:150, overflow:"hidden",
-                            animation:"popIn .15s ease"
-                          }}>
-                            <button
-                              onClick={() => {
-                                setMenuOpen(false);
-                                openViewCustomer(selectedCustomer);
-                              }}
-                              style={menuItem}
-                            >
-                              <Eye size={15} color="#2563eb"/> View Details
-                            </button>
-                            <button
-                              onClick={() => {
-                                setMenuOpen(false);
-                                setEditCustomerId(selectedCustomer.id);
-                                setShowEditModal(true);
-                              }}
-                              style={menuItem}
-                            >
-                              <Pencil size={15} color="#7c3aed"/> Edit Customer
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* table header */}
-            <div style={{
-              display:"grid",
-              gridTemplateColumns:"40px 1.2fr .8fr .8fr .8fr 1fr 1fr",
-              padding:"11px 20px",
-              background:"#f8fafc",
-              borderBottom:"1px solid #e5e7eb",
-              fontWeight:700, fontSize:12, color:"#64748b",
-              textTransform:"uppercase", letterSpacing:".5px",
-              textAlign:"center"
-            }}>
-              <span style={{ display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <input
-                  type="checkbox"
-                  style={{ width:15, height:15, cursor:"pointer", accentColor:"#2563eb" }}
-                  checked={invoiceHistory.length > 0 && selectedRows.length === invoiceHistory.length}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedRows(invoiceHistory.map((_, i) => i));
-                    } else {
-                      setSelectedRows([]);
-                    }
-                  }}
-                />
-              </span>
-              <span style={{ textAlign:"left" }}>Payment Method</span>
-              <span>Total</span>
-              <span>Paid</span>
-              <span>Pending</span>
-              <span>Due Date</span>
-              <span>Status</span>
-            </div>
-
-            {/* rows */}
-            <div style={{ overflowY:"auto", flex:1 }}>
-              {invoiceHistory.length === 0 ? (
-                <div style={{
-                  display:"flex", flexDirection:"column",
-                  alignItems:"center", justifyContent:"center",
-                  padding:48, color:"#94a3b8", textAlign:"center"
-                }}>
-                  <div style={{ fontSize:52, marginBottom:14 }}>📄</div>
-                  <div style={{ fontWeight:700, fontSize:16, color:"#0f172a" }}>No Billing Records</div>
-                  <p style={{ fontSize:13, marginTop:6, maxWidth:300, lineHeight:1.6 }}>
-                    This customer has no billing or payment history yet.
-                  </p>
-                </div>
-              ) : (
-                invoiceHistory.map((item, index) => {
-                  const isPaid = Number(item.balance_amount) <= 0;
-                  const isChecked = selectedRows.includes(index);
-                  return (
-                    <div key={index} style={{
-                      display:"grid",
-                      gridTemplateColumns:"40px 1.2fr .8fr .8fr .8fr 1fr 1fr",
-                      padding:"14px 20px",
-                      alignItems:"center", textAlign:"center",
-                      borderBottom:"1px solid #f8fafc",
-                      background: isChecked ? "#eff6ff" : "#fff",
-                      cursor:"pointer",
-                      transition:"background .15s"
-                    }}
-                      onClick={() => {
-                        setSelectedRows(prev =>
-                          prev.includes(index)
-                            ? prev.filter(i => i !== index)
-                            : [...prev, index]
-                        );
-                      }}
-                    >
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"center" }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          style={{ width:15, height:15, cursor:"pointer", accentColor:"#2563eb" }}
-                          checked={isChecked}
-                          onChange={() => {
-                            setSelectedRows(prev =>
-                              prev.includes(index)
-                                ? prev.filter(i => i !== index)
-                                : [...prev, index]
-                            );
-                          }}
-                        />
-                      </div>
-                      <div style={{ textAlign:"left", fontWeight:600, fontSize:13, textTransform:"capitalize" }}>
-                        {item.payment_method || "-"}
-                      </div>
-                      <div style={{ fontSize:13 }}>₹{fmt(item.total_amount)}</div>
-                      <div style={{ fontWeight:700, color:"#16a34a", fontSize:13 }}>
-                        ₹{fmt(item.paid_amount_total)}
-                      </div>
-                      <div>
-                        <span style={{
-                          background: isPaid ? "#f0fdf4" : "#fee2e2",
-                          color:      isPaid ? "#16a34a" : "#dc2626",
-                          padding:"4px 10px", borderRadius:8, fontSize:12, fontWeight:700
-                        }}>
-                          ₹{fmt(item.balance_amount)}
-                        </span>
-                      </div>
-                      <div style={{ fontSize:13, color:"#64748b" }}>
-                        {item.due_date ? formatDate(item.due_date) : "-"}
-                      </div>
-                      <div>
-                        <span style={{
-                          padding:"5px 14px", borderRadius:20, fontSize:11, fontWeight:700,
-                          background: isPaid ? "#dcfce7" : "#fee2e2",
-                          color:      isPaid ? "#15803d" : "#dc2626",
-                          display:"inline-block", minWidth:72, textAlign:"center"
-                        }}>
-                          {isPaid ? "Paid" : "Not Paid"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* ── CUSTOMER PAYMENT HISTORY MODAL ── */}
-      {showHistoryModal && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "750px",
-            borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden",
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-            maxHeight: "80vh", display: "flex", flexDirection: "column"
-          }}>
-            {/* Modal Header */}
-            <div style={{ padding: "18px 22px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
-                    Payment History
-                  </h3>
-                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
-                    All payments recorded for <strong>{selectedCustomer?.name}</strong>
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowHistoryModal(false)}
-                  style={{
-                    border: "none", background: "#f1f5f9", color: "#475569",
-                    padding: "8px 14px", borderRadius: 10, fontWeight: 700,
-                    fontSize: 13, cursor: "pointer"
-                  }}
-                >
-                  ✕ Close
-                </button>
-              </div>
-
-              {/* Summary bar */}
-              {!loadingHistory && paymentHistory.length > 0 && (
-                <div style={{
-                  marginTop: 12, background: "#f0fdf4", border: "1px solid #bbf7d0",
-                  borderRadius: 10, padding: "10px 14px",
-                  display: "flex", gap: 24, alignItems: "center"
-                }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#15803d", textTransform: "uppercase" }}>Total Paid</span>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#15803d" }}>
-                      ₹{fmt(paymentHistory.reduce((s, h) => s + Number(h.amount || 0), 0))}
-                    </div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Transactions</span>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#334155" }}>{paymentHistory.length}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Body */}
-            <div style={{ overflowY: "auto", flex: 1 }}>
-              {loadingHistory ? (
-                <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Loading payment records...</div>
-              ) : paymentHistory.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>
-                  <div style={{ fontSize: 40, marginBottom: 10 }}>🧾</div>
-                  No payment records found for this customer yet.
-                </div>
-              ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                  <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
-                    <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill No</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill Date</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Pay Date</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Amount Paid</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Method</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paymentHistory.map((h, idx) => (
-                      <tr key={h.id} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#0f172a", fontWeight: "700" }}>
-                          {h.invoice_no || "N/A"}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
-                          {h.invoice_date ? formatDate(h.invoice_date) : "-"}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#334155", fontWeight: "500" }}>
-                          {h.payment_date ? formatDate(h.payment_date) : "-"}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#16a34a", fontWeight: "700" }}>
-                          ₹{fmt(h.amount)}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#475569", textTransform: "capitalize" }}>
-                          <span style={{
-                            padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                            background: h.payment_method === "cash" ? "#f0fdf4" : "#eff6ff",
-                            color: h.payment_method === "cash" ? "#15803d" : "#2563eb"
-                          }}>
-                            {h.payment_method}
-                          </span>
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
-                          {h.notes || "-"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── VIEW CUSTOMER MODAL ── */}
-      {showViewModal && (
-        <div
-          onClick={(e) => { if (e.target === e.currentTarget) setShowViewModal(false); }}
-          style={{
-            position:"fixed", inset:0, zIndex:10000,
-            background:"rgba(15,23,42,.55)",
-            backdropFilter:"blur(4px)",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            padding:20, fontFamily:"Inter, sans-serif"
-          }}
-        >
-          <div style={{
-            background:"#fff", borderRadius:20, width:"100%", maxWidth:680,
-            maxHeight:"88vh", display:"flex", flexDirection:"column",
-            boxShadow:"0 25px 50px -12px rgba(0,0,0,0.15)", overflow:"hidden"
-          }}>
-            {/* Header */}
-            <div style={{
-              padding:"20px 24px", borderBottom:"1px solid #e2e8f0",
-              background:"linear-gradient(135deg, #eff6ff, #dbeafe)", flexShrink:0
-            }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <div>
-                  <h3 style={{ margin:0, fontSize:18, fontWeight:800, color:"#0f172a", display:"flex", alignItems:"center", gap:8 }}>
-                    <Eye size={20} color="#2563eb"/> Customer Details
-                  </h3>
-                  <p style={{ margin:"4px 0 0", fontSize:13, color:"#475569" }}>
-                    {viewCustomer ? viewCustomer.name : "Loading..."}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowViewModal(false)}
-                  style={{ border:"none", background:"#f1f5f9", color:"#475569", padding:"8px 14px", borderRadius:10, fontWeight:700, fontSize:13, cursor:"pointer" }}
-                >
-                  ✕ Close
-                </button>
-              </div>
-            </div>
-
-            {/* Body */}
-            <div style={{ overflowY:"auto", flex:1, padding:"20px 24px" }}>
-              {viewLoading ? (
-                <div style={{ textAlign:"center", padding:"40px", color:"#64748b", fontSize:13, fontWeight:500 }}>
-                  Loading customer details...
-                </div>
-              ) : viewCustomer ? (
-                <div style={{ display:"flex", flexDirection:"column", gap:22 }}>
-                  {/* Basic info */}
-                  <Section title="Basic Information" icon="👤">
-                    <Row label="Name" value={viewCustomer.name} />
-                    <Row label="Phone" value={viewCustomer.phone} />
-                    <Row label="Email" value={viewCustomer.email} />
-                    <Row label="State" value={viewCustomer.state} />
-                    <Row label="Date of Birth" value={viewCustomer.date_of_birth && formatDate(viewCustomer.date_of_birth)} />
-                  </Section>
-
-                  {/* GST info */}
-                  <Section title="GST Details" icon="🧾">
-                    <Row label="GST Type" value={viewCustomer.type} />
-                    <Row label="GSTIN" value={viewCustomer.gst_no} />
-                    <Row label="PAN Number" value={viewCustomer.pan_number} />
-                  </Section>
-
-                  {/* Billing address */}
-                  <Section title="Billing Address" icon="🏠">
-                    <Row label="Address" value={viewCustomer.address || viewCustomer.address_line1} />
-                    {viewCustomer.address_line1 && viewCustomer.address_line1 !== viewCustomer.address && (
-                      <Row label="Address Line 1" value={viewCustomer.address_line1} />
-                    )}
-                    <Row label="Address Line 2" value={viewCustomer.address_line2} />
-                    <Row label="City" value={viewCustomer.city} />
-                    <Row label="Country" value={viewCustomer.billing_country} />
-                    <Row label="Pincode" value={viewCustomer.billing_pincode} />
-                  </Section>
-
-                  {/* Shipping address */}
-                  <Section title="Shipping Address" icon="🚚">
-                    <Row label="Address" value={viewCustomer.shipping_address || viewCustomer.shipping_address_line1} />
-                    <Row label="Address Line 2" value={viewCustomer.shipping_address_line2} />
-                    <Row label="City" value={viewCustomer.shipping_city} />
-                    <Row label="Country" value={viewCustomer.shipping_country} />
-                    <Row label="Pincode" value={viewCustomer.shipping_pincode} />
-                  </Section>
-
-                  {/* Credit & balance */}
-                  <Section title="Credit & Balance" icon="💳">
-                    <Row
-                      label="Credit Enabled"
-                      value={Number(viewCustomer.credit_enabled) === 1 ? "Yes" : "No"}
-                      valueStyle={{ color: Number(viewCustomer.credit_enabled) === 1 ? "#16a34a" : "#64748b" }}
-                    />
-                    {Number(viewCustomer.credit_enabled) === 1 && (
-                      <>
-                        <Row label="Credit Limit" value={`₹${fmt(viewCustomer.credit_limit)}`} />
-                        <Row label="Credit Days" value={`${viewCustomer.credit_days || 0} days`} />
-                      </>
-                    )}
-                    <Row label="Advance Balance" value={`₹${fmt(viewCustomer.advance_balance)}`} />
-                    <Row label="Pending Amount" value={`₹${fmt(viewCustomer.pending_amount)}`} />
-                    <Row label="Account Number" value={viewCustomer.account_number} />
-                  </Section>
-                </div>
-              ) : (
-                <div style={{ textAlign:"center", padding:"40px", color:"#94a3b8" }}>
-                  Failed to load customer details.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }
-
-const card = {
-  background:"#fff", borderRadius:14,
-  border:"1px solid #e5e7eb",
-  display:"flex", flexDirection:"column",
-};
-const btnGreen = {
-  background:"#16a34a", color:"#fff", border:"none",
-  borderRadius:10, padding:"10px 16px",
-  fontWeight:700, cursor:"pointer",
-  display:"flex", alignItems:"center", gap:7, fontSize:13
-};
-const btnRed = {
-  background:"#ef4444", color:"#fff", border:"none",
-  borderRadius:10, padding:"10px 16px",
-  fontWeight:700, cursor:"pointer", fontSize:13
-};
-const btnEdit = {
-  background:"#eff6ff", border:"1px solid #dbeafe",
-  width:44, height:44, borderRadius:12,
-  cursor:"pointer", color:"#2563eb",
-  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0
-};
-const btnMenu = {
-  background:"#f8fafc", border:"1.5px solid #e2e8f0",
-  width:44, height:44, borderRadius:12,
-  cursor:"pointer", color:"#475569",
-  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-  transition:"all .15s"
-};
-const menuItem = {
-  width:"100%", background:"#fff", border:"none", textAlign:"left",
-  padding:"10px 14px", fontSize:13, fontWeight:600, color:"#334155",
-  cursor:"pointer", display:"flex", alignItems:"center", gap:10,
-  fontFamily:"Inter, sans-serif"
-};
-
-const Section = ({ title, icon, children }) => {
-  const hasData = Children.toArray(children).some((child) => {
-    const value = child?.props?.value;
-    return value !== null && value !== undefined && String(value).trim() !== "";
-  });
-
-  if (!hasData) return null;
-
-  return (
-    <div style={{ background:"#f8fafc", borderRadius:14, border:"1px solid #e2e8f0", padding:16 }}>
-      <div style={{
-        fontSize:12, fontWeight:800, color:"#0f172a", textTransform:"uppercase",
-        letterSpacing:".5px", marginBottom:12, display:"flex", alignItems:"center", gap:6
-      }}>
-        <span>{icon}</span> {title}
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", gap:"8px 20px" }}>
-        {children}
-      </div>
-    </div>
-  );
-};
-
-const Row = ({ label, value, valueStyle }) => (
-  value !== null && value !== undefined && String(value).trim() !== "" && <>
-    <div style={{ fontSize:12.5, fontWeight:600, color:"#64748b" }}>{label}</div>
-    <div style={{ fontSize:13, fontWeight:600, color:"#0f172a", wordBreak:"break-word", ...valueStyle }}>
-      {value}
-    </div>
-  </>
-);

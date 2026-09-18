@@ -1,12 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search, Phone, Mail, MapPin, Wallet, Plus, Share2 } from "lucide-react";
+import {
+  Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search,
+  Phone, Mail, MapPin, Wallet, Plus, Share2, Building2, CheckCircle2,
+  AlertCircle, ShieldAlert, ShoppingCart, ArrowUpRight, X, ChevronRight,
+  Filter, Check, UserCheck, Layers, LayoutGrid, Calendar, RefreshCw
+} from "lucide-react";
 import AddSupplierModal from "../supplier/AddSupplierModal";
 import ShareTransactionPopover from "../../components/ShareTransactionPopover";
 
 export default function PurchaseList() {
   const navigate = useNavigate();
+
+  // Core Data States
   const [purchases, setPurchases] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(
@@ -15,12 +22,19 @@ export default function PurchaseList() {
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Filter & Search States
   const [search, setSearch] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
+  const [viewMode, setViewMode] = useState("all"); // "all" (Primary: All Purchase Bills) | "split" (Secondary: By Supplier)
+  const [billFilter, setBillFilter] = useState("all"); // "all" | "unpaid" | "paid" | "draft"
+  const [supplierFilter, setSupplierFilter] = useState("all"); // "all" | "dues"
+
+  // UI Popovers & Modals
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
   const [activeShareId, setActiveShareId] = useState(null);
 
-  // Payment Modal States
+  // Single Bill Payment Modal States
   const [showPayModal, setShowPayModal] = useState(false);
   const [paymentPurchase, setPaymentPurchase] = useState(null);
   const [payAmount, setPayAmount] = useState(0);
@@ -29,12 +43,12 @@ export default function PurchaseList() {
   const [payNotes, setPayNotes] = useState("");
   const [submittingPayment, setSubmittingPayment] = useState(false);
 
-  // History Modal States
+  // Payment History Modal States
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Bulk Pay Modal States
+  // Bulk FIFO Pay Modal States
   const [showBulkPayModal, setShowBulkPayModal] = useState(false);
   const [bulkAmount, setBulkAmount] = useState("");
   const [bulkMethod, setBulkMethod] = useState("cash");
@@ -43,17 +57,25 @@ export default function PurchaseList() {
   const [submittingBulk, setSubmittingBulk] = useState(false);
   const [bulkPreview, setBulkPreview] = useState([]);
 
+  // Currency Formatter
+  const fmt = (n) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user) return;
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
 
     api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
       .then(res => {
         if (res.data.status) {
           setCompanies(res.data.data);
           const savedId = localStorage.getItem("selected_company_id");
-          if (savedId) {
-            fetchPurchasesAndSuppliers(savedId);
+          const activeId = savedId || (res.data.data.length > 0 ? res.data.data[0].id : "");
+          if (activeId) {
+            setSelectedCompany(activeId);
+            fetchPurchasesAndSuppliers(activeId);
           } else {
             setLoading(false);
           }
@@ -80,10 +102,15 @@ export default function PurchaseList() {
       if (sRes.data.status) {
         const fetchedSuppliers = sRes.data.data;
         setSuppliers(fetchedSuppliers);
-        
-        // Auto-select first supplier if available
+
+        // Auto-select first supplier if none or invalid
         if (fetchedSuppliers.length > 0) {
-          setSelectedSupplier(fetchedSuppliers[0]);
+          setSelectedSupplier((prev) => {
+            if (prev && fetchedSuppliers.some((s) => s.id === prev.id)) {
+              return fetchedSuppliers.find((s) => s.id === prev.id);
+            }
+            return fetchedSuppliers[0];
+          });
         } else {
           setSelectedSupplier(null);
         }
@@ -117,7 +144,7 @@ export default function PurchaseList() {
     }
   };
 
-  // Open Payment dialog
+  // Open Single Bill Payment dialog
   const openPayModal = (purchase) => {
     setPaymentPurchase(purchase);
     setPayAmount(Number(purchase.balance_amount));
@@ -127,7 +154,7 @@ export default function PurchaseList() {
     setShowPayModal(true);
   };
 
-  // Submit Payment
+  // Submit Single Bill Payment
   const submitPayment = async (e) => {
     e.preventDefault();
     if (payAmount <= 0) {
@@ -202,10 +229,12 @@ export default function PurchaseList() {
     setShowBulkPayModal(true);
   };
 
-  // Live preview update on amount change
+  // Live preview update on bulk amount change
   const handleBulkAmountChange = (val) => {
     setBulkAmount(val);
-    const pendingBills = supplierBills.filter(p => Number(p.balance_amount) > 0 && p.status === "submitted");
+    const pendingBills = (supplierBills || []).filter(
+      (p) => Number(p.balance_amount) > 0 && p.status === "submitted"
+    );
     const sorted = [...pendingBills].sort((a, b) => {
       const da = new Date(a.purchase_date), db = new Date(b.purchase_date);
       return da - db || a.id - b.id;
@@ -246,508 +275,877 @@ export default function PurchaseList() {
     }
   };
 
-  // Helper formatting currency
-  const fmt = (n) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  // Get total pending amount for a supplier (submitted invoices only, drafts excluded)
+  // Supplier-specific pending balance helper
   const getSupplierPendingTotal = (supplierId) => {
     return purchases
       .filter((p) => Number(p.supplier_id) === Number(supplierId) && p.status === "submitted")
       .reduce((sum, p) => sum + Number(p.balance_amount || 0), 0);
   };
 
-  // Filter suppliers by sidebar search
-  const filteredSuppliers = suppliers.filter((s) => {
-    const name = s.supplier_name ? s.supplier_name.toLowerCase() : "";
-    const phone = (s.mobile_number || s.phone || s.alt_mobile || "").toLowerCase();
-    return name.includes(supplierSearch.toLowerCase()) || phone.includes(supplierSearch.toLowerCase());
-  });
+  // ── Financial Intelligence Calculations (PaySplitX KPI Metrics) ──
+  const kpiMetrics = useMemo(() => {
+    const totalPurchasesVal = purchases.reduce((acc, p) => acc + Number(p.total_amount || 0), 0);
+    const totalPaidVal = purchases.reduce((acc, p) => acc + Number(p.paid_amount || 0), 0);
+    const totalPendingVal = purchases
+      .filter((p) => p.status === "submitted")
+      .reduce((acc, p) => acc + Number(p.balance_amount || 0), 0);
 
-  // Filter current supplier's purchase bills by search bar input
-  const supplierBills = selectedSupplier
-    ? purchases.filter((p) => Number(p.supplier_id) === Number(selectedSupplier.id))
-    : [];
+    const pendingBillsCount = purchases.filter(
+      (p) => Number(p.balance_amount) > 0 && p.status === "submitted"
+    ).length;
 
-  const filteredBills = supplierBills.filter((p) => {
-    const billNo = p.purchase_no ? p.purchase_no.toLowerCase() : "";
-    return billNo.includes(search.toLowerCase());
-  });
+    const settledBillsCount = purchases.filter(
+      (p) => Number(p.balance_amount) <= 0 && p.status === "submitted"
+    ).length;
 
-  // Calculated totals of selected supplier
+    const suppliersWithDuesCount = suppliers.filter(
+      (s) => getSupplierPendingTotal(s.id) > 0
+    ).length;
+
+    return {
+      totalPurchasesVal,
+      totalPaidVal,
+      totalPendingVal,
+      pendingBillsCount,
+      settledBillsCount,
+      suppliersWithDuesCount,
+    };
+  }, [purchases, suppliers]);
+
+  // Filtered Suppliers for Sidebar
+  const filteredSuppliers = useMemo(() => {
+    return suppliers.filter((s) => {
+      const name = (s.supplier_name || "").toLowerCase();
+      const phone = (s.mobile_number || s.phone || s.alt_mobile || "").toLowerCase();
+      const matchesSearch = name.includes(supplierSearch.toLowerCase()) || phone.includes(supplierSearch.toLowerCase());
+      if (!matchesSearch) return false;
+
+      if (supplierFilter === "dues") {
+        return getSupplierPendingTotal(s.id) > 0;
+      }
+      return true;
+    });
+  }, [suppliers, supplierSearch, supplierFilter, purchases]);
+
+  // Current selected supplier's bills
+  const supplierBills = useMemo(() => {
+    if (!selectedSupplier) return [];
+    return purchases.filter((p) => Number(p.supplier_id) === Number(selectedSupplier.id));
+  }, [purchases, selectedSupplier]);
+
+  // Filtered bills for selected supplier (or all bills in directory view)
+  const filteredBills = useMemo(() => {
+    const baseList = viewMode === "split" ? supplierBills : purchases;
+    return baseList.filter((p) => {
+      const q = search.toLowerCase();
+      const billNo = (p.purchase_no || "").toLowerCase();
+      const suppName = (p.supplier_name || "").toLowerCase();
+      const matchesText = billNo.includes(q) || suppName.includes(q);
+      if (!matchesText) return false;
+
+      if (billFilter === "unpaid") return Number(p.balance_amount) > 0 && p.status === "submitted";
+      if (billFilter === "paid") return Number(p.balance_amount) <= 0 && p.status === "submitted";
+      if (billFilter === "draft") return p.status === "draft";
+      return true;
+    });
+  }, [viewMode, supplierBills, purchases, search, billFilter]);
+
   const selectedSupplierPendingTotal = selectedSupplier ? getSupplierPendingTotal(selectedSupplier.id) : 0;
 
   return (
-    <>
-      <style>{`
-        .supplier-sidebar-scroll { scrollbar-width: thin; scrollbar-color: #94a3b8 #e2e8f0; }
-        .supplier-sidebar-scroll::-webkit-scrollbar { width: 9px; }
-        .supplier-sidebar-scroll::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 10px; }
-        .supplier-sidebar-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 2px solid #e2e8f0; }
-        .supplier-sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
-      `}</style>
-      <div style={{ height: "100vh", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column", background: "#f1f5f9", padding: 20, fontFamily: "Inter, sans-serif" }}>
+    <div className="space-y-6 min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 font-sans animate-in fade-in duration-300">
       
-      {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+      {/* ── 1. PAGE HEADER (PaySplitX Header Design) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Supplier Purchases</h2>
-          <p style={{ margin: "3px 0 0", color: "#64748b", fontSize: 13 }}>Manage supplier purchase invoices, drafts, & credit payments</p>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center shadow-md shadow-indigo-100 ring-2 ring-indigo-50">
+              <CreditCard size={20} />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-display">
+              Supplier Purchases
+            </h1>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+              {purchases.length} Total Bills
+            </span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              {suppliers.length} Suppliers
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Manage procurement bills, vendor accounts, FIFO debt settlements, and supplier ledgers.
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={() => navigate("/purchases/reports")}
-            style={{
-              background: "#16a34a", color: "#fff", border: "none",
-              borderRadius: 10, padding: "10px 16px", fontWeight: 700, cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 7, fontSize: 13
-            }}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl shadow-xs transition cursor-pointer"
           >
-            <FileSpreadsheet size={15} /> GST Report
+            <FileSpreadsheet size={15} className="text-emerald-600" />
+            <span>GST Report</span>
           </button>
           <button
             onClick={() => navigate("/purchases/new")}
-            style={{
-              background: "#ef4444", color: "#fff", border: "none",
-              borderRadius: 10, padding: "10px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13
-            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-200 transition transform active:scale-95 cursor-pointer"
           >
-            + Add Purchase
+            <Plus size={15} strokeWidth={2.6} />
+            <span>Record Purchase Bill</span>
           </button>
         </div>
       </div>
 
-      {/* Company Selector Buttons */}
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+      {/* ── 2. METRIC STAT CARDS (PaySplitX 4-Card Strip) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Purchases Volume */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Purchases</span>
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <ShoppingCart size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+            ₹{fmt(kpiMetrics.totalPurchasesVal)}
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            <span className="text-indigo-600 font-bold">{purchases.length}</span>
+            <span>recorded purchase bills</span>
+          </div>
+        </div>
+
+        {/* Paid & Settled Outflow */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Disbursed (Paid)</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-emerald-600 tracking-tight my-1 font-display">
+            ₹{fmt(kpiMetrics.totalPaidVal)}
+          </div>
+          <div className="text-[11px] text-slate-500">
+            <span className="font-semibold text-slate-700">{kpiMetrics.settledBillsCount}</span> fully settled bills
+          </div>
+        </div>
+
+        {/* Outstanding Payables (Pending Dues) */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-rose-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Payables</span>
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+              <ShieldAlert size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-rose-600 tracking-tight my-1 font-display">
+            ₹{fmt(kpiMetrics.totalPendingVal)}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-rose-600 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <span>{kpiMetrics.pendingBillsCount} bills with outstanding balance</span>
+          </div>
+        </div>
+
+        {/* Active Suppliers Base */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Registered Vendors</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Building2 size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+            {suppliers.length}
+          </div>
+          <div className="text-[11px] text-slate-500">
+            <span className="font-semibold text-amber-600">{kpiMetrics.suppliersWithDuesCount}</span> vendors awaiting settlement
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. CONTROLS BAR: Firm Selection + View Mode Toggles ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+        {/* Company Pills */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Firm:</span>
           {companies.map((c) => {
             const isActive = Number(selectedCompany) === Number(c.id);
             return (
               <button
                 key={c.id}
                 onClick={() => handleCompanyChange(c.id)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  border: isActive ? "2px solid #2563eb" : "1.5px solid #e5e7eb",
-                  backgroundColor: isActive ? "#2563eb" : "#ffffff",
-                  color: isActive ? "#ffffff" : "#475569",
-                  boxShadow: isActive ? "0 4px 12px rgba(37,99,235,0.15)" : "0 1px 3px rgba(0,0,0,0.05)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5
-                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 ring-2 ring-indigo-600/20"
+                    : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+                }`}
               >
-                <span>🏢</span> {c.company_name}
+                <span>🏢</span>
+                <span>{c.company_name}</span>
               </button>
             );
           })}
         </div>
+
+        {/* View Mode Segmented Control */}
+        <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 self-start md:self-auto">
+          <button
+            onClick={() => setViewMode("all")}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === "all"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Layers size={14} />
+            <span>All Purchase Bills ({purchases.length})</span>
+          </button>
+          <button
+            onClick={() => setViewMode("split")}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              viewMode === "split"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <LayoutGrid size={14} />
+            <span>By Supplier View</span>
+          </button>
+        </div>
       </div>
 
-      {/* 2-COLUMN SPLIT LAYOUT */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "300px 1fr",
-        gap: 16,
-        flex: 1,
-        minHeight: 0
-      }}>
-
-        {/* ── LEFT PANEL: Suppliers List ── */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-          {/* Supplier Search & Add Button */}
-          <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ position: "relative" }}>
-              <Search size={15} style={{ position: "absolute", top: "50%", left: 12, transform: "translateY(-50%)", color: "#94a3b8" }} />
-              <input
-                placeholder="Search supplier..."
-                value={supplierSearch}
-                onChange={(e) => setSupplierSearch(e.target.value)}
-                style={{
-                  width: "100%", padding: "9px 12px 9px 34px",
-                  borderRadius: 10, border: "1px solid #e2e8f0",
-                  outline: "none", fontSize: 13, boxSizing: "border-box"
-                }}
-              />
-            </div>
-
-            {/* + Add Supplier Button (Like Product Page) */}
-            <button
-              onClick={() => setShowAddSupplierModal(true)}
-              style={{
-                width: "100%",
-                padding: "9px 12px",
-                background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
-                color: "#fff",
-                border: "none",
-                borderRadius: 10,
-                fontWeight: 700,
-                fontSize: 13,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                boxShadow: "0 2px 6px rgba(37,99,235,0.2)",
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = "0.92";
-                e.currentTarget.style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = "1";
-                e.currentTarget.style.transform = "none";
-              }}
-            >
-              <Plus size={16} /> Add Supplier
-            </button>
-          </div>
-          {/* Suppliers List */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
-            {loading ? (
-              <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Loading...</div>
-            ) : filteredSuppliers.length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No suppliers found</div>
-            ) : (
-              filteredSuppliers.map((s) => {
-                const pt = getSupplierPendingTotal(s.id);
-                const isSelected = selectedSupplier?.id === s.id;
-                return (
-                  <div
-                    key={s.id}
-                    onClick={() => {
-                      setSelectedSupplier(s);
-                      setSearch("");
-                    }}
-                    style={{
-                      padding: "12px 14px", borderBottom: "1px solid #f1f5f9",
-                      cursor: "pointer",
-                      background: isSelected ? "#eff6ff" : "#fff",
-                      borderLeft: isSelected ? "3px solid #2563eb" : "3px solid transparent",
-                      transition: "all 0.15s"
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{s.supplier_name}</div>
-                        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{s.mobile_number || s.phone || "No phone"}</div>
-                      </div>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: pt > 0 ? "#ef4444" : "#94a3b8" }}>
-                        ₹{fmt(pt)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* ── RIGHT PANEL: Invoice Table ── */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+      {/* ── 4. MAIN CONTENT VIEW ── */}
+      {viewMode === "split" ? (
+        /* ── VIEW A: MASTER-DETAIL BY SUPPLIER ── */
+        <div className="grid grid-cols-1 lg:grid-cols-[330px_1fr] gap-6 items-start">
           
-          {selectedSupplier && (
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>
-                    {selectedSupplier.supplier_name}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-                    <Phone size={13} /> {selectedSupplier.mobile_number || selectedSupplier.phone || "N/A"}
-                    {selectedSupplier.alt_mobile && <span style={{ color: "#94a3b8" }}> / {selectedSupplier.alt_mobile}</span>}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-                    <Mail size={13} /> {selectedSupplier.email || "N/A"}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b" }}>
-                    <MapPin size={13} /> {selectedSupplier.address || "No address"}
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  {/* Payment History Button */}
+          {/* LEFT: SUPPLIERS DIRECTORY SIDEBAR */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col overflow-hidden">
+            {/* Sidebar Top: Search & Add */}
+            <div className="p-3.5 border-b border-slate-100 flex flex-col gap-2.5">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  placeholder="Search supplier by name or phone..."
+                  value={supplierSearch}
+                  onChange={(e) => setSupplierSearch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white font-medium transition"
+                />
+                {supplierSearch && (
                   <button
-                    onClick={() => openSupplierHistoryModal(selectedSupplier)}
-                    style={{
-                      background: "#f1f5f9", border: "1.5px solid #e2e8f0",
-                      borderRadius: 10, padding: "8px 14px", fontWeight: 700,
-                      cursor: "pointer", display: "flex", alignItems: "center",
-                      gap: 6, fontSize: 13, color: "#475569"
-                    }}
+                    onClick={() => setSupplierSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
-                    <History size={15} /> Payment History
+                    <X size={13} />
                   </button>
+                )}
+              </div>
 
-                  {/* Pay All Pending Button – only show if supplier has pending balance */}
-                  {selectedSupplierPendingTotal > 0 && (
-                    <button
-                      onClick={openBulkPayModal}
-                      style={{
-                        background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                        border: "none", borderRadius: 10, padding: "8px 16px",
-                        fontWeight: 700, cursor: "pointer",
-                        display: "flex", alignItems: "center",
-                        gap: 6, fontSize: 13, color: "#ffffff",
-                        boxShadow: "0 4px 12px rgba(217,119,6,0.3)"
+              {/* Filter Tabs for Suppliers */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setSupplierFilter("all")}
+                  className={`flex-1 py-1 text-[11px] font-bold rounded-lg transition text-center cursor-pointer ${
+                    supplierFilter === "all"
+                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      : "text-slate-500 hover:bg-slate-50 border border-transparent"
+                  }`}
+                >
+                  All ({suppliers.length})
+                </button>
+                <button
+                  onClick={() => setSupplierFilter("dues")}
+                  className={`flex-1 py-1 text-[11px] font-bold rounded-lg transition text-center cursor-pointer ${
+                    supplierFilter === "dues"
+                      ? "bg-rose-50 text-rose-700 border border-rose-200"
+                      : "text-slate-500 hover:bg-slate-50 border border-transparent"
+                  }`}
+                >
+                  With Dues ({kpiMetrics.suppliersWithDuesCount})
+                </button>
+              </div>
+
+              <button
+                onClick={() => setShowAddSupplierModal(true)}
+                className="w-full py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+              >
+                <Plus size={14} strokeWidth={2.6} />
+                <span>+ Add Supplier</span>
+              </button>
+            </div>
+
+            {/* Supplier List Items */}
+            <div className="max-h-[620px] overflow-y-auto divide-y divide-slate-100">
+              {loading ? (
+                <div className="p-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                  <RefreshCw size={14} className="animate-spin text-indigo-500" />
+                  <span>Loading suppliers...</span>
+                </div>
+              ) : filteredSuppliers.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  No suppliers found matching your criteria.
+                </div>
+              ) : (
+                filteredSuppliers.map((s) => {
+                  const pt = getSupplierPendingTotal(s.id);
+                  const isSelected = selectedSupplier?.id === s.id;
+                  const initial = (s.supplier_name || "S").charAt(0).toUpperCase();
+
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => {
+                        setSelectedSupplier(s);
+                        setSearch("");
                       }}
+                      className={`p-3.5 cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? "bg-indigo-50/70 border-l-4 border-indigo-600"
+                          : "hover:bg-slate-50 border-l-4 border-transparent"
+                      }`}
                     >
-                      <Wallet size={15} /> Pay All Pending
-                    </button>
-                  )}
-
-                  {/* Total Pending Balance Badge */}
-                  {selectedSupplierPendingTotal > 0 && (
-                    <div style={{
-                      background: "#fef2f2", border: "1px solid #fecaca",
-                      borderRadius: 12, padding: "8px 16px", textAlign: "center"
-                    }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: ".5px" }}>
-                        Pending Balance
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                            isSelected
+                              ? "bg-indigo-600 text-white shadow-xs"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {initial}
+                        </div>
+                        <div className="min-w-0">
+                          <div className={`font-bold text-xs truncate ${isSelected ? "text-indigo-900" : "text-slate-800"}`}>
+                            {s.supplier_name}
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                            <Phone size={10} />
+                            <span>{s.mobile_number || s.phone || "No phone"}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: "#dc2626" }}>
-                        ₹{fmt(selectedSupplierPendingTotal)}
+
+                      <div className="text-right shrink-0">
+                        <div className={`font-black text-xs ${pt > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                          {pt > 0 ? `₹${fmt(pt)}` : "₹0"}
+                        </div>
+                        <div className="mt-0.5">
+                          {pt > 0 ? (
+                            <span className="inline-block px-1.5 py-0.2 bg-rose-50 text-rose-600 border border-rose-200/80 rounded text-[9px] font-black uppercase">
+                              Due
+                            </span>
+                          ) : (
+                            <span className="inline-block px-1.5 py-0.2 bg-emerald-50 text-emerald-600 border border-emerald-200/80 rounded text-[9px] font-black uppercase">
+                              Clear
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
+                  );
+                })
+              )}
             </div>
-          )}
-
-          {/* Bills Search Toolbar */}
-          {selectedSupplier && (
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
-              <Search size={15} style={{ color: "#94a3b8" }} />
-              <input
-                placeholder="Search bills by Invoice/Bill No..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  flex: 1, padding: "8px 12px",
-                  borderRadius: 8, border: "1px solid #e2e8f0",
-                  outline: "none", fontSize: 13
-                }}
-              />
-            </div>
-          )}
-
-          {/* Table Header */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr 1fr 1fr",
-            padding: "11px 20px",
-            background: "#f8fafc",
-            borderBottom: "1px solid #e5e7eb",
-            fontWeight: 700, fontSize: 12, color: "#64748b",
-            textTransform: "uppercase", letterSpacing: ".5px",
-            textAlign: "center", flexShrink: 0
-          }}>
-            <span style={{ textAlign: "left" }}>Date</span>
-            <span style={{ textAlign: "left" }}>Bill No</span>
-            <span>Total</span>
-            <span>Paid</span>
-            <span>Pending</span>
-            <span>Status</span>
-            <span>Actions</span>
           </div>
 
-          {/* Invoice Table Rows */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
-            {!selectedSupplier ? (
-              <div style={{
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
-                padding: 48, color: "#94a3b8", textAlign: "center"
-              }}>
-                <div style={{ fontSize: 52, marginBottom: 14 }}>🏢</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>No Supplier Selected</div>
-                <p style={{ fontSize: 13, marginTop: 6, maxWidth: 300, lineHeight: 1.6 }}>
-                  Select a supplier from the left sidebar to view purchase invoices and billing histories.
-                </p>
-              </div>
-            ) : filteredBills.length === 0 ? (
-              <div style={{
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
-                padding: 48, color: "#94a3b8", textAlign: "center"
-              }}>
-                <div style={{ fontSize: 52, marginBottom: 14 }}>📄</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>No Purchase Invoices</div>
-                <p style={{ fontSize: 13, marginTop: 6, maxWidth: 300, lineHeight: 1.6 }}>
-                  There are no purchase invoices matching your search for this supplier.
-                </p>
-              </div>
-            ) : (
-              filteredBills.map((p) => {
-                const isPaid = Number(p.balance_amount) <= 0;
-                return (
-                  <div
-                    key={p.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1.2fr 1fr 1fr 1fr 1fr 1fr",
-                      padding: "14px 20px",
-                      alignItems: "center", textAlign: "center",
-                      borderBottom: "1px solid #f8fafc",
-                      background: "#fff",
-                      transition: "background .15s"
-                    }}
-                  >
-                    <div style={{ textAlign: "left", fontSize: 13, color: "#334155" }}>
-                      {p.purchase_date}
-                    </div>
-                    <div style={{ textAlign: "left", fontWeight: 600, fontSize: 13, color: "#0f172a" }}>
-                      {p.purchase_no || "N/A"}
-                    </div>
-                    <div style={{ fontSize: 13, color: "#334155" }}>₹{fmt(p.total_amount)}</div>
-                    <div style={{ fontWeight: 700, color: "#16a34a", fontSize: 13 }}>
-                      ₹{fmt(p.paid_amount)}
+          {/* RIGHT: SELECTED SUPPLIER INVOICES & LEDGER */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col overflow-hidden">
+            
+            {/* Supplier Executive Header Banner */}
+            {selectedSupplier && (
+              <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white font-black text-lg flex items-center justify-center shadow-sm shrink-0">
+                      {(selectedSupplier.supplier_name || "S").charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <span style={{
-                        background: isPaid ? "#f0fdf4" : "#fee2e2",
-                        color: isPaid ? "#16a34a" : "#dc2626",
-                        padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700
-                      }}>
-                        ₹{fmt(p.balance_amount)}
-                      </span>
-                    </div>
-                    <div>
-                      <span style={{
-                        padding: "5px 14px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                        background: p.status === "submitted" ? "#dcfce7" : "#fee2e2",
-                        color: p.status === "submitted" ? "#15803d" : "#dc2626",
-                        display: "inline-block", minWidth: 72, textAlign: "center"
-                      }}>
-                        {p.status}
-                      </span>
-                    </div>
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-                        {p.status === "draft" ? (
-                          <>
-                            <button
-                              onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                              title="Edit Draft"
-                              style={{
-                                border: "none", background: "#f0fdf4", color: "#16a34a",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(p.id)}
-                              title="Delete Draft"
-                              style={{
-                                border: "none", background: "#fef2f2", color: "#dc2626",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                              title="View Details"
-                              style={{
-                                border: "none", background: "#eff6ff", color: "#2563eb",
-                                padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                              }}
-                            >
-                              <Eye size={14} />
-                            </button>
-                            <div style={{ position: "relative" }}>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveShareId(activeShareId === p.id ? null : p.id);
-                                }}
-                                title="Share Invoice"
-                                style={{
-                                  border: "none", background: "#f1f5f9", color: "#475569",
-                                  padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                                }}
-                              >
-                                <Share2 size={14} />
-                              </button>
-                              <ShareTransactionPopover
-                                isOpen={activeShareId === p.id}
-                                onClose={() => setActiveShareId(null)}
-                                transaction={p}
-                                type="Purchase Bill"
-                              />
-                            </div>
-                            {Number(p.balance_amount) > 0 && (
-                              <button
-                                onClick={() => openPayModal(p)}
-                                title="Pay Pending Balance"
-                                style={{
-                                  border: "none", background: "#fef3c7", color: "#d97706",
-                                  padding: "6px", borderRadius: "6px", cursor: "pointer", display: "flex"
-                                }}
-                              >
-                                <CreditCard size={14} />
-                              </button>
-                            )}
-                          </>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                          {selectedSupplier.supplier_name}
+                        </h2>
+                        {selectedSupplier.gst_number && (
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 font-mono text-[11px] font-bold rounded-md border border-slate-200">
+                            GST: {selectedSupplier.gst_number}
+                          </span>
                         )}
                       </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mt-1.5">
+                        <span className="inline-flex items-center gap-1">
+                          <Phone size={12} className="text-slate-400" />
+                          <span>{selectedSupplier.mobile_number || selectedSupplier.phone || "N/A"}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Mail size={12} className="text-slate-400" />
+                          <span>{selectedSupplier.email || "N/A"}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin size={12} className="text-slate-400" />
+                          <span>{selectedSupplier.address || selectedSupplier.city || "No address on file"}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                );
-              })
+
+                  {/* Supplier Action Strip */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => openSupplierHistoryModal(selectedSupplier)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200/80 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-700 transition cursor-pointer shadow-xs"
+                    >
+                      <History size={14} className="text-slate-500" />
+                      <span>Payment History</span>
+                    </button>
+
+                    {selectedSupplierPendingTotal > 0 && (
+                      <button
+                        onClick={openBulkPayModal}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-bold shadow-sm shadow-amber-200 transition cursor-pointer"
+                      >
+                        <Wallet size={14} />
+                        <span>Pay All Pending (₹{fmt(selectedSupplierPendingTotal)})</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
+
+            {/* Invoices Toolbar */}
+            {selectedSupplier && (
+              <div className="p-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+                <div className="relative flex-1 max-w-sm">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    placeholder="Filter bills by Invoice / Bill #..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-500 focus:bg-white font-medium transition"
+                  />
+                  {search && (
+                    <button
+                      onClick={() => setSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Segment Pills */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { id: "all", label: "All Bills" },
+                    { id: "unpaid", label: "Unpaid / Due" },
+                    { id: "paid", label: "Settled" },
+                    { id: "draft", label: "Drafts" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setBillFilter(tab.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        billFilter === tab.id
+                          ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                          : "text-slate-500 hover:bg-slate-50 border border-transparent"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                  <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md ml-1">
+                    {filteredBills.length}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Directory Table */}
+            <div className="overflow-x-auto">
+              {!selectedSupplier ? (
+                <div className="p-16 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-3">
+                    <CreditCard size={28} />
+                  </div>
+                  <h3 className="font-bold text-sm text-slate-800">No Supplier Selected</h3>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    Select a vendor from the sidebar to inspect their purchase history, record payments, and monitor pending balances.
+                  </p>
+                </div>
+              ) : filteredBills.length === 0 ? (
+                <div className="p-16 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                    <FileSpreadsheet size={28} />
+                  </div>
+                  <h3 className="font-bold text-sm text-slate-800">No Invoices Found</h3>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    No purchase bills match your current search and filter settings.
+                  </p>
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                      <th className="py-3 px-4">Bill Date</th>
+                      <th className="py-3 px-4">Bill No</th>
+                      <th className="py-3 px-4 text-right">Total (₹)</th>
+                      <th className="py-3 px-4 text-right">Paid (₹)</th>
+                      <th className="py-3 px-4 text-right">Pending (₹)</th>
+                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {filteredBills.map((p) => {
+                      const isPaid = Number(p.balance_amount) <= 0;
+                      return (
+                        <tr key={p.id} className="hover:bg-indigo-50/20 transition-colors text-slate-700">
+                          <td className="py-3 px-4 text-slate-600 font-medium whitespace-nowrap">
+                            {p.purchase_date}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                              {p.purchase_no || "N/A"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                            ₹{fmt(p.total_amount)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
+                            ₹{fmt(p.paid_amount)}
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
+                                isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
+                              }`}
+                            >
+                              ₹{fmt(p.balance_amount)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                p.status === "submitted"
+                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
+                                }`}
+                              />
+                              {p.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              {p.status === "draft" ? (
+                                <>
+                                  <button
+                                    onClick={() => navigate(`/purchases/edit/${p.id}`)}
+                                    title="Edit Draft"
+                                    className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(p.id)}
+                                    title="Delete Draft"
+                                    className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => navigate(`/purchases/edit/${p.id}`)}
+                                    title="View Details"
+                                    className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                                  >
+                                    <Eye size={14} />
+                                  </button>
+                                  <div className="relative">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveShareId(activeShareId === p.id ? null : p.id);
+                                      }}
+                                      title="Share Invoice"
+                                      className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                                    >
+                                      <Share2 size={14} />
+                                    </button>
+                                    <ShareTransactionPopover
+                                      isOpen={activeShareId === p.id}
+                                      onClose={() => setActiveShareId(null)}
+                                      transaction={p}
+                                      type="Purchase Bill"
+                                    />
+                                  </div>
+                                  {Number(p.balance_amount) > 0 && (
+                                    <button
+                                      onClick={() => openPayModal(p)}
+                                      title="Pay Pending Balance"
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+                                    >
+                                      <CreditCard size={12} />
+                                      <span>Pay</span>
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
-
         </div>
-
-      </div>
-
-      {/* ── PAY MODAL ── */}
-      {showPayModal && paymentPurchase && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.4)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "450px",
-            borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden",
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-          }}>
-            <div style={{ padding: "20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>Record Supplier Payment</h3>
-              <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
-                Bill No: <span style={{ fontWeight: "700", color: "#334155" }}>{paymentPurchase.purchase_no || "N/A"}</span>
-              </p>
+      ) : (
+        /* ── VIEW B: ALL PURCHASES FLAT DIRECTORY TABLE ── */
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          {/* Table Header Filter Bar */}
+          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+            <div className="relative flex-1 max-w-md">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                placeholder="Search by Bill No or Supplier Name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-800 outline-none focus:border-indigo-500 font-medium transition shadow-xs"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
 
-            <form onSubmit={submitPayment} style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "15px" }}>
-              
-              {/* Balances Display */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", padding: "12px", background: "#fef3c7", borderRadius: "12px", border: "1px solid #fde68a" }}>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[
+                { id: "all", label: "All Bills" },
+                { id: "unpaid", label: "Pending Payment" },
+                { id: "paid", label: "Settled" },
+                { id: "draft", label: "Drafts" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setBillFilter(tab.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    billFilter === tab.id
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            {filteredBills.length === 0 ? (
+              <div className="p-16 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                  <FileSpreadsheet size={28} />
+                </div>
+                <h3 className="font-bold text-sm text-slate-800">No Purchase Bills Found</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                  No invoices matched your current search and status filters.
+                </p>
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Bill No</th>
+                    <th className="py-3 px-4">Supplier</th>
+                    <th className="py-3 px-4 text-right">Total (₹)</th>
+                    <th className="py-3 px-4 text-right">Paid (₹)</th>
+                    <th className="py-3 px-4 text-right">Balance Due (₹)</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {filteredBills.map((p) => {
+                    const isPaid = Number(p.balance_amount) <= 0;
+                    return (
+                      <tr key={p.id} className="hover:bg-indigo-50/20 transition-colors text-slate-700">
+                        <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
+                          {p.purchase_date}
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
+                            {p.purchase_no || "N/A"}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 font-black flex items-center justify-center text-xs shrink-0">
+                              {(p.supplier_name || "S").charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900">{p.supplier_name || "Unknown"}</div>
+                              <div className="text-[11px] text-slate-400">{p.mobile_number || p.phone || ""}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                          ₹{fmt(p.total_amount)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
+                          ₹{fmt(p.paid_amount)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
+                              isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
+                            }`}
+                          >
+                            ₹{fmt(p.balance_amount)}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              p.status === "submitted"
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
+                              }`}
+                            />
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            {p.status === "draft" ? (
+                              <>
+                                <button
+                                  onClick={() => navigate(`/purchases/edit/${p.id}`)}
+                                  title="Edit Draft"
+                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(p.id)}
+                                  title="Delete Draft"
+                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => navigate(`/purchases/edit/${p.id}`)}
+                                  title="View Details"
+                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveShareId(activeShareId === p.id ? null : p.id);
+                                    }}
+                                    title="Share Invoice"
+                                    className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                                  >
+                                    <Share2 size={14} />
+                                  </button>
+                                  <ShareTransactionPopover
+                                    isOpen={activeShareId === p.id}
+                                    onClose={() => setActiveShareId(null)}
+                                    transaction={p}
+                                    type="Purchase Bill"
+                                  />
+                                </div>
+                                {Number(p.balance_amount) > 0 && (
+                                  <button
+                                    onClick={() => openPayModal(p)}
+                                    title="Pay Pending Balance"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+                                  >
+                                    <CreditCard size={12} />
+                                    <span>Pay</span>
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── 5. TAILWIND MODAL: RECORD SINGLE BILL PAYMENT ── */}
+      {showPayModal && paymentPurchase && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Record Supplier Payment</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Bill No: <span className="font-mono font-bold text-indigo-600">{paymentPurchase.purchase_no || "N/A"}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPayModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <form onSubmit={submitPayment} className="p-5 space-y-4">
+              {/* Balances Summary Card */}
+              <div className="grid grid-cols-2 gap-3 p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-xl">
                 <div>
-                  <span style={{ fontSize: "11px", color: "#92400e", fontWeight: "700", textTransform: "uppercase" }}>Paid Amount</span>
-                  <div style={{ fontSize: "16px", fontWeight: "800", color: "#b45309" }}>₹{fmt(paymentPurchase.paid_amount)}</div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Paid Till Now</span>
+                  <div className="text-base font-black text-amber-900 mt-0.5">₹{fmt(paymentPurchase.paid_amount)}</div>
                 </div>
                 <div>
-                  <span style={{ fontSize: "11px", color: "#92400e", fontWeight: "700", textTransform: "uppercase" }}>Pending Balance</span>
-                  <div style={{ fontSize: "16px", fontWeight: "800", color: "#dc2626" }}>₹{fmt(paymentPurchase.balance_amount)}</div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800">Pending Balance</span>
+                  <div className="text-base font-black text-rose-600 mt-0.5">₹{fmt(paymentPurchase.balance_amount)}</div>
                 </div>
               </div>
 
               {/* Pay Amount input */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Payment Amount (₹) *</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  Payment Amount (₹) *
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -756,81 +1154,69 @@ export default function PurchaseList() {
                   min="0.01"
                   value={payAmount}
                   onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px"
-                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-sm font-bold text-slate-900"
                 />
               </div>
 
-              {/* Payment Method select */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Payment Method *</label>
+              {/* Payment Method */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  Payment Method *
+                </label>
                 <select
                   value={payMethod}
                   onChange={(e) => setPayMethod(e.target.value)}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px", background: "#ffffff"
-                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-xs font-semibold text-slate-700 bg-white"
                 >
                   <option value="cash">Cash</option>
                   <option value="online">Online Transfer / Netbanking</option>
-                  <option value="upi">UPI</option>
+                  <option value="upi">UPI Transfer</option>
                   <option value="card">Card Payment</option>
+                  <option value="cheque">Cheque</option>
                 </select>
               </div>
 
-              {/* Payment Date input */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Payment Date *</label>
+              {/* Payment Date */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  Payment Date *
+                </label>
                 <input
                   type="date"
                   required
                   value={payDate}
                   onChange={(e) => setPayDate(e.target.value)}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px"
-                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-xs font-semibold text-slate-700 bg-white"
                 />
               </div>
 
               {/* Notes */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Notes / Reference</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  Notes / Reference
+                </label>
                 <textarea
                   value={payNotes}
                   onChange={(e) => setPayNotes(e.target.value)}
-                  placeholder="e.g. UPI Transaction ID or Cheque No."
-                  rows="2"
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "10px",
-                    border: "1.5px solid #e2e8f0", outline: "none", fontSize: "14px", fontFamily: "inherit"
-                  }}
+                  placeholder="e.g. UTR reference, cheque number..."
+                  rows={2}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-xs text-slate-700"
                 />
               </div>
 
-              {/* Buttons */}
-              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+              {/* Modal Buttons */}
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowPayModal(false)}
-                  style={{
-                    flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #cbd5e1",
-                    background: "#ffffff", color: "#475569", fontWeight: "600", fontSize: "14px", cursor: "pointer"
-                  }}
+                  className="flex-1 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingPayment}
-                  style={{
-                    flex: 1, padding: "12px", borderRadius: "10px", border: "none",
-                    background: "#10b981", color: "#ffffff", fontWeight: "700", fontSize: "14px", cursor: "pointer",
-                    boxShadow: "0 4px 12px rgba(16,185,129,0.15)"
-                  }}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white rounded-xl font-bold text-xs shadow-sm shadow-emerald-200 transition cursor-pointer"
                 >
                   {submittingPayment ? "Recording..." : "Record Payment"}
                 </button>
@@ -840,314 +1226,249 @@ export default function PurchaseList() {
         </div>
       )}
 
-      {/* ── SUPPLIER PAYMENT HISTORY MODAL ── */}
+      {/* ── 6. TAILWIND MODAL: SUPPLIER PAYMENT HISTORY ── */}
       {showHistoryModal && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "700px",
-            borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden",
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-            maxHeight: "80vh", display: "flex", flexDirection: "column"
-          }}>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div style={{ padding: "18px 22px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
-                    Payment History
-                  </h3>
-                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
-                    All payments recorded for <strong>{selectedSupplier?.supplier_name}</strong>
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowHistoryModal(false)}
-                  style={{
-                    border: "none", background: "#f1f5f9", color: "#475569",
-                    padding: "8px 14px", borderRadius: 10, fontWeight: 700,
-                    fontSize: 13, cursor: "pointer"
-                  }}
-                >
-                  ✕ Close
-                </button>
+            <div className="p-5 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Payment History</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Ledger of settlements disbursed to <strong className="text-slate-800">{selectedSupplier?.supplier_name}</strong>
+                </p>
               </div>
-
-              {/* Summary bar */}
-              {!loadingHistory && paymentHistory.length > 0 && (
-                <div style={{
-                  marginTop: 12, background: "#f0fdf4", border: "1px solid #bbf7d0",
-                  borderRadius: 10, padding: "10px 14px",
-                  display: "flex", gap: 24, alignItems: "center"
-                }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#15803d", textTransform: "uppercase" }}>Total Paid</span>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#15803d" }}>
-                      ₹{fmt(paymentHistory.reduce((s, h) => s + Number(h.amount || 0), 0))}
-                    </div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Transactions</span>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#334155" }}>{paymentHistory.length}</div>
-                  </div>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={15} />
+              </button>
             </div>
 
+            {/* Summary strip */}
+            {!loadingHistory && paymentHistory.length > 0 && (
+              <div className="mx-5 mt-4 p-3 bg-emerald-50 border border-emerald-200/80 rounded-xl flex items-center gap-6 shrink-0">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Total Settled</span>
+                  <div className="text-base font-black text-emerald-800">
+                    ₹{fmt(paymentHistory.reduce((s, h) => s + Number(h.amount || 0), 0))}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Transactions</span>
+                  <div className="text-base font-black text-slate-700">{paymentHistory.length} payments</div>
+                </div>
+              </div>
+            )}
+
             {/* Modal Body */}
-<div className="supplier-sidebar-scroll" style={{ overflowY: "scroll", flex: 1, minHeight: 0 }}>
+            <div className="overflow-y-auto flex-1 p-5">
               {loadingHistory ? (
-                <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>Loading payment records...</div>
+                <div className="p-12 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                  <RefreshCw size={14} className="animate-spin text-indigo-500" />
+                  <span>Loading payment records...</span>
+                </div>
               ) : paymentHistory.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>
-                  <div style={{ fontSize: 40, marginBottom: 10 }}>🧾</div>
-                  No payment records found for this supplier yet.
+                <div className="p-12 text-center text-xs text-slate-400">
+                  <div className="text-3xl mb-2">🧾</div>
+                  No payment vouchers recorded for this vendor yet.
                 </div>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                  <thead style={{ position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 }}>
-                    <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill No</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Invoice Date</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Pay Date</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Amount Paid</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Method</th>
-                      <th style={{ padding: "11px 16px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paymentHistory.map((h, idx) => (
-                      <tr key={h.id} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafafa" }}>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#0f172a", fontWeight: "700" }}>
-                          {h.purchase_no || "N/A"}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
-                          {h.invoice_date || "-"}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#334155", fontWeight: "500" }}>
-                          {h.payment_date}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#16a34a", fontWeight: "700" }}>
-                          ₹{fmt(h.amount)}
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#475569", textTransform: "capitalize" }}>
-                          <span style={{
-                            padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                            background: h.payment_method === "cash" ? "#f0fdf4" : "#eff6ff",
-                            color: h.payment_method === "cash" ? "#15803d" : "#2563eb"
-                          }}>
-                            {h.payment_method}
-                          </span>
-                        </td>
-                        <td style={{ padding: "11px 16px", fontSize: "13px", color: "#64748b" }}>
-                          {h.notes || "-"}
-                        </td>
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="py-2.5 px-3">Bill No</th>
+                        <th className="py-2.5 px-3">Invoice Date</th>
+                        <th className="py-2.5 px-3">Payment Date</th>
+                        <th className="py-2.5 px-3 text-right">Amount</th>
+                        <th className="py-2.5 px-3 text-center">Mode</th>
+                        <th className="py-2.5 px-3">Notes</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paymentHistory.map((h) => (
+                        <tr key={h.id} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 px-3 font-bold text-slate-900">{h.purchase_no || "N/A"}</td>
+                          <td className="py-2.5 px-3 text-slate-500">{h.invoice_date || "-"}</td>
+                          <td className="py-2.5 px-3 text-slate-700 font-medium">{h.payment_date}</td>
+                          <td className="py-2.5 px-3 text-right font-black text-emerald-600">₹{fmt(h.amount)}</td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                              {h.payment_method}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500 truncate max-w-[150px]">{h.notes || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* ── BULK PAY MODAL ── */}
+      {/* ── 7. TAILWIND MODAL: BULK FIFO PAYMENT ── */}
       {showBulkPayModal && selectedSupplier && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.5)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
-        }}>
-          <div style={{
-            background: "#ffffff", width: "100%", maxWidth: "620px",
-            borderRadius: "20px", border: "1px solid #e2e8f0",
-            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.15)",
-            maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden"
-          }}>
-
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
             {/* Header */}
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", background: "linear-gradient(135deg, #fefce8, #fffbeb)", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
-                    <Wallet size={20} color="#d97706" /> Pay All Pending
-                  </h3>
-                  <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
-                    Payment will be split across pending invoices oldest-first (FIFO) for <strong>{selectedSupplier.supplier_name}</strong>
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowBulkPayModal(false)}
-                  style={{ border: "none", background: "#f1f5f9", color: "#475569", padding: "8px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
-                >
-                  ✕ Cancel
-                </button>
+            <div className="p-5 border-b border-slate-100 bg-amber-50/60 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <Wallet size={18} className="text-amber-600" />
+                  <span>Pay All Pending (FIFO Auto-Split)</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Payment is distributed oldest-invoice-first for <strong className="text-slate-800">{selectedSupplier.supplier_name}</strong>
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkPayModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
 
-              {/* Summary row */}
-              <div style={{ marginTop: 14, display: "flex", gap: 16 }}>
-                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "8px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#dc2626", textTransform: "uppercase" }}>Total Pending</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#dc2626" }}>₹{fmt(selectedSupplierPendingTotal)}</div>
-                </div>
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#15803d", textTransform: "uppercase" }}>Pending Invoices</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: "#15803d" }}>
-                    {supplierBills.filter(p => Number(p.balance_amount) > 0 && p.status === "submitted").length}
-                  </div>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 gap-3 p-5 bg-white border-b border-slate-100 shrink-0">
+              <div className="p-3 bg-rose-50 border border-rose-200/80 rounded-xl">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">Total Outstanding</span>
+                <div className="text-lg font-black text-rose-600 mt-0.5">₹{fmt(selectedSupplierPendingTotal)}</div>
+              </div>
+              <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-xl">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Pending Invoices</span>
+                <div className="text-lg font-black text-emerald-800 mt-0.5">
+                  {supplierBills.filter((p) => Number(p.balance_amount) > 0 && p.status === "submitted").length}
                 </div>
               </div>
             </div>
 
-            {/* Form + Preview */}
-            <form onSubmit={submitBulkPayment} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-
-                {/* Amount Input */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Amount (₹) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max={selectedSupplierPendingTotal}
-                    required
-                    value={bulkAmount}
-                    onChange={(e) => handleBulkAmountChange(e.target.value)}
-                    placeholder={`Max: ₹${fmt(selectedSupplierPendingTotal)}`}
-                    style={{
-                      width: "100%", padding: "11px 14px", borderRadius: "10px",
-                      border: "1.5px solid #e2e8f0", outline: "none", fontSize: "15px",
-                      fontWeight: "700", boxSizing: "border-box"
-                    }}
-                  />
-                </div>
-
-                {/* Method + Date row */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Method</label>
-                    <select
-                      value={bulkMethod}
-                      onChange={(e) => setBulkMethod(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", background: "#fff", boxSizing: "border-box" }}
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="online">Online Transfer</option>
-                      <option value="upi">UPI</option>
-                      <option value="card">Card</option>
-                      <option value="cheque">Cheque</option>
-                    </select>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Payment Date</label>
-                    <input
-                      type="date"
-                      value={bulkDate}
-                      onChange={(e) => setBulkDate(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", boxSizing: "border-box" }}
-                    />
-                  </div>
-                </div>
-
-                {/* Notes */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Notes / Reference</label>
-                  <input
-                    type="text"
-                    value={bulkNotes}
-                    onChange={(e) => setBulkNotes(e.target.value)}
-                    placeholder="e.g. Cheque No. or UPI Ref."
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1.5px solid #e2e8f0", outline: "none", fontSize: "13px", boxSizing: "border-box" }}
-                  />
-                </div>
-
-                {/* Live Split Preview */}
-                {bulkPreview.length > 0 && (
-                  <div style={{ borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "12px", fontWeight: "700", color: "#334155", textTransform: "uppercase", letterSpacing: ".5px" }}>
-                      📊 Distribution Preview (FIFO – Oldest Invoice First)
-                    </div>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                      <thead>
-                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Bill No</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Date</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Pending</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>Applying</th>
-                          <th style={{ padding: "9px 12px", fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" }}>New Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bulkPreview.map((p, idx) => {
-                          const willPay = Number(p._applying) > 0;
-                          const fullyClear = Number(p._newBalance) <= 0;
-                          return (
-                            <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9", background: willPay ? (fullyClear ? "#f0fdf4" : "#fffbeb") : "#fff" }}>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>
-                                {p.purchase_no || "N/A"}
-                              </td>
-                              <td style={{ padding: "9px 12px", fontSize: "12px", color: "#64748b" }}>
-                                {p.purchase_date}
-                              </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", color: "#dc2626", fontWeight: "600" }}>
-                                ₹{fmt(p.balance_amount)}
-                              </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700", color: willPay ? "#16a34a" : "#94a3b8" }}>
-                                {willPay ? `₹${fmt(p._applying)}` : "—"}
-                              </td>
-                              <td style={{ padding: "9px 12px", fontSize: "13px", fontWeight: "700" }}>
-                                <span style={{
-                                  padding: "3px 8px", borderRadius: 20, fontSize: 12,
-                                  background: fullyClear ? "#dcfce7" : (willPay ? "#fef9c3" : "#f1f5f9"),
-                                  color: fullyClear ? "#15803d" : (willPay ? "#92400e" : "#94a3b8")
-                                }}>
-                                  {fullyClear ? "✓ Cleared" : `₹${fmt(p._newBalance)}`}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {/* Leftover notice */}
-                    {Number(bulkAmount) > selectedSupplierPendingTotal && (
-                      <div style={{ padding: "10px 14px", background: "#eff6ff", borderTop: "1px solid #bfdbfe", fontSize: "12.5px", color: "#2563eb", fontWeight: "600" }}>
-                        ℹ️ Amount exceeds total pending. Only ₹{fmt(selectedSupplierPendingTotal)} will be applied.
-                      </div>
-                    )}
-                  </div>
-                )}
+            {/* Form + Distribution Preview */}
+            <form onSubmit={submitBulkPayment} className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  Payment Amount (₹) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={selectedSupplierPendingTotal}
+                  required
+                  value={bulkAmount}
+                  onChange={(e) => handleBulkAmountChange(e.target.value)}
+                  placeholder={`Max: ₹${fmt(selectedSupplierPendingTotal)}`}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-base font-bold text-slate-900"
+                />
               </div>
 
-              {/* Footer Buttons */}
-              <div style={{ padding: "16px 24px", borderTop: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", gap: 10, flexShrink: 0 }}>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Method</label>
+                  <select
+                    value={bulkMethod}
+                    onChange={(e) => setBulkMethod(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-xs font-semibold text-slate-700 bg-white"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="online">Online Transfer</option>
+                    <option value="upi">UPI</option>
+                    <option value="card">Card</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Date</label>
+                  <input
+                    type="date"
+                    value={bulkDate}
+                    onChange={(e) => setBulkDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-xs font-semibold text-slate-700 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Reference / Notes</label>
+                <input
+                  type="text"
+                  value={bulkNotes}
+                  onChange={(e) => setBulkNotes(e.target.value)}
+                  placeholder="e.g. Bulk settlement ref..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none text-xs text-slate-700"
+                />
+              </div>
+
+              {/* FIFO Allocation Preview Table */}
+              {bulkPreview.length > 0 && (
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="p-2.5 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700">
+                    📊 FIFO Settlement Preview (Oldest Invoices Cleared First)
+                  </div>
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50/50 text-slate-500 uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="py-2 px-3">Bill No</th>
+                        <th className="py-2 px-3">Date</th>
+                        <th className="py-2 px-3 text-right">Pending</th>
+                        <th className="py-2 px-3 text-right">Applying</th>
+                        <th className="py-2 px-3 text-right">New Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {bulkPreview.map((p) => {
+                        const willPay = Number(p._applying) > 0;
+                        const fullyClear = Number(p._newBalance) <= 0;
+                        return (
+                          <tr key={p.id} className={willPay ? (fullyClear ? "bg-emerald-50/50" : "bg-amber-50/40") : ""}>
+                            <td className="py-2 px-3 font-bold text-slate-900">{p.purchase_no || "N/A"}</td>
+                            <td className="py-2 px-3 text-slate-500">{p.purchase_date}</td>
+                            <td className="py-2 px-3 text-right font-semibold text-rose-600">₹{fmt(p.balance_amount)}</td>
+                            <td className="py-2 px-3 text-right font-black text-emerald-600">
+                              {willPay ? `₹${fmt(p._applying)}` : "—"}
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                  fullyClear ? "bg-emerald-100 text-emerald-800" : (willPay ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600")
+                                }`}
+                              >
+                                {fullyClear ? "✓ Cleared" : `₹${fmt(p._newBalance)}`}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Submit Buttons */}
+              <div className="flex gap-2.5 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowBulkPayModal(false)}
-                  style={{
-                    flex: 1, padding: "12px", borderRadius: "10px", border: "1.5px solid #cbd5e1",
-                    background: "#ffffff", color: "#475569", fontWeight: "600", fontSize: "14px", cursor: "pointer"
-                  }}
+                  className="flex-1 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingBulk || !bulkAmount || Number(bulkAmount) <= 0}
-                  style={{
-                    flex: 2, padding: "12px", borderRadius: "10px", border: "none",
-                    background: submittingBulk ? "#94a3b8" : "linear-gradient(135deg, #f59e0b, #d97706)",
-                    color: "#ffffff", fontWeight: "700", fontSize: "14px", cursor: submittingBulk ? "not-allowed" : "pointer",
-                    boxShadow: "0 4px 12px rgba(217,119,6,0.2)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-                  }}
+                  className="flex-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-bold text-xs shadow-sm shadow-amber-200 transition cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <Wallet size={16} />
-                  {submittingBulk ? "Processing..." : `Record Payment of ₹${bulkAmount ? fmt(Math.min(Number(bulkAmount), selectedSupplierPendingTotal)) : "0"}`}
+                  <Wallet size={14} />
+                  <span>
+                    {submittingBulk ? "Processing..." : `Record ₹${bulkAmount ? fmt(Math.min(Number(bulkAmount), selectedSupplierPendingTotal)) : "0"} Payment`}
+                  </span>
                 </button>
               </div>
             </form>
@@ -1155,19 +1476,18 @@ export default function PurchaseList() {
         </div>
       )}
 
-      {/* ADD SUPPLIER MODAL */}
+      {/* ── 8. ADD SUPPLIER MODAL ── */}
       <AddSupplierModal
         isOpen={showAddSupplierModal}
         onClose={() => setShowAddSupplierModal(false)}
         companyId={selectedCompany}
         onSupplierAdded={(newSupplier) => {
           fetchPurchasesAndSuppliers(selectedCompany);
-          if (newSupplier && newSupplier.id) {
+          if (newSupplier?.id) {
             setSelectedSupplier(newSupplier);
           }
         }}
       />
-      </div>
-    </>
+    </div>
   );
 }

@@ -330,31 +330,248 @@ export default function EstimateQuotation() {
   const pctChange = lastMonthTotal > 0 ? ((summaryTotals.total - lastMonthTotal) / lastMonthTotal) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* ── 1. TOP HEADER: Title + Actions ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 select-none">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-lg shadow-indigo-100 ring-4 ring-indigo-50/50">
+            <FileText size={24} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                {docType}s &amp; Quotations
+              </h1>
+              <div ref={typeRef} className="relative">
+                <button
+                  onClick={() => setTypeOpen((v) => !v)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
+                  title="Switch document type"
+                >
+                  <span>{docType}</span>
+                  <ChevronDown size={13} className={`transition-transform duration-200 ${typeOpen ? "rotate-180" : ""}`} />
+                </button>
+                {typeOpen && (
+                  <div className="absolute left-0 top-8 w-44 bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
+                    {docTypeOptions.map((t) => (
+                      <div
+                        key={t}
+                        onClick={() => { setDocType(t); setTypeOpen(false); }}
+                        className={`px-3.5 py-2 text-xs font-semibold cursor-pointer transition flex items-center justify-between ${
+                          docType === t ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span>{t}</span>
+                        {docType === t && <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Manage, print, and track all sales estimates and quotation proposals
+            </p>
+          </div>
+        </div>
 
-      {/* ── 1. TOP HEADER ROW: Title + Add Estimate ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200/80">
-        <div className="flex items-center gap-2 select-none">
-          <h1 className="text-xl font-bold text-slate-800 tracking-tight">{docType}/Quotation</h1>
-          <div ref={typeRef} className="relative">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleAddEstimate}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
+          >
+            <Plus size={16} strokeWidth={2.8} />
+            <span>Create {docType}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── 2. METRIC KPI CARDS (PaySplitX 4-Card Strip) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Value */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Value</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                {formatCurrency(summaryTotals.total)}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+              ₹
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>{summaryTotals.count} Total quotes</span>
+            <span className={`inline-flex items-center gap-1 font-bold ${pctChange >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+              {pctChange.toFixed(0)}% <TrendingUp size={13} />
+            </span>
+          </div>
+        </div>
+
+        {/* Card 2: Converted Quotes */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Converted to Sale</p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+                {formatCurrency(summaryTotals.converted)}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <Eye size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Fulfilled proposals</span>
+            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              {summaryTotals.total > 0 ? `${Math.round((summaryTotals.converted / summaryTotals.total) * 100)}%` : "0%"} rate
+            </span>
+          </div>
+        </div>
+
+        {/* Card 3: Open / Pending */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Open / Pending</p>
+              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight">
+                {formatCurrency(summaryTotals.open)}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <FileText size={20} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Awaiting confirmation</span>
+            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+              Follow-up ready
+            </span>
+          </div>
+        </div>
+
+        {/* Card 4: Average Quote Size */}
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-violet-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Average Quote</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                {formatCurrency(summaryTotals.count > 0 ? summaryTotals.total / summaryTotals.count : 0)}
+              </h3>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
+              Avg
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span>Per document size</span>
+            <span className="text-[11px] font-semibold text-slate-600">Active period</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. FILTER TOOLBAR & DATE SELECTORS ── */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Period:</span>
+
+          {/* Period Pill Dropdown */}
+          <div className="relative">
             <button
-              onClick={() => setTypeOpen((v) => !v)}
-              className="flex items-center justify-center w-6 h-6 rounded-full hover:bg-slate-100 text-slate-500 transition cursor-pointer"
-              title="Switch document type"
+              onClick={() => setPeriodOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <ChevronDown size={16} className={`transition-transform ${typeOpen ? "rotate-180" : ""}`} />
+              <span>{PERIOD_LABELS[period] || "This Month"}</span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
-            {typeOpen && (
-              <div className="absolute left-0 top-7 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
-                {docTypeOptions.map((t) => (
+            {periodOpen && (
+              <div className="absolute left-0 top-9 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                {Object.entries(PERIOD_LABELS).map(([key, label]) => (
                   <div
-                    key={t}
-                    onClick={() => { setDocType(t); setTypeOpen(false); }}
-                    className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
-                      docType === t ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                    key={key}
+                    onClick={() => {
+                      setPeriod(key);
+                      setPeriodOpen(false);
+                      if (key === "custom") setShowDatePicker(true);
+                      else applyPeriod(key);
+                    }}
+                    className={`px-3.5 py-1.5 text-xs font-medium cursor-pointer transition ${
+                      period === key ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    {t}
+                    {label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Date Range Button + Custom Picker */}
+          <div
+            onClick={() => setShowDatePicker((v) => !v)}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition cursor-pointer select-none"
+          >
+            <Calendar size={13} className="text-slate-400" />
+            <span>
+              {fromDate ? formatDateDMY(fromDate) : "Start"} — {toDate ? formatDateDMY(toDate) : "End"}
+            </span>
+          </div>
+
+          {showDatePicker && (
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-indigo-200 shadow-sm text-xs">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="text-xs text-slate-700 outline-none font-medium"
+              />
+              <span className="text-slate-400 font-bold">to</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="text-xs text-slate-700 outline-none font-medium"
+              />
+            </div>
+          )}
+
+          {/* Firms Dropdown Pill */}
+          <div className="relative">
+            <button
+              onClick={() => setFirmOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            >
+              <span>
+                {selectedFirm === "all"
+                  ? "All Firms"
+                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
+              </span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
+            </button>
+            {firmOpen && (
+              <div className="absolute left-0 top-9 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                <div
+                  onClick={() => { setSelectedFirm("all"); setFirmOpen(false); }}
+                  className={`px-3.5 py-2 text-xs font-semibold cursor-pointer transition ${
+                    selectedFirm === "all" ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  All Firms
+                </div>
+                {companies.map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => { setSelectedFirm(String(c.id)); setFirmOpen(false); }}
+                    className={`px-3.5 py-2 text-xs font-medium cursor-pointer transition ${
+                      selectedFirm === String(c.id) ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {c.company_name}
                   </div>
                 ))}
               </div>
@@ -362,309 +579,188 @@ export default function EstimateQuotation() {
           </div>
         </div>
 
-        <button
-          onClick={handleAddEstimate}
-          className="flex items-center gap-1.5 px-5 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold text-sm rounded-full shadow-sm hover:shadow transition transform active:scale-95 cursor-pointer"
-        >
-          <Plus size={16} strokeWidth={2.8} />
-          <span>Add {docType}</span>
-        </button>
-      </div>
-
-      {/* ── 2. FILTER ROW ── */}
-      <div className="flex flex-wrap items-center gap-2.5 py-4 text-xs">
-        <span className="font-semibold text-slate-500 mr-1">Filter by :</span>
-
-        {/* Period Pill Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setPeriodOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
-          >
-            <span>{PERIOD_LABELS[period] || "This Month"}</span>
-            <ChevronDown size={14} className={`text-slate-500 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
-          </button>
-          {periodOpen && (
-            <div className="absolute left-0 top-9 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
-              {Object.entries(PERIOD_LABELS).map(([key, label]) => (
-                <div
-                  key={key}
-                  onClick={() => {
-                    setPeriod(key);
-                    setPeriodOpen(false);
-                    if (key === "custom") setShowDatePicker(true);
-                    else applyPeriod(key);
-                  }}
-                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
-                    period === key ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {label}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Date Range Pill + Custom Picker */}
-        <div
-          onClick={() => setShowDatePicker((v) => !v)}
-          className="flex items-center gap-2 px-3.5 py-1.5 bg-sky-50/50 hover:bg-sky-100/50 text-slate-700 font-medium rounded-full border border-sky-100/80 transition cursor-pointer select-none"
-        >
-          <Calendar size={14} className="text-slate-500" />
-          <span>
-            {fromDate ? formatDateDMY(fromDate) : "01/09/2026"} To {toDate ? formatDateDMY(toDate) : "30/09/2026"}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">
+            {filteredEstimates.length} records
           </span>
         </div>
-
-        {showDatePicker && (
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm text-xs">
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="text-xs text-slate-700 outline-none"
-            />
-            <span className="text-slate-400">To</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="text-xs text-slate-700 outline-none"
-            />
-          </div>
-        )}
-
-        {/* Firms Dropdown Pill */}
-        <div className="relative">
-          <button
-            onClick={() => setFirmOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-50/80 hover:bg-sky-100/70 text-slate-700 font-semibold rounded-full border border-sky-100 transition cursor-pointer"
-          >
-            <span>
-              {selectedFirm === "all"
-                ? "All Firms"
-                : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
-            </span>
-            <ChevronDown size={14} className={`text-slate-500 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
-          </button>
-          {firmOpen && (
-            <div className="absolute left-0 top-9 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
-              <div
-                onClick={() => { setSelectedFirm("all"); setFirmOpen(false); }}
-                className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
-                  selectedFirm === "all" ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                All Firms
-              </div>
-              {companies.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={() => { setSelectedFirm(String(c.id)); setFirmOpen(false); }}
-                  className={`px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
-                    selectedFirm === String(c.id) ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {c.company_name}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* ── 3. SUMMARY CARD ── */}
-      <div className="bg-gradient-to-br from-purple-50/70 to-indigo-50/40 border border-purple-100 rounded-2xl p-5 shadow-sm max-w-3xl">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Quotations</span>
-            <div className="text-3xl font-bold text-slate-800 mt-1.5">
-              {formatCurrency(summaryTotals.total)}
-              <span className="text-xs font-semibold text-slate-400 ml-2 normal-case">({summaryTotals.count} {summaryTotals.count === 1 ? "estimate" : "estimates"})</span>
+      {/* ── 4. DIRECTORY TABLE CARD ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        {filteredEstimates.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
+              <FileText size={32} />
             </div>
-            <div className="mt-3 text-xs text-slate-500 font-medium border-t border-purple-100/70 pt-3">
-              <span>Converted: <span className="font-bold text-emerald-600">{formatCurrency(summaryTotals.converted)}</span></span>
-              <span className="mx-2 text-slate-300">|</span>
-              <span>Open: <span className="font-bold text-purple-600">{formatCurrency(summaryTotals.open)}</span></span>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-end">
-            <span className={`inline-flex items-center gap-1 text-sm font-bold ${pctChange >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-              {pctChange.toFixed(0)}%
-              <TrendingUp size={15} />
-            </span>
-            <span className="text-xs text-slate-400 mt-0.5">vs last month</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 4. LIST / EMPTY STATE ── */}
-      {filteredEstimates.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center py-20">
-          <div className="text-center flex flex-col items-center">
-            <div className="w-20 h-20 rounded-full bg-purple-50 border border-purple-100/80 flex items-center justify-center mb-5">
-              <FileText size={36} className="text-purple-400" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-1">No Transactions to show</h3>
-            <p className="text-sm text-slate-400 mb-6">You haven&apos;t added any transactions yet.</p>
+            <h3 className="text-base font-bold text-slate-800">No {docType.toLowerCase()}s found</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mb-6">
+              There are no {docType.toLowerCase()}s matching the selected filters or date range.
+            </p>
             <button
               onClick={handleAddEstimate}
-              className="flex items-center gap-1.5 px-5 py-2 bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold text-sm rounded-full shadow-sm hover:shadow transition transform active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-100 transition hover:from-indigo-700 hover:to-indigo-800 cursor-pointer"
             >
               <Plus size={16} strokeWidth={2.8} />
-              <span>Add {docType}</span>
+              <span>Create New {docType}</span>
             </button>
           </div>
-        </div>
-      ) : (
-        <div className="mt-2 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-max">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 uppercase text-[11px] tracking-wide">
-                <th className="py-3 px-4 font-semibold">Ref&nbsp;No</th>
-                <th className="py-3 px-4 font-semibold">Date</th>
-                <th className="py-3 px-4 font-semibold">Customer</th>
-                <th className="py-3 px-4 font-semibold">State</th>
-                <th className="py-3 px-4 font-semibold text-center">Items</th>
-                <th className="py-3 px-4 font-semibold text-right">Amount</th>
-                <th className="py-3 px-4 font-semibold text-center">Status</th>
-                <th className="py-3 px-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEstimates.map((est) => (
-                <tr key={est.id} className="border-b border-slate-100 hover:bg-slate-50/70 transition">
-                  <td className="py-3 px-4 font-bold text-blue-600">#{est.refNo || est.id}</td>
-                  <td className="py-3 px-4 text-slate-600">{formatDateDMY(est.invoiceDate)}</td>
-                  <td className="py-3 px-4">
-                    <div className="font-semibold text-slate-800">{est.customer_name}</div>
-                    {est.customer_phone && <div className="text-[11px] text-slate-400">{est.customer_phone}</div>}
-                  </td>
-                  <td className="py-3 px-4 text-slate-600">{est.stateOfSupply || "-"}</td>
-                  <td className="py-3 px-4 text-center text-slate-600">{Array.isArray(est.rows) ? est.rows.length : 0}</td>
-                  <td className="py-3 px-4 text-right font-bold text-slate-800">{formatCurrency(est.total_amount)}</td>
-                  <td className="py-3 px-4 text-center">
-                    <span
-                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        est.status === "converted"
-                          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                          : "bg-purple-50 text-purple-600 border border-purple-200"
-                      }`}
-                    >
-                      {est.status || "open"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center justify-end gap-1 text-slate-400">
-                      {/* Print */}
-                      <button
-                        onClick={() => printEstimate(est)}
-                        className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                        title="Print"
-                      >
-                        <Printer size={15} />
-                      </button>
-
-                      {/* Share with Popover */}
-                      <div className="relative">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveShareId(activeShareId === est.id ? null : est.id);
-                          }}
-                          className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                          title="Share"
-                        >
-                          <Share2 size={15} />
-                        </button>
-                        <ShareTransactionPopover
-                          isOpen={activeShareId === est.id}
-                          onClose={() => setActiveShareId(null)}
-                          transaction={{
-                            refNo: est.refNo,
-                            customer_name: est.customer_name,
-                            customer_phone: est.customer_phone,
-                            date: est.invoiceDate,
-                            total_amount: est.total_amount,
-                            payment_type: "Estimate",
-                          }}
-                          type="Estimate"
-                        />
-                      </div>
-
-                      {/* 3-Dot More Menu */}
-                      <div className="relative">
-                        <button
-                          onClick={(e) => toggleMoreMenu(e, est)}
-                          data-more-trigger
-                          className={`w-7 h-7 flex items-center justify-center rounded-md transition cursor-pointer ${
-                            menuAnchor && menuAnchor.id === est.id
-                              ? "text-slate-800 bg-slate-100"
-                              : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                          }`}
-                          title="More actions"
-                        >
-                          <MoreVertical size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* ── Floating Canva-style Actions Popup (never clipped, overlays page) ── */}
-                  {menuAnchor && menuAnchor.id === est.id && (
-                    <div
-                      ref={menuRef}
-                      style={{ top: menuAnchor.y, left: menuAnchor.x, width: MORE_MENU_WIDTH }}
-                      className="fixed z-[80] bg-white rounded-xl border border-slate-100 shadow-xl shadow-slate-300/30 py-1.5 animate-in fade-in zoom-in-95 duration-100"
-                    >
-                      {/* Edit */}
-                      <button
-                        onClick={() => {
-                          setMenuAnchor(null);
-                          navigate(`/sales/estimate-quotation/add/${est.id}`);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition text-left cursor-pointer"
-                      >
-                        <Pencil size={15} className="text-blue-600 flex-shrink-0" />
-                        <span>Edit</span>
-                      </button>
-
-                      {/* View Quotation */}
-                      <button
-                        onClick={() => {
-                          setMenuAnchor(null);
-                          printEstimate(est);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-100/70 transition text-left cursor-pointer"
-                      >
-                        <Eye size={15} className="text-slate-700 flex-shrink-0" />
-                        <span>View Quotation</span>
-                      </button>
-
-                      {/* Subtle Divider */}
-                      <div className="mx-3 my-1.5 border-t border-slate-100" />
-
-                      {/* Delete */}
-                      <button
-                        onClick={() => {
-                          setMenuAnchor(null);
-                          setDeleteTarget(est);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-red-600 hover:bg-red-50 transition text-left cursor-pointer"
-                      >
-                        <Trash2 size={15} className="text-red-500 flex-shrink-0" />
-                        <span>Delete</span>
-                      </button>
-                    </div>
-                  )}
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs min-w-max">
+              <thead>
+                <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                  <th className="py-3.5 px-4">Ref&nbsp;No</th>
+                  <th className="py-3.5 px-4">Date</th>
+                  <th className="py-3.5 px-4">Customer</th>
+                  <th className="py-3.5 px-4">State</th>
+                  <th className="py-3.5 px-4 text-center">Items</th>
+                  <th className="py-3.5 px-4 text-right">Amount</th>
+                  <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {filteredEstimates.map((est) => (
+                  <tr key={est.id} className="hover:bg-indigo-50/20 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-indigo-600">
+                      #{est.refNo || est.id}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600">{formatDateDMY(est.invoiceDate)}</td>
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-slate-900">{est.customer_name}</div>
+                      {est.customer_phone && <div className="text-[11px] text-slate-400 font-normal">{est.customer_phone}</div>}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600">{est.stateOfSupply || "-"}</td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
+                        {Array.isArray(est.rows) ? est.rows.length : 0}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-black text-slate-900">
+                      {formatCurrency(est.total_amount)}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          est.status === "converted"
+                            ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                            : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${est.status === "converted" ? "bg-emerald-600" : "bg-indigo-600"}`} />
+                        {est.status || "open"}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Print */}
+                        <button
+                          onClick={() => printEstimate(est)}
+                          className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                          title="Print Quotation"
+                        >
+                          <Printer size={15} />
+                        </button>
+
+                        {/* Share with Popover */}
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveShareId(activeShareId === est.id ? null : est.id);
+                            }}
+                            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                            title="Share via WhatsApp"
+                          >
+                            <Share2 size={15} />
+                          </button>
+                          <ShareTransactionPopover
+                            isOpen={activeShareId === est.id}
+                            onClose={() => setActiveShareId(null)}
+                            transaction={{
+                              refNo: est.refNo,
+                              customer_name: est.customer_name,
+                              customer_phone: est.customer_phone,
+                              date: est.invoiceDate,
+                              total_amount: est.total_amount,
+                              payment_type: "Estimate",
+                            }}
+                            type="Estimate"
+                          />
+                        </div>
+
+                        {/* 3-Dot More Menu */}
+                        <div className="relative">
+                          <button
+                            onClick={(e) => toggleMoreMenu(e, est)}
+                            data-more-trigger
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
+                              menuAnchor && menuAnchor.id === est.id
+                                ? "text-indigo-600 bg-indigo-50"
+                                : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                            }`}
+                            title="More actions"
+                          >
+                            <MoreVertical size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* ── Floating Actions Popup ── */}
+                    {menuAnchor && menuAnchor.id === est.id && (
+                      <div
+                        ref={menuRef}
+                        style={{ top: menuAnchor.y, left: menuAnchor.x, width: MORE_MENU_WIDTH }}
+                        className="fixed z-[80] bg-white rounded-2xl border border-slate-100 shadow-2xl shadow-slate-300/40 py-1.5 animate-in fade-in zoom-in-95 duration-100"
+                      >
+                        {/* Edit */}
+                        <button
+                          onClick={() => {
+                            setMenuAnchor(null);
+                            navigate(`/sales/estimate-quotation/add/${est.id}`);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left cursor-pointer"
+                        >
+                          <Pencil size={14} className="text-indigo-600 flex-shrink-0" />
+                          <span>Edit Details</span>
+                        </button>
+
+                        {/* View Quotation */}
+                        <button
+                          onClick={() => {
+                            setMenuAnchor(null);
+                            printEstimate(est);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition text-left cursor-pointer"
+                        >
+                          <Eye size={14} className="text-slate-600 flex-shrink-0" />
+                          <span>View &amp; Print</span>
+                        </button>
+
+                        <div className="mx-3 my-1 border-t border-slate-100" />
+
+                        {/* Delete */}
+                        <button
+                          onClick={() => {
+                            setMenuAnchor(null);
+                            setDeleteTarget(est);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer"
+                        >
+                          <Trash2 size={14} className="text-rose-500 flex-shrink-0" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* ── 5. DELETE CONFIRM MODAL ── */}
       {deleteTarget && (

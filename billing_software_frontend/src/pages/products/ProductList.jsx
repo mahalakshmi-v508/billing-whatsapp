@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import api from "../../services/api";
 import { Edit } from "lucide-react";
 import {
@@ -6,10 +6,12 @@ import {
   MoreVertical, FileSpreadsheet, ArrowUpRight, Filter, X,
   Package, MousePointerClick, Boxes, Tags, Ruler, Inbox,
   ShoppingBag, Layers, ListTree, Grid, List, BarChart3,
-  ChevronRight, ChevronLeft, Star, Zap,
+  ChevronRight, ChevronLeft, Star, Zap, Eye, Building2,
+  CheckCircle2, AlertTriangle, ShieldAlert, RefreshCw, Pencil
 } from "lucide-react";
 import AddProductModal from "./AddProductModal";
 import EditProductModal from "./EditProductModal";
+import StatusBadge from "../../components/ui/StatusBadge";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 const money = (n) =>
@@ -26,28 +28,28 @@ const formatDate = (date) => {
   });
 };
 
-/* ─────────────────────────  DESIGN SYSTEM  ───────────────────────── */
+/* ─────────────────────────  DESIGN SYSTEM (PAYSPLITX PALETTE)  ───────────────────────── */
 const COLORS = {
-  bg: "#f0f2f6",
+  bg: "#f8faff",
   surface: "#ffffff",
-  surfaceAlt: "#f8f9fc",
-  border: "#e4e7ef",
-  text: "#0a1628",
-  textSoft: "#3d4a66",
-  textMuted: "#8a94a8",
-  primary: "#2563eb",
-  primaryDark: "#1d4ed8",
-  primaryTint: "#eff6ff",
-  success: "#059669",
+  surfaceAlt: "#f8faff",
+  border: "#e8edf5",
+  text: "#0f172a",
+  textSoft: "#334155",
+  textMuted: "#64748b",
+  primary: "#6366f1",
+  primaryDark: "#4f46e5",
+  primaryTint: "#eef2ff",
+  success: "#10b981",
   successTint: "#ecfdf5",
-  danger: "#dc2626",
+  danger: "#ef4444",
   dangerTint: "#fef2f2",
-  warning: "#d97706",
+  warning: "#f59e0b",
   warningTint: "#fffbeb",
-  brand: "#7c3aed",
-  brandDark: "#6d28d9",
-  brandTint: "#f5f3ff",
-  gradient: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
+  brand: "#6366f1",
+  brandDark: "#4338ca",
+  brandTint: "#eef2ff",
+  gradient: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
 };
 
 const RADIUS = { sm: 6, md: 10, lg: 14, xl: 20, pill: 999 };
@@ -75,6 +77,9 @@ export default function ProductList() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [productFilterTab, setProductFilterTab] = useState("all");
+  const [showProductDrawer, setShowProductDrawer] = useState(false);
+  const [selectedProductRows, setSelectedProductRows] = useState([]);
 
   const [saleHistory, setSaleHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -404,6 +409,44 @@ export default function ProductList() {
       p.product_code?.toLowerCase().includes(search.toLowerCase()) ||
       p.barcode?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const totalStockUnits = useMemo(() => {
+    return products.reduce((s, p) => s + Number(p.stock || 0), 0);
+  }, [products]);
+
+  const lowStockCount = useMemo(() => {
+    return products.filter((p) => p.status === "active" && Number(p.stock || 0) <= 5 && Number(p.stock || 0) > 0).length;
+  }, [products]);
+
+  const outOfStockCount = useMemo(() => {
+    return products.filter((p) => Number(p.stock || 0) <= 0).length;
+  }, [products]);
+
+  const inStockCount = useMemo(() => {
+    return products.filter((p) => Number(p.stock || 0) > 5).length;
+  }, [products]);
+
+  const totalInventoryValue = useMemo(() => {
+    return products.reduce((s, p) => {
+      const price = Number(p.purchase_price || p.price || 0);
+      return s + (Number(p.stock || 0) * price);
+    }, 0);
+  }, [products]);
+
+  const displayedProducts = useMemo(() => {
+    return filtered.filter((p) => {
+      const stock = Number(p.stock || 0);
+      if (productFilterTab === "in_stock") return stock > 5;
+      if (productFilterTab === "low_stock") return p.status === "active" && stock <= 5 && stock > 0;
+      if (productFilterTab === "out_of_stock") return stock <= 0;
+      return true;
+    });
+  }, [filtered, productFilterTab]);
+
+  const openProductDrawer = (p) => {
+    handleSelectProduct(p);
+    setShowProductDrawer(true);
+  };
 
   const filteredHistory = saleHistory.filter((s) => {
     const q = txnSearch.toLowerCase();
@@ -869,541 +912,541 @@ export default function ProductList() {
           )}
         </div>
 
-        {/* ─── TAB BAR ─── */}
-        <div
-          style={{
-            display: "flex",
-            background: COLORS.surface,
-            borderBottom: `1px solid ${COLORS.border}`,
-            padding: "0 16px",
-            gap: 0,
-          }}
-        >
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              className={`tab-btn ${activeTab === key ? "active" : ""}`}
-              onClick={() => setActiveTab(key)}
-              style={{
-                padding: "14px 20px",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                fontSize: 12.5,
-                fontWeight: 700,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                color: activeTab === key ? COLORS.text : COLORS.textMuted,
-                borderBottom: activeTab === key ? `2.5px solid ${COLORS.primary}` : "2.5px solid transparent",
-                marginBottom: -1,
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-                transition: "color 0.15s",
-              }}
-            >
-              <Icon size={15} />
-              {label}
-            </button>
-          ))}
+        {/* ─── TAB BAR (PaySplitX Segmented Nav) ─── */}
+        <div className="bg-white border-b border-slate-200/80 px-6 py-2.5 flex items-center gap-2 overflow-x-auto">
+          {TABS.map(({ key, label, icon: Icon }) => {
+            const count = 
+              key === "product" ? products.length :
+              key === "brand" ? brands.length :
+              key === "category" ? categories.length :
+              key === "subcategory" ? subcategories.length :
+              key === "unit" ? units.length : 0;
+            const isActive = activeTab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  isActive
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
+                }`}
+              >
+                <Icon size={14} className={isActive ? "text-white" : "text-slate-400"} />
+                <span>{label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                    isActive
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* ─── CONTENT AREA ─── */}
         <div style={{ padding: "8px 24px 24px", height: "calc(100vh - 108px)" }}>
 
-          {/* ─── PRODUCT TAB ─── */}
+          {/* ─── PRODUCT TAB: PaySplitX Style ─── */}
           {activeTab === "product" && (
-            <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 20, height: "100%" }}>
-
-              {/* LEFT PANEL */}
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  overscrollBehavior: "contain",
-                  boxShadow: SHADOW.card,
-                }}
-              >
-                {/* Search + Actions */}
-                <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${COLORS.border}` }}>
-                  <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                    <div style={{ position: "relative", flex: 1 }}>
-                      <Search size={16} style={{ position: "absolute", top: "50%", left: 12, transform: "translateY(-50%)", color: COLORS.textMuted }} />
-                      <input
-                        className="focus-ring"
-                        placeholder="Search items..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "9px 12px 9px 36px",
-                          borderRadius: RADIUS.sm,
-                          border: `1.5px solid ${COLORS.border}`,
-                          outline: "none",
-                          fontSize: 13,
-                          color: COLORS.text,
-                          background: COLORS.bg,
-                          transition: "border-color 0.15s",
-                        }}
-                      />
+            <div className="space-y-5">
+              {/* ── 4 METRIC STAT CARDS (PaySplitX Style) ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Total SKUs */}
+                <div className="psx-card p-4 relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+                  <div className="flex items-start justify-between">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Products</span>
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                      <ShoppingBag size={16} />
                     </div>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+                    {products.length}
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                    <span className="text-emerald-600 font-bold">
+                      {products.filter((p) => p.status === "active").length} Active
+                    </span>
+                    <span>in catalog</span>
+                  </div>
+                </div>
+
+                {/* Total Units */}
+                <div className="psx-card p-4 relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+                  <div className="flex items-start justify-between">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Available Stock Units</span>
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <Boxes size={16} />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-emerald-600 tracking-tight my-1 font-display">
+                    {fmt(totalStockUnits)}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Units across all inventory
+                  </div>
+                </div>
+
+                {/* Low Stock Alert */}
+                <div className="psx-card p-4 relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+                  <div className="flex items-start justify-between">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Low Stock Alerts</span>
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                      <AlertTriangle size={16} />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-amber-600 tracking-tight my-1 font-display">
+                    {lowStockCount}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-amber-700 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span>Requires replenishing</span>
+                  </div>
+                </div>
+
+                {/* Total Inventory Value */}
+                <div className="psx-card p-4 relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-cyan-500" />
+                  <div className="flex items-start justify-between">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stock Valuation</span>
+                    <div className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                      <Zap size={16} />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-cyan-700 tracking-tight my-1 font-display">
+                    ₹{fmt(totalInventoryValue)}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Total current asset valuation
+                  </div>
+                </div>
+              </div>
+
+              {/* ── SEARCH & FILTER TOOLBAR ── */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* Segment Tabs */}
+                <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl flex-wrap">
+                  {[
+                    { id: "all", label: "All Items", count: products.length },
+                    { id: "in_stock", label: "In Stock", count: inStockCount },
+                    { id: "low_stock", label: "Low Stock Alert", count: lowStockCount },
+                    { id: "out_of_stock", label: "Out of Stock", count: outOfStockCount },
+                  ].map((tab) => (
                     <button
-                      onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
-                      style={{
-                        padding: "7px 12px",
-                        borderRadius: RADIUS.sm,
-                        border: `1.5px solid ${COLORS.border}`,
-                        background: COLORS.surface,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        fontSize: 12,
-                        color: COLORS.textSoft,
-                        transition: "all 0.15s",
-                      }}
+                      key={tab.id}
+                      onClick={() => setProductFilterTab(tab.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        productFilterTab === tab.id
+                          ? "bg-white text-indigo-600 shadow-xs"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
                     >
-                      {viewMode === "list" ? <Grid size={16} /> : <List size={16} />}
+                      <span>{tab.label}</span>
+                      <span
+                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                          productFilterTab === tab.id
+                            ? "bg-indigo-50 text-indigo-700"
+                            : "bg-slate-200/70 text-slate-600"
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
                     </button>
+                  ))}
+                </div>
+
+                {/* Right side search and add */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="relative min-w-[240px]">
+                    <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search name, code, barcode..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 transition"
+                    />
+                    {search && (
+                      <button
+                        onClick={() => setSearch("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
 
                   <button
                     onClick={() => setShowAddModal(true)}
-                    className="hover-lift"
-                    style={{
-                      width: "100%",
-                      padding: "10px",
-                      background: COLORS.gradient,
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: RADIUS.sm,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 7,
-                      transition: "opacity 0.15s",
-                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-glow-brand transition transform active:scale-95 cursor-pointer"
                   >
-                    <Plus size={16} /> Add New Product
+                    <Plus size={15} strokeWidth={2.6} />
+                    <span>Add Product</span>
                   </button>
-                </div>
-
-                {/* Product Count */}
-                <div
-                  style={{
-                    padding: "10px 18px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: COLORS.textMuted,
-                    borderBottom: `1px solid ${COLORS.border}`,
-                    background: COLORS.surfaceAlt,
-                  }}
-                >
-                  <span>{filtered.length} products</span>
-                  <span>{products.filter(p => p.status === "active").length} active</span>
-                </div>
-
-                {/* Product List */}
-                <div style={{ overflowY: "auto", flex: 1, padding: "4px 0", overscrollBehavior: "contain" }}>
-                  {loading ? (
-                    <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>
-                      {selectedCompany ? "Loading..." : "Select a company"}
-                    </div>
-                  ) : filtered.length === 0 ? (
-                    <EmptyState icon={<Package size={28} color={COLORS.textMuted} />} title="No items" subtitle="Try adjusting your search" />
-                  ) : viewMode === "list" ? (
-                    filtered.map((p) => {
-                      const isSelected = selectedProduct?.id === p.id;
-                      const stock = Number(p.stock || 0);
-                      return (
-                        <div
-                          key={p.id}
-                          className={`product-card ${isSelected ? "selected" : ""}`}
-                          onClick={() => handleSelectProduct(p)}
-                          style={{
-                            padding: "12px 18px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            borderLeft: isSelected ? `3px solid ${COLORS.primary}` : "3px solid transparent",
-                            borderBottom: `1px solid ${COLORS.border}`,
-                            background: isSelected ? COLORS.primaryTint : "transparent",
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.text }}>{p.product_name}</div>
-                            <div style={{ fontSize: 11, color: COLORS.textMuted }}>{p.product_code || "No code"}</div>
-                          </div>
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: stock < 5 ? COLORS.danger : COLORS.success }}>
-                              {stock}
-                            </div>
-                            <div style={{ fontSize: 11, color: COLORS.textMuted }}>{p.unit || "unit"}</div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: 12 }}>
-                      {filtered.map((p) => {
-                        const isSelected = selectedProduct?.id === p.id;
-                        const stock = Number(p.stock || 0);
-                        return (
-                          <div
-                            key={p.id}
-                            className={`product-card ${isSelected ? "selected" : ""}`}
-                            onClick={() => handleSelectProduct(p)}
-                            style={{
-                              padding: "14px",
-                              borderRadius: RADIUS.md,
-                              border: `1.5px solid ${isSelected ? COLORS.primary : COLORS.border}`,
-                              background: isSelected ? COLORS.primaryTint : COLORS.surface,
-                              textAlign: "center",
-                            }}
-                          >
-                            <div style={{ fontWeight: 600, fontSize: 13, color: COLORS.text }}>{p.product_name}</div>
-                            <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{p.product_code || "—"}</div>
-                            <div style={{ marginTop: 8 }}>
-                              <span style={{ fontWeight: 700, fontSize: 16, color: stock < 5 ? COLORS.danger : COLORS.success }}>
-                                {stock}
-                              </span>
-                              <span style={{ fontSize: 11, color: COLORS.textMuted, marginLeft: 4 }}>{p.unit || ""}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* RIGHT PANEL - Product Detail */}
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  boxShadow: SHADOW.card,
-                }}
-              >
-                {!selectedProduct ? (
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40 }}>
-                    <div
-                      style={{
-                        width: 72,
-                        height: 72,
-                        borderRadius: RADIUS.xl,
-                        background: COLORS.bg,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginBottom: 16,
-                        border: `2px dashed ${COLORS.border}`,
-                      }}
-                    >
-                      <MousePointerClick size={32} color={COLORS.primary} />
-                    </div>
-                    <div style={{ fontWeight: 700, fontSize: 18, color: COLORS.text }}>Select a product</div>
-                    <p style={{ fontSize: 13, marginTop: 6, color: COLORS.textMuted, maxWidth: 300, textAlign: "center", lineHeight: 1.6 }}>
-                      Click on any product from the list to view its details and transaction history.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Product Header */}
-                    <div
-                      style={{
-                        padding: "20px 24px",
-                        borderBottom: `1px solid ${COLORS.border}`,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        gap: 12,
-                        background: COLORS.surfaceAlt,
-                      }}
-                    >
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, letterSpacing: "-0.01em" }}>
-                            {selectedProduct.product_name}
-                          </span>
-                          <button
-                            onClick={() => setShowEditModal(true)}
-                            style={{
-                              background: COLORS.primaryTint,
-                              border: "none",
-                              borderRadius: RADIUS.sm,
-                              padding: "4px 10px",
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: COLORS.primary,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 4,
-                              transition: "all 0.15s",
+              {/* ── PRODUCTS DIRECTORY TABLE (PaySplitX Style) ── */}
+              <div className="psx-table-container">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse psx-table">
+                    <thead>
+                      <tr>
+                        <th className="w-10 text-center">
+                          <input
+                            type="checkbox"
+                            checked={
+                              displayedProducts.length > 0 &&
+                              selectedProductRows.length === displayedProducts.length
+                            }
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedProductRows(displayedProducts.map((p) => p.id));
+                              } else {
+                                setSelectedProductRows([]);
+                              }
                             }}
-                          >
-                            <ArrowUpRight size={13} /> Edit
-                          </button>
-                        </div>
-                        <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
-                          <div>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                              Sale Price
-                            </span>
-                            <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginLeft: 6 }}>
-                              {money(selectedProduct.sale_price || selectedProduct.price)}
-                            </span>
-                          </div>
-                          <div>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                              Purchase Price
-                            </span>
-                            <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginLeft: 6 }}>
-                              {money(selectedProduct.purchase_price)}
-                            </span>
-                          </div>
-                          <div>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                              Unit
-                            </span>
-                            <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginLeft: 6 }}>
-                              {selectedProduct.unit || "—"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        </th>
+                        <th>Product & SKU</th>
+                        <th>Barcode / HSN</th>
+                        <th>Purchase Price</th>
+                        <th>Sale Price</th>
+                        <th>Stock Level</th>
+                        <th>Status</th>
+                        <th className="text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr>
+                          <td colSpan={8} className="py-16 text-center text-slate-400 text-xs">
+                            <RefreshCw size={20} className="animate-spin text-indigo-600 mx-auto mb-2" />
+                            Loading inventory items...
+                          </td>
+                        </tr>
+                      ) : displayedProducts.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-16 text-center text-slate-400">
+                            <Package size={36} className="mx-auto text-slate-300 mb-2" />
+                            <p className="text-sm font-semibold text-slate-700">No products found</p>
+                            <p className="text-xs text-slate-400 mt-0.5">Try adjusting your filters or search keywords</p>
+                          </td>
+                        </tr>
+                      ) : (
+                        displayedProducts.map((p) => {
+                          const stock = Number(p.stock || 0);
+                          const isChecked = selectedProductRows.includes(p.id);
+                          const isLow = stock <= 5 && stock > 0;
+                          const isOut = stock <= 0;
 
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                        <StatCard
-                          label="Stock"
-                          value={fmt(selectedProduct.stock)}
-                          icon={<Package size={16} />}
-                          color={COLORS.successTint}
-                        />
-                        <StatCard
-                          label="Value"
-                          value={money(stockValue)}
-                          icon={<Zap size={16} />}
-                          color={COLORS.warningTint}
-                        />
+                          return (
+                            <tr key={p.id} className={isChecked ? "bg-indigo-50/40" : ""}>
+                              {/* Checkbox */}
+                              <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    setSelectedProductRows((prev) =>
+                                      prev.includes(p.id) ? prev.filter((id) => id !== p.id) : [...prev, p.id]
+                                    );
+                                  }}
+                                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
+                              </td>
+
+                              {/* Product Name & SKU */}
+                              <td>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-50 to-slate-100 text-indigo-600 border border-slate-200/80 flex items-center justify-center font-bold flex-shrink-0 shadow-xs">
+                                    <Package size={18} />
+                                  </div>
+                                  <div>
+                                    <div
+                                      onClick={() => openProductDrawer(p)}
+                                      className="font-bold text-slate-900 hover:text-indigo-600 text-xs cursor-pointer transition"
+                                    >
+                                      {p.product_name}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                                      <span className="font-mono">{p.product_code || "No SKU"}</span>
+                                      {p.category_name && (
+                                        <>
+                                          <span>•</span>
+                                          <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-medium">
+                                            {p.category_name}
+                                          </span>
+                                        </>
+                                      )}
+                                      {p.brand_name && (
+                                        <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-600 font-medium">
+                                          {p.brand_name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Barcode / HSN */}
+                              <td>
+                                <span className="font-mono text-xs text-slate-600">
+                                  {p.barcode || "—"}
+                                </span>
+                              </td>
+
+                              {/* Purchase Price */}
+                              <td>
+                                <span className="text-xs font-semibold text-slate-700">
+                                  ₹{fmt(p.purchase_price || 0)}
+                                </span>
+                              </td>
+
+                              {/* Selling Price */}
+                              <td>
+                                <span className="text-xs font-bold text-slate-900">
+                                  ₹{fmt(p.sale_price || p.price || 0)}
+                                </span>
+                              </td>
+
+                              {/* Stock */}
+                              <td>
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={`text-xs font-bold ${
+                                      isOut
+                                        ? "text-rose-600"
+                                        : isLow
+                                        ? "text-amber-600"
+                                        : "text-emerald-600"
+                                    }`}
+                                  >
+                                    {stock}
+                                  </span>
+                                  <span className="text-[11px] text-slate-400">
+                                    {p.unit || "units"}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* Status */}
+                              <td>
+                                {isOut ? (
+                                  <StatusBadge status="danger" label="Out of Stock" size="sm" />
+                                ) : isLow ? (
+                                  <StatusBadge status="warning" label="Low Stock" size="sm" />
+                                ) : (
+                                  <StatusBadge status="success" label="In Stock" size="sm" />
+                                )}
+                              </td>
+
+                              {/* Action Buttons */}
+                              <td className="text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* View Drawer */}
+                                  <button
+                                    onClick={() => openProductDrawer(p)}
+                                    title="View Stock Transactions"
+                                    className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                                  >
+                                    <Eye size={15} />
+                                  </button>
+
+                                  {/* Edit Product */}
+                                  <button
+                                    onClick={() => {
+                                      handleSelectProduct(p);
+                                      setShowEditModal(true);
+                                    }}
+                                    title="Edit Product"
+                                    className="w-8 h-8 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ── SLIDE-OVER PRODUCT DETAIL & TRANSACTION HISTORY DRAWER ── */}
+              {showProductDrawer && selectedProduct && (
+                <div className="fixed inset-0 z-50 overflow-hidden">
+                  <div
+                    className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+                    onClick={() => setShowProductDrawer(false)}
+                  />
+                  <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+                    <div className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-250">
+                      {/* Header */}
+                      <div className="p-6 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-start justify-between flex-shrink-0">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center font-bold text-lg shadow-glow-brand">
+                            <Package size={22} />
+                          </div>
+                          <div>
+                            <h2 className="text-lg font-bold font-display">{selectedProduct.product_name}</h2>
+                            <p className="text-xs text-indigo-300 flex items-center gap-2 mt-0.5 font-mono">
+                              <span>SKU: {selectedProduct.product_code || "N/A"}</span>
+                              {selectedProduct.category_name && <span>• {selectedProduct.category_name}</span>}
+                            </p>
+                          </div>
+                        </div>
+
                         <button
-                          onClick={() => setShowEditModal(true)}
-                          style={{
-                            padding: "8px 16px",
-                            background: COLORS.primary,
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: RADIUS.sm,
-                            fontWeight: 700,
-                            fontSize: 12,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            transition: "all 0.15s",
-                            whiteSpace: "nowrap",
-                          }}
-                          className="hover-lift"
+                          onClick={() => setShowProductDrawer(false)}
+                          className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
                         >
-                          <SlidersHorizontal size={14} /> Adjust Stock
+                          <X size={18} />
                         </button>
                       </div>
-                    </div>
 
-                    {/* Transactions */}
-                    <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 24px" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 14,
-                          flexWrap: "wrap",
-                          gap: 10,
-                        }}
-                      >
-                        <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.text, letterSpacing: "0.03em" }}>
-                          Transaction History
-                          <span style={{ fontWeight: 400, color: COLORS.textMuted, marginLeft: 8, fontSize: 12 }}>
-                            ({filteredHistory.length})
-                          </span>
-                        </span>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <div style={{ position: "relative" }}>
-                            <Search size={13} style={{ position: "absolute", top: "50%", left: 10, transform: "translateY(-50%)", color: COLORS.textMuted }} />
-                            <input
-                              className="focus-ring"
-                              value={txnSearch}
-                              onChange={(e) => setTxnSearch(e.target.value)}
-                              placeholder="Search transactions"
-                              style={{
-                                padding: "7px 10px 7px 32px",
-                                borderRadius: RADIUS.sm,
-                                border: `1.5px solid ${COLORS.border}`,
-                                outline: "none",
-                                fontSize: 12,
-                                width: 180,
-                                background: COLORS.bg,
-                                transition: "all 0.15s",
-                              }}
-                            />
+                      {/* Pricing & Stock KPI strip */}
+                      <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 flex-wrap flex-shrink-0">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Sale Price</span>
+                            <span className="text-sm font-extrabold text-slate-900">₹{fmt(selectedProduct.sale_price || selectedProduct.price || 0)}</span>
                           </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Purchase Price</span>
+                            <span className="text-sm font-extrabold text-slate-700">₹{fmt(selectedProduct.purchase_price || 0)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Available Stock</span>
+                            <span className="text-sm font-extrabold text-emerald-600">{selectedProduct.stock} {selectedProduct.unit || ""}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={exportToCSV}
-                            style={{
-                              padding: "7px 14px",
-                              borderRadius: RADIUS.sm,
-                              border: "none",
-                              background: COLORS.success,
-                              color: "#fff",
-                              fontWeight: 600,
-                              fontSize: 12,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                              transition: "all 0.15s",
-                            }}
-                            className="hover-lift"
+                            onClick={() => setShowEditModal(true)}
+                            className="psx-btn-primary px-3.5 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-glow-brand"
                           >
-                            <FileSpreadsheet size={14} /> Export
+                            <Pencil size={13} />
+                            <span>Edit Product</span>
                           </button>
                         </div>
                       </div>
 
-                      {loadingHistory ? (
-                        <div style={{ padding: 30, textAlign: "center", color: COLORS.textMuted }}>Loading transactions...</div>
-                      ) : filteredHistory.length === 0 ? (
-                        <div
-                          style={{
-                            border: `1.5px dashed ${COLORS.border}`,
-                            borderRadius: RADIUS.md,
-                            background: COLORS.surfaceAlt,
-                          }}
-                        >
-                          <EmptyState
-                            icon={<Inbox size={28} color={COLORS.textMuted} />}
-                            title="No transactions"
-                            subtitle="This product hasn't been sold yet"
-                          />
+                      {/* Drawer Body: Transactions */}
+                      <div className="flex-1 overflow-y-auto p-6 space-y-4 paysplitx-scrollbar-light">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-bold text-slate-900 font-display uppercase tracking-wider">
+                            Stock Movement & Sales History ({filteredHistory.length})
+                          </h3>
+                          <button
+                            onClick={exportToCSV}
+                            className="psx-btn-secondary px-3 py-1 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <FileSpreadsheet size={13} className="text-emerald-600" />
+                            <span>Export CSV</span>
+                          </button>
                         </div>
-                      ) : (
-                        <div
-                          style={{
-                            border: `1px solid ${COLORS.border}`,
-                            borderRadius: RADIUS.md,
-                            overflow: "hidden",
-                            background: COLORS.surface,
-                          }}
-                        >
-                          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
+
+                        <div className="psx-table-container">
+                          <table className="w-full text-left border-collapse psx-table text-xs">
                             <thead>
-                              <tr style={{ background: COLORS.surfaceAlt, borderBottom: `1px solid ${COLORS.border}` }}>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Customer Name</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Phone Number</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Quantity</th>
-                                <th style={{ padding: "10px 14px", fontWeight: 700, color: COLORS.textMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Price</th>
+                              <tr>
+                                <th>Customer</th>
+                                <th>Phone</th>
+                                <th>Quantity</th>
+                                <th>Sale Price</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {filteredHistory.map((s, i) => {
-                                return (
-                                  <tr key={i} className="hover-bg" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>{s.customer_name || "-"}</td>
-                                    <td style={{ padding: "11px 14px", color: COLORS.textSoft }}>{s.customer_phone || "-"}</td>
-                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>
-                                      {s.quantity} {selectedProduct.unit?.slice(0, 3) || ""}
-                                    </td>
-                                    <td style={{ padding: "11px 14px", fontWeight: 600, color: COLORS.text }}>{money(s.price)}</td>
+                              {loadingHistory ? (
+                                <tr>
+                                  <td colSpan={4} className="py-8 text-center text-slate-400">
+                                    Loading history...
+                                  </td>
+                                </tr>
+                              ) : filteredHistory.length === 0 ? (
+                                <tr>
+                                  <td colSpan={4} className="py-8 text-center text-slate-400">
+                                    No transaction history recorded yet for this product.
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredHistory.map((s, i) => (
+                                  <tr key={i}>
+                                    <td className="font-semibold text-slate-800">{s.customer_name || "-"}</td>
+                                    <td className="text-slate-500">{s.customer_phone || "-"}</td>
+                                    <td className="font-bold text-slate-900">{s.quantity} {selectedProduct.unit || ""}</td>
+                                    <td className="font-bold text-emerald-600">₹{fmt(s.price)}</td>
                                   </tr>
-                                );
-                              })}
+                                ))
+                              )}
                             </tbody>
                           </table>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ─── CATEGORY TAB ─── */}
+          {/* ─── CATEGORY TAB (PaySplitX Style) ─── */}
           {activeTab === "category" && (
-            <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 20, height: "100%" }}>
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  boxShadow: SHADOW.card,
-                }}
-              >
-                <div style={{ padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-                  <div style={{ position: "relative" }}>
-                    <Search size={15} style={{ position: "absolute", top: "50%", left: 11, transform: "translateY(-50%)", color: COLORS.textMuted }} />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-140px)]">
+              {/* Left Directory Panel */}
+              <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                      <Layers size={14} />
+                    </div>
+                    <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Category Directory</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {categories.length} Total
+                  </span>
+                </div>
+
+                {/* Search & Action Header */}
+                <div className="p-3 border-b border-slate-100 space-y-2.5">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      className="focus-ring"
+                      type="text"
                       placeholder="Search categories..."
                       value={categoryListSearch}
                       onChange={(e) => setCategoryListSearch(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px 8px 34px",
-                        borderRadius: RADIUS.sm,
-                        border: `1.5px solid ${COLORS.border}`,
-                        outline: "none",
-                        fontSize: 13,
-                        background: COLORS.bg,
-                        transition: "all 0.15s",
-                      }}
+                      className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     />
+                    {categoryListSearch && (
+                      <button onClick={() => setCategoryListSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        <X size={13} />
+                      </button>
+                    )}
                   </div>
                   <button
                     onClick={() => setShowCatModal(true)}
-                    style={{
-                      width: "100%",
-                      marginTop: 10,
-                      padding: "9px",
-                      background: COLORS.gradient,
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: RADIUS.sm,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      transition: "all 0.15s",
-                    }}
-                    className="hover-lift"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-100 transition-all hover:scale-[1.01]"
                   >
-                    <Plus size={15} /> New Category
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Add New Category</span>
                   </button>
                 </div>
 
-                <div style={{ overflowY: "auto", flex: 1 }}>
+                {/* Category List */}
+                <div className="overflow-y-auto flex-1 p-2 space-y-1">
                   {(() => {
                     const uncategorizedCount = products.filter(p => !p.category_name).length;
                     const catRows = categories
@@ -1415,23 +1458,22 @@ export default function ProductList() {
                       <>
                         {showUncategorized && (
                           <div
-                            className="product-card"
                             onClick={() => setSelectedCategory(null)}
-                            style={{
-                              padding: "12px 16px",
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              borderLeft: selectedCategory === null ? `3px solid ${COLORS.primary}` : "3px solid transparent",
-                              borderBottom: `1px solid ${COLORS.border}`,
-                              background: selectedCategory === null ? COLORS.primaryTint : "transparent",
-                              cursor: "pointer",
-                            }}
+                            className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                              selectedCategory === null
+                                ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
+                                : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                            }`}
                           >
-                            <span style={{ fontWeight: selectedCategory === null ? 700 : 600, fontSize: 13.5, color: COLORS.text }}>
-                              Uncategorized
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${selectedCategory === null ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
+                                <Package size={13} />
+                              </div>
+                              <span className="text-xs truncate">Uncategorized Items</span>
+                            </div>
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${selectedCategory === null ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
+                              {uncategorizedCount}
                             </span>
-                            <span style={{ fontWeight: 600, fontSize: 13, color: COLORS.textMuted }}>{uncategorizedCount}</span>
                           </div>
                         )}
                         {catRows.map((c) => {
@@ -1439,27 +1481,27 @@ export default function ProductList() {
                           return (
                             <div
                               key={c.id}
-                              className="product-card"
                               onClick={() => setSelectedCategory(c)}
-                              style={{
-                                padding: "12px 16px",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                borderLeft: isSelected ? `3px solid ${COLORS.primary}` : "3px solid transparent",
-                                borderBottom: `1px solid ${COLORS.border}`,
-                                background: isSelected ? COLORS.primaryTint : "transparent",
-                              }}
+                              className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                                isSelected
+                                  ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
+                                  : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                              }`}
                             >
-                              <span style={{ fontWeight: isSelected ? 700 : 600, fontSize: 13.5, color: COLORS.text }}>
-                                {c.name}
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
+                                  <Layers size={13} />
+                                </div>
+                                <span className="text-xs truncate">{c.name}</span>
+                              </div>
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${isSelected ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
+                                {c.count}
                               </span>
-                              <span style={{ fontWeight: 600, fontSize: 13, color: COLORS.textMuted }}>{c.count}</span>
                             </div>
                           );
                         })}
                         {catRows.length === 0 && !showUncategorized && (
-                          <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>No categories found</div>
+                          <div className="p-8 text-center text-slate-400 text-xs">No categories found</div>
                         )}
                       </>
                     );
@@ -1467,17 +1509,8 @@ export default function ProductList() {
                 </div>
               </div>
 
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  boxShadow: SHADOW.card,
-                }}
-              >
+              {/* Right Content Panel */}
+              <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
                 {(() => {
                   const isUncategorized = selectedCategory === null;
                   const label = isUncategorized ? "Uncategorized Items" : selectedCategory?.name || "Select a category";
@@ -1490,85 +1523,101 @@ export default function ProductList() {
 
                   return (
                     <>
-                      <div
-                        style={{
-                          padding: "16px 20px",
-                          borderBottom: `1px solid ${COLORS.border}`,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          background: COLORS.surfaceAlt,
-                        }}
-                      >
-                        <div>
-                          <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>{label}</span>
-                          <span style={{ marginLeft: 10, fontSize: 13, color: COLORS.textMuted }}>({items.length} items)</span>
+                      {/* Header */}
+                      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                            <Layers size={18} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-bold text-slate-900">{label}</h3>
+                              <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                                {items.length} items
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400">Products assigned to this category classification</p>
+                          </div>
                         </div>
                         {!isUncategorized && selectedCategory && (
                           <button
                             onClick={() => setShowMoveCategoryModal(true)}
-                            style={{
-                              padding: "7px 16px",
-                              borderRadius: RADIUS.sm,
-                              border: "none",
-                              background: COLORS.primary,
-                              color: "#fff",
-                              fontWeight: 600,
-                              fontSize: 12,
-                              cursor: "pointer",
-                              transition: "all 0.15s",
-                            }}
-                            className="hover-lift"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200/80 text-indigo-600 hover:bg-indigo-100/70 text-xs font-bold rounded-xl transition-all"
                           >
-                            Move Items Here
+                            <ArrowUpRight size={13} />
+                            <span>Move Items Here</span>
                           </button>
                         )}
                       </div>
 
-                      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
-                        <div style={{ position: "relative", marginBottom: 14 }}>
-                          <Search size={14} style={{ position: "absolute", top: "50%", left: 11, transform: "translateY(-50%)", color: COLORS.textMuted }} />
+                      {/* Search Filter Bar */}
+                      <div className="p-3 border-b border-slate-100 bg-white">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                           <input
-                            className="focus-ring"
+                            type="text"
                             value={categoryItemsSearch}
                             onChange={(e) => setCategoryItemsSearch(e.target.value)}
-                            placeholder="Search items..."
-                            style={{
-                              width: "100%",
-                              padding: "8px 12px 8px 34px",
-                              borderRadius: RADIUS.sm,
-                              border: `1.5px solid ${COLORS.border}`,
-                              outline: "none",
-                              fontSize: 13,
-                              background: COLORS.bg,
-                              transition: "all 0.15s",
-                            }}
+                            placeholder={`Filter ${items.length} items in this category...`}
+                            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                           />
+                          {categoryItemsSearch && (
+                            <button onClick={() => setCategoryItemsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                              <X size={13} />
+                            </button>
+                          )}
                         </div>
+                      </div>
 
+                      {/* Items Grid */}
+                      <div className="flex-1 overflow-y-auto p-4">
                         {filteredItems.length === 0 ? (
-                          <EmptyState icon={<Boxes size={28} color={COLORS.textMuted} />} title="No items" subtitle="This category is empty" />
+                          <div className="py-16 text-center">
+                            <Boxes size={36} className="text-slate-300 mx-auto mb-2" />
+                            <div className="text-sm font-bold text-slate-700">No items found</div>
+                            <p className="text-xs text-slate-400 mt-1">This category has no assigned inventory items</p>
+                          </div>
                         ) : (
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                            {filteredItems.map((p) => (
-                              <div
-                                key={p.id}
-                                style={{
-                                  padding: "12px 16px",
-                                  border: `1px solid ${COLORS.border}`,
-                                  borderRadius: RADIUS.sm,
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                  background: COLORS.surface,
-                                }}
-                              >
-                                <span style={{ fontWeight: 500, fontSize: 13, color: COLORS.text }}>{p.product_name}</span>
-                                <span style={{ fontWeight: 700, fontSize: 14, color: COLORS.success }}>
-                                  {Number(p.stock || 0)}
-                                </span>
-                              </div>
-                            ))}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {filteredItems.map((p) => {
+                              const stockNum = Number(p.stock || 0);
+                              const minStock = Number(p.min_stock_alert || 0);
+                              const isLow = stockNum <= minStock && stockNum > 0;
+                              const isZero = stockNum <= 0;
+                              return (
+                                <div
+                                  key={p.id}
+                                  className="p-3 bg-white rounded-xl border border-slate-200/70 hover:border-indigo-200 hover:shadow-xs transition-all flex items-center justify-between gap-3"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 text-slate-500 overflow-hidden">
+                                      {p.product_image ? (
+                                        <img src={p.product_image} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <Package size={16} className="text-slate-400" />
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-bold text-slate-900 truncate" title={p.product_name}>
+                                        {p.product_name}
+                                      </div>
+                                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                        <span className="font-mono text-slate-500 font-semibold">{p.product_sku || p.barcode || "No SKU"}</span>
+                                        {p.brand_name && <span>• {p.brand_name}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <div className={`text-xs font-bold ${isZero ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
+                                      {stockNum} units
+                                    </div>
+                                    <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
+                                      {money(p.selling_price || 0)}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1579,66 +1628,51 @@ export default function ProductList() {
             </div>
           )}
 
-          {/* ─── SUB CATEGORIES TAB ─── */}
+          {/* ─── SUB CATEGORIES TAB (PaySplitX Style) ─── */}
           {activeTab === "subcategory" && (
-            <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 20, height: "100%" }}>
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  boxShadow: SHADOW.card,
-                }}
-              >
-                <div style={{ padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-                  <div style={{ position: "relative" }}>
-                    <Search size={15} style={{ position: "absolute", top: "50%", left: 11, transform: "translateY(-50%)", color: COLORS.textMuted }} />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-140px)]">
+              {/* Left Directory Panel */}
+              <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                      <ListTree size={14} />
+                    </div>
+                    <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Subcategory Directory</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {subcategories.length} Total
+                  </span>
+                </div>
+
+                {/* Search & Action Header */}
+                <div className="p-3 border-b border-slate-100 space-y-2.5">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      className="focus-ring"
+                      type="text"
                       placeholder="Search sub categories..."
                       value={subcategoryListSearch}
                       onChange={(e) => setSubcategoryListSearch(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px 8px 34px",
-                        borderRadius: RADIUS.sm,
-                        border: `1.5px solid ${COLORS.border}`,
-                        outline: "none",
-                        fontSize: 13,
-                        background: COLORS.bg,
-                        transition: "all 0.15s",
-                      }}
+                      className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     />
+                    {subcategoryListSearch && (
+                      <button onClick={() => setSubcategoryListSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        <X size={13} />
+                      </button>
+                    )}
                   </div>
                   <button
                     onClick={() => setShowSubcatModal(true)}
-                    style={{
-                      width: "100%",
-                      marginTop: 10,
-                      padding: "9px",
-                      background: COLORS.gradient,
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: RADIUS.sm,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      transition: "all 0.15s",
-                    }}
-                    className="hover-lift"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-100 transition-all hover:scale-[1.01]"
                   >
-                    <Plus size={15} /> New Subcategory
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Add New Subcategory</span>
                   </button>
                 </div>
 
-                <div style={{ overflowY: "auto", flex: 1 }}>
+                {/* Subcategory List */}
+                <div className="overflow-y-auto flex-1 p-2 space-y-1">
                   {(() => {
                     const subRows = subcategories
                       .filter((sc) => {
@@ -1654,35 +1688,34 @@ export default function ProductList() {
                       }));
 
                     if (subRows.length === 0) {
-                      return <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>No sub categories found</div>;
+                      return <div className="p-8 text-center text-slate-400 text-xs">No sub categories found</div>;
                     }
                     return subRows.map((sc) => {
                       const isSelected = selectedSubcategory?.id === sc.id;
                       return (
                         <div
                           key={sc.id}
-                          className="product-card"
                           onClick={() => setSelectedSubcategory(sc)}
-                          style={{
-                            padding: "12px 16px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            borderLeft: isSelected ? `3px solid ${COLORS.primary}` : "3px solid transparent",
-                            borderBottom: `1px solid ${COLORS.border}`,
-                            background: isSelected ? COLORS.primaryTint : "transparent",
-                            cursor: "pointer",
-                          }}
+                          className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                            isSelected
+                              ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
+                              : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                          }`}
                         >
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontWeight: isSelected ? 700 : 600, fontSize: 13.5, color: COLORS.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {sc.name}
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
+                              <ListTree size={13} />
                             </div>
-                            {sc.categoryName && (
-                              <div style={{ fontSize: 11.5, color: COLORS.textMuted }}>{sc.categoryName}</div>
-                            )}
+                            <div className="min-w-0">
+                              <div className="text-xs truncate font-bold">{sc.name}</div>
+                              {sc.categoryName && (
+                                <div className="text-[10px] text-slate-400 truncate">{sc.categoryName}</div>
+                              )}
+                            </div>
                           </div>
-                          <span style={{ fontWeight: 600, fontSize: 13, color: COLORS.textMuted, marginLeft: 8 }}>{sc.count}</span>
+                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ml-2 shrink-0 ${isSelected ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
+                            {sc.count}
+                          </span>
                         </div>
                       );
                     });
@@ -1690,17 +1723,8 @@ export default function ProductList() {
                 </div>
               </div>
 
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  boxShadow: SHADOW.card,
-                }}
-              >
+              {/* Right Content Panel */}
+              <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
                 {(() => {
                   const items = selectedSubcategory
                     ? products.filter(p => Number(p.subcategory_id) === Number(selectedSubcategory.id))
@@ -1711,84 +1735,122 @@ export default function ProductList() {
 
                   return (
                     <>
-                      <div
-                        style={{
-                          padding: "16px 20px",
-                          borderBottom: `1px solid ${COLORS.border}`,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          background: COLORS.surfaceAlt,
-                        }}
-                      >
-                        <div>
-                          <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>
-                            {selectedSubcategory ? selectedSubcategory.name : "Sub Categories"}
-                          </span>
-                          {selectedSubcategory && (
-                            <span style={{ marginLeft: 10, fontSize: 13, color: COLORS.textMuted }}>({items.length} items)</span>
-                          )}
+                      {/* Header */}
+                      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                            <ListTree size={18} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-bold text-slate-900">
+                                {selectedSubcategory ? selectedSubcategory.name : "Select a Sub Category"}
+                              </h3>
+                              {selectedSubcategory && (
+                                <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                                  {items.length} items
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-400">Inventory items assigned under this subcategory classification</p>
+                          </div>
                         </div>
                         {selectedSubcategory && (
                           <button
                             onClick={() => setShowMoveSubcategoryModal(true)}
-                            style={{ padding: "8px 14px", borderRadius: RADIUS.sm, border: "none", background: COLORS.primary, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200/80 text-indigo-600 hover:bg-indigo-100/70 text-xs font-bold rounded-xl transition-all"
                           >
-                            Move Items Here
+                            <ArrowUpRight size={13} />
+                            <span>Move Items Here</span>
                           </button>
                         )}
                       </div>
 
-                      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+                      {/* Content Area */}
+                      <div className="flex-1 overflow-y-auto flex flex-col">
                         {!selectedSubcategory ? (
-                          <EmptyState icon={<ListTree size={28} color={COLORS.textMuted} />} title="Select a sub category" subtitle="Pick a subcategory from the left to see its items" />
+                          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 mb-3">
+                              <ListTree size={28} />
+                            </div>
+                            <div className="text-sm font-bold text-slate-800">Select a sub category</div>
+                            <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                              Choose a subcategory from the left panel to inspect its assigned products and inventory levels.
+                            </p>
+                          </div>
                         ) : (
                           <>
-                            <div style={{ position: "relative", marginBottom: 14 }}>
-                              <Search size={14} style={{ position: "absolute", top: "50%", left: 11, transform: "translateY(-50%)", color: COLORS.textMuted }} />
-                              <input
-                                className="focus-ring"
-                                value={subcategoryItemsSearch}
-                                onChange={(e) => setSubcategoryItemsSearch(e.target.value)}
-                                placeholder="Search items..."
-                                style={{
-                                  width: "100%",
-                                  padding: "8px 12px 8px 34px",
-                                  borderRadius: RADIUS.sm,
-                                  border: `1.5px solid ${COLORS.border}`,
-                                  outline: "none",
-                                  fontSize: 13,
-                                  background: COLORS.bg,
-                                  transition: "all 0.15s",
-                                }}
-                              />
+                            {/* Search Filter Bar */}
+                            <div className="p-3 border-b border-slate-100 bg-white">
+                              <div className="relative">
+                                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  type="text"
+                                  value={subcategoryItemsSearch}
+                                  onChange={(e) => setSubcategoryItemsSearch(e.target.value)}
+                                  placeholder={`Filter ${items.length} items in this subcategory...`}
+                                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                />
+                                {subcategoryItemsSearch && (
+                                  <button onClick={() => setSubcategoryItemsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                    <X size={13} />
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
-                            {filteredItems.length === 0 ? (
-                              <EmptyState icon={<Boxes size={28} color={COLORS.textMuted} />} title="No items" subtitle="This subcategory has no items" />
-                            ) : (
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                                {filteredItems.map((p) => (
-                                  <div
-                                    key={p.id}
-                                    style={{
-                                      padding: "12px 16px",
-                                      border: `1px solid ${COLORS.border}`,
-                                      borderRadius: RADIUS.sm,
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center",
-                                      background: COLORS.surface,
-                                    }}
-                                  >
-                                    <span style={{ fontWeight: 500, fontSize: 13, color: COLORS.text }}>{p.product_name}</span>
-                                    <span style={{ fontWeight: 700, fontSize: 14, color: COLORS.success }}>
-                                      {Number(p.stock || 0)}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            {/* Items Grid */}
+                            <div className="flex-1 overflow-y-auto p-4">
+                              {filteredItems.length === 0 ? (
+                                <div className="py-16 text-center">
+                                  <Boxes size={36} className="text-slate-300 mx-auto mb-2" />
+                                  <div className="text-sm font-bold text-slate-700">No items found</div>
+                                  <p className="text-xs text-slate-400 mt-1">This subcategory has no assigned inventory items</p>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {filteredItems.map((p) => {
+                                    const stockNum = Number(p.stock || 0);
+                                    const minStock = Number(p.min_stock_alert || 0);
+                                    const isLow = stockNum <= minStock && stockNum > 0;
+                                    const isZero = stockNum <= 0;
+                                    return (
+                                      <div
+                                        key={p.id}
+                                        className="p-3 bg-white rounded-xl border border-slate-200/70 hover:border-indigo-200 hover:shadow-xs transition-all flex items-center justify-between gap-3"
+                                      >
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                          <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 text-slate-500 overflow-hidden">
+                                            {p.product_image ? (
+                                              <img src={p.product_image} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                              <Package size={16} className="text-slate-400" />
+                                            )}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <div className="text-xs font-bold text-slate-900 truncate" title={p.product_name}>
+                                              {p.product_name}
+                                            </div>
+                                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                              <span className="font-mono text-slate-500 font-semibold">{p.product_sku || p.barcode || "No SKU"}</span>
+                                              {p.brand_name && <span>• {p.brand_name}</span>}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                          <div className={`text-xs font-bold ${isZero ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
+                                            {stockNum} units
+                                          </div>
+                                          <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
+                                            {money(p.selling_price || 0)}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           </>
                         )}
                       </div>
@@ -1799,66 +1861,51 @@ export default function ProductList() {
             </div>
           )}
 
-          {/* ─── BRAND TAB ─── */}
+          {/* ─── BRAND TAB (PaySplitX Style) ─── */}
           {activeTab === "brand" && (
-            <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 20, height: "100%" }}>
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  boxShadow: SHADOW.card,
-                }}
-              >
-                <div style={{ padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-                  <div style={{ position: "relative" }}>
-                    <Search size={15} style={{ position: "absolute", top: "50%", left: 11, transform: "translateY(-50%)", color: COLORS.textMuted }} />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-140px)]">
+              {/* Left Directory Panel */}
+              <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                      <Tags size={14} />
+                    </div>
+                    <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Brand Catalog</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {brands.length} Total
+                  </span>
+                </div>
+
+                {/* Search & Action Header */}
+                <div className="p-3 border-b border-slate-100 space-y-2.5">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      className="focus-ring"
+                      type="text"
                       placeholder="Search brands..."
                       value={brandListSearch}
                       onChange={(e) => setBrandListSearch(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px 8px 34px",
-                        borderRadius: RADIUS.sm,
-                        border: `1.5px solid ${COLORS.border}`,
-                        outline: "none",
-                        fontSize: 13,
-                        background: COLORS.bg,
-                        transition: "all 0.15s",
-                      }}
+                      className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     />
+                    {brandListSearch && (
+                      <button onClick={() => setBrandListSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        <X size={13} />
+                      </button>
+                    )}
                   </div>
                   <button
                     onClick={() => setShowBrandModal(true)}
-                    style={{
-                      width: "100%",
-                      marginTop: 10,
-                      padding: "9px",
-                      background: COLORS.gradient,
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: RADIUS.sm,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      transition: "all 0.15s",
-                    }}
-                    className="hover-lift"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-100 transition-all hover:scale-[1.01]"
                   >
-                    <Plus size={15} /> New Brand
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Add New Brand</span>
                   </button>
                 </div>
 
-                <div style={{ overflowY: "auto", flex: 1 }}>
+                {/* Brand List */}
+                <div className="overflow-y-auto flex-1 p-2 space-y-1">
                   {(() => {
                     const unbrandedCount = products.filter(p => !p.brand_name).length;
                     const brandRows = brands
@@ -1870,23 +1917,22 @@ export default function ProductList() {
                       <>
                         {showUnbranded && (
                           <div
-                            className="product-card"
                             onClick={() => setSelectedBrand(null)}
-                            style={{
-                              padding: "12px 16px",
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              borderLeft: selectedBrand === null ? `3px solid ${COLORS.primary}` : "3px solid transparent",
-                              borderBottom: `1px solid ${COLORS.border}`,
-                              background: selectedBrand === null ? COLORS.primaryTint : "transparent",
-                              cursor: "pointer",
-                            }}
+                            className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                              selectedBrand === null
+                                ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
+                                : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                            }`}
                           >
-                            <span style={{ fontWeight: selectedBrand === null ? 700 : 600, fontSize: 13.5, color: COLORS.text }}>
-                              Unbranded
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${selectedBrand === null ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
+                                <Package size={13} />
+                              </div>
+                              <span className="text-xs truncate">Unbranded Products</span>
+                            </div>
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${selectedBrand === null ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
+                              {unbrandedCount}
                             </span>
-                            <span style={{ fontWeight: 600, fontSize: 13, color: COLORS.textMuted }}>{unbrandedCount}</span>
                           </div>
                         )}
                         {brandRows.map((b) => {
@@ -1894,27 +1940,27 @@ export default function ProductList() {
                           return (
                             <div
                               key={b.id}
-                              className="product-card"
                               onClick={() => setSelectedBrand(b)}
-                              style={{
-                                padding: "12px 16px",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                borderLeft: isSelected ? `3px solid ${COLORS.primary}` : "3px solid transparent",
-                                borderBottom: `1px solid ${COLORS.border}`,
-                                background: isSelected ? COLORS.primaryTint : "transparent",
-                              }}
+                              className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                                isSelected
+                                  ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
+                                  : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                              }`}
                             >
-                              <span style={{ fontWeight: isSelected ? 700 : 600, fontSize: 13.5, color: COLORS.text }}>
-                                {b.name}
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
+                                  <Tags size={13} />
+                                </div>
+                                <span className="text-xs truncate">{b.name}</span>
+                              </div>
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${isSelected ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
+                                {b.count}
                               </span>
-                              <span style={{ fontWeight: 600, fontSize: 13, color: COLORS.textMuted }}>{b.count}</span>
                             </div>
                           );
                         })}
                         {brandRows.length === 0 && !showUnbranded && (
-                          <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>No brands found</div>
+                          <div className="p-8 text-center text-slate-400 text-xs">No brands found</div>
                         )}
                       </>
                     );
@@ -1922,17 +1968,8 @@ export default function ProductList() {
                 </div>
               </div>
 
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  boxShadow: SHADOW.card,
-                }}
-              >
+              {/* Right Content Panel */}
+              <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
                 {(() => {
                   const isUnbranded = selectedBrand === null;
                   const label = isUnbranded ? "Unbranded Items" : selectedBrand?.name || "Select a brand";
@@ -1945,85 +1982,101 @@ export default function ProductList() {
 
                   return (
                     <>
-                      <div
-                        style={{
-                          padding: "16px 20px",
-                          borderBottom: `1px solid ${COLORS.border}`,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          background: COLORS.surfaceAlt,
-                        }}
-                      >
-                        <div>
-                          <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>{label}</span>
-                          <span style={{ marginLeft: 10, fontSize: 13, color: COLORS.textMuted }}>({items.length} items)</span>
+                      {/* Header */}
+                      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                            <Tags size={18} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-bold text-slate-900">{label}</h3>
+                              <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                                {items.length} items
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400">Products assigned under this manufacturer or brand label</p>
+                          </div>
                         </div>
                         {!isUnbranded && selectedBrand && (
                           <button
                             onClick={() => setShowMoveBrandModal(true)}
-                            style={{
-                              padding: "7px 16px",
-                              borderRadius: RADIUS.sm,
-                              border: "none",
-                              background: COLORS.primary,
-                              color: "#fff",
-                              fontWeight: 600,
-                              fontSize: 12,
-                              cursor: "pointer",
-                              transition: "all 0.15s",
-                            }}
-                            className="hover-lift"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200/80 text-indigo-600 hover:bg-indigo-100/70 text-xs font-bold rounded-xl transition-all"
                           >
-                            Move Items Here
+                            <ArrowUpRight size={13} />
+                            <span>Move Items Here</span>
                           </button>
                         )}
                       </div>
 
-                      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
-                        <div style={{ position: "relative", marginBottom: 14 }}>
-                          <Search size={14} style={{ position: "absolute", top: "50%", left: 11, transform: "translateY(-50%)", color: COLORS.textMuted }} />
+                      {/* Search Filter Bar */}
+                      <div className="p-3 border-b border-slate-100 bg-white">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                           <input
-                            className="focus-ring"
+                            type="text"
                             value={brandItemsSearch}
                             onChange={(e) => setBrandItemsSearch(e.target.value)}
-                            placeholder="Search items..."
-                            style={{
-                              width: "100%",
-                              padding: "8px 12px 8px 34px",
-                              borderRadius: RADIUS.sm,
-                              border: `1.5px solid ${COLORS.border}`,
-                              outline: "none",
-                              fontSize: 13,
-                              background: COLORS.bg,
-                              transition: "all 0.15s",
-                            }}
+                            placeholder={`Filter ${items.length} items in this brand...`}
+                            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                           />
+                          {brandItemsSearch && (
+                            <button onClick={() => setBrandItemsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                              <X size={13} />
+                            </button>
+                          )}
                         </div>
+                      </div>
 
+                      {/* Items Grid */}
+                      <div className="flex-1 overflow-y-auto p-4">
                         {filteredItems.length === 0 ? (
-                          <EmptyState icon={<Tags size={28} color={COLORS.textMuted} />} title="No items" subtitle="This brand is empty" />
+                          <div className="py-16 text-center">
+                            <Tags size={36} className="text-slate-300 mx-auto mb-2" />
+                            <div className="text-sm font-bold text-slate-700">No items found</div>
+                            <p className="text-xs text-slate-400 mt-1">This brand has no assigned inventory items</p>
+                          </div>
                         ) : (
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                            {filteredItems.map((p) => (
-                              <div
-                                key={p.id}
-                                style={{
-                                  padding: "12px 16px",
-                                  border: `1px solid ${COLORS.border}`,
-                                  borderRadius: RADIUS.sm,
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                  background: COLORS.surface,
-                                }}
-                              >
-                                <span style={{ fontWeight: 500, fontSize: 13, color: COLORS.text }}>{p.product_name}</span>
-                                <span style={{ fontWeight: 700, fontSize: 14, color: COLORS.success }}>
-                                  {Number(p.stock || 0)}
-                                </span>
-                              </div>
-                            ))}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {filteredItems.map((p) => {
+                              const stockNum = Number(p.stock || 0);
+                              const minStock = Number(p.min_stock_alert || 0);
+                              const isLow = stockNum <= minStock && stockNum > 0;
+                              const isZero = stockNum <= 0;
+                              return (
+                                <div
+                                  key={p.id}
+                                  className="p-3 bg-white rounded-xl border border-slate-200/70 hover:border-indigo-200 hover:shadow-xs transition-all flex items-center justify-between gap-3"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 text-slate-500 overflow-hidden">
+                                      {p.product_image ? (
+                                        <img src={p.product_image} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <Package size={16} className="text-slate-400" />
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-bold text-slate-900 truncate" title={p.product_name}>
+                                        {p.product_name}
+                                      </div>
+                                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                        <span className="font-mono text-slate-500 font-semibold">{p.product_sku || p.barcode || "No SKU"}</span>
+                                        {p.category_name && <span>• {p.category_name}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <div className={`text-xs font-bold ${isZero ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
+                                      {stockNum} units
+                                    </div>
+                                    <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
+                                      {money(p.selling_price || 0)}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -2034,67 +2087,51 @@ export default function ProductList() {
             </div>
           )}
 
-          {/* ─── UNIT TAB ─── */}
+          {/* ─── UNIT TAB (PaySplitX Style) ─── */}
           {activeTab === "unit" && (
-            <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 20, height: "100%" }}>
-              {/* Left Panel - Unit List */}
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  boxShadow: SHADOW.card,
-                }}
-              >
-                <div style={{ padding: "14px 16px", borderBottom: `1px solid ${COLORS.border}` }}>
-                  <div style={{ position: "relative" }}>
-                    <Search size={15} style={{ position: "absolute", top: "50%", left: 11, transform: "translateY(-50%)", color: COLORS.textMuted }} />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-140px)]">
+              {/* Left Directory Panel */}
+              <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                      <Ruler size={14} />
+                    </div>
+                    <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Measurement Units</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {units.length} Total
+                  </span>
+                </div>
+
+                {/* Search & Action Header */}
+                <div className="p-3 border-b border-slate-100 space-y-2.5">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      className="focus-ring"
+                      type="text"
                       placeholder="Search units..."
                       value={unitListSearch}
                       onChange={(e) => setUnitListSearch(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px 8px 34px",
-                        borderRadius: RADIUS.sm,
-                        border: `1.5px solid ${COLORS.border}`,
-                        outline: "none",
-                        fontSize: 13,
-                        background: COLORS.bg,
-                        transition: "all 0.15s",
-                      }}
+                      className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     />
+                    {unitListSearch && (
+                      <button onClick={() => setUnitListSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        <X size={13} />
+                      </button>
+                    )}
                   </div>
                   <button
                     onClick={() => setShowUnitModal(true)}
-                    style={{
-                      width: "100%",
-                      marginTop: 10,
-                      padding: "9px",
-                      background: COLORS.gradient,
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: RADIUS.sm,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      transition: "all 0.15s",
-                    }}
-                    className="hover-lift"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-100 transition-all hover:scale-[1.01]"
                   >
-                    <Plus size={15} /> New Unit
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Add New Unit</span>
                   </button>
                 </div>
 
-                <div style={{ overflowY: "auto", flex: 1 }}>
+                {/* Unit List */}
+                <div className="overflow-y-auto flex-1 p-2 space-y-1">
                   {units
                     .filter(u => 
                       u.full.toLowerCase().includes(unitListSearch.toLowerCase()) || 
@@ -2105,23 +2142,22 @@ export default function ProductList() {
                       return (
                         <div
                           key={u.full}
-                          className="product-card"
                           onClick={() => handleSelectUnit(u)}
-                          style={{
-                            padding: "12px 16px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            borderLeft: isSelected ? `3px solid ${COLORS.primary}` : "3px solid transparent",
-                            borderBottom: `1px solid ${COLORS.border}`,
-                            background: isSelected ? COLORS.primaryTint : "transparent",
-                            cursor: "pointer",
-                          }}
+                          className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                            isSelected
+                              ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
+                              : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                          }`}
                         >
-                          <span style={{ fontWeight: isSelected ? 700 : 500, fontSize: 13.5, color: COLORS.text }}>
-                            {u.full}
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
+                              <Ruler size={13} />
+                            </div>
+                            <span className="text-xs truncate font-semibold">{u.full}</span>
+                          </div>
+                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ml-2 shrink-0 ${isSelected ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
+                            {u.short}
                           </span>
-                          <span style={{ fontWeight: 600, fontSize: 13, color: COLORS.textMuted }}>{u.short}</span>
                         </div>
                       );
                     })}
@@ -2129,258 +2165,130 @@ export default function ProductList() {
                     u.full.toLowerCase().includes(unitListSearch.toLowerCase()) || 
                     u.short.toLowerCase().includes(unitListSearch.toLowerCase())
                   ).length === 0 && (
-                    <div style={{ padding: 40, textAlign: "center", color: COLORS.textMuted, fontSize: 13 }}>
-                      No units found
-                    </div>
+                    <div className="p-8 text-center text-slate-400 text-xs">No units found</div>
                   )}
                 </div>
               </div>
 
               {/* Right Panel - Unit Details */}
-              <div
-                style={{
-                  background: COLORS.surface,
-                  borderRadius: RADIUS.lg,
-                  border: `1px solid ${COLORS.border}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  boxShadow: SHADOW.card,
-                }}
-              >
+              <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
                 {!selectedUnit ? (
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40 }}>
-                    <div
-                      style={{
-                        width: 72,
-                        height: 72,
-                        borderRadius: RADIUS.xl,
-                        background: COLORS.bg,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginBottom: 16,
-                        border: `2px dashed ${COLORS.border}`,
-                      }}
-                    >
-                      <Ruler size={32} color={COLORS.primary} />
+                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 mb-3">
+                      <Ruler size={28} />
                     </div>
-                    <div style={{ fontWeight: 700, fontSize: 18, color: COLORS.text }}>Select a unit</div>
-                    <p style={{ fontSize: 13, marginTop: 6, color: COLORS.textMuted, maxWidth: 300, textAlign: "center", lineHeight: 1.6 }}>
-                      Click on any unit from the list to view its details and conversions.
+                    <div className="text-sm font-bold text-slate-800">Select a unit</div>
+                    <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                      Click on any unit from the list to view its specifications and configure conversion factors.
                     </p>
                   </div>
                 ) : (
                   <>
                     {/* Unit Header */}
-                    <div
-                      style={{
-                        padding: "20px 24px",
-                        borderBottom: `1px solid ${COLORS.border}`,
-                        background: COLORS.surfaceAlt,
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div>
-                          <span style={{ fontSize: 20, fontWeight: 800, color: COLORS.text, letterSpacing: "-0.01em" }}>
-                            {selectedUnit.full}
-                          </span>
-                          <span
-                            style={{
-                              marginLeft: 12,
-                              padding: "2px 12px",
-                              borderRadius: RADIUS.pill,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              background: COLORS.primaryTint,
-                              color: COLORS.primary,
-                            }}
-                          >
-                            {selectedUnit.short}
-                          </span>
+                    <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                          <Ruler size={18} />
                         </div>
-                        <button
-                          style={{
-                            padding: "6px 14px",
-                            borderRadius: RADIUS.sm,
-                            border: `1.5px solid ${COLORS.border}`,
-                            background: COLORS.surface,
-                            fontWeight: 600,
-                            fontSize: 12,
-                            cursor: "pointer",
-                            color: COLORS.textSoft,
-                            transition: "all 0.15s",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 5,
-                          }}
-                          className="hover-bg"
-                          onClick={() => {
-                            setUnitFullForm(selectedUnit.full);
-                            setUnitShortForm(selectedUnit.short);
-                            setShowUnitModal(true);
-                          }}
-                        >
-                          <Edit size={14} /> Edit
-                        </button>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-900">{selectedUnit.full}</h3>
+                            <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full">
+                              {selectedUnit.short}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">Unit of measurement specification and conversion rates</p>
+                        </div>
                       </div>
+                      <button
+                        onClick={() => {
+                          setUnitFullForm(selectedUnit.full);
+                          setUnitShortForm(selectedUnit.short);
+                          setShowUnitModal(true);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-xl transition-all shadow-xs"
+                      >
+                        <Pencil size={12} />
+                        <span>Edit Unit</span>
+                      </button>
                     </div>
 
-                    {/* Unit Details */}
-                    <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-                      {/* UNITS Section */}
-                      <div style={{ marginBottom: 24 }}>
-                        <div style={{ 
-                          fontSize: 12, 
-                          fontWeight: 700, 
-                          color: COLORS.textMuted, 
-                          textTransform: "uppercase", 
-                          letterSpacing: "0.06em",
-                          marginBottom: 12 
-                        }}>
-                          UNITS
-                        </div>
-                        <div
-                          style={{
-                            padding: "12px 16px",
-                            border: `1px solid ${COLORS.border}`,
-                            borderRadius: RADIUS.sm,
-                            background: COLORS.surfaceAlt,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 20,
-                          }}
-                        >
+                    {/* Unit Details Content */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                      {/* Specifications Card */}
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          Unit Specifications
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50/70 border border-slate-200/70 rounded-xl">
                           <div>
-                            <span style={{ fontSize: 11, color: COLORS.textMuted }}>FULLNAME</span>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.text, marginTop: 2 }}>
-                              {selectedUnit.full}
-                            </div>
+                            <div className="text-[11px] font-medium text-slate-400">FULL NAME</div>
+                            <div className="text-sm font-bold text-slate-900 mt-0.5">{selectedUnit.full}</div>
                           </div>
                           <div>
-                            <span style={{ fontSize: 11, color: COLORS.textMuted }}>SHORTNAME</span>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: COLORS.text, marginTop: 2 }}>
-                              {selectedUnit.short}
-                            </div>
+                            <div className="text-[11px] font-medium text-slate-400">SHORT CODE / SYMBOL</div>
+                            <div className="text-sm font-bold text-indigo-600 mt-0.5">{selectedUnit.short}</div>
                           </div>
                         </div>
                       </div>
 
-                      {/* CONVERSION Section */}
-                      <div>
-                        <div style={{ 
-                          display: "flex", 
-                          justifyContent: "space-between", 
-                          alignItems: "center",
-                          marginBottom: 12 
-                        }}>
-                          <span style={{ 
-                            fontSize: 12, 
-                            fontWeight: 700, 
-                            color: COLORS.textMuted, 
-                            textTransform: "uppercase", 
-                            letterSpacing: "0.06em" 
-                          }}>
-                            CONVERSION
+                      {/* Conversion Section */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            Conversion Rates
                           </span>
                           <button
                             onClick={() => setShowConversionModal(true)}
-                            style={{
-                              padding: "6px 16px",
-                              borderRadius: RADIUS.sm,
-                              border: "none",
-                              background: COLORS.gradient,
-                              color: "#fff",
-                              fontWeight: 600,
-                              fontSize: 12,
-                              cursor: "pointer",
-                              transition: "all 0.15s",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                            }}
-                            className="hover-lift"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-xs transition-all"
                           >
-                            <Plus size={14} /> Add Conversion
+                            <Plus size={13} strokeWidth={2.5} />
+                            <span>Add Conversion</span>
                           </button>
                         </div>
 
                         {/* Conversion List */}
                         {conversions.length === 0 ? (
-                          <div
-                            style={{
-                              border: `1.5px dashed ${COLORS.border}`,
-                              borderRadius: RADIUS.md,
-                              padding: "30px 20px",
-                              textAlign: "center",
-                              background: COLORS.surfaceAlt,
-                            }}
-                          >
-                            <Ruler size={28} color={COLORS.textMuted} style={{ marginBottom: 8, opacity: 0.5 }} />
-                            <div style={{ fontWeight: 500, fontSize: 13, color: COLORS.textMuted }}>
-                              No conversions yet
-                            </div>
+                          <div className="p-8 border-2 border-dashed border-slate-200/80 rounded-2xl text-center bg-slate-50/50">
+                            <Ruler size={28} className="text-slate-300 mx-auto mb-2" />
+                            <div className="text-xs font-bold text-slate-600">No conversions configured</div>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Define multi-pack and bulk conversion rates for billing accuracy</p>
                           </div>
                         ) : (
-                          <div
-                            style={{
-                              border: `1px solid ${COLORS.border}`,
-                              borderRadius: RADIUS.md,
-                              overflow: "hidden",
-                            }}
-                          >
+                          <div className="space-y-2">
                             {conversions.map((conv, index) => (
                               <div
                                 key={index}
-                                style={{
-                                  padding: "12px 16px",
-                                  borderBottom: index < conversions.length - 1 ? `1px solid ${COLORS.border}` : "none",
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                  background: COLORS.surface,
-                                }}
+                                className="p-3 bg-white border border-slate-200/70 rounded-xl flex items-center justify-between shadow-xs hover:border-indigo-200 transition-all"
                               >
-                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                  <span style={{ fontWeight: 600, color: COLORS.text }}>
-                                    1 {conv.fromUnit || selectedUnit.full}
-                                  </span>
-                                  <span style={{ color: COLORS.textMuted, fontWeight: 700, fontSize: 15 }}>=</span>
-                                  <span style={{ fontWeight: 700, color: COLORS.primary, fontSize: 14 }}>
-                                    {conv.value} {conv.toUnit}
-                                  </span>
-                                  {conv.isBase && (
-                                    <span
-                                      style={{
-                                        padding: "1px 10px",
-                                        borderRadius: RADIUS.pill,
-                                        fontSize: 10,
-                                        fontWeight: 600,
-                                        background: COLORS.successTint,
-                                        color: COLORS.success,
-                                      }}
-                                    >
-                                      Base
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs">
+                                    1x
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-900">
+                                      1 {conv.fromUnit || selectedUnit.full}
                                     </span>
-                                  )}
+                                    <span className="text-slate-400 font-bold text-xs">=</span>
+                                    <span className="text-xs font-bold text-indigo-600">
+                                      {conv.value} {conv.toUnit}
+                                    </span>
+                                    {conv.isBase && (
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 ml-1">
+                                        Base Unit
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <button
                                   onClick={() => {
                                     setConversions(prev => prev.filter((_, i) => i !== index));
                                     showToast("Conversion removed");
                                   }}
-                                  style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    color: COLORS.textMuted,
-                                    padding: 4,
-                                    borderRadius: RADIUS.sm,
-                                    transition: "all 0.15s",
-                                  }}
-                                  className="hover-bg"
+                                  className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-all"
+                                  title="Remove conversion"
                                 >
-                                  <X size={16} />
+                                  <X size={14} />
                                 </button>
                               </div>
                             ))}
