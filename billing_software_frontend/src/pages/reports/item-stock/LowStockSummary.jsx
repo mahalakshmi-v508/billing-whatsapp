@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
-import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle, BarChart3 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -87,6 +88,7 @@ export default function LowStockSummary() {
   const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const catRef = useRef(null);
 
@@ -157,6 +159,17 @@ export default function LowStockSummary() {
   }, [companyId, adminId, categoryId, showInStock, reloadKey]);
 
   const selectedCategory = categories.find((c) => Number(c.id) === Number(categoryId));
+
+  const analyticsRows = useMemo(
+    () =>
+      (rows || []).map((r) => ({
+        date: "",
+        group: r.item_name || "General",
+        value: Number(r.stock_value) || 0,
+        count: 1,
+      })),
+    [rows]
+  );
 
   /* ── Excel export (only the 4 report columns) ── */
   const handleExcel = () => {
@@ -314,6 +327,16 @@ export default function LowStockSummary() {
             <Printer size={15} className="text-slate-600" />
             Print
           </button>
+          <button
+            type="button"
+            title="Open Analytics"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!rows.length}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            Analytics
+          </button>
         </div>
       </div>
 
@@ -427,6 +450,16 @@ export default function LowStockSummary() {
           onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
         />
       </div>
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Low Stock Summary Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Items"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
+  BarChart3,
   FileSpreadsheet,
   Printer,
   AlertCircle,
@@ -9,6 +10,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -114,6 +116,7 @@ export default function GSTReport() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const [companyOpen, setCompanyOpen] = useState(false);
   const companyRef = useRef(null);
@@ -268,6 +271,16 @@ export default function GSTReport() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
+  const analyticsRows = useMemo(() => {
+    if (!rows.length) return [];
+    return rows.map((r) => ({
+      date: "",
+      group: r.party_name || "",
+      value: Number(r.sale_tax || 0) + Number(r.purchase_expense_tax || 0),
+      count: 1,
+    }));
+  }, [rows]);
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
       {/* Filter Card */}
@@ -349,6 +362,16 @@ export default function GSTReport() {
           >
             <Printer size={15} className="text-slate-600" />
             Print
+          </button>
+          <button
+            type="button"
+            title="View Analytics"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!rows.length}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={15} className="text-indigo-600" />
+            Analytics
           </button>
         </div>
       </div>
@@ -440,6 +463,17 @@ export default function GSTReport() {
           onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
         />
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="GST Report Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

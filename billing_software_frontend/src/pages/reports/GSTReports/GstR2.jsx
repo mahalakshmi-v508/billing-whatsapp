@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 import {
+  BarChart3,
   FileDown,
   Printer,
   FileJson,
@@ -682,6 +684,11 @@ export default function GstR2() {
     rowsPerPage,
     setRowsPerPage,
   ] = useState(10);
+
+  const [
+    analyticsOpen,
+    setAnalyticsOpen,
+  ] = useState(false);
 
   const tableWrapRef =
     useRef(null);
@@ -1442,6 +1449,16 @@ export default function GstR2() {
   const safePage = Math.min(page, totalPages);
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = activeRows.slice(pagedStart, pagedStart + rowsPerPage);
+
+  const analyticsRows = useMemo(() => {
+    if (!activeRows.length) return [];
+    return activeRows.map((r) => ({
+      date: r.date || "",
+      group: r.party_name || "",
+      value: Number(r.value || 0),
+      count: 1,
+    }));
+  }, [activeRows]);
 return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
       {/* ═══════════════════════════════════════════════════════════════
@@ -1560,6 +1577,15 @@ return (
           >
             <Printer size={15} />
             <span>Print</span>
+          </button>
+
+          <button
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={15} />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -1741,6 +1767,17 @@ return (
           }}
         />
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="GSTR-2 Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

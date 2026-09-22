@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDown, Calendar, FileSpreadsheet, Printer, RefreshCw, AlertCircle, Package, Layers, TrendingUp, ShoppingCart, Search } from "lucide-react";
+import { ChevronDown, Calendar, FileSpreadsheet, Printer, RefreshCw, AlertCircle, Package, Layers, TrendingUp, ShoppingCart, Search, BarChart3 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 function getAuth() {
   try {
@@ -95,6 +96,7 @@ export default function StockDetail() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const catRef = useRef(null);
 
@@ -171,6 +173,17 @@ export default function StockDetail() {
     const q = search.toLowerCase();
     return rows.filter((r) => (r.item_name || "").toLowerCase().includes(q));
   }, [rows, search]);
+
+  const analyticsRows = useMemo(
+    () =>
+      (filteredRows || []).map((r) => ({
+        date: "",
+        group: r.item_name || "General",
+        value: Number(r.sale_amount || 0) + Number(r.purchase_amount || 0),
+        count: 1,
+      })),
+    [filteredRows]
+  );
 
   const handleExcel = () => {
     try {
@@ -270,6 +283,16 @@ export default function StockDetail() {
           >
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Print</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!filteredRows.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -514,6 +537,16 @@ export default function StockDetail() {
           }}
         />
       </div>
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Stock Detail Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Items"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

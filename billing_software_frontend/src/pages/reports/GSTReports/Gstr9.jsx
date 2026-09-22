@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
+import { BarChart3, FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 /* ─────────────────────────────────────────────────────────────
@@ -636,6 +637,7 @@ export default function Gstr9() {
   const [pt6RowsPerPage, setPt6RowsPerPage] = useState(10);
   const [hsnPage, setHsnPage] = useState(1);
   const [hsnRowsPerPage, setHsnRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const printRef = useRef(null);
 
@@ -1424,6 +1426,24 @@ const checkboxInputStyle = {
   const hsnSafePage = Math.min(hsnPage, hsnTotalPages);
   const hsnPagedRows = hsnOutward.rows.slice((hsnSafePage - 1) * hsnRowsPerPage, hsnSafePage * hsnRowsPerPage);
 
+  const analyticsSource = useMemo(() => {
+    const items = [];
+    pt2Rows.forEach((r) =>
+      items.push({ group: `Pt-${r.num} ${r.name}`, value: Number(r.row?.value || 0) })
+    );
+    hsnOutward.rows.forEach((e) =>
+      items.push({ group: `HSN ${e.hsn}`, value: Number(e.base || 0) })
+    );
+    return items;
+  }, [pt2Rows, hsnOutward]);
+
+  const analyticsRows = analyticsSource.map((r) => ({
+    date: "",
+    group: r.group,
+    value: Number(r.value || 0),
+    count: 1,
+  }));
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
       {/* Top filter + actions card */}
@@ -1507,6 +1527,22 @@ const checkboxInputStyle = {
           >
             <Printer size={15} className="text-slate-600" />
             Print
+          </button>
+
+          <button
+            type="button"
+            title="View Analytics"
+            aria-label="View Analytics"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!selectedCompany}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all shadow-2xs ${
+              selectedCompany
+                ? "border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80 hover:border-indigo-300 cursor-pointer"
+                : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+            }`}
+          >
+            <BarChart3 size={15} className="text-indigo-600" />
+            Analytics
           </button>
         </div>
       </div>
@@ -1967,6 +2003,17 @@ const checkboxInputStyle = {
             </table>
           </div>
         </div>
+      )}
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="GSTR-9 Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
       )}
     </div>
   );

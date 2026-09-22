@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import api from "../../../services/api";
 import { getCurrencySymbol } from "../../../utils/expenseDocument";
-import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search, Package, ShoppingCart, DollarSign, X } from "lucide-react";
+import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search, Package, ShoppingCart, DollarSign, X, BarChart3 } from "lucide-react";
 import * as XLSX from "xlsx";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 const toInputDate = (d) =>
@@ -70,6 +71,7 @@ export default function SaleOrderItem() {
   const [symbol, setSymbol] = useState("₹");
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -192,6 +194,17 @@ export default function SaleOrderItem() {
     );
   }, [lines, orderStatus]);
 
+  const analyticsRows = useMemo(
+    () =>
+      (reportedRows || []).map((r) => ({
+        date: "",
+        group: r.name || "General",
+        value: Number(r.amount) || 0,
+        count: 1,
+      })),
+    [reportedRows]
+  );
+
   const totalQty = useMemo(() => reportedRows.reduce((s, r) => s + r.qty, 0), [reportedRows]);
   const totalAmount = useMemo(() => reportedRows.reduce((s, r) => s + r.amount, 0), [reportedRows]);
 
@@ -267,6 +280,16 @@ export default function SaleOrderItem() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!reportedRows.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
+          </button>
           <button
             onClick={handleExportExcel}
             className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
@@ -511,6 +534,17 @@ export default function SaleOrderItem() {
           }}
         />
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Order Items Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol={symbol}
+          groupLabel="Items"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

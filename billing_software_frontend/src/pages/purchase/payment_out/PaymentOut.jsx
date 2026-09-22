@@ -24,10 +24,12 @@ import {
   Truck,
   CheckCircle2,
   Wallet,
-  DollarSign
+  DollarSign,
+  BarChart3
 } from "lucide-react";
 import AddPaymentOutModal from "./AddPaymentOutModal";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 export default function PaymentOut() {
   const navigate = useNavigate();
@@ -65,6 +67,9 @@ export default function PaymentOut() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+
+  // Analytics view state
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -259,6 +264,18 @@ export default function PaymentOut() {
     const start = (safePage - 1) * rowsPerPage;
     return filteredPayments.slice(start, start + rowsPerPage);
   }, [filteredPayments, safePage, rowsPerPage]);
+
+  // Analytics rows (Payment-Out grouped by party)
+  const analyticsRows = useMemo(
+    () =>
+      filteredPayments.map((p) => ({
+        date: p.payment_date || "",
+        group: p.supplier_name || "Unknown Party",
+        value: Number(p.paid_amount || p.amount || 0),
+        count: 1,
+      })),
+    [filteredPayments]
+  );
 
   // Export to Excel
   const exportToExcel = () => {
@@ -675,6 +692,18 @@ export default function PaymentOut() {
             )}
           </div>
 
+          {/* Analytics */}
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!filteredPayments.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
+          </button>
+
           <button
             onClick={exportToExcel}
             className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 transition cursor-pointer"
@@ -985,6 +1014,18 @@ export default function PaymentOut() {
         }}
         editPayment={editingPayment}
       />
+
+      {/* ── ANALYTICS VIEW MODAL ── */}
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Payment-Out Analytics"
+          subtitle={`${fromDate || "All"} → ${toDate || "All"} • ${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Parties"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

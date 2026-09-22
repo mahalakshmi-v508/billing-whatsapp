@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import ExpenseDocument from "./ExpenseDocument";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 const formatINDate = (dateStr) => {
@@ -370,6 +371,7 @@ export default function ExpenseReport() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [graphModalOpen, setGraphModalOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -847,6 +849,17 @@ export default function ExpenseReport() {
   const totalBalanceDue = useMemo(() => filteredExpenses.reduce((s, e) => s + Number(e.balance_amount || 0), 0), [filteredExpenses]);
   const totalPaidAmount = useMemo(() => totalExpenseAmount - totalBalanceDue, [totalExpenseAmount, totalBalanceDue]);
 
+  const analyticsRows = useMemo(
+    () =>
+      (filteredExpenses || []).map((r) => ({
+        date: r.expense_date || "",
+        group: r.category_name || "General",
+        value: Number(r.total_amount) || 0,
+        count: 1,
+      })),
+    [filteredExpenses]
+  );
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
       <style>{`
@@ -898,6 +911,16 @@ export default function ExpenseReport() {
           >
             <Plus className="w-4 h-4" />
             <span>Add Expense</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!filteredExpenses.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
           <button
             type="button"
@@ -1694,6 +1717,17 @@ export default function ExpenseReport() {
           <Loader2 size={17} color="#2563eb" style={{ animation: "er-spin 1s linear infinite" }} />
           <span style={{ color: "#334155" }}>{docBusyText}</span>
         </div>
+      )}
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Expense Report Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
       )}
     </div>
   );

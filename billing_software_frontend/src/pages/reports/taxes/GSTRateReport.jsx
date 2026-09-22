@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle, Calendar, Receipt, TrendingUp, ShoppingBag, DollarSign } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BarChart3, ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle, Calendar, Receipt, TrendingUp, ShoppingBag, DollarSign } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const getAuth = () => {
   try {
@@ -44,6 +45,7 @@ export default function GSTRateReport() {
   const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const companyRef = useRef(null);
 
   useEffect(() => {
@@ -98,6 +100,16 @@ export default function GSTRateReport() {
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
   const safePage = Math.min(page, totalPages);
   const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
+  const analyticsRows = useMemo(() => {
+    if (!rows.length) return [];
+    return rows.map((row) => ({
+      date: "",
+      group: `${row.tax_name} (${row.tax_percent}%)`,
+      value: Number(row.taxable_sale_amount || 0),
+      count: 1,
+    }));
+  }, [rows]);
 
   const netTax = (totals.tax_in || 0) - (totals.tax_out || 0);
 
@@ -163,6 +175,16 @@ export default function GSTRateReport() {
           >
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Print</span>
+          </button>
+
+          <button
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!rows.length}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="View Analytics"
+          >
+            <BarChart3 className="w-4 h-4 text-indigo-600" />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -345,6 +367,17 @@ export default function GSTRateReport() {
           }}
         />
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="GST Tax Rate Report Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

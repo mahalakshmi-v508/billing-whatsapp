@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import {
+  BarChart3,
   ChevronDown,
   Search,
   FileSpreadsheet,
@@ -18,6 +19,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 const PERIODS = [
@@ -138,6 +140,7 @@ export default function SalePurchaseByParty() {
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const periodRef = useRef(null);
   const firmRef = useRef(null);
@@ -254,6 +257,17 @@ export default function SalePurchaseByParty() {
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
   const safePage = Math.min(page, totalPages);
   const pagedRows = displayed.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
+  const analyticsRows = useMemo(
+    () =>
+      (displayed || []).map((r) => ({
+        date: "",
+        group: r.name || "General",
+        value: Number(r.sale_amount) || 0,
+        count: 1,
+      })),
+    [displayed]
+  );
 
   /* ── Excel export ── */
   const handleExcel = () => {
@@ -434,6 +448,16 @@ export default function SalePurchaseByParty() {
           >
             <Printer size={15} />
             <span>Print</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!displayed.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -686,6 +710,17 @@ export default function SalePurchaseByParty() {
           onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
         />
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Sale Purchase By Party Analytics"
+          subtitle={`${prettyFrom} → ${prettyTo} · ${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Parties"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

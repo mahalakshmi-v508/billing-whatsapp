@@ -36,10 +36,12 @@ import {
   Truck,
   TrendingUp,
   Receipt,
-  ArrowUpRight
+  ArrowUpRight,
+  BarChart3
 } from "lucide-react";
 import ShareTransactionPopover from "../../components/ShareTransactionPopover";
 import StatusBadge from "../../components/ui/StatusBadge";
+import ReportAnalyticsView from "../../components/reports/ReportAnalyticsView";
 
 // Table columns list for customization drawer with rich icons and colors
 const DEFAULT_COLUMNS = [
@@ -143,6 +145,9 @@ export default function SaleInvoices() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+
+  // Analytics view state
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -342,6 +347,18 @@ export default function SaleInvoices() {
 
     return { total_amount, total_paid, total_pending, paidCount };
   }, [filteredInvoices]);
+
+  // Analytics rows (Sale Invoices → group by party)
+  const analyticsRows = useMemo(
+    () =>
+      filteredInvoices.map((inv) => ({
+        date: inv.created_at || "",
+        group: inv.customer_name || "Cash Sale",
+        value: Number(inv.total_amount || 0),
+        count: 1,
+      })),
+    [filteredInvoices]
+  );
 
   // % change vs last month calculation
   const pctChange = useMemo(() => {
@@ -813,6 +830,18 @@ export default function SaleInvoices() {
               </button>
             )}
           </div>
+
+          {/* Analytics */}
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!filteredInvoices.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
+          </button>
 
           <button
             onClick={handleExportExcel}
@@ -1357,6 +1386,18 @@ export default function SaleInvoices() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── ANALYTICS VIEW MODAL ── */}
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Sale Analytics"
+          subtitle={`${fromDate || "All"} → ${toDate || "All"} • ${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Parties"
+          onClose={() => setAnalyticsOpen(false)}
+        />
       )}
     </div>
   );

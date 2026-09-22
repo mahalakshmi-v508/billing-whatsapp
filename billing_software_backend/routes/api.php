@@ -111,6 +111,8 @@ Route::prefix('brand')->group(function () {
 Route::prefix('cashier')->group(function () {
     Route::post('delete_cashier', [CashierController::class, 'deleteCashier']);
     Route::post('get_cashiers', [CashierController::class, 'getCashiers']);
+    Route::get('get_cashier', [CashierController::class, 'getCashiers']);
+    Route::get('get_all_cashier', [CashierController::class, 'getCashiers']);
     Route::get('get_cashier_by_id', [CashierController::class, 'getCashierById']);
     Route::post('toggle_status_cashier', [CashierController::class, 'toggleStatusCashier']);
     Route::post('update_cashier', [CashierController::class, 'updateCashier']);
@@ -212,6 +214,7 @@ Route::prefix('invoice')->group(function () {
     Route::post('create', [InvoiceController::class, 'createInvoice']);
     Route::post('create_invoice', [InvoiceController::class, 'createInvoice']);
     Route::get('get_all_invoice', [InvoiceController::class, 'getAllInvoice']);
+    Route::get('get_all_invoices', [InvoiceController::class, 'getAllInvoice']);
     Route::get('get_filtered_invoices', [InvoiceController::class, 'getFilteredInvoices']);
     Route::get('get_filtered_pending', [InvoiceController::class, 'getFilteredPending']);
     Route::get('get_invoice_by_id', [InvoiceController::class, 'getInvoiceById']);
@@ -244,6 +247,7 @@ Route::prefix('product')->group(function () {
     Route::post('delete', [ProductController::class, 'delete']);
     Route::get('get', [ProductController::class, 'get']);
     Route::get('get_all', [ProductController::class, 'get']);
+    Route::get('get_product_by_company', [ProductController::class, 'get']);
     Route::get('get_by_id', [ProductController::class, 'getById']);
     Route::get('get_by_supplier', [ProductController::class, 'getBySupplier']);
     Route::get('get_by_code', [ProductController::class, 'getByCode']);

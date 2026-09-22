@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import { getCurrencySymbol } from "../../../utils/expenseDocument";
-import { Calendar, FileSpreadsheet, Plus, Printer, RefreshCw, Layers, TrendingUp, DollarSign } from "lucide-react";
+import { Calendar, FileSpreadsheet, Plus, Printer, RefreshCw, Layers, TrendingUp, DollarSign, BarChart3 } from "lucide-react";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 const today = () => new Date();
@@ -37,6 +38,7 @@ export default function ExpenseCategoryReport() {
   const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -84,6 +86,17 @@ export default function ExpenseCategoryReport() {
   }, [rows]);
 
   const totalAmount = useMemo(() => reportRows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0), [reportRows]);
+
+  const analyticsRows = useMemo(
+    () =>
+      (reportRows || []).map((r) => ({
+        date: "",
+        group: r.name || "General",
+        value: Number(r.total_amount) || 0,
+        count: 1,
+      })),
+    [reportRows]
+  );
 
   const handleExportExcel = () => {
     if (!reportRows.length) {
@@ -160,6 +173,16 @@ export default function ExpenseCategoryReport() {
           >
             <Plus className="w-4 h-4" />
             <span>Add Expense</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!reportRows.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
           <button
             onClick={handleExportExcel}
@@ -317,6 +340,17 @@ export default function ExpenseCategoryReport() {
           />
         </div>
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Expense Category Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

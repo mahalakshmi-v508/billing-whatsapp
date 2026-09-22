@@ -343,13 +343,16 @@
 // };
 
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import api from "../../services/api";
 import ReportPagination from "../../components/reports/ReportPagination";
+import { BarChart3 } from "lucide-react";
+import ReportAnalyticsView from "../../components/reports/ReportAnalyticsView";
 
 export default function PaymentPendingHistory() {
 
   const [data, setData] = useState([]);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   // ✅ PAGINATION
 
@@ -403,6 +406,19 @@ export default function PaymentPendingHistory() {
     indexOfFirst + recordsPerPage
   );
 
+  // ✅ ANALYTICS ROWS (grouped by customer, value = pending balance)
+
+  const analyticsRows = useMemo(
+    () =>
+      data.map((item) => ({
+        date: item.due_date || "",
+        group: item.customer_name || "General",
+        value: Number(item.balance_amount || 0),
+        count: 1,
+      })),
+    [data]
+  );
+
 
 
   return (
@@ -437,23 +453,50 @@ export default function PaymentPendingHistory() {
         </h2>
 
         <div
-          style={{
-            background: "#fff",
-            padding: "10px 16px",
-            borderRadius: 12,
-            border: "1px solid #e2e8f0",
-            fontWeight: 700,
-            color: "#4338ca"
-          }}
+          style={{ display: "flex", alignItems: "center", gap: 12 }}
         >
-          Total Pending : ₹
-          {data
-            .reduce(
-              (sum, item) =>
-                sum + Number(item.balance_amount),
-              0
-            )
-            .toLocaleString()}
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!data.length}
+            style={{
+              background: "#eef2ff",
+              border: "1px solid #c7d2fe",
+              borderRadius: 12,
+              padding: "10px 16px",
+              fontWeight: 700,
+              color: "#4338ca",
+              fontSize: 13,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              opacity: data.length ? 1 : 0.5
+            }}
+            title="Open Analytics"
+          >
+            <BarChart3 size={15}/> Analytics
+          </button>
+
+          <div
+            style={{
+              background: "#fff",
+              padding: "10px 16px",
+              borderRadius: 12,
+              border: "1px solid #e2e8f0",
+              fontWeight: 700,
+              color: "#4338ca"
+            }}
+          >
+            Total Pending : ₹
+            {data
+              .reduce(
+                (sum, item) =>
+                  sum + Number(item.balance_amount),
+                0
+              )
+              .toLocaleString()}
+          </div>
         </div>
 
       </div>
@@ -690,6 +733,18 @@ export default function PaymentPendingHistory() {
           setCurrentPage(Math.max(1, Math.min(p, totalPages)));
         }}
       />
+
+      {/* ANALYTICS MODAL */}
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Payment Pending History Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Customers"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
 
     </div>
   );

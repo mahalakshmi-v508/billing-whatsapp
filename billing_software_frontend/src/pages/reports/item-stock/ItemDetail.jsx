@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Calendar, ChevronDown, FileSpreadsheet, Package, Printer, RefreshCw, ShoppingCart, TrendingUp } from "lucide-react";
+import { AlertCircle, BarChart3, Calendar, ChevronDown, FileSpreadsheet, Package, Printer, RefreshCw, ShoppingCart, TrendingUp } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const COLUMNS = [
   { key: "date", label: "Date", right: false },
@@ -87,6 +88,7 @@ export default function ItemDetail() {
   const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const itemRef = useRef(null);
 
   useEffect(() => {
@@ -203,6 +205,19 @@ export default function ItemDetail() {
   const totalPurchaseQty = useMemo(() => visibleRows.reduce((s, r) => s + Number(r.purchase_quantity || 0), 0), [visibleRows]);
   const latestClosingQty = visibleRows.length > 0 ? visibleRows[visibleRows.length - 1].closing_quantity : 0;
 
+  const analyticsRows = useMemo(
+    () => {
+      if (!companyId || !itemId) return [];
+      return (rows || []).map((r) => ({
+        date: r.date || "",
+        group: selectedItem?.product_name || "General",
+        value: Number(r.closing_quantity) || 0,
+        count: 1,
+      }));
+    },
+    [companyId, itemId, rows, selectedItem]
+  );
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
       {/* Header & Actions Card */}
@@ -237,6 +252,16 @@ export default function ItemDetail() {
           >
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Print</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!visibleRows.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -463,6 +488,16 @@ export default function ItemDetail() {
           }}
         />
       </div>
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Item Detail Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Items"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

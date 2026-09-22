@@ -2293,7 +2293,7 @@
 
 
 //credit customer list
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import * as XLSX from "xlsx";
@@ -2303,8 +2303,9 @@ import autoTable from "jspdf-autotable";
 import {
   Pencil, Search, Phone, MapPin, Download, Wallet,
   CheckCircle, ChevronRight, Filter, IndianRupee, X, MessageCircle,
-  FileDown, ChevronLeft, History
+  FileDown, ChevronLeft, History, BarChart3
 } from "lucide-react";
+import ReportAnalyticsView from "../../components/reports/ReportAnalyticsView";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 const formatDate = (date) => {
@@ -2351,6 +2352,9 @@ const admin_id = user?.role === "cashier" ? user?.admin_id : user?.id;
   const [preview,       setPreview]       = useState([]);
 
   const [sendingReminder, setSendingReminder] = useState(false);
+
+  /* analytics view state */
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   /* invoice table state */
   const [checkedIds,   setCheckedIds]   = useState(new Set());
@@ -2508,6 +2512,18 @@ const fetchCustomerHistory = async (customerId, overrides = {}) => {
 
   const selectedInvRows = invoiceHistory.filter(i => checkedIds.has(i.id));
   const exportRows      = checkedIds.size > 0 ? selectedInvRows : invoiceHistory;
+
+  // Analytics rows (Payment Pending → group by payment method)
+  const analyticsRows = useMemo(
+    () =>
+      invoiceHistory.map((item) => ({
+        date: item.created_at || item.due_date || "",
+        group: item.payment_method || "Credit",
+        value: Number(item.balance_amount || 0),
+        count: 1,
+      })),
+    [invoiceHistory]
+  );
 
   /* ── Excel ── */
   const downloadExcel = () => {
@@ -3116,6 +3132,24 @@ const fetchCustomerHistory = async (customerId, overrides = {}) => {
                       </div>
                     )}
 
+                    {/* Analytics */}
+                    <button
+                      type="button"
+                      onClick={() => setAnalyticsOpen(true)}
+                      disabled={!invoiceHistory.length}
+                      title="Open Analytics"
+                      style={{
+                        background:"#eef2ff", border:"1.5px solid #c7d2fe",
+                        borderRadius:12, padding:"10px 16px", fontWeight:700, fontSize:13,
+                        display:"flex", alignItems:"center", gap:7,
+                        color:"#4338ca", transition:"all .15s",
+                        opacity: invoiceHistory.length ? 1 : 0.55,
+                        cursor: invoiceHistory.length ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      <BarChart3 size={15}/> Analytics
+                    </button>
+
                     {/* Download buttons */}
                     <button onClick={downloadExcel} style={btnGreen}>
                       <Download size={14}/>
@@ -3436,6 +3470,18 @@ const fetchCustomerHistory = async (customerId, overrides = {}) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ANALYTICS VIEW MODAL */}
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Payment Pending Analytics"
+          subtitle={`${fromDate || "All"} → ${toDate || "All"} • ${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Payment Types"
+          onClose={() => setAnalyticsOpen(false)}
+        />
       )}
     </>
   );

@@ -6,11 +6,13 @@ import {
   Printer,
   X,
   AlertCircle,
+  BarChart3,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -103,6 +105,7 @@ export default function StockSummary() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const [companyOpen, setCompanyOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
@@ -203,6 +206,17 @@ export default function StockSummary() {
   };
 
   const prettyAsOf = asOf.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  const analyticsRows = useMemo(
+    () =>
+      (rows || []).map((r) => ({
+        date: "",
+        group: r.item_name || "General",
+        value: Number(r.stock_value) || 0,
+        count: 1,
+      })),
+    [rows]
+  );
 
   /* ── Stock status helpers ── */
   const stockColor = (qty) => {
@@ -434,6 +448,16 @@ export default function StockSummary() {
             <Printer size={15} className="text-slate-600" />
             Print
           </button>
+          <button
+            type="button"
+            title="Open Analytics"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!rows.length}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            Analytics
+          </button>
         </div>
       </div>
 
@@ -594,6 +618,16 @@ export default function StockSummary() {
           onRowsPerPageChange={() => setPage(1)}
         />
       </div>
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Stock Summary Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Items"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import {
+  BarChart3,
   ChevronDown,
   Search,
   FileSpreadsheet,
@@ -20,6 +21,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 const PARTY_TYPES = [
@@ -118,6 +120,7 @@ export default function AllParties() {
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const typeRef = useRef(null);
 
@@ -220,6 +223,17 @@ export default function AllParties() {
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
   const safePage = Math.min(page, totalPages);
   const pagedRows = filtered.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
+  const analyticsRows = useMemo(
+    () =>
+      (filtered || []).map((p) => ({
+        date: "",
+        group: p.name || "General",
+        value: Number(p.receivable) || 0,
+        count: 1,
+      })),
+    [filtered]
+  );
 
   const handleSelectType = (v) => {
     setPartyType(v);
@@ -374,6 +388,16 @@ export default function AllParties() {
           >
             <Printer size={15} />
             <span>Print</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!filtered.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -588,6 +612,17 @@ export default function AllParties() {
           onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
         />
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="All Parties Analytics"
+          subtitle={`${dateFilter ? prettyFrom : "All"} → ${dateFilter ? prettyTo : "All"} · ${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Parties"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

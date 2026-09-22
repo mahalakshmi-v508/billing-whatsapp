@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import { getCurrencySymbol, parseRowItems } from "../../../utils/expenseDocument";
-import { Calendar, ChevronDown, FileSpreadsheet, Plus, Printer, RefreshCw, Search, Package, TrendingUp, DollarSign } from "lucide-react";
+import { Calendar, ChevronDown, FileSpreadsheet, Plus, Printer, RefreshCw, Search, Package, TrendingUp, DollarSign, BarChart3 } from "lucide-react";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 const today = () => new Date();
@@ -76,6 +77,7 @@ export default function ExpenseItemReport() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,6 +181,17 @@ export default function ExpenseItemReport() {
     return { quantity, amount };
   }, [displayedRows]);
 
+  const analyticsRows = useMemo(
+    () =>
+      (displayedRows || []).map((r) => ({
+        date: "",
+        group: r.item_name || "General",
+        value: Number(r.amount) || 0,
+        count: 1,
+      })),
+    [displayedRows]
+  );
+
   const selectedCompany = useMemo(
     () => companies.find((c) => Number(c.id) === Number(companyId)) || null,
     [companies, companyId]
@@ -270,6 +283,16 @@ export default function ExpenseItemReport() {
           >
             <Plus className="w-4 h-4" />
             <span>Add Expense</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!displayedRows.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
           <button
             onClick={handleExportExcel}
@@ -467,6 +490,17 @@ export default function ExpenseItemReport() {
           }}
         />
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Expense Item Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Items"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Calendar, ChevronDown, ChevronRight, Search, Printer, FileSpreadsheet, RefreshCw, AlertCircle, TrendingUp, Layers, ShoppingCart, Percent } from "lucide-react";
+import { BarChart3, Calendar, ChevronDown, ChevronRight, Search, Printer, FileSpreadsheet, RefreshCw, AlertCircle, TrendingUp, Layers, ShoppingCart, Percent } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const PERIODS = [
   { label: "This Month", value: "this_month" },
@@ -141,6 +142,7 @@ export default function ItemCategoryWiseProfitAndLoss() {
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const [periodOpen, setPeriodOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -267,6 +269,17 @@ export default function ItemCategoryWiseProfitAndLoss() {
     return t;
   }, [visible]);
 
+  const analyticsRows = useMemo(
+    () =>
+      (visible || []).map((r) => ({
+        date: "",
+        group: r.name || "General",
+        value: Number(r.net_profit) || 0,
+        count: 1,
+      })),
+    [visible]
+  );
+
   const prettyFrom = startDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const statusLabel = ITEM_STATUSES.find((s) => s.value === itemStatus)?.label || "Active Items";
@@ -383,6 +396,16 @@ export default function ItemCategoryWiseProfitAndLoss() {
           >
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Print</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!visible.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -703,6 +726,16 @@ export default function ItemCategoryWiseProfitAndLoss() {
           }}
         />
       </div>
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Item Category Wise Profit & Loss Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

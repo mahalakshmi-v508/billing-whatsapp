@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  BarChart3,
   Calendar,
   ChevronDown,
   DollarSign,
@@ -16,6 +17,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const PERIODS = ["This Month", "Last Month", "Last 30 Days", "This Year", "All Time"];
 
@@ -92,6 +94,7 @@ export default function TDSReceivable() {
   const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   useEffect(() => {
     const close = (event) => {
@@ -166,6 +169,16 @@ export default function TDSReceivable() {
   const safePage = Math.min(page, totalPages);
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = filteredRows.slice(pagedStart, pagedStart + rowsPerPage);
+
+  const analyticsRows = useMemo(() => {
+    if (!filteredRows.length) return [];
+    return filteredRows.map((row) => ({
+      date: row.date_of_deduction || "",
+      group: row.party_name || row.tax_name || "",
+      value: Number(row.tds_receivable || 0),
+      count: 1,
+    }));
+  }, [filteredRows]);
 
   const exportExcel = () => {
     const data = [
@@ -261,6 +274,15 @@ export default function TDSReceivable() {
           >
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Print</span>
+          </button>
+          <button
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!filteredRows.length}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title="View Analytics"
+          >
+            <BarChart3 className="w-4 h-4 text-indigo-600" />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -557,6 +579,17 @@ export default function TDSReceivable() {
           Total TDS Receivable: <strong className="text-violet-700 ml-1 text-sm">{money(totals.tdsReceivable)}</strong>
         </span>
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="TDS Receivable Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

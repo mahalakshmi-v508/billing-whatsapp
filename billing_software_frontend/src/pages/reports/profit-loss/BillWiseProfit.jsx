@@ -17,11 +17,13 @@ import {
   Percent,
   ArrowUpRight,
   ArrowDownLeft,
+  BarChart3,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -313,6 +315,7 @@ export default function BillWiseProfit() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [detailRow, setDetailRow] = useState(null); // invoice row open in the modal
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -447,6 +450,17 @@ export default function BillWiseProfit() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
+  const analyticsRows = useMemo(
+    () =>
+      (rows || []).map((r) => ({
+        date: r.invoice_date || "",
+        group: r.party || r.invoice_no || "General",
+        value: Number(r.profit) || 0,
+        count: 1,
+      })),
+    [rows]
+  );
+
   /* ── Excel export ── */
   const handleExcel = () => {
     try {
@@ -559,6 +573,16 @@ export default function BillWiseProfit() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!rows.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
+          </button>
           <button
             onClick={handleExcel}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
@@ -968,6 +992,17 @@ export default function BillWiseProfit() {
       </div>
 
       {detailRow && <BillWiseDetailModal row={detailRow} onClose={() => setDetailRow(null)} />}
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Bill-Wise Profit Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Customers"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

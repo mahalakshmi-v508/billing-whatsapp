@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Calendar, ChevronDown, FileSpreadsheet, Percent, Printer, RefreshCw, ShoppingCart, Tag, TrendingUp } from "lucide-react";
+import { AlertCircle, BarChart3, Calendar, ChevronDown, FileSpreadsheet, Percent, Printer, RefreshCw, ShoppingCart, Tag, TrendingUp } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const PERIODS = [
   { label: "This Month", value: "this_month" },
@@ -71,6 +72,7 @@ export default function ItemWiseDiscount() {
   const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
   const periodRef = useRef(null);
@@ -125,6 +127,17 @@ export default function ItemWiseDiscount() {
     }, 0);
     return () => { active = false; clearTimeout(timer); };
   }, [companyId, adminId, startDate, endDate, itemName, categoryId, subcategoryId, reloadKey]);
+
+  const analyticsRows = useMemo(
+    () =>
+      (rows || []).map((r) => ({
+        date: "",
+        group: r.item_name || "General",
+        value: Number(r.total_discount_amount) || 0,
+        count: 1,
+      })),
+    [rows]
+  );
 
   const exportExcel = () => {
     const data = [["Item Wise Discount"], [`Period: ${displayDate(formatDate(startDate))} to ${displayDate(formatDate(endDate))}`], [`Company: ${companyName}`], [], ["#", "ITEM NAME", "TOTAL QTY SOLD", "TOTAL SALE AMOUNT", "TOTAL DISC. AMOUNT", "AVG. DISC. (%)"], ...rows.map((row, index) => [index + 1, row.item_name, row.total_qty_sold, row.total_sale_amount, row.total_discount_amount, row.avg_discount_percent])];
@@ -209,6 +222,16 @@ export default function ItemWiseDiscount() {
           >
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Print</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!rows.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -464,6 +487,16 @@ export default function ItemWiseDiscount() {
           }}
         />
       </div>
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Item Wise Discount Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Items"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

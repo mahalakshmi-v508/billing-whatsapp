@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
-import { AlertCircle, FileSpreadsheet, Printer, RefreshCw, Layers, Package, TrendingUp, Search } from "lucide-react";
+import { AlertCircle, BarChart3, FileSpreadsheet, Printer, RefreshCw, Layers, Package, TrendingUp, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const COLUMNS = [
   { key: "item_category", label: "Item Category", right: false },
@@ -58,6 +59,7 @@ export default function StockSummaryByItemCategory() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   useEffect(() => {
     if (!adminId) return;
@@ -97,6 +99,17 @@ export default function StockSummaryByItemCategory() {
     const q = search.toLowerCase();
     return rows.filter((r) => (r.item_category || "").toLowerCase().includes(q));
   }, [rows, search]);
+
+  const analyticsRows = useMemo(
+    () =>
+      (filteredRows || []).map((r) => ({
+        date: "",
+        group: r.item_category || "General",
+        value: Number(r.stock_value) || 0,
+        count: 1,
+      })),
+    [filteredRows]
+  );
 
   const handleExcel = () => {
     const sheetData = [
@@ -160,6 +173,16 @@ export default function StockSummaryByItemCategory() {
           >
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Print</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!filteredRows.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
           </button>
         </div>
       </div>
@@ -321,6 +344,16 @@ export default function StockSummaryByItemCategory() {
           }}
         />
       </div>
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Stock Summary by Item Category Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

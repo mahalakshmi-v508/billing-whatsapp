@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
@@ -19,11 +19,13 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Wallet,
+  BarChart3,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 /* ─── Styling constants (reuse the app's report theme) ─────────────── */
 const FONT = "'Plus Jakarta Sans', sans-serif";
@@ -149,6 +151,7 @@ export default function DayBook() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [sharingNo, setSharingNo] = useState(null);
   const [shareOpen, setShareOpen] = useState(null);
   const [sharePos, setSharePos] = useState(null);
@@ -335,6 +338,18 @@ export default function DayBook() {
   }, [transactions, colFilters, sortKey, sortDir]);
 
   const displayed = sortedFiltered();
+
+  // Analytics rows (Day Book grouped by transaction type)
+  const analyticsRows = useMemo(
+    () =>
+      displayed.map((t) => ({
+        date: date || "",
+        group: t.type || "General",
+        value: Number(t.total || 0),
+        count: 1,
+      })),
+    [displayed, date]
+  );
 
   const toggleSort = (col) => {
     if (sortKey === col) setSortDir((d) => -d);
@@ -582,6 +597,16 @@ export default function DayBook() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!displayed.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
+          </button>
           <button
             onClick={handleExcel}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
@@ -956,6 +981,18 @@ export default function DayBook() {
             <X size={15} strokeWidth={2.5} />
           </button>
         </div>
+      )}
+
+      {/* ── ANALYTICS VIEW MODAL ── */}
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Day Book Analytics"
+          subtitle={`${displayed.length} transaction(s) • ${date || "All"}`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Types"
+          onClose={() => setAnalyticsOpen(false)}
+        />
       )}
     </div>
   );

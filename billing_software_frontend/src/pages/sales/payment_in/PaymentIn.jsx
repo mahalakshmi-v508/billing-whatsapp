@@ -18,12 +18,14 @@ import {
   Trash2,
   Edit,
   AlertTriangle,
+  BarChart3,
   X,
   RefreshCw,
   TrendingUp,
 } from "lucide-react";
 import AddPaymentInModal from "./AddPaymentInModal";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 export default function PaymentIn() {
   const navigate = useNavigate();
@@ -60,6 +62,9 @@ export default function PaymentIn() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+
+  // Analytics view state
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -248,6 +253,18 @@ export default function PaymentIn() {
     const start = (safePage - 1) * rowsPerPage;
     return filteredPayments.slice(start, start + rowsPerPage);
   }, [filteredPayments, safePage, rowsPerPage]);
+
+  // Analytics rows (Payment-In grouped by payment method)
+  const analyticsRows = useMemo(
+    () =>
+      filteredPayments.map((p) => ({
+        date: p.payment_date || p.created_at || "",
+        group: p.payment_method || "Cash",
+        value: Number(p.paid_amount || p.total_amount || 0),
+        count: 1,
+      })),
+    [filteredPayments]
+  );
 
   // Excel Export
   const handleExportExcel = () => {
@@ -624,6 +641,18 @@ export default function PaymentIn() {
             </button>
           )}
 
+          {/* Analytics */}
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!filteredPayments.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
+          </button>
+
           {/* Excel Export */}
           <button
             onClick={handleExportExcel}
@@ -997,6 +1026,18 @@ export default function PaymentIn() {
             <X size={16} strokeWidth={2.5} />
           </button>
         </div>
+      )}
+
+      {/* ── ANALYTICS VIEW MODAL ── */}
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Payment-In Analytics"
+          subtitle={`${fromDate || "All"} → ${toDate || "All"} • ${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Payment Types"
+          onClose={() => setAnalyticsOpen(false)}
+        />
       )}
     </div>
   );

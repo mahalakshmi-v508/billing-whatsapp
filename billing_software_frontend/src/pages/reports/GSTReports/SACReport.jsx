@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
+  BarChart3,
   FileSpreadsheet,
   Printer,
   RefreshCw,
@@ -9,6 +10,7 @@ import {
 import * as XLSX from "xlsx";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 function auth() {
@@ -613,6 +615,7 @@ export default function SACReport() {
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const hasFallback =
     !loading && !error && sacGroups.length > 0 && sacGroups.some((g) => g.fallback);
@@ -707,6 +710,16 @@ export default function SACReport() {
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = filtered.slice(pagedStart, pagedStart + rowsPerPage);
 
+  const analyticsRows = useMemo(() => {
+    if (!filtered.length) return [];
+    return filtered.map((g) => ({
+      date: "",
+      group: `${g.sac} · ${g.invoiceType}`,
+      value: Number(g.base || 0),
+      count: g.invoicesNo?.size || 1,
+    }));
+  }, [filtered]);
+
   const colSpan = 8;
 
   return (
@@ -792,6 +805,16 @@ export default function SACReport() {
           >
             <Printer size={15} className="text-slate-600" />
             Print
+          </button>
+          <button
+            type="button"
+            title="View Analytics"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!filtered.length}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={15} className="text-indigo-600" />
+            Analytics
           </button>
         </div>
       </div>
@@ -978,6 +1001,17 @@ export default function SACReport() {
           ))}
         </tbody>
       </div>
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="SAC Wise Summary Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

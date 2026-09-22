@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle } from "lucide-react";
+import { ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle, BarChart3 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const INDIGO = "#4338ca";
@@ -146,6 +147,7 @@ export default function ItemWiseProfitAndLoss() {
   const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const [periodOpen, setPeriodOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
@@ -238,6 +240,17 @@ export default function ItemWiseProfitAndLoss() {
 
   const prettyFrom = startDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const prettyTo = endDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  const analyticsRows = useMemo(
+    () =>
+      (rows || []).map((r) => ({
+        date: "",
+        group: r.item_name || "General",
+        value: Number(r.net_profit) || 0,
+        count: 1,
+      })),
+    [rows]
+  );
 
   const metaLabel = `${prettyFrom} to ${prettyTo}${itemsHavingSale ? " (Items Having Sale)" : ""}`;
 
@@ -445,6 +458,16 @@ export default function ItemWiseProfitAndLoss() {
             <Printer size={15} className="text-slate-600" />
             Print
           </button>
+          <button
+            type="button"
+            title="Open Analytics"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!rows.length}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            Analytics
+          </button>
         </div>
       </div>
 
@@ -581,6 +604,16 @@ export default function ItemWiseProfitAndLoss() {
           onRowsPerPageChange={(v) => { setRowsPerPage(v); setPage(1); }}
         />
       </div>
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Item Wise Profit & Loss Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Items"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

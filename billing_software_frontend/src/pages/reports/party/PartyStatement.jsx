@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
+  BarChart3,
   ChevronDown,
   Search,
   Filter,
@@ -30,6 +31,7 @@ import { saveAs } from "file-saver";
 import api from "../../../services/api";
 import { generateInvoicePdfBase64 } from "../../../utils/invoiceShare";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 /* ── Time-period presets ───────────────────────────────────────────── */
@@ -199,6 +201,7 @@ export default function PartyStatement() {
   const [sharePopup, setSharePopup] = useState({ open: false, row: null, position: { top: 0, left: 0 } });
   const [whatsappSending, setWhatsappSending] = useState(false);
   const [menuPopup, setMenuPopup] = useState({ open: false, row: null, position: { top: 0, left: 0 } });
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const periodRef = useRef(null);
   const partyRef = useRef(null);
@@ -357,6 +360,17 @@ export default function PartyStatement() {
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
   const safePage = Math.min(page, totalPages);
   const pagedRows = displayed.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+
+  const analyticsRows = useMemo(
+    () =>
+      (displayed || []).map((r) => ({
+        date: r.date || "",
+        group: summary.party_name || selectedParty?.name || "General",
+        value: Number(r.total) || 0,
+        count: 1,
+      })),
+    [displayed, selectedParty, summary]
+  );
 
   /* ── Print ── */
   const handlePrint = () => {
@@ -726,6 +740,16 @@ export default function PartyStatement() {
             <Printer size={15} />
             <span>Print</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!displayed.length}
+            title="Open Analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={16} />
+            <span>Analytics</span>
+          </button>
         </div>
       </div>
 
@@ -1024,6 +1048,17 @@ export default function PartyStatement() {
           </div>,
           document.body
         )}
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="Party Statement Analytics"
+          subtitle={`${prettyFrom} → ${prettyTo} · ${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Parties"
+          onClose={() => setAnalyticsOpen(false)}
+        />
+      )}
     </div>
   );
 }

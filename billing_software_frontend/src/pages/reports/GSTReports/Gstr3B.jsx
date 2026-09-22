@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import {
+  BarChart3,
   FileJson,
   FileSpreadsheet,
   Printer,
@@ -9,6 +10,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import ReportPagination from "../../../components/reports/ReportPagination";
+import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
 
 /* ─────────────────────────────────────────────────────────────
@@ -575,6 +577,7 @@ export default function Gstr3B() {
   const [s3AvailRowsPerPage, setS3AvailRowsPerPage] = useState(10);
   const [s3IneligPage, setS3IneligPage] = useState(1);
   const [s3IneligRowsPerPage, setS3IneligRowsPerPage] = useState(10);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const tableWrapRef = useRef(null);
 
@@ -984,6 +987,48 @@ export default function Gstr3B() {
       row2: roundAll(row2),
     };
   }, [purchases, suppliersMap, companyStateCode, considerExempt]);
+
+  const analyticsSource = useMemo(() => {
+    const items = [];
+    section1Rows.forEach((r) =>
+      items.push({ group: `Sec-1 ${r.name}`, value: Number(r.value || 0) })
+    );
+    section2Groups.forEach((g) =>
+      items.push({ group: `Sec-2 ${g.pos}`, value: Number(g.taxable || 0) })
+    );
+    section3.available.forEach((r) =>
+      items.push({
+        group: `Sec-3 ${r.name}`,
+        value:
+          Number(r.igst || 0) +
+          Number(r.cgst || 0) +
+          Number(r.sgst || 0) +
+          Number(r.cess || 0),
+      })
+    );
+    section3.ineligible.forEach((r) =>
+      items.push({
+        group: `Sec-3 ${r.name}`,
+        value:
+          Number(r.igst || 0) +
+          Number(r.cgst || 0) +
+          Number(r.sgst || 0) +
+          Number(r.cess || 0),
+      })
+    );
+    return items;
+  }, [section1Rows, section2Groups, section3]);
+
+  const analyticsRows = useMemo(
+    () =>
+      analyticsSource.map((r) => ({
+        date: "",
+        group: r.group,
+        value: Number(r.value || 0),
+        count: 1,
+      })),
+    [analyticsSource]
+  );
 
   /* ───────────────────────────────────────────────────────────
      STYLES
@@ -1593,6 +1638,16 @@ export default function Gstr3B() {
             <Printer size={15} />
             <span>Print</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setAnalyticsOpen(true)}
+            disabled={!selectedCompany}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <BarChart3 size={15} />
+            <span>Analytics</span>
+          </button>
         </div>
       </div>
 
@@ -2068,6 +2123,17 @@ export default function Gstr3B() {
             </table>
           </div>
         </div>
+      )}
+
+      {analyticsOpen && (
+        <ReportAnalyticsView
+          title="GSTR-3B Analytics"
+          subtitle={`${analyticsRows.length} records`}
+          rows={analyticsRows}
+          symbol="₹"
+          groupLabel="Categories"
+          onClose={() => setAnalyticsOpen(false)}
+        />
       )}
     </div>
   );

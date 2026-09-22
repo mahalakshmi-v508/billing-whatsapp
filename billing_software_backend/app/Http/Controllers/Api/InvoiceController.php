@@ -380,16 +380,27 @@ class InvoiceController extends Controller
     public function getAllInvoice(Request $request)
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        $admin_id = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+
+        if (!$company_id && $admin_id > 0) {
+            $company_id = DB::table('companies')->where('admin_id', $admin_id)->pluck('id')->all();
+        }
+
         if (!$company_id) {
             return response()->json(["status" => false, "message" => "company_id required"]);
         }
 
-        $invoices = DB::table('invoices as i')
+        $query = DB::table('invoices as i')
             ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
-            ->select('i.*', 'u.name as cashier_name')
-            ->where('i.company_id', $company_id)
-            ->orderBy('i.id', 'desc')
-            ->get();
+            ->select('i.*', 'u.name as cashier_name');
+
+        if (is_array($company_id)) {
+            $query->whereIn('i.company_id', $company_id);
+        } else {
+            $query->where('i.company_id', $company_id);
+        }
+
+        $invoices = $query->orderBy('i.id', 'desc')->get();
 
         $data = [];
         foreach ($invoices as $row) {
