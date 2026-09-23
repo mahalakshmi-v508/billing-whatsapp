@@ -1315,84 +1315,104 @@ export default function PurchaseForm() {
               </div>
             </div>
 
-            {/* Invoice Summary Card */}
-            <div style={{ background: "#ffffff", padding: "20px", borderRadius: "20px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.01)" }}>
-              <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#1e293b", marginBottom: "15px" }}>Bill Summary</h3>
+            {/* Standardized Purchase Summary Card */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Purchase Summary</span>
+                <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                  INR Currency
+                </span>
+              </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", borderBottom: "1px solid #f1f5f9", paddingBottom: "15px", marginBottom: "15px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#64748b" }}>
-                  <span>Total Items:</span>
-                  <span style={{ fontWeight: "600", color: "#334155" }}>{items.reduce((s, i) => s + i.quantity, 0)}</span>
+              {/* Items Count, Subtotal & GST Total */}
+              <div className="space-y-2.5 text-xs font-semibold text-slate-600">
+                <div className="flex justify-between items-center">
+                  <span>Total Items</span>
+                  <span className="font-bold text-slate-900">{items.reduce((s, i) => s + (Number(i.quantity) || 0), 0)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#64748b" }}>
-                  <span>Subtotal:</span>
-                  <span style={{ fontWeight: "600", color: "#334155" }}>₹{subTotal.toFixed(2)}</span>
+                <div className="flex justify-between items-center">
+                  <span>Subtotal (Purchase Cost)</span>
+                  <span className="font-bold text-slate-900">₹ {subTotal.toFixed(2)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#64748b" }}>
-                  <span>GST Total:</span>
-                  <span style={{ fontWeight: "600", color: "#334155" }}>₹{gstTotal.toFixed(2)}</span>
+                <div className="flex justify-between items-center">
+                  <span>Total Tax (GST)</span>
+                  <span className={`font-bold ${gstTotal > 0 ? "text-emerald-700" : "text-slate-700"}`}>
+                    {gstTotal > 0 ? `+ ₹ ${gstTotal.toFixed(2)}` : "₹ 0.00"}
+                  </span>
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "800", color: "#0f172a", marginBottom: "20px" }}>
-                <span>Grand Total:</span>
-                <span style={{ color: "#10b981" }}>₹{grandTotal.toFixed(2)}</span>
+              {/* Grand Total Hero Box */}
+              <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">Grand Total</span>
+                  <span className="text-2xl font-black tracking-tight">
+                    ₹ {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
+                    Purchase Bill
+                  </span>
+                </div>
               </div>
 
-              {!isLocked && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "5px", marginBottom: "20px" }}>
-                  <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Paid Amount</label>
-                  <input
-                    type="number"
-                    value={paidAmount}
-                    onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                    className="purchase-form-input"
-                  />
+              {/* Settlement: Paid Amount & Remaining Balance */}
+              {!isLocked ? (
+                <div className="pt-2 space-y-2 border-t border-slate-100 text-xs">
+                  <div className="flex justify-between items-center">
+                    <label className="font-bold text-slate-700 uppercase text-[11px]">Paid Amount</label>
+                    <div className="relative w-32">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={paidAmount || ""}
+                        onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full pl-6 pr-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 text-right outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-slate-600">Remaining Balance Due</span>
+                    <span className={`text-xs ${Math.max(0, grandTotal - paidAmount) > 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                      ₹ {Math.max(0, grandTotal - paidAmount).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs font-bold">
+                  <span className="text-slate-600">Paid Amount</span>
+                  <span className="text-slate-900">₹ {Number(paidAmount || 0).toFixed(2)}</span>
                 </div>
               )}
 
               {/* Action Buttons */}
               {!isLocked ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div className="space-y-2 pt-2">
                   <button
+                    type="button"
                     onClick={handleSubmitPurchase}
                     disabled={saving}
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      borderRadius: "12px",
-                      background: "#10b981",
-                      color: "#ffffff",
-                      border: "none",
-                      fontSize: "14px",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      boxShadow: "0 4px 12px rgba(16,185,129,0.15)"
-                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     {saving ? "Processing..." : "Submit to Inventory"}
                   </button>
                   <button
+                    type="button"
                     onClick={handleSaveDraft}
                     disabled={saving}
-                    style={{
-                      width: "100%",
-                      padding: "11px",
-                      borderRadius: "12px",
-                      background: "#ffffff",
-                      color: "#475569",
-                      border: "1.5px solid #cbd5e1",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      cursor: "pointer"
-                    }}
+                    className="w-full py-2 px-4 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer disabled:opacity-50"
                   >
                     Save as Draft
                   </button>
                 </div>
               ) : (
-                <div style={{ padding: "12px", borderRadius: "10px", backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0", color: "#15803d", fontWeight: "700", fontSize: "14px", textAlign: "center" }}>
-                  Bill Submitted to Inventory ✓
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs text-center flex items-center justify-center gap-1.5">
+                  <CheckCircle2 size={14} />
+                  <span>Bill Submitted to Inventory</span>
                 </div>
               )}
             </div>

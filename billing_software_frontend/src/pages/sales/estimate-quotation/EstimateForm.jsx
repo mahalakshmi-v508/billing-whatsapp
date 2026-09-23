@@ -1187,67 +1187,67 @@ export default function EstimateForm() {
           </div>
         </div>
 
-        {/* Right: Financial Reconciliation & Grand Total Billboard (5 Cols) */}
-        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-              <DollarSign size={16} className="text-blue-600" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">Commercial Summary & Valuation</h4>
+        {/* Right: Quotation Summary & Grand Total (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-3.5">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Quotation Summary</span>
+            <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+              INR Currency
+            </span>
+          </div>
+
+          <div className="space-y-2.5 text-xs font-semibold text-slate-600">
+            {/* Gross Subtotal */}
+            <div className="flex justify-between items-center">
+              <span>Subtotal</span>
+              <span className="font-bold text-slate-900">{formatCurrency(totals.subtotal)}</span>
             </div>
 
-            <div className="space-y-3 text-xs">
-              {/* Gross Subtotal */}
-              <div className="flex items-center justify-between text-slate-600">
-                <span className="font-semibold">Gross Line Items Subtotal</span>
-                <span className="font-mono font-bold text-slate-900">{formatCurrency(totals.subtotal)}</span>
-              </div>
-
-              {/* Total Item Discounts */}
-              {totals.discount > 0 && (
-                <div className="flex items-center justify-between text-slate-600">
-                  <span className="font-semibold">Trade Discount</span>
-                  <span className="font-mono font-bold text-red-600">- {formatCurrency(totals.discount)}</span>
-                </div>
-              )}
-
-              {/* Total GST Tax */}
-              <div className="flex items-center justify-between text-slate-600">
-                <span className="font-semibold">Applicable GST Tax</span>
-                <span className="font-mono font-bold text-slate-900">{formatCurrency(totals.tax)}</span>
-              </div>
-
-              {/* Round Off Switch */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(activeTab?.roundOffEnabled)}
-                    onChange={(e) => updateActiveTab({ roundOffEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded text-blue-600 cursor-pointer accent-blue-600"
-                  />
-                  <span className="font-bold text-slate-700">Auto Round-Off</span>
-                </label>
-                <span className="font-mono text-xs font-semibold text-slate-600">
-                  {totals.roundOffValue !== 0 ? (totals.roundOffValue > 0 ? `+₹${totals.roundOffValue}` : `-₹${Math.abs(totals.roundOffValue)}`) : "₹0.00"}
-                </span>
-              </div>
+            {/* Total Item Discounts */}
+            <div className="flex justify-between items-center">
+              <span>Total Discount</span>
+              <span className={`font-bold ${totals.discount > 0 ? "text-rose-600" : "text-slate-700"}`}>
+                {totals.discount > 0 ? `- ${formatCurrency(totals.discount)}` : "₹0.00"}
+              </span>
             </div>
+
+            {/* Total GST Tax */}
+            <div className="flex justify-between items-center">
+              <span>Total Tax (GST)</span>
+              <span className={`font-bold ${totals.tax > 0 ? "text-emerald-700" : "text-slate-700"}`}>
+                {totals.tax > 0 ? `+ ${formatCurrency(totals.tax)}` : "₹0.00"}
+              </span>
+            </div>
+
+            {/* Round Off Switch */}
+            {/* <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(activeTab?.roundOffEnabled)}
+                  onChange={(e) => updateActiveTab({ roundOffEnabled: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600 cursor-pointer accent-blue-600"
+                />
+                <span className="font-bold text-slate-700">Auto Round-Off</span>
+              </label>
+              <span className="text-xs font-semibold text-slate-600">
+                {totals.roundOffValue !== 0 ? (totals.roundOffValue > 0 ? `+₹${totals.roundOffValue}` : `-₹${Math.abs(totals.roundOffValue)}`) : "₹0.00"}
+              </span>
+            </div> */}
           </div>
 
           {/* Grand Total Hero Banner */}
-          <div className="mt-6 pt-4 border-t border-slate-100">
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-5 text-white shadow-lg shadow-blue-500/20">
-              <div className="flex items-center justify-between text-blue-100 text-[11px] font-bold uppercase tracking-wider mb-1">
-                <span>Quotation Grand Total</span>
-                <span className="px-2 py-0.5 rounded bg-white/15 text-white font-mono text-[10px]">INR Net</span>
-              </div>
-              <div className="text-3xl font-black font-mono tracking-tight text-white">
+          <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
+            <div>
+              <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">Estimated Total</span>
+              <span className="text-2xl font-black tracking-tight">
                 {formatCurrency(totals.grandTotal)}
-              </div>
-              <div className="mt-2 text-[11px] text-blue-100/80 flex items-center gap-1.5">
-                <Sparkles size={12} className="text-amber-300" />
-                <span>Inclusive of taxes and round-off settlement</span>
-              </div>
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
+                Quotation Net
+              </span>
             </div>
           </div>
         </div>

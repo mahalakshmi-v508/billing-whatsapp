@@ -1458,7 +1458,7 @@ export default function AddDebitNote() {
           {/* Left: Refund Mode & Reason / Notes (7 Cols) */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
                 3
               </div>
               <h2 className="text-sm font-bold text-slate-900">Refund Settlement & Reason</h2>
@@ -1483,7 +1483,7 @@ export default function AddDebitNote() {
                       onClick={() => updateActiveTab({ paymentType: type.value })}
                       className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                         isSelected
-                          ? "bg-rose-600 text-white border-rose-600 shadow-xs shadow-rose-600/20"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs shadow-blue-600/20"
                           : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
                       }`}
                     >
@@ -1502,7 +1502,7 @@ export default function AddDebitNote() {
                   <button
                     type="button"
                     onClick={() => updateActiveTab({ showDescription: true })}
-                    className="text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
+                    className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
                   >
                     + Add Reason
                   </button>
@@ -1515,7 +1515,7 @@ export default function AddDebitNote() {
                   placeholder="e.g. Defective batch received, wrong part number delivered, overcharged rate adjustment..."
                   value={activeTab.description}
                   onChange={(e) => updateActiveTab({ description: e.target.value })}
-                  className="w-full p-3 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-medium text-slate-900 transition-all outline-hidden resize-none"
+                  className="w-full p-3 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs font-medium text-slate-900 transition-all outline-hidden resize-none"
                 />
               ) : (
                 <div
@@ -1529,28 +1529,31 @@ export default function AddDebitNote() {
           </div>
 
           {/* Right: Tax Breakdown & Hero Grand Total (5 Cols) */}
-          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-900 pb-3 border-b border-slate-100">
-              Return Value Summary
-            </h2>
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Debit Note Summary</span>
+              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                INR Currency
+              </span>
+            </div>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between text-slate-600 font-medium">
-                <span>Taxable Return Value</span>
+            <div className="space-y-2.5 text-xs font-semibold text-slate-600">
+              <div className="flex justify-between items-center">
+                <span>Return Base Subtotal</span>
                 <span className="font-bold text-slate-900">₹ {fmtCurrency(calculatedTotal - totalTax + totalDiscount)}</span>
               </div>
 
               {totalDiscount > 0 && (
-                <div className="flex items-center justify-between text-amber-600 font-medium">
+                <div className="flex justify-between items-center">
                   <span>Total Discount</span>
-                  <span className="font-bold">-₹ {fmtCurrency(totalDiscount)}</span>
+                  <span className="font-bold text-rose-600">- ₹ {fmtCurrency(totalDiscount)}</span>
                 </div>
               )}
 
               {totalTax > 0 && (
-                <div className="flex items-center justify-between text-rose-600 font-medium">
+                <div className="flex justify-between items-center">
                   <span>Total GST Return Tax</span>
-                  <span className="font-bold">+₹ {fmtCurrency(totalTax)}</span>
+                  <span className="font-bold text-emerald-700">+ ₹ {fmtCurrency(totalTax)}</span>
                 </div>
               )}
 
@@ -1561,7 +1564,7 @@ export default function AddDebitNote() {
                     type="checkbox"
                     checked={activeTab.roundOffEnabled}
                     onChange={(e) => updateActiveTab({ roundOffEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                   />
                   <span>Auto Round Off</span>
                 </label>
@@ -1572,18 +1575,20 @@ export default function AddDebitNote() {
             </div>
 
             {/* Hero Total Box */}
-            <div className="bg-gradient-to-br from-rose-600 via-rose-700 to-red-700 rounded-2xl p-5 text-white shadow-lg shadow-rose-600/25">
-              <span className="text-xs uppercase tracking-wider font-extrabold text-rose-200 block mb-1">
-                Total Refund / Credit Value
-              </span>
-              <div className="text-2xl sm:text-3xl font-black tracking-tight">
-                ₹ {fmtCurrency(grandTotal)}
+            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
+              <div>
+                <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">
+                  Total Debit Value
+                </span>
+                <div className="text-2xl font-black tracking-tight">
+                  ₹ {fmtCurrency(grandTotal)}
+                </div>
               </div>
-              <p className="text-[11px] text-rose-100/80 mt-1">
-                {activeTab.paymentType === "Credit"
-                  ? "Will reduce supplier outstanding payable ledger"
-                  : `Will be refunded to business via ${activeTab.paymentType}`}
-              </p>
+              <div className="text-right">
+                <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
+                  Debit Note
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1608,7 +1613,7 @@ export default function AddDebitNote() {
               type="button"
               onClick={handleSaveDebitNote}
               disabled={saving}
-              className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-extrabold text-xs shadow-md shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50"
             >
               {saving ? (
                 <>
@@ -1623,7 +1628,6 @@ export default function AddDebitNote() {
               )}
             </button>
           </div>
-
         </div>
       </footer>
 

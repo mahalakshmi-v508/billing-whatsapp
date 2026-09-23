@@ -104,7 +104,7 @@ function CloseConfirmModal({ isOpen, onCancel, onConfirm }) {
           <button
             type="button"
             onClick={onConfirm}
-            className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/25 transition cursor-pointer"
+            className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer"
           >
             OK, Discard
           </button>
@@ -1041,14 +1041,14 @@ export default function AddExpense() {
           {/* Right 5 Cols: Financial Intelligence Summary Card */}
           <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3.5">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <span className="text-xs font-black text-slate-800 uppercase tracking-wider">Expense Total</span>
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Expense Summary</span>
               <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
                 INR Currency
               </span>
             </div>
 
             {/* Subtotal & Taxes */}
-            <div className="space-y-2 text-xs font-semibold text-slate-600">
+            <div className="space-y-2.5 text-xs font-semibold text-slate-600">
               <div className="flex justify-between items-center">
                 <span>Subtotal</span>
                 <span className="font-bold text-slate-900">₹ {fmtCurrency(subTotal)}</span>
@@ -1067,24 +1067,24 @@ export default function AddExpense() {
                     type="checkbox"
                     checked={activeTab.roundOffEnabled}
                     onChange={(e) => updateActiveTab({ roundOffEnabled: e.target.checked })}
-                    className="cursor-pointer"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                   />
-                  <span>Round Off</span>
+                  <span>Auto Round Off</span>
                 </label>
-                <span className="font-mono text-slate-500 text-xs">
-                  {roundOffVal ? (roundOffVal > 0 ? `+${roundOffVal.toFixed(2)}` : roundOffVal.toFixed(2)) : "0.00"}
+                <span className="text-slate-600 font-bold text-xs">
+                  {roundOffVal ? (roundOffVal > 0 ? `+₹${roundOffVal.toFixed(2)}` : `-₹${Math.abs(roundOffVal).toFixed(2)}`) : "₹0.00"}
                 </span>
               </div>
             </div>
 
             {/* Grand Total Hero Box */}
-            <div className="bg-gradient-to-tr from-rose-600 to-amber-600 rounded-2xl p-4 text-white shadow-md shadow-rose-500/20 flex justify-between items-center">
+            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
               <div>
-                <span className="text-[11px] font-bold text-rose-100 uppercase tracking-wider block">Total Expense</span>
+                <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">Total Expense</span>
                 <span className="text-2xl font-black tracking-tight">₹ {fmtCurrency(grandTotal)}</span>
               </div>
               <div className="text-right">
-                <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-extrabold uppercase">
+                <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
                   Disbursed
                 </span>
               </div>
@@ -1113,7 +1113,7 @@ export default function AddExpense() {
             type="button"
             onClick={handleSaveExpense}
             disabled={saving}
-            className="flex items-center gap-2 px-8 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-rose-500/25 transition active:scale-95 cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 px-8 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm shadow-blue-500/20 transition active:scale-95 cursor-pointer disabled:opacity-50"
           >
             <Save size={15} />
             <span>{saving ? "Saving..." : "Save Expense"}</span>

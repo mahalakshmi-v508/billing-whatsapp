@@ -377,13 +377,7 @@ export default function AddCreditNote() {
       totalQty += parseFloat(r.qty) || 0;
     });
 
-    const netBeforeBottom = sub - disc + tax;
-    let bottomDisc = parseFloat(activeTab.bottomDiscountAmt) || 0;
-    if (parseFloat(activeTab.bottomDiscountPct) > 0) {
-      bottomDisc = (netBeforeBottom * parseFloat(activeTab.bottomDiscountPct)) / 100;
-    }
-
-    const grandTotal = Math.max(0, netBeforeBottom - bottomDisc);
+    const grandTotal = Math.max(0, sub - disc + tax);
 
     const paidAmt = activeTab.paidAmountEnabled
       ? (activeTab.paidAmount !== "" ? parseFloat(activeTab.paidAmount) : grandTotal)
@@ -392,7 +386,7 @@ export default function AddCreditNote() {
 
     return {
       subtotal: sub,
-      discount: disc + bottomDisc,
+      discount: disc,
       tax: tax,
       totalQty,
       grandTotal: Math.round(grandTotal),
@@ -1229,63 +1223,63 @@ export default function AddCreditNote() {
           </div>
         </div>
 
-        {/* Right: Financial Reconciliation & Grand Total Billboard (5 Cols) */}
-        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-              <DollarSign size={16} className="text-amber-600" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">Return Financial Valuation</h4>
+        {/* Right: Credit Note Summary & Grand Total (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-3.5">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Credit Note Summary</span>
+            <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+              INR Currency
+            </span>
+          </div>
+
+          <div className="space-y-2.5 text-xs font-semibold text-slate-600">
+            {/* Gross Subtotal */}
+            <div className="flex justify-between items-center">
+              <span>Gross Returned Subtotal</span>
+              <span className="font-bold text-slate-900">{formatCurrency(totals.subtotal)}</span>
             </div>
 
-            <div className="space-y-3 text-xs">
-              {/* Gross Subtotal */}
-              <div className="flex items-center justify-between text-slate-600">
-                <span className="font-semibold">Gross Returned Subtotal</span>
-                <span className="font-mono font-bold text-slate-900">{formatCurrency(totals.subtotal)}</span>
+            {/* Total Discounts */}
+            <div className="flex justify-between items-center">
+              <span>Discount Reversal</span>
+              <span className={`font-bold ${totals.discount > 0 ? "text-rose-600" : "text-slate-700"}`}>
+                {totals.discount > 0 ? `- ${formatCurrency(totals.discount)}` : "₹0.00"}
+              </span>
+            </div>
+
+            {/* Total GST Tax */}
+            <div className="flex justify-between items-center">
+              <span>GST Tax Reversal</span>
+              <span className={`font-bold ${totals.tax > 0 ? "text-emerald-700" : "text-slate-700"}`}>
+                {totals.tax > 0 ? `+ ${formatCurrency(totals.tax)}` : "₹0.00"}
+              </span>
+            </div>
+
+            {/* Refund vs Balance breakdown */}
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              <div className="flex justify-between items-center">
+                <span>Refunded on Spot</span>
+                <span className="font-bold text-emerald-700">{formatCurrency(totals.paidAmount)}</span>
               </div>
-
-              {/* Total Discounts */}
-              {totals.discount > 0 && (
-                <div className="flex items-center justify-between text-slate-600">
-                  <span className="font-semibold">Discount Reversal</span>
-                  <span className="font-mono font-bold text-red-600">- {formatCurrency(totals.discount)}</span>
-                </div>
-              )}
-
-              {/* Total GST Tax */}
-              <div className="flex items-center justify-between text-slate-600">
-                <span className="font-semibold">Input GST Reversal</span>
-                <span className="font-mono font-bold text-slate-900">{formatCurrency(totals.tax)}</span>
-              </div>
-
-              {/* Refund vs Balance breakdown */}
-              <div className="pt-2 border-t border-slate-100 space-y-2">
-                <div className="flex items-center justify-between text-slate-600">
-                  <span className="font-semibold">Refunded on Spot</span>
-                  <span className="font-mono font-bold text-emerald-600">{formatCurrency(totals.paidAmount)}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-600">
-                  <span className="font-semibold">Unpaid / Added to Ledger</span>
-                  <span className="font-mono font-bold text-blue-700">{formatCurrency(totals.balance)}</span>
-                </div>
+              <div className="flex justify-between items-center">
+                <span>Unpaid / Added to Ledger</span>
+                <span className="font-bold text-blue-700">{formatCurrency(totals.balance)}</span>
               </div>
             </div>
           </div>
 
           {/* Grand Total Hero Banner */}
-          <div className="mt-6 pt-4 border-t border-slate-100">
-            <div className="bg-gradient-to-br from-amber-600 to-amber-700 rounded-2xl p-5 text-white shadow-lg shadow-amber-600/20">
-              <div className="flex items-center justify-between text-amber-100 text-[11px] font-bold uppercase tracking-wider mb-1">
-                <span>Credit Note Total Valuation</span>
-                <span className="px-2 py-0.5 rounded bg-white/15 text-white font-mono text-[10px]">Net Return</span>
-              </div>
-              <div className="text-3xl font-black font-mono tracking-tight text-white">
+          <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
+            <div>
+              <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">Net Credit Note</span>
+              <span className="text-2xl font-black tracking-tight">
                 {formatCurrency(totals.grandTotal)}
-              </div>
-              <div className="mt-2 text-[11px] text-amber-100/90 flex items-center gap-1.5">
-                <Sparkles size={12} className="text-amber-200" />
-                <span>Reverses customer invoice liability and updates inventory</span>
-              </div>
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
+                Credit Note
+              </span>
             </div>
           </div>
         </div>
