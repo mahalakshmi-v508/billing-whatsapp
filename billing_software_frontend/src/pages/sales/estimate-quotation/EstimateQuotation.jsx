@@ -51,7 +51,7 @@ const PERIOD_LABELS = {
 export default function EstimateQuotation() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
-  const adminId = user?.role === "admin" ? user?.id : user?.admin_id;
+  const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
   const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
 
   // Table Column Customization Hook

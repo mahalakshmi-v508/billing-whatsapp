@@ -56,9 +56,9 @@ export default function PurchaseSubmenuView({ title = "Purchase Document", type 
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/purchases/new")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-blue-500/20 transition transform active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
-            <Plus size={18} />
+            <Plus size={16} strokeWidth={2.8} />
             <span>{defaultMeta.btnText}</span>
           </button>
         </div>

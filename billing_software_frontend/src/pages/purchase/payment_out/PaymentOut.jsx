@@ -28,11 +28,36 @@ import {
 } from "lucide-react";
 import AddPaymentOutModal from "./AddPaymentOutModal";
 import TableActions from "../../../components/ui/TableActions";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import { useTableColumns } from "../../../hooks/useTableColumns";
+
+const DEFAULT_PAYMENT_OUT_COLUMNS = [
+  { id: "date", label: "Date", defaultVisible: true },
+  { id: "ref_no", label: "Ref No.", defaultVisible: true },
+  { id: "party_name", label: "Party Name", defaultVisible: true, fixed: true },
+  { id: "payment_type", label: "Payment Type", defaultVisible: true },
+  { id: "total_amount", label: "Total Amount", defaultVisible: true },
+  { id: "paid_amount", label: "Paid Amount", defaultVisible: true },
+  { id: "balance", label: "Balance", defaultVisible: true },
+  { id: "actions", label: "Actions", defaultVisible: true, fixed: true },
+];
 
 export default function PaymentOut() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+
+  const {
+    columns: tableColumns,
+    isOpen: isSettingsOpen,
+    openSettings,
+    closeSettings,
+    toggleColumn,
+    resetColumns,
+    isColumnVisible,
+    visibleColumnCount
+  } = useTableColumns(DEFAULT_PAYMENT_OUT_COLUMNS, "payment_out_table_columns_v1");
 
   // Data states
   const [payments, setPayments] = useState([]);
@@ -325,9 +350,9 @@ export default function PaymentOut() {
               setEditingPayment(null);
               setIsAddModalOpen(true);
             }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-purple-200 transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
-            <Plus size={16} strokeWidth={2.6} />
+            <Plus size={16} strokeWidth={2.8} />
             <span>Add Payment-Out</span>
           </button>
         </div>
@@ -683,6 +708,8 @@ export default function PaymentOut() {
           >
             <Printer size={15} />
           </button>
+
+          <HeaderSettingsButton onClick={openSettings} variant="table" />
         </div>
       </div>
 
@@ -692,20 +719,20 @@ export default function PaymentOut() {
           <table className="w-full text-left text-xs text-slate-700 min-w-max">
             <thead>
               <tr className="bg-slate-50/60 border-b border-slate-200/80 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                <th className="py-3.5 px-4 font-bold">Date</th>
-                <th className="py-3.5 px-4 font-bold">Ref No.</th>
-                <th className="py-3.5 px-4 font-bold">Party Name</th>
-                <th className="py-3.5 px-4 font-bold">Payment Type</th>
-                <th className="py-3.5 px-4 font-bold text-right">Total Amount</th>
-                <th className="py-3.5 px-4 font-bold text-right">Paid Amount</th>
-                <th className="py-3.5 px-4 font-bold text-right">Balance</th>
+                {isColumnVisible("date") && <th className="py-3.5 px-4 font-bold">Date</th>}
+                {isColumnVisible("ref_no") && <th className="py-3.5 px-4 font-bold">Ref No.</th>}
+                {isColumnVisible("party_name") && <th className="py-3.5 px-4 font-bold">Party Name</th>}
+                {isColumnVisible("payment_type") && <th className="py-3.5 px-4 font-bold">Payment Type</th>}
+                {isColumnVisible("total_amount") && <th className="py-3.5 px-4 font-bold text-right">Total Amount</th>}
+                {isColumnVisible("paid_amount") && <th className="py-3.5 px-4 font-bold text-right">Paid Amount</th>}
+                {isColumnVisible("balance") && <th className="py-3.5 px-4 font-bold text-right">Balance</th>}
                 <th className="py-3.5 px-4 font-bold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 8} className="py-16 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw size={24} className="animate-spin text-purple-600" />
                       <span className="text-xs font-semibold">Loading payment-out vouchers...</span>
@@ -714,7 +741,7 @@ export default function PaymentOut() {
                 </tr>
               ) : paginatedPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 8} className="py-16 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-1.5">
                       <Wallet size={32} className="text-slate-300" />
                       <span className="text-sm font-bold text-slate-700 mt-2">No Payment-Out records found</span>
@@ -732,65 +759,79 @@ export default function PaymentOut() {
                   return (
                     <tr key={p.id} className="hover:bg-purple-50/20 transition-colors">
                       {/* Date */}
-                      <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
-                        {formatDateDMY(p.payment_date)}
-                      </td>
+                      {isColumnVisible("date") && (
+                        <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
+                          {formatDateDMY(p.payment_date)}
+                        </td>
+                      )}
 
                       {/* Ref No */}
-                      <td className="py-3.5 px-4 font-mono font-bold text-purple-600 whitespace-nowrap">
-                        {p.receipt_no || `PAY-${p.id}`}
-                      </td>
+                      {isColumnVisible("ref_no") && (
+                        <td className="py-3.5 px-4 font-mono font-bold text-purple-600 whitespace-nowrap">
+                          {p.receipt_no || `PAY-${p.id}`}
+                        </td>
+                      )}
 
                       {/* Party Name with Avatar */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
-                            {(p.supplier_name || "P").charAt(0).toUpperCase()}
+                      {isColumnVisible("party_name") && (
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                              {(p.supplier_name || "P").charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <span className="font-bold text-slate-900 block">{p.supplier_name || "Unknown Party"}</span>
+                              {p.notes && <span className="text-[11px] text-slate-400 truncate block max-w-xs">{p.notes}</span>}
+                            </div>
                           </div>
-                          <div>
-                            <span className="font-bold text-slate-900 block">{p.supplier_name || "Unknown Party"}</span>
-                            {p.notes && <span className="text-[11px] text-slate-400 truncate block max-w-xs">{p.notes}</span>}
-                          </div>
-                        </div>
-                      </td>
+                        </td>
+                      )}
 
                       {/* Payment Type Badge */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            paymentMethod === "CASH"
-                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                              : paymentMethod === "UPI"
-                              ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
-                              : paymentMethod === "CHEQUE"
-                              ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                              : "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
-                          }`}
-                        >
-                          {paymentMethod}
-                        </span>
-                      </td>
+                      {isColumnVisible("payment_type") && (
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              paymentMethod === "CASH"
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : paymentMethod === "UPI"
+                                ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
+                                : paymentMethod === "CHEQUE"
+                                ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                : "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
+                            }`}
+                          >
+                            {paymentMethod}
+                          </span>
+                        </td>
+                      )}
 
                       {/* Total Amount */}
-                      <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
-                        ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </td>
+                      {isColumnVisible("total_amount") && (
+                        <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                          ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                      )}
 
                       {/* Paid Amount */}
-                      <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
-                        ₹ {paid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </td>
+                      {isColumnVisible("paid_amount") && (
+                        <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
+                          ₹ {paid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                      )}
 
                       {/* Balance */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black ${
-                            bal <= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                          }`}
-                        >
-                          ₹ {bal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </span>
-                      </td>
+                      {isColumnVisible("balance") && (
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black ${
+                              bal <= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                            }`}
+                          >
+                            ₹ {bal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        </td>
+                      )}
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -939,6 +980,16 @@ export default function PaymentOut() {
           fetchPaymentOuts();
         }}
         editPayment={editingPayment}
+      />
+
+      {/* ── 9. TABLE COLUMN CUSTOMIZATION DRAWER ── */}
+      <CommonTableColumnSettings
+        isOpen={isSettingsOpen}
+        onClose={closeSettings}
+        columns={tableColumns}
+        onToggleColumn={toggleColumn}
+        onResetColumns={resetColumns}
+        title="Customize Payment-Out Columns"
       />
     </div>
   );

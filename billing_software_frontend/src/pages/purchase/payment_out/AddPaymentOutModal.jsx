@@ -516,7 +516,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
             type="button"
             onClick={handleSavePaymentOut}
             disabled={saving}
-            className="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
           >
             {saving ? "Recording..." : "Save Payment"}
           </button>

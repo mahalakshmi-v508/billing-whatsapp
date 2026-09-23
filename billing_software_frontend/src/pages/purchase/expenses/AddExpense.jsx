@@ -25,6 +25,19 @@ import {
   AlertCircle,
   CheckCircle2
 } from "lucide-react";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import { useTableColumns } from "../../../hooks/useTableColumns";
+
+const DEFAULT_ADD_EXPENSE_ITEM_COLUMNS = [
+  { id: "seq", label: "#", defaultVisible: true },
+  { id: "item_name", label: "Item Name / Description", defaultVisible: true, fixed: true },
+  { id: "qty", label: "Qty", defaultVisible: true },
+  { id: "price", label: "Price / Rate", defaultVisible: true },
+  { id: "tax_rate", label: "GST Tax Rate", defaultVisible: true },
+  { id: "amount", label: "Amount", defaultVisible: true },
+  { id: "action", label: "Action", defaultVisible: true, fixed: true },
+];
 
 const gstSlabs = [
   { label: "Select", value: 0 },
@@ -185,6 +198,16 @@ export default function AddExpense() {
   const [existingCount, setExistingCount] = useState(0);
   const [tabs, setTabs] = useState([createNewExpenseTab(1, 1)]);
   const [activeTabId, setActiveTabId] = useState(1);
+
+  const {
+    columns: tableColumns,
+    isOpen: isSettingsOpen,
+    openSettings,
+    closeSettings,
+    toggleColumn,
+    resetColumns,
+    isColumnVisible,
+  } = useTableColumns(DEFAULT_ADD_EXPENSE_ITEM_COLUMNS, "add_expense_item_columns_v1");
 
   const [categories, setCategories] = useState([]);
   const [expenseItemsCatalog, setExpenseItemsCatalog] = useState([]);
@@ -806,9 +829,12 @@ export default function AddExpense() {
               </span>
             </div>
 
-            <span className="text-[11px] font-bold text-slate-500">
-              Specify overhead details, quantities, rates and taxes
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-bold text-slate-500 hidden sm:inline">
+                Specify overhead details, quantities, rates and taxes
+              </span>
+              <HeaderSettingsButton onClick={openSettings} variant="table" />
+            </div>
           </div>
 
           {/* Table */}
@@ -816,14 +842,14 @@ export default function AddExpense() {
             <table className="w-full text-left text-xs border-collapse min-w-[880px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/50 font-extrabold text-slate-500 text-[11px] uppercase tracking-wider">
-                  <th className="py-3 px-3 text-center border-r border-slate-200/70 w-10">#</th>
-                  <th className="py-3 px-4 border-r border-slate-200/70">Item Name / Service Description</th>
-                  <th className="py-3 px-3 text-center border-r border-slate-200/70 w-24">Qty</th>
-                  <th className="py-3 px-3 text-center border-r border-slate-200/70 w-32">Price / Rate (₹)</th>
-                  {activeTab.isGst && (
+                  {isColumnVisible("seq") && <th className="py-3 px-3 text-center border-r border-slate-200/70 w-10">#</th>}
+                  {isColumnVisible("item_name") && <th className="py-3 px-4 border-r border-slate-200/70">Item Name / Service Description</th>}
+                  {isColumnVisible("qty") && <th className="py-3 px-3 text-center border-r border-slate-200/70 w-24">Qty</th>}
+                  {isColumnVisible("price") && <th className="py-3 px-3 text-center border-r border-slate-200/70 w-32">Price / Rate (₹)</th>}
+                  {activeTab.isGst && isColumnVisible("tax_rate") && (
                     <th className="py-3 px-3 text-center border-r border-slate-200/70 w-36">GST Tax Rate</th>
                   )}
-                  <th className="py-3 px-4 text-right border-r border-slate-200/70 w-32">Amount</th>
+                  {isColumnVisible("amount") && <th className="py-3 px-4 text-right border-r border-slate-200/70 w-32">Amount</th>}
                   <th className="py-3 px-3 text-center w-12">Action</th>
                 </tr>
               </thead>
@@ -833,93 +859,101 @@ export default function AddExpense() {
                   <tr key={row.id || idx} className="group hover:bg-amber-50/20 transition-colors">
                     
                     {/* Index */}
-                    <td className="py-2.5 px-3 text-center border-r border-slate-200/70 text-slate-400 font-bold">
-                      {idx + 1}
-                    </td>
+                    {isColumnVisible("seq") && (
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200/70 text-slate-400 font-bold">
+                        {idx + 1}
+                      </td>
+                    )}
 
                     {/* Item Name Input with Autocomplete */}
-                    <td className="py-2 px-3 border-r border-slate-200/70 relative">
-                      <input
-                        type="text"
-                        placeholder="Search item from catalog or enter name..."
-                        value={row.item_name}
-                        onChange={(e) => {
-                          handleRowChange(idx, "item_name", e.target.value);
-                          setActiveItemSearchIndex(idx);
-                        }}
-                        onClick={() => setActiveItemSearchIndex(idx)}
-                        onFocus={() => setActiveItemSearchIndex(idx)}
-                        className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-amber-500 transition"
-                      />
-
-                      {/* + Add Expense Item Quick Trigger */}
-                      <div className="mt-1 flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModalTargetRowIndex(idx);
-                            setModalInitialItemName(row.item_name || "");
-                            setShowAddItemModal(true);
+                    {isColumnVisible("item_name") && (
+                      <td className="py-2 px-3 border-r border-slate-200/70 relative">
+                        <input
+                          type="text"
+                          placeholder="Search item from catalog or enter name..."
+                          value={row.item_name}
+                          onChange={(e) => {
+                            handleRowChange(idx, "item_name", e.target.value);
+                            setActiveItemSearchIndex(idx);
                           }}
-                          className="text-[11px] font-bold text-amber-700 hover:text-amber-800 inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <Plus size={12} strokeWidth={2.5} />
-                          <span>Add to Catalog</span>
-                        </button>
-                      </div>
+                          onClick={() => setActiveItemSearchIndex(idx)}
+                          onFocus={() => setActiveItemSearchIndex(idx)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-amber-500 transition"
+                        />
 
-                      {/* Autocomplete suggestions */}
-                      {activeItemSearchIndex === idx && (
-                        <div
-                          ref={itemSuggestRef}
-                          className="absolute left-3 top-full mt-1 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1"
-                        >
-                          {expenseItemsCatalog
-                            .filter((item) =>
-                              (item.item_name || "").toLowerCase().includes((row.item_name || "").toLowerCase())
-                            )
-                            .map((item) => (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => handleSelectItem(idx, item)}
-                                className="w-full text-left px-3 py-2 hover:bg-amber-50 border-b border-slate-50 flex items-center justify-between cursor-pointer"
-                              >
-                                <span className="font-bold text-xs text-slate-900">{item.item_name}</span>
-                                <span className="font-extrabold text-xs text-amber-700">₹{item.price}</span>
-                              </button>
-                            ))}
+                        {/* + Add Expense Item Quick Trigger */}
+                        <div className="mt-1 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalTargetRowIndex(idx);
+                              setModalInitialItemName(row.item_name || "");
+                              setShowAddItemModal(true);
+                            }}
+                            className="text-[11px] font-bold text-amber-700 hover:text-amber-800 inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus size={12} strokeWidth={2.5} />
+                            <span>Add to Catalog</span>
+                          </button>
                         </div>
-                      )}
-                    </td>
+
+                        {/* Autocomplete suggestions */}
+                        {activeItemSearchIndex === idx && (
+                          <div
+                            ref={itemSuggestRef}
+                            className="absolute left-3 top-full mt-1 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1"
+                          >
+                            {expenseItemsCatalog
+                              .filter((item) =>
+                                (item.item_name || "").toLowerCase().includes((row.item_name || "").toLowerCase())
+                              )
+                              .map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => handleSelectItem(idx, item)}
+                                  className="w-full text-left px-3 py-2 hover:bg-amber-50 border-b border-slate-50 flex items-center justify-between cursor-pointer"
+                                >
+                                  <span className="font-bold text-xs text-slate-900">{item.item_name}</span>
+                                  <span className="font-extrabold text-xs text-amber-700">₹{item.price}</span>
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </td>
+                    )}
 
                     {/* Qty */}
-                    <td className="py-2 px-2 border-r border-slate-200/70 text-center">
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="1"
-                        value={row.qty}
-                        onChange={(e) => handleRowChange(idx, "qty", e.target.value)}
-                        className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-amber-500 transition"
-                      />
-                    </td>
+                    {isColumnVisible("qty") && (
+                      <td className="py-2 px-2 border-r border-slate-200/70 text-center">
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="1"
+                          value={row.qty}
+                          onChange={(e) => handleRowChange(idx, "qty", e.target.value)}
+                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-amber-500 transition"
+                        />
+                      </td>
+                    )}
 
                     {/* Price */}
-                    <td className="py-2 px-2 border-r border-slate-200/70 text-center">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={row.price}
-                        onChange={(e) => handleRowChange(idx, "price", e.target.value)}
-                        className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-amber-500 transition"
-                      />
-                    </td>
+                    {isColumnVisible("price") && (
+                      <td className="py-2 px-2 border-r border-slate-200/70 text-center">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={row.price}
+                          onChange={(e) => handleRowChange(idx, "price", e.target.value)}
+                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-amber-500 transition"
+                        />
+                      </td>
+                    )}
 
                     {/* Tax (if GST enabled) */}
-                    {activeTab.isGst && (
+                    {activeTab.isGst && isColumnVisible("tax_rate") && (
                       <td className="py-2 px-2 border-r border-slate-200/70">
                         <div className="grid grid-cols-2 gap-1 items-center">
                           <select
@@ -939,9 +973,11 @@ export default function AddExpense() {
                     )}
 
                     {/* Amount */}
-                    <td className="py-2.5 px-4 text-right border-r border-slate-200/70 font-black text-slate-900 text-xs">
-                      ₹ {fmtCurrency(row.amount)}
-                    </td>
+                    {isColumnVisible("amount") && (
+                      <td className="py-2.5 px-4 text-right border-r border-slate-200/70 font-black text-slate-900 text-xs">
+                        ₹ {fmtCurrency(row.amount)}
+                      </td>
+                    )}
 
                     {/* Delete */}
                     <td className="py-2 px-2 text-center">
@@ -962,7 +998,7 @@ export default function AddExpense() {
               {/* Table Footer Summary Bar */}
               <tfoot>
                 <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-black text-slate-800 text-xs">
-                  <td colSpan={2} className="py-3 px-4 border-r border-slate-200/70">
+                  <td colSpan={isColumnVisible("seq") ? 2 : 1} className="py-3 px-4 border-r border-slate-200/70">
                     <button
                       type="button"
                       onClick={handleAddRow}
@@ -972,18 +1008,22 @@ export default function AddExpense() {
                       <span>+ Add Expense Row</span>
                     </button>
                   </td>
-                  <td className="py-3 px-2 text-center border-r border-slate-200/70 text-slate-900 font-black">
-                    {totalQty}
-                  </td>
-                  <td className="border-r border-slate-200/70"></td>
-                  {activeTab.isGst && (
+                  {isColumnVisible("qty") && (
+                    <td className="py-3 px-2 text-center border-r border-slate-200/70 text-slate-900 font-black">
+                      {totalQty}
+                    </td>
+                  )}
+                  {isColumnVisible("price") && <td className="border-r border-slate-200/70"></td>}
+                  {activeTab.isGst && isColumnVisible("tax_rate") && (
                     <td className="py-3 px-2 text-center border-r border-slate-200/70 text-emerald-700">
                       ₹ {fmtCurrency(totalTax)}
                     </td>
                   )}
-                  <td className="py-3 px-4 text-right border-r border-slate-200/70 font-black text-slate-900">
-                    ₹ {fmtCurrency(calculatedTotal)}
-                  </td>
+                  {isColumnVisible("amount") && (
+                    <td className="py-3 px-4 text-right border-r border-slate-200/70 font-black text-slate-900">
+                      ₹ {fmtCurrency(calculatedTotal)}
+                    </td>
+                  )}
                   <td></td>
                 </tr>
               </tfoot>
@@ -1113,9 +1153,9 @@ export default function AddExpense() {
             type="button"
             onClick={handleSaveExpense}
             disabled={saving}
-            className="flex items-center gap-2 px-8 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm shadow-blue-500/20 transition active:scale-95 cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
           >
-            <Save size={15} />
+            <Save size={16} />
             <span>{saving ? "Saving..." : "Save Expense"}</span>
           </button>
         </div>
@@ -1146,6 +1186,16 @@ export default function AddExpense() {
             handleSelectItem(modalTargetRowIndex, newItem);
           }
         }}
+      />
+
+      {/* Column Customization Drawer */}
+      <CommonTableColumnSettings
+        isOpen={isSettingsOpen}
+        onClose={closeSettings}
+        columns={tableColumns}
+        onToggleColumn={toggleColumn}
+        onResetColumns={resetColumns}
+        title="Customize Expense Line Item Columns"
       />
 
     </div>

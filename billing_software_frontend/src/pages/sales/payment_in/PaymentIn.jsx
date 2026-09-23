@@ -174,7 +174,10 @@ export default function PaymentIn() {
 
   // Fetch Payment-In Records
   const fetchPayments = async () => {
-    if (!adminId) return;
+    if (!adminId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.get(`/invoice/get_payment_ins?admin_id=${adminId}`);

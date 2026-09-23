@@ -72,7 +72,7 @@ export default function SaleInvoices() {
 
   // User & Admin session
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
-  const adminId = user?.role === "admin" ? user?.id : user?.admin_id;
+  const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
 
   // Data states
   const [invoices, setInvoices] = useState([]);

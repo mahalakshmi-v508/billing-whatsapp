@@ -172,7 +172,10 @@ export default function CreditNoteList() {
 
   // Fetch Credit Notes
   const fetchCreditNotes = async () => {
-    if (!adminId) return;
+    if (!adminId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.get(`/credit_note/list?admin_id=${adminId}`);

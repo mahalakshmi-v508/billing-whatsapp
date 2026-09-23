@@ -9,9 +9,34 @@ import {
 } from "lucide-react";
 import AddSupplierModal from "../supplier/AddSupplierModal";
 import TableActions from "../../components/ui/TableActions";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
+import { useTableColumns } from "../../hooks/useTableColumns";
+
+const DEFAULT_PURCHASE_COLUMNS = [
+  { id: "date", label: "Date", defaultVisible: true },
+  { id: "bill_no", label: "Bill No", defaultVisible: true },
+  { id: "supplier", label: "Supplier", defaultVisible: true },
+  { id: "total", label: "Total Amount", defaultVisible: true },
+  { id: "paid", label: "Paid Amount", defaultVisible: true },
+  { id: "balance_due", label: "Balance Due / Pending", defaultVisible: true },
+  { id: "status", label: "Status", defaultVisible: true },
+  { id: "actions", label: "Actions", defaultVisible: true, fixed: true },
+];
 
 export default function PurchaseList() {
   const navigate = useNavigate();
+
+  const {
+    columns: tableColumns,
+    isOpen: isSettingsOpen,
+    openSettings,
+    closeSettings,
+    toggleColumn,
+    resetColumns,
+    isColumnVisible,
+    visibleColumnCount
+  } = useTableColumns(DEFAULT_PURCHASE_COLUMNS, "purchase_list_columns_v1");
 
   // Core Data States
   const [purchases, setPurchases] = useState([]);
@@ -60,13 +85,19 @@ export default function PurchaseList() {
   const fmt = (n) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (!user?.id) {
+    let user = {};
+    try {
+      user = JSON.parse(localStorage.getItem("user") || "{}");
+    } catch (e) {
+      user = {};
+    }
+    const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+    if (!adminId) {
       setLoading(false);
       return;
     }
 
-    api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
+    api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role || ""}`)
       .then(res => {
         if (res.data.status) {
           setCompanies(res.data.data);
@@ -384,11 +415,12 @@ export default function PurchaseList() {
             <FileSpreadsheet size={15} className="text-emerald-600" />
             <span>GST Report</span>
           </button>
+          <HeaderSettingsButton onClick={openSettings} variant="table" />
           <button
             onClick={() => navigate("/purchases/new")}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-200 transition transform active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
-            <Plus size={15} strokeWidth={2.6} />
+            <Plus size={16} strokeWidth={2.8} />
             <span>Record Purchase Bill</span>
           </button>
         </div>
@@ -789,12 +821,12 @@ export default function PurchaseList() {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                      <th className="py-3 px-4">Bill Date</th>
-                      <th className="py-3 px-4">Bill No</th>
-                      <th className="py-3 px-4 text-right">Total (₹)</th>
-                      <th className="py-3 px-4 text-right">Paid (₹)</th>
-                      <th className="py-3 px-4 text-right">Pending (₹)</th>
-                      <th className="py-3 px-4 text-center">Status</th>
+                      {isColumnVisible("date") && <th className="py-3 px-4">Bill Date</th>}
+                      {isColumnVisible("bill_no") && <th className="py-3 px-4">Bill No</th>}
+                      {isColumnVisible("total") && <th className="py-3 px-4 text-right">Total (₹)</th>}
+                      {isColumnVisible("paid") && <th className="py-3 px-4 text-right">Paid (₹)</th>}
+                      {isColumnVisible("balance_due") && <th className="py-3 px-4 text-right">Pending (₹)</th>}
+                      {isColumnVisible("status") && <th className="py-3 px-4 text-center">Status</th>}
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -803,45 +835,57 @@ export default function PurchaseList() {
                       const isPaid = Number(p.balance_amount) <= 0;
                       return (
                         <tr key={p.id} className="hover:bg-indigo-50/20 transition-colors text-slate-700">
-                          <td className="py-3 px-4 text-slate-600 font-medium whitespace-nowrap">
-                            {p.purchase_date}
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                              {p.purchase_no || "N/A"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right font-black text-slate-900 whitespace-nowrap">
-                            ₹{fmt(p.total_amount)}
-                          </td>
-                          <td className="py-3 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
-                            ₹{fmt(p.paid_amount)}
-                          </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
-                                isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
-                              }`}
-                            >
-                              ₹{fmt(p.balance_amount)}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-center whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                p.status === "submitted"
-                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                              }`}
-                            >
+                          {isColumnVisible("date") && (
+                            <td className="py-3 px-4 text-slate-600 font-medium whitespace-nowrap">
+                              {p.purchase_date}
+                            </td>
+                          )}
+                          {isColumnVisible("bill_no") && (
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                {p.purchase_no || "N/A"}
+                              </span>
+                            </td>
+                          )}
+                          {isColumnVisible("total") && (
+                            <td className="py-3 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                              ₹{fmt(p.total_amount)}
+                            </td>
+                          )}
+                          {isColumnVisible("paid") && (
+                            <td className="py-3 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
+                              ₹{fmt(p.paid_amount)}
+                            </td>
+                          )}
+                          {isColumnVisible("balance_due") && (
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
+                                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
+                                  isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
                                 }`}
-                              />
-                              {p.status}
-                            </span>
-                          </td>
+                              >
+                                ₹{fmt(p.balance_amount)}
+                              </span>
+                            </td>
+                          )}
+                          {isColumnVisible("status") && (
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  p.status === "submitted"
+                                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                    : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                }`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
+                                  }`}
+                                />
+                                {p.status}
+                              </span>
+                            </td>
+                          )}
                           <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                             <TableActions
                               onPrint={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
@@ -931,6 +975,7 @@ export default function PurchaseList() {
                   {tab.label}
                 </button>
               ))}
+              <HeaderSettingsButton onClick={openSettings} variant="table" />
             </div>
           </div>
 
@@ -949,13 +994,13 @@ export default function PurchaseList() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                    <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-4">Bill No</th>
-                    <th className="py-3 px-4">Supplier</th>
-                    <th className="py-3 px-4 text-right">Total (₹)</th>
-                    <th className="py-3 px-4 text-right">Paid (₹)</th>
-                    <th className="py-3 px-4 text-right">Balance Due (₹)</th>
-                    <th className="py-3 px-4 text-center">Status</th>
+                    {isColumnVisible("date") && <th className="py-3 px-4">Date</th>}
+                    {isColumnVisible("bill_no") && <th className="py-3 px-4">Bill No</th>}
+                    {isColumnVisible("supplier") && <th className="py-3 px-4">Supplier</th>}
+                    {isColumnVisible("total") && <th className="py-3 px-4 text-right">Total (₹)</th>}
+                    {isColumnVisible("paid") && <th className="py-3 px-4 text-right">Paid (₹)</th>}
+                    {isColumnVisible("balance_due") && <th className="py-3 px-4 text-right">Balance Due (₹)</th>}
+                    {isColumnVisible("status") && <th className="py-3 px-4 text-center">Status</th>}
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -964,56 +1009,70 @@ export default function PurchaseList() {
                     const isPaid = Number(p.balance_amount) <= 0;
                     return (
                       <tr key={p.id} className="hover:bg-indigo-50/20 transition-colors text-slate-700">
-                        <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
-                          {p.purchase_date}
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
-                            {p.purchase_no || "N/A"}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 font-black flex items-center justify-center text-xs shrink-0">
-                              {(p.supplier_name || "S").charAt(0).toUpperCase()}
+                        {isColumnVisible("date") && (
+                          <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
+                            {p.purchase_date}
+                          </td>
+                        )}
+                        {isColumnVisible("bill_no") && (
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
+                              {p.purchase_no || "N/A"}
+                            </span>
+                          </td>
+                        )}
+                        {isColumnVisible("supplier") && (
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 font-black flex items-center justify-center text-xs shrink-0">
+                                {(p.supplier_name || "S").charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-900">{p.supplier_name || "Unknown"}</div>
+                                <div className="text-[11px] text-slate-400">{p.mobile_number || p.phone || ""}</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="font-bold text-slate-900">{p.supplier_name || "Unknown"}</div>
-                              <div className="text-[11px] text-slate-400">{p.mobile_number || p.phone || ""}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
-                          ₹{fmt(p.total_amount)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
-                          ₹{fmt(p.paid_amount)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
-                              isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
-                            }`}
-                          >
-                            ₹{fmt(p.balance_amount)}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              p.status === "submitted"
-                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                            }`}
-                          >
+                          </td>
+                        )}
+                        {isColumnVisible("total") && (
+                          <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                            ₹{fmt(p.total_amount)}
+                          </td>
+                        )}
+                        {isColumnVisible("paid") && (
+                          <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
+                            ₹{fmt(p.paid_amount)}
+                          </td>
+                        )}
+                        {isColumnVisible("balance_due") && (
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
                             <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
+                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
+                                isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
                               }`}
-                            />
-                            {p.status}
-                          </span>
-                        </td>
+                            >
+                              ₹{fmt(p.balance_amount)}
+                            </span>
+                          </td>
+                        )}
+                        {isColumnVisible("status") && (
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                p.status === "submitted"
+                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
+                                }`}
+                              />
+                              {p.status}
+                            </span>
+                          </td>
+                        )}
                         <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <TableActions
                             onPrint={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
@@ -1442,6 +1501,16 @@ export default function PurchaseList() {
             setSelectedSupplier(newSupplier);
           }
         }}
+      />
+
+      {/* ── 9. TABLE COLUMN CUSTOMIZATION DRAWER ── */}
+      <CommonTableColumnSettings
+        isOpen={isSettingsOpen}
+        onClose={closeSettings}
+        columns={tableColumns}
+        onToggleColumn={toggleColumn}
+        onResetColumns={resetColumns}
+        title="Customize Purchase Bills Columns"
       />
     </div>
   );
