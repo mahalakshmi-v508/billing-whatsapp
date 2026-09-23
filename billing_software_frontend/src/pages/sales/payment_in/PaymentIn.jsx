@@ -21,6 +21,7 @@ import {
   X,
   RefreshCw,
   TrendingUp,
+} from "lucide-react";
 import AddPaymentInModal from "./AddPaymentInModal";
 import TableActions from "../../../components/ui/TableActions";
 
