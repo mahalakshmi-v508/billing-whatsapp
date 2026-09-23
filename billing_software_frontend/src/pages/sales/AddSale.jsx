@@ -506,52 +506,44 @@ export default function AddSale() {
 
   /* ── Calculations for Bottom Summary ── */
   const totals = useMemo(() => {
-    if (!activeSale) return { totalQty: 0, totalFreeQty: 0, totalDiscountAmount: 0, totalTaxAmount: 0, subtotalAmount: 0, roundedGrandTotal: 0, roundDifference: 0 };
+    if (!activeSale) return { totalQty: 0, totalFreeQty: 0, totalDiscountAmount: 0, totalTaxAmount: 0, grossSubtotal: 0, taxableSubtotal: 0, subtotalAmount: 0, rawGrandTotal: 0, roundedGrandTotal: 0, roundDifference: 0 };
 
     let totalQty = 0;
     let totalFreeQty = 0;
-    let subtotalAmount = 0;
+    let grossSubtotal = 0;
     let totalTaxAmount = 0;
     let totalDiscountAmount = 0;
+    let roundedGrandTotal = 0;
 
     activeSale.rows.forEach(r => {
       const q = parseFloat(r.qty);
       if (!isNaN(q) && q > 0) totalQty += q;
       const fq = parseFloat(r.free_qty);
       if (!isNaN(fq) && fq > 0) totalFreeQty += fq;
+      const p = parseFloat(r.price);
+      if (!isNaN(q) && q > 0 && !isNaN(p) && p > 0) {
+        grossSubtotal += (q * p);
+      }
       const da = parseFloat(r.discount_amount);
       if (!isNaN(da) && da > 0) totalDiscountAmount += da;
       const ta = parseFloat(r.tax_amount);
       if (!isNaN(ta) && ta > 0) totalTaxAmount += ta;
       const a = parseFloat(r.amount);
-      if (!isNaN(a) && a > 0) subtotalAmount += a;
+      if (!isNaN(a) && a > 0) roundedGrandTotal += a;
     });
 
-    let extraDisc = 0;
-    if (parseFloat(activeSale.overallDiscountPercent) > 0) {
-      extraDisc = (subtotalAmount * parseFloat(activeSale.overallDiscountPercent)) / 100;
-    } else if (parseFloat(activeSale.overallDiscountAmount) > 0) {
-      extraDisc = parseFloat(activeSale.overallDiscountAmount);
-    }
-
-    const afterExtraDisc = Math.max(0, subtotalAmount - extraDisc);
-
-    let overallTax = 0;
-    if (parseFloat(activeSale.overallTaxRate) > 0) {
-      overallTax = (afterExtraDisc * parseFloat(activeSale.overallTaxRate)) / 100;
-    }
-
-    const rawGrandTotal = afterExtraDisc + overallTax;
-    const roundedGrandTotal = rawGrandTotal;
+    const taxableSubtotal = Math.max(0, grossSubtotal - totalDiscountAmount);
     const roundDifference = 0;
 
     return {
       totalQty,
       totalFreeQty,
-      totalDiscountAmount: totalDiscountAmount + extraDisc,
-      totalTaxAmount: totalTaxAmount + overallTax,
-      subtotalAmount,
-      rawGrandTotal,
+      totalDiscountAmount,
+      totalTaxAmount,
+      grossSubtotal,
+      taxableSubtotal,
+      subtotalAmount: taxableSubtotal,
+      rawGrandTotal: roundedGrandTotal,
       roundedGrandTotal,
       roundDifference,
     };
@@ -1498,50 +1490,25 @@ export default function AddSale() {
               </span>
             </div>
 
-            {/* Discount & Tax Row */}
-            <div className="space-y-2 text-xs font-semibold text-slate-600">
+            {/* Financial Summary Breakdown (Calculation-Only) */}
+            <div className="space-y-2.5 text-xs font-semibold text-slate-600">
               <div className="flex justify-between items-center">
-                <span>Subtotal (Net Items)</span>
-                <span className="font-bold text-slate-900">₹ {totals.subtotalAmount.toFixed(2)}</span>
+                <span>Subtotal</span>
+                <span className="font-bold text-slate-900">₹ {totals.grossSubtotal.toFixed(2)}</span>
               </div>
 
-              {/* Overall Discount */}
               <div className="flex justify-between items-center">
-                <span>Overall Discount</span>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    placeholder="%"
-                    value={activeSale.overallDiscountPercent || ""}
-                    onChange={e => updateActiveSale({ overallDiscountPercent: e.target.value, overallDiscountAmount: "" })}
-                    className="w-14 py-1 px-1.5 border border-slate-200 rounded-md text-right text-xs outline-none"
-                  />
-                  <span>-</span>
-                  <input
-                    type="number"
-                    placeholder="₹"
-                    value={activeSale.overallDiscountAmount || ""}
-                    onChange={e => updateActiveSale({ overallDiscountAmount: e.target.value, overallDiscountPercent: "" })}
-                    className="w-18 py-1 px-1.5 border border-slate-200 rounded-md text-right text-xs outline-none"
-                  />
-                </div>
+                <span>Total Discount</span>
+                <span className={`font-bold ${totals.totalDiscountAmount > 0 ? "text-rose-600" : "text-slate-700"}`}>
+                  {totals.totalDiscountAmount > 0 ? `- ₹ ${totals.totalDiscountAmount.toFixed(2)}` : "₹ 0.00"}
+                </span>
               </div>
 
-              {/* Overall Tax */}
               <div className="flex justify-between items-center">
-                <span>GST Tax Total</span>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={activeSale.overallTaxRate}
-                    onChange={e => updateActiveSale({ overallTaxRate: e.target.value })}
-                    className="py-1 px-1.5 border border-slate-200 rounded-md text-xs font-medium outline-none cursor-pointer"
-                  >
-                    {TAX_RATES.map((tr, i) => <option key={i} value={tr.value}>{tr.label}</option>)}
-                  </select>
-                  <span className="font-bold text-emerald-700 w-16 text-right">
-                    +₹ {totals.totalTaxAmount.toFixed(2)}
-                  </span>
-                </div>
+                <span>Total Tax (GST)</span>
+                <span className={`font-bold ${totals.totalTaxAmount > 0 ? "text-emerald-700" : "text-slate-700"}`}>
+                  {totals.totalTaxAmount > 0 ? `+ ₹ ${totals.totalTaxAmount.toFixed(2)}` : "₹ 0.00"}
+                </span>
               </div>
             </div>
 
