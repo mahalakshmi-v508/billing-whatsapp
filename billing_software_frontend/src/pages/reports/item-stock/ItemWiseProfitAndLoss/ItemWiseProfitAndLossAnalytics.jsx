@@ -78,7 +78,7 @@ export default function ItemWiseProfitAndLossAnalytics({ rows = [], period = "",
     () =>
       (rows || [])
         .map((r) => ({
-          name: r.name || "Unnamed",
+          name: r.name || r.group || "Unnamed",
           value: Number(r.value ?? 0) || 0,
         }))
         .filter((r) => isFinite(r.value)),

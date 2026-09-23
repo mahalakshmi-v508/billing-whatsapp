@@ -78,7 +78,7 @@ export default function ItemDetailAnalytics({ rows = [], period = "", onClose })
     () =>
       (rows || [])
         .map((r) => ({
-          name: r.name || String(r.date || "No Date").slice(0, 10) || "-",
+          name: r.name || String(r.date || r.group || "No Date").slice(0, 10),
           value: Number(r.value ?? r.closing_quantity ?? 0) || 0,
         }))
         .filter((r) => isFinite(r.value)),

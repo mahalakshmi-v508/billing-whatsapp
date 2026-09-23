@@ -78,7 +78,7 @@ export default function StockSummaryAnalytics({ rows = [], period = "", onClose 
     () =>
       (rows || [])
         .map((r) => ({
-          name: r.name || "Unnamed",
+          name: r.name || r.group || "Unnamed",
           value: Number(r.value ?? 0) || 0,
         }))
         .filter((r) => isFinite(r.value)),
