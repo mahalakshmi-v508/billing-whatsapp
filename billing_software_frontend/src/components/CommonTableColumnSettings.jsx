@@ -8,10 +8,12 @@ export default function CommonTableColumnSettings({
   isOpen,
   onClose,
   columns = [],
-  visibleColumns = {},
+  visibleColumns,
+  isColumnVisible,
   onToggleColumn,
   onSelectAll,
   onReset,
+  onResetColumns,
   title = "Customise Columns",
   subtitle = "Choose visible table fields",
 }) {
@@ -29,8 +31,10 @@ export default function CommonTableColumnSettings({
 
   if (!isOpen) return null;
 
+  const resetAction = onReset || onResetColumns;
+
   const filteredColumns = columns.filter((c) =>
-    (c.label || c.key || "").toLowerCase().includes(columnSearch.toLowerCase())
+    (c.label || c.key || c.id || "").toLowerCase().includes(columnSearch.toLowerCase())
   );
 
   return (
@@ -85,10 +89,10 @@ export default function CommonTableColumnSettings({
                 Select All
               </button>
             )}
-            {onReset && (
+            {resetAction && (
               <button
                 type="button"
-                onClick={onReset}
+                onClick={resetAction}
                 className="text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer font-medium"
               >
                 <RotateCcw size={11} />
@@ -101,13 +105,29 @@ export default function CommonTableColumnSettings({
         {/* Columns List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {filteredColumns.map((col) => {
+            const colKey = col.key || col.id;
             const Icon = col.icon;
-            const isChecked = Boolean(visibleColumns[col.key]);
+            
+            // Determine visibility using visibleColumns object, or isColumnVisible func, or col.visible/defaultVisible
+            let isChecked = true;
+            if (visibleColumns && typeof visibleColumns === "object") {
+              isChecked = visibleColumns[colKey] !== undefined ? Boolean(visibleColumns[colKey]) : (visibleColumns[col.id] !== undefined ? Boolean(visibleColumns[col.id]) : Boolean(col.defaultVisible ?? true));
+            } else if (typeof isColumnVisible === "function") {
+              isChecked = isColumnVisible(colKey);
+            } else if (col.visible !== undefined) {
+              isChecked = Boolean(col.visible);
+            } else if (col.defaultVisible !== undefined) {
+              isChecked = Boolean(col.defaultVisible);
+            }
+
+            const isFixed = Boolean(col.fixed);
 
             return (
               <label
-                key={col.key}
-                className={`flex items-center justify-between p-3 rounded-xl border transition cursor-pointer ${
+                key={colKey}
+                className={`flex items-center justify-between p-3 rounded-xl border transition ${
+                  isFixed ? "cursor-default" : "cursor-pointer"
+                } ${
                   isChecked
                     ? "bg-indigo-50/40 border-indigo-200 text-slate-900"
                     : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
@@ -124,7 +144,14 @@ export default function CommonTableColumnSettings({
                     </div>
                   )}
                   <div>
-                    <span className="font-bold text-xs block">{col.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-xs block">{col.label}</span>
+                      {isFixed && (
+                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+                          Fixed
+                        </span>
+                      )}
+                    </div>
                     {col.desc && <span className="text-[10px] text-slate-400 block">{col.desc}</span>}
                   </div>
                 </div>
@@ -132,8 +159,15 @@ export default function CommonTableColumnSettings({
                 <input
                   type="checkbox"
                   checked={isChecked}
-                  onChange={() => onToggleColumn && onToggleColumn(col.key)}
-                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                  disabled={isFixed}
+                  onChange={() => {
+                    if (!isFixed && onToggleColumn) {
+                      onToggleColumn(colKey);
+                    }
+                  }}
+                  className={`w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 ${
+                    isFixed ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                  }`}
                 />
               </label>
             );

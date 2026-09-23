@@ -3,6 +3,21 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { ArrowLeft, Download, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import * as XLSX from "xlsx";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
+import { useTableColumns } from "../../hooks/useTableColumns";
+
+const DEFAULT_PURCHASE_GST_COLUMNS = [
+  { id: "date", label: "Date", defaultVisible: true },
+  { id: "invoice_no", label: "Invoice No", defaultVisible: true },
+  { id: "supplier", label: "Supplier", defaultVisible: true, fixed: true },
+  { id: "gstin", label: "GSTIN", defaultVisible: true },
+  { id: "taxable", label: "Taxable (₹)", defaultVisible: true },
+  { id: "cgst", label: "CGST (₹)", defaultVisible: true },
+  { id: "sgst", label: "SGST (₹)", defaultVisible: true },
+  { id: "total_gst", label: "Total GST (₹)", defaultVisible: true },
+  { id: "total_amount", label: "Bill Total (₹)", defaultVisible: true },
+];
 
 export default function PurchaseGSTReport() {
   const navigate = useNavigate();
@@ -12,6 +27,17 @@ export default function PurchaseGSTReport() {
     localStorage.getItem("selected_company_id") || ""
   );
   const [loading, setLoading] = useState(true);
+
+  const {
+    columns: tableColumns,
+    isOpen: isSettingsOpen,
+    openSettings,
+    closeSettings,
+    toggleColumn,
+    resetColumns,
+    isColumnVisible,
+    visibleColumnCount
+  } = useTableColumns(DEFAULT_PURCHASE_GST_COLUMNS, "purchase_gst_report_columns_v1");
 
   // Defaults: start of current month to today
   const getFirstDayOfMonth = () => {
@@ -30,10 +56,16 @@ export default function PurchaseGSTReport() {
   }, [showGstOnly, purchases]);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user) return;
+    let user = {};
+    try {
+      user = JSON.parse(localStorage.getItem("user") || "{}");
+    } catch (e) {
+      user = {};
+    }
+    const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+    if (!adminId) return;
 
-    api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
+    api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role || ""}`)
       .then(res => {
         if (res.data.status) {
           setCompanies(res.data.data);
@@ -203,26 +235,29 @@ export default function PurchaseGSTReport() {
             <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>Generate GSTR-2 details for outward inputs and GST filing</p>
           </div>
         </div>
-        <button
-          onClick={exportToExcel}
-          disabled={purchases.length === 0}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "10px 18px",
-            borderRadius: "12px",
-            background: purchases.length === 0 ? "#cbd5e1" : "#10b981",
-            color: "#ffffff",
-            border: "none",
-            fontSize: "14px",
-            fontWeight: "600",
-            cursor: purchases.length === 0 ? "not-allowed" : "pointer",
-            boxShadow: purchases.length === 0 ? "none" : "0 4px 12px rgba(16,185,129,0.2)"
-          }}
-        >
-          <Download size={16} /> Export Excel
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <HeaderSettingsButton onClick={openSettings} variant="table" />
+          <button
+            onClick={exportToExcel}
+            disabled={purchases.length === 0}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "10px 18px",
+              borderRadius: "12px",
+              background: purchases.length === 0 ? "#cbd5e1" : "#10b981",
+              color: "#ffffff",
+              border: "none",
+              fontSize: "14px",
+              fontWeight: "600",
+              cursor: purchases.length === 0 ? "not-allowed" : "pointer",
+              boxShadow: purchases.length === 0 ? "none" : "0 4px 12px rgba(16,185,129,0.2)"
+            }}
+          >
+            <Download size={16} /> Export Excel
+          </button>
+        </div>
       </div>
 
       {/* Company Selector Buttons */}
@@ -328,17 +363,7 @@ export default function PurchaseGSTReport() {
 
         <button
           onClick={handleSearch}
-          style={{
-            padding: "11px 24px",
-            borderRadius: "10px",
-            background: "#2563eb",
-            color: "#ffffff",
-            border: "none",
-            fontSize: "14px",
-            fontWeight: "600",
-            cursor: "pointer",
-            boxShadow: "0 4px 12px rgba(37,99,235,0.15)"
-          }}
+          className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
         >
           Generate Report
         </button>
@@ -369,29 +394,29 @@ export default function PurchaseGSTReport() {
         <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Date</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Invoice No</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Supplier</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>GSTIN</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Taxable (₹)</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>CGST (₹)</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>SGST (₹)</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Total GST (₹)</th>
-              <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Bill Total (₹)</th>
+              {isColumnVisible("date") && <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Date</th>}
+              {isColumnVisible("invoice_no") && <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Invoice No</th>}
+              {isColumnVisible("supplier") && <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Supplier</th>}
+              {isColumnVisible("gstin") && <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>GSTIN</th>}
+              {isColumnVisible("taxable") && <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Taxable (₹)</th>}
+              {isColumnVisible("cgst") && <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>CGST (₹)</th>}
+              {isColumnVisible("sgst") && <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>SGST (₹)</th>}
+              {isColumnVisible("total_gst") && <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Total GST (₹)</th>}
+              {isColumnVisible("total_amount") && <th style={{ padding: "16px 20px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>Bill Total (₹)</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="9" style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>Generating report details...</td>
+                <td colSpan={visibleColumnCount || 9} style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>Generating report details...</td>
               </tr>
             ) : !selectedCompany ? (
               <tr>
-                <td colSpan="9" style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>Select a company to load GST reports</td>
+                <td colSpan={visibleColumnCount || 9} style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>Select a company to load GST reports</td>
               </tr>
             ) : filteredPurchases.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>No submitted purchases found for the selected date range.</td>
+                <td colSpan={visibleColumnCount || 9} style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>No submitted purchases found for the selected date range.</td>
               </tr>
             ) : (
               paginatedPurchases.map((p) => {
@@ -400,15 +425,15 @@ export default function PurchaseGSTReport() {
 
                 return (
                   <tr key={p.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#334155" }}>{p.purchase_date}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: "600", color: "#1e293b" }}>{p.purchase_no || "N/A"}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#475569" }}>{p.supplier_name || "Unknown"}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#64748b", fontFamily: "monospace" }}>{p.supplier_gstin || "N/A"}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#334155" }}>{taxable.toFixed(2)}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#3b82f6" }}>{(gst / 2).toFixed(2)}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#6366f1" }}>{(gst / 2).toFixed(2)}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", color: "#e11d48" }}>{gst.toFixed(2)}</td>
-                    <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: "700", color: "#0f172a" }}>{Number(p.total_amount).toFixed(2)}</td>
+                    {isColumnVisible("date") && <td style={{ padding: "16px 20px", fontSize: "14px", color: "#334155" }}>{p.purchase_date}</td>}
+                    {isColumnVisible("invoice_no") && <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: "600", color: "#1e293b" }}>{p.purchase_no || "N/A"}</td>}
+                    {isColumnVisible("supplier") && <td style={{ padding: "16px 20px", fontSize: "14px", color: "#475569" }}>{p.supplier_name || "Unknown"}</td>}
+                    {isColumnVisible("gstin") && <td style={{ padding: "16px 20px", fontSize: "14px", color: "#64748b", fontFamily: "monospace" }}>{p.supplier_gstin || "N/A"}</td>}
+                    {isColumnVisible("taxable") && <td style={{ padding: "16px 20px", fontSize: "14px", color: "#334155" }}>{taxable.toFixed(2)}</td>}
+                    {isColumnVisible("cgst") && <td style={{ padding: "16px 20px", fontSize: "14px", color: "#3b82f6" }}>{(gst / 2).toFixed(2)}</td>}
+                    {isColumnVisible("sgst") && <td style={{ padding: "16px 20px", fontSize: "14px", color: "#6366f1" }}>{(gst / 2).toFixed(2)}</td>}
+                    {isColumnVisible("total_gst") && <td style={{ padding: "16px 20px", fontSize: "14px", color: "#e11d48" }}>{gst.toFixed(2)}</td>}
+                    {isColumnVisible("total_amount") && <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: "700", color: "#0f172a" }}>{Number(p.total_amount).toFixed(2)}</td>}
                   </tr>
                 );
               })
@@ -486,6 +511,16 @@ export default function PurchaseGSTReport() {
           </div>
         )}
       </div>
+
+      {/* Column Customization Drawer */}
+      <CommonTableColumnSettings
+        isOpen={isSettingsOpen}
+        onClose={closeSettings}
+        columns={tableColumns}
+        onToggleColumn={toggleColumn}
+        onResetColumns={resetColumns}
+        title="Customize Purchase GST Report Columns"
+      />
     </div>
   );
 }

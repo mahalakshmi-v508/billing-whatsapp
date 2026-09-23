@@ -39,6 +39,7 @@ import {
   ArrowUpRight
 } from "lucide-react";
 import ShareTransactionPopover from "../../components/ShareTransactionPopover";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import StatusBadge from "../../components/ui/StatusBadge";
 import TableActions from "../../components/ui/TableActions";
 
@@ -71,7 +72,7 @@ export default function SaleInvoices() {
 
   // User & Admin session
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
-  const adminId = user?.role === "admin" ? user?.id : user?.admin_id;
+  const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
 
   // Data states
   const [invoices, setInvoices] = useState([]);
@@ -461,18 +462,10 @@ export default function SaleInvoices() {
 
         {/* Header CTA Buttons */}
         <div className="flex items-center gap-2.5">
-          <button
+          <HeaderSettingsButton
             onClick={() => setShowColumnDrawer(true)}
-            className={`h-10 px-3.5 rounded-xl border flex items-center gap-2 text-xs font-semibold transition cursor-pointer ${
-              showColumnDrawer
-                ? "bg-indigo-50 border-indigo-200 text-indigo-600 ring-2 ring-indigo-500/20"
-                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-xs"
-            }`}
-            title="Customise Table Columns"
-          >
-            <Settings size={15} />
-            <span className="hidden sm:inline">Columns</span>
-          </button>
+            isActive={showColumnDrawer}
+          />
 
           <button
             onClick={() => navigate("/sales/add")}

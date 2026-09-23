@@ -33,6 +33,9 @@ import {
   Clock,
   CheckCircle2
 } from "lucide-react";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import { useTableColumns } from "../../../hooks/useTableColumns";
 
 const unitOptions = [
   "NONE", "Piece", "Box", "Pack", "Kg", "Gram", "Litre", "ML", "Meter", "Feet", "Dozen", "Pair", "Roll", "Bag", "Bottle", "Can", "Set"
@@ -209,12 +212,35 @@ function CalculatorModal({ isOpen, onClose }) {
   );
 }
 
+const DEFAULT_DEBIT_NOTE_ITEM_COLUMNS = [
+  { id: "barcode", label: "# / Scan", defaultVisible: true, fixed: true },
+  { id: "item_name", label: "Item Name / Product", defaultVisible: true, fixed: true },
+  { id: "quantity", label: "Qty", defaultVisible: true },
+  { id: "unit", label: "Unit", defaultVisible: true },
+  { id: "rate", label: "Rate (₹)", defaultVisible: true },
+  { id: "discount", label: "Discount", defaultVisible: true },
+  { id: "tax", label: "Tax (GST)", defaultVisible: true },
+  { id: "amount", label: "Amount (₹)", defaultVisible: true, fixed: true },
+  { id: "action", label: "Action", defaultVisible: true, fixed: true },
+];
+
 export default function AddDebitNote() {
   const navigate = useNavigate();
   const { id: editId } = useParams();
   const isEditMode = Boolean(editId);
   const [searchParams] = useSearchParams();
   const purchaseId = searchParams.get("purchase_id");
+
+  const {
+    columns: tableColumns,
+    isOpen: isSettingsOpen,
+    openSettings,
+    closeSettings,
+    toggleColumn,
+    resetColumns,
+    isColumnVisible,
+    visibleColumnCount
+  } = useTableColumns(DEFAULT_DEBIT_NOTE_ITEM_COLUMNS, "add_debit_note_item_columns_v1");
 
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
@@ -1128,39 +1154,42 @@ export default function AddDebitNote() {
               </div>
             </div>
 
-            {/* Tax Mode Switcher */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <div
-                onClick={() => setShowTaxModeDropdown(!showTaxModeDropdown)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition cursor-pointer"
-              >
-                <Percent size={13} className="text-rose-600" />
-                <span>Prices: {activeTab.globalTaxMode === "with_tax" ? "Tax Inclusive" : "Tax Exclusive"}</span>
-                <ChevronDown size={13} className="text-slate-400" />
-              </div>
-
-              {showTaxModeDropdown && (
-                <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in duration-100">
-                  <div
-                    onClick={() => handleTaxModeChange("without_tax")}
-                    className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
-                      activeTab.globalTaxMode === "without_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>Tax Exclusive</span>
-                    {activeTab.globalTaxMode === "without_tax" && <Check size={14} />}
-                  </div>
-                  <div
-                    onClick={() => handleTaxModeChange("with_tax")}
-                    className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
-                      activeTab.globalTaxMode === "with_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>Tax Inclusive</span>
-                    {activeTab.globalTaxMode === "with_tax" && <Check size={14} />}
-                  </div>
+            <div className="flex items-center gap-2">
+              <HeaderSettingsButton onClick={openSettings} variant="table" />
+              {/* Tax Mode Switcher */}
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <div
+                  onClick={() => setShowTaxModeDropdown(!showTaxModeDropdown)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition cursor-pointer"
+                >
+                  <Percent size={13} className="text-rose-600" />
+                  <span>Prices: {activeTab.globalTaxMode === "with_tax" ? "Tax Inclusive" : "Tax Exclusive"}</span>
+                  <ChevronDown size={13} className="text-slate-400" />
                 </div>
-              )}
+
+                {showTaxModeDropdown && (
+                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in duration-100">
+                    <div
+                      onClick={() => handleTaxModeChange("without_tax")}
+                      className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
+                        activeTab.globalTaxMode === "without_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span>Tax Exclusive</span>
+                      {activeTab.globalTaxMode === "without_tax" && <Check size={14} />}
+                    </div>
+                    <div
+                      onClick={() => handleTaxModeChange("with_tax")}
+                      className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
+                        activeTab.globalTaxMode === "with_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span>Tax Inclusive</span>
+                      {activeTab.globalTaxMode === "with_tax" && <Check size={14} />}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1173,23 +1202,27 @@ export default function AddDebitNote() {
                     <ScanBarcode size={15} className="mx-auto text-slate-400" />
                   </th>
                   <th className="py-3 px-4 min-w-[220px] border-r border-slate-200/60">Item Name / Product</th>
-                  <th className="py-3 px-3 w-24 text-center border-r border-slate-200/60">Qty</th>
-                  <th className="py-3 px-3 w-28 text-center border-r border-slate-200/60">Unit</th>
-                  <th className="py-3 px-3 w-32 text-center border-r border-slate-200/60">Rate (₹)</th>
-                  <th className="py-3 px-0 w-36 text-center border-r border-slate-200/60">
-                    <div className="border-b border-slate-200/60 pb-1">Discount</div>
-                    <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
-                      <span>%</span>
-                      <span>Amount</span>
-                    </div>
-                  </th>
-                  <th className="py-3 px-0 w-36 text-center border-r border-slate-200/60">
-                    <div className="border-b border-slate-200/60 pb-1">Tax (GST)</div>
-                    <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
-                      <span>% Slab</span>
-                      <span>Tax (₹)</span>
-                    </div>
-                  </th>
+                  {isColumnVisible("quantity") && <th className="py-3 px-3 w-24 text-center border-r border-slate-200/60">Qty</th>}
+                  {isColumnVisible("unit") && <th className="py-3 px-3 w-28 text-center border-r border-slate-200/60">Unit</th>}
+                  {isColumnVisible("rate") && <th className="py-3 px-3 w-32 text-center border-r border-slate-200/60">Rate (₹)</th>}
+                  {isColumnVisible("discount") && (
+                    <th className="py-3 px-0 w-36 text-center border-r border-slate-200/60">
+                      <div className="border-b border-slate-200/60 pb-1">Discount</div>
+                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
+                        <span>%</span>
+                        <span>Amount</span>
+                      </div>
+                    </th>
+                  )}
+                  {isColumnVisible("tax") && (
+                    <th className="py-3 px-0 w-36 text-center border-r border-slate-200/60">
+                      <div className="border-b border-slate-200/60 pb-1">Tax (GST)</div>
+                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
+                        <span>% Slab</span>
+                        <span>Tax (₹)</span>
+                      </div>
+                    </th>
+                  )}
                   <th className="py-3 px-4 w-32 text-right">Amount (₹)</th>
                   <th className="py-3 px-2 w-10 text-center"></th>
                 </tr>
@@ -1306,90 +1339,100 @@ export default function AddDebitNote() {
                       </td>
 
                       {/* Col 3: Qty */}
-                      <td className="py-2 px-2 text-center border-r border-slate-100">
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          placeholder="0"
-                          value={row.quantity}
-                          onChange={(e) => updateRow(idx, "quantity", e.target.value)}
-                          className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
-                        />
-                      </td>
+                      {isColumnVisible("quantity") && (
+                        <td className="py-2 px-2 text-center border-r border-slate-100">
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder="0"
+                            value={row.quantity}
+                            onChange={(e) => updateRow(idx, "quantity", e.target.value)}
+                            className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
+                          />
+                        </td>
+                      )}
 
                       {/* Col 4: Unit */}
-                      <td className="py-2 px-2 text-center border-r border-slate-100">
-                        <select
-                          value={row.unit}
-                          onChange={(e) => updateRow(idx, "unit", e.target.value)}
-                          className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-semibold text-slate-700 outline-hidden transition-all text-xs cursor-pointer"
-                        >
-                          {unitOptions.map((u) => (
-                            <option key={u} value={u}>{u}</option>
-                          ))}
-                        </select>
-                      </td>
-
-                      {/* Col 5: Rate */}
-                      <td className="py-2 px-2 text-center border-r border-slate-100">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={row.price}
-                          onChange={(e) => updateRow(idx, "price", e.target.value)}
-                          className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
-                        />
-                      </td>
-
-                      {/* Col 6: Discount (% & Amt) */}
-                      <td className="py-2 px-0 border-r border-slate-100">
-                        <div className="grid grid-cols-2 divide-x divide-slate-100">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            placeholder="%"
-                            value={row.discount_percent || ""}
-                            onChange={(e) => {
-                              updateRow(idx, "discount_percent", e.target.value);
-                              updateRow(idx, "discount_amount", "");
-                            }}
-                            className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 placeholder:text-slate-300 outline-hidden text-xs"
-                          />
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="₹"
-                            value={row.discount_amount || ""}
-                            onChange={(e) => {
-                              updateRow(idx, "discount_amount", e.target.value);
-                              updateRow(idx, "discount_percent", "");
-                            }}
-                            className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 placeholder:text-slate-300 outline-hidden text-xs"
-                          />
-                        </div>
-                      </td>
-
-                      {/* Col 7: Tax (% & Amt) */}
-                      <td className="py-2 px-0 border-r border-slate-100">
-                        <div className="grid grid-cols-2 divide-x divide-slate-100 items-center">
+                      {isColumnVisible("unit") && (
+                        <td className="py-2 px-2 text-center border-r border-slate-100">
                           <select
-                            value={row.gst_percentage}
-                            onChange={(e) => updateRow(idx, "gst_percentage", e.target.value)}
-                            className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 outline-hidden text-xs cursor-pointer"
+                            value={row.unit}
+                            onChange={(e) => updateRow(idx, "unit", e.target.value)}
+                            className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-semibold text-slate-700 outline-hidden transition-all text-xs cursor-pointer"
                           >
-                            {gstSlabs.map((s, i) => (
-                              <option key={i} value={s.value}>{s.label}</option>
+                            {unitOptions.map((u) => (
+                              <option key={u} value={u}>{u}</option>
                             ))}
                           </select>
-                          <div className="px-1.5 py-1.5 text-center font-bold text-slate-600 text-xs truncate">
-                            {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : "—"}
+                        </td>
+                      )}
+
+                      {/* Col 5: Rate */}
+                      {isColumnVisible("rate") && (
+                        <td className="py-2 px-2 text-center border-r border-slate-100">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={row.price}
+                            onChange={(e) => updateRow(idx, "price", e.target.value)}
+                            className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
+                          />
+                        </td>
+                      )}
+
+                      {/* Col 6: Discount (% & Amt) */}
+                      {isColumnVisible("discount") && (
+                        <td className="py-2 px-0 border-r border-slate-100">
+                          <div className="grid grid-cols-2 divide-x divide-slate-100">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              placeholder="%"
+                              value={row.discount_percent || ""}
+                              onChange={(e) => {
+                                updateRow(idx, "discount_percent", e.target.value);
+                                updateRow(idx, "discount_amount", "");
+                              }}
+                              className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 placeholder:text-slate-300 outline-hidden text-xs"
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="₹"
+                              value={row.discount_amount || ""}
+                              onChange={(e) => {
+                                updateRow(idx, "discount_amount", e.target.value);
+                                updateRow(idx, "discount_percent", "");
+                              }}
+                              className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 placeholder:text-slate-300 outline-hidden text-xs"
+                            />
                           </div>
-                        </div>
-                      </td>
+                        </td>
+                      )}
+
+                      {/* Col 7: Tax (% & Amt) */}
+                      {isColumnVisible("tax") && (
+                        <td className="py-2 px-0 border-r border-slate-100">
+                          <div className="grid grid-cols-2 divide-x divide-slate-100 items-center">
+                            <select
+                              value={row.gst_percentage}
+                              onChange={(e) => updateRow(idx, "gst_percentage", e.target.value)}
+                              className="w-full px-1.5 py-1.5 text-center font-semibold text-slate-700 outline-hidden text-xs cursor-pointer"
+                            >
+                              {gstSlabs.map((s, i) => (
+                                <option key={i} value={s.value}>{s.label}</option>
+                              ))}
+                            </select>
+                            <div className="px-1.5 py-1.5 text-center font-bold text-slate-600 text-xs truncate">
+                              {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : "—"}
+                            </div>
+                          </div>
+                        </td>
+                      )}
 
                       {/* Col 8: Row Amount */}
                       <td className="py-2 px-4 text-right font-black text-slate-900 text-xs">
@@ -1458,7 +1501,7 @@ export default function AddDebitNote() {
           {/* Left: Refund Mode & Reason / Notes (7 Cols) */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
                 3
               </div>
               <h2 className="text-sm font-bold text-slate-900">Refund Settlement & Reason</h2>
@@ -1483,7 +1526,7 @@ export default function AddDebitNote() {
                       onClick={() => updateActiveTab({ paymentType: type.value })}
                       className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                         isSelected
-                          ? "bg-rose-600 text-white border-rose-600 shadow-xs shadow-rose-600/20"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs shadow-blue-600/20"
                           : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
                       }`}
                     >
@@ -1502,7 +1545,7 @@ export default function AddDebitNote() {
                   <button
                     type="button"
                     onClick={() => updateActiveTab({ showDescription: true })}
-                    className="text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
+                    className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
                   >
                     + Add Reason
                   </button>
@@ -1515,7 +1558,7 @@ export default function AddDebitNote() {
                   placeholder="e.g. Defective batch received, wrong part number delivered, overcharged rate adjustment..."
                   value={activeTab.description}
                   onChange={(e) => updateActiveTab({ description: e.target.value })}
-                  className="w-full p-3 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-medium text-slate-900 transition-all outline-hidden resize-none"
+                  className="w-full p-3 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs font-medium text-slate-900 transition-all outline-hidden resize-none"
                 />
               ) : (
                 <div
@@ -1529,28 +1572,31 @@ export default function AddDebitNote() {
           </div>
 
           {/* Right: Tax Breakdown & Hero Grand Total (5 Cols) */}
-          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-900 pb-3 border-b border-slate-100">
-              Return Value Summary
-            </h2>
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Debit Note Summary</span>
+              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                INR Currency
+              </span>
+            </div>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between text-slate-600 font-medium">
-                <span>Taxable Return Value</span>
+            <div className="space-y-2.5 text-xs font-semibold text-slate-600">
+              <div className="flex justify-between items-center">
+                <span>Return Base Subtotal</span>
                 <span className="font-bold text-slate-900">₹ {fmtCurrency(calculatedTotal - totalTax + totalDiscount)}</span>
               </div>
 
               {totalDiscount > 0 && (
-                <div className="flex items-center justify-between text-amber-600 font-medium">
+                <div className="flex justify-between items-center">
                   <span>Total Discount</span>
-                  <span className="font-bold">-₹ {fmtCurrency(totalDiscount)}</span>
+                  <span className="font-bold text-rose-600">- ₹ {fmtCurrency(totalDiscount)}</span>
                 </div>
               )}
 
               {totalTax > 0 && (
-                <div className="flex items-center justify-between text-rose-600 font-medium">
+                <div className="flex justify-between items-center">
                   <span>Total GST Return Tax</span>
-                  <span className="font-bold">+₹ {fmtCurrency(totalTax)}</span>
+                  <span className="font-bold text-emerald-700">+ ₹ {fmtCurrency(totalTax)}</span>
                 </div>
               )}
 
@@ -1561,7 +1607,7 @@ export default function AddDebitNote() {
                     type="checkbox"
                     checked={activeTab.roundOffEnabled}
                     onChange={(e) => updateActiveTab({ roundOffEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 cursor-pointer"
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
                   />
                   <span>Auto Round Off</span>
                 </label>
@@ -1572,18 +1618,20 @@ export default function AddDebitNote() {
             </div>
 
             {/* Hero Total Box */}
-            <div className="bg-gradient-to-br from-rose-600 via-rose-700 to-red-700 rounded-2xl p-5 text-white shadow-lg shadow-rose-600/25">
-              <span className="text-xs uppercase tracking-wider font-extrabold text-rose-200 block mb-1">
-                Total Refund / Credit Value
-              </span>
-              <div className="text-2xl sm:text-3xl font-black tracking-tight">
-                ₹ {fmtCurrency(grandTotal)}
+            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
+              <div>
+                <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">
+                  Total Debit Value
+                </span>
+                <div className="text-2xl font-black tracking-tight">
+                  ₹ {fmtCurrency(grandTotal)}
+                </div>
               </div>
-              <p className="text-[11px] text-rose-100/80 mt-1">
-                {activeTab.paymentType === "Credit"
-                  ? "Will reduce supplier outstanding payable ledger"
-                  : `Will be refunded to business via ${activeTab.paymentType}`}
-              </p>
+              <div className="text-right">
+                <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
+                  Debit Note
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1608,7 +1656,7 @@ export default function AddDebitNote() {
               type="button"
               onClick={handleSaveDebitNote}
               disabled={saving}
-              className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-extrabold text-xs shadow-md shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
             >
               {saving ? (
                 <>
@@ -1617,13 +1665,12 @@ export default function AddDebitNote() {
                 </>
               ) : (
                 <>
-                  <Save size={15} />
+                  <Save size={16} />
                   <span>Save Debit Note</span>
                 </>
               )}
             </button>
           </div>
-
         </div>
       </footer>
 
@@ -1638,6 +1685,16 @@ export default function AddDebitNote() {
       <CalculatorModal
         isOpen={showCalculator}
         onClose={() => setShowCalculator(false)}
+      />
+
+      {/* Table Column Settings Drawer */}
+      <CommonTableColumnSettings
+        isOpen={isSettingsOpen}
+        onClose={closeSettings}
+        columns={tableColumns}
+        onToggleColumn={toggleColumn}
+        onResetColumns={resetColumns}
+        title="Customize Return Items Columns"
       />
 
     </div>

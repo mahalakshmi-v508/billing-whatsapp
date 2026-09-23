@@ -22,11 +22,38 @@ import {
   Eye,
 } from "lucide-react";
 import TableActions from "../../../components/ui/TableActions";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import { useTableColumns } from "../../../hooks/useTableColumns";
+
+const DEFAULT_DEBIT_NOTE_COLUMNS = [
+  { id: "seq", label: "#", defaultVisible: true },
+  { id: "date", label: "Date", defaultVisible: true },
+  { id: "return_no", label: "Return No.", defaultVisible: true },
+  { id: "party_name", label: "Party Name", defaultVisible: true, fixed: true },
+  { id: "type", label: "Type", defaultVisible: true },
+  { id: "total", label: "Total", defaultVisible: true },
+  { id: "refunded", label: "Refunded", defaultVisible: true },
+  { id: "balance", label: "Balance", defaultVisible: true },
+  { id: "status", label: "Status", defaultVisible: true },
+  { id: "actions", label: "Actions", defaultVisible: true, fixed: true },
+];
 
 export default function DebitNoteList() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+
+  const {
+    columns: tableColumns,
+    isOpen: isSettingsOpen,
+    openSettings,
+    closeSettings,
+    toggleColumn,
+    resetColumns,
+    isColumnVisible,
+    visibleColumnCount
+  } = useTableColumns(DEFAULT_DEBIT_NOTE_COLUMNS, "debit_note_table_columns_v1");
 
   // Data states
   const [debitNotes, setDebitNotes] = useState([]);
@@ -312,7 +339,7 @@ export default function DebitNoteList() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate("/purchases/debit-note/add")}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-purple-200 transition-all transform active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.8} />
             <span>Create Debit Note</span>
@@ -609,6 +636,8 @@ export default function DebitNoteList() {
           >
             <Printer size={14} />
           </button>
+
+          <HeaderSettingsButton onClick={openSettings} variant="table" />
         </div>
       </div>
 
@@ -618,15 +647,15 @@ export default function DebitNoteList() {
           <table className="w-full text-left text-xs min-w-max">
             <thead>
               <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                <th className="py-3.5 px-4 text-center w-12">#</th>
-                <th className="py-3.5 px-4">Date</th>
-                <th className="py-3.5 px-4 text-right">Return No.</th>
-                <th className="py-3.5 px-4">Party Name</th>
-                <th className="py-3.5 px-4">Type</th>
-                <th className="py-3.5 px-4 text-right">Total</th>
-                <th className="py-3.5 px-4 text-right">Refunded</th>
-                <th className="py-3.5 px-4 text-right">Balance</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
+                {isColumnVisible("seq") && <th className="py-3.5 px-4 text-center w-12">#</th>}
+                {isColumnVisible("date") && <th className="py-3.5 px-4">Date</th>}
+                {isColumnVisible("return_no") && <th className="py-3.5 px-4 text-right">Return No.</th>}
+                {isColumnVisible("party_name") && <th className="py-3.5 px-4">Party Name</th>}
+                {isColumnVisible("type") && <th className="py-3.5 px-4">Type</th>}
+                {isColumnVisible("total") && <th className="py-3.5 px-4 text-right">Total</th>}
+                {isColumnVisible("refunded") && <th className="py-3.5 px-4 text-right">Refunded</th>}
+                {isColumnVisible("balance") && <th className="py-3.5 px-4 text-right">Balance</th>}
+                {isColumnVisible("status") && <th className="py-3.5 px-4 text-center">Status</th>}
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -634,14 +663,14 @@ export default function DebitNoteList() {
             <tbody className="divide-y divide-slate-100 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-14 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 10} className="py-14 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-purple-600 mx-auto mb-2" />
                     <span>Loading Debit Notes...</span>
                   </td>
                 </tr>
               ) : filteredNotes.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center">
+                  <td colSpan={visibleColumnCount || 10} className="py-16 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <div className="w-16 h-16 mb-4 flex items-center justify-center rounded-2xl bg-purple-50 text-purple-400">
                         <FileText size={32} strokeWidth={1.5} />
@@ -663,59 +692,77 @@ export default function DebitNoteList() {
                       key={n.id || idx}
                       className="hover:bg-purple-50/20 transition-colors text-slate-700"
                     >
-                      <td className="py-3.5 px-4 text-center font-semibold text-slate-400">
-                        {seqNo}
-                      </td>
+                      {isColumnVisible("seq") && (
+                        <td className="py-3.5 px-4 text-center font-semibold text-slate-400">
+                          {seqNo}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
-                        {formatDateDMY(n.return_date || n.created_at)}
-                      </td>
+                      {isColumnVisible("date") && (
+                        <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
+                          {formatDateDMY(n.return_date || n.created_at)}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-right font-bold text-purple-600 whitespace-nowrap">
-                        #{n.return_no || n.id}
-                      </td>
+                      {isColumnVisible("return_no") && (
+                        <td className="py-3.5 px-4 text-right font-bold text-purple-600 whitespace-nowrap">
+                          #{n.return_no || n.id}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="font-bold text-slate-900">{n.supplier_name || "Supplier"}</div>
-                        {n.supplier_phone && <div className="text-[10px] text-slate-400 font-normal">{n.supplier_phone}</div>}
-                      </td>
+                      {isColumnVisible("party_name") && (
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="font-bold text-slate-900">{n.supplier_name || "Supplier"}</div>
+                          {n.supplier_phone && <div className="text-[10px] text-slate-400 font-normal">{n.supplier_phone}</div>}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-                          Debit Note
-                        </span>
-                      </td>
+                      {isColumnVisible("type") && (
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                            Debit Note
+                          </span>
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
-                        ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+                      {isColumnVisible("total") && (
+                        <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                          ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
-                        ₹ {refund.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+                      {isColumnVisible("refunded") && (
+                        <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
+                          ₹ {refund.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-right font-black text-purple-600 whitespace-nowrap">
-                        ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+                      {isColumnVisible("balance") && (
+                        <td className="py-3.5 px-4 text-right font-black text-purple-600 whitespace-nowrap">
+                          ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            balance <= 0
-                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                              : refund > 0
-                              ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                              : "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
-                          }`}
-                        >
+                      {isColumnVisible("status") && (
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              balance <= 0 ? "bg-emerald-600" : refund > 0 ? "bg-amber-600" : "bg-purple-600"
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              balance <= 0
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : refund > 0
+                                ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                : "bg-purple-50 text-purple-700 ring-1 ring-purple-200"
                             }`}
-                          />
-                          {balance <= 0 ? "Paid" : refund > 0 ? "Partial" : "Unpaid"}
-                        </span>
-                      </td>
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                balance <= 0 ? "bg-emerald-600" : refund > 0 ? "bg-amber-600" : "bg-purple-600"
+                              }`}
+                            />
+                            {balance <= 0 ? "Paid" : refund > 0 ? "Partial" : "Unpaid"}
+                          </span>
+                        </td>
+                      )}
 
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <TableActions
@@ -894,6 +941,16 @@ export default function DebitNoteList() {
           </button>
         </div>
       )}
+
+      {/* ── 5. TABLE COLUMN CUSTOMIZATION DRAWER ── */}
+      <CommonTableColumnSettings
+        isOpen={isSettingsOpen}
+        onClose={closeSettings}
+        columns={tableColumns}
+        onToggleColumn={toggleColumn}
+        onResetColumns={resetColumns}
+        title="Customize Debit Notes Columns"
+      />
     </div>
   );
 }
