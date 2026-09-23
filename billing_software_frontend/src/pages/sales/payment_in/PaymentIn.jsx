@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import AddPaymentInModal from "./AddPaymentInModal";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
-import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
+import PaymentInAnalytics from "./PaymentInAnalytics";
 
 export default function PaymentIn() {
   const navigate = useNavigate();
@@ -64,7 +64,7 @@ export default function PaymentIn() {
   const [actionToast, setActionToast] = useState(null);
 
   // Analytics view state
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("report");
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -317,6 +317,14 @@ export default function PaymentIn() {
 
   return (
     <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {viewMode === "analytics" ? (
+        <PaymentInAnalytics
+          rows={filteredPayments}
+          period={`${fromDate || "All"} → ${toDate || "All"}`}
+          onClose={() => setViewMode("report")}
+        />
+      ) : (
+        <>
       {/* ── 1. TOP HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 select-none">
@@ -644,7 +652,7 @@ export default function PaymentIn() {
           {/* Analytics */}
           <button
             type="button"
-            onClick={() => setAnalyticsOpen(true)}
+            onClick={() => setViewMode("analytics")}
             disabled={!filteredPayments.length}
             title="Open Analytics"
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1028,16 +1036,7 @@ export default function PaymentIn() {
         </div>
       )}
 
-      {/* ── ANALYTICS VIEW MODAL ── */}
-      {analyticsOpen && (
-        <ReportAnalyticsView
-          title="Payment-In Analytics"
-          subtitle={`${fromDate || "All"} → ${toDate || "All"} • ${analyticsRows.length} records`}
-          rows={analyticsRows}
-          symbol="₹"
-          groupLabel="Payment Types"
-          onClose={() => setAnalyticsOpen(false)}
-        />
+      </>
       )}
     </div>
   );

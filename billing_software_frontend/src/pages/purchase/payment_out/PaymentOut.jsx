@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import AddPaymentOutModal from "./AddPaymentOutModal";
 import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
-import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
+import PaymentOutAnalytics from "./PaymentOutAnalytics";
 
 export default function PaymentOut() {
   const navigate = useNavigate();
@@ -69,7 +69,7 @@ export default function PaymentOut() {
   const [actionToast, setActionToast] = useState(null);
 
   // Analytics view state
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("report");
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -329,6 +329,14 @@ export default function PaymentOut() {
 
   return (
     <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {viewMode === "analytics" ? (
+        <PaymentOutAnalytics
+          rows={filteredPayments}
+          period={`${fromDate || "All"} → ${toDate || "All"}`}
+          onClose={() => setViewMode("report")}
+        />
+      ) : (
+        <>
       {/* ── 1. TOP HEADER (Matching Payment In) ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 select-none">
@@ -695,7 +703,7 @@ export default function PaymentOut() {
           {/* Analytics */}
           <button
             type="button"
-            onClick={() => setAnalyticsOpen(true)}
+            onClick={() => setViewMode("analytics")}
             disabled={!filteredPayments.length}
             title="Open Analytics"
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1015,16 +1023,7 @@ export default function PaymentOut() {
         editPayment={editingPayment}
       />
 
-      {/* ── ANALYTICS VIEW MODAL ── */}
-      {analyticsOpen && (
-        <ReportAnalyticsView
-          title="Payment-Out Analytics"
-          subtitle={`${fromDate || "All"} → ${toDate || "All"} • ${analyticsRows.length} records`}
-          rows={analyticsRows}
-          symbol="₹"
-          groupLabel="Parties"
-          onClose={() => setAnalyticsOpen(false)}
-        />
+      </>
       )}
     </div>
   );
