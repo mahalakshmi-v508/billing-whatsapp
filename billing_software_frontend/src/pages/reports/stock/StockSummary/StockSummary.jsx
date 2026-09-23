@@ -207,16 +207,38 @@ export default function StockSummary() {
 
   const prettyAsOf = asOf.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
-  const analyticsRows = useMemo(
-    () =>
-      (rows || []).map((r) => ({
-        date: "",
-        group: r.item_name || "General",
-        value: Number(r.stock_value) || 0,
-        count: 1,
-      })),
-    [rows]
-  );
+  const [analyticsRows, setAnalyticsRows] = useState([]);
+
+  const openAnalytics = () => {
+    setViewMode("analytics");
+    api
+      .get("/report/stock-summary", {
+        params: {
+          company_id: companyId,
+          admin_id: adminId || 0,
+          as_of_date: formatDateISO(asOf),
+          show_in_stock: showInStock,
+          search: query.trim(),
+          category_id: categoryId > 0 ? categoryId : undefined,
+          limit: 0,
+        },
+      })
+      .then((res) => {
+        if (res.data?.status) {
+          setAnalyticsRows(
+            (res.data.data || []).map((r) => ({
+              date: "",
+              group: r.item_name || "General",
+              value: Number(r.stock_value) || 0,
+              count: 1,
+            }))
+          );
+        } else {
+          setAnalyticsRows([]);
+        }
+      })
+      .catch(() => setAnalyticsRows([]));
+  };
 
   /* ── Stock status helpers ── */
   const stockColor = (qty) => {
@@ -459,7 +481,7 @@ export default function StockSummary() {
           <button
             type="button"
             title="Open Analytics"
-            onClick={() => setViewMode("analytics")}
+            onClick={openAnalytics}
             disabled={!rows.length}
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
