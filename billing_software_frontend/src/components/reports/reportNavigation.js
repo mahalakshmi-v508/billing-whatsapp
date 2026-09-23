@@ -27,8 +27,6 @@
 /** Organisational folder metadata (purely to organise code, never rendered). */
 export const reportGroups = [
   { key: "transactions", label: "Transactions", folder: "transactions" },
-  { key: "profit-loss", label: "Profit & Loss", folder: "profit-loss" },
-  { key: "financial", label: "Financial", folder: "financial" },
   { key: "party", label: "Party", folder: "party" },
   { key: "gst", label: "GST Reports", folder: "GSTReports" },
   { key: "stock", label: "Stock", folder: "stock" },
@@ -46,12 +44,6 @@ export const reportSections = [
       { title: "Sale", path: "/reports/sale", slug: "Sale" },
       { title: "Purchase", path: "/reports/purchase", slug: "Purchase" },
       { title: "Day Book", path: "/reports/day-book", slug: "DayBook" },
-      { title: "All Transactions", path: "/reports/all-transactions", slug: "AllTransactions" },
-      { title: "Profit And Loss", path: "/reports/profit-loss", slug: "ProfitAndLoss" },
-      { title: "Bill Wise Profit", path: "/reports/bill-wise-profit", slug: "BillWiseProfit" },
-      { title: "Cash flow", path: "/reports/cash-flow", slug: "CashFlow" },
-      { title: "Trial Balance Report", path: "/reports/trial-balance", slug: "TrialBalance" },
-      { title: "Balance Sheet", path: "/reports/balance-sheet", slug: "BalanceSheet" },
     ],
   },
   {

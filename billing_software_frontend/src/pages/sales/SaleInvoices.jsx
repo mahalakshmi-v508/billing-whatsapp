@@ -41,7 +41,6 @@ import {
 } from "lucide-react";
 import ShareTransactionPopover from "../../components/ShareTransactionPopover";
 import StatusBadge from "../../components/ui/StatusBadge";
-import ReportAnalyticsView from "../../components/reports/ReportAnalyticsView";
 
 // Table columns list for customization drawer with rich icons and colors
 const DEFAULT_COLUMNS = [
@@ -145,9 +144,6 @@ export default function SaleInvoices() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
-
-  // Analytics view state
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -356,6 +352,9 @@ export default function SaleInvoices() {
         group: inv.customer_name || "Cash Sale",
         value: Number(inv.total_amount || 0),
         count: 1,
+        paid: Number(inv.paid_amount || 0),
+        balance: Number(inv.balance_amount || 0),
+        paymentType: (inv.payment_type || "other").toLowerCase(),
       })),
     [filteredInvoices]
   );
@@ -834,7 +833,9 @@ export default function SaleInvoices() {
           {/* Analytics */}
           <button
             type="button"
-            onClick={() => setAnalyticsOpen(true)}
+            onClick={() => navigate("/reports/sale/analytics", {
+              state: { rows: analyticsRows, fromDate, toDate },
+            })}
             disabled={!filteredInvoices.length}
             title="Open Analytics"
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1388,17 +1389,6 @@ export default function SaleInvoices() {
         </div>
       )}
 
-      {/* ── ANALYTICS VIEW MODAL ── */}
-      {analyticsOpen && (
-        <ReportAnalyticsView
-          title="Sale Analytics"
-          subtitle={`${fromDate || "All"} → ${toDate || "All"} • ${analyticsRows.length} records`}
-          rows={analyticsRows}
-          symbol="₹"
-          groupLabel="Parties"
-          onClose={() => setAnalyticsOpen(false)}
-        />
-      )}
     </div>
   );
 }

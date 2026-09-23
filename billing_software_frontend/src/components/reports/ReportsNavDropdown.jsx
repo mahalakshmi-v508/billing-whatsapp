@@ -23,11 +23,6 @@ import { reports, reportSections, otherReports, findReportByPath } from "./repor
 
 /** Reports hidden from the dropdown */
 const HIDDEN_REPORT_PATHS = new Set([
-  "/reports/all-transactions",
-  "/reports/profit-loss",
-  "/reports/cash-flow",
-  "/reports/trial-balance",
-  "/reports/balance-sheet",
   "/reports/bank-statement",
   "/reports/discount-report",
   "/reports/loan-statement",

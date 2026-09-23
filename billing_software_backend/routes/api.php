@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\CashierController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CompanyController;
-use App\Http\Controllers\Api\BillWiseProfitController;
 use App\Http\Controllers\Api\CreditController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
@@ -386,7 +385,6 @@ Route::prefix('report')->group(function () {
     Route::get('item-report-by-party', [PartyStatementController::class, 'getItemReportByParty']);
     Route::get('item-wise-profit-loss', [ItemWiseProfitLossController::class, 'index']);
     Route::get('party-wise-profit-loss', [PartyWiseProfitLossController::class, 'index']);
-    Route::get('bill-wise-profit', [BillWiseProfitController::class, 'index']);
     Route::get('item-category-wise-profit-loss', [ItemCategoryWiseProfitLossController::class, 'index']);
     Route::get('sale-purchase-by-item-category', [SalePurchaseByItemCategoryController::class, 'index']);
     Route::get('item-wise-discount', [ItemWiseDiscountController::class, 'index']);

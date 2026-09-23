@@ -119,6 +119,7 @@ export default function ReportAnalyticsView({
   groupLabel = "Breakdown",
   emptyMessage = "No data available for the selected period.",
   onClose,
+  page = false,
 }) {
   const [granularity, setGranularity] = useState("auto");
   const [metricView, setMetricView] = useState("value");
@@ -237,21 +238,21 @@ export default function ReportAnalyticsView({
   return (
     <div
       style={{
-        position: "fixed",
-        inset: 0,
+        position: page ? "relative" : "fixed",
+        inset: page ? "auto" : 0,
         zIndex: 115,
-        background: "rgba(15,23,42,0.45)",
+        background: page ? "transparent" : "rgba(15,23,42,0.45)",
         display: "flex",
-        alignItems: "center",
+        alignItems: page ? "stretch" : "center",
         justifyContent: "center",
-        padding: "16px",
+        padding: page ? 0 : "16px",
       }}
     >
       <div
         className="pb-no-print"
         style={{
-          width: "min(96vw, 1000px)",
-          maxHeight: "94vh",
+          width: page ? "100%" : "min(96vw, 1000px)",
+          maxHeight: page ? "none" : "94vh",
           background: "#fff",
           borderRadius: "14px",
           overflow: "hidden",

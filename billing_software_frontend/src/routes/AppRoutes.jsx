@@ -9,27 +9,24 @@ import AddSale from "../pages/sales/AddSale";
 import General from "../pages/settings/General";
 import ReportsLayout from "../components/reports/ReportsLayout";
 import { defaultReportPath } from "../components/reports/reportNavigation";
-import Sale from "../pages/reports/transactions/Sale";
-import Purchase from "../pages/reports/transactions/Purchase";
-import DayBook from "../pages/reports/transactions/DayBook";
-import AllTransactions from "../pages/reports/transactions/AllTransactions";
-import ProfitAndLoss from "../pages/reports/profit-loss/ProfitAndLoss";
-import BillWiseProfit from "../pages/reports/profit-loss/BillWiseProfit";
-import CashFlow from "../pages/reports/financial/CashFlow";
-import TrialBalance from "../pages/reports/financial/TrialBalance";
-import BalanceSheet from "../pages/reports/financial/BalanceSheet";
-import GstR1 from "../pages/reports/GSTReports/GstR1";
-import GstR2 from "../pages/reports/GSTReports/GstR2";
-import Gstr3B from "../pages/reports/GSTReports/Gstr3B";
-import Gstr9 from "../pages/reports/GSTReports/Gstr9";
-import SaleSummaryByHSN from "../pages/reports/GSTReports/SaleSummaryByHSN";
-import SACReport from "../pages/reports/GSTReports/SACReport";
-import PartyStatement from "../pages/reports/party/PartyStatement";
-import PartyWiseProfitLoss from "../pages/reports/party/PartyWiseProfitLoss";
-import AllParties from "../pages/reports/party/AllParties";
-import PartyReportByItem from "../pages/reports/party/PartyReportByItem";
-import SalePurchaseByParty from "../pages/reports/party/SalePurchaseByParty";
-import SalePurchaseByPartyGroup from "../pages/reports/party/SalePurchaseByPartyGroup";
+import Sale from "../pages/reports/transactions/sale/Sale";
+import Purchase from "../pages/reports/transactions/purchase/Purchase";
+import DayBook from "../pages/reports/transactions/day-book/DayBook";
+import DayBookAnalytics from "../pages/reports/transactions/day-book/DayBookAnalytics";
+import PurchaseAnalytics from "../pages/reports/transactions/purchase/PurchaseAnalytics";
+import SaleAnalytics from "../pages/reports/transactions/sale/SaleAnalytics";
+import GstR1 from "../pages/reports/GSTReports/GstR1/GstR1";
+import GstR2 from "../pages/reports/GSTReports/GstR2/GstR2";
+import Gstr3B from "../pages/reports/GSTReports/Gstr3B/Gstr3B";
+import Gstr9 from "../pages/reports/GSTReports/Gstr9/Gstr9";
+import SaleSummaryByHSN from "../pages/reports/GSTReports/SaleSummaryByHSN/SaleSummaryByHSN";
+import SACReport from "../pages/reports/GSTReports/SACReport/SACReport";
+import PartyStatement from "../pages/reports/party/PartyStatement/PartyStatement";
+import PartyWiseProfitLoss from "../pages/reports/party/PartyWiseProfitLoss/PartyWiseProfitLoss";
+import AllParties from "../pages/reports/party/AllParties/AllParties";
+import PartyReportByItem from "../pages/reports/party/PartyReportByItem/PartyReportByItem";
+import SalePurchaseByParty from "../pages/reports/party/SalePurchaseByParty/SalePurchaseByParty";
+import SalePurchaseByPartyGroup from "../pages/reports/party/SalePurchaseByPartyGroup/SalePurchaseByPartyGroup";
 import StockSummary from "../pages/reports/stock/StockSummary";
 import ItemReportByParty from "../pages/reports/item-stock/ItemReportByParty";
 import ItemWiseProfitAndLoss from "../pages/reports/item-stock/ItemWiseProfitAndLoss";
@@ -176,14 +173,11 @@ export default function AppRoutes() {
             <Route path="/reports" element={<ReportsLayout />}>
               <Route index element={<Navigate to={defaultReportPath} replace />} />
               <Route path="sale" element={<Sale />} />
+              <Route path="sale/analytics" element={<SaleAnalytics />} />
               <Route path="purchase" element={<Purchase />} />
+              <Route path="purchase/analytics" element={<PurchaseAnalytics />} />
               <Route path="day-book" element={<DayBook />} />
-              <Route path="all-transactions" element={<AllTransactions />} />
-              <Route path="profit-loss" element={<ProfitAndLoss />} />
-              <Route path="bill-wise-profit" element={<BillWiseProfit />} />
-              <Route path="cash-flow" element={<CashFlow />} />
-              <Route path="trial-balance" element={<TrialBalance />} />
-              <Route path="balance-sheet" element={<BalanceSheet />} />
+              <Route path="day-book/analytics" element={<DayBookAnalytics />} />
               <Route path="party-statement" element={<PartyStatement />} />
               <Route path="party-profit-loss" element={<PartyWiseProfitLoss />} />
               <Route path="all-parties" element={<AllParties />} />

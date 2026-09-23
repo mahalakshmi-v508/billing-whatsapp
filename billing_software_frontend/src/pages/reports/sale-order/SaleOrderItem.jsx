@@ -4,8 +4,8 @@ import { getCurrencySymbol } from "../../../utils/expenseDocument";
 import { Calendar, ChevronDown, FileSpreadsheet, Printer, Search, Package, ShoppingCart, DollarSign, X, BarChart3 } from "lucide-react";
 import * as XLSX from "xlsx";
 import ReportPagination from "../../../components/reports/ReportPagination";
-import ReportAnalyticsView from "../../../components/reports/ReportAnalyticsView";
 import { showToast } from "../../../utils/reportToast";
+import SaleOrderItemAnalytics from "./SaleOrderItemAnalytics";
 
 const toInputDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -71,7 +71,7 @@ export default function SaleOrderItem() {
   const [symbol, setSymbol] = useState("₹");
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("report");
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -140,7 +140,14 @@ export default function SaleOrderItem() {
             const items = Array.isArray(r.products) ? r.products : [];
             items.forEach((p) => {
               const parsed = parseSaleLine(p);
-              flat.push({ ...parsed, balance: bal, advance: adv });
+              flat.push({
+                ...parsed,
+                balance: bal,
+                advance: adv,
+                date: r.created_at,
+                customer: r.customer_name,
+                orderNo: r.invoice_no,
+              });
             });
           });
         } else {
@@ -163,7 +170,14 @@ export default function SaleOrderItem() {
             const items = Array.isArray(dr.data.data.items) ? dr.data.data.items : [];
             items.forEach((it) => {
               const parsed = parsePurchaseLine(it);
-              flat.push({ ...parsed, balance: bal, advance: adv });
+              flat.push({
+                ...parsed,
+                balance: bal,
+                advance: adv,
+                date: p.purchase_date || p.created_at,
+                customer: p.supplier_name,
+                orderNo: p.purchase_no,
+              });
             });
           });
         }
@@ -193,17 +207,6 @@ export default function SaleOrderItem() {
       (a, b) => b.amount - a.amount || String(a.name).localeCompare(String(b.name))
     );
   }, [lines, orderStatus]);
-
-  const analyticsRows = useMemo(
-    () =>
-      (reportedRows || []).map((r) => ({
-        date: "",
-        group: r.name || "General",
-        value: Number(r.amount) || 0,
-        count: 1,
-      })),
-    [reportedRows]
-  );
 
   const totalQty = useMemo(() => reportedRows.reduce((s, r) => s + r.qty, 0), [reportedRows]);
   const totalAmount = useMemo(() => reportedRows.reduce((s, r) => s + r.amount, 0), [reportedRows]);
@@ -263,51 +266,65 @@ export default function SaleOrderItem() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
-      {/* Header Card */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
-            <span>Orders & Fulfillment</span>
-            <span>•</span>
-            <span>Itemized Demand</span>
-          </div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
-            Order Items Summary
-          </h1>
-          <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-            Aggregated item-level quantities and order amounts across sales and purchase pipelines
-          </p>
-        </div>
+      {viewMode === "analytics" ? (
+        <SaleOrderItemAnalytics
+          lines={lines}
+          reportedRows={reportedRows}
+          totalQty={totalQty}
+          totalAmount={totalAmount}
+          symbol={symbol}
+          fromDate={fromDate}
+          toDate={toDate}
+          orderType={orderType}
+          orderStatus={orderStatus}
+          onClose={() => setViewMode("report")}
+        />
+      ) : (
+        <>
+          {/* Header Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider">
+                <span>Orders & Fulfillment</span>
+                <span>•</span>
+                <span>Itemized Demand</span>
+              </div>
+              <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+                Order Items Summary
+              </h1>
+              <p className="text-xs md:text-sm text-slate-500 mt-0.5">
+                Aggregated item-level quantities and order amounts across sales and purchase pipelines
+              </p>
+            </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setAnalyticsOpen(true)}
-            disabled={!reportedRows.length}
-            title="Open Analytics"
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <BarChart3 size={16} />
-            <span>Analytics</span>
-          </button>
-          <button
-            onClick={handleExportExcel}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
-            title="Export Excel"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Excel</span>
-          </button>
-          <button
-            onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
-            title="Print Report"
-          >
-            <Printer className="w-4 h-4 text-slate-500" />
-            <span>Print</span>
-          </button>
-        </div>
-      </div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                onClick={handleExportExcel}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100/80 hover:border-emerald-300 transition-all shadow-2xs cursor-pointer"
+                title="Export Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Excel</span>
+              </button>
+              <button
+                onClick={handlePrint}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-2xs cursor-pointer"
+                title="Print Report"
+              >
+                <Printer className="w-4 h-4 text-slate-500" />
+                <span>Print</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("analytics")}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all shadow-2xs cursor-pointer"
+                title="Open Analytics View"
+              >
+                <BarChart3 className="w-4 h-4 text-indigo-600" />
+                <span>Analytics</span>
+              </button>
+            </div>
+          </div>
 
       {/* Filter Card */}
       <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
@@ -534,17 +551,8 @@ export default function SaleOrderItem() {
           }}
         />
       </div>
-
-      {analyticsOpen && (
-        <ReportAnalyticsView
-          title="Order Items Analytics"
-          subtitle={`${analyticsRows.length} records`}
-          rows={analyticsRows}
-          symbol={symbol}
-          groupLabel="Items"
-          onClose={() => setAnalyticsOpen(false)}
-        />
-      )}
-    </div>
+    </>
+  )}
+</div>
   );
 }
