@@ -271,7 +271,6 @@ export default function General() {
       {settingsTab === "service-reminders" && <ServiceReminders />}
       {settingsTab === "accounting" && <Accounting />}
       {settingsTab === "multi-currency" && <MultiCurrency />}
-      {settingsTab === "eway-bill" && <EwayBill />}
     </div>
   );
 }
