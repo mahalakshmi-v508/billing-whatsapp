@@ -320,32 +320,7 @@ export default function EstimateQuotation() {
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 {docType}s &amp; Quotations
               </h1>
-              <div ref={typeRef} className="relative">
-                <button
-                  onClick={() => setTypeOpen((v) => !v)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
-                  title="Switch document type"
-                >
-                  <span>{docType}</span>
-                  <ChevronDown size={13} className={`transition-transform duration-200 ${typeOpen ? "rotate-180" : ""}`} />
-                </button>
-                {typeOpen && (
-                  <div className="absolute left-0 top-8 w-44 bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
-                    {docTypeOptions.map((t) => (
-                      <div
-                        key={t}
-                        onClick={() => { setDocType(t); setTypeOpen(false); }}
-                        className={`px-3.5 py-2 text-xs font-semibold cursor-pointer transition flex items-center justify-between ${
-                          docType === t ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span>{t}</span>
-                        {docType === t && <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+             
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               Manage, print, and track all sales estimates and quotation proposals

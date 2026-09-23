@@ -6,9 +6,6 @@ import {
   Settings,
   Calendar,
   ChevronDown,
-  Camera,
-  AlignLeft,
-  Share2,
   Check,
   Search,
   User,
@@ -397,54 +394,6 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
                 </div>
               )}
             </div>
-
-            {/* + ADD DESCRIPTION Toggle & Textarea */}
-            <div>
-              {!showDescription ? (
-                <button
-                  type="button"
-                  onClick={() => setShowDescription(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
-                >
-                  <AlignLeft size={13} />
-                  <span>ADD DESCRIPTION</span>
-                </button>
-              ) : (
-                <div className="border border-slate-200 rounded-lg p-2 bg-slate-50/50">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-bold text-slate-600">Description / Notes</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowDescription(false);
-                        setDescription("");
-                      }}
-                      className="text-slate-400 hover:text-slate-600 text-xs"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                  <textarea
-                    rows={2}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Enter any reference notes or remarks..."
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800 outline-none focus:border-blue-500 resize-none"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Attachment Camera Icon */}
-            <div>
-              <button
-                type="button"
-                className="w-8 h-8 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 flex items-center justify-center transition cursor-pointer"
-                title="Attach photo or slip"
-              >
-                <Camera size={16} />
-              </button>
-            </div>
           </div>
 
           {/* ── RIGHT COLUMN ── */}
@@ -537,30 +486,14 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
           </div>
         </div>
 
-        {/* ── 4. BOTTOM ACTION BAR (Share | Save) ── */}
+        {/* ── 4. BOTTOM ACTION BAR (Save) ── */}
         <div className="px-6 py-3.5 border-t border-slate-200 bg-white flex items-center justify-end gap-3">
-          {/* Share Split Button */}
-          <div className="inline-flex rounded-md border border-emerald-500 shadow-xs">
-            <button
-              type="button"
-              className="px-3.5 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
-            >
-              Share
-            </button>
-            <button
-              type="button"
-              className="px-1.5 py-1.5 text-emerald-600 border-l border-emerald-500 hover:bg-emerald-50 transition cursor-pointer"
-            >
-              <ChevronDown size={13} />
-            </button>
-          </div>
-
           {/* Primary Save Button */}
           <button
             type="button"
             disabled={saving}
             onClick={handleSavePaymentIn}
-            className="app-btn-primary px-8 py-2 rounded-md font-bold text-sm"
+            className="inline-flex items-center justify-center gap-2 px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
           >
             {saving && <RefreshCw size={14} className="animate-spin" />}
             <span><u>S</u>ave</span>

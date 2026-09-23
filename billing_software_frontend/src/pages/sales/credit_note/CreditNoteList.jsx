@@ -282,7 +282,7 @@ export default function CreditNoteList() {
       {/* ── 1. TOP HEADER: Title + Actions ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 select-none">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-rose-100 ring-4 ring-rose-50/50">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-lg shadow-rose-100 ring-4 ring-rose-50/50">
             <FileText size={24} />
           </div>
           <div>
@@ -298,7 +298,7 @@ export default function CreditNoteList() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate("/sales/credit-note/add")}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-rose-200 transition-all transform active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.8} />
             <span>Create Credit Note</span>
