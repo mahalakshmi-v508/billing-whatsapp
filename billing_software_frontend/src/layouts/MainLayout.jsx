@@ -458,7 +458,7 @@ export default function MainLayout() {
             {[
               { id: "general", label: "General Settings" },
               { id: "invoice-numbering", label: "Invoice Numbering" },
-              { id: "invoice-design", label: "Invoice Design & Print" },
+              { id: "print", label: "Print" },
               { id: "transaction", label: "Transaction Rules" },
               { id: "taxes", label: "Taxes & GST Rates" },
               { id: "eway-bill", label: "E-Way Bill Integration", icon: <Truck size={15} /> },
