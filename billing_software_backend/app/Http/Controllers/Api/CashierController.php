@@ -21,9 +21,9 @@ class CashierController extends Controller
 
     public function getCashiers(Request $request)
     {
-        $admin_id = intval($request->input('admin_id', 0));
+        $admin_id = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
         $cashiers = User::where('role', 'cashier')
-            ->where('admin_id', $admin_id)
+            ->when($admin_id > 0, fn($q) => $q->where('admin_id', $admin_id))
             ->select('id', 'name', 'email', 'status')
             ->orderBy('id', 'desc')
             ->get();

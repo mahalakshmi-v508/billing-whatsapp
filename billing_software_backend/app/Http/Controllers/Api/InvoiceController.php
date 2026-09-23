@@ -380,21 +380,37 @@ class InvoiceController extends Controller
     public function getAllInvoice(Request $request)
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
-        if (!$company_id) {
-            return response()->json(["status" => false, "message" => "company_id required"]);
+        $admin_id   = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+
+        $query = DB::table('invoices as i')
+            ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
+            ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
+            ->select('i.*', 'u.name as cashier_name', 'c.company_name')
+            ->orderBy('i.id', 'desc');
+
+        if ($company_id > 0) {
+            $query->where('i.company_id', $company_id);
+        } elseif ($admin_id > 0) {
+            $query->where(function ($q) use ($admin_id) {
+                $q->where('c.admin_id', $admin_id)
+                  ->orWhere('u.admin_id', $admin_id)
+                  ->orWhereExists(function ($sub) use ($admin_id) {
+                      $sub->select(DB::raw(1))
+                          ->from('companies as comp')
+                          ->whereColumn('comp.id', 'i.company_id')
+                          ->where('comp.admin_id', $admin_id);
+                  });
+            });
         }
 
-        $invoices = DB::table('invoices as i')
-            ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
-            ->select('i.*', 'u.name as cashier_name')
-            ->where('i.company_id', $company_id)
-            ->orderBy('i.id', 'desc')
-            ->get();
+        $invoices = $query->get();
 
         $data = [];
         foreach ($invoices as $row) {
             $rowArray = (array)$row;
-            $rowArray['products'] = json_decode($rowArray['products']);
+            if (isset($rowArray['products']) && is_string($rowArray['products'])) {
+                $rowArray['products'] = json_decode($rowArray['products']);
+            }
             $data[] = $rowArray;
         }
 
