@@ -32,6 +32,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  PanelLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   ShoppingBag,
   PackagePlus,
@@ -515,10 +518,18 @@ export default function MainLayout() {
                 </div>
               </div>
             ) : (
-              <div className="mx-auto">
+              <div className="w-full flex flex-col items-center gap-2">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center shadow-glow-brand">
                   <Sparkles size={18} className="text-white" />
                 </div>
+                <button
+                  type="button"
+                  onClick={toggleSidebar}
+                  title="Expand Sidebar"
+                  className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                >
+                  <ChevronRight size={14} strokeWidth={2.5} />
+                </button>
               </div>
             )}
 
@@ -801,8 +812,21 @@ export default function MainLayout() {
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f8faff]">
         {/* PAYSPLITX ADVANCED TOP HEADER BAR */}
         <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between z-30 flex-shrink-0 shadow-2xs">
-          {/* Left: Dynamic Breadcrumbs Navigation */}
+          {/* Left: Sidebar Toggle & Dynamic Breadcrumbs Navigation */}
           <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs"
+            >
+              {isCollapsed ? (
+                <PanelLeftOpen size={17} className="text-indigo-600" />
+              ) : (
+                <PanelLeftClose size={17} />
+              )}
+            </button>
+
             {(() => {
               const crumb = getHeaderBreadcrumbs(location.pathname);
               const CrumbIcon = crumb.icon;
