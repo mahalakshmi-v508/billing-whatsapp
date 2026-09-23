@@ -35,7 +35,7 @@ import {
   Wallet,
   LayoutGrid
 } from "lucide-react";
-import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import TableActions from "../../../components/ui/TableActions";
 
 export default function ExpenseList() {
   const navigate = useNavigate();
@@ -74,7 +74,6 @@ export default function ExpenseList() {
   // Menus & Modals
   const [activeTxMenuId, setActiveTxMenuId] = useState(null);
   const [activeCatMenuId, setActiveCatMenuId] = useState(null);
-  const [activeShareId, setActiveShareId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -728,48 +727,34 @@ export default function ExpenseList() {
                             {isPaid ? "Settled" : "Pending"}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => navigate(`/purchases/expenses/edit/${item.id}`)}
-                              title="Edit Voucher"
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              onClick={() => navigate(`/invoice/${item.expense_no || item.id}`)}
-                              title="Print Receipt"
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                            >
-                              <Printer size={14} />
-                            </button>
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveShareId(activeShareId === item.id ? null : item.id);
-                                }}
-                                title="Share Voucher"
-                                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                              >
-                                <Share2 size={14} />
-                              </button>
-                              <ShareTransactionPopover
-                                isOpen={activeShareId === item.id}
-                                onClose={() => setActiveShareId(null)}
-                                transaction={item}
-                                type="Expense"
-                              />
-                            </div>
-                            <button
-                              onClick={() => setDeleteTarget(item)}
-                              title="Delete Voucher"
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <TableActions
+                            onPrint={() => navigate(`/invoice/${item.expense_no || item.id}`)}
+                            printTitle="Print Receipt"
+                            shareTransaction={item}
+                            shareType="Expense"
+                            onViewInvoice={() => navigate(`/invoice/${item.expense_no || item.id}`)}
+                            viewInvoiceLabel="View Invoice"
+                            menuItems={[
+                              {
+                                label: "Edit Voucher",
+                                icon: Edit,
+                                onClick: () => navigate(`/purchases/expenses/edit/${item.id}`),
+                              },
+                              {
+                                label: "View Invoice",
+                                icon: Eye,
+                                onClick: () => navigate(`/invoice/${item.expense_no || item.id}`),
+                              },
+                              { isDivider: true },
+                              {
+                                label: "Delete",
+                                icon: Trash2,
+                                isDanger: true,
+                                onClick: () => setDeleteTarget(item),
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                     );
@@ -1138,30 +1123,34 @@ export default function ExpenseList() {
                               {isPaid ? "Paid" : "Partial"}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => navigate(`/purchases/expenses/edit/${item.id}`)}
-                                title="Edit Details"
-                                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
-                              >
-                                <Edit size={14} />
-                              </button>
-                              <button
-                                onClick={() => navigate(`/invoice/${item.expense_no || item.id}`)}
-                                title="Print Receipt"
-                                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                              >
-                                <Printer size={14} />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget(item)}
-                                title="Delete Voucher"
-                                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                          <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <TableActions
+                              onPrint={() => navigate(`/invoice/${item.expense_no || item.id}`)}
+                              printTitle="Print Receipt"
+                              shareTransaction={item}
+                              shareType="Expense"
+                              onViewInvoice={() => navigate(`/invoice/${item.expense_no || item.id}`)}
+                              viewInvoiceLabel="View Invoice"
+                              menuItems={[
+                                {
+                                  label: "Edit Details",
+                                  icon: Edit,
+                                  onClick: () => navigate(`/purchases/expenses/edit/${item.id}`),
+                                },
+                                {
+                                  label: "View Invoice",
+                                  icon: Eye,
+                                  onClick: () => navigate(`/invoice/${item.expense_no || item.id}`),
+                                },
+                                { isDivider: true },
+                                {
+                                  label: "Delete",
+                                  icon: Trash2,
+                                  isDanger: true,
+                                  onClick: () => setDeleteTarget(item),
+                                },
+                              ]}
+                            />
                           </td>
                         </tr>
                       );

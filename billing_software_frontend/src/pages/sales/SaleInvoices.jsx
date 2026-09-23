@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import ShareTransactionPopover from "../../components/ShareTransactionPopover";
 import StatusBadge from "../../components/ui/StatusBadge";
+import TableActions from "../../components/ui/TableActions";
 
 // Table columns list for customization drawer with rich icons and colors
 const DEFAULT_COLUMNS = [
@@ -994,124 +995,46 @@ export default function SaleInvoices() {
                       {/* Actions */}
                       {visibleColumns.actions && (
                         <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
-                            {/* View */}
-                            <button
-                              onClick={() => navigate(`/invoice/${inv.invoice_no}`)}
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                              title="View Invoice"
-                            >
-                              <Eye size={15} />
-                            </button>
-
-                            {/* Print */}
-                            <button
-                              onClick={() => navigate(`/invoice/${inv.invoice_no}`)}
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                              title="Print Invoice"
-                            >
-                              <Printer size={15} />
-                            </button>
-
-                            {/* Share */}
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveShareId(activeShareId === inv.invoice_no ? null : inv.invoice_no);
-                                }}
-                                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                                title="Share Invoice"
-                              >
-                                <Share2 size={15} />
-                              </button>
-                              <ShareTransactionPopover
-                                isOpen={activeShareId === inv.invoice_no}
-                                onClose={() => setActiveShareId(null)}
-                                transaction={inv}
-                                type="Invoice"
-                              />
-                            </div>
-
-                            {/* 3-Dot More Menu */}
-                            <div className="relative">
-                              <button
-                                onClick={() => setActiveMenuId(isMenuOpen ? null : inv.invoice_no)}
-                                className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
-                                  isMenuOpen ? "text-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-                                }`}
-                                title="More actions"
-                              >
-                                <MoreVertical size={15} />
-                              </button>
-
-                              {isMenuOpen && (
-                                <div
-                                  ref={menuRef}
-                                  className="absolute right-0 top-8 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
-                                >
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveMenuId(null);
-                                      navigate(`/sales/edit/${inv.invoice_no}`);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition text-left cursor-pointer"
-                                  >
-                                    <Edit size={14} className="text-indigo-600" />
-                                    <span>Edit</span>
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveMenuId(null);
-                                      navigate(`/invoice/${inv.invoice_no}`);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
-                                  >
-                                    <Eye size={14} />
-                                    <span>View Invoice</span>
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveMenuId(null);
-                                      navigate(`/invoice/${inv.invoice_no}`);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition text-left cursor-pointer"
-                                  >
-                                    <Printer size={14} className="text-emerald-600" />
-                                    <span>Print POS</span>
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveMenuId(null);
-                                      navigate(
-                                        `/e-way/generate?invoice_id=${inv.id || ""}&invoice_no=${encodeURIComponent(inv.invoice_no || "")}`
-                                      );
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition text-left cursor-pointer"
-                                  >
-                                    <Truck size={14} className="text-indigo-600" />
-                                    <span>Generate E-Way Bill</span>
-                                  </button>
-                                  <div className="border-t border-slate-100 my-1" />
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveMenuId(null);
-                                      setDeleteTarget(inv);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition text-left cursor-pointer"
-                                  >
-                                    <Trash2 size={14} className="text-rose-600" />
-                                    <span>Delete</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                          <TableActions
+                            onPrint={() => navigate(`/invoice/${inv.invoice_no}`)}
+                            printTitle="Print Invoice"
+                            shareTransaction={inv}
+                            shareType="Invoice"
+                            onViewInvoice={() => navigate(`/invoice/${inv.invoice_no}`)}
+                            viewInvoiceLabel="View Invoice"
+                            menuItems={[
+                              {
+                                label: "Edit",
+                                icon: Edit,
+                                onClick: () => navigate(`/sales/edit/${inv.invoice_no}`),
+                              },
+                              {
+                                label: "View Invoice",
+                                icon: Eye,
+                                onClick: () => navigate(`/invoice/${inv.invoice_no}`),
+                              },
+                              {
+                                label: "Print POS",
+                                icon: Printer,
+                                onClick: () => navigate(`/invoice/${inv.invoice_no}`),
+                              },
+                              {
+                                label: "Generate E-Way Bill",
+                                icon: Truck,
+                                onClick: () =>
+                                  navigate(
+                                    `/e-way/generate?invoice_id=${inv.id || ""}&invoice_no=${encodeURIComponent(inv.invoice_no || "")}`
+                                  ),
+                              },
+                              { isDivider: true },
+                              {
+                                label: "Delete",
+                                icon: Trash2,
+                                isDanger: true,
+                                onClick: () => setDeleteTarget(inv),
+                              },
+                            ]}
+                          />
                         </td>
                       )}
                     </tr>

@@ -21,9 +21,8 @@ import {
   X,
   RefreshCw,
   TrendingUp,
-} from "lucide-react";
 import AddPaymentInModal from "./AddPaymentInModal";
-import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import TableActions from "../../../components/ui/TableActions";
 
 export default function PaymentIn() {
   const navigate = useNavigate();
@@ -52,8 +51,6 @@ export default function PaymentIn() {
   // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState(null);
-  const [activeShareId, setActiveShareId] = useState(null);
 
   // Modals & toast states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -64,8 +61,6 @@ export default function PaymentIn() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const menuRef = useRef(null);
 
   // Helper: Format DD/MM/YYYY
   const formatDateDMY = (dateStr) => {
@@ -164,16 +159,7 @@ export default function PaymentIn() {
     fetchPayments();
   }, [adminId]);
 
-  // Close menus on outside click
-  useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
+
 
   // Filtered Payments List (Show only Payment-In receipts recorded through Add Payment-In)
   const filteredPayments = useMemo(() => {
@@ -686,7 +672,6 @@ export default function PaymentIn() {
                   const discountAmt = parseFloat(p.discount_amount || 0);
                   const balance = parseFloat(p.balance_amount || 0);
                   const status = balance <= 0 ? "paid" : "partial";
-                  const isMenuOpen = activeMenuId === p.id;
 
                   return (
                     <tr
@@ -752,88 +737,33 @@ export default function PaymentIn() {
 
                       {/* Actions Column */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1 text-slate-400">
-                          {/* Print POS */}
-                          <button
-                            onClick={() => navigate(`/invoice/${p.invoice_no}`)}
-                            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                            title="Print"
-                          >
-                            <Printer size={15} />
-                          </button>
-
-                          {/* Share Popover */}
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveShareId(activeShareId === p.id ? null : p.id);
-                              }}
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                              title="Share"
-                            >
-                              <Share2 size={15} />
-                            </button>
-                            <ShareTransactionPopover
-                              isOpen={activeShareId === p.id}
-                              onClose={() => setActiveShareId(null)}
-                              transaction={p}
-                              type="Payment-In"
-                            />
-                          </div>
-
-                          {/* 3-Dot More Menu */}
-                          <div className="relative">
-                            <button
-                              onClick={() => setActiveMenuId(isMenuOpen ? null : p.id)}
-                              className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
-                                isMenuOpen ? "text-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                              }`}
-                              title="More actions"
-                            >
-                              <MoreVertical size={15} />
-                            </button>
-
-                            {isMenuOpen && (
-                              <div
-                                ref={menuRef}
-                                className="absolute right-0 top-9 w-40 bg-white rounded-2xl shadow-2xl border border-slate-100 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
-                              >
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    navigate(`/sales/edit/${p.invoice_no}`);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition text-left cursor-pointer"
-                                >
-                                  <Edit size={14} className="text-indigo-600" />
-                                  <span>Edit Invoice</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    navigate(`/invoice/${p.invoice_no}`);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
-                                >
-                                  <Eye size={14} />
-                                  <span>View Receipt</span>
-                                </button>
-                                <div className="border-t border-slate-100 my-1" />
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    setDeleteTarget(p);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition text-left cursor-pointer"
-                                >
-                                  <Trash2 size={14} className="text-rose-600" />
-                                  <span>Delete Voucher</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        <TableActions
+                          onPrint={() => navigate(`/invoice/${p.invoice_no}`)}
+                          printTitle="Print"
+                          shareTransaction={p}
+                          shareType="Payment-In"
+                          onViewInvoice={() => navigate(`/invoice/${p.invoice_no}`)}
+                          viewInvoiceLabel="View Invoice"
+                          menuItems={[
+                            {
+                              label: "Edit Invoice",
+                              icon: Edit,
+                              onClick: () => navigate(`/sales/edit/${p.invoice_no}`),
+                            },
+                            {
+                              label: "View Invoice",
+                              icon: Eye,
+                              onClick: () => navigate(`/invoice/${p.invoice_no}`),
+                            },
+                            { isDivider: true },
+                            {
+                              label: "Delete Voucher",
+                              icon: Trash2,
+                              isDanger: true,
+                              onClick: () => setDeleteTarget(p),
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );

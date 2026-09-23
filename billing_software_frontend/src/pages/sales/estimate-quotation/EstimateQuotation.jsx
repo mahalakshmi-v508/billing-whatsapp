@@ -15,7 +15,7 @@ import {
   MoreVertical,
   Pencil,
 } from "lucide-react";
-import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import TableActions from "../../../components/ui/TableActions";
 
 const PERIOD_LABELS = {
   today: "Today",
@@ -52,11 +52,6 @@ export default function EstimateQuotation() {
   // Actions & Modals
   const [actionToast, setActionToast] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [menuAnchor, setMenuAnchor] = useState(null); // { id, x, y } for the fixed 3-dot popup
-  const [activeShareId, setActiveShareId] = useState(null);
-  const menuRef = useRef(null);
-
-  const MORE_MENU_WIDTH = 176;
 
   const ESTIMATE_STORAGE_KEY = "saved_estimates";
 
@@ -183,24 +178,7 @@ export default function EstimateQuotation() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Close the 3-dot menu when the page scrolls so it never floats away
-  useEffect(() => {
-    const onScroll = () => setMenuAnchor(null);
-    window.addEventListener("scroll", onScroll, true);
-    return () => window.removeEventListener("scroll", onScroll, true);
-  }, []);
 
-  // Open the Canva-style popup fixed to the clicked 3-dot button
-  const toggleMoreMenu = (e, est) => {
-    if (menuAnchor && menuAnchor.id === est.id) {
-      setMenuAnchor(null);
-      return;
-    }
-    const rect = e.currentTarget.getBoundingClientRect();
-    let left = rect.right - MORE_MENU_WIDTH;
-    if (left < 12) left = 12;
-    setMenuAnchor({ id: est.id, x: left, y: rect.bottom + 6 });
-  };
 
   // Print a single estimate in a printable window
   const printEstimate = (est) => {
@@ -652,108 +630,42 @@ export default function EstimateQuotation() {
                         {est.status || "open"}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center justify-end gap-1">
-                        {/* Print */}
-                        <button
-                          onClick={() => printEstimate(est)}
-                          className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                          title="Print Quotation"
-                        >
-                          <Printer size={15} />
-                        </button>
-
-                        {/* Share with Popover */}
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveShareId(activeShareId === est.id ? null : est.id);
-                            }}
-                            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                            title="Share via WhatsApp"
-                          >
-                            <Share2 size={15} />
-                          </button>
-                          <ShareTransactionPopover
-                            isOpen={activeShareId === est.id}
-                            onClose={() => setActiveShareId(null)}
-                            transaction={{
-                              refNo: est.refNo,
-                              customer_name: est.customer_name,
-                              customer_phone: est.customer_phone,
-                              date: est.invoiceDate,
-                              total_amount: est.total_amount,
-                              payment_type: "Estimate",
-                            }}
-                            type="Estimate"
-                          />
-                        </div>
-
-                        {/* 3-Dot More Menu */}
-                        <div className="relative">
-                          <button
-                            onClick={(e) => toggleMoreMenu(e, est)}
-                            data-more-trigger
-                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
-                              menuAnchor && menuAnchor.id === est.id
-                                ? "text-indigo-600 bg-indigo-50"
-                                : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-                            }`}
-                            title="More actions"
-                          >
-                            <MoreVertical size={15} />
-                          </button>
-                        </div>
-                      </div>
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <TableActions
+                        onPrint={() => printEstimate(est)}
+                        printTitle="Print Quotation"
+                        shareTransaction={{
+                          refNo: est.refNo,
+                          customer_name: est.customer_name,
+                          customer_phone: est.customer_phone,
+                          date: est.invoiceDate,
+                          total_amount: est.total_amount,
+                          payment_type: "Estimate",
+                        }}
+                        shareType="Estimate"
+                        onViewInvoice={() => printEstimate(est)}
+                        viewInvoiceLabel="View Invoice"
+                        menuItems={[
+                          {
+                            label: "Edit",
+                            icon: Pencil,
+                            onClick: () => navigate(`/sales/estimate-quotation/add/${est.id}`),
+                          },
+                          {
+                            label: "View Invoice",
+                            icon: Eye,
+                            onClick: () => printEstimate(est),
+                          },
+                          { isDivider: true },
+                          {
+                            label: "Delete",
+                            icon: Trash2,
+                            isDanger: true,
+                            onClick: () => setDeleteTarget(est),
+                          },
+                        ]}
+                      />
                     </td>
-
-                    {/* ── Floating Actions Popup ── */}
-                    {menuAnchor && menuAnchor.id === est.id && (
-                      <div
-                        ref={menuRef}
-                        style={{ top: menuAnchor.y, left: menuAnchor.x, width: MORE_MENU_WIDTH }}
-                        className="fixed z-[80] bg-white rounded-2xl border border-slate-100 shadow-2xl shadow-slate-300/40 py-1.5 animate-in fade-in zoom-in-95 duration-100"
-                      >
-                        {/* Edit */}
-                        <button
-                          onClick={() => {
-                            setMenuAnchor(null);
-                            navigate(`/sales/estimate-quotation/add/${est.id}`);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left cursor-pointer"
-                        >
-                          <Pencil size={14} className="text-indigo-600 flex-shrink-0" />
-                          <span>Edit Details</span>
-                        </button>
-
-                        {/* View Quotation */}
-                        <button
-                          onClick={() => {
-                            setMenuAnchor(null);
-                            printEstimate(est);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition text-left cursor-pointer"
-                        >
-                          <Eye size={14} className="text-slate-600 flex-shrink-0" />
-                          <span>View &amp; Print</span>
-                        </button>
-
-                        <div className="mx-3 my-1 border-t border-slate-100" />
-
-                        {/* Delete */}
-                        <button
-                          onClick={() => {
-                            setMenuAnchor(null);
-                            setDeleteTarget(est);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer"
-                        >
-                          <Trash2 size={14} className="text-rose-500 flex-shrink-0" />
-                          <span>Delete</span>
-                        </button>
-                      </div>
-                    )}
                   </tr>
                 ))}
               </tbody>

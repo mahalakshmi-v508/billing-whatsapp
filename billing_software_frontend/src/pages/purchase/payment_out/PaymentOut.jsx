@@ -27,7 +27,7 @@ import {
   DollarSign
 } from "lucide-react";
 import AddPaymentOutModal from "./AddPaymentOutModal";
-import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import TableActions from "../../../components/ui/TableActions";
 
 export default function PaymentOut() {
   const navigate = useNavigate();
@@ -56,8 +56,6 @@ export default function PaymentOut() {
   // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState(null);
-  const [activeShareId, setActiveShareId] = useState(null);
 
   // Modals & toast states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -69,8 +67,6 @@ export default function PaymentOut() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const menuRef = useRef(null);
 
   // Helper: Format DD/MM/YYYY
   const formatDateDMY = (dateStr) => {
@@ -184,12 +180,9 @@ export default function PaymentOut() {
     fetchPaymentOuts();
   }, [selectedFirm, fromDate, toDate, adminId]);
 
-  // Close menus on outside click
+  // Close filter dropdowns on outside click
   useEffect(() => {
-    const handleOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setActiveMenuId(null);
-      }
+    const handleOutside = () => {
       setPeriodOpen(false);
       setFirmOpen(false);
       setSupplierOpen(false);
@@ -800,75 +793,37 @@ export default function PaymentOut() {
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5 relative">
-                          <button
-                            onClick={() => navigate(`/invoice/${p.receipt_no || p.id}`)}
-                            title="View Voucher"
-                            className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition cursor-pointer"
-                          >
-                            <Eye size={15} />
-                          </button>
-
-                          {/* Share Popover */}
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveShareId(activeShareId === p.id ? null : p.id);
-                              }}
-                              title="Share Voucher"
-                              className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                            >
-                              <Share2 size={15} />
-                            </button>
-                            <ShareTransactionPopover
-                              isOpen={activeShareId === p.id}
-                              onClose={() => setActiveShareId(null)}
-                              transaction={p}
-                              type="Payment-Out"
-                            />
-                          </div>
-
-                          {/* 3-Dot More Actions Menu */}
-                          <div className="relative" ref={menuRef}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(activeMenuId === p.id ? null : p.id);
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                            >
-                              <MoreVertical size={15} />
-                            </button>
-
-                            {activeMenuId === p.id && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 text-left animate-in fade-in zoom-in-95">
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    setEditingPayment(p);
-                                    setIsAddModalOpen(true);
-                                  }}
-                                  className="w-full px-3.5 py-1.5 text-xs text-slate-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2 cursor-pointer font-medium"
-                                >
-                                  <Edit size={13} />
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    setDeleteTarget(p);
-                                  }}
-                                  className="w-full px-3.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer font-medium"
-                                >
-                                  <Trash2 size={13} />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <TableActions
+                          onPrint={() => navigate(`/invoice/${p.receipt_no || p.id}`)}
+                          printTitle="Print"
+                          shareTransaction={p}
+                          shareType="Payment-Out"
+                          onViewInvoice={() => navigate(`/invoice/${p.receipt_no || p.id}`)}
+                          viewInvoiceLabel="View Invoice"
+                          menuItems={[
+                            {
+                              label: "Edit",
+                              icon: Edit,
+                              onClick: () => {
+                                setEditingPayment(p);
+                                setIsAddModalOpen(true);
+                              },
+                            },
+                            {
+                              label: "View Invoice",
+                              icon: Eye,
+                              onClick: () => navigate(`/invoice/${p.receipt_no || p.id}`),
+                            },
+                            { isDivider: true },
+                            {
+                              label: "Delete",
+                              icon: Trash2,
+                              isDanger: true,
+                              onClick: () => setDeleteTarget(p),
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );

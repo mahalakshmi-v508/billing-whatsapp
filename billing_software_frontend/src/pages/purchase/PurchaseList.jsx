@@ -8,7 +8,7 @@ import {
   Filter, Check, UserCheck, Layers, LayoutGrid, Calendar, RefreshCw
 } from "lucide-react";
 import AddSupplierModal from "../supplier/AddSupplierModal";
-import ShareTransactionPopover from "../../components/ShareTransactionPopover";
+import TableActions from "../../components/ui/TableActions";
 
 export default function PurchaseList() {
   const navigate = useNavigate();
@@ -32,7 +32,6 @@ export default function PurchaseList() {
 
   // UI Popovers & Modals
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
-  const [activeShareId, setActiveShareId] = useState(null);
 
   // Single Bill Payment Modal States
   const [showPayModal, setShowPayModal] = useState(false);
@@ -843,65 +842,43 @@ export default function PurchaseList() {
                               {p.status}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              {p.status === "draft" ? (
-                                <>
-                                  <button
-                                    onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                                    title="Edit Draft"
-                                    className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(p.id)}
-                                    title="Delete Draft"
-                                    className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                                    title="View Details"
-                                    className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                                  >
-                                    <Eye size={14} />
-                                  </button>
-                                  <div className="relative">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setActiveShareId(activeShareId === p.id ? null : p.id);
-                                      }}
-                                      title="Share Invoice"
-                                      className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                                    >
-                                      <Share2 size={14} />
-                                    </button>
-                                    <ShareTransactionPopover
-                                      isOpen={activeShareId === p.id}
-                                      onClose={() => setActiveShareId(null)}
-                                      transaction={p}
-                                      type="Purchase Bill"
-                                    />
-                                  </div>
-                                  {Number(p.balance_amount) > 0 && (
-                                    <button
-                                      onClick={() => openPayModal(p)}
-                                      title="Pay Pending Balance"
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
-                                    >
-                                      <CreditCard size={12} />
-                                      <span>Pay</span>
-                                    </button>
-                                  )}
-                                </>
-                              )}
-                            </div>
+                          <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <TableActions
+                              onPrint={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                              printTitle="Print Bill"
+                              shareTransaction={p}
+                              shareType="Purchase Bill"
+                              onViewInvoice={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                              viewInvoiceLabel="View Invoice"
+                              menuItems={[
+                                {
+                                  label: "View Invoice",
+                                  icon: Eye,
+                                  onClick: () => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`),
+                                },
+                                {
+                                  label: p.status === "draft" ? "Edit Draft" : "View / Edit Bill",
+                                  icon: Pencil,
+                                  onClick: () => navigate(`/purchases/edit/${p.id}`),
+                                },
+                                ...(Number(p.balance_amount) > 0
+                                  ? [
+                                      {
+                                        label: "Pay Bill",
+                                        icon: CreditCard,
+                                        onClick: () => openPayModal(p),
+                                      },
+                                    ]
+                                  : []),
+                                { isDivider: true },
+                                {
+                                  label: "Delete",
+                                  icon: Trash2,
+                                  isDanger: true,
+                                  onClick: () => handleDelete(p.id),
+                                },
+                              ]}
+                            />
                           </td>
                         </tr>
                       );
@@ -1037,65 +1014,43 @@ export default function PurchaseList() {
                             {p.status}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1">
-                            {p.status === "draft" ? (
-                              <>
-                                <button
-                                  onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                                  title="Edit Draft"
-                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(p.id)}
-                                  title="Delete Draft"
-                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => navigate(`/purchases/edit/${p.id}`)}
-                                  title="View Details"
-                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                                >
-                                  <Eye size={14} />
-                                </button>
-                                <div className="relative">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveShareId(activeShareId === p.id ? null : p.id);
-                                    }}
-                                    title="Share Invoice"
-                                    className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                                  >
-                                    <Share2 size={14} />
-                                  </button>
-                                  <ShareTransactionPopover
-                                    isOpen={activeShareId === p.id}
-                                    onClose={() => setActiveShareId(null)}
-                                    transaction={p}
-                                    type="Purchase Bill"
-                                  />
-                                </div>
-                                {Number(p.balance_amount) > 0 && (
-                                  <button
-                                    onClick={() => openPayModal(p)}
-                                    title="Pay Pending Balance"
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
-                                  >
-                                    <CreditCard size={12} />
-                                    <span>Pay</span>
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <TableActions
+                            onPrint={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                            printTitle="Print Bill"
+                            shareTransaction={p}
+                            shareType="Purchase Bill"
+                            onViewInvoice={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                            viewInvoiceLabel="View Invoice"
+                            menuItems={[
+                              {
+                                label: "View Invoice",
+                                icon: Eye,
+                                onClick: () => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`),
+                              },
+                              {
+                                label: p.status === "draft" ? "Edit Draft" : "View / Edit Bill",
+                                icon: Pencil,
+                                onClick: () => navigate(`/purchases/edit/${p.id}`),
+                              },
+                              ...(Number(p.balance_amount) > 0
+                                ? [
+                                    {
+                                      label: "Pay Bill",
+                                      icon: CreditCard,
+                                      onClick: () => openPayModal(p),
+                                    },
+                                  ]
+                                : []),
+                              { isDivider: true },
+                              {
+                                label: "Delete",
+                                icon: Trash2,
+                                isDanger: true,
+                                onClick: () => handleDelete(p.id),
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                     );
