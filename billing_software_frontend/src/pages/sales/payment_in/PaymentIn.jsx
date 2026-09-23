@@ -21,14 +21,49 @@ import {
   X,
   RefreshCw,
   TrendingUp,
+  FileText,
+  User,
+  IndianRupee,
+  Wallet,
+  CreditCard,
+  CheckCircle2,
+  SlidersHorizontal,
+  Tag,
 } from "lucide-react";
 import AddPaymentInModal from "./AddPaymentInModal";
 import TableActions from "../../../components/ui/TableActions";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
+
+const DEFAULT_COLUMNS = [
+  { key: "date", label: "Date", icon: Calendar, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Payment inward date" },
+  { key: "ref_no", label: "Ref. No.", icon: FileText, color: "text-blue-600", bg: "bg-blue-50", desc: "Receipt reference number" },
+  { key: "party_name", label: "Party Name", icon: User, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Customer or party" },
+  { key: "total_amount", label: "Total Amount", icon: IndianRupee, color: "text-slate-600", bg: "bg-slate-100", desc: "Total invoice/due amount" },
+  { key: "received", label: "Received", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Settled payment amount" },
+  { key: "discount", label: "Discount", icon: Tag, color: "text-amber-600", bg: "bg-amber-50", desc: "Discount given" },
+  { key: "balance", label: "Balance", icon: Wallet, color: "text-rose-600", bg: "bg-rose-50", desc: "Remaining credit balance" },
+  { key: "payment_type", label: "Payment Type", icon: CreditCard, color: "text-purple-600", bg: "bg-purple-50", desc: "Cash, Bank, UPI, etc." },
+  { key: "status", label: "Status", icon: CheckCircle2, color: "text-cyan-600", bg: "bg-cyan-50", desc: "Paid or Partial status" },
+  { key: "actions", label: "Actions", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "Print, Share & More" },
+];
 
 export default function PaymentIn() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+
+  // Table Column Customization Hook
+  const {
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    visibleColumnCount,
+  } = useTableColumns("payment_in_columns", DEFAULT_COLUMNS);
 
   // Data states
   const [payments, setPayments] = useState([]);
@@ -302,6 +337,11 @@ export default function PaymentIn() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <HeaderSettingsButton
+            onClick={() => setShowColumnDrawer(true)}
+            isActive={showColumnDrawer}
+          />
+
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
@@ -628,6 +668,13 @@ export default function PaymentIn() {
           >
             <Printer size={14} />
           </button>
+
+          {/* Customise Columns */}
+          <HeaderSettingsButton
+            variant="table"
+            onClick={() => setShowColumnDrawer(true)}
+            isActive={showColumnDrawer}
+          />
         </div>
       </div>
 
@@ -637,15 +684,15 @@ export default function PaymentIn() {
           <table className="w-full text-left text-xs min-w-max">
             <thead>
               <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                <th className="py-3.5 px-4">Date</th>
-                <th className="py-3.5 px-4 text-right">Ref. No.</th>
-                <th className="py-3.5 px-4">Party Name</th>
-                <th className="py-3.5 px-4 text-right">Total Amount</th>
-                <th className="py-3.5 px-4 text-right">Received</th>
-                <th className="py-3.5 px-4 text-right">Discount</th>
-                <th className="py-3.5 px-4 text-right">Balance</th>
-                <th className="py-3.5 px-4">Payment Type</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
+                {visibleColumns.date && <th className="py-3.5 px-4">Date</th>}
+                {visibleColumns.ref_no && <th className="py-3.5 px-4 text-right">Ref. No.</th>}
+                {visibleColumns.party_name && <th className="py-3.5 px-4">Party Name</th>}
+                {visibleColumns.total_amount && <th className="py-3.5 px-4 text-right">Total Amount</th>}
+                {visibleColumns.received && <th className="py-3.5 px-4 text-right">Received</th>}
+                {visibleColumns.discount && <th className="py-3.5 px-4 text-right">Discount</th>}
+                {visibleColumns.balance && <th className="py-3.5 px-4 text-right">Balance</th>}
+                {visibleColumns.payment_type && <th className="py-3.5 px-4">Payment Type</th>}
+                {visibleColumns.status && <th className="py-3.5 px-4 text-center">Status</th>}
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -653,14 +700,14 @@ export default function PaymentIn() {
             <tbody className="divide-y divide-slate-100 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-14 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 10} className="py-14 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-indigo-500 mx-auto mb-2" />
                     <span>Loading Payment-In Records...</span>
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-14 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 10} className="py-14 text-center text-slate-400">
                     <p className="font-bold text-slate-700 text-sm">No payment-in transactions found.</p>
                     <p className="text-xs text-slate-400 mt-1">Click &quot;+ Add Payment-In&quot; to record customer payment.</p>
                   </td>
@@ -680,61 +727,79 @@ export default function PaymentIn() {
                       className="hover:bg-indigo-50/20 transition-colors duration-150 text-slate-700"
                     >
                       {/* Date */}
-                      <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
-                        {formatDateDMY(p.payment_date || p.created_at)}
-                      </td>
+                      {visibleColumns.date && (
+                        <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
+                          {formatDateDMY(p.payment_date || p.created_at)}
+                        </td>
+                      )}
 
                       {/* Ref. no. */}
-                      <td className="py-3.5 px-4 font-bold text-indigo-600 text-right whitespace-nowrap">
-                        #{refNo}
-                      </td>
+                      {visibleColumns.ref_no && (
+                        <td className="py-3.5 px-4 font-bold text-indigo-600 text-right whitespace-nowrap">
+                          #{refNo}
+                        </td>
+                      )}
 
                       {/* Party Name */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="font-bold text-slate-900">{p.customer_name || p.name || "Customer"}</div>
-                        {p.phone && <div className="text-[10px] text-slate-400 font-normal">{p.phone}</div>}
-                      </td>
+                      {visibleColumns.party_name && (
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="font-bold text-slate-900">{p.customer_name || p.name || "Customer"}</div>
+                          {p.phone && <div className="text-[10px] text-slate-400 font-normal">{p.phone}</div>}
+                        </td>
+                      )}
 
                       {/* Total Amount */}
-                      <td className="py-3.5 px-4 font-black text-slate-900 text-right whitespace-nowrap">
-                        ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                      </td>
+                      {visibleColumns.total_amount && (
+                        <td className="py-3.5 px-4 font-black text-slate-900 text-right whitespace-nowrap">
+                          ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                        </td>
+                      )}
 
                       {/* Received */}
-                      <td className="py-3.5 px-4 font-black text-emerald-600 text-right whitespace-nowrap">
-                        ₹ {received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                      </td>
+                      {visibleColumns.received && (
+                        <td className="py-3.5 px-4 font-black text-emerald-600 text-right whitespace-nowrap">
+                          ₹ {received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                        </td>
+                      )}
 
                       {/* Discount */}
-                      <td className="py-3.5 px-4 font-bold text-amber-600 text-right whitespace-nowrap">
-                        ₹ {discountAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                      </td>
+                      {visibleColumns.discount && (
+                        <td className="py-3.5 px-4 font-bold text-amber-600 text-right whitespace-nowrap">
+                          ₹ {discountAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                        </td>
+                      )}
 
                       {/* Balance */}
-                      <td className="py-3.5 px-4 font-bold text-rose-600 text-right whitespace-nowrap">
-                        ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-                      </td>
+                      {visibleColumns.balance && (
+                        <td className="py-3.5 px-4 font-bold text-rose-600 text-right whitespace-nowrap">
+                          ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                        </td>
+                      )}
 
                       {/* Payment Type */}
-                      <td className="py-3.5 px-4 capitalize whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-                          {p.payment_method || "Cash"}
-                        </span>
-                      </td>
+                      {visibleColumns.payment_type && (
+                        <td className="py-3.5 px-4 capitalize whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                            {p.payment_method || "Cash"}
+                          </span>
+                        </td>
+                      )}
 
                       {/* Status */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            status === "paid"
-                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                              : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                          }`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${status === "paid" ? "bg-emerald-600" : "bg-amber-600"}`} />
-                          {status}
-                        </span>
-                      </td>
+                      {visibleColumns.status && (
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              status === "paid"
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${status === "paid" ? "bg-emerald-600" : "bg-amber-600"}`} />
+                            {status}
+                          </span>
+                        </td>
+                      )}
 
                       {/* Actions Column */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -929,6 +994,17 @@ export default function PaymentIn() {
           </button>
         </div>
       )}
+
+      {/* ── 8. COLUMN CUSTOMIZATION DRAWER ── */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+      />
     </div>
   );
 }
