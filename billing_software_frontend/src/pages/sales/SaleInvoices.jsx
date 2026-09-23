@@ -226,7 +226,17 @@ export default function SaleInvoices() {
       }
     } catch (err) {
       console.error(err);
-      setInvoices([]);
+      try {
+        const fallbackRes = await api.get(`/invoice/get_all_invoice?admin_id=${adminId || 0}`);
+        if (fallbackRes.data?.status) {
+          setInvoices(fallbackRes.data.data || []);
+        } else {
+          setInvoices([]);
+        }
+      } catch (fallbackErr) {
+        console.error(fallbackErr);
+        setInvoices([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -255,6 +265,14 @@ export default function SaleInvoices() {
       }
     } catch (err) {
       console.error(err);
+      try {
+        const postRes = await api.post("/cashier/get_cashiers", { admin_id: adminId });
+        if (postRes.data?.status) {
+          setCashiers(postRes.data.data || []);
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
