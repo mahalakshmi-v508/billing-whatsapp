@@ -2,16 +2,27 @@ import axios from "axios";
 
 const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
-export const API_BASE_URL = isLocalhost
-  ? "http://localhost:8000/api/"
-  : "https://myricekart.in/backend/public/api/";
+// API base comes from the environment (VITE_API_URL). Falls back to the
+// historical default only for local development so existing dev setups
+// keep working without a .env file.
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (isLocalhost ? "http://localhost:8000/api/" : "");
+
+if (!API_BASE_URL) {
+  console.error(
+    "VITE_API_URL is not configured. Set it in billing_software_frontend/.env (see .env.example)."
+  );
+}
 
 // Web/docroot root where uploaded files live. Derive it from the API base by
 // stripping "/api/" — matching the working logo-URL convention used across the
 // app (EditCompany/profile via API_BASE_URL.replace("/api/", "/")). This yields
 // the correct root for both localhost (http://localhost:8000 → public/uploads)
 // and production (…/backend/public → public/uploads).
-export const API_BASE_URL_IMAGE = API_BASE_URL.replace("/api/", "/").replace(/\/+$/, "");
+// Can be overridden explicitly with VITE_API_URL_IMAGE.
+export const API_BASE_URL_IMAGE =
+  (import.meta.env.VITE_API_URL_IMAGE || API_BASE_URL.replace("/api/", "/")).replace(/\/+$/, "");
 
 // Axios instance
 const api = axios.create({
