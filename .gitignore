@@ -1,0 +1,63 @@
+# ===== Environments / secrets (NEVER commit) =====
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# ===== Dependencies =====
+node_modules/
+vendor/
+
+# ===== Laravel storage (logs / cache / sessions / views) =====
+billing_software_backend/storage/logs/
+billing_software_backend/storage/framework/cache/
+billing_software_backend/storage/framework/sessions/
+billing_software_backend/storage/framework/views/
+billing_software_backend/bootstrap/cache/*
+!billing_software_backend/bootstrap/cache/.gitignore
+
+# ===== WhatsApp service (Baileys session credentials — NEVER commit) =====
+whatsapp-service/node_modules/
+whatsapp-service/.env
+whatsapp-service/sessions/
+whatsapp-service/auth/
+whatsapp-service/auth_info_baileys/
+whatsapp-service/credentials/
+whatsapp-service/.wwebjs_auth/
+whatsapp-service/.wwebjs_cache/
+whatsapp-service/logs/
+whatsapp-service/*.log
+
+# ===== Build output / caches =====
+billing_software_frontend/dist/
+dist-ssr/
+*.local
+
+# ===== Logs =====
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ===== OS / editor junk =====
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ===== Misc project junk =====
+.kilo/
+.freebuff/
+*.zip
+tmp_add.json
+tmp_*.json

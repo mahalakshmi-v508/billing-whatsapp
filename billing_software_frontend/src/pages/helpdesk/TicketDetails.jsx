@@ -23,16 +23,14 @@ import {
   Building,
   Calendar,
 } from "lucide-react";
-import api from "../../services/api";
+import api, { API_BASE_URL_IMAGE } from "../../services/api";
 import EditTicketModal from "./EditTicketModal";
 
 const getAttachmentUrl = (path) => {
   if (!path) return "";
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  const baseUrl = isLocalhost ? "http://localhost:8000" : "https://myricekart.in/backend/public";
-  return `${baseUrl}${cleanPath}`;
+  return `${API_BASE_URL_IMAGE}${cleanPath}`;
 };
 
 export default function TicketDetails() {
