@@ -103,6 +103,17 @@ body {
   color: #0f172a;
 }
 
+/* App primary action buttons (Save / Submit / primary CTAs) */
+.app-btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  transition: all 0.18s ease;
+}
+.app-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
 /* PaySplitX Table Standard */
 .psx-table-container {
   background: #ffffff;

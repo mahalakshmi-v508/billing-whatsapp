@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import api from "../services/api";
 import { generateInvoicePdfBase64, getInvoiceLogoUrl } from "../utils/invoiceShare";
 import { DESIGN_COMPONENTS } from "../pages/billing/Invoice";
@@ -32,25 +33,53 @@ export function WhatsAppIcon({ size = 28 }) {
   );
 }
 
+const POPOVER_VIEWPORT_MARGIN = 8;
+const POPOVER_GAP = 8;
+
+function computePopoverPosition(anchorRect, width, height) {
+  const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+  const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+
+  const spaceBelow = vh - anchorRect.bottom - POPOVER_GAP - POPOVER_VIEWPORT_MARGIN;
+  const spaceAbove = anchorRect.top - POPOVER_GAP - POPOVER_VIEWPORT_MARGIN;
+
+  let openUp;
+  if (spaceBelow >= height) openUp = false;
+  else if (spaceAbove >= height) openUp = true;
+  else openUp = spaceAbove > spaceBelow;
+
+  let top = openUp ? anchorRect.top - height - POPOVER_GAP : anchorRect.bottom + POPOVER_GAP;
+  top = Math.max(POPOVER_VIEWPORT_MARGIN, Math.min(top, vh - height - POPOVER_VIEWPORT_MARGIN));
+
+  let left = anchorRect.right - width;
+  left = Math.max(POPOVER_VIEWPORT_MARGIN, Math.min(left, vw - width - POPOVER_VIEWPORT_MARGIN));
+
+  return { top, left, openUp };
+}
+
 /* ── 3. Main ShareTransactionPopover Component ── */
 export default function ShareTransactionPopover({
   isOpen,
   onClose,
   transaction = {},
   type = "Invoice",
+  anchorElRef,
 }) {
   const popoverRef = useRef(null);
   const [isSending, setIsSending] = useState(false);
   const [renderDoc, setRenderDoc] = useState(null);
+  const [pos, setPos] = useState(null);
 
   // Close on click outside or Escape key
   useEffect(() => {
     if (!isOpen) return;
 
     const handleOutsideClick = (e) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
-        onClose();
-      }
+      const pop = popoverRef.current;
+      const anchor = anchorElRef && anchorElRef.current;
+      if (pop && pop.contains(e.target)) return;
+      if (anchor && anchor.contains(e.target)) return;
+      onClose();
     };
 
     const handleKeyDown = (e) => {
@@ -63,7 +92,33 @@ export default function ShareTransactionPopover({
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, anchorElRef]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const pop = popoverRef.current;
+    const anchor = anchorElRef && anchorElRef.current;
+    if (!pop || !anchor) return;
+    const anchorRect = anchor.getBoundingClientRect();
+    setPos(computePopoverPosition(anchorRect, pop.offsetWidth || 200, pop.offsetHeight || 0));
+  }, [isOpen, anchorElRef]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const reposition = () => {
+      const pop = popoverRef.current;
+      const anchor = anchorElRef && anchorElRef.current;
+      if (!pop || !anchor) return;
+      const anchorRect = anchor.getBoundingClientRect();
+      setPos(computePopoverPosition(anchorRect, pop.offsetWidth || 200, pop.offsetHeight || 0));
+    };
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [isOpen, anchorElRef]);
 
   if (!isOpen && !renderDoc) return null;
 
@@ -201,7 +256,9 @@ export default function ShareTransactionPopover({
           let user = {};
           try {
             user = JSON.parse(localStorage.getItem("user") || "{}");
-          } catch {}
+          } catch {
+            /* fallback to empty user */
+          }
           compObj = {
             company_name: fullTxn.company_name || user?.company_name || user?.name || "My Company",
             company_address: fullTxn.company_address || fullTxn.address || user?.company_address || user?.address || "",
@@ -417,14 +474,20 @@ export default function ShareTransactionPopover({
       )}
 
       {/* ── Popover Menu UI ── */}
-      {isOpen && (
-        <div
-          ref={popoverRef}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] border border-slate-100 p-3 z-[9999] min-w-[200px] text-left animate-in fade-in zoom-in-95 duration-100 font-sans select-none"
-        >
-          {/* Little Pointer Arrow */}
-          <div className="absolute -top-1.5 right-3 w-3 h-3 bg-white border-t border-l border-slate-100 rotate-45" />
+      {isOpen &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            onClick={(e) => e.stopPropagation()}
+            style={{ top: pos ? pos.top : -9999, left: pos ? pos.left : -9999 }}
+            className="fixed bg-white rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] border border-slate-100 p-3 z-[9999] min-w-[200px] text-left animate-in fade-in zoom-in-95 duration-100 font-sans select-none"
+          >
+            {/* Little Pointer Arrow */}
+            <div
+              className={`absolute right-3 w-3 h-3 bg-white border-slate-100 rotate-45 ${
+                pos && pos.openUp ? "-bottom-1.5 border-b border-r" : "-top-1.5 border-t border-l"
+              }`}
+            />
 
           {/* Header */}
           <div className="flex items-center justify-between mb-2 px-1">
@@ -472,8 +535,9 @@ export default function ShareTransactionPopover({
               </span>
             </button>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }
