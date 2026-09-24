@@ -39,6 +39,7 @@ import {
   ArrowUpRight,
   BarChart3
 } from "lucide-react";
+import SaleAnalytics from "../reports/transactions/sale/SaleAnalytics";
 import ShareTransactionPopover from "../../components/ShareTransactionPopover";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -135,6 +136,9 @@ export default function SaleInvoices() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Analytics view swap (in-place like SaleOrders — keeps dropdowns intact)
+  const [viewMode, setViewMode] = useState("report"); // "report" | "analytics"
 
   // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
@@ -455,6 +459,16 @@ export default function SaleInvoices() {
 
   return (
     <div className="min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 space-y-6 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* Analytics view — swapped in-place (like SaleOrders), keeps all dropdowns/filters */}
+      {viewMode === "analytics" ? (
+        <SaleAnalytics
+          rows={analyticsRows}
+          fromDate={fromDate}
+          toDate={toDate}
+          onClose={() => setViewMode("report")}
+        />
+      ) : (
+      <>
       {/* ── 1. TOP HEADER: Matching EstimateQuotation ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 select-none">
@@ -845,9 +859,7 @@ export default function SaleInvoices() {
           {/* Analytics */}
           <button
             type="button"
-            onClick={() => navigate("/reports/sale/analytics", {
-              state: { rows: analyticsRows, fromDate, toDate },
-            })}
+            onClick={() => setViewMode("analytics")}
             disabled={!filteredInvoices.length}
             title="Open Analytics"
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1321,6 +1333,8 @@ export default function SaleInvoices() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
 
     </div>

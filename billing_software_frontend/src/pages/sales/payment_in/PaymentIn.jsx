@@ -32,6 +32,7 @@ import {
   Tag,
 } from "lucide-react";
 import AddPaymentInModal from "./AddPaymentInModal";
+import PaymentInAnalytics from "./PaymentInAnalytics";
 import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";

@@ -28,6 +28,7 @@ import {
   BarChart3
 } from "lucide-react";
 import AddPaymentOutModal from "./AddPaymentOutModal";
+import PaymentOutAnalytics from "./PaymentOutAnalytics";
 import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
