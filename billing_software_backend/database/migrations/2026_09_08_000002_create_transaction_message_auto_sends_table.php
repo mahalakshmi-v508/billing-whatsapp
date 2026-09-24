@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('transaction_message_auto_sends', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('company_id');
+            $table->integer('company_id');
             $table->string('transaction_type', 40);
             $table->string('txn_no', 100);
             $table->text('message')->nullable();
