@@ -1027,6 +1027,8 @@ export default function PaymentOut() {
         onResetColumns={resetColumns}
         title="Customize Payment-Out Columns"
       />
-    </div>
-  );
+      </>
+    
+  )}
+  </div>);
 }
