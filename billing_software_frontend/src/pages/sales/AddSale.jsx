@@ -2,11 +2,15 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import {
-  X, Plus, Calculator, Settings, Calendar, ChevronDown, Check,
+  X, Plus, Settings, Calendar, ChevronDown, Check,
   Trash2, AlignLeft, Image, Paperclip, BarChart2,
   Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap, ChevronsUpDown, TrendingUp, ShieldAlert,
-  Search, RotateCcw, GripVertical, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2
+  Search, RotateCcw, GripVertical, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
+  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save
 } from "lucide-react";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
+import useTableColumns from "../../hooks/useTableColumns";
 
 /* ── Item Table Columns List for customization drawer with rich icons & colors ─ */
 const DEFAULT_ITEM_COLUMNS = [
@@ -105,187 +109,29 @@ function createNewSaleTab(id, index, defaultInvNo = "") {
   };
 }
 
-/* ── Theme Constants ─────────────────────────────────────────────────────── */
-const THEME = {
-  primary: "#1f8cff",
-  primaryHover: "#1877dc",
-  primarySoft: "#eaf3ff",
-  textMain: "#1f2937",
-  textMuted: "#6b7280",
-  border: "#d1d5db",
-  borderLight: "#e5e7eb",
-  bgPage: "#f4f6fb",
-  bgCard: "#ffffff",
-  danger: "#ef4444",
-  dangerSoft: "#fef2f2",
-};
-
 /* ── Close Sale Confirmation Dialog Component ───────────────────────────── */
 function CloseSaleModal({ isOpen, onCancel, onConfirm }) {
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 99999,
-      background: "rgba(15, 23, 42, 0.45)",
-      display: "flex", alignItems: "center", justifyContent: "center"
-    }} onClick={onCancel}>
-      <div style={{
-        background: "#ffffff", borderRadius: 8, width: 400, maxWidth: "92vw",
-        boxShadow: "0 20px 40px rgba(15, 23, 42, 0.2)", overflow: "hidden",
-        border: `1px solid ${THEME.borderLight}`
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{
-          padding: "14px 18px", display: "flex", justifyContent: "space-between",
-          alignItems: "center", borderBottom: `1px solid ${THEME.borderLight}`
-        }}>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: THEME.textMain }}>Close Sale</h3>
-          <button onClick={onCancel} style={{ border: "none", background: "transparent", cursor: "pointer", color: THEME.textMuted, display: "flex" }}>
-            <X size={17} />
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+          <h3 className="text-sm font-bold text-slate-900">Close Sale Workspace</h3>
+          <button onClick={onCancel} className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer">
+            <X size={16} />
           </button>
         </div>
-        <div style={{ padding: "18px", fontSize: 13.5, color: "#475569", lineHeight: 1.6 }}>
-          Current changes will be discarded. Do you wish to continue?
+        <div className="p-6 text-xs text-slate-600 leading-relaxed">
+          Current unsaved invoice changes will be discarded. Do you wish to continue and return to the invoices list?
         </div>
-        <div style={{ padding: "12px 18px 16px", display: "flex", justifyContent: "flex-end", gap: 10, background: "#fafbfc", borderTop: `1px solid ${THEME.borderLight}` }}>
-          <button onClick={onCancel} style={{
-            padding: "7px 16px", borderRadius: 6, border: `1px solid ${THEME.border}`,
-            background: "#ffffff", color: THEME.primary, fontWeight: 700, fontSize: 13, cursor: "pointer"
-          }}>Cancel</button>
-          <button onClick={onConfirm} style={{
-            padding: "7px 20px", borderRadius: 6, border: "none",
-            background: THEME.primary, color: "#ffffff", fontWeight: 800, fontSize: 13, cursor: "pointer"
-          }}>OK</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Mini Calculator Component ───────────────────────────────────────────── */
-function CalculatorModal({ isOpen, onClose }) {
-  const [calcInput, setCalcInput] = useState("0");
-  const [prevVal, setPrevVal] = useState(null);
-  const [operation, setOperation] = useState(null);
-  const [resetNext, setResetNext] = useState(false);
-
-  if (!isOpen) return null;
-
-  const handleNum = (n) => {
-    if (calcInput === "0" || resetNext) {
-      setCalcInput(String(n));
-      setResetNext(false);
-    } else {
-      setCalcInput(calcInput + String(n));
-    }
-  };
-
-  const calculate = (a, b, op) => {
-    switch (op) {
-      case "+": return a + b;
-      case "-": return a - b;
-      case "×": return a * b;
-      case "÷": return b !== 0 ? a / b : 0;
-      default: return b;
-    }
-  };
-
-  const handleOp = (op) => {
-    const current = parseFloat(calcInput);
-    if (prevVal === null) {
-      setPrevVal(current);
-    } else if (operation) {
-      const res = calculate(prevVal, current, operation);
-      setPrevVal(res);
-      setCalcInput(String(res));
-    }
-    setOperation(op);
-    setResetNext(true);
-  };
-
-  const handleEquals = () => {
-    if (operation && prevVal !== null) {
-      const current = parseFloat(calcInput);
-      const res = calculate(prevVal, current, operation);
-      setCalcInput(String(res));
-      setPrevVal(null);
-      setOperation(null);
-      setResetNext(true);
-    }
-  };
-
-  const handleClear = () => {
-    setCalcInput("0");
-    setPrevVal(null);
-    setOperation(null);
-    setResetNext(false);
-  };
-
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 99999,
-      background: "rgba(15, 23, 42, 0.4)",
-      display: "flex", alignItems: "center", justifyContent: "center"
-    }} onClick={onClose}>
-      <div style={{
-        background: "#ffffff", borderRadius: 10, width: 280,
-        boxShadow: "0 20px 40px rgba(15, 23, 42, 0.2)", overflow: "hidden",
-        border: `1px solid ${THEME.borderLight}`
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{
-          padding: "12px 16px", background: "#f8fafc",
-          borderBottom: `1px solid ${THEME.borderLight}`, display: "flex",
-          justifyContent: "space-between", alignItems: "center"
-        }}>
-          <span style={{ fontWeight: 800, fontSize: 13.5, color: THEME.textMain }}>Calculator</span>
-          <button onClick={onClose} style={{ border: "none", background: "transparent", cursor: "pointer", color: THEME.textMuted }}>
-            <X size={15} />
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+          <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer">
+            Cancel
           </button>
-        </div>
-        <div style={{ padding: "16px" }}>
-          <div style={{
-            background: "#f1f5f9", padding: "10px 12px", borderRadius: 6,
-            textAlign: "right", fontSize: 22, fontWeight: 900,
-            color: THEME.textMain, marginBottom: 14, overflowX: "auto"
-          }}>
-            {calcInput}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-            {["C", "÷", "×", "-"].map(btn => (
-              <button key={btn} onClick={() => btn === "C" ? handleClear() : handleOp(btn)}
-                style={{
-                  padding: "10px", borderRadius: 6, border: `1px solid ${THEME.borderLight}`,
-                  background: "#f8fafc", fontWeight: 800, fontSize: 14,
-                  cursor: "pointer", color: THEME.primary
-                }}>{btn}</button>
-            ))}
-            {[7, 8, 9, "+"].map(btn => (
-              <button key={btn} onClick={() => typeof btn === "number" ? handleNum(btn) : handleOp(btn)}
-                style={{
-                  padding: "10px", borderRadius: 6, border: `1px solid ${THEME.borderLight}`,
-                  background: typeof btn === "number" ? "#fff" : "#f8fafc",
-                  fontWeight: 700, fontSize: 14, cursor: "pointer",
-                  color: typeof btn === "number" ? THEME.textMain : THEME.primary
-                }}>{btn}</button>
-            ))}
-            {[4, 5, 6, "="].map(btn => (
-              <button key={btn} onClick={() => typeof btn === "number" ? handleNum(btn) : handleEquals()}
-                style={{
-                  padding: "10px", borderRadius: 6, border: `1px solid ${THEME.borderLight}`,
-                  background: btn === "=" ? THEME.primary : "#fff",
-                  fontWeight: 700, fontSize: 14, cursor: "pointer",
-                  color: btn === "=" ? "#fff" : THEME.textMain
-                }}>{btn}</button>
-            ))}
-            {[1, 2, 3, 0].map(btn => (
-              <button key={btn} onClick={() => handleNum(btn)}
-                style={{
-                  padding: "10px", borderRadius: 6, border: `1px solid ${THEME.borderLight}`,
-                  background: "#fff", fontWeight: 700, fontSize: 14,
-                  cursor: "pointer", color: THEME.textMain
-                }}>{btn}</button>
-            ))}
-          </div>
+          <button type="button" onClick={onConfirm} className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer">
+            OK, Discard
+          </button>
         </div>
       </div>
     </div>
@@ -293,7 +139,7 @@ function CalculatorModal({ isOpen, onClose }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   MAIN COMPONENT: ADD SALE
+   MAIN COMPONENT: ADD SALE (BILLING & POS COMMERCIAL WORKSPACE)
 ══════════════════════════════════════════════════════════════════════════ */
 export default function AddSale() {
   const navigate = useNavigate();
@@ -341,8 +187,6 @@ export default function AddSale() {
   const [itemSearchQuery, setItemSearchQuery] = useState("");
 
   /* ── UI Utilities ── */
-  const [showCalculator, setShowCalculator] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [unlistedProductsWarning, setUnlistedProductsWarning] = useState(null);
@@ -358,48 +202,17 @@ export default function AddSale() {
   };
 
   /* ── Table Column Customization Drawer state & persistence ── */
-  const [showColumnDrawer, setShowColumnDrawer] = useState(false);
-  const [columnSearch, setColumnSearch] = useState("");
-  const [visibleColumns, setVisibleColumns] = useState(() => {
-    try {
-      const saved = localStorage.getItem("add_sale_item_columns");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return DEFAULT_ITEM_COLUMNS.reduce((acc, col) => ({
-          ...acc,
-          [col.key]: parsed[col.key] !== undefined ? parsed[col.key] : true,
-        }), {});
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return DEFAULT_ITEM_COLUMNS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {});
-  });
-
-  const toggleColumn = (key) => {
-    setVisibleColumns((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      localStorage.setItem("add_sale_item_columns", JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const selectAllColumns = (val) => {
-    const next = DEFAULT_ITEM_COLUMNS.reduce((acc, col) => ({ ...acc, [col.key]: val }), {});
-    setVisibleColumns(next);
-    localStorage.setItem("add_sale_item_columns", JSON.stringify(next));
-  };
-
-  const resetDefaultColumns = () => {
-    const next = DEFAULT_ITEM_COLUMNS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {});
-    setVisibleColumns(next);
-    localStorage.setItem("add_sale_item_columns", JSON.stringify(next));
-  };
+  const {
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    showColumnDrawer,
+    setShowColumnDrawer,
+  } = useTableColumns("add_sale_item_columns", DEFAULT_ITEM_COLUMNS);
 
   const customerBoxRef = useRef(null);
   const itemSuggestRef = useRef(null);
-  const shareRef = useRef(null);
-  const columnMenuRef = useRef(null);
 
   /* ── Load Companies & Products ── */
   useEffect(() => {
@@ -465,7 +278,7 @@ export default function AddSale() {
                 stock: p.stock || null,
                 product_code: p.product_code || "",
               }))
-            : [createInitialRow(false)];
+            : [createInitialRow()];
 
           const loadedSale = {
             id: 1,
@@ -601,7 +414,6 @@ export default function AddSale() {
     const q = parseFloat(row.qty);
     const p = parseFloat(row.price);
 
-    // If quantity or price is not a valid positive number, amount is 0
     if (isNaN(q) || q <= 0 || isNaN(p) || p <= 0) {
       return {
         ...row,
@@ -612,7 +424,6 @@ export default function AddSale() {
     }
 
     let base = q * p;
-
     let disc = 0;
     if (parseFloat(row.discount_percent) > 0) {
       disc = (base * parseFloat(row.discount_percent)) / 100;
@@ -621,7 +432,6 @@ export default function AddSale() {
     }
 
     const afterDisc = Math.max(0, base - disc);
-
     let tax = 0;
     if (parseFloat(row.tax_percent) > 0) {
       tax = (afterDisc * parseFloat(row.tax_percent)) / 100;
@@ -658,7 +468,7 @@ export default function AddSale() {
           product_id: prod.id,
           item_name: prod.product_name || prod.name,
           price: parseFloat(prod.price) || 0,
-          qty: currentQty, // Automatically set to 1 upon product selection
+          qty: currentQty,
           unit: prod.unit || "NONE",
           tax_percent: parseFloat(prod.gst_percentage || prod.gst) || 0,
           stock: prod.stock,
@@ -674,14 +484,14 @@ export default function AddSale() {
   const addRow = () => {
     updateActiveSale(sale => ({
       ...sale,
-      rows: [...sale.rows, createInitialRow(false)]
+      rows: [...sale.rows, createInitialRow()]
     }));
   };
 
   const deleteRow = (rowId) => {
     updateActiveSale(sale => {
       if (sale.rows.length === 1) {
-        return { ...sale, rows: [createInitialRow(true)] };
+        return { ...sale, rows: [createInitialRow()] };
       }
       return { ...sale, rows: sale.rows.filter(r => r.id !== rowId) };
     });
@@ -694,54 +504,46 @@ export default function AddSale() {
     }
   };
 
-  /* ── Calculations for Bottom Summary (Initial Total = 0) ── */
+  /* ── Calculations for Bottom Summary ── */
   const totals = useMemo(() => {
-    if (!activeSale) return { totalQty: 0, totalFreeQty: 0, totalDiscountAmount: 0, totalTaxAmount: 0, subtotalAmount: 0, roundedGrandTotal: 0, roundDifference: 0 };
+    if (!activeSale) return { totalQty: 0, totalFreeQty: 0, totalDiscountAmount: 0, totalTaxAmount: 0, grossSubtotal: 0, taxableSubtotal: 0, subtotalAmount: 0, rawGrandTotal: 0, roundedGrandTotal: 0, roundDifference: 0 };
 
     let totalQty = 0;
     let totalFreeQty = 0;
-    let subtotalAmount = 0;
+    let grossSubtotal = 0;
     let totalTaxAmount = 0;
     let totalDiscountAmount = 0;
+    let roundedGrandTotal = 0;
 
     activeSale.rows.forEach(r => {
       const q = parseFloat(r.qty);
       if (!isNaN(q) && q > 0) totalQty += q;
       const fq = parseFloat(r.free_qty);
       if (!isNaN(fq) && fq > 0) totalFreeQty += fq;
+      const p = parseFloat(r.price);
+      if (!isNaN(q) && q > 0 && !isNaN(p) && p > 0) {
+        grossSubtotal += (q * p);
+      }
       const da = parseFloat(r.discount_amount);
       if (!isNaN(da) && da > 0) totalDiscountAmount += da;
       const ta = parseFloat(r.tax_amount);
       if (!isNaN(ta) && ta > 0) totalTaxAmount += ta;
       const a = parseFloat(r.amount);
-      if (!isNaN(a) && a > 0) subtotalAmount += a;
+      if (!isNaN(a) && a > 0) roundedGrandTotal += a;
     });
 
-    let extraDisc = 0;
-    if (parseFloat(activeSale.overallDiscountPercent) > 0) {
-      extraDisc = (subtotalAmount * parseFloat(activeSale.overallDiscountPercent)) / 100;
-    } else if (parseFloat(activeSale.overallDiscountAmount) > 0) {
-      extraDisc = parseFloat(activeSale.overallDiscountAmount);
-    }
-
-    const afterExtraDisc = Math.max(0, subtotalAmount - extraDisc);
-
-    let overallTax = 0;
-    if (parseFloat(activeSale.overallTaxRate) > 0) {
-      overallTax = (afterExtraDisc * parseFloat(activeSale.overallTaxRate)) / 100;
-    }
-
-    const rawGrandTotal = afterExtraDisc + overallTax;
-    const roundedGrandTotal = rawGrandTotal;
+    const taxableSubtotal = Math.max(0, grossSubtotal - totalDiscountAmount);
     const roundDifference = 0;
 
     return {
       totalQty,
       totalFreeQty,
-      totalDiscountAmount: totalDiscountAmount + extraDisc,
-      totalTaxAmount: totalTaxAmount + overallTax,
-      subtotalAmount,
-      rawGrandTotal,
+      totalDiscountAmount,
+      totalTaxAmount,
+      grossSubtotal,
+      taxableSubtotal,
+      subtotalAmount: taxableSubtotal,
+      rawGrandTotal: roundedGrandTotal,
       roundedGrandTotal,
       roundDifference,
     };
@@ -756,12 +558,6 @@ export default function AddSale() {
       if (itemSuggestRef.current && !itemSuggestRef.current.contains(e.target)) {
         setActiveRowSuggestId(null);
       }
-      if (shareRef.current && !shareRef.current.contains(e.target)) {
-        setShowShareMenu(false);
-      }
-      if (columnMenuRef.current && !columnMenuRef.current.contains(e.target)) {
-        setShowColumnMenu(false);
-      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -771,7 +567,6 @@ export default function AddSale() {
   const handleSave = async (bypassUnlistedCheck = false) => {
     if (!activeSale) return;
 
-    /* Party Name Validation (Required ONLY for Credit Bills) */
     if (activeSale.paymentType === "credit" && (!activeSale.customerName || !activeSale.customerName.trim())) {
       showToast("Party name doesn't exist, please create a new party.", false);
       return;
@@ -783,7 +578,6 @@ export default function AddSale() {
       return;
     }
 
-    /* Check if any valid item is not in the product inventory list */
     const isBypass = bypassUnlistedCheck === true;
     if (!isBypass) {
       const unlistedItems = validItems.filter(r => {
@@ -872,7 +666,6 @@ export default function AddSale() {
           if (shouldSkipPreview) {
             showToast(`Invoice #${savedInvNo} generated successfully!`, true);
 
-            // Fetch next invoice number
             const companyId = parseInt(selectedCompany) || parseInt(user?.company_id) || (companies[0] ? parseInt(companies[0].id) : 1);
             let nextInvNo = "";
             try {
@@ -884,7 +677,6 @@ export default function AddSale() {
               console.error("Error fetching next invoice no:", e);
             }
 
-            // Reset active tab state for continuous next invoice entry
             setSales(prev => prev.map(s => {
               if (s.id === activeTabId) {
                 return createNewSaleTab(s.id, 1, nextInvNo);
@@ -987,10 +779,8 @@ export default function AddSale() {
           stock: payload.stock
         };
 
-        // 1. Append new product to products list state
         setProducts(prev => [newProduct, ...prev]);
 
-        // 2. Update the corresponding row in activeSale
         const currentItem = queue[currentIndex];
         updateActiveSale(sale => {
           const updatedRows = sale.rows.map(r => {
@@ -1012,7 +802,6 @@ export default function AddSale() {
           return { ...sale, rows: updatedRows };
         });
 
-        // 3. Move to next unlisted item or complete invoice
         const nextIndex = currentIndex + 1;
         if (nextIndex < queue.length) {
           const nextItem = queue[nextIndex];
@@ -1056,757 +845,442 @@ export default function AddSale() {
   };
 
   const filteredProducts = useMemo(() => {
-    if (!itemSearchQuery) return products.slice(0, 6);
+    if (!itemSearchQuery) return products.slice(0, 8);
     const q = itemSearchQuery.toLowerCase();
     return products.filter(p =>
       (p.product_name && p.product_name.toLowerCase().includes(q)) ||
       (p.product_code && String(p.product_code).toLowerCase().includes(q))
-    ).slice(0, 6);
+    ).slice(0, 8);
   }, [products, itemSearchQuery]);
 
   if (!activeSale) return null;
   const isCredit = activeSale.paymentType === "credit";
 
-  const fieldInputStyle = {
-    border: "none",
-    outline: "none",
-    background: "transparent",
-    fontSize: 13,
-    color: THEME.textMain,
-    width: "100%",
-    fontFamily: "inherit",
-  };
-
   return (
-    <div style={{
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      minHeight: "100vh",
-      width: "100vw",
-      background: THEME.bgPage,
-      display: "flex",
-      flexDirection: "column",
-      color: THEME.textMain,
-      position: "fixed",
-      inset: 0,
-      zIndex: 9999,
-      overflowY: "auto",
-      overflowX: "hidden",
-      fontSize: 13,
-    }}>
-
-      {/* ── 1. TOP HEADER / TABS (MATCHING SCREENSHOT) ── */}
-      <header style={{
-        background: "#ffffff",
-        borderBottom: `1px solid ${THEME.borderLight}`,
-        padding: "10px 24px 0 24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between"
-      }}>
-        {/* Left: Dynamic Tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {sales.map(s => {
-            const isActive = s.id === activeTabId;
-            return (
-              <div
-                key={s.id}
-                onClick={() => setActiveTabId(s.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 16px",
-                  background: isActive ? "#ffffff" : "transparent",
-                  borderTopLeftRadius: 6,
-                  borderTopRightRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: isActive ? THEME.textMain : THEME.textMuted,
-                  cursor: "pointer",
-                  border: isActive ? `1px solid ${THEME.borderLight}` : "1px solid transparent",
-                  borderBottom: isActive ? "1px solid #ffffff" : "none",
-                  marginBottom: "-1px",
-                }}
-              >
-                <span>{s.label}</span>
-                <button
-                  onClick={(e) => handleCloseTab(e, s.id)}
-                  title="Close tab"
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    color: THEME.textMuted,
-                    display: "flex",
-                    padding: 0,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = THEME.danger}
-                  onMouseLeave={e => e.currentTarget.style.color = THEME.textMuted}
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            );
-          })}
-
+    <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans flex flex-col antialiased">
+      
+      {/* ── 1. EXECUTIVE BILLING WORKSPACE COMMAND BAR ── */}
+      <header className="bg-white border-b border-slate-200/90 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-40 shadow-2xs">
+        
+        {/* Left: Branding & Multi-Sale Tabs */}
+        <div className="flex items-center gap-3">
           <button
-            onClick={handleAddNewTab}
-            title="Add New Sale Tab"
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: "50%",
-              border: "none",
-              background: THEME.primary,
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              marginLeft: 6,
-            }}
+            onClick={() => setShowCloseConfirm(true)}
+            className="w-9 h-9 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition cursor-pointer"
+            title="Back to Invoices"
           >
-            <Plus size={14} strokeWidth={2.8} />
+            <ArrowLeft size={16} />
           </button>
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-brand-500 text-white flex items-center justify-center font-black shadow-sm">
+              <ReceiptText size={16} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                  {isEditMode ? `Edit Invoice #${activeSale.formattedInvoiceNo}` : "New Sale Invoice"}
+                </h1>
+                
+                {/* Credit / Cash Mode Pill Switcher */}
+                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-full border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => updateActiveSale({ paymentType: "cash" })}
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase transition cursor-pointer ${
+                      !isCredit ? "app-pill-active" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Cash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cDays = Number(activeSale.creditDays) || 30;
+                      const baseDate = new Date(activeSale.invoiceDate || Date.now());
+                      baseDate.setDate(baseDate.getDate() + cDays);
+                      updateActiveSale({ paymentType: "credit", dueDate: baseDate.toISOString().split("T")[0] });
+                    }}
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase transition cursor-pointer ${
+                      isCredit ? "app-pill-active" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Credit
+                  </button>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium">Issue tax invoice, manage party credits & dispatch sales</p>
+            </div>
+          </div>
         </div>
 
-        {/* Right: Header Utilities */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 8 }}>
-          <button
+        {/* Center: Dynamic Multi-Tab Switcher */}
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            {sales.map(s => {
+              const isActive = s.id === activeTabId;
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => setActiveTabId(s.id)}
+                  className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    isActive ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <span>{s.label}</span>
+                  {sales.length > 1 && (
+                    <X
+                      size={12}
+                      className="text-slate-400 hover:text-rose-600"
+                      onClick={(e) => handleCloseTab(e, s.id)}
+                    />
+                  )}
+                </div>
+              );
+            })}
+
+            {!isEditMode && (
+              <button
+                onClick={handleAddNewTab}
+                className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-blue-600 flex items-center justify-center transition cursor-pointer shadow-2xs"
+                title="Add New Sale Tab"
+              >
+                <Plus size={13} strokeWidth={3} />
+              </button>
+            )}
+          </div>
+
+          {/* Quick Tools */}
+          <HeaderSettingsButton
+            variant="voucher"
             onClick={() => setShowColumnDrawer(true)}
+            isActive={showColumnDrawer}
             title="Customise Table Columns"
-            style={{
-              border: "none",
-              background: showColumnDrawer ? "#dbeafe" : "transparent",
-              color: showColumnDrawer ? "#2563eb" : THEME.textMuted,
-              cursor: "pointer",
-              position: "relative",
-              display: "flex",
-              padding: 4,
-              borderRadius: "50%",
-              transition: "all 0.15s ease"
-            }}
-          >
-            <Settings size={18} />
-          </button>
+          />
 
           <button
             onClick={() => setShowCloseConfirm(true)}
-            title="Close"
-            style={{ border: "none", background: "transparent", color: THEME.textMuted, cursor: "pointer", display: "flex" }}
+            className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition cursor-pointer shadow-2xs"
+            title="Close Sale"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
       </header>
 
-      {/* ── 2. MODE BAR (Sale | Credit ⟷ Cash Switch) ── */}
-      <div style={{
-        background: "#ffffff",
-        borderBottom: `1px solid ${THEME.borderLight}`,
-        padding: "10px 24px",
-        display: "flex",
-        alignItems: "center",
-        gap: 16
-      }}>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: THEME.textMain }}>Sale</h2>
-
-        <span style={{ fontSize: 13, fontWeight: 600, color: isCredit ? THEME.primary : THEME.textMuted }}>Credit</span>
-        <button
-          type="button"
-          onClick={() => {
-            const nextType = isCredit ? "cash" : "credit";
-            const cDays = activeSale.creditDays !== undefined && activeSale.creditDays !== null && activeSale.creditDays !== "" ? Number(activeSale.creditDays) : 30;
-            const baseDate = new Date(activeSale.invoiceDate || Date.now());
-            baseDate.setDate(baseDate.getDate() + cDays);
-            updateActiveSale({
-              paymentType: nextType,
-              dueDate: baseDate.toISOString().split("T")[0]
-            });
-          }}
-          style={{
-            width: 38,
-            height: 20,
-            borderRadius: 12,
-            background: THEME.primary,
-            border: "none",
-            padding: 2,
-            cursor: "pointer",
-            position: "relative",
-            display: "inline-flex",
-            alignItems: "center",
-            transition: "background .15s"
-          }}
-        >
-          <span style={{
-            position: "absolute",
-            left: isCredit ? 2 : 18,
-            width: 16,
-            height: 16,
-            borderRadius: "50%",
-            background: "#ffffff",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-            transition: "left .15s"
-          }} />
-        </button>
-        <span style={{ fontSize: 13, fontWeight: 600, color: !isCredit ? THEME.primary : THEME.textMuted }}>Cash</span>
-      </div>
-
-      {/* ── FLOATING TOAST NOTIFICATION (MATCHING media_1787816249828.png) ── */}
-      {toast && (
-        <div
-          style={{
-            position: "fixed",
-            top: 24,
-            right: 28,
-            zIndex: 99999,
-            minWidth: 320,
-            maxWidth: 420,
-            background: toast.ok ? "#10b981" : "#ef4444",
-            color: "#ffffff",
-            borderRadius: 6,
-            padding: "12px 16px",
-            boxShadow: toast.ok ? "0 6px 20px rgba(16, 185, 129, 0.35)" : "0 6px 20px rgba(239, 68, 68, 0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 14,
-            animation: "fadeIn 0.2s ease",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {toast.ok ? (
-              <CheckCircle2 size={24} color="#ffffff" style={{ flexShrink: 0 }} />
-            ) : (
-              <ShieldAlert size={26} color="#ffffff" style={{ flexShrink: 0 }} />
-            )}
-            <span style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.35, color: "#ffffff" }}>
-              {toast.msg}
-            </span>
-          </div>
-          <button
-            onClick={() => setToast(null)}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#ffffff",
-              cursor: "pointer",
-              padding: 2,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              opacity: 0.9,
-            }}
-            title="Close"
-          >
-            <X size={16} strokeWidth={2.5} />
-          </button>
-        </div>
-      )}
-
-      {/* ── 3. CUSTOMER & INVOICE DETAILS ROW (MATCHING media_1787726192602.png & media_1787726203749.png) ── */}
-      <div style={{ padding: "20px 24px 14px 24px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 32, flexWrap: "wrap" }}>
-          
-          {/* Left Column: Customer Name, Phone, and (if Cash) Billing Address, Shipping Address */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: "1 1 480px", maxWidth: 560 }}>
-            {/* Top row: Customer Name + Phone No */}
-            <div style={{ display: "flex", gap: 16 }}>
-              {/* Customer Name input with notch label */}
-              <div ref={customerBoxRef} style={{ position: "relative", flex: "1 1 260px" }}>
-                <div style={{
-                  position: "relative",
-                  background: "#ffffff",
-                  border: `1.5px solid ${isCustomerFocused || showCustomerDropdown ? THEME.primary : THEME.border}`,
-                  borderRadius: 4,
-                  padding: "8px 10px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  height: 38,
-                  boxSizing: "border-box",
-                  transition: "border .15s"
-                }}>
-                  {/* Floating notch label */}
-                  <span style={{
-                    position: "absolute",
-                    top: -9,
-                    left: 10,
-                    background: "#ffffff",
-                    padding: "0 4px",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: isCustomerFocused || showCustomerDropdown ? THEME.primary : "#4b5563"
-                  }}>
-                    Customer <span style={{ color: "#ef4444" }}>*</span>
-                  </span>
-
-                  <input
-                    type="text"
-                    placeholder={activeSale.customerName ? "" : "Search by Name / Phone"}
-                    value={activeSale.customerName}
-                    onChange={(e) => handleCustomerSearch(e.target.value)}
-                    onFocus={() => {
-                      setIsCustomerFocused(true);
-                      setShowCustomerDropdown(true);
-                      if (customerSuggestions.length === 0) loadInitialCustomers();
-                    }}
-                    onBlur={() => setIsCustomerFocused(false)}
-                    style={fieldInputStyle}
-                  />
-                  <ChevronDown
-                    size={16}
-                    color={isCustomerFocused || showCustomerDropdown ? THEME.primary : THEME.textMuted}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => {
-                      setShowCustomerDropdown(v => !v);
-                      if (customerSuggestions.length === 0) loadInitialCustomers();
-                    }}
-                  />
-                </div>
-
-                {/* Show BAL under Customer Name if pending balance exists */}
-                {activeSale.customerPendingBalance > 0 && (
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#0d9488", marginTop: 2, paddingLeft: 4 }}>
-                    BAL: {activeSale.customerPendingBalance}
-                  </div>
-                )}
-
-                {/* Autocomplete Dropdown (Matching media_1787726192602.png) */}
-                {showCustomerDropdown && (
-                  <div style={{
-                    position: "absolute", top: "100%", left: 0, right: 0,
-                    background: "#ffffff", borderRadius: 4, border: `1px solid ${THEME.borderLight}`,
-                    boxShadow: "0 10px 24px rgba(0,0,0,0.12)", zIndex: 1000,
-                    marginTop: 4, overflow: "visible", maxHeight: "none"
-                  }}>
-                    {/* Header: Add Party + Party Balance */}
-                    <div style={{
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: "8px 12px", borderBottom: `1px solid ${THEME.borderLight}`,
-                      background: "#f9fafb"
-                    }}>
-                      <span
-                        onClick={() => navigate("/customers/add")}
-                        style={{ color: THEME.primary, fontWeight: 700, fontSize: 12.5, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
-                      >
-                        ⊕ Add Party
-                      </span>
-                      <span style={{ color: "#6b7280", fontSize: 11.5, fontWeight: 600 }}>Party Balance</span>
-                    </div>
-
-                    {customerSuggestions.length === 0 ? (
-                      <div style={{ padding: "10px 12px", fontSize: 12, color: THEME.textMuted }}>
-                        No customers found
-                      </div>
-                    ) : (
-                      customerSuggestions.map((c) => {
-                        const bal = parseFloat(c.pending_amount || 0);
-                        return (
-                          <div
-                            key={c.id}
-                            onClick={() => selectCustomer(c)}
-                            style={{
-                              padding: "8px 12px", cursor: "pointer",
-                              borderBottom: `1px solid #f1f5f9`, fontSize: 12.5,
-                              display: "flex", justifyContent: "space-between", alignItems: "center"
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = THEME.primarySoft}
-                            onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
-                          >
-                            <div>
-                              <div style={{ fontWeight: 700, color: THEME.textMain }}>{c.name || c.customer_name}</div>
-                              <div style={{ fontSize: 11, color: THEME.textMuted }}>{c.phone || c.customer_phone || ""}</div>
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ fontWeight: 700, color: THEME.textMain, fontSize: 12 }}>{bal}</span>
-                              {bal > 0 && (
-                                <div style={{
-                                  width: 16, height: 16, background: "#10b981", borderRadius: 3,
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  color: "#fff", fontSize: 10, fontWeight: 800
-                                }}>
-                                  ↙
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Phone No box with notch label */}
-              <div style={{
-                position: "relative",
-                background: "#ffffff",
-                border: `1.5px solid ${isPhoneFocused ? THEME.primary : THEME.border}`,
-                borderRadius: 4,
-                padding: "8px 10px",
-                display: "flex",
-                alignItems: "center",
-                height: 38,
-                flex: "1 1 180px",
-                boxSizing: "border-box",
-                transition: "border .15s"
-              }}>
-                <span style={{
-                  position: "absolute",
-                  top: -9,
-                  left: 10,
-                  background: "#ffffff",
-                  padding: "0 4px",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: isPhoneFocused ? THEME.primary : "#4b5563"
-                }}>
-                  Phone No.
-                </span>
-                <input
-                  type="text"
-                  placeholder=""
-                  value={activeSale.customerPhone}
-                  onFocus={() => setIsPhoneFocused(true)}
-                  onBlur={() => setIsPhoneFocused(false)}
-                  onChange={(e) => updateActiveSale({ customerPhone: e.target.value })}
-                  style={fieldInputStyle}
-                />
-              </div>
+      {/* ── 2. MAIN BILLING WORKSPACE BODY ── */}
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 space-y-5">
+        
+        {/* Floating Toast Notification */}
+        {toast && (
+          <div className={`px-4 py-3 border text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150 ${
+            toast.ok ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-700"
+          }`}>
+            <div className="flex items-center gap-2">
+              {toast.ok ? <CheckCircle2 size={16} className="text-emerald-600 shrink-0" /> : <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
+              <span>{toast.msg}</span>
             </div>
+            <button onClick={() => setToast(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
-            {/* Bottom row (CASH ONLY): Billing Address + Shipping Address */}
-            {activeSale.paymentType === "cash" && (
-              <div>
-                <div style={{ display: "flex", gap: 16 }}>
-                  {/* Billing Address */}
-                  <div style={{
-                    position: "relative",
-                    background: "#ffffff",
-                    border: `1px solid ${THEME.border}`,
-                    borderRadius: 4,
-                    padding: "8px 10px",
-                    flex: "1 1 260px",
-                    boxSizing: "border-box"
-                  }}>
-                    <span style={{
-                      position: "absolute",
-                      top: -8,
-                      left: 8,
-                      background: "#ffffff",
-                      padding: "0 4px",
-                      fontSize: 10.5,
-                      fontWeight: 600,
-                      color: "#6b7280"
-                    }}>
-                      Billing Address
-                    </span>
-                    <textarea
-                      placeholder=""
-                      value={activeSale.billingAddress}
-                      onChange={e => updateActiveSale({ billingAddress: e.target.value })}
-                      style={{
-                        width: "100%", height: 50, border: "none", background: "transparent",
-                        fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit",
-                        color: THEME.textMain, resize: "none"
-                      }}
-                    />
-                  </div>
+        {/* ── SECTION 1: CUSTOMER & INVOICE METADATA CARD ── */}
+        <section className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            
+            {/* Left 6 Columns: Customer Lookup & Contact */}
+            <div className="lg:col-span-6 space-y-3.5" ref={customerBoxRef}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <UserCheck size={15} className="text-blue-600" />
+                  <span>Customer Information</span>
+                </span>
+                {activeSale.customerPendingBalance > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    Outstanding Debt: ₹{activeSale.customerPendingBalance.toLocaleString()}
+                  </span>
+                )}
+              </div>
 
-                  {/* Shipping Address */}
-                  <div style={{
-                    position: "relative",
-                    background: "#ffffff",
-                    border: `1px solid ${THEME.border}`,
-                    borderRadius: 4,
-                    padding: "8px 10px",
-                    flex: "1 1 180px",
-                    boxSizing: "border-box"
-                  }}>
-                    <span style={{
-                      position: "absolute",
-                      top: -8,
-                      left: 8,
-                      background: "#ffffff",
-                      padding: "0 4px",
-                      fontSize: 10.5,
-                      fontWeight: 600,
-                      color: "#6b7280"
-                    }}>
-                      Shipping Address
-                    </span>
-                    <textarea
-                      placeholder=""
-                      value={activeSale.shippingAddress}
-                      onChange={e => updateActiveSale({ shippingAddress: e.target.value })}
-                      style={{
-                        width: "100%", height: 50, border: "none", background: "transparent",
-                        fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit",
-                        color: THEME.textMain, resize: "none"
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Remove & Change links (matching media_1787726203749.png) */}
-                {activeSale.customerId && (
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
-                    <span
-                      onClick={() => updateActiveSale({ customerId: null, customerName: "", customerPhone: "", billingAddress: "", shippingAddress: "", customerPendingBalance: 0 })}
-                      style={{ fontSize: 11, color: "#6b7280", cursor: "pointer", fontWeight: 500 }}
-                    >
-                      Remove
-                    </span>
-                    <span
-                      onClick={() => {
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                {/* Customer Autocomplete Input */}
+                <div className="sm:col-span-7 relative">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Customer / Business Name {isCredit && <span className="text-rose-500">*</span>}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search customer by name or phone..."
+                      value={activeSale.customerName}
+                      onChange={(e) => handleCustomerSearch(e.target.value)}
+                      onFocus={() => {
+                        setIsCustomerFocused(true);
                         setShowCustomerDropdown(true);
                         if (customerSuggestions.length === 0) loadInitialCustomers();
                       }}
-                      style={{ fontSize: 11, color: THEME.primary, cursor: "pointer", fontWeight: 600 }}
-                    >
-                      Change
-                    </span>
+                      onBlur={() => setIsCustomerFocused(false)}
+                      className="w-full pl-3 pr-8 py-2 bg-slate-50/60 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                    />
+                    <ChevronDown
+                      size={14}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"
+                      onClick={() => {
+                        setShowCustomerDropdown(v => !v);
+                        if (customerSuggestions.length === 0) loadInitialCustomers();
+                      }}
+                    />
                   </div>
-                )}
-              </div>
-            )}
-          </div>
 
-          {/* Right Column: Invoice Details (Invoice Number, Invoice Date, State of supply) */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 280 }}>
-            {/* Invoice Number */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
-              <span style={{ fontSize: 12.5, color: THEME.textMuted, fontWeight: 500 }}>Invoice Number</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{
-                  background: "#eff6ff",
-                  borderRadius: 6,
-                  padding: "5px 12px",
-                  border: "1px solid #bfdbfe",
-                  display: "flex",
-                  alignItems: "center",
-                  boxShadow: "0 1px 2px rgba(37, 99, 235, 0.05)"
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "#1d4ed8", letterSpacing: "0.03em" }}>
-                    {activeSale.formattedInvoiceNo || activeSale.invoiceNumber || "INV-0001"}
-                  </span>
+                  {/* Autocomplete Dropdown */}
+                  {showCustomerDropdown && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 animate-in fade-in duration-100">
+                      <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                        <span onClick={() => navigate("/customers/add")} className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">
+                          + Add New Customer
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Party Balance</span>
+                      </div>
+                      {customerSuggestions.length === 0 ? (
+                        <div className="p-3 text-xs text-slate-400 text-center">No customers found</div>
+                      ) : (
+                        customerSuggestions.map((c) => {
+                          const bal = parseFloat(c.pending_amount || 0);
+                          return (
+                            <div
+                              key={c.id}
+                              onClick={() => selectCustomer(c)}
+                              className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-none transition text-xs"
+                            >
+                              <div>
+                                <div className="font-bold text-slate-900">{c.name || c.customer_name}</div>
+                                <div className="text-[11px] text-slate-400">{c.phone || c.customer_phone || ""}</div>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-bold text-slate-800">₹{bal.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Customer Phone */}
+                <div className="sm:col-span-5">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Contact Phone</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Phone number"
+                      value={activeSale.customerPhone}
+                      onFocus={() => setIsPhoneFocused(true)}
+                      onBlur={() => setIsPhoneFocused(false)}
+                      onChange={(e) => updateActiveSale({ customerPhone: e.target.value })}
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50/60 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                    />
+                    <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
                 </div>
               </div>
+
+              {/* Cash Billing / Shipping Address (Collapsible in Cash Mode) */}
+              {!isCredit && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Billing Address</label>
+                    <textarea
+                      rows={1}
+                      placeholder="Enter billing address..."
+                      value={activeSale.billingAddress}
+                      onChange={e => updateActiveSale({ billingAddress: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-slate-50/60 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:border-blue-600 transition resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Shipping Address</label>
+                    <textarea
+                      rows={1}
+                      placeholder="Enter delivery address..."
+                      value={activeSale.shippingAddress}
+                      onChange={e => updateActiveSale({ shippingAddress: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-slate-50/60 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:border-blue-600 transition resize-none"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Invoice Date */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
-              <span style={{ fontSize: 12.5, color: THEME.textMuted, fontWeight: 500 }}>Invoice Date</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <input
-                  type="date"
-                  value={activeSale.invoiceDate}
-                  onChange={e => {
-                    const newInvDate = e.target.value;
-                    const cDays = Number(activeSale.creditDays) || 30;
-                    const baseDate = new Date(newInvDate || Date.now());
-                    baseDate.setDate(baseDate.getDate() + cDays);
-                    updateActiveSale({
-                      invoiceDate: newInvDate,
-                      dueDate: baseDate.toISOString().split("T")[0]
-                    });
-                  }}
-                  style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, fontWeight: 600, color: THEME.textMain, cursor: "pointer" }}
-                />
-              </div>
-            </div>
+            {/* Right 6 Columns: Invoice Document Metadata */}
+            <div className="lg:col-span-6 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Invoice Number */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Invoice #</label>
+                  <div className="px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-black text-blue-700 tracking-wider text-center shadow-2xs">
+                    {activeSale.formattedInvoiceNo || activeSale.invoiceNumber || "INV-0001"}
+                  </div>
+                </div>
 
-            {/* State of supply */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
-              <span style={{ fontSize: 12.5, color: THEME.textMuted, fontWeight: 500 }}>State of supply</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <select
-                  value={activeSale.stateOfSupply}
-                  onChange={e => updateActiveSale({ stateOfSupply: e.target.value })}
-                  style={{
-                    border: "none", outline: "none", background: "transparent",
-                    fontSize: 13, fontWeight: 500, color: THEME.textMain, cursor: "pointer", textAlign: "right"
-                  }}
-                >
-                  {INDIAN_STATES.map(st => <option key={st} value={st}>{st}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Credit Due Date (Visible only when in Credit mode) */}
-            {isCredit && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
-                <span style={{ fontSize: 12.5, color: THEME.textMuted, fontWeight: 500 }}>Payment Due Date</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {/* Invoice Date */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Invoice Date</label>
                   <input
                     type="date"
-                    value={activeSale.dueDate || activeSale.invoiceDate}
-                    onChange={e => updateActiveSale({ dueDate: e.target.value })}
-                    style={{ border: "none", outline: "none", background: "transparent", fontSize: 13, fontWeight: 600, color: THEME.textMain, cursor: "pointer" }}
+                    value={activeSale.invoiceDate}
+                    onChange={e => {
+                      const newInvDate = e.target.value;
+                      const cDays = Number(activeSale.creditDays) || 30;
+                      const baseDate = new Date(newInvDate || Date.now());
+                      baseDate.setDate(baseDate.getDate() + cDays);
+                      updateActiveSale({
+                        invoiceDate: newInvDate,
+                        dueDate: baseDate.toISOString().split("T")[0]
+                      });
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-600 cursor-pointer"
                   />
                 </div>
+
+                {/* State of Supply */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">State of Supply</label>
+                  <select
+                    value={activeSale.stateOfSupply}
+                    onChange={e => updateActiveSale({ stateOfSupply: e.target.value })}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-600 cursor-pointer"
+                  >
+                    {INDIAN_STATES.map(st => <option key={st} value={st}>{st}</option>)}
+                  </select>
+                </div>
               </div>
-            )}
+
+              {/* Credit Terms (Due Date & Credit Days) */}
+              {isCredit && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Credit Due Date</label>
+                    <input
+                      type="date"
+                      value={activeSale.dueDate || activeSale.invoiceDate}
+                      onChange={e => updateActiveSale({ dueDate: e.target.value })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-amber-200 rounded-xl text-xs font-bold text-amber-900 outline-none cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Credit Terms</label>
+                    <div className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-600">
+                      Payment due within <strong>{activeSale.creditDays || 30} days</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </section>
+
+        {/* ── SECTION 2: DYNAMIC LINE ITEMS MATRIX ── */}
+        <section className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Layers size={15} className="text-blue-600" />
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Line Items & Inventory Products ({activeSale.rows.length} rows)
+              </span>
+            </div>
+            <span className="text-[11px] font-bold text-slate-500">
+              Type product name or scan barcode to add
+            </span>
           </div>
 
-        </div>
-      </div>
-
-      {/* ── 4. ITEMS TABLE (QUANTITY INITIALLY EMPTY -> SETS TO 1 UPON PRODUCT SELECTION) ── */}
-      <div style={{
-        margin: "0 24px 18px 24px",
-        background: "#ffffff",
-        border: `1px solid ${THEME.borderLight}`,
-        borderRadius: 0,
-        overflow: "visible"
-      }}>
-        <div style={{ overflowX: "auto", overflowY: "visible" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 980 }}>
-            <thead>
-              <tr style={{ background: "#ffffff", color: "#374151", height: 46 }}>
-                {/* 1. Barcode scan badge */}
-                <th style={{ width: 58, padding: "8px 6px", textAlign: "center", borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}` }}>
-                  <div style={{
-                    width: 34, height: 28, borderRadius: 4, background: "#e6f9ed", border: "1px solid #bbf7d0",
-                    display: "flex", alignItems: "center", justifyContent: "center", margin: "auto"
-                  }}>
-                    <ScanBarcode size={16} color="#059669" />
-                  </div>
-                </th>
-
-                {/* 2. ITEM */}
-                {visibleColumns.item_name !== false && (
-                  <th style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                    ITEM
-                  </th>
-                )}
-
-                {/* 3. QTY */}
-                {visibleColumns.qty !== false && (
-                  <th style={{ width: 68, padding: "8px 6px", textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                    QTY
-                  </th>
-                )}
-
-                {/* 4. UNIT */}
-                {visibleColumns.unit !== false && (
-                  <th style={{ width: 92, padding: "8px 6px", textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                    UNIT
-                  </th>
-                )}
-
-                {/* 5. PRICE/UNIT */}
-                {visibleColumns.price !== false && (
-                  <th style={{ width: 140, padding: "6px 8px", textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                    <div>PRICE/UNIT</div>
-                    <div style={{ fontSize: 10.5, color: "#6b7280", fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 2 }}>
-                      <span>Without Tax</span> <ChevronDown size={11} />
-                    </div>
-                  </th>
-                )}
-
-                {/* 6. DISCOUNT */}
-                {visibleColumns.discount !== false && (
-                  <th style={{ width: 140, padding: 0, textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                    <div style={{ padding: "5px 6px", borderBottom: `1px solid ${THEME.borderLight}` }}>DISCOUNT</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, color: "#6b7280", fontWeight: 500 }}>
-                      <div style={{ padding: "3px 2px", borderRight: `1px solid ${THEME.borderLight}` }}>%</div>
-                      <div style={{ padding: "3px 2px" }}>AMOUNT</div>
-                    </div>
-                  </th>
-                )}
-
-                {/* 7. TAX */}
-                {visibleColumns.tax !== false && (
-                  <th style={{ width: 145, padding: 0, textAlign: "center", fontWeight: 700, borderRight: `1px solid ${THEME.borderLight}`, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                    <div style={{ padding: "5px 6px", borderBottom: `1px solid ${THEME.borderLight}` }}>TAX</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", fontSize: 10.5, color: "#6b7280", fontWeight: 500 }}>
-                      <div style={{ padding: "3px 2px", borderRight: `1px solid ${THEME.borderLight}` }}>%</div>
-                      <div style={{ padding: "3px 2px" }}>AMOUNT</div>
-                    </div>
-                  </th>
-                )}
-
-                {/* 8. AMOUNT */}
-                {visibleColumns.amount !== false && (
-                  <th style={{ width: 110, padding: "8px 12px", textAlign: "right", fontWeight: 700, borderBottom: `1px solid ${THEME.borderLight}`, color: "#374151" }}>
-                    AMOUNT
-                  </th>
-                )}
-              </tr>
-            </thead>
-
-            <tbody>
-              {activeSale.rows.map((row, idx) => {
-                return (
-                  <tr
-                    key={row.id}
-                    style={{
-                      borderBottom: `1px solid ${THEME.borderLight}`,
-                      background: "#ffffff",
-                      height: 44,
-                    }}
-                  >
-                    {/* Column 1: Row Indicator + Reorder & Delete icons */}
-                    <td style={{ textAlign: "center", padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                        <span style={{ color: "#9ca3af", display: "flex", cursor: "grab" }} title="Drag / Reorder">
-                          <ChevronsUpDown size={12} />
-                        </span>
-                        <span style={{ color: "#4b5563", fontWeight: 600, fontSize: 12 }}>{idx + 1}</span>
-                        <button
-                          onClick={() => setRowToDelete(row.id)}
-                          title="Delete this row"
-                          style={{
-                            border: "none", background: "transparent", color: "#6b7280",
-                            cursor: "pointer", display: "flex", padding: 2, borderRadius: 4
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.color = THEME.danger}
-                          onMouseLeave={e => e.currentTarget.style.color = "#6b7280"}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse min-w-[980px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold select-none text-[11px] uppercase tracking-wider">
+                  <th className="py-3 px-3 text-center border-r border-slate-200 w-12">#</th>
+                  {visibleColumns.item_name !== false && (
+                    <th className="py-3 px-4 border-r border-slate-200 min-w-[240px]">Item Name / Description</th>
+                  )}
+                  {visibleColumns.qty !== false && (
+                    <th className="py-3 px-3 text-center border-r border-slate-200 w-24">Qty</th>
+                  )}
+                  {visibleColumns.unit !== false && (
+                    <th className="py-3 px-3 text-center border-r border-slate-200 w-24">Unit</th>
+                  )}
+                  {visibleColumns.price !== false && (
+                    <th className="py-3 px-3 text-center border-r border-slate-200 w-32">Price / Rate (₹)</th>
+                  )}
+                  {visibleColumns.discount !== false && (
+                    <th className="py-3 px-0 text-center border-r border-slate-200 w-36">
+                      <div className="border-b border-slate-200 pb-1">Discount</div>
+                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
+                        <span>%</span>
+                        <span>Amount (₹)</span>
                       </div>
+                    </th>
+                  )}
+                  {visibleColumns.tax !== false && (
+                    <th className="py-3 px-0 text-center border-r border-slate-200 w-36">
+                      <div className="border-b border-slate-200 pb-1">Tax (GST)</div>
+                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
+                        <span>% Slab</span>
+                        <span>Tax (₹)</span>
+                      </div>
+                    </th>
+                  )}
+                  {visibleColumns.amount !== false && (
+                    <th className="py-3 px-4 text-right border-r border-slate-200 w-32">Amount (₹)</th>
+                  )}
+                  <th className="py-3 px-2 text-center w-12">Action</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {activeSale.rows.map((row, idx) => (
+                  <tr key={row.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                    
+                    {/* # Index */}
+                    <td className="py-2.5 px-3 text-center border-r border-slate-200 text-slate-400 font-bold">
+                      {idx + 1}
                     </td>
 
-                    {/* Column 2: ITEM name input */}
+                    {/* Item Name Autocomplete */}
                     {visibleColumns.item_name !== false && (
-                      <td style={{ padding: "6px 10px", position: "relative", borderRight: `1px solid ${THEME.borderLight}` }}>
+                      <td className="py-2 px-3 border-r border-slate-200 relative">
                         <input
                           type="text"
-                          placeholder="Enter item name..."
+                          placeholder="Search product from inventory or type..."
                           value={row.item_name}
                           onChange={(e) => {
                             updateRowField(row.id, "item_name", e.target.value);
                             setItemSearchQuery(e.target.value);
                             setActiveRowSuggestId(row.id);
                           }}
-                          onFocus={() => { setItemSearchQuery(row.item_name); setActiveRowSuggestId(row.id); }}
-                          style={{ ...fieldInputStyle, fontSize: 13, fontWeight: 500 }}
+                          onFocus={() => {
+                            setItemSearchQuery(row.item_name);
+                            setActiveRowSuggestId(row.id);
+                          }}
+                          className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
                         />
-                        
-                        {/* Product Suggestions Dropdown with NO INTERNAL SCROLLBAR */}
+
+                        {/* Product Suggestions Dropdown */}
                         {activeRowSuggestId === row.id && (
-                          <div ref={itemSuggestRef} style={{
-                            position: "absolute", top: "100%", left: 0, width: 310,
-                            background: "#ffffff", borderRadius: 6, border: `1px solid ${THEME.borderLight}`,
-                            boxShadow: "0 10px 24px rgba(0,0,0,0.12)", zIndex: 9999,
-                            marginTop: 2, overflow: "visible", maxHeight: "none"
-                          }}>
+                          <div ref={itemSuggestRef} className="absolute left-3 top-full mt-1 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 animate-in fade-in duration-100">
                             {filteredProducts.map(p => (
-                              <div key={p.id} onClick={() => handleSelectProduct(row.id, p)} style={{
-                                padding: "9px 12px", cursor: "pointer", borderBottom: `1px solid ${THEME.borderLight}`,
-                                fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center"
-                              }}
-                                onMouseEnter={e => e.currentTarget.style.background = THEME.primarySoft}
-                                onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}>
+                              <div
+                                key={p.id}
+                                onClick={() => handleSelectProduct(row.id, p)}
+                                className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-none transition text-xs"
+                              >
                                 <div>
-                                  <div style={{ fontWeight: 700, color: THEME.textMain }}>{p.product_name || p.name}</div>
-                                  <div style={{ fontSize: 11, color: THEME.textMuted }}>Stock: {p.stock} {p.unit || ""}</div>
+                                  <div className="font-bold text-slate-900">{p.product_name || p.name}</div>
+                                  <div className="text-[11px] text-slate-400">Stock: {p.stock} {p.unit || ""}</div>
                                 </div>
-                                <div style={{ fontWeight: 700, color: THEME.primary }}>₹{parseFloat(p.price || 0).toLocaleString()}</div>
+                                <div className="font-extrabold text-blue-600">₹{parseFloat(p.price || 0).toLocaleString()}</div>
                               </div>
                             ))}
                           </div>
@@ -1814,429 +1288,337 @@ export default function AddSale() {
                       </td>
                     )}
 
-                    {/* Column 3: QTY */}
+                    {/* Qty */}
                     {visibleColumns.qty !== false && (
-                      <td style={{ padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
+                      <td className="py-2 px-2 border-r border-slate-200 text-center">
                         <input
                           type="number"
                           min="1"
-                          placeholder=""
+                          placeholder="1"
                           value={row.qty}
                           onChange={e => updateRowField(row.id, "qty", e.target.value)}
-                          style={{ ...fieldInputStyle, textAlign: "center", fontSize: 13, fontWeight: 600 }}
+                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
                         />
                       </td>
                     )}
 
-                    {/* Column 4: UNIT */}
+                    {/* Unit */}
                     {visibleColumns.unit !== false && (
-                      <td style={{ padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
-                          <select
-                            value={row.unit}
-                            onChange={e => updateRowField(row.id, "unit", e.target.value)}
-                            style={{ ...fieldInputStyle, fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer", textAlign: "center" }}
-                          >
-                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                          </select>
-                          <ChevronDown size={11} color="#6b7280" />
-                        </div>
+                      <td className="py-2 px-2 border-r border-slate-200 text-center">
+                        <select
+                          value={row.unit}
+                          onChange={e => updateRowField(row.id, "unit", e.target.value)}
+                          className="w-full py-1.5 px-1 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none cursor-pointer"
+                        >
+                          {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
                       </td>
                     )}
 
-                    {/* Column 5: PRICE/UNIT */}
+                    {/* Price */}
                     {visibleColumns.price !== false && (
-                      <td style={{ padding: "6px 6px", borderRight: `1px solid ${THEME.borderLight}` }}>
+                      <td className="py-2 px-2 border-r border-slate-200 text-center">
                         <input
                           type="number"
                           min="0"
                           step="0.01"
-                          placeholder=""
-                          value={row.price || ""}
+                          placeholder="0.00"
+                          value={row.price}
                           onChange={e => updateRowField(row.id, "price", e.target.value)}
-                          style={{ ...fieldInputStyle, textAlign: "center", fontSize: 13, fontWeight: 600 }}
+                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
                         />
                       </td>
                     )}
 
-                    {/* Column 6: DISCOUNT (% & AMOUNT) */}
+                    {/* Discount */}
                     {visibleColumns.discount !== false && (
-                      <td style={{ padding: 0, borderRight: `1px solid ${THEME.borderLight}` }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%" }}>
-                          <div style={{ borderRight: `1px solid ${THEME.borderLight}`, padding: "6px 2px" }}>
-                            <input
-                              type="number"
-                              placeholder=""
-                              min="0"
-                              max="100"
-                              value={row.discount_percent || ""}
-                              onChange={e => {
-                                updateRowField(row.id, "discount_percent", e.target.value);
-                                updateRowField(row.id, "discount_amount", "");
-                              }}
-                              style={{ ...fieldInputStyle, textAlign: "center", fontSize: 12.5 }}
-                            />
-                          </div>
-                          <div style={{ padding: "6px 2px" }}>
-                            <input
-                              type="number"
-                              placeholder=""
-                              min="0"
-                              value={row.discount_amount || ""}
-                              onChange={e => {
-                                updateRowField(row.id, "discount_amount", e.target.value);
-                                updateRowField(row.id, "discount_percent", "");
-                              }}
-                              style={{ ...fieldInputStyle, textAlign: "center", fontSize: 12.5 }}
-                            />
-                          </div>
+                      <td className="py-2 px-0 border-r border-slate-200">
+                        <div className="grid grid-cols-2 divide-x divide-slate-200">
+                          <input
+                            type="number"
+                            placeholder="%"
+                            min="0"
+                            max="100"
+                            value={row.discount_percent || ""}
+                            onChange={e => {
+                              updateRowField(row.id, "discount_percent", e.target.value);
+                              updateRowField(row.id, "discount_amount", "");
+                            }}
+                            className="w-full py-1 px-1 text-center font-bold text-slate-800 outline-none text-xs"
+                          />
+                          <input
+                            type="number"
+                            placeholder="₹"
+                            min="0"
+                            value={row.discount_amount || ""}
+                            onChange={e => {
+                              updateRowField(row.id, "discount_amount", e.target.value);
+                              updateRowField(row.id, "discount_percent", "");
+                            }}
+                            className="w-full py-1 px-1 text-center font-bold text-slate-800 outline-none text-xs"
+                          />
                         </div>
                       </td>
                     )}
 
-                    {/* Column 7: TAX (% & AMOUNT) */}
+                    {/* Tax */}
                     {visibleColumns.tax !== false && (
-                      <td style={{ padding: 0, borderRight: `1px solid ${THEME.borderLight}` }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%" }}>
-                          <div style={{ borderRight: `1px solid ${THEME.borderLight}`, padding: "6px 2px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <select
-                              value={row.tax_percent}
-                              onChange={e => updateRowField(row.id, "tax_percent", e.target.value)}
-                              style={{ ...fieldInputStyle, fontSize: 11.5, color: "#374151", cursor: "pointer", fontWeight: 500, textAlign: "center" }}
-                            >
-                              {TAX_RATES.map((tr, i) => (
-                                <option key={i} value={tr.value}>{tr.label}</option>
-                              ))}
-                            </select>
-                            <ChevronDown size={11} color="#6b7280" />
-                          </div>
-                          <div style={{ padding: "6px 2px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
-                              {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : ""}
-                            </span>
-                          </div>
+                      <td className="py-2 px-0 border-r border-slate-200">
+                        <div className="grid grid-cols-2 divide-x divide-slate-200 items-center">
+                          <select
+                            value={row.tax_percent}
+                            onChange={e => updateRowField(row.id, "tax_percent", e.target.value)}
+                            className="w-full py-1 px-1 bg-transparent text-center font-bold text-slate-800 outline-none text-xs cursor-pointer"
+                          >
+                            {TAX_RATES.map((tr, i) => (
+                              <option key={i} value={tr.value}>{tr.label}</option>
+                            ))}
+                          </select>
+                          <span className="text-[11px] font-bold text-slate-500 text-center truncate">
+                            {row.tax_amount ? `₹${row.tax_amount.toFixed(1)}` : "—"}
+                          </span>
                         </div>
                       </td>
                     )}
 
-                    {/* Column 8: AMOUNT */}
+                    {/* Amount */}
                     {visibleColumns.amount !== false && (
-                      <td style={{ padding: "6px 12px", textAlign: "right", fontWeight: 600, color: "#111827", fontSize: 13 }}>
-                        {row.amount ? `₹${row.amount.toFixed(2)}` : "₹0.00"}
+                      <td className="py-2.5 px-4 text-right border-r border-slate-200 font-black text-slate-900 text-xs">
+                        ₹ {row.amount ? row.amount.toFixed(2) : "0.00"}
                       </td>
                     )}
-                  </tr>
-                );
-              })}
-            </tbody>
 
-            {/* Table Footer: Total row matching screenshot */}
-            <tfoot>
-              <tr style={{ background: "#ffffff", borderTop: `1px solid ${THEME.borderLight}`, height: 46 }}>
-                <td style={{ padding: "6px 12px", borderRight: `1px solid ${THEME.borderLight}` }}></td>
-                {visibleColumns.item_name !== false && (
-                  <td style={{ padding: "6px 14px", borderRight: `1px solid ${THEME.borderLight}` }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    {/* Action Delete */}
+                    <td className="py-2 px-2 text-center">
                       <button
-                        onClick={addRow}
-                        style={{
-                          padding: "6px 16px",
-                          borderRadius: 4,
-                          border: `1px solid ${THEME.primary}`,
-                          background: "#ffffff",
-                          color: THEME.primary,
-                          fontWeight: 700,
-                          fontSize: 12,
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                          transition: "all .15s"
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = THEME.primarySoft}
-                        onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
+                        type="button"
+                        onClick={() => setRowToDelete(row.id)}
+                        className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition cursor-pointer mx-auto"
+                        title="Delete row"
                       >
-                        ADD ROW
+                        <Trash2 size={14} />
                       </button>
-                      <span style={{ fontWeight: 700, fontSize: 12, color: "#374151", textTransform: "uppercase" }}>
-                        TOTAL
-                      </span>
-                    </div>
-                  </td>
-                )}
-                {visibleColumns.qty !== false && (
-                  <td style={{ textAlign: "center", fontWeight: 700, fontSize: 13, color: "#111827", borderRight: `1px solid ${THEME.borderLight}` }}>
-                    {totals.totalQty || 0}
-                  </td>
-                )}
-                {visibleColumns.unit !== false && (
-                  <td style={{ borderRight: `1px solid ${THEME.borderLight}` }}></td>
-                )}
-                {visibleColumns.price !== false && (
-                  <td style={{ borderRight: `1px solid ${THEME.borderLight}` }}></td>
-                )}
-                {visibleColumns.discount !== false && (
-                  <td style={{ textAlign: "center", fontWeight: 600, fontSize: 12.5, color: "#4b5563", borderRight: `1px solid ${THEME.borderLight}` }}>
-                    {totals.totalDiscountAmount || 0}
-                  </td>
-                )}
-                {visibleColumns.tax !== false && (
-                  <td style={{ textAlign: "center", fontWeight: 600, fontSize: 12.5, color: "#4b5563", borderRight: `1px solid ${THEME.borderLight}` }}>
-                    {totals.totalTaxAmount || 0}
-                  </td>
-                )}
-                {visibleColumns.amount !== false && (
-                  <td style={{ textAlign: "right", fontWeight: 700, fontSize: 13.5, color: "#111827", padding: "6px 12px" }}>
-                    ₹{totals.subtotalAmount ? totals.subtotalAmount.toFixed(2) : "0.00"}
-                  </td>
-                )}
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
+                    </td>
 
-      {/* ── 5. BOTTOM SECTION: TOTALS ONLY (MATCHING 1ST & 2ND IMAGES, 3RD IMAGE REMOVED) ── */}
-      <div style={{
-        margin: "16px 24px 100px 24px",
-        display: "flex",
-        justifyContent: "flex-end",
-        alignItems: "flex-start",
-      }}>
-        {/* Right: Totals summary matching 1st Image (Cash) & 2nd Image (Credit) */}
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          width: 420,
-          maxWidth: "100%",
-        }}>
-          {/* 1. Discount */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: "#4b5563" }}>Discount</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input
-                type="number"
-                placeholder="(%)"
-                value={activeSale.overallDiscountPercent || ""}
-                onChange={e => updateActiveSale({ overallDiscountPercent: e.target.value, overallDiscountAmount: "" })}
-                style={{
-                  width: 65, height: 32, padding: "4px 6px", borderRadius: 5,
-                  border: "1px solid #d1d5db", background: "#ffffff", fontSize: 12.5, textAlign: "center", outline: "none"
-                }}
-              />
-              <span style={{ color: "#9ca3af" }}>-</span>
-              <input
-                type="number"
-                placeholder="(₹)"
-                value={activeSale.overallDiscountAmount || ""}
-                onChange={e => updateActiveSale({ overallDiscountAmount: e.target.value, overallDiscountPercent: "" })}
-                style={{
-                  width: 80, height: 32, padding: "4px 8px", borderRadius: 5,
-                  border: "1px solid #d1d5db", background: "#ffffff", fontSize: 12.5, textAlign: "right", outline: "none"
-                }}
-              />
-            </div>
+                  </tr>
+                ))}
+              </tbody>
+
+              {/* Table Footer */}
+              <tfoot>
+                <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold text-slate-800 text-xs">
+                  <td colSpan={2} className="py-3 px-4 border-r border-slate-200">
+                    <button
+                      type="button"
+                      onClick={addRow}
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-blue-600 bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition cursor-pointer"
+                    >
+                      <Plus size={14} strokeWidth={3} />
+                      <span>+ Add Item Row</span>
+                    </button>
+                  </td>
+                  {visibleColumns.qty !== false && (
+                    <td className="py-3 px-2 text-center border-r border-slate-200 font-black text-slate-900">
+                      {totals.totalQty}
+                    </td>
+                  )}
+                  {visibleColumns.unit !== false && <td className="border-r border-slate-200" />}
+                  {visibleColumns.price !== false && <td className="border-r border-slate-200" />}
+                  {visibleColumns.discount !== false && (
+                    <td className="py-3 px-2 text-center border-r border-slate-200 text-amber-700">
+                      ₹ {totals.totalDiscountAmount.toFixed(2)}
+                    </td>
+                  )}
+                  {visibleColumns.tax !== false && (
+                    <td className="py-3 px-2 text-center border-r border-slate-200 text-emerald-700">
+                      ₹ {totals.totalTaxAmount.toFixed(2)}
+                    </td>
+                  )}
+                  {visibleColumns.amount !== false && (
+                    <td className="py-3 px-4 text-right border-r border-slate-200 font-black text-slate-900">
+                      ₹ {totals.subtotalAmount.toFixed(2)}
+                    </td>
+                  )}
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
           </div>
+        </section>
 
-          {/* 2. Tax */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: "#4b5563" }}>Tax</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <select
-                value={activeSale.overallTaxRate}
-                onChange={e => updateActiveSale({ overallTaxRate: e.target.value })}
-                style={{
-                  width: 120, height: 32, padding: "4px 8px", borderRadius: 5,
-                  border: "1px solid #d1d5db", background: "#ffffff", fontSize: 12,
-                  color: "#6b7280", fontWeight: 600, cursor: "pointer", outline: "none"
-                }}
-              >
-                {TAX_RATES.map((tr, i) => <option key={i} value={tr.value}>{tr.label}</option>)}
-              </select>
-              <span style={{ fontSize: 13.5, fontWeight: 700, minWidth: 28, textAlign: "right", color: "#111827" }}>
-                {totals.totalTaxAmount ? totals.totalTaxAmount.toFixed(0) : "0"}
-              </span>
+        {/* ── SECTION 3: FINANCIAL RECONCILIATION & TOTALS SUMMARY ── */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          
+          {/* Left 7 Columns: Notes, Terms & Overrides */}
+          <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              <FileText size={16} className="text-blue-600" />
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Terms, Conditions & Remarks</h3>
             </div>
-          </div>
 
-          {/* 3. Total Row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#374151" }}>Total</span>
-            <div style={{
-              width: 155, height: 36, padding: "6px 12px", borderRadius: 6,
-              border: "1px solid #d1d5db", background: "#f3f4f6", fontSize: 15,
-              fontWeight: 700, color: "#111827", textAlign: "right", boxSizing: "border-box",
-              display: "flex", alignItems: "center", justifyContent: "flex-end"
-            }}>
-              {totals.roundedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-          </div>
-
-          {/* 4. CREDIT ONLY: Received & Balance (2nd Image) */}
-          {activeSale.paymentType === "credit" && (
-            <>
-              {/* Received Row */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    id="receivedCheckbox"
-                    checked={activeSale.receivedEnabled !== false}
-                    onChange={e => {
-                      const checked = e.target.checked;
-                      updateActiveSale({
-                        receivedEnabled: checked,
-                        receivedAmount: checked ? (activeSale.receivedAmount || totals.roundedGrandTotal) : "0"
-                      });
-                    }}
-                    style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563eb" }}
-                  />
-                  <span style={{ fontSize: 13.5, fontWeight: 700, color: "#374151" }}>Received</span>
-                </label>
-
-                <input
-                  type="number"
-                  disabled={activeSale.receivedEnabled === false}
-                  value={activeSale.receivedAmount !== undefined && activeSale.receivedAmount !== "" ? activeSale.receivedAmount : totals.roundedGrandTotal}
-                  onChange={e => updateActiveSale({ receivedAmount: e.target.value })}
-                  style={{
-                    width: 155, height: 36, padding: "6px 12px", borderRadius: 6,
-                    border: "1px solid #d1d5db", background: activeSale.receivedEnabled === false ? "#f3f4f6" : "#ffffff",
-                    fontSize: 15, fontWeight: 700, color: "#111827", textAlign: "right", boxSizing: "border-box", outline: "none"
-                  }}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Invoice Remarks & Note</label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter custom remarks for customer invoice..."
+                  value={activeSale.descriptionText}
+                  onChange={e => updateActiveSale({ descriptionText: e.target.value })}
+                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-600 transition resize-none"
                 />
               </div>
 
-              {/* Balance Row */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14 }}>
-                <span style={{ fontSize: 14, fontWeight: 800, color: "#1f2937" }}>Balance</span>
-                <div style={{
-                  width: 155, padding: "4px 12px", fontSize: 15, fontWeight: 800,
-                  color: "#111827", textAlign: "right"
-                }}>
-                  {Math.max(0, totals.roundedGrandTotal - (activeSale.receivedEnabled !== false ? (parseFloat(activeSale.receivedAmount !== undefined && activeSale.receivedAmount !== "" ? activeSale.receivedAmount : totals.roundedGrandTotal) || 0) : 0)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Terms & Conditions</label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Goods once sold will not be returned..."
+                  value={activeSale.termsText}
+                  onChange={e => updateActiveSale({ termsText: e.target.value })}
+                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-600 transition resize-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right 5 Columns: Financial Summary & Settlement */}
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Financial Breakdown</span>
+              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                INR Currency
+              </span>
+            </div>
+
+            {/* Financial Summary Breakdown (Calculation-Only) */}
+            <div className="space-y-2.5 text-xs font-semibold text-slate-600">
+              <div className="flex justify-between items-center">
+                <span>Subtotal</span>
+                <span className="font-bold text-slate-900">₹ {totals.grossSubtotal.toFixed(2)}</span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span>Total Discount</span>
+                <span className={`font-bold ${totals.totalDiscountAmount > 0 ? "text-rose-600" : "text-slate-700"}`}>
+                  {totals.totalDiscountAmount > 0 ? `- ₹ ${totals.totalDiscountAmount.toFixed(2)}` : "₹ 0.00"}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span>Total Tax (GST)</span>
+                <span className={`font-bold ${totals.totalTaxAmount > 0 ? "text-emerald-700" : "text-slate-700"}`}>
+                  {totals.totalTaxAmount > 0 ? `+ ₹ ${totals.totalTaxAmount.toFixed(2)}` : "₹ 0.00"}
+                </span>
+              </div>
+            </div>
+
+            {/* Grand Total Hero Box */}
+            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
+              <div>
+                <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">Grand Total</span>
+                <span className="text-2xl font-black tracking-tight">
+                  ₹ {totals.roundedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
+                  {isCredit ? "Credit Mode" : "Cash Paid"}
+                </span>
+              </div>
+            </div>
+
+            {/* Credit Mode: Received Amount & Remaining Balance */}
+            {isCredit && (
+              <div className="pt-2 space-y-2 border-t border-slate-100 text-xs">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={activeSale.receivedEnabled !== false}
+                      onChange={e => {
+                        const checked = e.target.checked;
+                        updateActiveSale({
+                          receivedEnabled: checked,
+                          receivedAmount: checked ? (activeSale.receivedAmount || totals.roundedGrandTotal) : "0"
+                        });
+                      }}
+                      className="cursor-pointer text-blue-600"
+                    />
+                    <span>Amount Received</span>
+                  </label>
+                  <input
+                    type="number"
+                    disabled={activeSale.receivedEnabled === false}
+                    value={activeSale.receivedAmount !== undefined && activeSale.receivedAmount !== "" ? activeSale.receivedAmount : totals.roundedGrandTotal}
+                    onChange={e => updateActiveSale({ receivedAmount: e.target.value })}
+                    className="w-32 py-1.5 px-2 bg-slate-50 border border-slate-200 rounded-lg text-right font-bold text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between font-bold text-slate-800">
+                  <span>Balance Due</span>
+                  <span className="text-sm font-black text-rose-600">
+                    ₹ {Math.max(0, totals.roundedGrandTotal - (activeSale.receivedEnabled !== false ? (parseFloat(activeSale.receivedAmount !== undefined && activeSale.receivedAmount !== "" ? activeSale.receivedAmount : totals.roundedGrandTotal) || 0) : 0)).toFixed(2)}
+                  </span>
                 </div>
               </div>
-            </>
-          )}
-        </div>
-      </div>
+            )}
 
-      {/* ── 6. STICKY BOTTOM ACTION BAR (MATCHING 4TH IMAGE) ── */}
-      <footer style={{
-        position: "fixed", bottom: 0, left: 0, right: 0,
-        background: "#ffffff", borderTop: "1px solid #e5e7eb",
-        padding: "10px 24px", display: "flex", justifyContent: "flex-end",
-        alignItems: "center", gap: 14, zIndex: 1000,
-        boxShadow: "0 -2px 10px rgba(0,0,0,0.03)"
-      }}>
-        {/* Left: Trend Graph Button */}
-        {/* <button
-          type="button"
-          title="Sales Margin Analytics"
-          style={{
-            width: 36, height: 36, borderRadius: 6,
-            background: "#eff6ff", border: "none", color: "#2563eb",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", transition: "all .15s"
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = "#dbeafe"}
-          onMouseLeave={e => e.currentTarget.style.background = "#eff6ff"}
-        >
-          <TrendingUp size={18} strokeWidth={2.2} />
-        </button> */}
+          </div>
 
-        {/* Center: Generate e-Invoice Split Button */}
-        {/* <div style={{ display: "flex", alignItems: "center" }}>
-          <button
-            type="button"
-            style={{
-              padding: "7px 16px", borderRadius: "6px 0 0 6px",
-              border: "1px solid #60a5fa", borderRight: "none",
-              background: "#ffffff", color: "#2563eb", fontWeight: 600,
-              fontSize: 13, cursor: "pointer", transition: "all .15s"
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = "#f0f9ff"}
-            onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
-          >
-            <span>Generate e-<u>I</u>nvoice</span>
-          </button>
-          <button
-            type="button"
-            style={{
-              padding: "7px 9px", borderRadius: "0 6px 6px 0",
-              border: "1px solid #60a5fa",
-              background: "#ffffff", color: "#2563eb",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", transition: "all .15s"
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = "#f0f9ff"}
-            onMouseLeave={e => e.currentTarget.style.background = "#ffffff"}
-          >
-            <ChevronDown size={14} strokeWidth={2.5} />
-          </button>
-        </div> */}
+        </section>
 
-        {/* Right: Save Button */}
+      </main>
+
+      {/* ── 4. STICKY ACTION FOOTER ── */}
+      <footer className="bg-white border-t border-slate-200/90 px-4 sm:px-6 py-3 flex items-center justify-between sticky bottom-0 z-40 shadow-md">
         <button
-          onClick={() => handleSave(false)}
-          disabled={saving}
-          style={{
-            padding: "7px 28px", borderRadius: 6, border: "none",
-            background: saving ? "#93c5fd" : "#1f8cff",
-            color: "#ffffff", fontWeight: 700, fontSize: 14,
-            cursor: saving ? "not-allowed" : "pointer",
-            display: "flex", alignItems: "center", gap: 6,
-            boxShadow: "0 2px 4px rgba(31, 140, 255, 0.2)",
-            transition: "all .15s"
-          }}
-          onMouseEnter={e => { if (!saving) e.currentTarget.style.background = "#1d4ed8"; }}
-          onMouseLeave={e => { if (!saving) e.currentTarget.style.background = "#1f8cff"; }}
+          type="button"
+          onClick={() => setShowCloseConfirm(true)}
+          className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
         >
-          {saving ? (
-            <span>{isEditMode ? "Updating..." : "Saving..."}</span>
-          ) : isEditMode ? (
-            <span>Update Sale</span>
-          ) : (
-            <span>Save</span>
-          )}
+          Discard
         </button>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => handleSave(false)}
+            disabled={saving}
+            className="app-btn-primary h-9 px-8 rounded-xl text-xs font-semibold shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
+            <span>{saving ? (isEditMode ? "Updating..." : "Saving...") : isEditMode ? "Update Sale" : "Save Invoice"}</span>
+          </button>
+        </div>
       </footer>
 
-      {/* Delete Confirmation Modal */}
+      {/* ── MODALS PRESERVED ── */}
+      
+      {/* Delete Row Modal */}
       {rowToDelete && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 99999,
-          background: "rgba(15, 23, 42, 0.45)",
-          display: "flex", alignItems: "center", justifyContent: "center"
-        }} onClick={() => setRowToDelete(null)}>
-          <div style={{
-            background: "#ffffff", borderRadius: 8, width: 350, maxWidth: "90vw",
-            boxShadow: "0 20px 40px rgba(15, 23, 42, 0.2)", overflow: "hidden",
-            border: `1px solid ${THEME.borderLight}`
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: "16px 20px 8px 20px", fontSize: 15, fontWeight: 800, color: THEME.textMain }}>
-              Delete this item?
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={() => setRowToDelete(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                <Trash2 size={22} />
+              </div>
+              <h3 className="text-base font-bold text-slate-900">Remove Item Row?</h3>
+              <p className="text-xs text-slate-500">This line item will be deleted from the current invoice.</p>
             </div>
-            <div style={{ padding: "0 20px 16px 20px", fontSize: 13, color: THEME.textMuted }}>
-              This row will be removed from the sale.
-            </div>
-            <div style={{ padding: "10px 18px 14px", display: "flex", justifyContent: "flex-end", gap: 10, background: "#f8fafc", borderTop: `1px solid ${THEME.borderLight}` }}>
-              <button onClick={() => setRowToDelete(null)} style={{
-                padding: "6px 14px", borderRadius: 6, border: `1px solid ${THEME.border}`,
-                background: "#ffffff", color: THEME.textMain, fontWeight: 700, fontSize: 12.5, cursor: "pointer"
-              }}>Cancel</button>
-              <button onClick={confirmDeleteRow} style={{
-                padding: "6px 16px", borderRadius: 6, border: "none",
-                background: THEME.danger, color: "#ffffff", fontWeight: 800, fontSize: 12.5, cursor: "pointer"
-              }}>Delete</button>
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+              <button type="button" onClick={() => setRowToDelete(null)} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer">
+                Cancel
+              </button>
+              <button type="button" onClick={confirmDeleteRow} className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition cursor-pointer">
+                Delete
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Close Sale Confirmation Modal */}
+      {/* Close Confirm Modal */}
       <CloseSaleModal
         isOpen={showCloseConfirm}
         onCancel={() => setShowCloseConfirm(false)}
@@ -2246,587 +1628,160 @@ export default function AddSale() {
         }}
       />
 
-      {/* Calculator Modal */}
-      <CalculatorModal isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
-
-      {/* Unlisted Products Warning & Confirmation Modal */}
+      {/* Unlisted Products Warning Modal */}
       {unlistedProductsWarning && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 99999,
-          background: "rgba(15, 23, 42, 0.55)", backdropFilter: "blur(3px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          padding: "16px"
-        }} onClick={() => setUnlistedProductsWarning(null)}>
-          <div style={{
-            background: "#ffffff", borderRadius: 14, width: 460, maxWidth: "96vw",
-            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)", overflow: "hidden",
-            border: "1px solid #e2e8f0"
-          }} onClick={e => e.stopPropagation()}>
-            
-            {/* Header */}
-            <div style={{
-              padding: "16px 20px", display: "flex", alignItems: "center", gap: 12,
-              borderBottom: "1px solid #f1f5f9", background: "#fefce8"
-            }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: 10, background: "#fef08a",
-                display: "flex", alignItems: "center", justifyContent: "center", color: "#854d0e", flexShrink: 0
-              }}>
-                <AlertCircle size={22} />
-              </div>
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={() => setUnlistedProductsWarning(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-amber-100 flex items-center gap-3 bg-amber-50">
+              <AlertCircle size={22} className="text-amber-600 shrink-0" />
               <div>
-                <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 800, color: "#854d0e" }}>
-                  Product Not in Inventory
-                </h3>
-                <p style={{ margin: "2px 0 0", fontSize: 12, color: "#a16207", fontWeight: 500 }}>
-                  Item not found in products list
-                </p>
+                <h3 className="text-sm font-bold text-amber-900">Product Not in Inventory</h3>
+                <p className="text-[11px] text-amber-700">Item not found in product catalog</p>
               </div>
             </div>
-
-            {/* Content Body */}
-            <div style={{ padding: "18px 20px" }}>
-              {/* Product Info Box */}
-              <div style={{
-                background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0",
-                maxHeight: 160, overflowY: "auto", marginBottom: 14
-              }}>
+            <div className="p-6 space-y-3">
+              <div className="bg-slate-50 rounded-xl border border-slate-200 max-h-40 overflow-y-auto divide-y divide-slate-100">
                 {unlistedProductsWarning.map((item, idx) => (
-                  <div key={idx} style={{
-                    padding: "10px 14px", display: "flex", alignItems: "center",
-                    justifyContent: "space-between", borderBottom: idx < unlistedProductsWarning.length - 1 ? "1px solid #e2e8f0" : "none"
-                  }}>
+                  <div key={idx} className="p-3 flex items-center justify-between text-xs">
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 13.5, color: "#0f172a" }}>
-                        {item.item_name}
-                      </div>
-                      <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>
-                        Rate: ₹{parseFloat(item.price || 0).toFixed(2)}
-                      </div>
+                      <div className="font-bold text-slate-900">{item.item_name}</div>
+                      <div className="text-[11px] text-slate-500">Rate: ₹{parseFloat(item.price || 0).toFixed(2)}</div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <span style={{
-                        fontSize: 12, fontWeight: 700, background: "#fee2e2",
-                        color: "#991b1b", padding: "3px 9px", borderRadius: 6
-                      }}>
-                        Qty: {item.qty || 1} {item.unit !== "NONE" ? item.unit : ""}
-                      </span>
-                    </div>
+                    <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 font-bold text-[11px]">
+                      Qty: {item.qty || 1}
+                    </span>
                   </div>
                 ))}
               </div>
-
-              {/* Simple Clear English Message */}
-              <p style={{ fontSize: 13.5, color: "#334155", margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
-                This product is not in your inventory. Do you want to proceed with billing?
-              </p>
+              <p className="text-xs text-slate-600">This product is not in your inventory. Do you want to proceed with billing or add it to inventory?</p>
             </div>
-
-            {/* Footer Buttons */}
-            <div style={{
-              padding: "12px 20px", display: "flex", justifyContent: "flex-end",
-              gap: 10, background: "#f8fafc", borderTop: "1px solid #e2e8f0"
-            }}>
-              <button
-                type="button"
-                onClick={() => setUnlistedProductsWarning(null)}
-                style={{
-                  padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1",
-                  background: "#ffffff", color: "#334155", fontWeight: 700, fontSize: 13,
-                  cursor: "pointer"
-                }}
-              >
-                Cancel / Edit
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+              <button type="button" onClick={() => setUnlistedProductsWarning(null)} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer">
+                Cancel
               </button>
-              <button
-                type="button"
-                onClick={handleProceedFromWarning}
-                disabled={saving}
-                style={{
-                  padding: "8px 20px", borderRadius: 8, border: "none",
-                  background: "#2563eb", color: "#ffffff", fontWeight: 700, fontSize: 13,
-                  cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-                  boxShadow: "0 2px 4px rgba(37, 99, 235, 0.25)"
-                }}
-              >
-                <Check size={16} strokeWidth={2.5} />
+              <button type="button" onClick={handleProceedFromWarning} className="app-btn-primary px-5 py-2 text-xs font-bold flex items-center gap-1.5">
+                <Check size={14} />
                 <span>Proceed to Bill</span>
               </button>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* ── Quick Add Product to Inventory Modal ── */}
+      {/* Quick Add Product Modal */}
       {quickAddModal && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 99999,
-          background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          padding: "16px"
-        }} onClick={() => setQuickAddModal(null)}>
-          <div style={{
-            background: "#ffffff", borderRadius: 16, width: 490, maxWidth: "96vw",
-            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.3)", overflow: "hidden",
-            border: "1px solid #e2e8f0"
-          }} onClick={e => e.stopPropagation()}>
-
-            {/* Header */}
-            <div style={{
-              padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between",
-              borderBottom: "1px solid #f1f5f9", background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10, background: "#dbeafe",
-                  display: "flex", alignItems: "center", justifyContent: "center", color: "#1d4ed8", flexShrink: 0
-                }}>
-                  <Package size={22} />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#1e3a8a" }}>
-                    Add Product to Inventory
-                  </h3>
-                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b", fontWeight: 500 }}>
-                    Enter product details to save in inventory and bill
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={() => setQuickAddModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-blue-50/50">
+              <div className="flex items-center gap-2.5">
+                <Package size={18} className="text-blue-600" />
+                <h3 className="text-sm font-bold text-slate-900">Add Product to Inventory</h3>
               </div>
               {quickAddModal.queue.length > 1 && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700, color: "#2563eb", background: "#dbeafe",
-                  padding: "3px 10px", borderRadius: 100
-                }}>
+                <span className="text-[11px] font-bold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full">
                   {quickAddModal.currentIndex + 1} of {quickAddModal.queue.length}
                 </span>
               )}
             </div>
 
-            {/* Error Message if any */}
             {quickAddModal.error && (
-              <div style={{
-                margin: "14px 20px 0", padding: "10px 14px", borderRadius: 8,
-                background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c",
-                fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 8
-              }}>
-                <AlertCircle size={16} />
+              <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle size={15} />
                 <span>{quickAddModal.error}</span>
               </div>
             )}
 
-            {/* Form Body */}
-            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-              
-              {/* 1. Product Name */}
+            <div className="p-6 space-y-4 text-xs">
               <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
-                  Product Name <span style={{ color: "#ef4444" }}>*</span>
-                </label>
+                <label className="block font-bold text-slate-700 mb-1">Product Name *</label>
                 <input
                   type="text"
                   value={quickAddModal.form.product_name}
                   onChange={e => setQuickAddForm("product_name", e.target.value)}
-                  placeholder="e.g. Center Fresh 50g"
-                  autoFocus
-                  style={{
-                    width: "100%", padding: "10px 12px", borderRadius: 8,
-                    border: "1.5px solid #cbd5e1", fontSize: 13.5, fontWeight: 600,
-                    color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
-                  }}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:bg-white focus:border-blue-600"
                 />
               </div>
 
-              {/* 2. Sale Price & Purchase Price */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
-                    Sale Price (₹) <span style={{ color: "#ef4444" }}>*</span>
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <span style={{
-                      position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-                      fontSize: 13, fontWeight: 700, color: "#64748b", pointerEvents: "none"
-                    }}>₹</span>
-                    <input
-                      type="number"
-                      value={quickAddModal.form.sale_price}
-                      onChange={e => setQuickAddForm("sale_price", e.target.value)}
-                      placeholder="0.00"
-                      min="0"
-                      step="any"
-                      style={{
-                        width: "100%", padding: "10px 12px 10px 28px", borderRadius: 8,
-                        border: "1.5px solid #cbd5e1", fontSize: 13.5, fontWeight: 600,
-                        color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
-                      }}
-                    />
-                  </div>
+                  <label className="block font-bold text-slate-700 mb-1">Sale Price (₹) *</label>
+                  <input
+                    type="number"
+                    value={quickAddModal.form.sale_price}
+                    onChange={e => setQuickAddForm("sale_price", e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:bg-white focus:border-blue-600"
+                  />
                 </div>
-
                 <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
-                    Purchase Price (₹) <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, textTransform: "none" }}>(Optional)</span>
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <span style={{
-                      position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-                      fontSize: 13, fontWeight: 700, color: "#64748b", pointerEvents: "none"
-                    }}>₹</span>
-                    <input
-                      type="number"
-                      value={quickAddModal.form.purchase_price}
-                      onChange={e => setQuickAddForm("purchase_price", e.target.value)}
-                      placeholder="0.00 (Optional)"
-                      min="0"
-                      step="any"
-                      style={{
-                        width: "100%", padding: "10px 12px 10px 28px", borderRadius: 8,
-                        border: "1.5px solid #cbd5e1", fontSize: 13.5, fontWeight: 600,
-                        color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
-                      }}
-                    />
-                  </div>
+                  <label className="block font-bold text-slate-700 mb-1">Purchase Price (₹)</label>
+                  <input
+                    type="number"
+                    value={quickAddModal.form.purchase_price}
+                    onChange={e => setQuickAddForm("purchase_price", e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:bg-white focus:border-blue-600"
+                  />
                 </div>
               </div>
 
-              {/* 3. Sale GST & Purchase GST */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
-                    Sale GST <span style={{ color: "#ef4444" }}>*</span>
-                  </label>
+                  <label className="block font-bold text-slate-700 mb-1">GST Tax Rate</label>
                   <select
                     value={quickAddModal.form.sale_gst}
                     onChange={e => setQuickAddForm("sale_gst", e.target.value)}
-                    style={{
-                      width: "100%", padding: "10px 12px", borderRadius: 8,
-                      border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 600,
-                      color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
-                    }}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none cursor-pointer"
                   >
-                    <option value="0">None / 0% (Exempted)</option>
+                    <option value="0">None / 0%</option>
                     <option value="5">GST @ 5%</option>
                     <option value="12">GST @ 12%</option>
                     <option value="18">GST @ 18%</option>
                     <option value="28">GST @ 28%</option>
                   </select>
                 </div>
-
                 <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
-                    Purchase GST <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, textTransform: "none" }}>(Optional)</span>
-                  </label>
-                  <select
-                    value={quickAddModal.form.purchase_gst}
-                    onChange={e => setQuickAddForm("purchase_gst", e.target.value)}
-                    style={{
-                      width: "100%", padding: "10px 12px", borderRadius: 8,
-                      border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 600,
-                      color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
-                    }}
-                  >
-                    <option value="">None / 0% (Optional)</option>
-                    <option value="0">GST @ 0%</option>
-                    <option value="5">GST @ 5%</option>
-                    <option value="12">GST @ 12%</option>
-                    <option value="18">GST @ 18%</option>
-                    <option value="28">GST @ 28%</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* 4. Unit & Stock */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
-                    Unit
-                  </label>
+                  <label className="block font-bold text-slate-700 mb-1">Unit</label>
                   <select
                     value={quickAddModal.form.unit}
                     onChange={e => setQuickAddForm("unit", e.target.value)}
-                    style={{
-                      width: "100%", padding: "10px 12px", borderRadius: 8,
-                      border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 600,
-                      color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
-                    }}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none cursor-pointer"
                   >
-                    <option value="PCS">PCS (Piece)</option>
-                    <option value="KG">KG (Kilogram)</option>
-                    <option value="GRAM">GRAM</option>
-                    <option value="BOX">BOX</option>
-                    <option value="PACK">PACK / Packet</option>
-                    <option value="LTR">LTR (Litre)</option>
-                    <option value="ML">ML</option>
-                    <option value="BOTTLE">BOTTLE</option>
-                    <option value="BAG">BAG</option>
-                    <option value="DOZEN">DOZEN</option>
-                    <option value="SET">SET</option>
-                    <option value="MTR">MTR (Meter)</option>
-                    <option value="NONE">NONE</option>
+                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569", marginBottom: 5 }}>
-                    Stock Qty <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500, textTransform: "none" }}>(Optional)</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={quickAddModal.form.stock}
-                    onChange={e => setQuickAddForm("stock", e.target.value)}
-                    placeholder="0"
-                    min="0"
-                    style={{
-                      width: "100%", padding: "10px 12px", borderRadius: 8,
-                      border: "1.5px solid #cbd5e1", fontSize: 13.5, fontWeight: 600,
-                      color: "#0f172a", outline: "none", boxSizing: "border-box", background: "#f8fafc"
-                    }}
-                  />
-                </div>
               </div>
-
             </div>
 
-            {/* Footer Buttons */}
-            <div style={{
-              padding: "14px 20px", display: "flex", justifyContent: "space-between",
-              alignItems: "center", background: "#f8fafc", borderTop: "1px solid #e2e8f0"
-            }}>
-              <button
-                type="button"
-                onClick={() => setQuickAddModal(null)}
-                style={{
-                  padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1",
-                  background: "#ffffff", color: "#334155", fontWeight: 700, fontSize: 13,
-                  cursor: "pointer"
-                }}
-              >
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+              <button type="button" onClick={() => setQuickAddModal(null)} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer">
                 Cancel
               </button>
-
-              <div style={{ display: "flex", gap: 10 }}>
-                {/* <button
-                  type="button"
-                  onClick={() => {
-                    setQuickAddModal(null);
-                    handleSave(true);
-                  }}
-                  style={{
-                    padding: "8px 14px", borderRadius: 8, border: "1px solid #cbd5e1",
-                    background: "#f1f5f9", color: "#475569", fontWeight: 600, fontSize: 12.5,
-                    cursor: "pointer"
-                  }}
-                  title="Proceed to billing without saving product"
-                >
-                  Skip &amp; Bill
-                </button> */}
-
-                <button
-                  type="button"
-                  onClick={handleSaveQuickAddProduct}
-                  disabled={quickAddModal.saving}
-                  style={{
-                    padding: "8px 20px", borderRadius: 8, border: "none",
-                    background: "#2563eb", color: "#ffffff", fontWeight: 700, fontSize: 13,
-                    cursor: quickAddModal.saving ? "not-allowed" : "pointer", display: "flex",
-                    alignItems: "center", gap: 6, opacity: quickAddModal.saving ? 0.7 : 1,
-                    boxShadow: "0 2px 4px rgba(37, 99, 235, 0.25)"
-                  }}
-                >
-                  {quickAddModal.saving ? (
-                    <span>Saving...</span>
-                  ) : (
-                    <>
-                      <Check size={16} strokeWidth={2.5} />
-                      <span>{quickAddModal.queue.length > 1 && quickAddModal.currentIndex < quickAddModal.queue.length - 1 ? "Save & Next" : "Save & Proceed to Bill"}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* ── 6. TABLE COLUMN CUSTOMIZATION DRAWER (SIDEBAR) ── */}
-      {showColumnDrawer && (
-        <div className="fixed inset-0 z-[99999] overflow-hidden">
-          {/* Backdrop with Blur */}
-          <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
-            onClick={() => setShowColumnDrawer(false)}
-          />
-
-          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-            <div className="w-screen max-w-sm bg-white shadow-2xl flex flex-col transform transition-transform ease-out duration-300 animate-in slide-in-from-right font-['Plus_Jakarta_Sans',sans-serif]">
-              
-              {/* 1. Modern Header */}
-              <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between bg-gradient-to-b from-slate-50/80 to-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
-                    <Settings size={19} strokeWidth={2.2} />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 tracking-tight leading-tight">
-                      Table Columns
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Show or hide columns in items table
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setShowColumnDrawer(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer flex-shrink-0"
-                  title="Close panel"
-                >
-                  <X size={16} strokeWidth={2.4} />
-                </button>
-              </div>
-
-              {/* 2. Search & Controls Bar */}
-              <div className="px-6 py-3.5 border-b border-slate-100 bg-slate-50/40 space-y-3">
-                {/* Search input */}
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Filter columns..."
-                    value={columnSearch}
-                    onChange={(e) => setColumnSearch(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2 bg-white text-xs text-slate-800 placeholder:text-slate-400 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 outline-none transition shadow-2xs"
-                  />
-                  {columnSearch && (
-                    <button
-                      onClick={() => setColumnSearch("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs w-4 h-4 flex items-center justify-center rounded-full hover:bg-slate-100 cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                {/* Visible count badge + Quick actions */}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-100/80">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-                    {Object.values(visibleColumns).filter(Boolean).length} of {DEFAULT_ITEM_COLUMNS.length} visible
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => selectAllColumns(true)}
-                      className="text-[11px] font-semibold text-slate-600 hover:text-blue-600 hover:bg-white px-2 py-0.5 rounded transition cursor-pointer"
-                    >
-                      Show all
-                    </button>
-                    <span className="text-slate-300">·</span>
-                    <button
-                      type="button"
-                      onClick={() => selectAllColumns(false)}
-                      className="text-[11px] font-semibold text-slate-600 hover:text-red-600 hover:bg-white px-2 py-0.5 rounded transition cursor-pointer"
-                    >
-                      Hide all
-                    </button>
-                    <span className="text-slate-300">·</span>
-                    <button
-                      type="button"
-                      onClick={resetDefaultColumns}
-                      className="text-[11px] font-semibold text-slate-600 hover:text-indigo-600 hover:bg-white px-2 py-0.5 rounded transition cursor-pointer flex items-center gap-1"
-                      title="Reset to default visibility"
-                    >
-                      <RotateCcw size={10} />
-                      <span>Reset</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Column List Items */}
-              <div className="flex-1 overflow-y-auto px-6 py-3.5 space-y-2 scrollbar-thin scrollbar-thumb-slate-200">
-                {DEFAULT_ITEM_COLUMNS.filter((col) =>
-                  col.label.toLowerCase().includes(columnSearch.toLowerCase())
-                ).length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 text-xs">
-                    No column matching &quot;{columnSearch}&quot;
-                  </div>
-                ) : (
-                  DEFAULT_ITEM_COLUMNS.filter((col) =>
-                    col.label.toLowerCase().includes(columnSearch.toLowerCase())
-                  ).map((col) => {
-                    const isChecked = !!visibleColumns[col.key];
-                    const IconComponent = col.icon;
-
-                    return (
-                      <div
-                        key={col.key}
-                        onClick={() => toggleColumn(col.key)}
-                        className={`group flex items-center justify-between p-2.5 px-3 rounded-xl border transition-all duration-150 cursor-pointer select-none ${
-                          isChecked
-                            ? "bg-white border-slate-200 shadow-2xs hover:border-blue-300 hover:shadow-xs"
-                            : "bg-slate-50/70 border-slate-200/60 opacity-60 hover:opacity-90 hover:bg-slate-50"
-                        }`}
-                      >
-                        {/* Left: Drag dots + Icon + Label & Desc */}
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <GripVertical size={13} className="text-slate-300 group-hover:text-slate-400 transition flex-shrink-0" />
-                          
-                          <div className={`w-8 h-8 rounded-lg ${col.bg} ${col.color} flex items-center justify-center flex-shrink-0 shadow-2xs`}>
-                            <IconComponent size={15} strokeWidth={2.2} />
-                          </div>
-
-                          <div className="min-w-0">
-                            <div className={`text-xs tracking-tight ${isChecked ? "font-bold text-slate-800" : "font-medium text-slate-600"}`}>
-                              {col.label}
-                            </div>
-                            <div className="text-[10.5px] text-slate-400 truncate">
-                              {col.desc}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Right: Modern iOS Toggle Switch */}
-                        <div
-                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out flex-shrink-0 ${
-                            isChecked ? "bg-blue-600" : "bg-slate-200"
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                              isChecked ? "translate-x-4" : "translate-x-0"
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* 4. Drawer Footer with Auto-save indicator & Done button */}
-              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between flex-shrink-0">
-                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
-                  <Check size={14} strokeWidth={2.5} />
-                  <span className="text-[11px]">Saved automatically</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowColumnDrawer(false)}
-                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 transition transform active:scale-95 cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
-
+              <button
+                type="button"
+                onClick={handleSaveQuickAddProduct}
+                disabled={quickAddModal.saving}
+                className="app-btn-primary px-5 py-2 rounded-xl text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+              >
+                {quickAddModal.saving ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+                <span>Save &amp; Continue</span>
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Column Customizer Drawer */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_ITEM_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+        title="Customise Columns"
+        subtitle="Show or hide table columns in line items"
+      />
+
     </div>
   );
 }

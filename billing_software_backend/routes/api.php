@@ -109,8 +109,7 @@ Route::prefix('brand')->group(function () {
 // ── CASHIER ROUTES ──
 Route::prefix('cashier')->group(function () {
     Route::post('delete_cashier', [CashierController::class, 'deleteCashier']);
-    Route::post('get_cashiers', [CashierController::class, 'getCashiers']);
-    Route::get('get_cashier', [CashierController::class, 'getCashiers']);
+    Route::match(['get', 'post'], 'get_cashiers', [CashierController::class, 'getCashiers']);
     Route::get('get_all_cashier', [CashierController::class, 'getCashiers']);
     Route::get('get_cashier_by_id', [CashierController::class, 'getCashierById']);
     Route::post('toggle_status_cashier', [CashierController::class, 'toggleStatusCashier']);

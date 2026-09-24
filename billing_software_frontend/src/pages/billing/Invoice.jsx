@@ -1,12 +1,16 @@
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import html2pdf from "html2pdf.js";
 import {
   Download, Printer, FileText, ChevronDown, ChevronUp,
   X, Maximize2, Minimize2, Check, Share2, MessageCircle, Mail,
-  Smartphone, Copy, ExternalLink, QrCode, Building2, Palette
+  Smartphone, Copy, ExternalLink, QrCode, Building2, Palette,
+  ArrowLeft, ZoomIn, ZoomOut, RotateCcw, Send, CheckCircle2,
+  AlertCircle, Info, Sparkles, Layers, Sliders, Eye, EyeOff,
+  CheckCheck, Loader2, Phone, Calendar, CreditCard, User,
+  FileCheck, ShieldCheck, ChevronRight, CornerDownLeft
 } from "lucide-react";
 import {
   generateInvoicePdfBase64,
@@ -2265,13 +2269,27 @@ export default function InvoicePreview() {
   const [doNotShowAgain, setDoNotShowAgain] = useState(() => localStorage.getItem("skip_invoice_preview") === "true");
   const [waSending, setWaSending] = useState(false);
   const [tmSending, setTmSending] = useState(false);
-  const [copyToast, setCopyToast] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const tmAttachDone = useRef(false);
 
+  /* Modern UX & Canvas Controls */
+  const [zoom, setZoom] = useState(1.0);
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
+  const [copiedDocNo, setCopiedDocNo] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
   const isPOS = printerType === "thermal" || selectedTheme === "pos";
   const logoUrl = getInvoiceLogoUrl(company?.logo);
+
+  const showToast = useCallback((msg, type = "info") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, msg, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  }, []);
 
   /* Insert Print CSS */
   useEffect(() => {
@@ -2290,33 +2308,78 @@ export default function InvoicePreview() {
     }
     setLoading(true);
     setLoadError(null);
-    api.get(`/invoice/get_invoice_by_id?id=${invoiceNo}`).then(res => {
-      if (res.data && res.data.status && res.data.data) {
-        setInvoice(res.data.data);
-        setCompany({
-          company_name: res.data.data.company_name,
-          company_address: res.data.data.company_address,
-          phone: res.data.data.phone,
-          gstin: res.data.data.gstin,
-          logo: res.data.data.logo,
-          bank_name: res.data.data.bank_name,
-          account_no: res.data.data.account_no,
-          ifsc_code: res.data.data.ifsc_code,
-        });
-      } else {
-        setLoadError(res.data?.message || `Invoice #${invoiceNo} not found.`);
-      }
-    }).catch(err => {
-      console.error(err);
-      setLoadError(err.response?.data?.message || "Failed to load invoice details.");
-    }).finally(() => {
-      setLoading(false);
-    });
+    api
+      .get(`/invoice/get_invoice_by_id?id=${invoiceNo}`)
+      .then((res) => {
+        if (res.data && res.data.status && res.data.data) {
+          setInvoice(res.data.data);
+          setCompany({
+            company_name: res.data.data.company_name,
+            company_address: res.data.data.company_address,
+            phone: res.data.data.phone,
+            gstin: res.data.data.gstin,
+            logo: res.data.data.logo,
+            bank_name: res.data.data.bank_name,
+            account_no: res.data.data.account_no,
+            ifsc_code: res.data.data.ifsc_code,
+          });
+        } else {
+          setLoadError(res.data?.message || `Invoice #${invoiceNo} not found.`);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoadError(err.response?.data?.message || "Failed to load invoice details.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [invoiceNo]);
 
-/* ── AUTO-SEND: attach the invoice PDF after the transaction message was
-     auto-sent on creation. Reuses the SAME PDF generator (html2pdf) and the
-     SAME server document endpoint as the manual WhatsApp Share button. ── */
+  /* Load print & invoice design settings from DB */
+  useEffect(() => {
+    if (!invoice) return;
+    const companyId = invoice.company_id;
+    api
+      .get("/settings/get", { params: { company_id: companyId } })
+      .then((res) => {
+        const data = (res.data && res.data.data) || {};
+        const printSettings = data.print || {};
+        const designSettings = data.invoiceDesign || {};
+
+        const activePrinter = printSettings.printer || (designSettings.theme === "pos" ? "thermal" : "regular");
+        if (activePrinter) setPrinterType(activePrinter);
+
+        const themeCandidate = printSettings.template || printSettings.theme || designSettings.template || designSettings.theme;
+        if (themeCandidate) {
+          const map = {
+            "Tally Theme": "tally",
+            "GST Theme 1": "gst1",
+            "GST Theme 2": "gst3",
+            "GST Theme 3": "gst3",
+            "Double Divine": "double_divine",
+            "Minimal Theme": "gst3",
+            french_elite: "french_elite",
+            pos: "pos",
+            vintage_classic: "vintage_classic",
+            vintage_bold: "vintage_bold",
+          };
+          const resolved = map[themeCandidate] || themeCandidate.toLowerCase().replace(/\s+/g, "_");
+          if (resolved) setSelectedTheme(resolved);
+        }
+
+        const colorCandidate = printSettings.themeColor || designSettings.themeColor;
+        if (colorCandidate) setSelectedColor(colorCandidate);
+
+        const posLayoutCandidate = printSettings.posLayout || designSettings.posLayout;
+        if (posLayoutCandidate) setSelectedPosLayout(posLayoutCandidate);
+
+        if (printSettings.pageSize) setPageSize(printSettings.pageSize);
+      })
+      .catch(() => {});
+  }, [invoice]);
+
+  /* Auto-Send: attach PDF */
   useEffect(() => {
     if (!invoice?.invoice_no || tmAttachDone.current) return;
     tmAttachDone.current = true;
@@ -2337,8 +2400,8 @@ export default function InvoicePreview() {
 
         try {
           await Promise.all(
-            [...element.querySelectorAll("img")].map(im =>
-              im.complete ? null : new Promise(r => { im.onload = r; im.onerror = r; })
+            [...element.querySelectorAll("img")].map((im) =>
+              im.complete ? null : new Promise((r) => { im.onload = r; im.onerror = r; })
             )
           );
         } catch {
@@ -2372,97 +2435,12 @@ export default function InvoicePreview() {
     return () => { cancelled = true; };
   }, [invoice, isPOS]);
 
-  /* Load print & invoice design settings from DB so the bill matches the company's saved default design */
-  useEffect(() => {
-    if (!invoice) return;
-    const companyId = invoice.company_id;
-    api
-      .get("/settings/get", { params: { company_id: companyId } })
-      .then((res) => {
-        const data = (res.data && res.data.data) || {};
-        const printSettings = data.print || {};
-        const designSettings = data.invoiceDesign || {};
-
-        // 1. Printer Type: 'regular' | 'thermal'
-        const activePrinter = printSettings.printer || (designSettings.theme === "pos" ? "thermal" : "regular");
-        if (activePrinter) setPrinterType(activePrinter);
-
-        // 2. Regular Theme
-        const themeCandidate = printSettings.template || printSettings.theme || designSettings.template || designSettings.theme;
-        if (themeCandidate) {
-          const map = {
-            "Tally Theme": "tally",
-            "GST Theme 1": "gst1",
-            "GST Theme 2": "gst3",
-            "GST Theme 3": "gst3",
-            "Double Divine": "double_divine",
-            "Minimal Theme": "gst3",
-            "french_elite": "french_elite",
-            "pos": "pos",
-            "vintage_classic": "vintage_classic",
-            "vintage_bold": "vintage_bold"
-          };
-          const resolved = map[themeCandidate] || themeCandidate.toLowerCase().replace(/\s+/g, "_");
-          if (resolved) setSelectedTheme(resolved);
-        }
-
-        // 3. Theme Accent Color
-        const colorCandidate = printSettings.themeColor || designSettings.themeColor;
-        if (colorCandidate) {
-          setSelectedColor(colorCandidate);
-        }
-
-        // 4. POS Layout (Thermal)
-        const posLayoutCandidate = printSettings.posLayout || designSettings.posLayout;
-        if (posLayoutCandidate) {
-          setSelectedPosLayout(posLayoutCandidate);
-        }
-
-        // 5. Page Size (Thermal)
-        if (printSettings.pageSize) {
-          setPageSize(printSettings.pageSize);
-        }
-      })
-      .catch(() => {});
-  }, [invoice]);
-
-  if (loading) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f8fafc", color: "#475569", fontSize: 14, gap: 10 }}>
-        <div style={{ width: 28, height: 28, border: "3px solid #cbd5e1", borderTopColor: "#2563eb", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        <span>Loading invoice #{invoiceNo}...</span>
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  if (loadError || !invoice) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f8fafc", color: "#1e293b", padding: 20 }}>
-        <div style={{ background: "#ffffff", padding: "32px 40px", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.06)", textAlign: "center", maxWidth: 420 }}>
-          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#fee2e2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px auto", fontSize: 24, fontWeight: "bold" }}>
-            !
-          </div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 8px 0" }}>Invoice Not Found</h2>
-          <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 20px 0" }}>
-            {loadError || `Could not find invoice #${invoiceNo}. It may have been deleted or the number is invalid.`}
-          </p>
-          <button
-            onClick={() => navigate(getVoucherBackRoute(invoice || { invoice_no: invoiceNo }))}
-            style={{ padding: "10px 20px", background: "#2563eb", color: "#ffffff", border: "none", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   /* PDF Download */
-  const downloadPDF = () => {
+  const downloadPDF = useCallback(() => {
     const element = document.getElementById("invoice-print-area");
     if (!element) return;
 
+    showToast("Generating PDF download...", "info");
     if (isPOS) {
       const elementHeight = element.scrollHeight || element.offsetHeight || 550;
       const heightInMm = Math.max(140, Math.ceil((elementHeight * 25.4) / 96) + 8);
@@ -2470,7 +2448,7 @@ export default function InvoicePreview() {
       const opt = {
         margin: [2, 2, 2, 2],
         filename: `invoice-${invoice.invoice_no}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: "jpeg", quality: 0.98 },
         html2canvas: {
           scale: 3,
           useCORS: true,
@@ -2483,33 +2461,52 @@ export default function InvoicePreview() {
         jsPDF: {
           unit: "mm",
           format: [80, heightInMm],
-          orientation: "portrait"
+          orientation: "portrait",
         },
       };
-      html2pdf().set(opt).from(element).save();
+      html2pdf()
+        .set(opt)
+        .from(element)
+        .save()
+        .then(() => {
+          showToast("PDF downloaded successfully!", "success");
+        })
+        .catch(() => {
+          showToast("Failed to download PDF.", "error");
+        });
     } else {
       const opt = {
         margin: [8, 8, 8, 8],
         filename: `invoice-${invoice.invoice_no}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       };
-      html2pdf().set(opt).from(element).save();
+      html2pdf()
+        .set(opt)
+        .from(element)
+        .save()
+        .then(() => {
+          showToast("PDF downloaded successfully!", "success");
+        })
+        .catch(() => {
+          showToast("Failed to download PDF.", "error");
+        });
     }
-  };
+  }, [invoice, isPOS, showToast]);
 
   /* Print */
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     window.print();
-  };
+  }, []);
 
   /* WhatsApp Share */
-  const shareWhatsApp = () => {
+  const shareWhatsApp = useCallback(() => {
     const element = document.getElementById("invoice-print-area");
     if (!element || waSending) return;
 
     setWaSending(true);
+    showToast("Preparing & sending PDF via WhatsApp...", "info");
     generateInvoicePdfBase64({ element, invoiceNo: invoice.invoice_no, isPOS })
       .then((pdf_base64) =>
         sendInvoiceViaWhatsAppApi({
@@ -2520,18 +2517,19 @@ export default function InvoicePreview() {
         })
       )
       .then((res) => {
-        alert(res.data.message || "Invoice sent via WhatsApp!");
+        showToast(res.data?.message || "Invoice PDF sent via WhatsApp!", "success");
       })
       .catch((err) => {
-        alert(err.response?.data?.message || "Failed to send invoice via WhatsApp.");
+        showToast(err.response?.data?.message || "Failed to send invoice via WhatsApp.", "error");
       })
       .finally(() => setWaSending(false));
-  };
+  }, [invoice, isPOS, waSending, showToast]);
 
-  /* Transaction Message (configured template) via WhatsApp */
-  const sendTransactionMessage = () => {
+  /* Transaction Message via WhatsApp */
+  const sendTransactionMessage = useCallback(() => {
     if (!invoice?.invoice_no || tmSending) return;
     setTmSending(true);
+    showToast("Sending WhatsApp notification...", "info");
     api
       .post("/transaction-messages/send", {
         company_id: invoice.company_id,
@@ -2540,704 +2538,841 @@ export default function InvoicePreview() {
         phone: invoice.customer_phone || "",
       })
       .then((res) => {
-        alert(res.data?.message || "Transaction message sent via WhatsApp!");
+        showToast(res.data?.message || "Transaction message sent via WhatsApp!", "success");
       })
       .catch((err) => {
-        alert(err.response?.data?.message || "Failed to send transaction message.");
+        showToast(err.response?.data?.message || "Failed to send transaction message.", "error");
       })
       .finally(() => setTmSending(false));
-  };
+  }, [invoice, tmSending, showToast]);
 
   /* Gmail / Mail Share */
-  const shareEmail = () => {
-    const subject = encodeURIComponent(`Invoice #${invoice.invoice_no} from ${company?.company_name || 'My Company'}`);
-    const body = encodeURIComponent(`Dear ${invoice.customer_name || 'Customer'},\n\nPlease find your invoice #${invoice.invoice_no} details:\nTotal Amount: ₹${invoice.total_amount}\nPayment Type: ${invoice.payment_type || 'Cash'}\n\nThank you for your business!`);
-    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
-  };
+  const shareEmail = useCallback(() => {
+    const subject = encodeURIComponent(`Invoice #${invoice.invoice_no} from ${company?.company_name || "Company"}`);
+    const body = encodeURIComponent(
+      `Dear ${invoice.customer_name || "Customer"},\n\nPlease find your invoice #${invoice.invoice_no} details:\nTotal Amount: ₹${invoice.total_amount}\nPayment Type: ${invoice.payment_type || "Cash"}\n\nThank you for your business!`
+    );
+    window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
+  }, [invoice, company]);
 
-  /* SMS / Message Share */
-  const shareSMS = () => {
+  /* SMS Share */
+  const shareSMS = useCallback(() => {
     const body = encodeURIComponent(`Invoice #${invoice.invoice_no} Total: ₹${invoice.total_amount}. Thank you!`);
-    window.open(`sms:${invoice.customer_phone || ''}?body=${body}`, '_blank');
-  };
+    window.open(`sms:${invoice.customer_phone || ""}?body=${body}`, "_blank");
+  }, [invoice]);
 
-  /* Copy Link */
-  const copyInvoiceLink = () => {
+  /* Copy Public Link */
+  const copyInvoiceLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);
-    setCopyToast(true);
-    setTimeout(() => setCopyToast(false), 2000);
-  };
+    showToast("Invoice URL copied to clipboard!", "success");
+  }, [showToast]);
+
+  /* Copy Invoice Number */
+  const copyInvoiceNumber = useCallback(() => {
+    if (!invoice?.invoice_no) return;
+    navigator.clipboard.writeText(invoice.invoice_no);
+    setCopiedDocNo(true);
+    showToast(`Invoice #${invoice.invoice_no} copied!`, "success");
+    setTimeout(() => setCopiedDocNo(false), 2000);
+  }, [invoice, showToast]);
 
   /* Save & Close Navigation */
-  const handleSaveAndClose = () => {
+  const handleSaveAndClose = useCallback(() => {
     localStorage.setItem("skip_invoice_preview", doNotShowAgain ? "true" : "false");
     const targetRoute = getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
     navigate(targetRoute);
-  };
+  }, [doNotShowAgain, invoice, invoiceNo, navigate]);
+
+  /* Keyboard Shortcuts */
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        handlePrint();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        downloadPDF();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "w") {
+        e.preventDefault();
+        shareWhatsApp();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleSaveAndClose();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handlePrint, downloadPDF, shareWhatsApp, handleSaveAndClose]);
+
+  /* Zoom Handlers */
+  const handleZoomIn = () => setZoom((z) => Math.min(1.5, Math.round((z + 0.1) * 10) / 10));
+  const handleZoomOut = () => setZoom((z) => Math.max(0.6, Math.round((z - 0.1) * 10) / 10));
+  const handleResetZoom = () => setZoom(1.0);
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center gap-4 text-slate-300">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 animate-pulse flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <FileText className="w-6 h-6 text-white animate-bounce" />
+          </div>
+          <div className="absolute -inset-2 rounded-2xl border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
+        </div>
+        <div className="text-center">
+          <h3 className="font-semibold text-slate-100 text-sm">Preparing Invoice #{invoiceNo}</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Rendering precision print layout & templates...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError || !invoice) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-slate-950 flex items-center justify-center p-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-7 h-7" />
+          </div>
+          <h2 className="text-lg font-bold text-white mb-2">Invoice Not Found</h2>
+          <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+            {loadError || `Could not find invoice #${invoiceNo}. It may have been deleted or the document number is invalid.`}
+          </p>
+          <button
+            onClick={() => navigate(getVoucherBackRoute(invoice || { invoice_no: invoiceNo }))}
+            className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Return to Invoices</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const totalAmountNum = parseFloat(invoice?.total_amount) || 0;
   const paidAmountNum = parseFloat(invoice?.paid_amount) || 0;
   const balanceAmountNum = Math.max(0, totalAmountNum - paidAmountNum);
   const isPaid = balanceAmountNum <= 0 && totalAmountNum > 0;
   const isPartial = paidAmountNum > 0 && balanceAmountNum > 0;
-  const statusInfo = isPaid
-    ? { label: "PAID", bg: "#dcfce7", text: "#15803d", border: "#86efac" }
-    : isPartial
-    ? { label: "PARTIAL", bg: "#fef3c7", text: "#b45309", border: "#fde68a" }
-    : { label: "UNPAID", bg: "#fee2e2", text: "#b91c1c", border: "#fca5a5" };
+
+  const statusBadge = isPaid ? (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+      PAID
+    </span>
+  ) : isPartial ? (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/25">
+      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+      PARTIAL
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/25">
+      <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+      UNPAID
+    </span>
+  );
+
   const invoiceType = getInvoiceType(invoice);
 
   return (
-    <div style={{
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      minHeight: "100vh",
-      width: "100vw",
-      background: "#f1f5f9",
-      display: "flex",
-      flexDirection: "column",
-      position: "fixed",
-      inset: 0,
-      zIndex: 9999,
-      overflow: "hidden"
-    }}>
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-slate-950 font-sans select-none overflow-hidden text-slate-100">
 
-      {/* ── 1. TOP BAR (MATCHING SCREENSHOT 1: Preview | Do not show again | Save & Close) ── */}
-      <header className="no-print" style={{
-        background: "#ffffff",
-        borderBottom: "1px solid #e2e8f0",
-        padding: "10px 24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        height: 48,
-        boxSizing: "border-box"
-      }}>
-        <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b" }}>Preview</h1>
+      {/* ── 1. MODERN APP HEADER (BRAND TOOLBAR) ── */}
+      <header className="no-print h-14 bg-slate-900/95 backdrop-blur border-b border-slate-800/80 px-4 flex items-center justify-between z-30 shrink-0 shadow-lg">
+        {/* Left Cluster: Navigation & Document Identification */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSaveAndClose}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold border border-slate-700/60 transition-colors shadow-sm"
+            title="Return to list (Esc)"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Back</span>
+            <kbd className="hidden md:inline px-1 py-0.2 rounded bg-slate-900 text-[10px] text-slate-400 border border-slate-700">Esc</kbd>
+          </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5, color: "#475569" }}>
+          <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+
+          {/* Doc details pill */}
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/25 flex items-center justify-center text-blue-400">
+              <FileCheck className="w-4 h-4" />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400 hidden lg:inline">Invoice</span>
+                <span className="text-xs sm:text-sm font-bold tracking-tight text-white font-mono">
+                  #{invoice.invoice_no}
+                </span>
+                <button
+                  onClick={copyInvoiceNumber}
+                  className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                  title="Copy invoice number"
+                >
+                  {copiedDocNo ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                </button>
+              </div>
+
+              <span className="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-300 font-semibold border border-blue-500/20">
+                {invoiceType}
+              </span>
+
+              {statusBadge}
+            </div>
+          </div>
+        </div>
+
+        {/* Center Cluster: Format Selector & Interactive Zoom */}
+        <div className="hidden md:flex items-center gap-3">
+          {/* Format Switcher */}
+          <div className="bg-slate-800/90 p-0.5 rounded-lg border border-slate-700/70 flex items-center gap-0.5">
+            <button
+              onClick={() => {
+                setPrinterType("regular");
+                localStorage.setItem("invoice_printer_type", "regular");
+              }}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                !isPOS
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/40"
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>A4 Regular</span>
+            </button>
+            <button
+              onClick={() => {
+                setPrinterType("thermal");
+                localStorage.setItem("invoice_printer_type", "thermal");
+              }}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                isPOS
+                  ? "bg-amber-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/40"
+              }`}
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Thermal POS</span>
+            </button>
+          </div>
+
+          {/* Zoom Controls */}
+          <div className="bg-slate-800/90 rounded-lg border border-slate-700/70 flex items-center px-1 py-0.5 gap-0.5 text-xs text-slate-300">
+            <button
+              onClick={handleZoomOut}
+              className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleResetZoom}
+              className="px-1.5 py-0.5 font-mono text-[11px] font-semibold hover:bg-slate-700 rounded transition-colors"
+              title="Reset to 100%"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              onClick={handleZoomIn}
+              className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Right Cluster: Quick Actions & Close */}
+        <div className="flex items-center gap-2.5">
+          {/* Quick toggle check */}
+          <label className="hidden xl:flex items-center gap-2 cursor-pointer text-xs text-slate-400 hover:text-slate-300">
             <input
               type="checkbox"
               checked={doNotShowAgain}
-              onChange={e => {
+              onChange={(e) => {
                 setDoNotShowAgain(e.target.checked);
                 localStorage.setItem("skip_invoice_preview", e.target.checked ? "true" : "false");
               }}
-              style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#1f8cff" }}
+              className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-blue-600"
             />
-            <span>Do not show invoice preview again</span>
+            <span>Skip preview next time</span>
           </label>
 
+          {/* Quick Print Primary Button */}
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all"
+            title="Print document (Ctrl+P)"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Print</span>
+            <kbd className="hidden lg:inline px-1 py-0.2 rounded bg-white/20 text-[9px] font-normal">^P</kbd>
+          </button>
+
+          {/* Save & Close Button */}
           <button
             onClick={handleSaveAndClose}
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "#1f8cff",
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: "pointer",
-              padding: "4px 8px"
-            }}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all"
           >
-            Save &amp; Close
+            <span>Done</span>
           </button>
+
+          {/* Sidebar Toggle Controls for Responsive view */}
+          <div className="flex items-center gap-1 lg:hidden">
+            <button
+              onClick={() => setLeftSidebarOpen((v) => !v)}
+              className={`p-1.5 rounded-lg border text-xs ${
+                leftSidebarOpen ? "bg-slate-800 border-slate-700 text-blue-400" : "bg-transparent border-slate-800 text-slate-400"
+              }`}
+              title="Toggle Studio panel"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setRightSidebarOpen((v) => !v)}
+              className={`p-1.5 rounded-lg border text-xs ${
+                rightSidebarOpen ? "bg-slate-800 border-slate-700 text-blue-400" : "bg-transparent border-slate-800 text-slate-400"
+              }`}
+              title="Toggle Info panel"
+            >
+              <Info className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* ── 2. THREE-COLUMN BODY LAYOUT: LEFT THEMES, CENTER CANVAS & RIGHT ACTIONS ── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      {/* ── 2. THREE-PANEL WORKSPACE ── */}
+      <div className="flex flex-1 overflow-hidden relative">
 
-        {/* ── LEFT SIDEBAR: THEME & COLOR CUSTOMIZATION ── */}
-        <aside className="no-print" style={{
-          width: 240,
-          background: "#ffffff",
-          borderRight: "1px solid #e2e8f0",
-          display: "flex",
-          flexDirection: "column",
-          padding: "16px 14px",
-          overflowY: "auto",
-          boxSizing: "border-box",
-          flexShrink: 0,
-          gap: 16
-        }}>
-          {/* Section: Printer / Format Type */}
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-              <Printer size={13} color="#64748b" />
-              <span>Format</span>
+        {/* ── 2.A LEFT PANEL: DESIGN & CUSTOMIZATION STUDIO ── */}
+        <aside
+          className={`no-print absolute lg:relative z-20 inset-y-0 left-0 w-72 bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out ${
+            leftSidebarOpen ? "translate-x-0" : "-translate-x-full lg:w-0 lg:overflow-hidden lg:border-r-0"
+          }`}
+        >
+          {/* Studio Header */}
+          <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/60">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                <Palette className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Invoice Studio</span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, background: "#f1f5f9", padding: 3, borderRadius: 8 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setPrinterType("regular");
-                  localStorage.setItem("invoice_printer_type", "regular");
-                }}
-                style={{
-                  padding: "7px 0",
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  background: !isPOS ? "#ffffff" : "transparent",
-                  color: !isPOS ? "#0f172a" : "#64748b",
-                  boxShadow: !isPOS ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                Regular (A4)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPrinterType("thermal");
-                  localStorage.setItem("invoice_printer_type", "thermal");
-                }}
-                style={{
-                  padding: "7px 0",
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  background: isPOS ? "#ffffff" : "transparent",
-                  color: isPOS ? "#0f172a" : "#64748b",
-                  boxShadow: isPOS ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                Thermal (POS)
-              </button>
-            </div>
+            <button
+              onClick={() => setLeftSidebarOpen(false)}
+              className="lg:hidden p-1 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Section: Regular Themes */}
-          {!isPOS ? (
+          {/* Studio Controls Scrollable Body */}
+          <div className="flex-1 overflow-y-auto p-3.5 space-y-5 custom-scrollbar text-xs">
+            {/* 1. Format Selection */}
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                <FileText size={13} color="#64748b" />
-                <span>Invoice Themes</span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {THEMES.filter(t => t.id !== "pos").map((t) => {
-                  const isSelected = selectedTheme === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedTheme(t.id);
-                        localStorage.setItem("invoice_default_theme", t.id);
-                      }}
-                      style={{
-                        padding: "9px 12px",
-                        fontSize: 12,
-                        fontWeight: isSelected ? 700 : 500,
-                        textAlign: "left",
-                        borderRadius: 8,
-                        border: isSelected ? "1.5px solid #2563eb" : "1px solid #e2e8f0",
-                        background: isSelected ? "#eff6ff" : "#ffffff",
-                        color: isSelected ? "#1d4ed8" : "#334155",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <span>{t.label}</span>
-                      {isSelected && <Check size={14} color="#2563eb" />}
-                    </button>
-                  );
-                })}
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                Output Format
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrinterType("regular");
+                    localStorage.setItem("invoice_printer_type", "regular");
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1 ${
+                    !isPOS
+                      ? "bg-blue-600/15 border-blue-500/50 text-blue-300 ring-1 ring-blue-500/30"
+                      : "bg-slate-800/60 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                  }`}
+                >
+                  <FileText className="w-4 h-4 text-blue-400" />
+                  <span className="font-bold text-xs">A4 Standard</span>
+                  <span className="text-[10px] text-slate-400 leading-tight">Desktop GST bill</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrinterType("thermal");
+                    localStorage.setItem("invoice_printer_type", "thermal");
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1 ${
+                    isPOS
+                      ? "bg-amber-600/15 border-amber-500/50 text-amber-300 ring-1 ring-amber-500/30"
+                      : "bg-slate-800/60 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                  }`}
+                >
+                  <Printer className="w-4 h-4 text-amber-400" />
+                  <span className="font-bold text-xs">Thermal POS</span>
+                  <span className="text-[10px] text-slate-400 leading-tight">Fast roll receipt</span>
+                </button>
               </div>
             </div>
-          ) : (
-            /* Thermal POS Layouts */
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                <FileText size={13} color="#64748b" />
-                <span>POS Receipt Layout</span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {[
-                  { id: "pos_classic", label: "Classic POS" },
-                  { id: "pos_modern", label: "Modern Retail POS" },
-                  { id: "pos_detailed", label: "Detailed GST POS" },
-                  { id: "pos_minimal", label: "Minimal Slip POS" },
-                  { id: "pos_vintage", label: "Vintage Boutique POS" },
-                ].map((l) => {
-                  const isSelected = selectedPosLayout === l.id;
-                  return (
-                    <button
-                      key={l.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPosLayout(l.id);
-                        localStorage.setItem("thermal_pos_layout", l.id);
-                      }}
-                      style={{
-                        padding: "9px 12px",
-                        fontSize: 12,
-                        fontWeight: isSelected ? 700 : 500,
-                        textAlign: "left",
-                        borderRadius: 8,
-                        border: isSelected ? "1.5px solid #d97706" : "1px solid #e2e8f0",
-                        background: isSelected ? "#fffbeb" : "#ffffff",
-                        color: isSelected ? "#b45309" : "#334155",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <span>{l.label}</span>
-                      {isSelected && <Check size={14} color="#d97706" />}
-                    </button>
-                  );
-                })}
-              </div>
 
-              {/* Page Size Option */}
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
-                  Paper Width
+            {/* 2. Theme / Layout Selection */}
+            {!isPOS ? (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Template Theme
+                  </label>
+                  <span className="text-[10px] text-slate-500">{THEMES.filter((t) => t.id !== "pos").length} presets</span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                  {["2 Inch: 58mm", "3 Inch: 80mm"].map((sz) => {
-                    const isSelected = pageSize === sz;
+                <div className="space-y-1.5">
+                  {THEMES.filter((t) => t.id !== "pos").map((t) => {
+                    const isSelected = selectedTheme === t.id;
                     return (
                       <button
-                        key={sz}
+                        key={t.id}
                         type="button"
-                        onClick={() => setPageSize(sz)}
-                        style={{
-                          padding: "6px 4px",
-                          fontSize: 10.5,
-                          fontWeight: isSelected ? 700 : 500,
-                          borderRadius: 6,
-                          border: isSelected ? "1.5px solid #d97706" : "1px solid #e2e8f0",
-                          background: isSelected ? "#fffbeb" : "#ffffff",
-                          color: isSelected ? "#b45309" : "#475569",
-                          cursor: "pointer",
+                        onClick={() => {
+                          setSelectedTheme(t.id);
+                          localStorage.setItem("invoice_default_theme", t.id);
                         }}
+                        className={`w-full px-3 py-2 rounded-xl border text-left flex items-center justify-between transition-all ${
+                          isSelected
+                            ? "bg-blue-600/15 border-blue-500/50 text-white font-bold ring-1 ring-blue-500/30"
+                            : "bg-slate-800/40 border-slate-700/40 text-slate-300 hover:bg-slate-800/80 hover:text-white"
+                        }`}
                       >
-                        {sz}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ background: isSelected ? selectedColor : "#64748b" }}
+                          />
+                          <span className="text-xs">{t.label}</span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-400" />}
                       </button>
                     );
                   })}
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                  POS Receipt Layout
+                </label>
+                <div className="space-y-1.5">
+                  {[
+                    { id: "pos_classic", label: "Classic POS", desc: "Default retail layout" },
+                    { id: "pos_modern", label: "Modern Retail POS", desc: "Clean typography" },
+                    { id: "pos_detailed", label: "Detailed GST POS", desc: "HSN & tax breakdown" },
+                    { id: "pos_minimal", label: "Minimal Slip POS", desc: "Ultra-compact" },
+                    { id: "pos_vintage", label: "Vintage Boutique POS", desc: "Boutique receipt" },
+                  ].map((l) => {
+                    const isSelected = selectedPosLayout === l.id;
+                    return (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPosLayout(l.id);
+                          localStorage.setItem("thermal_pos_layout", l.id);
+                        }}
+                        className={`w-full px-3 py-2 rounded-xl border text-left flex items-center justify-between transition-all ${
+                          isSelected
+                            ? "bg-amber-600/15 border-amber-500/50 text-white font-bold ring-1 ring-amber-500/30"
+                            : "bg-slate-800/40 border-slate-700/40 text-slate-300 hover:bg-slate-800/80 hover:text-white"
+                        }`}
+                      >
+                        <div>
+                          <div className="text-xs">{l.label}</div>
+                          <div className="text-[10px] text-slate-400 font-normal">{l.desc}</div>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                      </button>
+                    );
+                  })}
+                </div>
 
-          {/* Section: Accent Color Palette */}
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-              <Palette size={13} color="#64748b" />
-              <span>Theme Color</span>
+                {/* Paper Roll Width */}
+                <div className="mt-4 pt-3 border-t border-slate-800">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                    Paper Roll Width
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {["2 Inch: 58mm", "3 Inch: 80mm"].map((sz) => {
+                      const isSelected = pageSize === sz;
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => setPageSize(sz)}
+                          className={`p-2 rounded-lg border text-center text-xs font-semibold transition-all ${
+                            isSelected
+                              ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
+                              : "bg-slate-800/40 border-slate-700/40 text-slate-400 hover:bg-slate-800"
+                          }`}
+                        >
+                          {sz}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 3. Theme Color Swatches */}
+            <div className="pt-2 border-t border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Theme Accent Color
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: selectedColor }} />
+                  <span className="font-mono text-[10px] text-slate-400 uppercase">{selectedColor}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-6 gap-2 bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/50">
+                {PALETTE_COLORS.map((c) => {
+                  const isSelected = (selectedColor || "").toLowerCase() === c.toLowerCase();
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        setSelectedColor(c);
+                        localStorage.setItem("invoice_default_color", c);
+                      }}
+                      title={c}
+                      className={`w-6 h-6 rounded-full mx-auto transition-transform flex items-center justify-center cursor-pointer ${
+                        isSelected ? "scale-110 ring-2 ring-white ring-offset-2 ring-offset-slate-900" : "hover:scale-105"
+                      }`}
+                      style={{ background: c }}
+                    >
+                      {isSelected && <Check className="w-3 h-3 text-white drop-shadow" strokeWidth={3} />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(6, 1fr)",
-              gap: 7,
-              background: "#f8fafc",
-              padding: "9px",
-              borderRadius: 8,
-              border: "1px solid #e2e8f0"
-            }}>
-              {PALETTE_COLORS.map((c) => {
-                const isSelected = (selectedColor || "").toLowerCase() === c.toLowerCase();
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => {
-                      setSelectedColor(c);
-                      localStorage.setItem("invoice_default_color", c);
-                    }}
-                    title={c}
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: "50%",
-                      background: c,
-                      border: isSelected ? "2px solid #0f172a" : "1px solid rgba(0,0,0,0.1)",
-                      outline: isSelected ? `2px solid ${c}` : "none",
-                      outlineOffset: 1,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: 0,
-                      transition: "transform 0.1s ease",
-                      transform: isSelected ? "scale(1.15)" : "scale(1)",
-                    }}
-                  >
-                    {isSelected && <Check size={12} color="#ffffff" strokeWidth={3} />}
-                  </button>
-                );
-              })}
-            </div>
+          </div>
+
+          {/* Studio Footer */}
+          <div className="p-3 border-t border-slate-800 bg-slate-900/90 text-center text-[11px] text-slate-500">
+            Changes auto-saved as your default bill theme
           </div>
         </aside>
 
-        {/* ── CENTER AREA: INVOICE PAPER CANVAS ── */}
-        <main style={{
-          flex: 1,
-          background: "#eef2f6",
-          overflowY: "auto",
-          padding: "24px 20px 40px 20px",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "flex-start",
-          position: "relative"
-        }}>
+        {/* ── 2.B CENTER STAGE: ZOOMABLE INVOICE PAPER CANVAS ── */}
+        <main className="flex-1 bg-slate-950/80 overflow-y-auto relative flex flex-col items-center justify-start p-4 sm:p-6 lg:p-8 custom-scrollbar">
+          {/* Zoom Wrapper */}
           <div
-            id="invoice-print-area"
-            style={{
-              background: "#ffffff",
-              width: isPOS ? (pageSize && pageSize.includes("58mm") ? 270 : 310) : 794,
-              maxWidth: "100%",
-              minHeight: isPOS ? "auto" : 1050,
-              padding: isPOS ? "16px 12px" : "28px 32px",
-              boxShadow: "0 6px 24px rgba(15, 23, 42, 0.09)",
-              borderRadius: 2,
-              boxSizing: "border-box",
-              position: "relative",
-              margin: "0 auto"
-            }}
+            className="transition-transform duration-200 ease-out origin-top flex flex-col items-center"
+            style={{ transform: `scale(${zoom})` }}
           >
-            {/* Top Right Zoom / Expand Icon (Matching Screenshot) */}
-            {!isPOS && (
-              <div className="no-print" style={{ position: "absolute", top: 12, right: 12, color: "#94a3b8", cursor: "pointer" }}>
-                <Maximize2 size={15} />
-              </div>
-            )}
+            {/* The Precision Paper Container */}
+            <div
+              id="invoice-print-area"
+              className={`bg-white text-slate-900 shadow-2xl rounded-sm ring-1 ring-slate-900/10 relative ${
+                isPOS
+                  ? pageSize && pageSize.includes("58mm")
+                    ? "w-[270px] p-3"
+                    : "w-[310px] p-4"
+                  : "w-[794px] min-h-[1050px] p-8"
+              }`}
+            >
+              {/* Dynamic Active Theme Component */}
+              {isPOS ? (
+                <ThemePOS
+                  invoice={invoice}
+                  company={company}
+                  color={selectedColor}
+                  logoUrl={logoUrl}
+                  layout={selectedPosLayout}
+                  printSettings={printSettings}
+                />
+              ) : (
+                (() => {
+                  const Component = DESIGN_COMPONENTS[selectedTheme] || DESIGN_COMPONENTS.tally || ThemeTally;
+                  return (
+                    <Component
+                      invoice={invoice}
+                      company={company}
+                      color={selectedColor}
+                      logoUrl={logoUrl}
+                      printSettings={printSettings}
+                    />
+                  );
+                })()
+              )}
+            </div>
+          </div>
 
-            {/* Dynamic Active Theme / Layout Component */}
-            {isPOS ? (
-              <ThemePOS
-                invoice={invoice}
-                company={company}
-                color={selectedColor}
-                logoUrl={logoUrl}
-                layout={selectedPosLayout}
-                printSettings={printSettings}
-              />
-            ) : (
-              (() => {
-                const Component = DESIGN_COMPONENTS[selectedTheme] || DESIGN_COMPONENTS.tally || ThemeTally;
-                return (
-                  <Component
-                    invoice={invoice}
-                    company={company}
-                    color={selectedColor}
-                    logoUrl={logoUrl}
-                    printSettings={printSettings}
-                  />
-                );
-              })()
-            )}
+          {/* Floating Canvas Quick Actions Bar */}
+          <div className="no-print sticky bottom-4 mt-6 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800/90 rounded-2xl px-3 py-2 shadow-2xl flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print (Ctrl+P)</span>
+            </button>
+
+            <button
+              onClick={downloadPDF}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700/60 transition-all"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>PDF</span>
+            </button>
+
+            <button
+              onClick={shareWhatsApp}
+              disabled={waSending}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all"
+            >
+              {waSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />}
+              <span>WhatsApp</span>
+            </button>
+
+            <div className="h-4 w-px bg-slate-800" />
+
+            <button
+              onClick={copyInvoiceLink}
+              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              title="Copy Invoice Link"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={handleResetZoom}
+              className="px-2 py-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white font-mono text-xs transition-colors"
+              title="Reset Zoom"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
           </div>
         </main>
 
-        {/* ── RIGHT SIDEBAR: INVOICE SUMMARY & ACTIONS ── */}
-        <aside className="no-print" style={{
-          width: 260,
-          background: "#ffffff",
-          borderLeft: "1px solid #e2e8f0",
-          display: "flex",
-          flexDirection: "column",
-          padding: "16px 14px",
-          overflowY: "auto",
-          boxSizing: "border-box",
-          flexShrink: 0,
-          gap: 14
-        }}>
-          {/* 1. Quick Invoice Summary Card */}
-          <div style={{
-            background: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: 10,
-            padding: "12px",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
-          }}>
-            {/* Header: Invoice No + Status Badge */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <FileText size={15} color="#2563eb" />
-                <span style={{ fontSize: 13, fontWeight: 800, color: "#1e293b" }}>
-                  #{invoice.invoice_no}
-                </span>
+        {/* ── 2.C RIGHT PANEL: INVOICE INTEL & SHARE HUB ── */}
+        <aside
+          className={`no-print absolute lg:relative z-20 inset-y-0 right-0 w-80 bg-slate-900 border-l border-slate-800 flex flex-col transition-all duration-300 ease-in-out ${
+            rightSidebarOpen ? "translate-x-0" : "translate-x-full lg:w-0 lg:overflow-hidden lg:border-l-0"
+          }`}
+        >
+          {/* Header */}
+          <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/60">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <ShieldCheck className="w-3.5 h-3.5" />
               </div>
-              <span style={{
-                fontSize: 10,
-                fontWeight: 700,
-                padding: "2px 7px",
-                borderRadius: 10,
-                background: statusInfo.bg,
-                color: statusInfo.text,
-                border: `1px solid ${statusInfo.border}`,
-                textTransform: "uppercase"
-              }}>
-                {statusInfo.label}
-              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Invoice Summary</span>
             </div>
+            <button
+              onClick={() => setRightSidebarOpen(false)}
+              className="lg:hidden p-1 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-            {/* Grand Total Amount Box */}
-            <div style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 8,
-              padding: "8px 10px",
-              marginBottom: 10
-            }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.3px" }}>
-                Grand Total
+          {/* Intel Content Body */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar text-xs">
+            {/* Grand Total & Settlement Card */}
+            <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/80 rounded-2xl p-4 shadow-lg">
+              <div className="flex items-center justify-between mb-1 text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
+                <span>Grand Total</span>
+                {statusBadge}
               </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>
+              <div className="text-2xl font-black tracking-tight text-white font-mono">
                 ₹ {totalAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
+
               {balanceAmountNum > 0 && (
-                <div style={{ fontSize: 10.5, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>
-                  Due: ₹ {balanceAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <div className="mt-2.5 pt-2.5 border-t border-slate-700/60 flex items-center justify-between text-xs">
+                  <span className="text-rose-400 font-medium">Balance Due:</span>
+                  <span className="font-bold text-rose-400 font-mono">
+                    ₹ {balanceAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
                 </div>
               )}
             </div>
 
-            {/* Customer & Bill Details */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11, color: "#475569" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Customer:</span>
-                <span style={{ fontWeight: 700, color: "#1e293b", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={invoice.customer_name}>
+            {/* Bill Key Facts */}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-3.5 space-y-2.5 text-slate-300">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Customer</span>
+                </span>
+                <span className="font-bold text-white max-w-[150px] truncate" title={invoice.customer_name}>
                   {invoice.customer_name || "Cash Customer"}
                 </span>
               </div>
 
               {invoice.customer_phone && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ color: "#64748b" }}>Phone:</span>
-                  <span style={{ fontWeight: 600, color: "#334155" }}>{invoice.customer_phone}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Phone</span>
+                  </span>
+                  <span className="font-mono text-slate-200">{invoice.customer_phone}</span>
                 </div>
               )}
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Date:</span>
-                <span style={{ fontWeight: 600, color: "#334155" }}>
-                  {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Date</span>
+                </span>
+                <span className="text-slate-200">
+                  {invoice.created_at
+                    ? new Date(invoice.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                    : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                 </span>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Payment:</span>
-                <span style={{ fontWeight: 700, color: "#059669" }}>
-                  {(invoice.payment_type || invoice.payment_method || "Cash").toUpperCase()}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Payment</span>
+                </span>
+                <span className="font-bold text-emerald-400 uppercase tracking-wide text-[11px]">
+                  {invoice.payment_type || invoice.payment_method || "Cash"}
                 </span>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Invoice Type:</span>
-                <span style={{ fontWeight: 700, color: "#2563eb" }}>
-                  {invoiceType}
+              <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">Selected Layout:</span>
+                <span className="font-semibold text-blue-400 truncate max-w-[140px]">
+                  {isPOS
+                    ? `POS (${(selectedPosLayout || "classic").replace("pos_", "").toUpperCase()})`
+                    : `${(selectedTheme || "tally").toUpperCase()} A4`}
                 </span>
               </div>
+            </div>
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4, paddingTop: 4, borderTop: "1px dashed #e2e8f0" }}>
-                <span style={{ color: "#64748b" }}>Format:</span>
-                <span style={{ fontWeight: 700, color: isPOS ? "#d97706" : "#2563eb", fontSize: 10.5 }}>
-                  {isPOS ? `Thermal POS (${(selectedPosLayout || "pos_classic").replace("pos_", "").toUpperCase()})` : `Regular (${(selectedTheme || "tally").toUpperCase()})`}
-                </span>
+            {/* Multi-Channel Sharing Hub */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                Share Invoice
+              </label>
+
+              <div className="space-y-2">
+                {/* WhatsApp PDF Button */}
+                <button
+                  onClick={shareWhatsApp}
+                  disabled={waSending}
+                  className="w-full p-2.5 rounded-xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 border border-emerald-500/30 hover:border-emerald-500/50 text-left transition-all flex items-center justify-between group shadow-sm"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30">
+                      {waSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <div className="font-bold text-white text-xs group-hover:text-emerald-300 transition-colors">
+                        {waSending ? "Sending Document..." : "WhatsApp Share"}
+                      </div>
+                      <div className="text-[10px] text-emerald-400/90 font-mono">
+                        {invoice.customer_phone ? `Send PDF to ${invoice.customer_phone}` : "Send PDF to customer"}
+                      </div>
+                    </div>
+                  </div>
+                  <Send className="w-3.5 h-3.5 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+
+                {/* WhatsApp Transaction Message */}
+                <button
+                  onClick={sendTransactionMessage}
+                  disabled={tmSending}
+                  className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 text-left transition-all flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                      {tmSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-200 text-xs">WhatsApp Template</div>
+                      <div className="text-[10px] text-slate-400">Pre-configured message</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+
+                {/* Copy Link & Quick Channels */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={copyInvoiceLink}
+                    className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 text-center transition-all flex flex-col items-center gap-1 text-slate-300 hover:text-white"
+                    title="Copy public link"
+                  >
+                    <Share2 className="w-4 h-4 text-blue-400" />
+                    <span className="text-[10px] font-semibold">Copy Link</span>
+                  </button>
+
+                  <button
+                    onClick={shareEmail}
+                    className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 text-center transition-all flex flex-col items-center gap-1 text-slate-300 hover:text-white"
+                    title="Email Bill"
+                  >
+                    <Mail className="w-4 h-4 text-amber-400" />
+                    <span className="text-[10px] font-semibold">Email</span>
+                  </button>
+
+                  <button
+                    onClick={shareSMS}
+                    className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 text-center transition-all flex flex-col items-center gap-1 text-slate-300 hover:text-white"
+                    title="SMS Bill"
+                  >
+                    <Smartphone className="w-4 h-4 text-violet-400" />
+                    <span className="text-[10px] font-semibold">SMS</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* 2. Share Invoice Section */}
-          <div>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#334155", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, textTransform: "uppercase", letterSpacing: "0.3px" }}>
-              <Share2 size={13} color="#64748b" />
-              <span>Share Invoice</span>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {/* WhatsApp Action */}
-              <button
-                onClick={shareWhatsApp}
-                disabled={waSending}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 10px",
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  color: "#15803d",
-                  transition: "all 0.15s ease",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-                  width: "100%",
-                  textAlign: "left"
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = "#dcfce7";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = "#f0fdf4";
-                  e.currentTarget.style.transform = "none";
-                }}
-              >
-                <div style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 6,
-                  background: "#22c55e",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0
-                }}>
-                  <MessageCircle size={16} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 11.5, fontWeight: 700 }}>
-                    {waSending ? "Sending PDF..." : "WhatsApp Share"}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#16a34a", marginTop: 1 }}>
-                    {invoice.customer_phone ? `Send to ${invoice.customer_phone}` : "Send PDF to customer"}
-                  </div>
-                </div>
-              </button>
-
-              {/* Share Link Action */}
-              <button
-                onClick={copyInvoiceLink}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 10px",
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  color: "#334155",
-                  transition: "all 0.15s ease",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
-                  width: "100%",
-                  textAlign: "left"
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = "#eff6ff";
-                  e.currentTarget.style.borderColor = "#bfdbfe";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = "#f8fafc";
-                  e.currentTarget.style.borderColor = "#e2e8f0";
-                  e.currentTarget.style.transform = "none";
-                }}
-              >
-                <div style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 6,
-                  background: copyToast ? "#16a34a" : "#3b82f6",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  transition: "background 0.2s ease"
-                }}>
-                  {copyToast ? <Check size={15} /> : <Share2 size={15} />}
-                </div>
-                <div>
-                  <div style={{ fontSize: 11.5, fontWeight: 700, color: copyToast ? "#16a34a" : "#1e293b" }}>
-                    {copyToast ? "Link Copied!" : "Copy Invoice Link"}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>
-                    Share online bill link
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* 3. Primary Actions: Print & Download */}
-          <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 7, paddingTop: 12, borderTop: "1px solid #f1f5f9" }}>
-            {/* Print Invoice Primary Button */}
+          {/* Action Bottom Bar */}
+          <div className="p-3.5 border-t border-slate-800 bg-slate-900/90 space-y-2">
             <button
               onClick={handlePrint}
-              style={{
-                width: "100%",
-                height: 40,
-                borderRadius: 8,
-                border: "none",
-                background: "#2563eb",
-                color: "#ffffff",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 7,
-                fontSize: 12.5,
-                fontWeight: 700,
-                transition: "all 0.15s ease",
-                boxShadow: "0 2px 6px rgba(37, 99, 235, 0.35)"
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = "#1d4ed8";
-                e.currentTarget.style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = "#2563eb";
-                e.currentTarget.style.transform = "none";
-              }}
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
             >
-              <Printer size={16} strokeWidth={2.2} />
+              <Printer className="w-4 h-4" />
               <span>Print Invoice</span>
             </button>
 
-            {/* Download PDF Button */}
             <button
               onClick={downloadPDF}
-              style={{
-                width: "100%",
-                height: 36,
-                borderRadius: 8,
-                border: "1.5px solid #cbd5e1",
-                background: "#ffffff",
-                color: "#334155",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                transition: "all 0.15s ease"
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = "#f1f5f9";
-                e.currentTarget.style.borderColor = "#94a3b8";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = "#ffffff";
-                e.currentTarget.style.borderColor = "#cbd5e1";
-              }}
+              className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-750 hover:text-white border border-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
             >
-              <Download size={14} strokeWidth={2.2} />
-              <span>Download PDF</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>Download PDF File</span>
             </button>
           </div>
         </aside>
 
+      </div>
+
+      {/* ── 3. FLOATING TOAST NOTIFICATIONS STACK ── */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={`pointer-events-auto px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md border text-xs font-semibold flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-3 duration-200 ${
+              t.type === "success"
+                ? "bg-emerald-950/90 border-emerald-500/40 text-emerald-200"
+                : t.type === "error"
+                ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
+                : "bg-slate-900/95 border-slate-700/80 text-slate-100"
+            }`}
+          >
+            {t.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : t.type === "error" ? (
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : (
+              <Info className="w-4 h-4 text-blue-400 shrink-0" />
+            )}
+            <span>{t.msg}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

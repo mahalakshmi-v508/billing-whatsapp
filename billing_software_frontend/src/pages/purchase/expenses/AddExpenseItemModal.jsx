@@ -266,16 +266,7 @@ export default function AddExpenseItemModal({ isOpen, onClose, onSuccess, catego
             <button
               type="submit"
               disabled={saving}
-              style={{
-                padding: "8px 24px",
-                borderRadius: 6,
-                border: "none",
-                background: "#1d72fe",
-                fontSize: 13,
-                fontWeight: 800,
-                color: "#ffffff",
-                cursor: saving ? "not-allowed" : "pointer"
-              }}
+              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save"}
             </button>

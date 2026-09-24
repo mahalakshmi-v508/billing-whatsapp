@@ -22,13 +22,47 @@ import {
   Share2,
   Pencil,
   Edit,
+  Hash,
+  User,
+  ArrowLeftRight,
+  IndianRupee,
+  CheckCircle2,
+  Wallet,
+  SlidersHorizontal,
 } from "lucide-react";
-import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import TableActions from "../../../components/ui/TableActions";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
+
+const DEFAULT_COLUMNS = [
+  { key: "index", label: "#", icon: Hash, color: "text-slate-600", bg: "bg-slate-100", desc: "Index sequence number" },
+  { key: "date", label: "Date", icon: Calendar, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Credit note date" },
+  { key: "return_no", label: "Return No.", icon: FileText, color: "text-blue-600", bg: "bg-blue-50", desc: "Unique credit note voucher number" },
+  { key: "party_name", label: "Party Name", icon: User, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Customer or party" },
+  { key: "type", label: "Type", icon: ArrowLeftRight, color: "text-purple-600", bg: "bg-purple-50", desc: "Sales Return or Credit adjustment" },
+  { key: "total", label: "Total", icon: IndianRupee, color: "text-slate-600", bg: "bg-slate-100", desc: "Total return value" },
+  { key: "refunded", label: "Refunded", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Settled / refunded amount" },
+  { key: "balance", label: "Balance", icon: Wallet, color: "text-rose-600", bg: "bg-rose-50", desc: "Remaining credit balance" },
+  { key: "status", label: "Status", icon: CheckCircle2, color: "text-cyan-600", bg: "bg-cyan-50", desc: "Credit note status" },
+  { key: "actions", label: "Actions", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "Print, Share & More" },
+];
 
 export default function CreditNoteList() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+
+  // Table Column Customization Hook
+  const {
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+    visibleColumnCount,
+  } = useTableColumns("credit_note_columns", DEFAULT_COLUMNS);
 
   // Data states
   const [creditNotes, setCreditNotes] = useState([]);
@@ -54,8 +88,6 @@ export default function CreditNoteList() {
 
   // Search & Actions
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeMenuId, setActiveMenuId] = useState(null);
-  const [activeShareId, setActiveShareId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
@@ -63,8 +95,6 @@ export default function CreditNoteList() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
-  const menuRef = useRef(null);
 
   // Format Helper: DD/MM/YYYY
   const formatDateDMY = (dateStr) => {
@@ -142,7 +172,10 @@ export default function CreditNoteList() {
 
   // Fetch Credit Notes
   const fetchCreditNotes = async () => {
-    if (!adminId) return;
+    if (!adminId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.get(`/credit_note/list?admin_id=${adminId}`);
@@ -163,16 +196,7 @@ export default function CreditNoteList() {
     fetchCreditNotes();
   }, [adminId]);
 
-  // Close menus on outside click
-  useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
+
 
   // Filtered List
   const filteredNotes = useMemo(() => {
@@ -295,7 +319,7 @@ export default function CreditNoteList() {
       {/* ── 1. TOP HEADER: Title + Actions ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 select-none">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-rose-100 ring-4 ring-rose-50/50">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-lg shadow-rose-100 ring-4 ring-rose-50/50">
             <FileText size={24} />
           </div>
           <div>
@@ -309,9 +333,14 @@ export default function CreditNoteList() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <HeaderSettingsButton
+            onClick={() => setShowColumnDrawer(true)}
+            isActive={showColumnDrawer}
+          />
+
           <button
             onClick={() => navigate("/sales/credit-note/add")}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-rose-200 transition-all transform active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.8} />
             <span>Create Credit Note</span>
@@ -555,6 +584,13 @@ export default function CreditNoteList() {
           >
             <Printer size={14} />
           </button>
+
+          {/* Customise Columns */}
+          <HeaderSettingsButton
+            variant="table"
+            onClick={() => setShowColumnDrawer(true)}
+            isActive={showColumnDrawer}
+          />
         </div>
       </div>
 
@@ -564,15 +600,15 @@ export default function CreditNoteList() {
           <table className="w-full text-left text-xs min-w-max">
             <thead>
               <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                <th className="py-3.5 px-4 text-center w-12">#</th>
-                <th className="py-3.5 px-4">Date</th>
-                <th className="py-3.5 px-4 text-right">Return No.</th>
-                <th className="py-3.5 px-4">Party Name</th>
-                <th className="py-3.5 px-4">Type</th>
-                <th className="py-3.5 px-4 text-right">Total</th>
-                <th className="py-3.5 px-4 text-right">Refunded</th>
-                <th className="py-3.5 px-4 text-right">Balance</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
+                {visibleColumns.index && <th className="py-3.5 px-4 text-center w-12">#</th>}
+                {visibleColumns.date && <th className="py-3.5 px-4">Date</th>}
+                {visibleColumns.return_no && <th className="py-3.5 px-4 text-right">Return No.</th>}
+                {visibleColumns.party_name && <th className="py-3.5 px-4">Party Name</th>}
+                {visibleColumns.type && <th className="py-3.5 px-4">Type</th>}
+                {visibleColumns.total && <th className="py-3.5 px-4 text-right">Total</th>}
+                {visibleColumns.refunded && <th className="py-3.5 px-4 text-right">Refunded</th>}
+                {visibleColumns.balance && <th className="py-3.5 px-4 text-right">Balance</th>}
+                {visibleColumns.status && <th className="py-3.5 px-4 text-center">Status</th>}
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -580,14 +616,14 @@ export default function CreditNoteList() {
             <tbody className="divide-y divide-slate-100 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-14 text-center text-slate-400">
+                  <td colSpan={visibleColumnCount || 10} className="py-14 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-rose-500 mx-auto mb-2" />
                     <span>Loading Credit Notes...</span>
                   </td>
                 </tr>
               ) : filteredNotes.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center">
+                  <td colSpan={visibleColumnCount || 10} className="py-16 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <div className="w-16 h-16 mb-4 flex items-center justify-center rounded-2xl bg-rose-50 text-rose-400">
                         <FileText size={32} strokeWidth={1.5} />
@@ -600,7 +636,6 @@ export default function CreditNoteList() {
               ) : (
                 paginatedNotes.map((n, idx) => {
                   const seqNo = (safePage - 1) * rowsPerPage + idx + 1;
-                  const isMenuOpen = activeMenuId === n.id;
                   const total = parseFloat(n.total_amount || 0);
                   const refund = parseFloat(n.refund_amount || 0);
                   const balance = parseFloat(n.balance_amount || 0);
@@ -610,143 +645,106 @@ export default function CreditNoteList() {
                       key={n.id || idx}
                       className="hover:bg-rose-50/20 transition-colors text-slate-700"
                     >
-                      <td className="py-3.5 px-4 text-center font-semibold text-slate-400">
-                        {seqNo}
-                      </td>
+                      {visibleColumns.index && (
+                        <td className="py-3.5 px-4 text-center font-semibold text-slate-400">
+                          {seqNo}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
-                        {formatDateDMY(n.return_date || n.created_at)}
-                      </td>
+                      {visibleColumns.date && (
+                        <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
+                          {formatDateDMY(n.return_date || n.created_at)}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-right font-bold text-rose-600 whitespace-nowrap">
-                        #{n.return_no || n.id}
-                      </td>
+                      {visibleColumns.return_no && (
+                        <td className="py-3.5 px-4 text-right font-bold text-rose-600 whitespace-nowrap">
+                          #{n.return_no || n.id}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="font-bold text-slate-900">{n.customer_name || "Cash Customer"}</div>
-                        {n.customer_phone && <div className="text-[10px] text-slate-400 font-normal">{n.customer_phone}</div>}
-                      </td>
+                      {visibleColumns.party_name && (
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="font-bold text-slate-900">{n.customer_name || "Cash Customer"}</div>
+                          {n.customer_phone && <div className="text-[10px] text-slate-400 font-normal">{n.customer_phone}</div>}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-                          Credit Note
-                        </span>
-                      </td>
+                      {visibleColumns.type && (
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                            Credit Note
+                          </span>
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
-                        ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+                      {visibleColumns.total && (
+                        <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                          ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
-                        ₹ {refund.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+                      {visibleColumns.refunded && (
+                        <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
+                          ₹ {refund.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-right font-black text-rose-600 whitespace-nowrap">
-                        ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+                      {visibleColumns.balance && (
+                        <td className="py-3.5 px-4 text-right font-black text-rose-600 whitespace-nowrap">
+                          ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      )}
 
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            balance <= 0
-                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                              : refund > 0
-                              ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                              : "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
-                          }`}
-                        >
+                      {visibleColumns.status && (
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              balance <= 0 ? "bg-emerald-600" : refund > 0 ? "bg-amber-600" : "bg-rose-600"
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              balance <= 0
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : refund > 0
+                                ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                : "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
                             }`}
-                          />
-                          {balance <= 0 ? "Paid" : refund > 0 ? "Partial" : "Unpaid"}
-                        </span>
-                      </td>
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                balance <= 0 ? "bg-emerald-600" : refund > 0 ? "bg-amber-600" : "bg-rose-600"
+                              }`}
+                            />
+                            {balance <= 0 ? "Paid" : refund > 0 ? "Partial" : "Unpaid"}
+                          </span>
+                        </td>
+                      )}
 
                       <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1 text-slate-400">
-                          {/* Print POS / Preview */}
-                          <button
-                            onClick={() => navigate(`/invoice/${n.return_no || n.id}`)}
-                            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                            title="Print / View Invoice"
-                          >
-                            <Printer size={15} />
-                          </button>
-
-                          {/* Share Popover */}
-                          <div className="relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveShareId(activeShareId === n.id ? null : n.id);
-                              }}
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                              title="Share"
-                            >
-                              <Share2 size={15} />
-                            </button>
-                            <ShareTransactionPopover
-                              isOpen={activeShareId === n.id}
-                              onClose={() => setActiveShareId(null)}
-                              transaction={n}
-                              type="Credit Note"
-                            />
-                          </div>
-
-                          {/* 3-Dot More Menu */}
-                          <div className="relative">
-                            <button
-                              onClick={() => setActiveMenuId(isMenuOpen ? null : n.id)}
-                              className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
-                                isMenuOpen ? "text-rose-600 bg-rose-50" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                              }`}
-                              title="More actions"
-                            >
-                              <MoreVertical size={15} />
-                            </button>
-
-                            {isMenuOpen && (
-                              <div
-                                ref={menuRef}
-                                className="absolute right-0 top-9 w-40 bg-white rounded-2xl shadow-2xl border border-slate-100 py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
-                              >
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    navigate(`/sales/credit-note/edit/${n.id}`);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition text-left cursor-pointer"
-                                >
-                                  <Edit size={14} className="text-rose-600" />
-                                  <span>Edit Details</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    navigate(`/invoice/${n.return_no || n.id}`);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition text-left cursor-pointer"
-                                >
-                                  <Eye size={14} className="text-slate-600" />
-                                  <span>View Receipt</span>
-                                </button>
-                                <div className="border-t border-slate-100 my-1" />
-                                <button
-                                  onClick={() => {
-                                    setActiveMenuId(null);
-                                    setDeleteTarget(n);
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition text-left cursor-pointer"
-                                >
-                                  <Trash2 size={14} className="text-rose-600" />
-                                  <span>Delete Voucher</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        <TableActions
+                          onPrint={() => navigate(`/invoice/${n.return_no || n.id}`)}
+                          printTitle="Print"
+                          shareTransaction={n}
+                          shareType="Credit Note"
+                          onViewInvoice={() => navigate(`/invoice/${n.return_no || n.id}`)}
+                          viewInvoiceLabel="View Invoice"
+                          menuItems={[
+                            {
+                              label: "Edit Details",
+                              icon: Edit,
+                              onClick: () => navigate(`/sales/credit-note/edit/${n.id}`),
+                            },
+                            {
+                              label: "View Invoice",
+                              icon: Eye,
+                              onClick: () => navigate(`/invoice/${n.return_no || n.id}`),
+                            },
+                            { isDivider: true },
+                            {
+                              label: "Delete Voucher",
+                              icon: Trash2,
+                              isDanger: true,
+                              onClick: () => setDeleteTarget(n),
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );
@@ -895,6 +893,17 @@ export default function CreditNoteList() {
           </button>
         </div>
       )}
+
+      {/* ── 8. COLUMN CUSTOMIZATION DRAWER ── */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+      />
     </div>
   );
 }

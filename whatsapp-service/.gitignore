@@ -1,10 +1,26 @@
+# Dependencies
 node_modules/
-sessions/.wwebjs_auth/
-sessions/.wwebjs_cache/
+
+# Baileys WhatsApp session credentials — NEVER commit
+sessions/
+auth/
+auth_info_baileys/
+credentials/
+.wwebjs_auth/
+.wwebjs_cache/
+*.session
+
+# Environment / secrets
 .env
+.env.*
+!.env.example
+
+# Logs
+logs/
 out.log
 err.log
-sessions/
-.wwebjs_cache/
-node_modules/
-.env
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db

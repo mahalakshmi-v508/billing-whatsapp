@@ -49,9 +49,11 @@ function detectChromePath() {
 module.exports = {
     port: process.env.PORT || 3001,
 
-    laravelUrl: process.env.LARAVEL_URL || 'http://localhost:8000',
+    // Laravel backend URL (LARAVEL_API_URL preferred; LARAVEL_URL kept as legacy alias)
+    laravelUrl: process.env.LARAVEL_API_URL || process.env.LARAVEL_URL || 'http://localhost:8000',
 
-    internalToken: process.env.WHATSAPP_INTERNAL_TOKEN || 'change-this-secret-token',
+    // Shared internal token (LARAVEL_API_KEY preferred; WHATSAPP_INTERNAL_TOKEN kept as legacy alias)
+    internalToken: process.env.LARAVEL_API_KEY || process.env.WHATSAPP_INTERNAL_TOKEN || '',
 
     sessionPath: resolveSessionPath(),
 

@@ -10,7 +10,14 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   }
 
   // ✅ logged in
-  const user = JSON.parse(userStr);
+  let user = null;
+  try {
+    user = JSON.parse(userStr);
+  } catch (e) {
+    localStorage.removeItem("user");
+    return <Navigate to="/" replace />;
+  }
+
   const role = user?.role;
 
   if (allowedRoles && !allowedRoles.includes(role)) {

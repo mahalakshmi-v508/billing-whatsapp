@@ -283,7 +283,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 shadow-xs">
               <Truck size={18} />
             </div>
             <div>
@@ -339,7 +339,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                     value={partyQuery}
                     onChange={(e) => handleSearchSuppliers(e.target.value)}
                     onFocus={() => setShowPartyDropdown(true)}
-                    className="w-full px-3.5 py-2.5 pr-8 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition"
+                    className="w-full px-3.5 py-2.5 pr-8 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
                   />
                   <ChevronDown
                     size={14}
@@ -372,7 +372,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                         <button
                           key={sup.id}
                           onClick={() => selectSupplier(sup)}
-                          className="w-full text-left px-3.5 py-2 text-xs hover:bg-purple-50 flex items-center justify-between border-b border-slate-50 cursor-pointer"
+                          className="w-full text-left px-3.5 py-2 text-xs hover:bg-blue-50 flex items-center justify-between border-b border-slate-50 cursor-pointer"
                         >
                           <div>
                             <div className="font-bold text-slate-900">{sup.supplier_name || sup.name}</div>
@@ -403,7 +403,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                       onClick={() => setPaymentType(type)}
                       className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
                         paymentType === type
-                          ? "bg-purple-600 text-white border-purple-600 shadow-xs shadow-purple-600/30"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs shadow-blue-600/30"
                           : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                       }`}
                     >
@@ -424,7 +424,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                     type="text"
                     value={receiptNo}
                     onChange={(e) => setReceiptNo(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 text-xs outline-none focus:border-purple-600 transition"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 text-xs outline-none focus:border-blue-600 transition"
                   />
                 </div>
 
@@ -435,7 +435,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                     type="date"
                     value={paymentDate}
                     onChange={(e) => setPaymentDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold text-slate-800 text-xs outline-none focus:border-purple-600 transition"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold text-slate-800 text-xs outline-none focus:border-blue-600 transition"
                   />
                 </div>
               </div>
@@ -452,10 +452,42 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                   step="any"
                   value={paidAmount}
                   onChange={(e) => setPaidAmount(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-black text-slate-900 text-base outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-black text-slate-900 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
                 />
               </div>
             </div>
+          </div>
+
+          {/* Calculation / Disbursement Summary Box */}
+          <div className="bg-slate-50/80 rounded-xl border border-slate-200/90 p-3.5 space-y-2 text-xs">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/70">
+              <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Disbursement Summary</span>
+              <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                INR Currency
+              </span>
+            </div>
+            {selectedSupplier && (
+              <div className="flex justify-between items-center text-slate-600 font-semibold">
+                <span>Supplier Current Due</span>
+                <span className="font-bold text-rose-600">
+                  ₹ {Number(selectedSupplier.pending_balance || 0).toFixed(2)}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between items-center text-slate-600 font-semibold">
+              <span>Disbursed Amount</span>
+              <span className="font-bold text-slate-900">
+                ₹ {(parseFloat(paidAmount) || 0).toFixed(2)}
+              </span>
+            </div>
+            {selectedSupplier && (
+              <div className="flex justify-between items-center pt-1.5 border-t border-slate-200 text-xs">
+                <span className="font-bold text-slate-900">Remaining Payable Due</span>
+                <span className={`font-bold ${Math.max(0, (Number(selectedSupplier.pending_balance || 0) - (parseFloat(paidAmount) || 0))) > 0 ? "text-rose-600 font-black text-sm" : "text-emerald-700 font-black text-sm"}`}>
+                  ₹ {Math.max(0, (Number(selectedSupplier.pending_balance || 0) - (parseFloat(paidAmount) || 0))).toFixed(2)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Description & Remarks */}
@@ -466,7 +498,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
               placeholder="Optional remarks, cheque/UTR reference"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 outline-none focus:border-purple-600 transition"
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 outline-none focus:border-blue-600 transition"
             />
           </div>
         </div>
@@ -484,7 +516,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
             type="button"
             onClick={handleSavePaymentOut}
             disabled={saving}
-            className="px-6 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-purple-600/30 transition cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
           >
             {saving ? "Recording..." : "Save Payment"}
           </button>

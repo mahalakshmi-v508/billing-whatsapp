@@ -35,12 +35,38 @@ import {
   Wallet,
   LayoutGrid
 } from "lucide-react";
-import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import TableActions from "../../../components/ui/TableActions";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import { useTableColumns } from "../../../hooks/useTableColumns";
+
+const DEFAULT_EXPENSE_COLUMNS = [
+  { id: "date", label: "Date", defaultVisible: true },
+  { id: "expense_no", label: "Voucher No", defaultVisible: true },
+  { id: "category", label: "Category", defaultVisible: true },
+  { id: "party_name", label: "Party / Vendor", defaultVisible: true, fixed: true },
+  { id: "payment_type", label: "Mode", defaultVisible: true },
+  { id: "total_amount", label: "Total (₹)", defaultVisible: true },
+  { id: "balance_amount", label: "Balance Due (₹)", defaultVisible: true },
+  { id: "status", label: "Status", defaultVisible: true },
+  { id: "actions", label: "Actions", defaultVisible: true, fixed: true },
+];
 
 export default function ExpenseList() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+
+  const {
+    columns: tableColumns,
+    isOpen: isSettingsOpen,
+    openSettings,
+    closeSettings,
+    toggleColumn,
+    resetColumns,
+    isColumnVisible,
+    visibleColumnCount
+  } = useTableColumns(DEFAULT_EXPENSE_COLUMNS, "expense_list_table_columns_v1");
 
   // Companies state
   const [companies, setCompanies] = useState([]);
@@ -74,7 +100,6 @@ export default function ExpenseList() {
   // Menus & Modals
   const [activeTxMenuId, setActiveTxMenuId] = useState(null);
   const [activeCatMenuId, setActiveCatMenuId] = useState(null);
-  const [activeShareId, setActiveShareId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -449,11 +474,12 @@ export default function ExpenseList() {
             <Printer size={14} className="text-slate-500" />
             <span>Print</span>
           </button>
+          <HeaderSettingsButton onClick={openSettings} variant="table" />
           <button
             onClick={() => navigate("/purchases/expenses/add")}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 text-white font-semibold text-xs rounded-xl shadow-sm shadow-amber-200 transition transform active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
-            <Plus size={15} strokeWidth={2.6} />
+            <Plus size={16} strokeWidth={2.8} />
             <span>+ Add Expense</span>
           </button>
         </div>
@@ -661,14 +687,14 @@ export default function ExpenseList() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                    <th className="py-3.5 px-4">Date</th>
-                    <th className="py-3.5 px-4">Voucher No</th>
-                    <th className="py-3.5 px-4">Category</th>
-                    <th className="py-3.5 px-4">Party / Vendor</th>
-                    <th className="py-3.5 px-4">Mode</th>
-                    <th className="py-3.5 px-4 text-right">Total (₹)</th>
-                    <th className="py-3.5 px-4 text-right">Balance Due (₹)</th>
-                    <th className="py-3.5 px-4 text-center">Status</th>
+                    {isColumnVisible("date") && <th className="py-3.5 px-4">Date</th>}
+                    {isColumnVisible("expense_no") && <th className="py-3.5 px-4">Voucher No</th>}
+                    {isColumnVisible("category") && <th className="py-3.5 px-4">Category</th>}
+                    {isColumnVisible("party_name") && <th className="py-3.5 px-4">Party / Vendor</th>}
+                    {isColumnVisible("payment_type") && <th className="py-3.5 px-4">Mode</th>}
+                    {isColumnVisible("total_amount") && <th className="py-3.5 px-4 text-right">Total (₹)</th>}
+                    {isColumnVisible("balance_amount") && <th className="py-3.5 px-4 text-right">Balance Due (₹)</th>}
+                    {isColumnVisible("status") && <th className="py-3.5 px-4 text-center">Status</th>}
                     <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -677,99 +703,101 @@ export default function ExpenseList() {
                     const isPaid = Number(item.balance_amount || 0) <= 0;
                     return (
                       <tr key={item.id} className="hover:bg-amber-50/20 transition-colors text-slate-700">
-                        <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
-                          {formatDateDMY(item.expense_date)}
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100">
-                            #{item.expense_no || item.id}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                            {item.category_name || "General"}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="font-bold text-slate-900">{item.party_name || "Cash Entry"}</div>
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold uppercase">
-                            {item.payment_type || "Cash"}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
-                          ₹{fmt(item.total_amount)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
-                              isPaid
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-rose-50 text-rose-700 border border-rose-200"
-                            }`}
-                          >
-                            ₹{fmt(item.balance_amount)}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              isPaid
-                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                            }`}
-                          >
+                        {isColumnVisible("date") && (
+                          <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
+                            {formatDateDMY(item.expense_date)}
+                          </td>
+                        )}
+                        {isColumnVisible("expense_no") && (
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100">
+                              #{item.expense_no || item.id}
+                            </span>
+                          </td>
+                        )}
+                        {isColumnVisible("category") && (
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              {item.category_name || "General"}
+                            </span>
+                          </td>
+                        )}
+                        {isColumnVisible("party_name") && (
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="font-bold text-slate-900">{item.party_name || "Cash Entry"}</div>
+                          </td>
+                        )}
+                        {isColumnVisible("payment_type") && (
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold uppercase">
+                              {item.payment_type || "Cash"}
+                            </span>
+                          </td>
+                        )}
+                        {isColumnVisible("total_amount") && (
+                          <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                            ₹{fmt(item.total_amount)}
+                          </td>
+                        )}
+                        {isColumnVisible("balance_amount") && (
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
                             <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                isPaid ? "bg-emerald-600" : "bg-amber-600"
+                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
+                                isPaid
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-rose-50 text-rose-700 border border-rose-200"
                               }`}
-                            />
-                            {isPaid ? "Settled" : "Pending"}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => navigate(`/purchases/expenses/edit/${item.id}`)}
-                              title="Edit Voucher"
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
                             >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              onClick={() => navigate(`/invoice/${item.expense_no || item.id}`)}
-                              title="Print Receipt"
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                              ₹{fmt(item.balance_amount)}
+                            </span>
+                          </td>
+                        )}
+                        {isColumnVisible("status") && (
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                isPaid
+                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                              }`}
                             >
-                              <Printer size={14} />
-                            </button>
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveShareId(activeShareId === item.id ? null : item.id);
-                                }}
-                                title="Share Voucher"
-                                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                              >
-                                <Share2 size={14} />
-                              </button>
-                              <ShareTransactionPopover
-                                isOpen={activeShareId === item.id}
-                                onClose={() => setActiveShareId(null)}
-                                transaction={item}
-                                type="Expense"
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isPaid ? "bg-emerald-600" : "bg-amber-600"
+                                }`}
                               />
-                            </div>
-                            <button
-                              onClick={() => setDeleteTarget(item)}
-                              title="Delete Voucher"
-                              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                              {isPaid ? "Settled" : "Pending"}
+                            </span>
+                          </td>
+                        )}
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <TableActions
+                            onPrint={() => navigate(`/invoice/${item.expense_no || item.id}`)}
+                            printTitle="Print Receipt"
+                            shareTransaction={item}
+                            shareType="Expense"
+                            onViewInvoice={() => navigate(`/invoice/${item.expense_no || item.id}`)}
+                            viewInvoiceLabel="View Invoice"
+                            menuItems={[
+                              {
+                                label: "Edit Voucher",
+                                icon: Edit,
+                                onClick: () => navigate(`/purchases/expenses/edit/${item.id}`),
+                              },
+                              {
+                                label: "View Invoice",
+                                icon: Eye,
+                                onClick: () => navigate(`/invoice/${item.expense_no || item.id}`),
+                              },
+                              { isDivider: true },
+                              {
+                                label: "Delete",
+                                icon: Trash2,
+                                isDanger: true,
+                                onClick: () => setDeleteTarget(item),
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                     );
@@ -1058,6 +1086,7 @@ export default function ExpenseList() {
                 <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md ml-1">
                   {filteredTransactions.length}
                 </span>
+                <HeaderSettingsButton onClick={openSettings} variant="table" />
               </div>
             </div>
 
@@ -1077,13 +1106,13 @@ export default function ExpenseList() {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Voucher No</th>
-                      <th className="py-3 px-4">Party</th>
-                      <th className="py-3 px-4">Payment Mode</th>
-                      <th className="py-3 px-4 text-right">Total (₹)</th>
-                      <th className="py-3 px-4 text-right">Pending (₹)</th>
-                      <th className="py-3 px-4 text-center">Status</th>
+                      {isColumnVisible("date") && <th className="py-3 px-4">Date</th>}
+                      {isColumnVisible("expense_no") && <th className="py-3 px-4">Voucher No</th>}
+                      {isColumnVisible("party_name") && <th className="py-3 px-4">Party</th>}
+                      {isColumnVisible("payment_type") && <th className="py-3 px-4">Payment Mode</th>}
+                      {isColumnVisible("total_amount") && <th className="py-3 px-4 text-right">Total (₹)</th>}
+                      {isColumnVisible("balance_amount") && <th className="py-3 px-4 text-right">Pending (₹)</th>}
+                      {isColumnVisible("status") && <th className="py-3 px-4 text-center">Status</th>}
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -1092,76 +1121,94 @@ export default function ExpenseList() {
                       const isPaid = Number(item.balance_amount || 0) <= 0;
                       return (
                         <tr key={item.id} className="hover:bg-amber-50/20 transition-colors text-slate-700">
-                          <td className="py-3 px-4 text-slate-600 font-medium whitespace-nowrap">
-                            {formatDateDMY(item.expense_date)}
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
-                              #{item.expense_no || item.id}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
-                            {item.party_name || "Cash"}
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase">
-                              {item.payment_type || "Cash"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right font-black text-slate-900 whitespace-nowrap">
-                            ₹{fmt(item.total_amount)}
-                          </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
-                                isPaid
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : "bg-rose-50 text-rose-700 border border-rose-200"
-                              }`}
-                            >
-                              ₹{fmt(item.balance_amount)}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-center whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                isPaid
-                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                              }`}
-                            >
+                          {isColumnVisible("date") && (
+                            <td className="py-3 px-4 text-slate-600 font-medium whitespace-nowrap">
+                              {formatDateDMY(item.expense_date)}
+                            </td>
+                          )}
+                          {isColumnVisible("expense_no") && (
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+                                #{item.expense_no || item.id}
+                              </span>
+                            </td>
+                          )}
+                          {isColumnVisible("party_name") && (
+                            <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
+                              {item.party_name || "Cash"}
+                            </td>
+                          )}
+                          {isColumnVisible("payment_type") && (
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase">
+                                {item.payment_type || "Cash"}
+                              </span>
+                            </td>
+                          )}
+                          {isColumnVisible("total_amount") && (
+                            <td className="py-3 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                              ₹{fmt(item.total_amount)}
+                            </td>
+                          )}
+                          {isColumnVisible("balance_amount") && (
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  isPaid ? "bg-emerald-600" : "bg-amber-600"
+                                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
+                                  isPaid
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-rose-50 text-rose-700 border border-rose-200"
                                 }`}
-                              />
-                              {isPaid ? "Paid" : "Partial"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => navigate(`/purchases/expenses/edit/${item.id}`)}
-                                title="Edit Details"
-                                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
                               >
-                                <Edit size={14} />
-                              </button>
-                              <button
-                                onClick={() => navigate(`/invoice/${item.expense_no || item.id}`)}
-                                title="Print Receipt"
-                                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                                ₹{fmt(item.balance_amount)}
+                              </span>
+                            </td>
+                          )}
+                          {isColumnVisible("status") && (
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  isPaid
+                                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                    : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                }`}
                               >
-                                <Printer size={14} />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget(item)}
-                                title="Delete Voucher"
-                                className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    isPaid ? "bg-emerald-600" : "bg-amber-600"
+                                  }`}
+                                />
+                                {isPaid ? "Paid" : "Partial"}
+                              </span>
+                            </td>
+                          )}
+                          <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <TableActions
+                              onPrint={() => navigate(`/invoice/${item.expense_no || item.id}`)}
+                              printTitle="Print Receipt"
+                              shareTransaction={item}
+                              shareType="Expense"
+                              onViewInvoice={() => navigate(`/invoice/${item.expense_no || item.id}`)}
+                              viewInvoiceLabel="View Invoice"
+                              menuItems={[
+                                {
+                                  label: "Edit Details",
+                                  icon: Edit,
+                                  onClick: () => navigate(`/purchases/expenses/edit/${item.id}`),
+                                },
+                                {
+                                  label: "View Invoice",
+                                  icon: Eye,
+                                  onClick: () => navigate(`/invoice/${item.expense_no || item.id}`),
+                                },
+                                { isDivider: true },
+                                {
+                                  label: "Delete",
+                                  icon: Trash2,
+                                  isDanger: true,
+                                  onClick: () => setDeleteTarget(item),
+                                },
+                              ]}
+                            />
                           </td>
                         </tr>
                       );
@@ -1298,6 +1345,16 @@ export default function ExpenseList() {
           </div>
         </div>
       )}
+
+      {/* Column Customization Drawer */}
+      <CommonTableColumnSettings
+        isOpen={isSettingsOpen}
+        onClose={closeSettings}
+        columns={tableColumns}
+        onToggleColumn={toggleColumn}
+        onResetColumns={resetColumns}
+        title="Customize Expense Table Columns"
+      />
 
     </div>
   );

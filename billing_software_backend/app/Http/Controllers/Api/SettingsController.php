@@ -15,12 +15,16 @@ class SettingsController extends Controller
             return response()->json(["status" => false, "message" => "Company ID required"]);
         }
 
-        $companySetting = CompanySetting::where('company_id', $company_id)->first();
-        if ($companySetting) {
-            return response()->json([
-                "status" => true,
-                "data" => $companySetting->settings
-            ]);
+        try {
+            $companySetting = CompanySetting::where('company_id', $company_id)->first();
+            if ($companySetting) {
+                return response()->json([
+                    "status" => true,
+                    "data" => $companySetting->settings
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Table might not exist yet or connection issue
         }
 
         return response()->json([

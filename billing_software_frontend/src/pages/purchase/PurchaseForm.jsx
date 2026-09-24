@@ -3,6 +3,26 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { ArrowLeft, Save, UploadCloud, Plus, Trash2, HelpCircle, CheckCircle2, X } from "lucide-react";
 import * as XLSX from "xlsx";
+import HeaderSettingsButton from "../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
+import { useTableColumns } from "../../hooks/useTableColumns";
+
+const DEFAULT_PURCHASE_FORM_COLUMNS = [
+  { id: "status", label: "Status", defaultVisible: true },
+  { id: "product_name", label: "Product Name", defaultVisible: true, fixed: true },
+  { id: "product_code", label: "Product Code", defaultVisible: true },
+  { id: "barcode", label: "Barcode", defaultVisible: true },
+  { id: "category", label: "Category", defaultVisible: true },
+  { id: "subcategory", label: "Subcategory", defaultVisible: true },
+  { id: "brand", label: "Brand", defaultVisible: true },
+  { id: "supplier_price", label: "Supplier Price", defaultVisible: true },
+  { id: "selling_price", label: "Selling Price", defaultVisible: true },
+  { id: "selling_price_unit", label: "Selling Price Unit", defaultVisible: true },
+  { id: "quantity", label: "Qty", defaultVisible: true },
+  { id: "unit", label: "Unit", defaultVisible: true },
+  { id: "gst_percentage", label: "GST %", defaultVisible: true },
+  { id: "action", label: "Action", defaultVisible: true, fixed: true },
+];
 
 const unitOptions = [
   "Piece", "Kg", "Gram", "Litre", "ML", "Meter", "Feet", 
@@ -30,6 +50,17 @@ export default function PurchaseForm() {
   const [toast, setToast] = useState(null);
   const [isLocked, setIsLocked] = useState(false); // Locked if submitted
 
+  const {
+    columns: tableColumns,
+    isOpen: isSettingsOpen,
+    openSettings,
+    closeSettings,
+    toggleColumn,
+    resetColumns,
+    isColumnVisible,
+    visibleColumnCount
+  } = useTableColumns(DEFAULT_PURCHASE_FORM_COLUMNS, "purchase_form_item_columns_v1");
+
   // Category, Subcategory, and Brand Cache states
   const [categories, setCategories] = useState([]);
   const [companySubcategories, setCompanySubcategories] = useState({}); // catId -> subcategories
@@ -37,9 +68,15 @@ export default function PurchaseForm() {
 
   // Load Companies
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user?.id) {
-      api.get(`/company/get_companies_by_admin?admin_id=${user.id}`)
+    let user = {};
+    try {
+      user = JSON.parse(localStorage.getItem("user") || "{}");
+    } catch (e) {
+      user = {};
+    }
+    const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+    if (adminId) {
+      api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role || ""}`)
         .then(res => {
           if (res.data.status) {
             setCompanies(res.data.data);
@@ -964,52 +1001,55 @@ export default function PurchaseForm() {
             <div style={{ background: "#ffffff", borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
               <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
                 <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", margin: 0 }}>Invoice Items</h3>
-                {!isLocked && (
-                  <button
-                    onClick={addManualRow}
-                    disabled={!selectedCompany}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: "8px",
-                      background: selectedCompany ? "#ffffff" : "#f1f5f9",
-                      color: selectedCompany ? "#2563eb" : "#94a3b8",
-                      border: selectedCompany ? "1.5px solid #dbeafe" : "1.5px solid #e2e8f0",
-                      fontSize: "12.5px",
-                      fontWeight: "600",
-                      cursor: selectedCompany ? "pointer" : "not-allowed",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px"
-                    }}
-                  >
-                    <Plus size={14} /> Add Row
-                  </button>
-                )}
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <HeaderSettingsButton onClick={openSettings} variant="table" />
+                  {!isLocked && (
+                    <button
+                      onClick={addManualRow}
+                      disabled={!selectedCompany}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        background: selectedCompany ? "#ffffff" : "#f1f5f9",
+                        color: selectedCompany ? "#2563eb" : "#94a3b8",
+                        border: selectedCompany ? "1.5px solid #dbeafe" : "1.5px solid #e2e8f0",
+                        fontSize: "12.5px",
+                        fontWeight: "600",
+                        cursor: selectedCompany ? "pointer" : "not-allowed",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px"
+                      }}
+                    >
+                      <Plus size={14} /> Add Row
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="scroll-container" style={{ overflowX: "auto", paddingBottom: "10px" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1600px" }}>
                   <thead>
                     <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "40px" }}>Status</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "150px" }}>Product Name *</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Product Code</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Barcode <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Category <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Subcategory <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "120px" }}>Brand <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Supplier Price</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Selling Price</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Selling Price Unit</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "60px" }}>Qty</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Unit</th>
-                      <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "70px" }}>GST %</th>
+                      {isColumnVisible("status") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "40px" }}>Status</th>}
+                      {isColumnVisible("product_name") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "150px" }}>Product Name *</th>}
+                      {isColumnVisible("product_code") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Product Code</th>}
+                      {isColumnVisible("barcode") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Barcode <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>}
+                      {isColumnVisible("category") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Category <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>}
+                      {isColumnVisible("subcategory") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Subcategory <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>}
+                      {isColumnVisible("brand") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "120px" }}>Brand <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>}
+                      {isColumnVisible("supplier_price") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Supplier Price</th>}
+                      {isColumnVisible("selling_price") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Selling Price</th>}
+                      {isColumnVisible("selling_price_unit") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Selling Price Unit</th>}
+                      {isColumnVisible("quantity") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "60px" }}>Qty</th>}
+                      {isColumnVisible("unit") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Unit</th>}
+                      {isColumnVisible("gst_percentage") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "70px" }}>GST %</th>}
                       {!isLocked && <th style={{ padding: "12px 10px", width: "40px" }}></th>}
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={isLocked ? 13 : 14} style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>
+                        <td colSpan={visibleColumnCount || (isLocked ? 13 : 14)} style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>
                           No items added. Select Company first, then Import excel or add manual rows to start.
                         </td>
                       </tr>
@@ -1032,185 +1072,211 @@ export default function PurchaseForm() {
                             backgroundColor: isRowErrored ? "#fff5f5" : "inherit"
                           }}>
                             {/* Status */}
-                            <td style={{ padding: "8px 10px", textAlign: "center" }}>
-                              <div
-                                title={[...(item.errors || []), ...(item.warnings || [])].join("\n")}
-                                style={{
-                                  width: "22px",
-                                  height: "22px",
-                                  borderRadius: "50%",
-                                  backgroundColor: statusStyle.bg,
-                                  color: statusStyle.color,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontWeight: "800",
-                                  fontSize: "11px",
-                                  cursor: "pointer"
-                                }}
-                              >
-                                {item.status === "valid" ? "✓" : item.status === "error" ? "!" : "?"}
-                              </div>
-                            </td>
+                            {isColumnVisible("status") && (
+                              <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                                <div
+                                  title={[...(item.errors || []), ...(item.warnings || [])].join("\n")}
+                                  style={{
+                                    width: "22px",
+                                    height: "22px",
+                                    borderRadius: "50%",
+                                    backgroundColor: statusStyle.bg,
+                                    color: statusStyle.color,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontWeight: "800",
+                                    fontSize: "11px",
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  {item.status === "valid" ? "✓" : item.status === "error" ? "!" : "?"}
+                                </div>
+                              </td>
+                            )}
                             {/* Product Name */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <input
-                                type="text"
-                                value={item.product_name}
-                                disabled={isLocked}
-                                onChange={(e) => updateRowField(index, "product_name", e.target.value)}
-                                style={{
-                                  width: "100%",
-                                  padding: "6px 8px",
-                                  border: isRowErrored && (!item.product_name || !item.product_name.trim())
-                                    ? "1.5px solid #ef4444"
-                                    : "1px solid #e2e8f0",
-                                  borderRadius: "6px",
-                                  fontSize: "13px",
-                                  boxSizing: "border-box"
-                                }}
-                              />
-                            </td>
+                            {isColumnVisible("product_name") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <input
+                                  type="text"
+                                  value={item.product_name}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateRowField(index, "product_name", e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    padding: "6px 8px",
+                                    border: isRowErrored && (!item.product_name || !item.product_name.trim())
+                                      ? "1.5px solid #ef4444"
+                                      : "1px solid #e2e8f0",
+                                    borderRadius: "6px",
+                                    fontSize: "13px",
+                                    boxSizing: "border-box"
+                                  }}
+                                />
+                              </td>
+                            )}
                             {/* Code */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <input
-                                type="text"
-                                value={item.product_code}
-                                disabled={isLocked}
-                                onChange={(e) => updateRowField(index, "product_code", e.target.value)}
-                                onBlur={(e) => fetchProductByCode(index, e.target.value.trim())}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    fetchProductByCode(index, e.target.value.trim());
-                                  }
-                                }}
-                                placeholder="Code + Enter"
-                                title="Enter product code and press Enter or Tab to auto-fill product details"
-                                style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
-                              />
-                            </td>
+                            {isColumnVisible("product_code") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <input
+                                  type="text"
+                                  value={item.product_code}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateRowField(index, "product_code", e.target.value)}
+                                  onBlur={(e) => fetchProductByCode(index, e.target.value.trim())}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      fetchProductByCode(index, e.target.value.trim());
+                                    }
+                                  }}
+                                  placeholder="Code + Enter"
+                                  title="Enter product code and press Enter or Tab to auto-fill product details"
+                                  style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                />
+                              </td>
+                            )}
                             {/* Barcode */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <input
-                                type="text"
-                                value={item.barcode}
-                                disabled={isLocked}
-                                placeholder="Optional"
-                                onChange={(e) => updateRowField(index, "barcode", e.target.value)}
-                                style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
-                              />
-                            </td>
+                            {isColumnVisible("barcode") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <input
+                                  type="text"
+                                  value={item.barcode}
+                                  disabled={isLocked}
+                                  placeholder="Optional"
+                                  onChange={(e) => updateRowField(index, "barcode", e.target.value)}
+                                  style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                />
+                              </td>
+                            )}
                             {/* Category */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <select
-                                value={item.category_id || ""}
-                                disabled={isLocked || !selectedCompany}
-                                onChange={(e) => handleCategoryChange(index, e.target.value)}
-                                style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
-                              >
-                                <option value="">Select Category (Opt)</option>
-                                {categories.map(c => (
-                                  <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                              </select>
-                            </td>
+                            {isColumnVisible("category") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <select
+                                  value={item.category_id || ""}
+                                  disabled={isLocked || !selectedCompany}
+                                  onChange={(e) => handleCategoryChange(index, e.target.value)}
+                                  style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                >
+                                  <option value="">Select Category (Opt)</option>
+                                  {categories.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                  ))}
+                                </select>
+                              </td>
+                            )}
                             {/* Subcategory */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <select
-                                value={item.subcategory_id || ""}
-                                disabled={isLocked || !item.category_id}
-                                onChange={(e) => handleSubcategoryChange(index, e.target.value)}
-                                style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
-                              >
-                                <option value="">Select Subcategory (Opt)</option>
-                                {(companySubcategories[item.category_id] || []).map(s => (
-                                  <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                              </select>
-                            </td>
+                            {isColumnVisible("subcategory") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <select
+                                  value={item.subcategory_id || ""}
+                                  disabled={isLocked || !item.category_id}
+                                  onChange={(e) => handleSubcategoryChange(index, e.target.value)}
+                                  style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                >
+                                  <option value="">Select Subcategory (Opt)</option>
+                                  {(companySubcategories[item.category_id] || []).map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                  ))}
+                                </select>
+                              </td>
+                            )}
                             {/* Brand */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <select
-                                value={item.brand_id || ""}
-                                disabled={isLocked || !item.subcategory_id}
-                                onChange={(e) => handleBrandChange(index, e.target.value)}
-                                style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
-                              >
-                                <option value="">Select Brand (Opt)</option>
-                                {(companyBrands[`${item.category_id}-${item.subcategory_id}`] || []).map(b => (
-                                  <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                              </select>
-                            </td>
+                            {isColumnVisible("brand") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <select
+                                  value={item.brand_id || ""}
+                                  disabled={isLocked || !item.subcategory_id}
+                                  onChange={(e) => handleBrandChange(index, e.target.value)}
+                                  style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                >
+                                  <option value="">Select Brand (Opt)</option>
+                                  {(companyBrands[`${item.category_id}-${item.subcategory_id}`] || []).map(b => (
+                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                  ))}
+                                </select>
+                              </td>
+                            )}
                             {/* Price */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <input
-                                type="text"
-                                value={item.price}
-                                disabled={isLocked}
-                                onChange={(e) => updateRowField(index, "price", e.target.value)}
-                                style={{ width: "100%", padding: "6px 8px", border: isRowErrored && (item.price === undefined || item.price === null || parseFloat(item.price) <= 0) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
-                              />
-                            </td>
+                            {isColumnVisible("supplier_price") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <input
+                                  type="text"
+                                  value={item.price}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateRowField(index, "price", e.target.value)}
+                                  style={{ width: "100%", padding: "6px 8px", border: isRowErrored && (item.price === undefined || item.price === null || parseFloat(item.price) <= 0) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                />
+                              </td>
+                            )}
                             {/* Selling Price */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <input
-                                type="text"
-                                value={item.selling_price}
-                                disabled={isLocked}
-                                onChange={(e) => updateRowField(index, "selling_price", e.target.value)}
-                                style={{ width: "100%", padding: "6px 8px", border: isRowErrored && (item.selling_price === undefined || item.selling_price === null || parseFloat(item.selling_price) <= 0) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
-                              />
-                            </td>
+                            {isColumnVisible("selling_price") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <input
+                                  type="text"
+                                  value={item.selling_price}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateRowField(index, "selling_price", e.target.value)}
+                                  style={{ width: "100%", padding: "6px 8px", border: isRowErrored && (item.selling_price === undefined || item.selling_price === null || parseFloat(item.selling_price) <= 0) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                />
+                              </td>
+                            )}
                             {/* Selling Price per Unit */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <select
-                                value={item.selling_price_per_unit || ""}
-                                disabled={isLocked}
-                                onChange={(e) => updateRowField(index, "selling_price_per_unit", e.target.value)}
-                                style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
-                              >
-                                <option value="">Select Unit</option>
-                                {unitOptions.map(opt => (
-                                  <option key={opt} value={`per ${opt}`}>per {opt}</option>
-                                ))}
-                              </select>
-                            </td>
+                            {isColumnVisible("selling_price_unit") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <select
+                                  value={item.selling_price_per_unit || ""}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateRowField(index, "selling_price_per_unit", e.target.value)}
+                                  style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                >
+                                  <option value="">Select Unit</option>
+                                  {unitOptions.map(opt => (
+                                    <option key={opt} value={`per ${opt}`}>per {opt}</option>
+                                  ))}
+                                </select>
+                              </td>
+                            )}
                             {/* Qty */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <input
-                                type="number"
-                                value={item.quantity}
-                                disabled={isLocked}
-                                onChange={(e) => updateRowField(index, "quantity", parseInt(e.target.value) || 0)}
-                                style={{ width: "100%", padding: "6px 8px", border: isRowErrored && (item.quantity === undefined || item.quantity === null || parseInt(item.quantity) <= 0) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
-                              />
-                            </td>
+                            {isColumnVisible("quantity") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <input
+                                  type="number"
+                                  value={item.quantity}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateRowField(index, "quantity", parseInt(e.target.value) || 0)}
+                                  style={{ width: "100%", padding: "6px 8px", border: isRowErrored && (item.quantity === undefined || item.quantity === null || parseInt(item.quantity) <= 0) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                />
+                              </td>
+                            )}
                             {/* Unit */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <select
-                                value={item.unit || ""}
-                                disabled={isLocked}
-                                onChange={(e) => updateRowField(index, "unit", e.target.value)}
-                                style={{ width: "100%", padding: "6px 4px", border: isRowErrored && (!item.unit || !item.unit.trim()) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
-                              >
-                                <option value="">Select Unit</option>
-                                {unitOptions.map(opt => (
-                                  <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                              </select>
-                            </td>
+                            {isColumnVisible("unit") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <select
+                                  value={item.unit || ""}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateRowField(index, "unit", e.target.value)}
+                                  style={{ width: "100%", padding: "6px 4px", border: isRowErrored && (!item.unit || !item.unit.trim()) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                >
+                                  <option value="">Select Unit</option>
+                                  {unitOptions.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              </td>
+                            )}
                             {/* GST */}
-                            <td style={{ padding: "6px 5px" }}>
-                              <input
-                                type="number"
-                                value={item.gst_percentage}
-                                disabled={isLocked}
-                                onChange={(e) => updateRowField(index, "gst_percentage", parseFloat(e.target.value) || 0)}
-                                style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
-                              />
-                            </td>
+                            {isColumnVisible("gst_percentage") && (
+                              <td style={{ padding: "6px 5px" }}>
+                                <input
+                                  type="number"
+                                  value={item.gst_percentage}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateRowField(index, "gst_percentage", parseFloat(e.target.value) || 0)}
+                                  style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                />
+                              </td>
+                            )}
                             {/* Action delete */}
                             {!isLocked && (
                               <td style={{ padding: "8px 10px", textAlign: "center" }}>
@@ -1315,90 +1381,120 @@ export default function PurchaseForm() {
               </div>
             </div>
 
-            {/* Invoice Summary Card */}
-            <div style={{ background: "#ffffff", padding: "20px", borderRadius: "20px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.01)" }}>
-              <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#1e293b", marginBottom: "15px" }}>Bill Summary</h3>
+            {/* Standardized Purchase Summary Card */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Purchase Summary</span>
+                <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                  INR Currency
+                </span>
+              </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", borderBottom: "1px solid #f1f5f9", paddingBottom: "15px", marginBottom: "15px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#64748b" }}>
-                  <span>Total Items:</span>
-                  <span style={{ fontWeight: "600", color: "#334155" }}>{items.reduce((s, i) => s + i.quantity, 0)}</span>
+              {/* Items Count, Subtotal & GST Total */}
+              <div className="space-y-2.5 text-xs font-semibold text-slate-600">
+                <div className="flex justify-between items-center">
+                  <span>Total Items</span>
+                  <span className="font-bold text-slate-900">{items.reduce((s, i) => s + (Number(i.quantity) || 0), 0)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#64748b" }}>
-                  <span>Subtotal:</span>
-                  <span style={{ fontWeight: "600", color: "#334155" }}>₹{subTotal.toFixed(2)}</span>
+                <div className="flex justify-between items-center">
+                  <span>Subtotal (Purchase Cost)</span>
+                  <span className="font-bold text-slate-900">₹ {subTotal.toFixed(2)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#64748b" }}>
-                  <span>GST Total:</span>
-                  <span style={{ fontWeight: "600", color: "#334155" }}>₹{gstTotal.toFixed(2)}</span>
+                <div className="flex justify-between items-center">
+                  <span>Total Tax (GST)</span>
+                  <span className={`font-bold ${gstTotal > 0 ? "text-emerald-700" : "text-slate-700"}`}>
+                    {gstTotal > 0 ? `+ ₹ ${gstTotal.toFixed(2)}` : "₹ 0.00"}
+                  </span>
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "800", color: "#0f172a", marginBottom: "20px" }}>
-                <span>Grand Total:</span>
-                <span style={{ color: "#10b981" }}>₹{grandTotal.toFixed(2)}</span>
+              {/* Grand Total Hero Box */}
+              <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">Grand Total</span>
+                  <span className="text-2xl font-black tracking-tight">
+                    ₹ {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
+                    Purchase Bill
+                  </span>
+                </div>
               </div>
 
-              {!isLocked && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "5px", marginBottom: "20px" }}>
-                  <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Paid Amount</label>
-                  <input
-                    type="number"
-                    value={paidAmount}
-                    onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                    className="purchase-form-input"
-                  />
+              {/* Settlement: Paid Amount & Remaining Balance */}
+              {!isLocked ? (
+                <div className="pt-2 space-y-2 border-t border-slate-100 text-xs">
+                  <div className="flex justify-between items-center">
+                    <label className="font-bold text-slate-700 uppercase text-[11px]">Paid Amount</label>
+                    <div className="relative w-32">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={paidAmount || ""}
+                        onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full pl-6 pr-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 text-right outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-slate-600">Remaining Balance Due</span>
+                    <span className={`text-xs ${Math.max(0, grandTotal - paidAmount) > 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                      ₹ {Math.max(0, grandTotal - paidAmount).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs font-bold">
+                  <span className="text-slate-600">Paid Amount</span>
+                  <span className="text-slate-900">₹ {Number(paidAmount || 0).toFixed(2)}</span>
                 </div>
               )}
 
               {/* Action Buttons */}
               {!isLocked ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div className="space-y-2 pt-2">
                   <button
+                    type="button"
                     onClick={handleSubmitPurchase}
                     disabled={saving}
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      borderRadius: "12px",
-                      background: "#10b981",
-                      color: "#ffffff",
-                      border: "none",
-                      fontSize: "14px",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      boxShadow: "0 4px 12px rgba(16,185,129,0.15)"
-                    }}
+                    className="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     {saving ? "Processing..." : "Submit to Inventory"}
                   </button>
                   <button
+                    type="button"
                     onClick={handleSaveDraft}
                     disabled={saving}
-                    style={{
-                      width: "100%",
-                      padding: "11px",
-                      borderRadius: "12px",
-                      background: "#ffffff",
-                      color: "#475569",
-                      border: "1.5px solid #cbd5e1",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      cursor: "pointer"
-                    }}
+                    className="w-full py-2 px-4 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer disabled:opacity-50"
                   >
                     Save as Draft
                   </button>
                 </div>
               ) : (
-                <div style={{ padding: "12px", borderRadius: "10px", backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0", color: "#15803d", fontWeight: "700", fontSize: "14px", textAlign: "center" }}>
-                  Bill Submitted to Inventory ✓
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs text-center flex items-center justify-center gap-1.5">
+                  <CheckCircle2 size={14} />
+                  <span>Bill Submitted to Inventory</span>
                 </div>
               )}
             </div>
           </div>
         </div>
       )}
+
+      {/* Column Customization Drawer */}
+      <CommonTableColumnSettings
+        isOpen={isSettingsOpen}
+        onClose={closeSettings}
+        columns={tableColumns}
+        onToggleColumn={toggleColumn}
+        onResetColumns={resetColumns}
+        title="Customize Invoice Item Columns"
+      />
     </div>
   );
 }

@@ -14,8 +14,28 @@ import {
   Share2,
   MoreVertical,
   Pencil,
+  User,
+  MapPin,
+  Layers,
+  IndianRupee,
+  CheckCircle2,
+  SlidersHorizontal,
 } from "lucide-react";
-import ShareTransactionPopover from "../../../components/ShareTransactionPopover";
+import TableActions from "../../../components/ui/TableActions";
+import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
+import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
+import useTableColumns from "../../../hooks/useTableColumns";
+
+const DEFAULT_COLUMNS = [
+  { key: "ref_no", label: "Ref No", icon: FileText, color: "text-blue-600", bg: "bg-blue-50", desc: "Reference quote number" },
+  { key: "date", label: "Date", icon: Calendar, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Quotation date" },
+  { key: "customer", label: "Customer", icon: User, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Customer name & contact" },
+  { key: "state", label: "State", icon: MapPin, color: "text-amber-600", bg: "bg-amber-50", desc: "State of supply" },
+  { key: "items", label: "Items", icon: Layers, color: "text-purple-600", bg: "bg-purple-50", desc: "Total item count" },
+  { key: "amount", label: "Amount", icon: IndianRupee, color: "text-teal-600", bg: "bg-teal-50", desc: "Total estimated value" },
+  { key: "status", label: "Status", icon: CheckCircle2, color: "text-cyan-600", bg: "bg-cyan-50", desc: "Open or Converted status" },
+  { key: "actions", label: "Actions", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "Print, Share & More" },
+];
 
 const PERIOD_LABELS = {
   today: "Today",
@@ -31,8 +51,18 @@ const PERIOD_LABELS = {
 export default function EstimateQuotation() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
-  const adminId = user?.role === "admin" ? user?.id : user?.admin_id;
+  const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
   const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
+
+  // Table Column Customization Hook
+  const {
+    showColumnDrawer,
+    setShowColumnDrawer,
+    visibleColumns,
+    toggleColumn,
+    selectAllColumns,
+    resetDefaultColumns,
+  } = useTableColumns("estimate_quotation_columns", DEFAULT_COLUMNS);
 
   // Header filters
   const [period, setPeriod] = useState("this_month");
@@ -52,11 +82,6 @@ export default function EstimateQuotation() {
   // Actions & Modals
   const [actionToast, setActionToast] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [menuAnchor, setMenuAnchor] = useState(null); // { id, x, y } for the fixed 3-dot popup
-  const [activeShareId, setActiveShareId] = useState(null);
-  const menuRef = useRef(null);
-
-  const MORE_MENU_WIDTH = 176;
 
   const ESTIMATE_STORAGE_KEY = "saved_estimates";
 
@@ -183,24 +208,7 @@ export default function EstimateQuotation() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Close the 3-dot menu when the page scrolls so it never floats away
-  useEffect(() => {
-    const onScroll = () => setMenuAnchor(null);
-    window.addEventListener("scroll", onScroll, true);
-    return () => window.removeEventListener("scroll", onScroll, true);
-  }, []);
 
-  // Open the Canva-style popup fixed to the clicked 3-dot button
-  const toggleMoreMenu = (e, est) => {
-    if (menuAnchor && menuAnchor.id === est.id) {
-      setMenuAnchor(null);
-      return;
-    }
-    const rect = e.currentTarget.getBoundingClientRect();
-    let left = rect.right - MORE_MENU_WIDTH;
-    if (left < 12) left = 12;
-    setMenuAnchor({ id: est.id, x: left, y: rect.bottom + 6 });
-  };
 
   // Print a single estimate in a printable window
   const printEstimate = (est) => {
@@ -342,32 +350,7 @@ export default function EstimateQuotation() {
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 {docType}s &amp; Quotations
               </h1>
-              <div ref={typeRef} className="relative">
-                <button
-                  onClick={() => setTypeOpen((v) => !v)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
-                  title="Switch document type"
-                >
-                  <span>{docType}</span>
-                  <ChevronDown size={13} className={`transition-transform duration-200 ${typeOpen ? "rotate-180" : ""}`} />
-                </button>
-                {typeOpen && (
-                  <div className="absolute left-0 top-8 w-44 bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
-                    {docTypeOptions.map((t) => (
-                      <div
-                        key={t}
-                        onClick={() => { setDocType(t); setTypeOpen(false); }}
-                        className={`px-3.5 py-2 text-xs font-semibold cursor-pointer transition flex items-center justify-between ${
-                          docType === t ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span>{t}</span>
-                        {docType === t && <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+             
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               Manage, print, and track all sales estimates and quotation proposals
@@ -376,6 +359,11 @@ export default function EstimateQuotation() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <HeaderSettingsButton
+            onClick={() => setShowColumnDrawer(true)}
+            isActive={showColumnDrawer}
+          />
+
           <button
             onClick={handleAddEstimate}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
@@ -610,150 +598,98 @@ export default function EstimateQuotation() {
             <table className="w-full text-left text-xs min-w-max">
               <thead>
                 <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                  <th className="py-3.5 px-4">Ref&nbsp;No</th>
-                  <th className="py-3.5 px-4">Date</th>
-                  <th className="py-3.5 px-4">Customer</th>
-                  <th className="py-3.5 px-4">State</th>
-                  <th className="py-3.5 px-4 text-center">Items</th>
-                  <th className="py-3.5 px-4 text-right">Amount</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
+                  {visibleColumns.ref_no && <th className="py-3.5 px-4">Ref&nbsp;No</th>}
+                  {visibleColumns.date && <th className="py-3.5 px-4">Date</th>}
+                  {visibleColumns.customer && <th className="py-3.5 px-4">Customer</th>}
+                  {visibleColumns.state && <th className="py-3.5 px-4">State</th>}
+                  {visibleColumns.items && <th className="py-3.5 px-4 text-center">Items</th>}
+                  {visibleColumns.amount && <th className="py-3.5 px-4 text-right">Amount</th>}
+                  {visibleColumns.status && <th className="py-3.5 px-4 text-center">Status</th>}
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredEstimates.map((est) => (
                   <tr key={est.id} className="hover:bg-indigo-50/20 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-indigo-600">
-                      #{est.refNo || est.id}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">{formatDateDMY(est.invoiceDate)}</td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-900">{est.customer_name}</div>
-                      {est.customer_phone && <div className="text-[11px] text-slate-400 font-normal">{est.customer_phone}</div>}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">{est.stateOfSupply || "-"}</td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
-                        {Array.isArray(est.rows) ? est.rows.length : 0}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-black text-slate-900">
-                      {formatCurrency(est.total_amount)}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          est.status === "converted"
-                            ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                            : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
-                        }`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${est.status === "converted" ? "bg-emerald-600" : "bg-indigo-600"}`} />
-                        {est.status || "open"}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center justify-end gap-1">
-                        {/* Print */}
-                        <button
-                          onClick={() => printEstimate(est)}
-                          className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                          title="Print Quotation"
-                        >
-                          <Printer size={15} />
-                        </button>
-
-                        {/* Share with Popover */}
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveShareId(activeShareId === est.id ? null : est.id);
-                            }}
-                            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                            title="Share via WhatsApp"
-                          >
-                            <Share2 size={15} />
-                          </button>
-                          <ShareTransactionPopover
-                            isOpen={activeShareId === est.id}
-                            onClose={() => setActiveShareId(null)}
-                            transaction={{
-                              refNo: est.refNo,
-                              customer_name: est.customer_name,
-                              customer_phone: est.customer_phone,
-                              date: est.invoiceDate,
-                              total_amount: est.total_amount,
-                              payment_type: "Estimate",
-                            }}
-                            type="Estimate"
-                          />
-                        </div>
-
-                        {/* 3-Dot More Menu */}
-                        <div className="relative">
-                          <button
-                            onClick={(e) => toggleMoreMenu(e, est)}
-                            data-more-trigger
-                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
-                              menuAnchor && menuAnchor.id === est.id
-                                ? "text-indigo-600 bg-indigo-50"
-                                : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-                            }`}
-                            title="More actions"
-                          >
-                            <MoreVertical size={15} />
-                          </button>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* ── Floating Actions Popup ── */}
-                    {menuAnchor && menuAnchor.id === est.id && (
-                      <div
-                        ref={menuRef}
-                        style={{ top: menuAnchor.y, left: menuAnchor.x, width: MORE_MENU_WIDTH }}
-                        className="fixed z-[80] bg-white rounded-2xl border border-slate-100 shadow-2xl shadow-slate-300/40 py-1.5 animate-in fade-in zoom-in-95 duration-100"
-                      >
-                        {/* Edit */}
-                        <button
-                          onClick={() => {
-                            setMenuAnchor(null);
-                            navigate(`/sales/estimate-quotation/add/${est.id}`);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left cursor-pointer"
-                        >
-                          <Pencil size={14} className="text-indigo-600 flex-shrink-0" />
-                          <span>Edit Details</span>
-                        </button>
-
-                        {/* View Quotation */}
-                        <button
-                          onClick={() => {
-                            setMenuAnchor(null);
-                            printEstimate(est);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition text-left cursor-pointer"
-                        >
-                          <Eye size={14} className="text-slate-600 flex-shrink-0" />
-                          <span>View &amp; Print</span>
-                        </button>
-
-                        <div className="mx-3 my-1 border-t border-slate-100" />
-
-                        {/* Delete */}
-                        <button
-                          onClick={() => {
-                            setMenuAnchor(null);
-                            setDeleteTarget(est);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer"
-                        >
-                          <Trash2 size={14} className="text-rose-500 flex-shrink-0" />
-                          <span>Delete</span>
-                        </button>
-                      </div>
+                    {visibleColumns.ref_no && (
+                      <td className="py-3.5 px-4 font-bold text-indigo-600">
+                        #{est.refNo || est.id}
+                      </td>
                     )}
+                    {visibleColumns.date && (
+                      <td className="py-3.5 px-4 text-slate-600">{formatDateDMY(est.invoiceDate)}</td>
+                    )}
+                    {visibleColumns.customer && (
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-slate-900">{est.customer_name}</div>
+                        {est.customer_phone && <div className="text-[11px] text-slate-400 font-normal">{est.customer_phone}</div>}
+                      </td>
+                    )}
+                    {visibleColumns.state && (
+                      <td className="py-3.5 px-4 text-slate-600">{est.stateOfSupply || "-"}</td>
+                    )}
+                    {visibleColumns.items && (
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
+                          {Array.isArray(est.rows) ? est.rows.length : 0}
+                        </span>
+                      </td>
+                    )}
+                    {visibleColumns.amount && (
+                      <td className="py-3.5 px-4 text-right font-black text-slate-900">
+                        {formatCurrency(est.total_amount)}
+                      </td>
+                    )}
+                    {visibleColumns.status && (
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            est.status === "converted"
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                              : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${est.status === "converted" ? "bg-emerald-600" : "bg-indigo-600"}`} />
+                          {est.status || "open"}
+                        </span>
+                      </td>
+                    )}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <TableActions
+                        onPrint={() => printEstimate(est)}
+                        printTitle="Print Quotation"
+                        shareTransaction={{
+                          refNo: est.refNo,
+                          customer_name: est.customer_name,
+                          customer_phone: est.customer_phone,
+                          date: est.invoiceDate,
+                          total_amount: est.total_amount,
+                          payment_type: "Estimate",
+                        }}
+                        shareType="Estimate"
+                        onViewInvoice={() => printEstimate(est)}
+                        viewInvoiceLabel="View Invoice"
+                        menuItems={[
+                          {
+                            label: "Edit",
+                            icon: Pencil,
+                            onClick: () => navigate(`/sales/estimate-quotation/add/${est.id}`),
+                          },
+                          {
+                            label: "View Invoice",
+                            icon: Eye,
+                            onClick: () => printEstimate(est),
+                          },
+                          { isDivider: true },
+                          {
+                            label: "Delete",
+                            icon: Trash2,
+                            isDanger: true,
+                            onClick: () => setDeleteTarget(est),
+                          },
+                        ]}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -816,6 +752,17 @@ export default function EstimateQuotation() {
           {actionToast}
         </div>
       )}
+
+      {/* ── COLUMN CUSTOMIZATION DRAWER ── */}
+      <CommonTableColumnSettings
+        isOpen={showColumnDrawer}
+        onClose={() => setShowColumnDrawer(false)}
+        columns={DEFAULT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={toggleColumn}
+        onSelectAll={selectAllColumns}
+        onReset={resetDefaultColumns}
+      />
     </div>
   );
 }
