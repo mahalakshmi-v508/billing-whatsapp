@@ -315,84 +315,84 @@ export default function MainLayout() {
     // ADMIN ONLY
     ...(role === "admin"
       ? [
-          { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
-          {
-            name: "Customer & CRM",
-            icon: <User size={18} />,
-            isDropdown: true,
-            dropdownKey: "customer",
-            subItems: [
-              { name: "Customer Directory", path: "/customer", altPaths: ["/customer", "/customer/add", "/customer/edit"] },
-              { name: "WhatsApp Connect", path: "/whatsapp", altPaths: ["/whatsapp"] },
-            ],
-          },
-          {
-            name: "Sales & Invoicing",
-            icon: <SaleIcon size={18} />,
-            isDropdown: true,
-            dropdownKey: "sale",
-            subItems: [
-              { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/sales/add", "/sales/edit"] },
-              { name: "Estimate / Quotation", path: "/sales/estimate-quotation", altPaths: ["/sales/estimate-quotation"] },
-              { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
-              { name: "Sale Return / Cr. Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
-              ...saleSubItemsFromSettings,
-            ],
-          },
-          {
-            name: "Purchase & Expenses",
-            icon: <ShoppingCart size={18} />,
-            isDropdown: true,
-            dropdownKey: "purchase",
-            subItems: [
-              { name: "Purchase Bills", path: "/purchases", altPaths: ["/purchases", "/purchases/bills", "/purchases/new"] },
-              { name: "Payment-Out", path: "/purchases/payment-out" },
-              { name: "Expense Vouchers", path: "/purchases/expenses", altPaths: ["/purchases/expenses", "/purchases/expenses/add"] },
-              { name: "Purchase Return / Dr. Note", path: "/purchases/return", altPaths: ["/purchases/return", "/purchases/debit-note/add"] },
-            ],
-          },
-          { name: "Inventory Products", path: "/products", icon: <PackageSearch size={18} /> },
-          { name: "E-Way Bills", path: "/e-way", icon: <Truck size={18} /> },
-          {
-            name: "Companies & Staff",
-            icon: <Building2 size={18} />,
-            isDropdown: true,
-            dropdownKey: "accounts",
-            subItems: [
-              { name: "Company Settings", path: "/company", altPaths: ["/company", "/company/add", "/company/edit"] },
-              { name: "Cashier Accounts", path: "/cashier", altPaths: ["/cashier", "/cashier/add", "/cashier/edit"] },
-            ],
-          },
-          { name: "Analytics & Reports", path: "/reports", icon: <BarChart3 size={18} /> },
-          { name: "Settings", path: "/settings", icon: <Settings size={18} /> },
-        ]
+        { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
+        {
+          name: "Customer & CRM",
+          icon: <User size={18} />,
+          isDropdown: true,
+          dropdownKey: "customer",
+          subItems: [
+            { name: "Customer Directory", path: "/customer", altPaths: ["/customer", "/customer/add", "/customer/edit"] },
+            { name: "WhatsApp Connect", path: "/whatsapp", altPaths: ["/whatsapp"] },
+          ],
+        },
+        {
+          name: "Sales & Invoicing",
+          icon: <SaleIcon size={18} />,
+          isDropdown: true,
+          dropdownKey: "sale",
+          subItems: [
+            { name: "Sale Invoices", path: "/sales/invoices", altPaths: ["/sales/invoices", "/sales/add", "/sales/edit"] },
+            { name: "Estimate / Quotation", path: "/sales/estimate-quotation", altPaths: ["/sales/estimate-quotation"] },
+            { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
+            { name: "Sale Return / Cr. Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
+            ...saleSubItemsFromSettings,
+          ],
+        },
+        {
+          name: "Purchase & Expenses",
+          icon: <ShoppingCart size={18} />,
+          isDropdown: true,
+          dropdownKey: "purchase",
+          subItems: [
+            { name: "Purchase Bills", path: "/purchases", altPaths: ["/purchases", "/purchases/bills", "/purchases/new"] },
+            { name: "Payment-Out", path: "/purchases/payment-out" },
+            { name: "Expense Vouchers", path: "/purchases/expenses", altPaths: ["/purchases/expenses", "/purchases/expenses/add"] },
+            { name: "Purchase Return / Dr. Note", path: "/purchases/return", altPaths: ["/purchases/return", "/purchases/debit-note/add"] },
+          ],
+        },
+        { name: "Inventory Products", path: "/products", icon: <PackageSearch size={18} /> },
+        { name: "E-Way Bills", path: "/e-way", icon: <Truck size={18} /> },
+        {
+          name: "Companies & Staff",
+          icon: <Building2 size={18} />,
+          isDropdown: true,
+          dropdownKey: "accounts",
+          subItems: [
+            { name: "Company Settings", path: "/company", altPaths: ["/company", "/company/add", "/company/edit"] },
+            { name: "Cashier Accounts", path: "/cashier", altPaths: ["/cashier", "/cashier/add", "/cashier/edit"] },
+          ],
+        },
+        { name: "Analytics & Reports", path: "/reports", icon: <BarChart3 size={18} /> },
+        { name: "Settings", path: "/settings", icon: <Settings size={18} /> },
+      ]
       : []),
 
     // SUPERADMIN ONLY
     ...(role === "superadmin"
       ? [
-          { name: "Admin List", path: "/admin", icon: <UserCog size={18} /> },
-          { name: "Cashier Requests", path: "/cashier-requests", icon: <ClipboardList size={18} /> },
-          { name: "Company Requests", path: "/company-requests", icon: <Building size={18} /> },
-        ]
+        { name: "Admin List", path: "/admin", icon: <UserCog size={18} /> },
+        { name: "Cashier Requests", path: "/cashier-requests", icon: <ClipboardList size={18} /> },
+        { name: "Company Requests", path: "/company-requests", icon: <Building size={18} /> },
+      ]
       : []),
 
     // CASHIER ONLY
     ...(role === "cashier"
       ? [
-          { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
-          { name: "Point of Sale (POS)", path: "/billing", icon: <ReceiptText size={18} /> },
-          { name: "Reports", path: "/reports", icon: <BarChart3 size={18} /> },
-          { name: "Pending Invoices", path: "/payment-pending", icon: <AlertCircle size={18} /> },
-        ]
+        { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
+        { name: "Point of Sale (POS)", path: "/billing", icon: <ReceiptText size={18} /> },
+        { name: "Reports", path: "/reports", icon: <BarChart3 size={18} /> },
+        { name: "Pending Invoices", path: "/payment-pending", icon: <AlertCircle size={18} /> },
+      ]
       : []),
 
     // DEVELOPER ONLY
     ...(role === "developer"
       ? [
-          { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
-          { name: "Reports", path: "/reports", icon: <BarChart3 size={18} /> },
-        ]
+        { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
+        { name: "Reports", path: "/reports", icon: <BarChart3 size={18} /> },
+      ]
       : []),
 
     // SUPPORT / HELPDESK (LAST ITEM COMMON FOR ALL ROLES)
@@ -468,11 +468,10 @@ export default function MainLayout() {
               <button
                 key={tab.id}
                 onClick={() => setSettingsTab(tab.id)}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition cursor-pointer flex items-center gap-2.5 ${
-                  settingsTab === tab.id
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition cursor-pointer flex items-center gap-2.5 ${settingsTab === tab.id
                     ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-semibold"
                     : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-                }`}
+                  }`}
               >
                 {tab.icon && <span className="opacity-80">{tab.icon}</span>}
                 <span className="truncate">{tab.label}</span>
@@ -486,9 +485,8 @@ export default function MainLayout() {
           initial={false}
           animate={{ width: isCollapsed ? 76 : 270 }}
           transition={{ duration: 0.22, ease: "easeInOut" }}
-          className={`bg-[#0b0f19] text-white flex flex-col flex-shrink-0 h-screen border-r border-white/5 relative select-none ${
-            isCollapsed ? "px-2.5 py-5" : "px-4 py-5"
-          }`}
+          className={`bg-[#0b0f19] text-white flex flex-col flex-shrink-0 h-screen border-r border-white/5 relative select-none ${isCollapsed ? "px-2.5 py-5" : "px-4 py-5"
+            }`}
         >
           {/* BRAND LOGO AREA */}
           <div className="flex items-center justify-between mb-5 pb-4 border-b border-white/5">
@@ -612,10 +610,10 @@ export default function MainLayout() {
                   (item.dropdownKey === "purchase"
                     ? purchaseOpen
                     : item.dropdownKey === "accounts"
-                    ? accountsOpen
-                    : item.dropdownKey === "customer"
-                    ? customerOpen
-                    : saleOpen);
+                      ? accountsOpen
+                      : item.dropdownKey === "customer"
+                        ? customerOpen
+                        : saleOpen);
 
                 const toggleDropdown = () => {
                   if (item.dropdownKey === "purchase") setPurchaseOpen((prev) => !prev);
@@ -630,11 +628,10 @@ export default function MainLayout() {
                       key={item.name}
                       onClick={() => navigate(item.subItems[0]?.path || "/dashboard")}
                       title={item.name}
-                      className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${
-                        isDropdownItemActive
+                      className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${isDropdownItemActive
                           ? "bg-indigo-600 text-white shadow-glow-brand"
                           : "text-slate-400 hover:text-white hover:bg-white/5"
-                      }`}
+                        }`}
                     >
                       {item.icon}
                     </div>
@@ -646,11 +643,10 @@ export default function MainLayout() {
                     <button
                       type="button"
                       onClick={toggleDropdown}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition cursor-pointer select-none ${
-                        isDropdownItemActive
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition cursor-pointer select-none ${isDropdownItemActive
                           ? "text-white bg-white/5 font-semibold"
                           : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className={isDropdownItemActive ? "text-indigo-400" : "text-slate-400"}>
@@ -660,9 +656,8 @@ export default function MainLayout() {
                       </div>
                       <ChevronDown
                         size={14}
-                        className={`transition-transform duration-200 text-slate-400 ${
-                          isOpen ? "rotate-180 text-white" : ""
-                        }`}
+                        className={`transition-transform duration-200 text-slate-400 ${isOpen ? "rotate-180 text-white" : ""
+                          }`}
                       />
                     </button>
 
@@ -685,11 +680,10 @@ export default function MainLayout() {
                                 key={sub.name}
                                 type="button"
                                 onClick={() => navigate(sub.path)}
-                                className={`w-full text-left py-2 px-3 rounded-lg text-xs font-medium cursor-pointer transition flex items-center gap-2 ${
-                                  isSubActive
+                                className={`w-full text-left py-2 px-3 rounded-lg text-xs font-medium cursor-pointer transition flex items-center gap-2 ${isSubActive
                                     ? "bg-indigo-600 text-white font-semibold shadow-sm"
                                     : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-                                }`}
+                                  }`}
                               >
                                 {isSubActive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
                                 <span className="truncate">{sub.name}</span>
@@ -713,11 +707,10 @@ export default function MainLayout() {
                     key={item.path}
                     onClick={() => navigate(item.path)}
                     title={item.name}
-                    className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${
-                      isActive
+                    className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${isActive
                         ? "bg-indigo-600 text-white shadow-glow-brand"
                         : "text-slate-400 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     {item.icon}
                   </div>
@@ -729,11 +722,10 @@ export default function MainLayout() {
                   key={item.path}
                   type="button"
                   onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] cursor-pointer transition select-none ${
-                    isActive
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] cursor-pointer transition select-none ${isActive
                       ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-semibold shadow-glow-brand"
                       : "text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium"
-                  }`}
+                    }`}
                 >
                   <span className={isActive ? "text-white" : "text-slate-400"}>
                     {item.icon}
