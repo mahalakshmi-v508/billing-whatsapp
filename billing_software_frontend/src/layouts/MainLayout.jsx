@@ -113,7 +113,7 @@ function getHeaderBreadcrumbs(pathname) {
   if (pathname.startsWith("/billing")) {
     return { section: "POS Terminal", title: "POS Counter Billing", icon: Store };
   }
-  return { section: "Workspace", title: "Smart Ledger", icon: Home };
+  return { section: "Workspace", title: "Cashio", icon: Home };
 }
 
 // 🎟️ Sale Ticket Icon
@@ -469,8 +469,8 @@ export default function MainLayout() {
                 key={tab.id}
                 onClick={() => setSettingsTab(tab.id)}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition cursor-pointer flex items-center gap-2.5 ${settingsTab === tab.id
-                    ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-semibold"
-                    : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                  ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-semibold"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
                   }`}
               >
                 {tab.icon && <span className="opacity-80">{tab.icon}</span>}
@@ -498,7 +498,7 @@ export default function MainLayout() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-display font-bold text-white text-[15px] tracking-tight truncate">
-                      Smart Ledger
+                      Cashio
                     </span>
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
                       v2.0
@@ -629,8 +629,8 @@ export default function MainLayout() {
                       onClick={() => navigate(item.subItems[0]?.path || "/dashboard")}
                       title={item.name}
                       className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${isDropdownItemActive
-                          ? "bg-indigo-600 text-white shadow-glow-brand"
-                          : "text-slate-400 hover:text-white hover:bg-white/5"
+                        ? "bg-indigo-600 text-white shadow-glow-brand"
+                        : "text-slate-400 hover:text-white hover:bg-white/5"
                         }`}
                     >
                       {item.icon}
@@ -644,8 +644,8 @@ export default function MainLayout() {
                       type="button"
                       onClick={toggleDropdown}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition cursor-pointer select-none ${isDropdownItemActive
-                          ? "text-white bg-white/5 font-semibold"
-                          : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                        ? "text-white bg-white/5 font-semibold"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                         }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -681,8 +681,8 @@ export default function MainLayout() {
                                 type="button"
                                 onClick={() => navigate(sub.path)}
                                 className={`w-full text-left py-2 px-3 rounded-lg text-xs font-medium cursor-pointer transition flex items-center gap-2 ${isSubActive
-                                    ? "bg-indigo-600 text-white font-semibold shadow-sm"
-                                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                                  ? "bg-indigo-600 text-white font-semibold shadow-sm"
+                                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                                   }`}
                               >
                                 {isSubActive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
@@ -708,8 +708,8 @@ export default function MainLayout() {
                     onClick={() => navigate(item.path)}
                     title={item.name}
                     className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${isActive
-                        ? "bg-indigo-600 text-white shadow-glow-brand"
-                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                      ? "bg-indigo-600 text-white shadow-glow-brand"
+                      : "text-slate-400 hover:text-white hover:bg-white/5"
                       }`}
                   >
                     {item.icon}
@@ -723,8 +723,8 @@ export default function MainLayout() {
                   type="button"
                   onClick={() => navigate(item.path)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] cursor-pointer transition select-none ${isActive
-                      ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-semibold shadow-glow-brand"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium"
+                    ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-semibold shadow-glow-brand"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium"
                     }`}
                 >
                   <span className={isActive ? "text-white" : "text-slate-400"}>

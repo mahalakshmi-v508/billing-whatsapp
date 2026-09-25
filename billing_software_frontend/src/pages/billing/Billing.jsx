@@ -51,26 +51,24 @@ function ToastPortal({ toasts }) {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`pointer-events-auto flex items-center gap-3 min-w-[280px] max-w-[380px] px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-4 duration-200 border ${
-            t.type === "success"
+          className={`pointer-events-auto flex items-center gap-3 min-w-[280px] max-w-[380px] px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-4 duration-200 border ${t.type === "success"
               ? "bg-slate-900/90 border-emerald-500/40 text-white"
               : t.type === "error"
-              ? "bg-red-950/90 border-red-500/40 text-white"
-              : t.type === "warning"
-              ? "bg-amber-950/90 border-amber-500/40 text-white"
-              : "bg-slate-900/90 border-indigo-500/40 text-white"
-          }`}
+                ? "bg-red-950/90 border-red-500/40 text-white"
+                : t.type === "warning"
+                  ? "bg-amber-950/90 border-amber-500/40 text-white"
+                  : "bg-slate-900/90 border-indigo-500/40 text-white"
+            }`}
         >
           <div
-            className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-              t.type === "success"
+            className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 ${t.type === "success"
                 ? "bg-emerald-500 text-white"
                 : t.type === "error"
-                ? "bg-red-500 text-white"
-                : t.type === "warning"
-                ? "bg-amber-500 text-white"
-                : "bg-indigo-500 text-white"
-            }`}
+                  ? "bg-red-500 text-white"
+                  : t.type === "warning"
+                    ? "bg-amber-500 text-white"
+                    : "bg-indigo-500 text-white"
+              }`}
           >
             {t.type === "success" ? "✓" : t.type === "error" ? "✕" : "!"}
           </div>
@@ -163,7 +161,7 @@ const HELP = {
 
 /* ── LocalStorage Helpers ───────────────────────────────────────────── */
 const LS_RECENT_KEY = "billing_recent_products";
-const LS_FREQ_KEY   = "billing_freq_products";
+const LS_FREQ_KEY = "billing_freq_products";
 
 function getRecent() {
   try { return JSON.parse(localStorage.getItem(LS_RECENT_KEY) || "[]"); } catch { return []; }
@@ -365,7 +363,7 @@ export default function Billing() {
       cart_product_ids: cartProductIds,
     }).then((res) => {
       if (res.data.status) setAiSuggestions(res.data.data || []);
-    }).catch(() => {});
+    }).catch(() => { });
   }, [selectedCompany, customer.id, validRows.length]);
 
   /* AI Anomaly check effect */
@@ -380,7 +378,7 @@ export default function Billing() {
         total_amount: total,
       }).then((res) => {
         if (res.data.status) setAiAnomalies(res.data.anomalies || []);
-      }).catch(() => {});
+      }).catch(() => { });
     }, 400);
     return () => clearTimeout(timer);
   }, [validRows, total]);
@@ -815,7 +813,7 @@ export default function Billing() {
     try {
       const res = await api.get(`/customer/get_customer_by_id?id=${id}`);
       if (res.data.status && res.data.data) return res.data.data;
-    } catch {}
+    } catch { }
     return null;
   };
 
@@ -903,7 +901,7 @@ export default function Billing() {
         setAddCustomerName(customer.name || "");
         setAddCustomerAddress("");
         setShowAddCustomer(true);
-      } catch {}
+      } catch { }
       setCustomerSearchLoading(false);
     }, 300);
   };
@@ -1079,11 +1077,10 @@ export default function Billing() {
                   <button
                     key={lang}
                     onClick={() => setHelpLang(lang)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      helpLang === lang
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${helpLang === lang
                         ? "bg-indigo-600 text-white shadow-xs"
                         : "bg-white/10 text-slate-300 hover:bg-white/15"
-                    }`}
+                      }`}
                   >
                     {lang === "en" ? "English" : "தமிழ்"}
                   </button>
@@ -1213,7 +1210,7 @@ export default function Billing() {
             </div>
             <div>
               <span className="font-display font-bold text-xs tracking-tight text-white block leading-tight">PaySplit POS</span>
-              <span className="text-[10px] text-indigo-400 font-medium tracking-wide block leading-none">Smart Ledger Terminal</span>
+              <span className="text-[10px] text-indigo-400 font-medium tracking-wide block leading-none">Cashio Terminal</span>
             </div>
           </div>
 
@@ -1225,11 +1222,10 @@ export default function Billing() {
                 <div
                   key={b.id}
                   onClick={() => switchBill(b.id)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all whitespace-nowrap border ${
-                    isActive
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all whitespace-nowrap border ${isActive
                       ? "bg-indigo-600 text-white border-indigo-500 shadow-sm shadow-indigo-900/50"
                       : "bg-white/5 hover:bg-white/10 text-slate-300 border-white/10"
-                  }`}
+                    }`}
                 >
                   <Receipt size={13} className={isActive ? "text-indigo-200" : "text-slate-400"} />
                   <span>#{b.id}</span>
@@ -1272,22 +1268,20 @@ export default function Billing() {
             <button
               type="button"
               onClick={() => setBillType("cash_bill")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                billType === "cash_bill"
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${billType === "cash_bill"
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "text-slate-300 hover:text-white"
-              }`}
+                }`}
             >
               Cash Bill
             </button>
             <button
               type="button"
               onClick={() => setBillType("gst_bill")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                billType === "gst_bill"
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${billType === "gst_bill"
                   ? "bg-amber-600 text-white shadow-xs"
                   : "text-slate-300 hover:text-white"
-              }`}
+                }`}
             >
               GST Bill
             </button>
@@ -1371,9 +1365,8 @@ export default function Billing() {
                   <div
                     key={s.id}
                     onMouseDown={() => addOrMergeProduct(s)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
-                      isSelected ? "bg-indigo-50/90 text-indigo-950 border border-indigo-200" : "hover:bg-slate-50"
-                    }`}
+                    className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${isSelected ? "bg-indigo-50/90 text-indigo-950 border border-indigo-200" : "hover:bg-slate-50"
+                      }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
@@ -1561,9 +1554,8 @@ export default function Billing() {
               type="button"
               onClick={startVoiceCommand}
               title="Voice Speech Input"
-              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
-                isListening ? "bg-red-500 text-white animate-pulse" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isListening ? "bg-red-500 text-white animate-pulse" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
             >
               {isListening ? <MicOff size={15} /> : <Mic size={15} />}
             </button>
@@ -1720,9 +1712,8 @@ export default function Billing() {
                         value={r.discount || 0}
                         onChange={(e) => updateRow(i, "discount", Number(e.target.value) || 0)}
                         onWheel={(e) => e.target.blur()}
-                        className={`w-16 px-2 py-1 bg-white border rounded-lg text-right font-semibold text-xs focus:outline-none ${
-                          disc > 0 ? "border-red-300 text-red-600" : "border-slate-200 text-slate-800"
-                        }`}
+                        className={`w-16 px-2 py-1 bg-white border rounded-lg text-right font-semibold text-xs focus:outline-none ${disc > 0 ? "border-red-300 text-red-600" : "border-slate-200 text-slate-800"
+                          }`}
                       />
                     </div>
 
@@ -1991,19 +1982,17 @@ export default function Billing() {
                       disabled={m.disabled}
                       title={m.disabled ? m.disabledTitle : `Press ${m.keyNum}`}
                       onClick={() => !m.disabled && setPaymentMethod(m.val)}
-                      className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer border ${
-                        m.disabled
+                      className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer border ${m.disabled
                           ? "opacity-35 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200"
                           : isSelected
-                          ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-900/20"
-                          : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                      }`}
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-900/20"
+                            : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                        }`}
                     >
                       <span>{m.label}</span>
                       <kbd
-                        className={`text-[9px] font-mono px-1 py-0.2 rounded ${
-                          isSelected ? "bg-indigo-800 text-white" : "bg-white text-slate-500 border border-slate-200"
-                        }`}
+                        className={`text-[9px] font-mono px-1 py-0.2 rounded ${isSelected ? "bg-indigo-800 text-white" : "bg-white text-slate-500 border border-slate-200"
+                          }`}
                       >
                         {m.keyNum}
                       </kbd>
