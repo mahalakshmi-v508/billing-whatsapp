@@ -191,7 +191,7 @@ function GeneralSettings() {
       title="General Settings"
       subtitle="FIRM WORKSPACE, REGIONAL STANDARDS & SYSTEM PREFERENCES"
       icon={<Settings size={22} strokeWidth={2.2} />}
-      contentClassName="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans"
+      contentClassName="p-2 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans"
     >
       {/* ── Toast Notification ── */}
       {toast && (
@@ -295,11 +295,10 @@ function GeneralSettings() {
                       <div
                         key={company.id}
                         onClick={() => handleSetDefaultCompany(company)}
-                        className={`group p-4 rounded-xl border-2 transition-all cursor-pointer select-none relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                          isSelected
-                            ? "border-blue-600 bg-blue-50/50 shadow-sm ring-2 ring-blue-500/10"
-                            : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/70"
-                        }`}
+                        className={`group p-4 rounded-xl border-2 transition-all cursor-pointer select-none relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isSelected
+                          ? "border-blue-600 bg-blue-50/50 shadow-sm ring-2 ring-blue-500/10"
+                          : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/70"
+                          }`}
                       >
                         <div className="flex items-start gap-3 min-w-0">
                           <div className="pt-0.5">
