@@ -2,11 +2,11 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import {
-  X, Plus, Settings, Calendar, ChevronDown, Check,
-  Trash2, AlignLeft, Image, Paperclip, BarChart2,
-  Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap, ChevronsUpDown, TrendingUp, ShieldAlert,
-  Search, RotateCcw, GripVertical, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
-  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save
+  X, Plus, Calendar, ChevronDown, Check,
+  Trash2, AlignLeft, BarChart2,
+  Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap,
+  Search, RotateCcw, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
+  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert
 } from "lucide-react";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
@@ -114,18 +114,23 @@ function CloseSaleModal({ isOpen, onCancel, onConfirm }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
-          <h3 className="text-sm font-bold text-slate-900">Close Sale Workspace</h3>
-          <button onClick={onCancel} className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <AlertCircle size={16} />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">Close Sale Workspace</h3>
+          </div>
+          <button onClick={onCancel} className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer">
             <X size={16} />
           </button>
         </div>
         <div className="p-6 text-xs text-slate-600 leading-relaxed">
           Current unsaved invoice changes will be discarded. Do you wish to continue and return to the invoices list?
         </div>
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
           <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer">
             Cancel
           </button>
@@ -857,123 +862,161 @@ export default function AddSale() {
   const isCredit = activeSale.paymentType === "credit";
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans flex flex-col antialiased">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 pb-24 antialiased">
       
-      {/* ── 1. EXECUTIVE BILLING WORKSPACE COMMAND BAR ── */}
-      <header className="bg-white border-b border-slate-200/90 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-40 shadow-2xs">
-        
-        {/* Left: Branding & Multi-Sale Tabs */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCloseConfirm(true)}
-            className="w-9 h-9 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition cursor-pointer"
-            title="Back to Invoices"
-          >
-            <ArrowLeft size={16} />
-          </button>
-
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-brand-500 text-white flex items-center justify-center font-black shadow-sm">
-              <ReceiptText size={16} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                  {isEditMode ? `Edit Invoice #${activeSale.formattedInvoiceNo}` : "New Sale Invoice"}
-                </h1>
-                
-                {/* Credit / Cash Mode Pill Switcher */}
-                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-full border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => updateActiveSale({ paymentType: "cash" })}
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase transition cursor-pointer ${
-                      !isCredit ? "app-pill-active" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    Cash
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const cDays = Number(activeSale.creditDays) || 30;
-                      const baseDate = new Date(activeSale.invoiceDate || Date.now());
-                      baseDate.setDate(baseDate.getDate() + cDays);
-                      updateActiveSale({ paymentType: "credit", dueDate: baseDate.toISOString().split("T")[0] });
-                    }}
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase transition cursor-pointer ${
-                      isCredit ? "app-pill-active" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    Credit
-                  </button>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-500 font-medium">Issue tax invoice, manage party credits & dispatch sales</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Center: Dynamic Multi-Tab Switcher */}
-        <div className="flex items-center gap-2">
-          <div className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            {sales.map(s => {
-              const isActive = s.id === activeTabId;
+      {/* ── 1. EXECUTIVE COMMAND BAR & MULTI-SALE VOUCHER TABS ── */}
+      <div className="bg-white border-b border-slate-200/80 px-4 md:px-6 pt-3 pb-0 shadow-xs sticky top-0 z-30">
+        <div className="flex items-center justify-between gap-4">
+          
+          {/* Voucher Workspace Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {sales.map((tab) => {
+              const isActive = activeTabId === tab.id;
               return (
                 <div
-                  key={s.id}
-                  onClick={() => setActiveTabId(s.id)}
-                  className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                    isActive ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  key={tab.id}
+                  onClick={() => setActiveTabId(tab.id)}
+                  className={`group relative flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-t-2 ${
+                    isActive
+                      ? "border-blue-600 bg-slate-50 text-blue-700 shadow-xs font-bold"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/60"
                   }`}
                 >
-                  <span>{s.label}</span>
+                  <div className="flex items-center gap-2">
+                    <ReceiptText size={13} className={isActive ? "text-blue-600" : "text-slate-400"} />
+                    <span>{tab.label || `Sale #${tab.id}`}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 text-slate-600 font-mono">
+                      {tab.formattedInvoiceNo || tab.invoiceNumber || "Draft"}
+                    </span>
+                  </div>
                   {sales.length > 1 && (
-                    <X
-                      size={12}
-                      className="text-slate-400 hover:text-rose-600"
-                      onClick={(e) => handleCloseTab(e, s.id)}
-                    />
+                    <button
+                      type="button"
+                      onClick={(e) => handleCloseTab(e, tab.id)}
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-slate-200/80 transition"
+                      title="Close tab"
+                    >
+                      <X size={11} />
+                    </button>
                   )}
                 </div>
               );
             })}
 
+            {/* + Add New Sale Tab */}
             {!isEditMode && (
               <button
+                type="button"
                 onClick={handleAddNewTab}
-                className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-blue-600 flex items-center justify-center transition cursor-pointer shadow-2xs"
-                title="Add New Sale Tab"
+                className="h-8 px-2.5 mb-1 flex items-center gap-1.5 rounded-lg text-blue-600 hover:bg-blue-50 text-xs font-semibold border border-dashed border-blue-300 transition cursor-pointer"
+                title="Add New Sale Voucher"
               >
-                <Plus size={13} strokeWidth={3} />
+                <Plus size={14} strokeWidth={2.5} />
+                <span className="hidden sm:inline">New Sale</span>
               </button>
             )}
           </div>
 
-          {/* Quick Tools */}
-          <HeaderSettingsButton
-            variant="voucher"
-            onClick={() => setShowColumnDrawer(true)}
-            isActive={showColumnDrawer}
-            title="Customise Table Columns"
-          />
+          {/* Right Action Tools */}
+          <div className="flex items-center gap-2 pb-2 flex-shrink-0">
+            <HeaderSettingsButton
+              variant="voucher"
+              onClick={() => setShowColumnDrawer(true)}
+              isActive={showColumnDrawer}
+              title="Customise Table Columns"
+            />
 
-          <button
-            onClick={() => setShowCloseConfirm(true)}
-            className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition cursor-pointer shadow-2xs"
-            title="Close Sale"
-          >
-            <X size={16} />
-          </button>
+            {/* Close Page */}
+            <button
+              type="button"
+              onClick={() => setShowCloseConfirm(true)}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              title="Close Workspace"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
         </div>
-      </header>
+      </div>
 
-      {/* ── 2. MAIN BILLING WORKSPACE BODY ── */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 space-y-5">
-        
+      {/* ── 2. WORKSPACE HEADER BANNER ── */}
+      <div className="px-6 md:px-8 pt-6 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowCloseConfirm(true)}
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-xs cursor-pointer"
+              title="Back to Invoices"
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-wide">
+                  Commercial Billing
+                </span>
+                <span className="text-xs text-slate-400 font-medium">• Tax Invoice &amp; POS</span>
+              </div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                {isEditMode ? `Edit Invoice #${activeSale.formattedInvoiceNo || activeSale.invoiceNumber}` : "Sales & Tax Invoice Studio"}
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Credit / Cash Mode Switcher */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => updateActiveSale({ paymentType: "cash" })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  !isCredit ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Wallet size={13} />
+                <span>Cash Sale</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const cDays = Number(activeSale.creditDays) || 30;
+                  const baseDate = new Date(activeSale.invoiceDate || Date.now());
+                  baseDate.setDate(baseDate.getDate() + cDays);
+                  updateActiveSale({ paymentType: "credit", dueDate: baseDate.toISOString().split("T")[0] });
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  isCredit ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <CreditCard size={13} />
+                <span>Credit Sale</span>
+              </button>
+            </div>
+
+            {/* Copy Summary Quick Action */}
+            <button
+              type="button"
+              onClick={() => {
+                const summary = "Sale Invoice Details:\n" +
+                  `Invoice: ${activeSale.formattedInvoiceNo || activeSale.invoiceNumber}\n` +
+                  `Customer: ${activeSale.customerName || "Cash Customer"}\n` +
+                  `Total: ₹${totals.roundedGrandTotal.toFixed(2)}\n` +
+                  `Payment Mode: ${activeSale.paymentType.toUpperCase()}`;
+                navigator.clipboard?.writeText(summary);
+                showToast("Invoice summary copied to clipboard!", true);
+              }}
+              className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Share2 size={14} className="text-slate-500" />
+              <span>Copy Summary</span>
+            </button>
+          </div>
+        </div>
+
         {/* Floating Toast Notification */}
         {toast && (
-          <div className={`px-4 py-3 border text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150 ${
+          <div className={`mt-4 px-4 py-3 border text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150 ${
             toast.ok ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-700"
           }`}>
             <div className="flex items-center gap-2">
@@ -985,32 +1028,45 @@ export default function AddSale() {
             </button>
           </div>
         )}
+      </div>
 
-        {/* ── SECTION 1: CUSTOMER & INVOICE METADATA CARD ── */}
-        <section className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            
-            {/* Left 6 Columns: Customer Lookup & Contact */}
-            <div className="lg:col-span-6 space-y-3.5" ref={customerBoxRef}>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <UserCheck size={15} className="text-blue-600" />
-                  <span>Customer Information</span>
-                </span>
-                {activeSale.customerPendingBalance > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                    Outstanding Debt: ₹{activeSale.customerPendingBalance.toLocaleString()}
-                  </span>
-                )}
+      {/* ── 3. CUSTOMER INTELLIGENCE & INVOICE PARAMETERS CARDS ── */}
+      <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
+        
+        {/* Left: Customer Profile & Contact Details (7 Cols) */}
+        <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between" ref={customerBoxRef}>
+          <div>
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <UserCheck size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Customer &amp; Party Information</h3>
+                  <p className="text-[11px] text-slate-400">Search customer directory or enter walk-in party</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                {/* Customer Autocomplete Input */}
-                <div className="sm:col-span-7 relative">
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Customer / Business Name {isCredit && <span className="text-rose-500">*</span>}
-                  </label>
-                  <div className="relative">
+              {activeSale.customerPendingBalance > 0 && (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-1">
+                  <AlertCircle size={11} /> Debt: ₹{activeSale.customerPendingBalance.toLocaleString()}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+              {/* Customer Autocomplete Search Input */}
+              <div className="sm:col-span-7 relative">
+                <label className="text-[11px] font-bold text-slate-600 mb-1 block">
+                  Customer / Business Name {isCredit && <span className="text-rose-500">*</span>}
+                </label>
+                <div
+                  className={`relative border rounded-xl px-3.5 py-2 transition bg-white flex items-center justify-between ${
+                    showCustomerDropdown ? "border-blue-500 ring-2 ring-blue-500/15" : "border-slate-300 hover:border-slate-400"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <Search size={14} className="text-slate-400 flex-shrink-0" />
                     <input
                       type="text"
                       placeholder="Search customer by name or phone..."
@@ -1022,112 +1078,126 @@ export default function AddSale() {
                         if (customerSuggestions.length === 0) loadInitialCustomers();
                       }}
                       onBlur={() => setIsCustomerFocused(false)}
-                      className="w-full pl-3 pr-8 py-2 bg-slate-50/60 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
-                    />
-                    <ChevronDown
-                      size={14}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"
-                      onClick={() => {
-                        setShowCustomerDropdown(v => !v);
-                        if (customerSuggestions.length === 0) loadInitialCustomers();
-                      }}
+                      className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
                     />
                   </div>
-
-                  {/* Autocomplete Dropdown */}
-                  {showCustomerDropdown && (
-                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 animate-in fade-in duration-100">
-                      <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                        <span onClick={() => navigate("/customers/add")} className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">
-                          + Add New Customer
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Party Balance</span>
-                      </div>
-                      {customerSuggestions.length === 0 ? (
-                        <div className="p-3 text-xs text-slate-400 text-center">No customers found</div>
-                      ) : (
-                        customerSuggestions.map((c) => {
-                          const bal = parseFloat(c.pending_amount || 0);
-                          return (
-                            <div
-                              key={c.id}
-                              onClick={() => selectCustomer(c)}
-                              className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-none transition text-xs"
-                            >
-                              <div>
-                                <div className="font-bold text-slate-900">{c.name || c.customer_name}</div>
-                                <div className="text-[11px] text-slate-400">{c.phone || c.customer_phone || ""}</div>
-                              </div>
-                              <div className="text-right">
-                                <span className="font-bold text-slate-800">₹{bal.toLocaleString()}</span>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
+                  <ChevronDown
+                    size={14}
+                    className="text-slate-400 cursor-pointer ml-1.5 flex-shrink-0"
+                    onClick={() => {
+                      setShowCustomerDropdown(v => !v);
+                      if (customerSuggestions.length === 0) loadInitialCustomers();
+                    }}
+                  />
                 </div>
 
-                {/* Customer Phone */}
-                <div className="sm:col-span-5">
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Contact Phone</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Phone number"
-                      value={activeSale.customerPhone}
-                      onFocus={() => setIsPhoneFocused(true)}
-                      onBlur={() => setIsPhoneFocused(false)}
-                      onChange={(e) => updateActiveSale({ customerPhone: e.target.value })}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50/60 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
-                    />
-                    <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                {/* Autocomplete Dropdown */}
+                {showCustomerDropdown && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 divide-y divide-slate-100 animate-in fade-in duration-100">
+                    <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                      <span onClick={() => navigate("/customers/add")} className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">
+                        + Add New Customer
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Party Balance</span>
+                    </div>
+                    {customerSuggestions.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-400 text-center">No customers found</div>
+                    ) : (
+                      customerSuggestions.map((c) => {
+                        const bal = parseFloat(c.pending_amount || 0);
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => selectCustomer(c)}
+                            className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+                          >
+                            <div>
+                              <div className="font-bold text-slate-900">{c.name || c.customer_name}</div>
+                              <div className="text-[11px] text-slate-400">{c.phone || c.customer_phone || ""}</div>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold text-slate-800">₹{bal.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
+                )}
+              </div>
+
+              {/* Customer Phone */}
+              <div className="sm:col-span-5">
+                <label className="text-[11px] font-bold text-slate-600 mb-1 block">Contact Phone</label>
+                <div className="relative border border-slate-300 rounded-xl px-3.5 py-2 bg-white flex items-center gap-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 transition">
+                  <Phone size={13} className="text-slate-400 flex-shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Phone number"
+                    value={activeSale.customerPhone}
+                    onFocus={() => setIsPhoneFocused(true)}
+                    onBlur={() => setIsPhoneFocused(false)}
+                    onChange={(e) => updateActiveSale({ customerPhone: e.target.value })}
+                    className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Cash Billing & Shipping Address (Editable in Cash Mode) */}
+            {!isCredit && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3">
+                <div>
+                  <label className="text-[10.5px] font-bold text-slate-500 mb-1 block">Billing Address</label>
+                  <textarea
+                    rows={1}
+                    placeholder="Enter billing address..."
+                    value={activeSale.billingAddress}
+                    onChange={e => updateActiveSale({ billingAddress: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:border-blue-500 transition resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10.5px] font-bold text-slate-500 mb-1 block">Shipping Address</label>
+                  <textarea
+                    rows={1}
+                    placeholder="Enter delivery address..."
+                    value={activeSale.shippingAddress}
+                    onChange={e => updateActiveSale({ shippingAddress: e.target.value })}
+                    className="w-full px-3 py-1.5 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:border-blue-500 transition resize-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Invoice Document Metadata (5 Cols) */}
+        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-3.5">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                <FileText size={16} />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Invoice Parameters</h3>
+                <p className="text-[11px] text-slate-400">Document number, posting date &amp; state tax</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Invoice Number */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 mb-1 block">Invoice #</label>
+                <div className="px-3 py-2 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs font-black text-blue-700 font-mono tracking-wide text-center">
+                  {activeSale.formattedInvoiceNo || activeSale.invoiceNumber || "INV-0001"}
                 </div>
               </div>
 
-              {/* Cash Billing / Shipping Address (Collapsible in Cash Mode) */}
-              {!isCredit && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Billing Address</label>
-                    <textarea
-                      rows={1}
-                      placeholder="Enter billing address..."
-                      value={activeSale.billingAddress}
-                      onChange={e => updateActiveSale({ billingAddress: e.target.value })}
-                      className="w-full px-3 py-1.5 bg-slate-50/60 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:border-blue-600 transition resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10.5px] font-bold text-slate-600 mb-1">Shipping Address</label>
-                    <textarea
-                      rows={1}
-                      placeholder="Enter delivery address..."
-                      value={activeSale.shippingAddress}
-                      onChange={e => updateActiveSale({ shippingAddress: e.target.value })}
-                      className="w-full px-3 py-1.5 bg-slate-50/60 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:border-blue-600 transition resize-none"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right 6 Columns: Invoice Document Metadata */}
-            <div className="lg:col-span-6 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Invoice Number */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Invoice #</label>
-                  <div className="px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-black text-blue-700 tracking-wider text-center shadow-2xs">
-                    {activeSale.formattedInvoiceNo || activeSale.invoiceNumber || "INV-0001"}
-                  </div>
-                </div>
-
-                {/* Invoice Date */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Invoice Date</label>
+              {/* Invoice Date */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 mb-1 block">Invoice Date</label>
+                <div className="relative border border-slate-300 rounded-xl px-2.5 py-1.5 bg-white flex items-center focus-within:border-blue-500 transition">
                   <input
                     type="date"
                     value={activeSale.invoiceDate}
@@ -1141,58 +1211,66 @@ export default function AddSale() {
                         dueDate: baseDate.toISOString().split("T")[0]
                       });
                     }}
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-600 cursor-pointer"
+                    className="w-full text-xs font-bold text-slate-800 outline-none bg-transparent cursor-pointer"
                   />
-                </div>
-
-                {/* State of Supply */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">State of Supply</label>
-                  <select
-                    value={activeSale.stateOfSupply}
-                    onChange={e => updateActiveSale({ stateOfSupply: e.target.value })}
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-600 cursor-pointer"
-                  >
-                    {INDIAN_STATES.map(st => <option key={st} value={st}>{st}</option>)}
-                  </select>
                 </div>
               </div>
 
-              {/* Credit Terms (Due Date & Credit Days) */}
-              {isCredit && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Credit Due Date</label>
-                    <input
-                      type="date"
-                      value={activeSale.dueDate || activeSale.invoiceDate}
-                      onChange={e => updateActiveSale({ dueDate: e.target.value })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-amber-200 rounded-xl text-xs font-bold text-amber-900 outline-none cursor-pointer"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Credit Terms</label>
-                    <div className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-600">
-                      Payment due within <strong>{activeSale.creditDays || 30} days</strong>
-                    </div>
+              {/* State of Supply */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 mb-1 block">State of Supply</label>
+                <select
+                  value={activeSale.stateOfSupply}
+                  onChange={e => updateActiveSale({ stateOfSupply: e.target.value })}
+                  className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {INDIAN_STATES.map(st => <option key={st} value={st}>{st}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Credit Terms (Due Date & Credit Days) */}
+            {isCredit && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 mt-3 border-t border-slate-100">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">Credit Due Date</label>
+                  <input
+                    type="date"
+                    value={activeSale.dueDate || activeSale.invoiceDate}
+                    onChange={e => updateActiveSale({ dueDate: e.target.value })}
+                    className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-amber-900 outline-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">Credit Terms</label>
+                  <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-600">
+                    Due in <strong className="text-slate-900">{activeSale.creditDays || 30} days</strong>
                   </div>
                 </div>
-              )}
-            </div>
-
+              </div>
+            )}
           </div>
-        </section>
+        </div>
 
-        {/* ── SECTION 2: DYNAMIC LINE ITEMS MATRIX ── */}
-        <section className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+      </div>
+
+      {/* ── 4. LINE ITEMS MATRIX TABLE CARD ── */}
+      <div className="px-6 md:px-8 mb-6">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+          
+          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Layers size={15} className="text-blue-600" />
+              <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Layers size={14} />
+              </div>
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Line Items & Inventory Products ({activeSale.rows.length} rows)
+                Line Items &amp; Inventory Products
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                {activeSale.rows.length} {activeSale.rows.length === 1 ? "Row" : "Rows"}
               </span>
             </div>
-            <span className="text-[11px] font-bold text-slate-500">
+            <span className="text-[11px] font-medium text-slate-400">
               Type product name or scan barcode to add
             </span>
           </div>
@@ -1200,40 +1278,40 @@ export default function AddSale() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse min-w-[980px]">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold select-none text-[11px] uppercase tracking-wider">
-                  <th className="py-3 px-3 text-center border-r border-slate-200 w-12">#</th>
+                <tr className="bg-slate-50/60 border-b border-slate-200/80 text-slate-600 font-bold select-none text-[11px] uppercase tracking-wider">
+                  <th className="py-3 px-3 text-center border-r border-slate-200/60 w-12">#</th>
                   {visibleColumns.item_name !== false && (
-                    <th className="py-3 px-4 border-r border-slate-200 min-w-[240px]">Item Name / Description</th>
+                    <th className="py-3 px-4 border-r border-slate-200/60 min-w-[240px]">Item Name / Description</th>
                   )}
                   {visibleColumns.qty !== false && (
-                    <th className="py-3 px-3 text-center border-r border-slate-200 w-24">Qty</th>
+                    <th className="py-3 px-3 text-center border-r border-slate-200/60 w-24">Qty</th>
                   )}
                   {visibleColumns.unit !== false && (
-                    <th className="py-3 px-3 text-center border-r border-slate-200 w-24">Unit</th>
+                    <th className="py-3 px-3 text-center border-r border-slate-200/60 w-24">Unit</th>
                   )}
                   {visibleColumns.price !== false && (
-                    <th className="py-3 px-3 text-center border-r border-slate-200 w-32">Price / Rate (₹)</th>
+                    <th className="py-3 px-3 text-center border-r border-slate-200/60 w-32">Price / Unit (₹)</th>
                   )}
                   {visibleColumns.discount !== false && (
-                    <th className="py-3 px-0 text-center border-r border-slate-200 w-36">
-                      <div className="border-b border-slate-200 pb-1">Discount</div>
-                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
+                    <th className="py-3 px-0 text-center border-r border-slate-200/60 w-36">
+                      <div className="border-b border-slate-200/60 pb-1">Discount</div>
+                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-400">
                         <span>%</span>
                         <span>Amount (₹)</span>
                       </div>
                     </th>
                   )}
                   {visibleColumns.tax !== false && (
-                    <th className="py-3 px-0 text-center border-r border-slate-200 w-36">
-                      <div className="border-b border-slate-200 pb-1">Tax (GST)</div>
-                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-500">
+                    <th className="py-3 px-0 text-center border-r border-slate-200/60 w-36">
+                      <div className="border-b border-slate-200/60 pb-1">Tax (GST)</div>
+                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-400">
                         <span>% Slab</span>
                         <span>Tax (₹)</span>
                       </div>
                     </th>
                   )}
                   {visibleColumns.amount !== false && (
-                    <th className="py-3 px-4 text-right border-r border-slate-200 w-32">Amount (₹)</th>
+                    <th className="py-3 px-4 text-right border-r border-slate-200/60 w-32">Amount (₹)</th>
                   )}
                   <th className="py-3 px-2 text-center w-12">Action</th>
                 </tr>
@@ -1241,16 +1319,16 @@ export default function AddSale() {
 
               <tbody className="divide-y divide-slate-100 font-medium">
                 {activeSale.rows.map((row, idx) => (
-                  <tr key={row.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={row.id || idx} className="hover:bg-blue-50/30 transition-colors">
                     
                     {/* # Index */}
-                    <td className="py-2.5 px-3 text-center border-r border-slate-200 text-slate-400 font-bold">
+                    <td className="py-2.5 px-3 text-center border-r border-slate-200/60 text-slate-400 font-bold">
                       {idx + 1}
                     </td>
 
                     {/* Item Name Autocomplete */}
                     {visibleColumns.item_name !== false && (
-                      <td className="py-2 px-3 border-r border-slate-200 relative">
+                      <td className="py-2 px-3 border-r border-slate-200/60 relative">
                         <input
                           type="text"
                           placeholder="Search product from inventory or type..."
@@ -1264,17 +1342,17 @@ export default function AddSale() {
                             setItemSearchQuery(row.item_name);
                             setActiveRowSuggestId(row.id);
                           }}
-                          className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                          className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
 
                         {/* Product Suggestions Dropdown */}
                         {activeRowSuggestId === row.id && (
-                          <div ref={itemSuggestRef} className="absolute left-3 top-full mt-1 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 animate-in fade-in duration-100">
+                          <div ref={itemSuggestRef} className="absolute left-3 top-full mt-1 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 divide-y divide-slate-100 animate-in fade-in duration-100">
                             {filteredProducts.map(p => (
                               <div
                                 key={p.id}
                                 onClick={() => handleSelectProduct(row.id, p)}
-                                className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-none transition text-xs"
+                                className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
                               >
                                 <div>
                                   <div className="font-bold text-slate-900">{p.product_name || p.name}</div>
@@ -1290,21 +1368,21 @@ export default function AddSale() {
 
                     {/* Qty */}
                     {visibleColumns.qty !== false && (
-                      <td className="py-2 px-2 border-r border-slate-200 text-center">
+                      <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                         <input
                           type="number"
                           min="1"
                           placeholder="1"
                           value={row.qty}
                           onChange={e => updateRowField(row.id, "qty", e.target.value)}
-                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
                       </td>
                     )}
 
                     {/* Unit */}
                     {visibleColumns.unit !== false && (
-                      <td className="py-2 px-2 border-r border-slate-200 text-center">
+                      <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                         <select
                           value={row.unit}
                           onChange={e => updateRowField(row.id, "unit", e.target.value)}
@@ -1317,7 +1395,7 @@ export default function AddSale() {
 
                     {/* Price */}
                     {visibleColumns.price !== false && (
-                      <td className="py-2 px-2 border-r border-slate-200 text-center">
+                      <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                         <input
                           type="number"
                           min="0"
@@ -1325,14 +1403,14 @@ export default function AddSale() {
                           placeholder="0.00"
                           value={row.price}
                           onChange={e => updateRowField(row.id, "price", e.target.value)}
-                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
                       </td>
                     )}
 
                     {/* Discount */}
                     {visibleColumns.discount !== false && (
-                      <td className="py-2 px-0 border-r border-slate-200">
+                      <td className="py-2 px-0 border-r border-slate-200/60">
                         <div className="grid grid-cols-2 divide-x divide-slate-200">
                           <input
                             type="number"
@@ -1363,7 +1441,7 @@ export default function AddSale() {
 
                     {/* Tax */}
                     {visibleColumns.tax !== false && (
-                      <td className="py-2 px-0 border-r border-slate-200">
+                      <td className="py-2 px-0 border-r border-slate-200/60">
                         <div className="grid grid-cols-2 divide-x divide-slate-200 items-center">
                           <select
                             value={row.tax_percent}
@@ -1383,7 +1461,7 @@ export default function AddSale() {
 
                     {/* Amount */}
                     {visibleColumns.amount !== false && (
-                      <td className="py-2.5 px-4 text-right border-r border-slate-200 font-black text-slate-900 text-xs">
+                      <td className="py-2.5 px-4 text-right border-r border-slate-200/60 font-black text-slate-900 text-xs">
                         ₹ {row.amount ? row.amount.toFixed(2) : "0.00"}
                       </td>
                     )}
@@ -1407,35 +1485,35 @@ export default function AddSale() {
               {/* Table Footer */}
               <tfoot>
                 <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold text-slate-800 text-xs">
-                  <td colSpan={2} className="py-3 px-4 border-r border-slate-200">
+                  <td colSpan={2} className="py-3 px-4 border-r border-slate-200/60">
                     <button
                       type="button"
                       onClick={addRow}
                       className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-blue-600 bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition cursor-pointer"
                     >
                       <Plus size={14} strokeWidth={3} />
-                      <span>+ Add Item Row</span>
+                      <span>Add Item Row</span>
                     </button>
                   </td>
                   {visibleColumns.qty !== false && (
-                    <td className="py-3 px-2 text-center border-r border-slate-200 font-black text-slate-900">
+                    <td className="py-3 px-2 text-center border-r border-slate-200/60 font-black text-slate-900">
                       {totals.totalQty}
                     </td>
                   )}
-                  {visibleColumns.unit !== false && <td className="border-r border-slate-200" />}
-                  {visibleColumns.price !== false && <td className="border-r border-slate-200" />}
+                  {visibleColumns.unit !== false && <td className="border-r border-slate-200/60" />}
+                  {visibleColumns.price !== false && <td className="border-r border-slate-200/60" />}
                   {visibleColumns.discount !== false && (
-                    <td className="py-3 px-2 text-center border-r border-slate-200 text-amber-700">
+                    <td className="py-3 px-2 text-center border-r border-slate-200/60 text-amber-700">
                       ₹ {totals.totalDiscountAmount.toFixed(2)}
                     </td>
                   )}
                   {visibleColumns.tax !== false && (
-                    <td className="py-3 px-2 text-center border-r border-slate-200 text-emerald-700">
+                    <td className="py-3 px-2 text-center border-r border-slate-200/60 text-emerald-700">
                       ₹ {totals.totalTaxAmount.toFixed(2)}
                     </td>
                   )}
                   {visibleColumns.amount !== false && (
-                    <td className="py-3 px-4 text-right border-r border-slate-200 font-black text-slate-900">
+                    <td className="py-3 px-4 text-right border-r border-slate-200/60 font-black text-slate-900">
                       ₹ {totals.subtotalAmount.toFixed(2)}
                     </td>
                   )}
@@ -1444,134 +1522,140 @@ export default function AddSale() {
               </tfoot>
             </table>
           </div>
-        </section>
+        </div>
+      </div>
 
-        {/* ── SECTION 3: FINANCIAL RECONCILIATION & TOTALS SUMMARY ── */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          
-          {/* Left 7 Columns: Notes, Terms & Overrides */}
-          <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-              <FileText size={16} className="text-blue-600" />
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Terms, Conditions & Remarks</h3>
+      {/* ── 5. FINANCIAL RECONCILIATION & TOTALS SUMMARY ── */}
+      <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        
+        {/* Left 7 Columns: Notes, Terms & Overrides */}
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+              <FileText size={14} />
             </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Invoice Remarks & Note</label>
-                <textarea
-                  rows={2}
-                  placeholder="Enter custom remarks for customer invoice..."
-                  value={activeSale.descriptionText}
-                  onChange={e => updateActiveSale({ descriptionText: e.target.value })}
-                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-600 transition resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Terms & Conditions</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Goods once sold will not be returned..."
-                  value={activeSale.termsText}
-                  onChange={e => updateActiveSale({ termsText: e.target.value })}
-                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-600 transition resize-none"
-                />
-              </div>
-            </div>
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Terms, Conditions &amp; Remarks</h3>
           </div>
 
-          {/* Right 5 Columns: Financial Summary & Settlement */}
-          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3.5">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Invoice Remarks &amp; Note</label>
+              <textarea
+                rows={2}
+                placeholder="Enter custom remarks for customer invoice..."
+                value={activeSale.descriptionText}
+                onChange={e => updateActiveSale({ descriptionText: e.target.value })}
+                className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Terms &amp; Conditions</label>
+              <textarea
+                rows={2}
+                placeholder="e.g. Goods once sold will not be returned..."
+                value={activeSale.termsText}
+                onChange={e => updateActiveSale({ termsText: e.target.value })}
+                className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right 5 Columns: Financial Summary & Settlement */}
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3.5">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                <Wallet size={14} />
+              </div>
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Financial Breakdown</span>
-              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                INR Currency
+            </div>
+            <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+              INR (₹)
+            </span>
+          </div>
+
+          {/* Financial Summary Breakdown */}
+          <div className="space-y-2.5 text-xs font-semibold text-slate-600">
+            <div className="flex justify-between items-center">
+              <span>Subtotal</span>
+              <span className="font-bold text-slate-900">₹ {totals.grossSubtotal.toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span>Total Discount</span>
+              <span className={`font-bold ${totals.totalDiscountAmount > 0 ? "text-rose-600" : "text-slate-700"}`}>
+                {totals.totalDiscountAmount > 0 ? `- ₹ ${totals.totalDiscountAmount.toFixed(2)}` : "₹ 0.00"}
               </span>
             </div>
 
-            {/* Financial Summary Breakdown (Calculation-Only) */}
-            <div className="space-y-2.5 text-xs font-semibold text-slate-600">
-              <div className="flex justify-between items-center">
-                <span>Subtotal</span>
-                <span className="font-bold text-slate-900">₹ {totals.grossSubtotal.toFixed(2)}</span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span>Total Discount</span>
-                <span className={`font-bold ${totals.totalDiscountAmount > 0 ? "text-rose-600" : "text-slate-700"}`}>
-                  {totals.totalDiscountAmount > 0 ? `- ₹ ${totals.totalDiscountAmount.toFixed(2)}` : "₹ 0.00"}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span>Total Tax (GST)</span>
-                <span className={`font-bold ${totals.totalTaxAmount > 0 ? "text-emerald-700" : "text-slate-700"}`}>
-                  {totals.totalTaxAmount > 0 ? `+ ₹ ${totals.totalTaxAmount.toFixed(2)}` : "₹ 0.00"}
-                </span>
-              </div>
+            <div className="flex justify-between items-center">
+              <span>Total Tax (GST)</span>
+              <span className={`font-bold ${totals.totalTaxAmount > 0 ? "text-emerald-700" : "text-slate-700"}`}>
+                {totals.totalTaxAmount > 0 ? `+ ₹ ${totals.totalTaxAmount.toFixed(2)}` : "₹ 0.00"}
+              </span>
             </div>
-
-            {/* Grand Total Hero Box */}
-            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
-              <div>
-                <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">Grand Total</span>
-                <span className="text-2xl font-black tracking-tight">
-                  ₹ {totals.roundedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
-                  {isCredit ? "Credit Mode" : "Cash Paid"}
-                </span>
-              </div>
-            </div>
-
-            {/* Credit Mode: Received Amount & Remaining Balance */}
-            {isCredit && (
-              <div className="pt-2 space-y-2 border-t border-slate-100 text-xs">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={activeSale.receivedEnabled !== false}
-                      onChange={e => {
-                        const checked = e.target.checked;
-                        updateActiveSale({
-                          receivedEnabled: checked,
-                          receivedAmount: checked ? (activeSale.receivedAmount || totals.roundedGrandTotal) : "0"
-                        });
-                      }}
-                      className="cursor-pointer text-blue-600"
-                    />
-                    <span>Amount Received</span>
-                  </label>
-                  <input
-                    type="number"
-                    disabled={activeSale.receivedEnabled === false}
-                    value={activeSale.receivedAmount !== undefined && activeSale.receivedAmount !== "" ? activeSale.receivedAmount : totals.roundedGrandTotal}
-                    onChange={e => updateActiveSale({ receivedAmount: e.target.value })}
-                    className="w-32 py-1.5 px-2 bg-slate-50 border border-slate-200 rounded-lg text-right font-bold text-slate-900 outline-none"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between font-bold text-slate-800">
-                  <span>Balance Due</span>
-                  <span className="text-sm font-black text-rose-600">
-                    ₹ {Math.max(0, totals.roundedGrandTotal - (activeSale.receivedEnabled !== false ? (parseFloat(activeSale.receivedAmount !== undefined && activeSale.receivedAmount !== "" ? activeSale.receivedAmount : totals.roundedGrandTotal) || 0) : 0)).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            )}
-
           </div>
 
-        </section>
+          {/* Grand Total Hero Box */}
+          <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
+            <div>
+              <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">Grand Total</span>
+              <span className="text-2xl font-black tracking-tight">
+                ₹ {totals.roundedGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
+                {isCredit ? "Credit Mode" : "Cash Paid"}
+              </span>
+            </div>
+          </div>
 
-      </main>
+          {/* Credit Mode: Received Amount & Remaining Balance */}
+          {isCredit && (
+            <div className="pt-2 space-y-2 border-t border-slate-100 text-xs">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={activeSale.receivedEnabled !== false}
+                    onChange={e => {
+                      const checked = e.target.checked;
+                      updateActiveSale({
+                        receivedEnabled: checked,
+                        receivedAmount: checked ? (activeSale.receivedAmount || totals.roundedGrandTotal) : "0"
+                      });
+                    }}
+                    className="cursor-pointer text-blue-600 rounded"
+                  />
+                  <span>Amount Received</span>
+                </label>
+                <input
+                  type="number"
+                  disabled={activeSale.receivedEnabled === false}
+                  value={activeSale.receivedAmount !== undefined && activeSale.receivedAmount !== "" ? activeSale.receivedAmount : totals.roundedGrandTotal}
+                  onChange={e => updateActiveSale({ receivedAmount: e.target.value })}
+                  className="w-32 py-1.5 px-2 bg-slate-50 border border-slate-200 rounded-xl text-right font-bold text-slate-900 outline-none focus:border-blue-500 focus:bg-white"
+                />
+              </div>
 
-      {/* ── 4. STICKY ACTION FOOTER ── */}
-      <footer className="bg-white border-t border-slate-200/90 px-4 sm:px-6 py-3 flex items-center justify-between sticky bottom-0 z-40 shadow-md">
+              <div className="flex items-center justify-between font-bold text-slate-800">
+                <span>Balance Due</span>
+                <span className="text-sm font-black text-rose-600">
+                  ₹ {Math.max(0, totals.roundedGrandTotal - (activeSale.receivedEnabled !== false ? (parseFloat(activeSale.receivedAmount !== undefined && activeSale.receivedAmount !== "" ? activeSale.receivedAmount : totals.roundedGrandTotal) || 0) : 0)).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+
+        </div>
+
+      </div>
+
+      {/* ── 6. STICKY ACTION FOOTER BAR ── */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-6 py-3.5 z-30 flex items-center justify-between shadow-lg">
         <button
           type="button"
           onClick={() => setShowCloseConfirm(true)}
@@ -1581,11 +1665,17 @@ export default function AddSale() {
         </button>
 
         <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-slate-600 mr-2">
+            <span>Items: <strong className="text-slate-900">{totals.totalQty}</strong></span>
+            <span>•</span>
+            <span>Total: <strong className="text-blue-600 font-mono font-black">₹{totals.roundedGrandTotal.toFixed(2)}</strong></span>
+          </div>
+
           <button
             type="button"
             onClick={() => handleSave(false)}
             disabled={saving}
-            className="app-btn-primary h-9 px-8 rounded-xl text-xs font-semibold shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 cursor-pointer disabled:opacity-50 flex items-center gap-2 transition"
           >
             {saving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
             <span>{saving ? (isEditMode ? "Updating..." : "Saving...") : isEditMode ? "Update Sale" : "Save Invoice"}</span>
@@ -1597,16 +1687,16 @@ export default function AddSale() {
       
       {/* Delete Row Modal */}
       {rowToDelete && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={() => setRowToDelete(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={() => setRowToDelete(null)}>
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-6 text-center space-y-2">
-              <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
                 <Trash2 size={22} />
               </div>
               <h3 className="text-base font-bold text-slate-900">Remove Item Row?</h3>
               <p className="text-xs text-slate-500">This line item will be deleted from the current invoice.</p>
             </div>
-            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
               <button type="button" onClick={() => setRowToDelete(null)} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer">
                 Cancel
               </button>
@@ -1631,16 +1721,18 @@ export default function AddSale() {
       {/* Unlisted Products Warning Modal */}
       {unlistedProductsWarning && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={() => setUnlistedProductsWarning(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-amber-100 flex items-center gap-3 bg-amber-50">
-              <AlertCircle size={22} className="text-amber-600 shrink-0" />
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 font-bold">
+                <AlertCircle size={20} />
+              </div>
               <div>
                 <h3 className="text-sm font-bold text-amber-900">Product Not in Inventory</h3>
                 <p className="text-[11px] text-amber-700">Item not found in product catalog</p>
               </div>
             </div>
             <div className="p-6 space-y-3">
-              <div className="bg-slate-50 rounded-xl border border-slate-200 max-h-40 overflow-y-auto divide-y divide-slate-100">
+              <div className="bg-slate-50 rounded-2xl border border-slate-200 max-h-40 overflow-y-auto divide-y divide-slate-100">
                 {unlistedProductsWarning.map((item, idx) => (
                   <div key={idx} className="p-3 flex items-center justify-between text-xs">
                     <div>
@@ -1653,13 +1745,13 @@ export default function AddSale() {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-slate-600">This product is not in your inventory. Do you want to proceed with billing or add it to inventory?</p>
+              <p className="text-xs text-slate-600 leading-relaxed">This product is not in your inventory. Do you want to proceed with billing or add it to inventory?</p>
             </div>
-            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
               <button type="button" onClick={() => setUnlistedProductsWarning(null)} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer">
                 Cancel
               </button>
-              <button type="button" onClick={handleProceedFromWarning} className="app-btn-primary px-5 py-2 text-xs font-bold flex items-center gap-1.5">
+              <button type="button" onClick={handleProceedFromWarning} className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer">
                 <Check size={14} />
                 <span>Proceed to Bill</span>
               </button>
@@ -1671,10 +1763,12 @@ export default function AddSale() {
       {/* Quick Add Product Modal */}
       {quickAddModal && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={() => setQuickAddModal(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-blue-50/50">
               <div className="flex items-center gap-2.5">
-                <Package size={18} className="text-blue-600" />
+                <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                  <Package size={16} />
+                </div>
                 <h3 className="text-sm font-bold text-slate-900">Add Product to Inventory</h3>
               </div>
               {quickAddModal.queue.length > 1 && (
@@ -1698,7 +1792,7 @@ export default function AddSale() {
                   type="text"
                   value={quickAddModal.form.product_name}
                   onChange={e => setQuickAddForm("product_name", e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:bg-white focus:border-blue-600"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:bg-white focus:border-blue-500"
                 />
               </div>
 
@@ -1709,7 +1803,7 @@ export default function AddSale() {
                     type="number"
                     value={quickAddModal.form.sale_price}
                     onChange={e => setQuickAddForm("sale_price", e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:bg-white focus:border-blue-600"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:bg-white focus:border-blue-500"
                   />
                 </div>
                 <div>
@@ -1718,7 +1812,7 @@ export default function AddSale() {
                     type="number"
                     value={quickAddModal.form.purchase_price}
                     onChange={e => setQuickAddForm("purchase_price", e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:bg-white focus:border-blue-600"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:bg-white focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -1751,7 +1845,7 @@ export default function AddSale() {
               </div>
             </div>
 
-            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
               <button type="button" onClick={() => setQuickAddModal(null)} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer">
                 Cancel
               </button>
@@ -1759,7 +1853,7 @@ export default function AddSale() {
                 type="button"
                 onClick={handleSaveQuickAddProduct}
                 disabled={quickAddModal.saving}
-                className="app-btn-primary px-5 py-2 rounded-xl text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-xs"
               >
                 {quickAddModal.saving ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
                 <span>Save &amp; Continue</span>

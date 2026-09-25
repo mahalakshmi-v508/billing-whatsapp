@@ -3,17 +3,20 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import {
   X,
-  Settings,
-  Calendar,
   ChevronDown,
-  Check,
-  Search,
-  User,
-  RefreshCw,
+  UserCheck,
+  AlertCircle,
+  CreditCard,
+  Building2,
+  Calendar,
+  DollarSign,
   CheckCircle2,
+  Wallet,
+  Tag,
+  RefreshCw,
 } from "lucide-react";
 
-export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialParty = null }) {
+export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialParty = null, editPayment = null }) {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
@@ -27,12 +30,10 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
   const [searchingParty, setSearchingParty] = useState(false);
 
   const [paymentType, setPaymentType] = useState("Cash");
-  const [showPaymentTypeDropdown, setShowPaymentTypeDropdown] = useState(false);
   const [receiptNo, setReceiptNo] = useState(1);
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [receivedAmount, setReceivedAmount] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
-  const [showDescription, setShowDescription] = useState(false);
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -47,30 +48,69 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     return recv + disc;
   }, [receivedAmount, discountAmount]);
 
-  // Load next receipt number from settings
+  // Initialize or populate data when opening modal
   useEffect(() => {
     if (!isOpen) return;
-    const loadReceiptNo = async () => {
-      try {
-        const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_in`);
-        if (numRes.data?.status && numRes.data?.formatted_number) {
-          setReceiptNo(numRes.data.formatted_number);
-          return;
+    let cancelled = false;
+
+    const init = async () => {
+      setShowPartyDropdown(false);
+      setErrorMsg("");
+
+      if (editPayment) {
+        setSelectedParty({
+          id: editPayment.customer_id,
+          name: editPayment.customer_name,
+          customer_name: editPayment.customer_name,
+          pending_amount: editPayment.balance,
+        });
+        setPartyQuery(editPayment.customer_name || "");
+        setReceivedAmount(String(editPayment.amount || ""));
+        setDiscountAmount(String(editPayment.discount_amount || ""));
+        if (editPayment.payment_method) {
+          const pm = editPayment.payment_method.toLowerCase();
+          if (pm === "upi") setPaymentType("UPI");
+          else if (pm === "online" || pm.includes("bank")) setPaymentType("Online");
+          else if (pm === "cheque") setPaymentType("Cheque");
+          else setPaymentType("Cash");
         }
-        const res = await api.get(`/invoice/get_customer_payments?customer_id=0`);
-        if (res.data?.data) {
-          setReceiptNo(`PAYIN-${String((res.data.data.length || 0) + 1).padStart(4, "0")}`);
-        } else {
-          setReceiptNo(`PAYIN-0001`);
+        setPaymentDate(editPayment.payment_date || new Date().toISOString().split("T")[0]);
+        setReceiptNo(editPayment.receipt_no ? editPayment.receipt_no.replace("REC-", "") : String(editPayment.id));
+        setDescription(editPayment.notes || "");
+      } else {
+        setSelectedParty(initialParty || null);
+        setPartyQuery(initialParty ? (initialParty.customer_name || initialParty.name || "") : "");
+        const initialDue = Number(initialParty?.pending_amount ?? initialParty?.balance ?? 0);
+        setReceivedAmount(initialDue > 0 ? String(initialDue) : "");
+        setDiscountAmount("");
+        setPaymentType("Cash");
+        setPaymentDate(new Date().toISOString().split("T")[0]);
+        setDescription("");
+
+        try {
+          const numRes = await api.get(`/invoice-settings/next-number?company_id=${companyId}&type=payment_in`);
+          if (cancelled) return;
+          if (numRes.data?.status && numRes.data?.formatted_number) {
+            setReceiptNo(numRes.data.formatted_number);
+            return;
+          }
+          const res = await api.get(`/invoice/get_customer_payments?customer_id=0`);
+          if (cancelled) return;
+          if (res.data?.data) {
+            setReceiptNo(`PAYIN-${String((res.data.data.length || 0) + 1).padStart(4, "0")}`);
+          } else {
+            setReceiptNo("PAYIN-0001");
+          }
+        } catch {
+          if (!cancelled) setReceiptNo("PAYIN-0001");
         }
-      } catch {
-        setReceiptNo(`PAYIN-0001`);
       }
     };
-    loadReceiptNo();
-  }, [isOpen, companyId]);
+    init();
+    return () => { cancelled = true; };
+  }, [isOpen, editPayment, initialParty, companyId]);
 
-  // Fetch customer suggestions helper without forcing dropdown open
+  // Load customer suggestions list quietly on open
   const fetchCustomerSuggestions = async (q = "") => {
     if (!adminId) return;
     setSearchingParty(true);
@@ -86,22 +126,23 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     }
   };
 
-  // Reset states and preload customer list quietly on modal open
   useEffect(() => {
-    if (isOpen && adminId) {
-      setShowPartyDropdown(false);
-      setShowPaymentTypeDropdown(false);
-      setErrorMsg("");
-      fetchCustomerSuggestions("");
-      if (initialParty) {
-        setSelectedParty(initialParty);
-        setPartyQuery(initialParty.name || initialParty.customer_name || "");
-      } else {
-        setSelectedParty(null);
-        setPartyQuery("");
+    if (!isOpen || !adminId) return;
+    let cancelled = false;
+    const loadCustomers = async () => {
+      try {
+        const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=`);
+        if (cancelled) return;
+        if (res.data.status) {
+          setPartySuggestions(res.data.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading customers:", err);
       }
-    }
-  }, [isOpen, adminId, initialParty]);
+    };
+    loadCustomers();
+    return () => { cancelled = true; };
+  }, [isOpen, adminId]);
 
   // Search Customer Parties when user types
   const handleSearchParty = (q) => {
@@ -133,27 +174,29 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  // Submit Handler
+  // Save Payment-In
   const handleSavePaymentIn = async () => {
-    if (!selectedParty) {
-      setErrorMsg("Please select a customer.");
+    setErrorMsg("");
+
+    if (!selectedParty && !partyQuery.trim()) {
+      setErrorMsg("Please select or enter a customer / party name.");
       return;
     }
-    const amountNum = parseFloat(receivedAmount) || 0;
-    if (amountNum <= 0) {
+
+    const amountNum = parseFloat(receivedAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
       setErrorMsg("Please enter a valid received amount greater than 0.");
       return;
     }
 
     setSaving(true);
-    setErrorMsg("");
-
     try {
       const discNum = parseFloat(discountAmount) || 0;
       const finalReceiptNo = String(receiptNo || "").trim() || `PAYIN-${Date.now()}`;
       const payload = {
         company_id: parseInt(companyId) || 0,
-        customer_id: selectedParty.id,
+        customer_id: selectedParty?.id || 0,
+        customer_name: selectedParty ? (selectedParty.name || selectedParty.customer_name) : partyQuery.trim(),
         receipt_no: finalReceiptNo,
         amount: amountNum,
         discount_amount: discNum,
@@ -172,13 +215,14 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
           setToast(`Payment-In #${savedReceiptNo} recorded successfully!`);
           setTimeout(() => setToast(null), 4000);
 
-          // Reset form for next payment entry
+          // Reset fields for continuous data entry
           setSelectedParty(null);
           setPartyQuery("");
           setReceivedAmount("");
           setDiscountAmount("");
+          setPaymentType("Cash");
+          setPaymentDate(new Date().toISOString().split("T")[0]);
           setDescription("");
-          setShowDescription(false);
 
           // Fetch / increment next receipt number
           try {
@@ -186,21 +230,21 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
             if (numRes.data?.status && numRes.data?.formatted_number) {
               setReceiptNo(numRes.data.formatted_number);
             } else {
-              setReceiptNo(prev => typeof prev === 'number' ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : 1);
+              setReceiptNo((prev) => (typeof prev === "number" ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : "PAYIN-0001"));
             }
           } catch (e) {
-            setReceiptNo(prev => typeof prev === 'number' ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : 1);
+            setReceiptNo((prev) => (typeof prev === "number" ? prev + 1 : parseInt(prev) ? parseInt(prev) + 1 : "PAYIN-0001"));
           }
         } else {
           onClose();
           navigate(`/invoice/${savedReceiptNo}`);
         }
       } else {
-        setErrorMsg(res.data.message || "Failed to record payment.");
+        setErrorMsg(res.data.message || "Failed to record payment-in.");
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg(err.response?.data?.message || "An error occurred while saving payment.");
+      setErrorMsg(err.response?.data?.message || "An error occurred while saving payment-in.");
     } finally {
       setSaving(false);
     }
@@ -210,40 +254,36 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
-        style={{ minHeight: 460 }}
+        className="bg-white rounded-2xl w-full max-w-xl shadow-2xl border border-slate-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── 1. HEADER (Title, Settings, Close) ── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
-          <h2 className="text-base font-bold text-slate-800 tracking-tight">Payment-In</h2>
-
-          <div className="flex items-center gap-3.5">
-            <button
-              type="button"
-              className="text-slate-400 hover:text-slate-700 relative transition cursor-pointer"
-              title="Settings"
-            >
-              <Settings size={18} />
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer ml-1"
-              title="Close"
-            >
-              <X size={15} />
-            </button>
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 shadow-xs">
+              <UserCheck size={18} />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-slate-900 tracking-tight">
+                {editPayment ? "Edit Payment-In Voucher" : "Record Payment-In Voucher"}
+              </h2>
+              <p className="text-[11px] text-slate-500 font-medium">Direct customer payment receipt entry</p>
+            </div>
           </div>
+
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+          >
+            <X size={16} />
+          </button>
         </div>
 
-        {/* ── 2. SUCCESS TOAST & ERROR ALERT ── */}
+        {/* Success Toast */}
         {toast && (
           <div className="mx-6 mt-3 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center justify-between shadow-xs animate-in fade-in duration-150">
             <div className="flex items-center gap-2">
@@ -256,247 +296,245 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
           </div>
         )}
 
-        {errorMsg && (
-          <div className="mx-6 mt-3 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-lg flex items-center justify-between">
-            <span>{errorMsg}</span>
-            <button onClick={() => setErrorMsg("")} className="text-red-500 hover:text-red-700">
-              <X size={13} />
-            </button>
-          </div>
-        )}
+        {/* Form Body */}
+        <div className="p-6 space-y-4">
+          {errorMsg && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
-        {/* ── 3. BODY (Two-Column Layout Matching media_1787829100659.png) ── */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 flex-1">
-          {/* ── LEFT COLUMN ── */}
-          <div className="space-y-5">
-            {/* Party Selection (Floating Label Box) */}
-            <div ref={partyRef} className="relative">
-              <div
-                className={`relative border rounded-lg px-3 pt-3 pb-2 transition cursor-pointer ${
-                  showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/20" : "border-slate-300 hover:border-blue-400"
-                }`}
-                onClick={() => {
-                  setShowPartyDropdown(true);
-                  if (partySuggestions.length === 0) {
-                    fetchCustomerSuggestions(partyQuery);
-                  }
-                }}
-              >
-                <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-semibold text-blue-600 pointer-events-none">
-                  Party *
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+            {/* Left Column: Party & Method */}
+            <div className="space-y-3.5">
+              {/* Party Selector */}
+              <div ref={partyRef} className="relative">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Customer / Party *
                 </label>
-                <div className="flex items-center justify-between">
+                <div className="relative">
                   <input
                     type="text"
+                    placeholder="Search customer party..."
                     value={partyQuery}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowPartyDropdown(true);
-                      if (partySuggestions.length === 0) {
-                        fetchCustomerSuggestions(partyQuery);
-                      }
-                    }}
                     onChange={(e) => handleSearchParty(e.target.value)}
-                    placeholder="Search or select party..."
-                    className="w-full bg-transparent text-sm text-slate-800 font-medium outline-none"
+                    onFocus={() => setShowPartyDropdown(true)}
+                    className="w-full px-3.5 py-2.5 pr-8 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
                   />
                   <ChevronDown
-                    size={16}
-                    className="text-slate-400 hover:text-slate-600 transition cursor-pointer ml-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowPartyDropdown((prev) => !prev);
-                    }}
+                    size={14}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"
+                    onClick={() => setShowPartyDropdown(!showPartyDropdown)}
+                  />
+                </div>
+
+                {/* Selected Party Live Pending Balance */}
+                {selectedParty && (
+                  <div className="flex justify-between items-center mt-1.5 px-1 text-[11px] bg-slate-50 py-1 rounded-lg border border-slate-200">
+                    <span className="text-slate-500 font-medium">Pending Due:</span>
+                    <span className={`font-black ${Number(selectedParty.pending_amount || selectedParty.balance || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                      ₹ {Number(selectedParty.pending_amount || selectedParty.balance || 0).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Party Suggestions Dropdown */}
+                {showPartyDropdown && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-48 overflow-y-auto z-50 py-1">
+                    {searchingParty ? (
+                      <div className="p-3 text-xs text-slate-400 text-center font-medium">Loading parties...</div>
+                    ) : partySuggestions.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-600">
+                        No match. Will save as <b>"{partyQuery}"</b>
+                      </div>
+                    ) : (
+                      partySuggestions.map((cust) => (
+                        <button
+                          key={cust.id}
+                          onClick={() => selectParty(cust)}
+                          className="w-full text-left px-3.5 py-2 text-xs hover:bg-blue-50 flex items-center justify-between border-b border-slate-50 cursor-pointer"
+                        >
+                          <div>
+                            <div className="font-bold text-slate-900">{cust.name || cust.customer_name}</div>
+                            {(cust.phone || cust.customer_phone) && (
+                              <div className="text-[10px] text-slate-400">{cust.phone || cust.customer_phone}</div>
+                            )}
+                          </div>
+                          {Number(cust.pending_amount || cust.balance || 0) > 0 && (
+                            <span className="font-bold text-rose-600 text-[11px]">
+                              Due: ₹{Number(cust.pending_amount || cust.balance || 0).toFixed(2)}
+                            </span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Type */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Payment Mode *
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {["Cash", "UPI", "Online", "Cheque"].map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setPaymentType(type)}
+                      className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
+                        paymentType === type
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs shadow-blue-600/30"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Receipt No, Date, Amount, Discount */}
+            <div className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Receipt No */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Receipt #</label>
+                  <input
+                    type="text"
+                    value={receiptNo}
+                    onChange={(e) => setReceiptNo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 text-xs outline-none focus:border-blue-600 transition"
+                  />
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Payment Date</label>
+                  <input
+                    type="date"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold text-slate-800 text-xs outline-none focus:border-blue-600 transition"
                   />
                 </div>
               </div>
 
-              {/* Suggestions Dropdown */}
-              {showPartyDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50 py-1">
-                  {searchingParty ? (
-                    <div className="p-3 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                      <RefreshCw size={12} className="animate-spin text-blue-500" />
-                      <span>Searching parties...</span>
-                    </div>
-                  ) : partySuggestions.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-slate-400">No parties found.</div>
-                  ) : (
-                    partySuggestions.map((cust) => (
-                      <div
-                        key={cust.id}
-                        onClick={() => selectParty(cust)}
-                        className="px-3.5 py-2 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-none"
-                      >
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">{cust.name || cust.customer_name}</div>
-                          {cust.phone && <div className="text-[11px] text-slate-400">{cust.phone}</div>}
-                        </div>
-                        {(cust.pending_amount !== undefined || cust.balance !== undefined) && (
-                          <div className="text-right">
-                            <span className="text-[10px] text-slate-400 block">Pending</span>
-                            <span className="text-xs font-bold text-red-600">
-                              ₹{parseFloat(cust.pending_amount ?? cust.balance ?? 0).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Received Amount */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Received Amount (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    min="0"
+                    step="any"
+                    value={receivedAmount}
+                    onChange={(e) => setReceivedAmount(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-black text-slate-900 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                  />
                 </div>
-              )}
 
-              {/* Selected Customer Balance Preview */}
-              {selectedParty && (
-                <div className="mt-1.5 text-xs text-slate-500 flex items-center justify-between px-1">
-                  <span>Selected: <strong className="text-slate-700">{selectedParty.name || selectedParty.customer_name}</strong></span>
-                  {(selectedParty.pending_amount !== undefined || selectedParty.balance !== undefined) && (
-                    <span className="text-red-600 font-semibold">
-                      Current Bal: ₹{parseFloat(selectedParty.pending_amount ?? selectedParty.balance ?? 0).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Payment Type */}
-            <div className="relative">
-              <div className="relative border border-slate-300 rounded-lg px-3 pt-3 pb-2">
-                <label className="absolute -top-2.5 left-3 px-1 bg-white text-xs font-medium text-slate-500">
-                  Payment Type
-                </label>
-                <div
-                  onClick={() => setShowPaymentTypeDropdown(!showPaymentTypeDropdown)}
-                  className="flex items-center justify-between cursor-pointer"
-                >
-                  <span className="text-sm font-medium text-slate-800">{paymentType}</span>
-                  <ChevronDown size={16} className="text-slate-400" />
+                {/* Discount Amount */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Discount Allowed (₹)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    min="0"
+                    step="any"
+                    value={discountAmount}
+                    onChange={(e) => setDiscountAmount(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-semibold text-slate-700 text-sm outline-none focus:border-blue-600 transition"
+                  />
                 </div>
               </div>
-
-              {showPaymentTypeDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
-                  {["Cash", "Online / Bank Transfer", "UPI / GooglePay", "Cheque"].map((type) => (
-                    <div
-                      key={type}
-                      onClick={() => {
-                        setPaymentType(type);
-                        setShowPaymentTypeDropdown(false);
-                      }}
-                      className={`px-3 py-2 text-xs font-medium cursor-pointer hover:bg-slate-50 flex items-center justify-between ${
-                        paymentType === type ? "text-blue-600 font-bold bg-blue-50/50" : "text-slate-700"
-                      }`}
-                    >
-                      <span>{type}</span>
-                      {paymentType === type && <Check size={13} className="text-blue-600" />}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 
-          {/* ── RIGHT COLUMN ── */}
-          <div className="space-y-4">
-            {/* Receipt No */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Receipt No</span>
-              <input
-                type="text"
-                value={receiptNo}
-                onChange={(e) => setReceiptNo(e.target.value)}
-                className="w-36 text-right border-b border-slate-200 pb-1 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500"
-              />
+          {/* Calculation / Receipt Summary Box */}
+          <div className="bg-slate-50/80 rounded-xl border border-slate-200/90 p-3.5 space-y-2 text-xs">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/70">
+              <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Receipt Summary</span>
+              <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                INR Currency
+              </span>
             </div>
-
-            {/* Date */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Date</span>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-36 text-right text-xs font-semibold text-slate-800 outline-none border-b border-slate-200 pb-1 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            {/* Received Input */}
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs font-medium text-slate-500">Received</span>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                placeholder="0"
-                value={receivedAmount}
-                onChange={(e) => setReceivedAmount(e.target.value)}
-                className="w-40 border border-slate-300 rounded-md px-3 py-1.5 text-right text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Discount Input */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Discount</span>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                placeholder="0"
-                value={discountAmount}
-                onChange={(e) => setDiscountAmount(e.target.value)}
-                className="w-40 border border-slate-300 rounded-md px-3 py-1.5 text-right text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Calculation / Payment Summary Box */}
-            <div className="bg-slate-50/80 rounded-xl border border-slate-200/90 p-3.5 space-y-2 text-xs">
-              <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/70">
-                <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Payment Summary</span>
-                <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
-                  INR Currency
-                </span>
-              </div>
+            {selectedParty && (
               <div className="flex justify-between items-center text-slate-600 font-semibold">
-                <span>Received Amount</span>
-                <span className="font-bold text-slate-900">₹ {(parseFloat(receivedAmount) || 0).toFixed(2)}</span>
-              </div>
-              {parseFloat(discountAmount) > 0 && (
-                <div className="flex justify-between items-center text-slate-600 font-semibold">
-                  <span>Discount Allowed</span>
-                  <span className="font-bold text-rose-600">+ ₹ {(parseFloat(discountAmount) || 0).toFixed(2)}</span>
-                </div>
-              )}
-              {selectedParty && (
-                <div className="flex justify-between items-center text-slate-600 font-semibold pt-1 border-t border-slate-200/60 text-[11px]">
-                  <span>Customer Remaining Balance</span>
-                  <span className={`font-bold ${Math.max(0, (parseFloat(selectedParty.pending_amount ?? selectedParty.balance ?? 0) - totalAmount)) > 0 ? "text-rose-600" : "text-emerald-700"}`}>
-                    ₹ {Math.max(0, (parseFloat(selectedParty.pending_amount ?? selectedParty.balance ?? 0) - totalAmount)).toFixed(2)}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between items-center pt-1.5 border-t border-slate-200">
-                <span className="font-bold text-slate-900 text-xs">Total Settled Value</span>
-                <span className="text-base font-black text-blue-600">
-                  ₹ {totalAmount.toFixed(2)}
+                <span>Customer Current Due</span>
+                <span className="font-bold text-rose-600">
+                  ₹ {Number(selectedParty.pending_amount || selectedParty.balance || 0).toFixed(2)}
                 </span>
               </div>
+            )}
+            <div className="flex justify-between items-center text-slate-600 font-semibold">
+              <span>Received Amount</span>
+              <span className="font-bold text-slate-900">
+                ₹ {(parseFloat(receivedAmount) || 0).toFixed(2)}
+              </span>
             </div>
+            {parseFloat(discountAmount) > 0 && (
+              <div className="flex justify-between items-center text-slate-600 font-semibold">
+                <span>Discount Allowed</span>
+                <span className="font-bold text-amber-600">
+                  + ₹ {(parseFloat(discountAmount) || 0).toFixed(2)}
+                </span>
+              </div>
+            )}
+            {selectedParty && (
+              <div className="flex justify-between items-center pt-1.5 border-t border-slate-200 text-xs">
+                <span className="font-bold text-slate-900">Remaining Receivable Due</span>
+                <span className={`font-bold ${Math.max(0, (Number(selectedParty.pending_amount || selectedParty.balance || 0) - totalAmount)) > 0 ? "text-rose-600 font-black text-sm" : "text-emerald-700 font-black text-sm"}`}>
+                  ₹ {Math.max(0, (Number(selectedParty.pending_amount || selectedParty.balance || 0) - totalAmount)).toFixed(2)}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-1.5 border-t border-slate-200 text-xs">
+              <span className="font-bold text-slate-900">Total Settled Value</span>
+              <span className="font-black text-blue-600 text-sm">
+                ₹ {totalAmount.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* Description & Remarks */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Notes / Transaction Reference</label>
+            <input
+              type="text"
+              placeholder="Optional remarks, cheque/UTR reference"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 outline-none focus:border-blue-600 transition"
+            />
           </div>
         </div>
 
-        {/* ── 4. BOTTOM ACTION BAR (Save) ── */}
-        <div className="px-6 py-3.5 border-t border-slate-200 bg-white flex items-center justify-end gap-3">
-          {/* Primary Save Button */}
+        {/* Footer */}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
           <button
             type="button"
-            disabled={saving}
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
             onClick={handleSavePaymentIn}
-            className="inline-flex items-center justify-center gap-2 px-8 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
+            disabled={saving}
+            className="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
           >
             {saving && <RefreshCw size={14} className="animate-spin" />}
-            <span><u>S</u>ave</span>
+            <span>{saving ? "Recording..." : "Save Payment"}</span>
           </button>
         </div>
       </div>

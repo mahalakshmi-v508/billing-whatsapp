@@ -176,7 +176,7 @@ export function SettingsShell({ title, subtitle, icon, onClose, children, conten
   return (
     <div className="overflow-hidden flex flex-col flex-1 bg-slate-50">
       <SettingsHeader title={title} subtitle={subtitle} icon={icon} onClose={onClose} actions={actions} />
-      <div className={`flex-1 overflow-y-auto px-10 py-9 ${contentClassName}`}>{children}</div>
+      <div className={`flex-1 overflow-y-auto px-5 sm:px-7 md:px-8 py-5 sm:py-6 ${contentClassName}`}>{children}</div>
     </div>
   );
 }

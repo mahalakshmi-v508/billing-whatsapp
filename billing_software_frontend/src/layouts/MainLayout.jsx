@@ -462,14 +462,8 @@ export default function MainLayout() {
               { id: "general", label: "General Settings" },
               { id: "invoice-numbering", label: "Invoice Numbering" },
               { id: "print", label: "Print" },
-              { id: "transaction", label: "Transaction Rules" },
-              { id: "taxes", label: "Taxes & GST Rates" },
               { id: "eway-bill", label: "E-Way Bill Integration", icon: <Truck size={15} /> },
               { id: "txn-messages", label: "WhatsApp & SMS Alerts" },
-              { id: "party", label: "Party & Ledger" },
-              { id: "item", label: "Items & Inventory" },
-              { id: "accounting", label: "Accounting Rules" },
-              { id: "multi-currency", label: "Multi Currency" },
             ].map((tab) => (
               <button
                 key={tab.id}

@@ -2611,7 +2611,7 @@ export default function InvoicePreview() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center gap-4 text-slate-300">
+      <div className="fixed inset-0 z-[9999] bg-slate-50 flex flex-col items-center justify-center gap-4 text-slate-600">
         <div className="relative">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 animate-pulse flex items-center justify-center shadow-lg shadow-blue-500/20">
             <FileText className="w-6 h-6 text-white animate-bounce" />
@@ -2619,8 +2619,8 @@ export default function InvoicePreview() {
           <div className="absolute -inset-2 rounded-2xl border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
         </div>
         <div className="text-center">
-          <h3 className="font-semibold text-slate-100 text-sm">Preparing Invoice #{invoiceNo}</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Rendering precision print layout & templates...</p>
+          <h3 className="font-semibold text-slate-900 text-sm">Preparing Invoice #{invoiceNo}</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Rendering precision print layout & templates...</p>
         </div>
       </div>
     );
@@ -2628,13 +2628,13 @@ export default function InvoicePreview() {
 
   if (loadError || !invoice) {
     return (
-      <div className="fixed inset-0 z-[9999] bg-slate-950 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
-          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-4">
+      <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+          <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-500 flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-7 h-7" />
           </div>
-          <h2 className="text-lg font-bold text-white mb-2">Invoice Not Found</h2>
-          <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+          <h2 className="text-lg font-bold text-slate-900 mb-2">Invoice Not Found</h2>
+          <p className="text-xs text-slate-500 mb-6 leading-relaxed">
             {loadError || `Could not find invoice #${invoiceNo}. It may have been deleted or the document number is invalid.`}
           </p>
           <button
@@ -2656,18 +2656,18 @@ export default function InvoicePreview() {
   const isPartial = paidAmountNum > 0 && balanceAmountNum > 0;
 
   const statusBadge = isPaid ? (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
       PAID
     </span>
   ) : isPartial ? (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/25">
-      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
       PARTIAL
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/25">
-      <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
       UNPAID
     </span>
   );
@@ -2675,46 +2675,46 @@ export default function InvoicePreview() {
   const invoiceType = getInvoiceType(invoice);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col bg-slate-950 font-sans select-none overflow-hidden text-slate-100">
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-slate-100 font-sans select-none overflow-hidden text-slate-800">
 
       {/* ── 1. MODERN APP HEADER (BRAND TOOLBAR) ── */}
-      <header className="no-print h-14 bg-slate-900/95 backdrop-blur border-b border-slate-800/80 px-4 flex items-center justify-between z-30 shrink-0 shadow-lg">
+      <header className="no-print h-14 bg-white/95 backdrop-blur border-b border-slate-200/90 px-4 flex items-center justify-between z-30 shrink-0 shadow-sm">
         {/* Left Cluster: Navigation & Document Identification */}
         <div className="flex items-center gap-3">
           <button
             onClick={handleSaveAndClose}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold border border-slate-700/60 transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-xs font-semibold border border-slate-200 transition-colors shadow-sm"
             title="Return to list (Esc)"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Back</span>
-            <kbd className="hidden md:inline px-1 py-0.2 rounded bg-slate-900 text-[10px] text-slate-400 border border-slate-700">Esc</kbd>
+            <kbd className="hidden md:inline px-1 py-0.2 rounded bg-slate-100 text-[10px] text-slate-500 border border-slate-200">Esc</kbd>
           </button>
 
-          <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
 
           {/* Doc details pill */}
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/25 flex items-center justify-center text-blue-400">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
               <FileCheck className="w-4 h-4" />
             </div>
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400 hidden lg:inline">Invoice</span>
-                <span className="text-xs sm:text-sm font-bold tracking-tight text-white font-mono">
+                <span className="text-xs text-slate-500 hidden lg:inline">Invoice</span>
+                <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 font-mono">
                   #{invoice.invoice_no}
                 </span>
                 <button
                   onClick={copyInvoiceNumber}
-                  className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
                   title="Copy invoice number"
                 >
-                  {copiedDocNo ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {copiedDocNo ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                 </button>
               </div>
 
-              <span className="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-300 font-semibold border border-blue-500/20">
+              <span className="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold border border-blue-200">
                 {invoiceType}
               </span>
 
@@ -2726,7 +2726,7 @@ export default function InvoicePreview() {
         {/* Center Cluster: Format Selector & Interactive Zoom */}
         <div className="hidden md:flex items-center gap-3">
           {/* Format Switcher */}
-          <div className="bg-slate-800/90 p-0.5 rounded-lg border border-slate-700/70 flex items-center gap-0.5">
+          <div className="bg-slate-100 p-0.5 rounded-lg border border-slate-200 flex items-center gap-0.5">
             <button
               onClick={() => {
                 setPrinterType("regular");
@@ -2735,7 +2735,7 @@ export default function InvoicePreview() {
               className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 !isPOS
                   ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/40"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -2749,7 +2749,7 @@ export default function InvoicePreview() {
               className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 isPOS
                   ? "bg-amber-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/40"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
             >
               <Printer className="w-3.5 h-3.5" />
@@ -2758,24 +2758,24 @@ export default function InvoicePreview() {
           </div>
 
           {/* Zoom Controls */}
-          <div className="bg-slate-800/90 rounded-lg border border-slate-700/70 flex items-center px-1 py-0.5 gap-0.5 text-xs text-slate-300">
+          <div className="bg-slate-100 rounded-lg border border-slate-200 flex items-center px-1 py-0.5 gap-0.5 text-xs text-slate-700">
             <button
               onClick={handleZoomOut}
-              className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              className="p-1 rounded hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleResetZoom}
-              className="px-1.5 py-0.5 font-mono text-[11px] font-semibold hover:bg-slate-700 rounded transition-colors"
+              className="px-1.5 py-0.5 font-mono text-[11px] font-semibold hover:bg-slate-200 rounded transition-colors text-slate-700"
               title="Reset to 100%"
             >
               {Math.round(zoom * 100)}%
             </button>
             <button
               onClick={handleZoomIn}
-              className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              className="p-1 rounded hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
@@ -2786,7 +2786,7 @@ export default function InvoicePreview() {
         {/* Right Cluster: Quick Actions & Close */}
         <div className="flex items-center gap-2.5">
           {/* Quick toggle check */}
-          <label className="hidden xl:flex items-center gap-2 cursor-pointer text-xs text-slate-400 hover:text-slate-300">
+          <label className="hidden xl:flex items-center gap-2 cursor-pointer text-xs text-slate-600 hover:text-slate-900">
             <input
               type="checkbox"
               checked={doNotShowAgain}
@@ -2794,7 +2794,7 @@ export default function InvoicePreview() {
                 setDoNotShowAgain(e.target.checked);
                 localStorage.setItem("skip_invoice_preview", e.target.checked ? "true" : "false");
               }}
-              className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-blue-600"
+              className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-blue-600"
             />
             <span>Skip preview next time</span>
           </label>
@@ -2813,7 +2813,7 @@ export default function InvoicePreview() {
           {/* Save & Close Button */}
           <button
             onClick={handleSaveAndClose}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all"
           >
             <span>Done</span>
           </button>
@@ -2823,7 +2823,7 @@ export default function InvoicePreview() {
             <button
               onClick={() => setLeftSidebarOpen((v) => !v)}
               className={`p-1.5 rounded-lg border text-xs ${
-                leftSidebarOpen ? "bg-slate-800 border-slate-700 text-blue-400" : "bg-transparent border-slate-800 text-slate-400"
+                leftSidebarOpen ? "bg-slate-100 border-slate-300 text-blue-600" : "bg-transparent border-slate-200 text-slate-600"
               }`}
               title="Toggle Studio panel"
             >
@@ -2832,7 +2832,7 @@ export default function InvoicePreview() {
             <button
               onClick={() => setRightSidebarOpen((v) => !v)}
               className={`p-1.5 rounded-lg border text-xs ${
-                rightSidebarOpen ? "bg-slate-800 border-slate-700 text-blue-400" : "bg-transparent border-slate-800 text-slate-400"
+                rightSidebarOpen ? "bg-slate-100 border-slate-300 text-blue-600" : "bg-transparent border-slate-200 text-slate-600"
               }`}
               title="Toggle Info panel"
             >
@@ -2847,21 +2847,21 @@ export default function InvoicePreview() {
 
         {/* ── 2.A LEFT PANEL: DESIGN & CUSTOMIZATION STUDIO ── */}
         <aside
-          className={`no-print absolute lg:relative z-20 inset-y-0 left-0 w-72 bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out ${
+          className={`no-print absolute lg:relative z-20 inset-y-0 left-0 w-72 bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out shadow-sm ${
             leftSidebarOpen ? "translate-x-0" : "-translate-x-full lg:w-0 lg:overflow-hidden lg:border-r-0"
           }`}
         >
           {/* Studio Header */}
-          <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/60">
+          <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
                 <Palette className="w-3.5 h-3.5" />
               </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Invoice Studio</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Invoice Studio</span>
             </div>
             <button
               onClick={() => setLeftSidebarOpen(false)}
-              className="lg:hidden p-1 text-slate-400 hover:text-white"
+              className="lg:hidden p-1 text-slate-400 hover:text-slate-700"
             >
               <X className="w-4 h-4" />
             </button>
@@ -2871,7 +2871,7 @@ export default function InvoicePreview() {
           <div className="flex-1 overflow-y-auto p-3.5 space-y-5 custom-scrollbar text-xs">
             {/* 1. Format Selection */}
             <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+              <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-2">
                 Output Format
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -2883,13 +2883,13 @@ export default function InvoicePreview() {
                   }}
                   className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1 ${
                     !isPOS
-                      ? "bg-blue-600/15 border-blue-500/50 text-blue-300 ring-1 ring-blue-500/30"
-                      : "bg-slate-800/60 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      ? "bg-blue-50 border-blue-400 text-blue-900 ring-1 ring-blue-500/20 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
-                  <FileText className="w-4 h-4 text-blue-400" />
+                  <FileText className="w-4 h-4 text-blue-600" />
                   <span className="font-bold text-xs">A4 Standard</span>
-                  <span className="text-[10px] text-slate-400 leading-tight">Desktop GST bill</span>
+                  <span className="text-[10px] text-slate-500 leading-tight">Desktop GST bill</span>
                 </button>
                 <button
                   type="button"
@@ -2899,13 +2899,13 @@ export default function InvoicePreview() {
                   }}
                   className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1 ${
                     isPOS
-                      ? "bg-amber-600/15 border-amber-500/50 text-amber-300 ring-1 ring-amber-500/30"
-                      : "bg-slate-800/60 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      ? "bg-amber-50 border-amber-400 text-amber-900 ring-1 ring-amber-500/20 shadow-xs"
+                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
-                  <Printer className="w-4 h-4 text-amber-400" />
+                  <Printer className="w-4 h-4 text-amber-600" />
                   <span className="font-bold text-xs">Thermal POS</span>
-                  <span className="text-[10px] text-slate-400 leading-tight">Fast roll receipt</span>
+                  <span className="text-[10px] text-slate-500 leading-tight">Fast roll receipt</span>
                 </button>
               </div>
             </div>
@@ -2914,10 +2914,10 @@ export default function InvoicePreview() {
             {!isPOS ? (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                     Template Theme
                   </label>
-                  <span className="text-[10px] text-slate-500">{THEMES.filter((t) => t.id !== "pos").length} presets</span>
+                  <span className="text-[10px] text-slate-400">{THEMES.filter((t) => t.id !== "pos").length} presets</span>
                 </div>
                 <div className="space-y-1.5">
                   {THEMES.filter((t) => t.id !== "pos").map((t) => {
@@ -2932,18 +2932,18 @@ export default function InvoicePreview() {
                         }}
                         className={`w-full px-3 py-2 rounded-xl border text-left flex items-center justify-between transition-all ${
                           isSelected
-                            ? "bg-blue-600/15 border-blue-500/50 text-white font-bold ring-1 ring-blue-500/30"
-                            : "bg-slate-800/40 border-slate-700/40 text-slate-300 hover:bg-slate-800/80 hover:text-white"
+                            ? "bg-blue-50 border-blue-400 text-blue-950 font-bold ring-1 ring-blue-500/20 shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <span
-                            className="w-2 h-2 rounded-full"
-                            style={{ background: isSelected ? selectedColor : "#64748b" }}
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: isSelected ? selectedColor : "#94a3b8" }}
                           />
                           <span className="text-xs">{t.label}</span>
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-600" />}
                       </button>
                     );
                   })}
@@ -2951,7 +2951,7 @@ export default function InvoicePreview() {
               </div>
             ) : (
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-2">
                   POS Receipt Layout
                 </label>
                 <div className="space-y-1.5">
@@ -2973,23 +2973,23 @@ export default function InvoicePreview() {
                         }}
                         className={`w-full px-3 py-2 rounded-xl border text-left flex items-center justify-between transition-all ${
                           isSelected
-                            ? "bg-amber-600/15 border-amber-500/50 text-white font-bold ring-1 ring-amber-500/30"
-                            : "bg-slate-800/40 border-slate-700/40 text-slate-300 hover:bg-slate-800/80 hover:text-white"
+                            ? "bg-amber-50 border-amber-400 text-amber-950 font-bold ring-1 ring-amber-500/20 shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                         }`}
                       >
                         <div>
                           <div className="text-xs">{l.label}</div>
-                          <div className="text-[10px] text-slate-400 font-normal">{l.desc}</div>
+                          <div className="text-[10px] text-slate-500 font-normal">{l.desc}</div>
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-600" />}
                       </button>
                     );
                   })}
                 </div>
 
                 {/* Paper Roll Width */}
-                <div className="mt-4 pt-3 border-t border-slate-800">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                <div className="mt-4 pt-3 border-t border-slate-200">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-2">
                     Paper Roll Width
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -3002,8 +3002,8 @@ export default function InvoicePreview() {
                           onClick={() => setPageSize(sz)}
                           className={`p-2 rounded-lg border text-center text-xs font-semibold transition-all ${
                             isSelected
-                              ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
-                              : "bg-slate-800/40 border-slate-700/40 text-slate-400 hover:bg-slate-800"
+                              ? "bg-amber-50 border-amber-400 text-amber-800"
+                              : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                           }`}
                         >
                           {sz}
@@ -3016,18 +3016,18 @@ export default function InvoicePreview() {
             )}
 
             {/* 3. Theme Color Swatches */}
-            <div className="pt-2 border-t border-slate-800">
+            <div className="pt-2 border-t border-slate-200">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                   Theme Accent Color
                 </label>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ background: selectedColor }} />
-                  <span className="font-mono text-[10px] text-slate-400 uppercase">{selectedColor}</span>
+                  <span className="font-mono text-[10px] text-slate-500 uppercase">{selectedColor}</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-6 gap-2 bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/50">
+              <div className="grid grid-cols-6 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
                 {PALETTE_COLORS.map((c) => {
                   const isSelected = (selectedColor || "").toLowerCase() === c.toLowerCase();
                   return (
@@ -3040,7 +3040,7 @@ export default function InvoicePreview() {
                       }}
                       title={c}
                       className={`w-6 h-6 rounded-full mx-auto transition-transform flex items-center justify-center cursor-pointer ${
-                        isSelected ? "scale-110 ring-2 ring-white ring-offset-2 ring-offset-slate-900" : "hover:scale-105"
+                        isSelected ? "scale-110 ring-2 ring-slate-900 ring-offset-2 ring-offset-white" : "hover:scale-105"
                       }`}
                       style={{ background: c }}
                     >
@@ -3053,13 +3053,13 @@ export default function InvoicePreview() {
           </div>
 
           {/* Studio Footer */}
-          <div className="p-3 border-t border-slate-800 bg-slate-900/90 text-center text-[11px] text-slate-500">
+          <div className="p-3 border-t border-slate-200 bg-slate-50/80 text-center text-[11px] text-slate-500">
             Changes auto-saved as your default bill theme
           </div>
         </aside>
 
         {/* ── 2.B CENTER STAGE: ZOOMABLE INVOICE PAPER CANVAS ── */}
-        <main className="flex-1 bg-slate-950/80 overflow-y-auto relative flex flex-col items-center justify-start p-4 sm:p-6 lg:p-8 custom-scrollbar">
+        <main className="flex-1 bg-slate-200/70 overflow-y-auto relative flex flex-col items-center justify-start p-4 sm:p-6 lg:p-8 custom-scrollbar">
           {/* Zoom Wrapper */}
           <div
             className="transition-transform duration-200 ease-out origin-top flex flex-col items-center"
@@ -3068,7 +3068,7 @@ export default function InvoicePreview() {
             {/* The Precision Paper Container */}
             <div
               id="invoice-print-area"
-              className={`bg-white text-slate-900 shadow-2xl rounded-sm ring-1 ring-slate-900/10 relative ${
+              className={`bg-white text-slate-900 shadow-xl rounded-sm ring-1 ring-slate-300/80 relative ${
                 isPOS
                   ? pageSize && pageSize.includes("58mm")
                     ? "w-[270px] p-3"
@@ -3104,7 +3104,7 @@ export default function InvoicePreview() {
           </div>
 
           {/* Floating Canvas Quick Actions Bar */}
-          <div className="no-print sticky bottom-4 mt-6 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800/90 rounded-2xl px-3 py-2 shadow-2xl flex items-center gap-2">
+          <div className="no-print sticky bottom-4 mt-6 z-20 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-3 py-2 shadow-xl flex items-center gap-2">
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all"
@@ -3115,7 +3115,7 @@ export default function InvoicePreview() {
 
             <button
               onClick={downloadPDF}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700/60 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 transition-all"
             >
               <Download className="w-3.5 h-3.5" />
               <span>PDF</span>
@@ -3130,11 +3130,11 @@ export default function InvoicePreview() {
               <span>WhatsApp</span>
             </button>
 
-            <div className="h-4 w-px bg-slate-800" />
+            <div className="h-4 w-px bg-slate-200" />
 
             <button
               onClick={copyInvoiceLink}
-              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
               title="Copy Invoice Link"
             >
               <Share2 className="w-4 h-4" />
@@ -3142,7 +3142,7 @@ export default function InvoicePreview() {
 
             <button
               onClick={handleResetZoom}
-              className="px-2 py-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white font-mono text-xs transition-colors"
+              className="px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 font-mono text-xs transition-colors"
               title="Reset Zoom"
             >
               {Math.round(zoom * 100)}%
@@ -3152,21 +3152,21 @@ export default function InvoicePreview() {
 
         {/* ── 2.C RIGHT PANEL: INVOICE INTEL & SHARE HUB ── */}
         <aside
-          className={`no-print absolute lg:relative z-20 inset-y-0 right-0 w-80 bg-slate-900 border-l border-slate-800 flex flex-col transition-all duration-300 ease-in-out ${
+          className={`no-print absolute lg:relative z-20 inset-y-0 right-0 w-80 bg-white border-l border-slate-200 flex flex-col transition-all duration-300 ease-in-out shadow-sm ${
             rightSidebarOpen ? "translate-x-0" : "translate-x-full lg:w-0 lg:overflow-hidden lg:border-l-0"
           }`}
         >
           {/* Header */}
-          <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/60">
+          <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
                 <ShieldCheck className="w-3.5 h-3.5" />
               </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Invoice Summary</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Invoice Summary</span>
             </div>
             <button
               onClick={() => setRightSidebarOpen(false)}
-              className="lg:hidden p-1 text-slate-400 hover:text-white"
+              className="lg:hidden p-1 text-slate-400 hover:text-slate-700"
             >
               <X className="w-4 h-4" />
             </button>
@@ -3175,19 +3175,19 @@ export default function InvoicePreview() {
           {/* Intel Content Body */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar text-xs">
             {/* Grand Total & Settlement Card */}
-            <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/80 rounded-2xl p-4 shadow-lg">
-              <div className="flex items-center justify-between mb-1 text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-1 text-[11px] text-slate-500 font-semibold uppercase tracking-wider">
                 <span>Grand Total</span>
                 {statusBadge}
               </div>
-              <div className="text-2xl font-black tracking-tight text-white font-mono">
+              <div className="text-2xl font-black tracking-tight text-slate-900 font-mono">
                 ₹ {totalAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
 
               {balanceAmountNum > 0 && (
-                <div className="mt-2.5 pt-2.5 border-t border-slate-700/60 flex items-center justify-between text-xs">
-                  <span className="text-rose-400 font-medium">Balance Due:</span>
-                  <span className="font-bold text-rose-400 font-mono">
+                <div className="mt-2.5 pt-2.5 border-t border-slate-200 flex items-center justify-between text-xs">
+                  <span className="text-rose-600 font-medium">Balance Due:</span>
+                  <span className="font-bold text-rose-600 font-mono">
                     ₹ {balanceAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -3195,33 +3195,33 @@ export default function InvoicePreview() {
             </div>
 
             {/* Bill Key Facts */}
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-3.5 space-y-2.5 text-slate-300">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5 text-slate-700">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-slate-500 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-slate-400" />
                   <span>Customer</span>
                 </span>
-                <span className="font-bold text-white max-w-[150px] truncate" title={invoice.customer_name}>
+                <span className="font-bold text-slate-900 max-w-[150px] truncate" title={invoice.customer_name}>
                   {invoice.customer_name || "Cash Customer"}
                 </span>
               </div>
 
               {invoice.customer_phone && (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-slate-500 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-slate-400" />
                     <span>Phone</span>
                   </span>
-                  <span className="font-mono text-slate-200">{invoice.customer_phone}</span>
+                  <span className="font-mono text-slate-800">{invoice.customer_phone}</span>
                 </div>
               )}
 
               <div className="flex items-center justify-between">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-slate-500 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
                   <span>Date</span>
                 </span>
-                <span className="text-slate-200">
+                <span className="text-slate-800">
                   {invoice.created_at
                     ? new Date(invoice.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
                     : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
@@ -3229,18 +3229,18 @@ export default function InvoicePreview() {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-slate-500 flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-slate-400" />
                   <span>Payment</span>
                 </span>
-                <span className="font-bold text-emerald-400 uppercase tracking-wide text-[11px]">
+                <span className="font-bold text-emerald-700 uppercase tracking-wide text-[11px]">
                   {invoice.payment_type || invoice.payment_method || "Cash"}
                 </span>
               </div>
 
-              <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">Selected Layout:</span>
-                <span className="font-semibold text-blue-400 truncate max-w-[140px]">
+              <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                <span className="text-slate-500">Selected Layout:</span>
+                <span className="font-semibold text-blue-600 truncate max-w-[140px]">
                   {isPOS
                     ? `POS (${(selectedPosLayout || "classic").replace("pos_", "").toUpperCase()})`
                     : `${(selectedTheme || "tally").toUpperCase()} A4`}
@@ -3250,7 +3250,7 @@ export default function InvoicePreview() {
 
             {/* Multi-Channel Sharing Hub */}
             <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+              <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-2">
                 Share Invoice
               </label>
 
@@ -3259,68 +3259,68 @@ export default function InvoicePreview() {
                 <button
                   onClick={shareWhatsApp}
                   disabled={waSending}
-                  className="w-full p-2.5 rounded-xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 border border-emerald-500/30 hover:border-emerald-500/50 text-left transition-all flex items-center justify-between group shadow-sm"
+                  className="w-full p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 hover:border-emerald-300 text-left transition-all flex items-center justify-between group shadow-2xs"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/20">
                       {waSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
                     </div>
                     <div>
-                      <div className="font-bold text-white text-xs group-hover:text-emerald-300 transition-colors">
+                      <div className="font-bold text-slate-900 text-xs group-hover:text-emerald-700 transition-colors">
                         {waSending ? "Sending Document..." : "WhatsApp Share"}
                       </div>
-                      <div className="text-[10px] text-emerald-400/90 font-mono">
+                      <div className="text-[10px] text-emerald-700 font-mono">
                         {invoice.customer_phone ? `Send PDF to ${invoice.customer_phone}` : "Send PDF to customer"}
                       </div>
                     </div>
                   </div>
-                  <Send className="w-3.5 h-3.5 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+                  <Send className="w-3.5 h-3.5 text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
                 </button>
 
                 {/* WhatsApp Transaction Message */}
                 <button
                   onClick={sendTransactionMessage}
                   disabled={tmSending}
-                  className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 text-left transition-all flex items-center justify-between group"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-left transition-all flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
                       {tmSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                     </div>
                     <div>
-                      <div className="font-bold text-slate-200 text-xs">WhatsApp Template</div>
-                      <div className="text-[10px] text-slate-400">Pre-configured message</div>
+                      <div className="font-bold text-slate-800 text-xs">WhatsApp Template</div>
+                      <div className="text-[10px] text-slate-500">Pre-configured message</div>
                     </div>
                   </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
                 </button>
 
                 {/* Copy Link & Quick Channels */}
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={copyInvoiceLink}
-                    className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 text-center transition-all flex flex-col items-center gap-1 text-slate-300 hover:text-white"
+                    className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-center transition-all flex flex-col items-center gap-1 text-slate-700 hover:text-slate-900"
                     title="Copy public link"
                   >
-                    <Share2 className="w-4 h-4 text-blue-400" />
+                    <Share2 className="w-4 h-4 text-blue-600" />
                     <span className="text-[10px] font-semibold">Copy Link</span>
                   </button>
 
                   <button
                     onClick={shareEmail}
-                    className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 text-center transition-all flex flex-col items-center gap-1 text-slate-300 hover:text-white"
+                    className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-center transition-all flex flex-col items-center gap-1 text-slate-700 hover:text-slate-900"
                     title="Email Bill"
                   >
-                    <Mail className="w-4 h-4 text-amber-400" />
+                    <Mail className="w-4 h-4 text-amber-600" />
                     <span className="text-[10px] font-semibold">Email</span>
                   </button>
 
                   <button
                     onClick={shareSMS}
-                    className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 text-center transition-all flex flex-col items-center gap-1 text-slate-300 hover:text-white"
+                    className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 text-center transition-all flex flex-col items-center gap-1 text-slate-700 hover:text-slate-900"
                     title="SMS Bill"
                   >
-                    <Smartphone className="w-4 h-4 text-violet-400" />
+                    <Smartphone className="w-4 h-4 text-violet-600" />
                     <span className="text-[10px] font-semibold">SMS</span>
                   </button>
                 </div>
@@ -3329,7 +3329,7 @@ export default function InvoicePreview() {
           </div>
 
           {/* Action Bottom Bar */}
-          <div className="p-3.5 border-t border-slate-800 bg-slate-900/90 space-y-2">
+          <div className="p-3.5 border-t border-slate-200 bg-slate-50/80 space-y-2">
             <button
               onClick={handlePrint}
               className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
@@ -3340,9 +3340,9 @@ export default function InvoicePreview() {
 
             <button
               onClick={downloadPDF}
-              className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-750 hover:text-white border border-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+              className="w-full py-2 px-4 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-2xs"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-3.5 h-3.5 text-slate-600" />
               <span>Download PDF File</span>
             </button>
           </div>
@@ -3355,20 +3355,20 @@ export default function InvoicePreview() {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md border text-xs font-semibold flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-3 duration-200 ${
+            className={`pointer-events-auto px-4 py-2.5 rounded-xl shadow-xl backdrop-blur-md border text-xs font-semibold flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-3 duration-200 ${
               t.type === "success"
-                ? "bg-emerald-950/90 border-emerald-500/40 text-emerald-200"
+                ? "bg-emerald-50 border-emerald-300 text-emerald-900"
                 : t.type === "error"
-                ? "bg-rose-950/90 border-rose-500/40 text-rose-200"
-                : "bg-slate-900/95 border-slate-700/80 text-slate-100"
+                ? "bg-rose-50 border-rose-300 text-rose-900"
+                : "bg-white border-slate-200 text-slate-800"
             }`}
           >
             {t.type === "success" ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             ) : t.type === "error" ? (
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             ) : (
-              <Info className="w-4 h-4 text-blue-400 shrink-0" />
+              <Info className="w-4 h-4 text-blue-600 shrink-0" />
             )}
             <span>{t.msg}</span>
           </div>

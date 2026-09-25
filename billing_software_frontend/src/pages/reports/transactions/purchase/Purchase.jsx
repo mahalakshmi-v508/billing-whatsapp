@@ -1211,7 +1211,7 @@ export default function Purchase() {
   const pagedHistoryRows = historyList.slice((historySafePage - 1) * rowsPerPage2, historySafePage * rowsPerPage2);
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800">
+    <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 space-y-3.5 max-w-[1600px] mx-auto text-slate-800">
       {viewMode === "analytics" ? (
         <PurchaseAnalytics
           rows={analyticsRows}

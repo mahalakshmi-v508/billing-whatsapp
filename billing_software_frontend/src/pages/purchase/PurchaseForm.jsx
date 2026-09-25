@@ -1,7 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
-import { ArrowLeft, Save, UploadCloud, Plus, Trash2, HelpCircle, CheckCircle2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  UploadCloud,
+  Plus,
+  Trash2,
+  HelpCircle,
+  CheckCircle2,
+  X,
+  FileText,
+  Truck,
+  Building2,
+  Calendar,
+  Layers,
+  Percent,
+  ReceiptText,
+  Wallet,
+  AlertCircle,
+  Download,
+  Check,
+  RefreshCw,
+  RotateCcw,
+  Sparkles,
+  Search,
+  Package,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
@@ -13,7 +38,6 @@ const DEFAULT_PURCHASE_FORM_COLUMNS = [
   { id: "product_code", label: "Product Code", defaultVisible: true },
   { id: "barcode", label: "Barcode", defaultVisible: true },
   { id: "category", label: "Category", defaultVisible: true },
-  { id: "subcategory", label: "Subcategory", defaultVisible: true },
   { id: "brand", label: "Brand", defaultVisible: true },
   { id: "supplier_price", label: "Supplier Price", defaultVisible: true },
   { id: "selling_price", label: "Selling Price", defaultVisible: true },
@@ -59,12 +83,11 @@ export default function PurchaseForm() {
     resetColumns,
     isColumnVisible,
     visibleColumnCount
-  } = useTableColumns(DEFAULT_PURCHASE_FORM_COLUMNS, "purchase_form_item_columns_v1");
+  } = useTableColumns(DEFAULT_PURCHASE_FORM_COLUMNS, "purchase_form_item_columns_v2");
 
-  // Category, Subcategory, and Brand Cache states
+  // Category and Brand states (Standalone)
   const [categories, setCategories] = useState([]);
-  const [companySubcategories, setCompanySubcategories] = useState({}); // catId -> subcategories
-  const [companyBrands, setCompanyBrands] = useState({}); // `${catId}-${subcatId}` -> brands
+  const [brands, setBrands] = useState([]);
 
   // Load Companies
   useEffect(() => {
@@ -108,6 +131,15 @@ export default function PurchaseForm() {
       })
       .catch(console.error);
 
+    // Load All Active Brands for selected company (Standalone)
+    api.get(`/brand/get_active_brand?company_id=${selectedCompany}`)
+      .then(res => {
+        if (res.data.status) {
+          setBrands(res.data.data || []);
+        }
+      })
+      .catch(console.error);
+
     // If ID is provided, load the draft purchase
     if (id) {
       setLoading(true);
@@ -127,7 +159,6 @@ export default function PurchaseForm() {
               product_code: item.product_code || "",
               barcode: item.barcode || "",
               category_name: item.category_name || "",
-              subcategory_name: item.subcategory_name || "",
               brand_name: item.brand_name || "",
               price: Number(item.price),
               selling_price: Number(item.selling_price || 0),
@@ -137,36 +168,12 @@ export default function PurchaseForm() {
               gst_percentage: Number(item.gst_percentage),
               product_id: item.product_id,
               category_id: item.category_id,
-              subcategory_id: item.subcategory_id,
               brand_id: item.brand_id,
               status: "valid",
               errors: [],
               warnings: []
             }));
             setItems(formatted);
-
-            // Prefetch subcategories and brands caches for loaded items
-            const uniqueCats = [...new Set(p.items.map(i => i.category_id).filter(Boolean))];
-            uniqueCats.forEach(catId => {
-              api.get(`/subcategory/get_active_subcategory?company_id=${p.company_id}&category_id=${catId}`)
-                .then(resSub => {
-                  if (resSub.data.status) {
-                    setCompanySubcategories(prev => ({ ...prev, [catId]: resSub.data.data }));
-                  }
-                });
-            });
-
-            p.items.forEach(item => {
-              if (item.category_id && item.subcategory_id) {
-                const key = `${item.category_id}-${item.subcategory_id}`;
-                api.get(`/brand/get_active_brand?company_id=${p.company_id}&category_id=${item.category_id}&subcategory_id=${item.subcategory_id}`)
-                  .then(resBrand => {
-                    if (resBrand.data.status) {
-                      setCompanyBrands(prev => ({ ...prev, [key]: resBrand.data.data }));
-                    }
-                  });
-              }
-            });
 
             // Re-run validation against backend DB to check status
             runBackendValidation(formatted);
@@ -199,7 +206,6 @@ export default function PurchaseForm() {
           product_code: item.product_code,
           barcode: item.barcode,
           category_name: item.category_name,
-          subcategory_name: item.subcategory_name,
           brand_name: item.brand_name,
           price: item.price,
           selling_price: item.selling_price || 0,
@@ -219,7 +225,6 @@ export default function PurchaseForm() {
             ...item,
             product_id: val.product_id,
             category_id: val.category_id || item.category_id,
-            subcategory_id: val.subcategory_id || item.subcategory_id,
             brand_id: val.brand_id || item.brand_id,
             status: val.status,
             errors: val.errors || [],
@@ -228,38 +233,6 @@ export default function PurchaseForm() {
         });
 
         setItems(resolvedItems);
-
-        // Prefetch subcategory options for all resolved category_ids (bypass stale closure)
-        const uniqueCatIds = [...new Set(resolvedItems.map(i => i.category_id).filter(Boolean))];
-        for (const catId of uniqueCatIds) {
-          try {
-            const subRes = await api.get(`/subcategory/get_active_subcategory?company_id=${selectedCompany}&category_id=${catId}`);
-            if (subRes.data.status) {
-              setCompanySubcategories(prev => ({ ...prev, [catId]: subRes.data.data }));
-            }
-          } catch (e) { console.error("subcategory prefetch error", e); }
-        }
-
-        // Prefetch brand options for any resolved category+subcategory combos
-        const uniqueKeys = [...new Set(
-          resolvedItems
-            .filter(i => i.category_id && i.subcategory_id)
-            .map(i => `${i.category_id}-${i.subcategory_id}`)
-        )];
-        // Use a local set to avoid duplicate fetches within this pass (bypass stale closure)
-        const fetchedKeys = new Set();
-        for (const key of uniqueKeys) {
-          if (!fetchedKeys.has(key)) {
-            fetchedKeys.add(key);
-            const [catId, subId] = key.split("-");
-            try {
-              const brandRes = await api.get(`/brand/get_active_brand?company_id=${selectedCompany}&category_id=${catId}&subcategory_id=${subId}`);
-              if (brandRes.data.status) {
-                setCompanyBrands(prev => ({ ...prev, [key]: brandRes.data.data }));
-              }
-            } catch (e) { console.error("brand prefetch error", e); }
-          }
-        }
       }
     } catch (err) {
       console.error("Backend validation error", err);
@@ -269,13 +242,12 @@ export default function PurchaseForm() {
   // Perform complete required field local validation followed by backend API validation
   const validateAllItems = async () => {
     let hasLocalError = false;
-    const validatedLocalItems = items.map((item, index) => {
+    const validatedLocalItems = items.map((item) => {
       const errors = [];
       
       if (!item.product_name || !item.product_name.trim()) {
         errors.push("Product name is required");
       }
-      // Barcode, Category, Subcategory, Brand are optional fields
       if (item.price === undefined || item.price === null || parseFloat(item.price) <= 0) {
         errors.push("Supplier price must be greater than 0");
       }
@@ -322,7 +294,6 @@ export default function PurchaseForm() {
           product_code: item.product_code,
           barcode: item.barcode,
           category_name: item.category_name,
-          subcategory_name: item.subcategory_name,
           brand_name: item.brand_name,
           price: item.price,
           selling_price: item.selling_price || 0,
@@ -341,7 +312,6 @@ export default function PurchaseForm() {
             ...item,
             product_id: val.product_id,
             category_id: val.category_id || item.category_id,
-            subcategory_id: val.subcategory_id || item.subcategory_id,
             brand_id: val.brand_id || item.brand_id,
             status: val.status,
             errors: [...(item.errors || []), ...(val.errors || [])],
@@ -373,9 +343,9 @@ export default function PurchaseForm() {
   // Trigger Excel file template download
   const downloadTemplate = () => {
     const headers = [
-      ["Product Name", "Product Code", "Barcode", "Category", "Subcategory", "Brand", "Supplier Price", "Selling Price", "Selling Price Per Unit", "Quantity", "Unit", "GST %"],
-      ["Sample Product A", "PRDA01", "1234567890", "Electronics", "Mobiles", "BrandX", "15000", "18000", "per Piece", "10", "Piece", "18"],
-      ["Sample Product B", "PRDB02", "", "Groceries", "Snacks", "BrandY", "120", "150", "per Pack", "50", "Pack", "5"]
+      ["Product Name", "Product Code", "Barcode", "Category", "Brand", "Supplier Price", "Selling Price", "Selling Price Per Unit", "Quantity", "Unit", "GST %"],
+      ["Sample Product A", "PRDA01", "1234567890", "Electronics", "BrandX", "15000", "18000", "per Piece", "10", "Piece", "18"],
+      ["Sample Product B", "PRDB02", "", "Groceries", "BrandY", "120", "150", "per Pack", "50", "Pack", "5"]
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(headers);
@@ -402,7 +372,7 @@ export default function PurchaseForm() {
         return;
       }
 
-      // Map spreadsheet columns to keys
+      // Map spreadsheet columns to keys (without subcategory)
       const parsed = json.map(row => {
         const findVal = (names) => {
           const key = Object.keys(row).find(k => names.includes(k.trim().toLowerCase()));
@@ -414,7 +384,6 @@ export default function PurchaseForm() {
           product_code: String(findVal(["product code", "code", "sku", "product_code"]) || ""),
           barcode: String(findVal(["barcode", "barcode_no"]) || ""),
           category_name: String(findVal(["category", "category name", "category_name"]) || ""),
-          subcategory_name: String(findVal(["subcategory", "sub category", "subcategory_name"]) || ""),
           brand_name: String(findVal(["brand", "brand name", "brand_name"]) || ""),
           price: parseFloat(findVal(["supplier price", "purchase price", "price", "rate", "cost", "cost price"]) || 0),
           selling_price: parseFloat(findVal(["selling price", "selling_price", "sell price"]) || 0),
@@ -438,7 +407,6 @@ export default function PurchaseForm() {
             product_code: item.product_code,
             barcode: item.barcode,
             category_name: item.category_name,
-            subcategory_name: item.subcategory_name,
             brand_name: item.brand_name,
             price: item.price,
             selling_price: item.selling_price || 0,
@@ -456,7 +424,6 @@ export default function PurchaseForm() {
               ...item,
               product_id: val.product_id,
               category_id: val.category_id || item.category_id,
-              subcategory_id: val.subcategory_id || item.subcategory_id,
               brand_id: val.brand_id || item.brand_id,
               status: val.status,
               errors: val.errors || [],
@@ -464,37 +431,6 @@ export default function PurchaseForm() {
             };
           });
           setItems(resolvedItems);
-
-          // Prefetch subcategories for all unique category IDs
-          const uniqueCatIds = [...new Set(resolvedItems.map(i => i.category_id).filter(Boolean))];
-          for (const catId of uniqueCatIds) {
-            if (!companySubcategories[catId]) {
-              try {
-                const subRes = await api.get(`/subcategory/get_active_subcategory?company_id=${selectedCompany}&category_id=${catId}`);
-                if (subRes.data.status) {
-                  setCompanySubcategories(prev => ({ ...prev, [catId]: subRes.data.data }));
-                }
-              } catch (e) { console.error(e); }
-            }
-          }
-
-          // Prefetch brands for all unique category+subcategory combos
-          const uniqueKeys = [...new Set(
-            resolvedItems
-              .filter(i => i.category_id && i.subcategory_id)
-              .map(i => `${i.category_id}-${i.subcategory_id}`)
-          )];
-          for (const key of uniqueKeys) {
-            if (!companyBrands[key]) {
-              const [catId, subId] = key.split("-");
-              try {
-                const brandRes = await api.get(`/brand/get_active_brand?company_id=${selectedCompany}&category_id=${catId}&subcategory_id=${subId}`);
-                if (brandRes.data.status) {
-                  setCompanyBrands(prev => ({ ...prev, [key]: brandRes.data.data }));
-                }
-              } catch (e) { console.error(e); }
-            }
-          }
         }
       } catch (err) {
         console.error("Excel validation error", err);
@@ -512,10 +448,8 @@ export default function PurchaseForm() {
       product_code: "",
       barcode: "",
       category_name: "",
-      subcategory_name: "",
       brand_name: "",
       category_id: "",
-      subcategory_id: "",
       brand_id: "",
       price: 0,
       selling_price: 0,
@@ -540,79 +474,28 @@ export default function PurchaseForm() {
     setItems(updated);
   };
 
-  // Handle Category Select
-  const handleCategoryChange = async (index, categoryId) => {
+  // Handle Category Select (Standalone)
+  const handleCategoryChange = (index, categoryId) => {
     const cat = categories.find(c => Number(c.id) === Number(categoryId));
     const updated = [...items];
     updated[index] = {
       ...updated[index],
       category_id: categoryId,
       category_name: cat ? cat.name : "",
-      subcategory_id: "",
-      subcategory_name: "",
-      brand_id: "",
-      brand_name: "",
       status: "pending",
       errors: []
     };
     setItems(updated);
-
-    if (categoryId && !companySubcategories[categoryId]) {
-      try {
-        const res = await api.get(`/subcategory/get_active_subcategory?company_id=${selectedCompany}&category_id=${categoryId}`);
-        if (res.data.status) {
-          setCompanySubcategories(prev => ({ ...prev, [categoryId]: res.data.data }));
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
   };
 
-  // Handle Subcategory Select
-  const handleSubcategoryChange = async (index, subcategoryId) => {
-    const categoryId = items[index].category_id;
-    const subcats = companySubcategories[categoryId] || [];
-    const subcat = subcats.find(s => Number(s.id) === Number(subcategoryId));
-
-    const updated = [...items];
-    updated[index] = {
-      ...updated[index],
-      subcategory_id: subcategoryId,
-      subcategory_name: subcat ? subcat.name : "",
-      brand_id: "",
-      brand_name: "",
-      status: "pending",
-      errors: []
-    };
-    setItems(updated);
-
-    const cacheKey = `${categoryId}-${subcategoryId}`;
-    if (categoryId && subcategoryId && !companyBrands[cacheKey]) {
-      try {
-        const res = await api.get(`/brand/get_active_brand?company_id=${selectedCompany}&category_id=${categoryId}&subcategory_id=${subcategoryId}`);
-        if (res.data.status) {
-          setCompanyBrands(prev => ({ ...prev, [cacheKey]: res.data.data }));
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  };
-
-  // Handle Brand Select
+  // Handle Brand Select (Standalone)
   const handleBrandChange = (index, brandId) => {
-    const categoryId = items[index].category_id;
-    const subcategoryId = items[index].subcategory_id;
-    const cacheKey = `${categoryId}-${subcategoryId}`;
-    const brandsList = companyBrands[cacheKey] || [];
-    const brand = brandsList.find(b => Number(b.id) === Number(brandId));
-
+    const brand = brands.find(b => Number(b.id) === Number(brandId));
     const updated = [...items];
     updated[index] = {
       ...updated[index],
       brand_id: brandId,
-      brand_name: brand ? brand.name : "",
+      brand_name: brand ? (brand.name || brand.brand_name) : "",
       status: "pending",
       errors: []
     };
@@ -640,8 +523,6 @@ export default function PurchaseForm() {
           barcode: p.barcode || updated[index].barcode,
           category_id: p.category_id || "",
           category_name: p.category_name || "",
-          subcategory_id: p.subcategory_id || "",
-          subcategory_name: p.subcategory_name || "",
           brand_id: p.brand_id || "",
           brand_name: p.brand_name || "",
           price: p.price || updated[index].price,
@@ -653,28 +534,9 @@ export default function PurchaseForm() {
           warnings: []
         };
         setItems(updated);
-
-        // Pre-fetch subcategory + brand dropdowns for this product's category/subcategory
-        if (p.category_id) {
-          if (!companySubcategories[p.category_id]) {
-            const subRes = await api.get(`/subcategory/get_active_subcategory?company_id=${selectedCompany}&category_id=${p.category_id}`);
-            if (subRes.data.status) {
-              setCompanySubcategories(prev => ({ ...prev, [p.category_id]: subRes.data.data }));
-            }
-          }
-          if (p.subcategory_id) {
-            const cacheKey = `${p.category_id}-${p.subcategory_id}`;
-            if (!companyBrands[cacheKey]) {
-              const brandRes = await api.get(`/brand/get_active_brand?company_id=${selectedCompany}&category_id=${p.category_id}&subcategory_id=${p.subcategory_id}`);
-              if (brandRes.data.status) {
-                setCompanyBrands(prev => ({ ...prev, [cacheKey]: brandRes.data.data }));
-              }
-            }
-          }
-        }
       }
     } catch (err) {
-      console.error("Product code lookup error", err);
+      console.error("fetchProductByCode error", err);
     }
   };
 
@@ -713,8 +575,6 @@ export default function PurchaseForm() {
           barcode: item.barcode,
           category_id: item.category_id,
           category_name: item.category_name,
-          subcategory_id: item.subcategory_id,
-          subcategory_name: item.subcategory_name,
           brand_id: item.brand_id,
           brand_name: item.brand_name,
           price: item.price,
@@ -770,8 +630,6 @@ export default function PurchaseForm() {
           barcode: item.barcode,
           category_id: item.category_id,
           category_name: item.category_name,
-          subcategory_id: item.subcategory_id,
-          subcategory_name: item.subcategory_name,
           brand_id: item.brand_id,
           brand_name: item.brand_name,
           price: item.price,
@@ -825,299 +683,371 @@ export default function PurchaseForm() {
   };
 
   return (
-    <div style={{ padding: "30px", background: "#f8fafc", minHeight: "100vh" }}>
-      <style>{`
-        .purchase-form-grid {
-          display: grid;
-          grid-template-columns: 1fr 340px;
-          gap: 25px;
-          align-items: start;
-        }
-        @media (max-width: 1100px) {
-          .purchase-form-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-        .purchase-form-select, .purchase-form-input {
-          width: 100%;
-          padding: 10px;
-          border-radius: 10px;
-          border: 1.5px solid #e2e8f0;
-          outline: none;
-          font-size: 14px;
-          font-weight: 500;
-          background: #ffffff;
-          box-sizing: border-box;
-          transition: all 0.2s;
-        }
-        .purchase-form-select:focus, .purchase-form-input:focus {
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-        }
-        .purchase-form-select:disabled, .purchase-form-input:disabled {
-          background: #f1f5f9;
-          color: #64748b;
-          cursor: not-allowed;
-        }
-        .scroll-container::-webkit-scrollbar {
-          height: 10px;
-          display: block;
-        }
-        .scroll-container::-webkit-scrollbar-track {
-          background: #f8fafc;
-          border-radius: 6px;
-        }
-        .scroll-container::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 6px;
-          border: 2px solid #f8fafc;
-        }
-        .scroll-container::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
-
-      {/* Floating Success Toast */}
-      {toast && (
-        <div style={{
-          position: "fixed",
-          top: 24,
-          right: 28,
-          zIndex: 99999,
-          minWidth: 320,
-          maxWidth: 420,
-          background: "#10b981",
-          color: "#ffffff",
-          borderRadius: 8,
-          padding: "12px 18px",
-          boxShadow: "0 6px 20px rgba(16, 185, 129, 0.35)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 14,
-          animation: "fadeIn 0.2s ease",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <CheckCircle2 size={20} color="#ffffff" style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 13.5, fontWeight: 700 }}>{toast}</span>
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 pb-24 antialiased">
+      
+      {/* ── 1. EXECUTIVE COMMAND BAR & PURCHASE VOUCHER TAB ── */}
+      <div className="bg-white border-b border-slate-200/80 px-4 md:px-6 pt-3 pb-0 shadow-xs sticky top-0 z-30">
+        <div className="flex items-center justify-between gap-4">
+          
+          {/* Voucher Workspace Tab Strip */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            <div className="group relative flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-t-2 border-blue-600 bg-slate-50 text-blue-700 shadow-xs font-bold">
+              <div className="flex items-center gap-2">
+                <Truck size={13} className="text-blue-600" />
+                <span>{isLocked ? "View Purchase Bill" : id ? "Edit Purchase" : "Purchase Invoice"}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 text-slate-600 font-mono">
+                  {purchaseNo || "Draft"}
+                </span>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => setToast(null)}
-            style={{ background: "transparent", border: "none", color: "#ffffff", cursor: "pointer", display: "flex" }}
-          >
-            <X size={15} />
-          </button>
-        </div>
-      )}
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "25px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <button
-            onClick={() => navigate("/purchases")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "40px",
-              height: "40px",
-              borderRadius: "12px",
-              background: "#ffffff",
-              border: "1.5px solid #e2e8f0",
-              cursor: "pointer",
-              color: "#475569"
-            }}
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
-              {isLocked ? "View Purchase Bill" : id ? "Edit Draft Purchase" : "New Purchase Invoice"}
-            </h1>
-            <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>
-              {isLocked ? "Submitted purchase invoice detail is locked" : "Upload supplier invoices or add items manually"}
-            </p>
+          {/* Right Action Tools */}
+          <div className="flex items-center gap-2 pb-2 flex-shrink-0">
+            <HeaderSettingsButton
+              variant="voucher"
+              onClick={openSettings}
+              isActive={isSettingsOpen}
+              title="Customize Table Columns"
+            />
+
+            {/* Close Page */}
+            <button
+              type="button"
+              onClick={() => navigate("/purchases")}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              title="Close Workspace"
+            >
+              <X size={18} />
+            </button>
           </div>
+
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "60px", color: "#64748b" }}>Loading purchase record...</div>
-      ) : (
-        <div className="purchase-form-grid">
-          {/* Main Workspace (Import & Grid Table) */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "25px", minWidth: 0 }}>
-            
-            {/* Import Controls */}
-            {!isLocked && (
-              <div style={{ background: "#ffffff", padding: "20px", borderRadius: "20px", border: "1px solid #e2e8f0", display: "flex", flexWrap: "wrap", gap: "15px", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", margin: 0 }}>Import Invoice Items</h3>
-                  <p style={{ fontSize: "13px", color: "#64748b", marginTop: "3px" }}>Upload supplier excel directly to validate and check catalog matches</p>
-                </div>
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <button
-                    onClick={downloadTemplate}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: "10px",
-                      background: "#f0fdf4",
-                      color: "#16a34a",
-                      border: "1.5px solid #bbf7d0",
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px"
-                    }}
-                  >
-                    Template.xlsx
-                  </button>
-                  <label
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: "10px",
-                      background: selectedCompany ? "#2563eb" : "#94a3b8",
-                      color: "#ffffff",
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      cursor: selectedCompany ? "pointer" : "not-allowed",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px"
-                    }}
-                  >
-                    <UploadCloud size={16} /> Upload Excel
-                    {selectedCompany && (
-                      <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} style={{ display: "none" }} />
-                    )}
-                  </label>
-                </div>
+      {/* ── 2. WORKSPACE HEADER BANNER ── */}
+      <div className="px-6 md:px-8 pt-6 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/purchases")}
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-xs cursor-pointer"
+              title="Back to Purchases"
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-wide">
+                  Procurement Desk
+                </span>
+                <span className="text-xs text-slate-400 font-medium">• Stock Inward &amp; Purchase Voucher</span>
               </div>
-            )}
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                {isLocked ? `View Purchase Bill #${purchaseNo}` : id ? `Edit Draft Purchase #${purchaseNo}` : "New Purchase Invoice"}
+              </h1>
+            </div>
+          </div>
 
-            {/* Validation Correction Grid */}
-            <div style={{ background: "#ffffff", borderRadius: "20px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-              <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
-                <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", margin: 0 }}>Invoice Items</h3>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <HeaderSettingsButton onClick={openSettings} variant="table" />
-                  {!isLocked && (
-                    <button
-                      onClick={addManualRow}
-                      disabled={!selectedCompany}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: "8px",
-                        background: selectedCompany ? "#ffffff" : "#f1f5f9",
-                        color: selectedCompany ? "#2563eb" : "#94a3b8",
-                        border: selectedCompany ? "1.5px solid #dbeafe" : "1.5px solid #e2e8f0",
-                        fontSize: "12.5px",
-                        fontWeight: "600",
-                        cursor: selectedCompany ? "pointer" : "not-allowed",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "5px"
+          {/* Quick Excel Tools */}
+          {!isLocked && (
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={downloadTemplate}
+                className="px-3.5 py-2 rounded-xl bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                title="Download sample excel template"
+              >
+                <Download size={14} className="text-emerald-600" />
+                <span>Template.xlsx</span>
+              </button>
+
+              <label
+                className={`px-4 py-2 rounded-xl text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 ${
+                  selectedCompany
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 cursor-pointer shadow-blue-500/20"
+                    : "bg-slate-300 text-slate-500 cursor-not-allowed"
+                }`}
+                title={selectedCompany ? "Upload Excel Spreadsheet" : "Select company first to upload excel"}
+              >
+                <UploadCloud size={15} />
+                <span>Upload Excel</span>
+                {selectedCompany && (
+                  <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="hidden" />
+                )}
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Success Toast */}
+        {toast && (
+          <div className="mt-4 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <span>{toast}</span>
+            </div>
+            <button onClick={() => setToast(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="text-center py-20 text-slate-400 text-sm font-semibold flex items-center justify-center gap-2">
+          <RefreshCw size={18} className="animate-spin text-blue-600" />
+          <span>Loading purchase record...</span>
+        </div>
+      ) : (
+        <>
+          {/* ── 3. SUPPLIER INTELLIGENCE & INVOICE PARAMETERS CARDS ── */}
+          <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
+            
+            {/* Left: Supplier & Company Profile (7 Cols) */}
+            <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-3.5">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <Truck size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Supplier &amp; Vendor Profile</h3>
+                    <p className="text-[11px] text-slate-400">Select company branch and supplier for procurement tracking</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* Company Select */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 mb-1 block">
+                      Company / Branch <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={selectedCompany}
+                      disabled={isLocked}
+                      onChange={(e) => {
+                        const compId = e.target.value;
+                        setSelectedCompany(compId);
+                        localStorage.setItem("selected_company_id", compId);
+                        setSelectedSupplier("");
+                        setItems([]);
+                        setCategories([]);
+                        setBrands([]);
                       }}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed transition"
                     >
-                      <Plus size={14} /> Add Row
-                    </button>
-                  )}
+                      <option value="">Select Company</option>
+                      {companies.map(c => (
+                        <option key={c.id} value={c.id}>{c.company_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Supplier Select */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 mb-1 block">
+                      Supplier / Vendor <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={selectedSupplier}
+                      disabled={isLocked || !selectedCompany}
+                      onChange={(e) => setSelectedSupplier(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed transition"
+                    >
+                      <option value="">{selectedCompany ? "Select Supplier" : "Select Company First"}</option>
+                      {suppliers.map(s => (
+                        <option key={s.id} value={s.id}>{s.supplier_name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-              <div className="scroll-container" style={{ overflowX: "auto", paddingBottom: "10px" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1600px" }}>
+            </div>
+
+            {/* Right: Invoice Parameters (5 Cols) */}
+            <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-3.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                    <FileText size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Invoice Parameters</h3>
+                    <p className="text-[11px] text-slate-400">Purchase bill order reference &amp; inward date</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* Bill No */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 mb-1 block">Bill / Invoice No</label>
+                    <input
+                      type="text"
+                      value={purchaseNo}
+                      disabled={isLocked}
+                      onChange={(e) => setPurchaseNo(e.target.value)}
+                      placeholder="Enter Bill No (e.g. PO-001)"
+                      className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold font-mono text-slate-900 outline-none focus:border-blue-500 disabled:bg-slate-100 transition"
+                    />
+                  </div>
+
+                  {/* Purchase Date */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 mb-1 block">Purchase Date</label>
+                    <input
+                      type="date"
+                      value={purchaseDate}
+                      disabled={isLocked}
+                      onChange={(e) => setPurchaseDate(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 disabled:bg-slate-100 cursor-pointer transition"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* ── 4. PURCHASED ITEMS MATRIX TABLE ── */}
+          <div className="px-6 md:px-8 mb-6">
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+              
+              <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <Layers size={14} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Purchased Items &amp; Inventory Stock
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                    {items.length} {items.length === 1 ? "Item" : "Items"}
+                  </span>
+                </div>
+
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={addManualRow}
+                    disabled={!selectedCompany}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                      selectedCompany
+                        ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 shadow-2xs"
+                        : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                    }`}
+                  >
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Add Item Row</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse min-w-[1450px]">
                   <thead>
-                    <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                      {isColumnVisible("status") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "40px" }}>Status</th>}
-                      {isColumnVisible("product_name") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "150px" }}>Product Name *</th>}
-                      {isColumnVisible("product_code") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Product Code</th>}
-                      {isColumnVisible("barcode") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Barcode <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>}
-                      {isColumnVisible("category") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Category <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>}
-                      {isColumnVisible("subcategory") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "130px" }}>Subcategory <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>}
-                      {isColumnVisible("brand") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "120px" }}>Brand <span style={{ fontSize: "10px", fontWeight: "500", color: "#94a3b8" }}>(Opt)</span></th>}
-                      {isColumnVisible("supplier_price") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Supplier Price</th>}
-                      {isColumnVisible("selling_price") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Selling Price</th>}
-                      {isColumnVisible("selling_price_unit") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "100px" }}>Selling Price Unit</th>}
-                      {isColumnVisible("quantity") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "60px" }}>Qty</th>}
-                      {isColumnVisible("unit") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "90px" }}>Unit</th>}
-                      {isColumnVisible("gst_percentage") && <th style={{ padding: "12px 10px", fontSize: "12px", fontWeight: "700", color: "#64748b", width: "70px" }}>GST %</th>}
-                      {!isLocked && <th style={{ padding: "12px 10px", width: "40px" }}></th>}
+                    <tr className="bg-slate-50/60 border-b border-slate-200/80 text-slate-600 font-bold select-none text-[11px] uppercase tracking-wider">
+                      {isColumnVisible("status") && (
+                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-12">Status</th>
+                      )}
+                      {isColumnVisible("product_name") && (
+                        <th className="py-3 px-3 border-r border-slate-200/60 min-w-[200px]">Product Name *</th>
+                      )}
+                      {isColumnVisible("product_code") && (
+                        <th className="py-3 px-3 border-r border-slate-200/60 w-36">Product Code</th>
+                      )}
+                      {isColumnVisible("barcode") && (
+                        <th className="py-3 px-3 border-r border-slate-200/60 w-36">Barcode (Opt)</th>
+                      )}
+                      {isColumnVisible("category") && (
+                        <th className="py-3 px-3 border-r border-slate-200/60 w-44">Category (Opt)</th>
+                      )}
+                      {isColumnVisible("brand") && (
+                        <th className="py-3 px-3 border-r border-slate-200/60 w-44">Brand (Opt)</th>
+                      )}
+                      {isColumnVisible("supplier_price") && (
+                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-32">Supplier Price (₹)</th>
+                      )}
+                      {isColumnVisible("selling_price") && (
+                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-32">Selling Price (₹)</th>
+                      )}
+                      {isColumnVisible("selling_price_unit") && (
+                        <th className="py-3 px-3 border-r border-slate-200/60 w-36">Selling Price Unit</th>
+                      )}
+                      {isColumnVisible("quantity") && (
+                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-24">Qty</th>
+                      )}
+                      {isColumnVisible("unit") && (
+                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-28">Unit</th>
+                      )}
+                      {isColumnVisible("gst_percentage") && (
+                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-24">GST %</th>
+                      )}
+                      {!isLocked && <th className="py-3 px-2 text-center w-12">Action</th>}
                     </tr>
                   </thead>
-                  <tbody>
+
+                  <tbody className="divide-y divide-slate-100 font-medium">
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={visibleColumnCount || (isLocked ? 13 : 14)} style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>
-                          No items added. Select Company first, then Import excel or add manual rows to start.
+                        <td
+                          colSpan={visibleColumnCount || (isLocked ? 12 : 13)}
+                          className="py-12 text-center text-slate-400 text-xs font-semibold"
+                        >
+                          No items added. Select Company first, then Upload Excel or click <strong>+ Add Item Row</strong> to begin.
                         </td>
                       </tr>
                     ) : (
                       items.map((item, index) => {
                         const statusColors = {
-                          valid: { bg: "#dcfce7", color: "#15803d" },
-                          warning: { bg: "#fef9c3", color: "#854d0e" },
-                          error: { bg: "#fee2e2", color: "#b91c1c" },
-                          pending: { bg: "#f1f5f9", color: "#475569" }
+                          valid: { bg: "bg-emerald-100 text-emerald-700 border border-emerald-300", icon: "✓" },
+                          warning: { bg: "bg-amber-100 text-amber-800 border border-amber-300", icon: "!" },
+                          error: { bg: "bg-rose-100 text-rose-700 border border-rose-300", icon: "!" },
+                          pending: { bg: "bg-slate-100 text-slate-600 border border-slate-300", icon: "?" }
                         };
                         const statusStyle = statusColors[item.status] || statusColors.pending;
-
                         const isRowErrored = item.status === "error";
 
                         return (
-                          <tr key={index} style={{
-                            borderBottom: "1px solid #f1f5f9",
-                            outline: isRowErrored ? "1.5px solid #ef4444" : "none",
-                            backgroundColor: isRowErrored ? "#fff5f5" : "inherit"
-                          }}>
+                          <tr
+                            key={index}
+                            className={`transition-colors ${
+                              isRowErrored ? "bg-rose-50/50 hover:bg-rose-50" : "hover:bg-blue-50/30"
+                            }`}
+                          >
                             {/* Status */}
                             {isColumnVisible("status") && (
-                              <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                              <td className="py-2.5 px-3 text-center border-r border-slate-200/60">
                                 <div
                                   title={[...(item.errors || []), ...(item.warnings || [])].join("\n")}
-                                  style={{
-                                    width: "22px",
-                                    height: "22px",
-                                    borderRadius: "50%",
-                                    backgroundColor: statusStyle.bg,
-                                    color: statusStyle.color,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontWeight: "800",
-                                    fontSize: "11px",
-                                    cursor: "pointer"
-                                  }}
+                                  className={`w-6 h-6 rounded-full mx-auto flex items-center justify-center font-bold text-[11px] cursor-pointer ${statusStyle.bg}`}
                                 >
-                                  {item.status === "valid" ? "✓" : item.status === "error" ? "!" : "?"}
+                                  {statusStyle.icon}
                                 </div>
                               </td>
                             )}
+
                             {/* Product Name */}
                             {isColumnVisible("product_name") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-3 border-r border-slate-200/60">
                                 <input
                                   type="text"
                                   value={item.product_name}
                                   disabled={isLocked}
                                   onChange={(e) => updateRowField(index, "product_name", e.target.value)}
-                                  style={{
-                                    width: "100%",
-                                    padding: "6px 8px",
-                                    border: isRowErrored && (!item.product_name || !item.product_name.trim())
-                                      ? "1.5px solid #ef4444"
-                                      : "1px solid #e2e8f0",
-                                    borderRadius: "6px",
-                                    fontSize: "13px",
-                                    boxSizing: "border-box"
-                                  }}
+                                  placeholder="Enter product name..."
+                                  className={`w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white rounded-lg text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/15 transition ${
+                                    isRowErrored && (!item.product_name || !item.product_name.trim())
+                                      ? "border border-rose-400 focus:border-rose-500"
+                                      : "border border-slate-200 focus:border-blue-500"
+                                  }`}
                                 />
                               </td>
                             )}
+
                             {/* Code */}
                             {isColumnVisible("product_code") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-3 border-r border-slate-200/60">
                                 <input
                                   type="text"
                                   value={item.product_code}
@@ -1131,32 +1061,34 @@ export default function PurchaseForm() {
                                     }
                                   }}
                                   placeholder="Code + Enter"
-                                  title="Enter product code and press Enter or Tab to auto-fill product details"
-                                  style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                  title="Enter product code and press Enter to auto-fill"
+                                  className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                                 />
                               </td>
                             )}
+
                             {/* Barcode */}
                             {isColumnVisible("barcode") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-3 border-r border-slate-200/60">
                                 <input
                                   type="text"
                                   value={item.barcode}
                                   disabled={isLocked}
                                   placeholder="Optional"
                                   onChange={(e) => updateRowField(index, "barcode", e.target.value)}
-                                  style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                  className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs text-slate-800 outline-none focus:border-blue-500 transition"
                                 />
                               </td>
                             )}
+
                             {/* Category */}
                             {isColumnVisible("category") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-3 border-r border-slate-200/60">
                                 <select
                                   value={item.category_id || ""}
                                   disabled={isLocked || !selectedCompany}
                                   onChange={(e) => handleCategoryChange(index, e.target.value)}
-                                  style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                  className="w-full px-2 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none cursor-pointer disabled:bg-slate-100"
                                 >
                                   <option value="">Select Category (Opt)</option>
                                   {categories.map(c => (
@@ -1165,70 +1097,62 @@ export default function PurchaseForm() {
                                 </select>
                               </td>
                             )}
-                            {/* Subcategory */}
-                            {isColumnVisible("subcategory") && (
-                              <td style={{ padding: "6px 5px" }}>
-                                <select
-                                  value={item.subcategory_id || ""}
-                                  disabled={isLocked || !item.category_id}
-                                  onChange={(e) => handleSubcategoryChange(index, e.target.value)}
-                                  style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
-                                >
-                                  <option value="">Select Subcategory (Opt)</option>
-                                  {(companySubcategories[item.category_id] || []).map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                  ))}
-                                </select>
-                              </td>
-                            )}
+
                             {/* Brand */}
                             {isColumnVisible("brand") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-3 border-r border-slate-200/60">
                                 <select
                                   value={item.brand_id || ""}
-                                  disabled={isLocked || !item.subcategory_id}
+                                  disabled={isLocked || !selectedCompany}
                                   onChange={(e) => handleBrandChange(index, e.target.value)}
-                                  style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                  className="w-full px-2 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none cursor-pointer disabled:bg-slate-100"
                                 >
                                   <option value="">Select Brand (Opt)</option>
-                                  {(companyBrands[`${item.category_id}-${item.subcategory_id}`] || []).map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                  {brands.map(b => (
+                                    <option key={b.id} value={b.id}>{b.name || b.brand_name}</option>
                                   ))}
                                 </select>
                               </td>
                             )}
-                            {/* Price */}
+
+                            {/* Supplier Price */}
                             {isColumnVisible("supplier_price") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                                 <input
-                                  type="text"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
                                   value={item.price}
                                   disabled={isLocked}
                                   onChange={(e) => updateRowField(index, "price", e.target.value)}
-                                  style={{ width: "100%", padding: "6px 8px", border: isRowErrored && (item.price === undefined || item.price === null || parseFloat(item.price) <= 0) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                  className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                                 />
                               </td>
                             )}
+
                             {/* Selling Price */}
                             {isColumnVisible("selling_price") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                                 <input
-                                  type="text"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
                                   value={item.selling_price}
                                   disabled={isLocked}
                                   onChange={(e) => updateRowField(index, "selling_price", e.target.value)}
-                                  style={{ width: "100%", padding: "6px 8px", border: isRowErrored && (item.selling_price === undefined || item.selling_price === null || parseFloat(item.selling_price) <= 0) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                  className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                                 />
                               </td>
                             )}
-                            {/* Selling Price per Unit */}
+
+                            {/* Selling Price Unit */}
                             {isColumnVisible("selling_price_unit") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-3 border-r border-slate-200/60">
                                 <select
                                   value={item.selling_price_per_unit || ""}
                                   disabled={isLocked}
                                   onChange={(e) => updateRowField(index, "selling_price_per_unit", e.target.value)}
-                                  style={{ width: "100%", padding: "6px 4px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                  className="w-full px-2 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none cursor-pointer"
                                 >
                                   <option value="">Select Unit</option>
                                   {unitOptions.map(opt => (
@@ -1237,59 +1161,58 @@ export default function PurchaseForm() {
                                 </select>
                               </td>
                             )}
+
                             {/* Qty */}
                             {isColumnVisible("quantity") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                                 <input
                                   type="number"
+                                  min="1"
                                   value={item.quantity}
                                   disabled={isLocked}
                                   onChange={(e) => updateRowField(index, "quantity", parseInt(e.target.value) || 0)}
-                                  style={{ width: "100%", padding: "6px 8px", border: isRowErrored && (item.quantity === undefined || item.quantity === null || parseInt(item.quantity) <= 0) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                  className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                                 />
                               </td>
                             )}
+
                             {/* Unit */}
                             {isColumnVisible("unit") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                                 <select
                                   value={item.unit || ""}
                                   disabled={isLocked}
                                   onChange={(e) => updateRowField(index, "unit", e.target.value)}
-                                  style={{ width: "100%", padding: "6px 4px", border: isRowErrored && (!item.unit || !item.unit.trim()) ? "1.5px solid #ef4444" : "1px solid #e2e8f0", borderRadius: "6px", fontSize: "12.5px", background: "#ffffff", boxSizing: "border-box" }}
+                                  className="w-full py-1.5 px-1 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none cursor-pointer"
                                 >
-                                  <option value="">Select Unit</option>
                                   {unitOptions.map(opt => (
                                     <option key={opt} value={opt}>{opt}</option>
                                   ))}
                                 </select>
                               </td>
                             )}
+
                             {/* GST */}
                             {isColumnVisible("gst_percentage") && (
-                              <td style={{ padding: "6px 5px" }}>
+                              <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                                 <input
                                   type="number"
                                   value={item.gst_percentage}
                                   disabled={isLocked}
                                   onChange={(e) => updateRowField(index, "gst_percentage", parseFloat(e.target.value) || 0)}
-                                  style={{ width: "100%", padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "13px", boxSizing: "border-box" }}
+                                  className="w-full py-1.5 px-1 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 text-center outline-none focus:border-blue-500 transition"
                                 />
                               </td>
                             )}
+
                             {/* Action delete */}
                             {!isLocked && (
-                              <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                              <td className="py-2 px-2 text-center">
                                 <button
+                                  type="button"
                                   onClick={() => deleteRow(index)}
-                                  style={{
-                                    border: "none",
-                                    background: "#fef2f2",
-                                    color: "#dc2626",
-                                    padding: "6px",
-                                    borderRadius: "6px",
-                                    cursor: "pointer"
-                                  }}
+                                  className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition cursor-pointer mx-auto"
+                                  title="Delete row"
                                 >
                                   <Trash2 size={14} />
                                 </button>
@@ -1300,97 +1223,61 @@ export default function PurchaseForm() {
                       })
                     )}
                   </tbody>
+
+                  {/* Table Footer */}
+                  {items.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold text-slate-800 text-xs">
+                        <td colSpan={2} className="py-3 px-4 border-r border-slate-200/60">
+                          Total Summary ({items.length} {items.length === 1 ? "Line Item" : "Line Items"})
+                        </td>
+                        <td colSpan={visibleColumnCount ? visibleColumnCount - 3 : 10} className="py-3 px-4 text-right border-r border-slate-200/60">
+                          Subtotal (Cost): <strong className="text-slate-900 font-mono ml-1">₹ {subTotal.toFixed(2)}</strong>
+                        </td>
+                        <td className="py-3 px-4 text-right font-black text-slate-900">
+                          Total: ₹ {grandTotal.toFixed(2)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>
           </div>
 
-          {/* Sidebar Panel (Supplier details & Totals summary) */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
-            {/* Metadata Card */}
-            <div style={{ background: "#ffffff", padding: "20px", borderRadius: "20px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.01)" }}>
-              <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#1e293b", marginBottom: "15px" }}>Invoice Parameters</h3>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-                
-                {/* Company Select */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Company *</label>
-                  <select
-                    value={selectedCompany}
-                    disabled={isLocked}
-                    onChange={(e) => {
-                      const compId = e.target.value;
-                      setSelectedCompany(compId);
-                      localStorage.setItem("selected_company_id", compId);
-                      setSelectedSupplier("");
-                      setItems([]);
-                      setCategories([]);
-                      setCompanySubcategories({});
-                      setCompanyBrands({});
-                    }}
-                    className="purchase-form-select"
-                  >
-                    <option value="">Select Company</option>
-                    {companies.map(c => (
-                      <option key={c.id} value={c.id}>{c.company_name}</option>
-                    ))}
-                  </select>
+          {/* ── 5. FINANCIAL RECONCILIATION & TOTALS SUMMARY ── */}
+          <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            
+            {/* Left 7 Columns: Inward Instructions & Details */}
+            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <FileText size={14} />
                 </div>
-
-                {/* Supplier Select */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Supplier *</label>
-                  <select
-                    value={selectedSupplier}
-                    disabled={isLocked || !selectedCompany}
-                    onChange={(e) => setSelectedSupplier(e.target.value)}
-                    className="purchase-form-select"
-                  >
-                    <option value="">{selectedCompany ? "Select Supplier" : "Select Company First"}</option>
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.supplier_name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Bill No */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Bill / Invoice No</label>
-                  <input
-                    type="text"
-                    value={purchaseNo}
-                    disabled={isLocked}
-                    onChange={(e) => setPurchaseNo(e.target.value)}
-                    placeholder="Enter Invoice Bill No"
-                    className="purchase-form-input"
-                  />
-                </div>
-
-                {/* Date */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Purchase Date</label>
-                  <input
-                    type="date"
-                    value={purchaseDate}
-                    disabled={isLocked}
-                    onChange={(e) => setPurchaseDate(e.target.value)}
-                    className="purchase-form-input"
-                  />
-                </div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Procurement Workflow Guidance</h3>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/60 text-xs text-slate-600 leading-relaxed space-y-2">
+                <p>• <strong>Automatic Code Matching:</strong> Enter an existing product code into any row to automatically auto-fill its category, brand, and unit details.</p>
+                <p>• <strong>Inventory Stock Inward:</strong> Clicking <strong>Submit to Inventory</strong> will finalize the invoice and increase inventory stock quantities across your catalog.</p>
+                <p>• <strong>Save as Draft:</strong> You can save this purchase as a draft to resume later without altering stock balances immediately.</p>
               </div>
             </div>
 
-            {/* Standardized Purchase Summary Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3.5">
+            {/* Right 5 Columns: Financial Breakdown & Settlement */}
+            <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3.5">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Purchase Summary</span>
-                <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                  INR Currency
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                    <Wallet size={14} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Purchase Summary</span>
+                </div>
+                <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                  INR (₹)
                 </span>
               </div>
 
-              {/* Items Count, Subtotal & GST Total */}
+              {/* Breakdown */}
               <div className="space-y-2.5 text-xs font-semibold text-slate-600">
                 <div className="flex justify-between items-center">
                   <span>Total Items</span>
@@ -1437,13 +1324,13 @@ export default function PurchaseForm() {
                         value={paidAmount || ""}
                         onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
                         placeholder="0.00"
-                        className="w-full pl-6 pr-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 text-right outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                        className="w-full pl-6 pr-2 py-1.5 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-right outline-none focus:border-blue-500 transition"
                       />
                     </div>
                   </div>
                   <div className="flex justify-between items-center font-bold">
                     <span className="text-slate-600">Remaining Balance Due</span>
-                    <span className={`text-xs ${Math.max(0, grandTotal - paidAmount) > 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                    <span className={`text-xs font-black ${Math.max(0, grandTotal - paidAmount) > 0 ? "text-rose-600" : "text-emerald-700"}`}>
                       ₹ {Math.max(0, grandTotal - paidAmount).toFixed(2)}
                     </span>
                   </div>
@@ -1454,37 +1341,57 @@ export default function PurchaseForm() {
                   <span className="text-slate-900">₹ {Number(paidAmount || 0).toFixed(2)}</span>
                 </div>
               )}
-
-              {/* Action Buttons */}
-              {!isLocked ? (
-                <div className="space-y-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSubmitPurchase}
-                    disabled={saving}
-                    className="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {saving ? "Processing..." : "Submit to Inventory"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveDraft}
-                    disabled={saving}
-                    className="w-full py-2 px-4 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer disabled:opacity-50"
-                  >
-                    Save as Draft
-                  </button>
-                </div>
-              ) : (
-                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs text-center flex items-center justify-center gap-1.5">
-                  <CheckCircle2 size={14} />
-                  <span>Bill Submitted to Inventory</span>
-                </div>
-              )}
             </div>
+
           </div>
-        </div>
+        </>
       )}
+
+      {/* ── 6. STICKY ACTION FOOTER BAR ── */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-6 py-3.5 z-30 flex items-center justify-between shadow-lg">
+        <button
+          type="button"
+          onClick={() => navigate("/purchases")}
+          className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+        >
+          Discard / Back
+        </button>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-slate-600 mr-2">
+            <span>Items: <strong className="text-slate-900">{items.reduce((s, i) => s + (Number(i.quantity) || 0), 0)}</strong></span>
+            <span>•</span>
+            <span>Total: <strong className="text-blue-600 font-mono font-black">₹{grandTotal.toFixed(2)}</strong></span>
+          </div>
+
+          {!isLocked ? (
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={saving}
+                className="px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                Save as Draft
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitPurchase}
+                disabled={saving}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 cursor-pointer disabled:opacity-50 flex items-center gap-2 transition"
+              >
+                {saving ? <RefreshCw size={15} className="animate-spin" /> : <Check size={15} />}
+                <span>{saving ? "Processing..." : "Submit to Inventory"}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs flex items-center gap-1.5">
+              <CheckCircle2 size={15} />
+              <span>Bill Submitted</span>
+            </div>
+          )}
+        </div>
+      </footer>
 
       {/* Column Customization Drawer */}
       <CommonTableColumnSettings
@@ -1495,6 +1402,7 @@ export default function PurchaseForm() {
         onResetColumns={resetColumns}
         title="Customize Invoice Item Columns"
       />
+
     </div>
   );
 }

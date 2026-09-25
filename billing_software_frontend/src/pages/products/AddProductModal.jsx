@@ -653,7 +653,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
               >
                 <span className="flex items-center gap-2">
                   <Layers size={15} />
-                  <span>Category, Subcategory & Brand</span>
+                  <span>Category & Brand</span>
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700">
@@ -680,10 +680,6 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
                           onChange={(e) => {
                             const categoryId = e.target.value;
                             set("category_id", categoryId);
-                            set("subcategory_id", "");
-                            set("brand_id", "");
-                            setSubCategories([]);
-                            if (categoryId) fetchSubCategories(categoryId);
                           }}
                         >
                           <option value="">Select Category</option>
@@ -695,49 +691,6 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
                             categories.map((c) => (
                               <option key={c.id} value={c.id}>
                                 {c.name}
-                              </option>
-                            ))
-                          )}
-                        </select>
-                        <ChevronDown
-                          size={14}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Subcategory */}
-                  <div>
-                    <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
-                      Subcategory
-                    </label>
-                    {subCategoryLoading ? (
-                      <div className="h-10 rounded-xl bg-slate-200/60 animate-pulse" />
-                    ) : (
-                      <div className="relative">
-                        <select
-                          className="w-full px-3.5 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 appearance-none cursor-pointer disabled:opacity-50 disabled:bg-slate-100"
-                          value={form.subcategory_id}
-                          onChange={(e) => {
-                            set("subcategory_id", e.target.value);
-                            set("brand_id", "");
-                          }}
-                          disabled={!form.category_id}
-                        >
-                          <option value="">
-                            {form.category_id
-                              ? "Select Subcategory"
-                              : "Select a category first"}
-                          </option>
-                          {form.category_id && subCategories.length === 0 ? (
-                            <option value="" disabled>
-                              No subcategories found
-                            </option>
-                          ) : (
-                            subCategories.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
                               </option>
                             ))
                           )}

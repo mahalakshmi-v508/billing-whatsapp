@@ -7,7 +7,8 @@ import {
   Package, MousePointerClick, Boxes, Tags, Ruler, Inbox,
   ShoppingBag, Layers, ListTree, Grid, List, BarChart3,
   ChevronRight, ChevronLeft, Star, Zap, Eye, Building2,
-  CheckCircle2, AlertTriangle, ShieldAlert, RefreshCw, Pencil
+  CheckCircle2, AlertTriangle, ShieldAlert, RefreshCw, Pencil,
+  Tag, Sparkles, TrendingUp, LayoutGrid, LayoutList, ArrowRight, Check
 } from "lucide-react";
 import AddProductModal from "./AddProductModal";
 import EditProductModal from "./EditProductModal";
@@ -213,6 +214,9 @@ export default function ProductList() {
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [brandListSearch, setBrandListSearch] = useState("");
   const [brandItemsSearch, setBrandItemsSearch] = useState("");
+  const [brandViewMode, setBrandViewMode] = useState("cards");
+  const [brandItemFilter, setBrandItemFilter] = useState("all");
+  const [brandItemsLayout, setBrandItemsLayout] = useState("grid");
   const [showMoveBrandModal, setShowMoveBrandModal] = useState(false);
   const [moveBrandSearch, setMoveBrandSearch] = useState("");
   const [moveBrandSelected, setMoveBrandSelected] = useState([]);
@@ -221,6 +225,9 @@ export default function ProductList() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [categoryListSearch, setCategoryListSearch] = useState("");
   const [categoryItemsSearch, setCategoryItemsSearch] = useState("");
+  const [categoryViewMode, setCategoryViewMode] = useState("cards");
+  const [categoryItemFilter, setCategoryItemFilter] = useState("all");
+  const [categoryItemsLayout, setCategoryItemsLayout] = useState("grid");
   const [showMoveCategoryModal, setShowMoveCategoryModal] = useState(false);
   const [moveCategorySearch, setMoveCategorySearch] = useState("");
   const [moveCategorySelected, setMoveCategorySelected] = useState([]);
@@ -237,6 +244,10 @@ export default function ProductList() {
   const [subcatCategoryId, setSubcatCategoryId] = useState("");
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [unitListSearch, setUnitListSearch] = useState("");
+  const [unitItemsSearch, setUnitItemsSearch] = useState("");
+  const [unitViewMode, setUnitViewMode] = useState("cards");
+  const [unitItemFilter, setUnitItemFilter] = useState("all");
+  const [unitItemsLayout, setUnitItemsLayout] = useState("grid");
   const [conversionSearch, setConversionSearch] = useState("");
   const [unitFullForm, setUnitFullForm] = useState("");
   const [unitShortForm, setUnitShortForm] = useState("");
@@ -368,6 +379,12 @@ export default function ProductList() {
   useEffect(() => {
     if (selectedProduct) fetchSaleHistory(selectedProduct.id);
   }, [selectedProduct?.id]);
+
+  useEffect(() => {
+    if (activeTab === "unit" && !selectedUnit && units.length > 0) {
+      handleSelectUnit(units[0]);
+    }
+  }, [activeTab]);
 
   const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);
@@ -711,7 +728,6 @@ export default function ProductList() {
     { key: "product", label: "Products", icon: ShoppingBag },
     { key: "brand", label: "Brands", icon: Tags },
     { key: "category", label: "Categories", icon: Layers },
-    { key: "subcategory", label: "Sub Categories", icon: ListTree },
     { key: "unit", label: "Units", icon: Ruler },
   ];
 
@@ -1402,30 +1418,119 @@ export default function ProductList() {
             </div>
           )}
 
-          {/* ─── CATEGORY TAB (PaySplitX Style) ─── */}
+          {/* ─── CATEGORY TAB (Modernized UI/UX) ─── */}
           {activeTab === "category" && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-140px)]">
-              {/* Left Directory Panel */}
-              <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                      <Layers size={14} />
-                    </div>
-                    <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Category Directory</span>
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {categories.length} Total
-                  </span>
-                </div>
+            <div className="space-y-4">
+              {/* ── 1. CATEGORY METRIC KPI STRIP ── */}
+              {(() => {
+                const uncategorizedProducts = products.filter((p) => !p.category_name);
+                const categorizedProducts = products.filter((p) => Boolean(p.category_name));
+                const totalCategorizedStock = categorizedProducts.reduce((s, p) => s + Number(p.stock || 0), 0);
+                const totalCategorizedValuation = categorizedProducts.reduce((s, p) => {
+                  const price = Number(p.purchase_price || p.price || 0);
+                  return s + Number(p.stock || 0) * price;
+                }, 0);
+                const categorizedPercentage = products.length > 0
+                  ? Math.round((categorizedProducts.length / products.length) * 100)
+                  : 0;
 
-                {/* Search & Action Header */}
-                <div className="p-3 border-b border-slate-100 space-y-2.5">
-                  <div className="relative">
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {/* Total Categories */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Categories</span>
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                          <Layers size={16} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+                        {categories.length}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="text-indigo-600 font-bold">{categorizedProducts.length} items</span>
+                        <span>classified into categories</span>
+                      </div>
+                    </div>
+
+                    {/* Catalog Coverage */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Categorization Rate</span>
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                          <Sparkles size={16} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-emerald-600 tracking-tight my-1 font-display">
+                        {categorizedPercentage}%
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="text-emerald-700 font-bold">{totalCategorizedStock} units</span>
+                        <span>in categorized stock</span>
+                      </div>
+                    </div>
+
+                    {/* Uncategorized Alert */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className={`absolute top-0 left-0 right-0 h-1 ${uncategorizedProducts.length > 0 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Uncategorized Items</span>
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${uncategorizedProducts.length > 0 ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"}`}>
+                          {uncategorizedProducts.length > 0 ? <AlertTriangle size={16} /> : <Check size={16} />}
+                        </div>
+                      </div>
+                      <div className={`text-2xl font-bold tracking-tight my-1 font-display ${uncategorizedProducts.length > 0 ? "text-amber-600" : "text-slate-900"}`}>
+                        {uncategorizedProducts.length}
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className={uncategorizedProducts.length > 0 ? "text-amber-700 font-semibold" : "text-slate-500"}>
+                          {uncategorizedProducts.length > 0 ? "Unassigned classification" : "All items categorized"}
+                        </span>
+                        {uncategorizedProducts.length > 0 && (
+                          <button
+                            onClick={() => {
+                              setSelectedCategory(null);
+                              setCategoryViewMode("split");
+                            }}
+                            className="text-indigo-600 hover:text-indigo-700 font-bold underline cursor-pointer"
+                          >
+                            View
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Categorized Valuation */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-cyan-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Category Asset Value</span>
+                        <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                          <TrendingUp size={16} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-cyan-700 tracking-tight my-1 font-display">
+                        ₹{fmt(totalCategorizedValuation)}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Asset value of categorized products
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── 2. CATEGORY TOOLBAR & VIEW CONTROLS ── */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                {/* Left search */}
+                <div className="flex items-center gap-3 flex-1 max-w-md">
+                  <div className="relative w-full">
                     <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Search categories..."
+                      placeholder="Search categories by name..."
                       value={categoryListSearch}
                       onChange={(e) => setCategoryListSearch(e.target.value)}
                       className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
@@ -1436,455 +1541,829 @@ export default function ProductList() {
                       </button>
                     )}
                   </div>
+                </div>
+
+                {/* Right controls: View Toggle & Add Button */}
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/60">
+                    <button
+                      onClick={() => setCategoryViewMode("split")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        categoryViewMode === "split"
+                          ? "bg-white text-indigo-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      title="Studio Master-Detail Explorer"
+                    >
+                      <Layers size={13} />
+                      <span>Studio View</span>
+                    </button>
+                    <button
+                      onClick={() => setCategoryViewMode("cards")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        categoryViewMode === "cards"
+                          ? "bg-white text-indigo-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      title="Visual Category Card Showcase"
+                    >
+                      <LayoutGrid size={13} />
+                      <span>Card Showcase</span>
+                    </button>
+                  </div>
+
+                  {/* Add New Category Button */}
                   <button
                     onClick={() => setShowCatModal(true)}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-100 transition-all hover:scale-[1.01]"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-glow-brand transition transform active:scale-95 cursor-pointer"
                   >
-                    <Plus size={14} strokeWidth={2.5} />
-                    <span>Add New Category</span>
+                    <Plus size={14} strokeWidth={2.6} />
+                    <span>Add Category</span>
                   </button>
-                </div>
-
-                {/* Category List */}
-                <div className="overflow-y-auto flex-1 p-2 space-y-1">
-                  {(() => {
-                    const uncategorizedCount = products.filter(p => !p.category_name).length;
-                    const catRows = categories
-                      .filter(c => c.name?.toLowerCase().includes(categoryListSearch.toLowerCase()))
-                      .map(c => ({ ...c, count: products.filter(p => p.category_name === c.name).length }));
-                    const showUncategorized = categoryListSearch === "" || "not in any category".includes(categoryListSearch.toLowerCase());
-
-                    return (
-                      <>
-                        {showUncategorized && (
-                          <div
-                            onClick={() => setSelectedCategory(null)}
-                            className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
-                              selectedCategory === null
-                                ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
-                                : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${selectedCategory === null ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-                                <Package size={13} />
-                              </div>
-                              <span className="text-xs truncate">Uncategorized Items</span>
-                            </div>
-                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${selectedCategory === null ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
-                              {uncategorizedCount}
-                            </span>
-                          </div>
-                        )}
-                        {catRows.map((c) => {
-                          const isSelected = selectedCategory?.id === c.id;
-                          return (
-                            <div
-                              key={c.id}
-                              onClick={() => setSelectedCategory(c)}
-                              className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
-                                isSelected
-                                  ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
-                                  : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-                                  <Layers size={13} />
-                                </div>
-                                <span className="text-xs truncate">{c.name}</span>
-                              </div>
-                              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${isSelected ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
-                                {c.count}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {catRows.length === 0 && !showUncategorized && (
-                          <div className="p-8 text-center text-slate-400 text-xs">No categories found</div>
-                        )}
-                      </>
-                    );
-                  })()}
                 </div>
               </div>
 
-              {/* Right Content Panel */}
-              <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
-                {(() => {
-                  const isUncategorized = selectedCategory === null;
-                  const label = isUncategorized ? "Uncategorized Items" : selectedCategory?.name || "Select a category";
-                  const items = isUncategorized
-                    ? products.filter(p => !p.category_name)
-                    : products.filter(p => p.category_name === selectedCategory?.name);
-                  const filteredItems = items.filter(p =>
-                    p.product_name?.toLowerCase().includes(categoryItemsSearch.toLowerCase())
-                  );
+              {/* ── 3.A VIEW MODE: VISUAL CATEGORY SHOWCASE GRID ── */}
+              {categoryViewMode === "cards" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {/* Special Card: Uncategorized Items */}
+                    {(() => {
+                      const uncategorizedItems = products.filter((p) => !p.category_name);
+                      const uncategorizedStock = uncategorizedItems.reduce((s, p) => s + Number(p.stock || 0), 0);
+                      const showCard = categoryListSearch === "" || "uncategorized generic".includes(categoryListSearch.toLowerCase());
 
-                  return (
-                    <>
-                      {/* Header */}
-                      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                            <Layers size={18} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-bold text-slate-900">{label}</h3>
-                              <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
-                                {items.length} items
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-400">Products assigned to this category classification</p>
-                          </div>
-                        </div>
-                        {!isUncategorized && selectedCategory && (
-                          <button
-                            onClick={() => setShowMoveCategoryModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200/80 text-indigo-600 hover:bg-indigo-100/70 text-xs font-bold rounded-xl transition-all"
-                          >
-                            <ArrowUpRight size={13} />
-                            <span>Move Items Here</span>
-                          </button>
-                        )}
-                      </div>
+                      if (!showCard && uncategorizedItems.length === 0) return null;
 
-                      {/* Search Filter Bar */}
-                      <div className="p-3 border-b border-slate-100 bg-white">
-                        <div className="relative">
-                          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <input
-                            type="text"
-                            value={categoryItemsSearch}
-                            onChange={(e) => setCategoryItemsSearch(e.target.value)}
-                            placeholder={`Filter ${items.length} items in this category...`}
-                            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                          />
-                          {categoryItemsSearch && (
-                            <button onClick={() => setCategoryItemsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                              <X size={13} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Items Grid */}
-                      <div className="flex-1 overflow-y-auto p-4">
-                        {filteredItems.length === 0 ? (
-                          <div className="py-16 text-center">
-                            <Boxes size={36} className="text-slate-300 mx-auto mb-2" />
-                            <div className="text-sm font-bold text-slate-700">No items found</div>
-                            <p className="text-xs text-slate-400 mt-1">This category has no assigned inventory items</p>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {filteredItems.map((p) => {
-                              const stockNum = Number(p.stock || 0);
-                              const minStock = Number(p.min_stock_alert || 0);
-                              const isLow = stockNum <= minStock && stockNum > 0;
-                              const isZero = stockNum <= 0;
-                              return (
-                                <div
-                                  key={p.id}
-                                  className="p-3 bg-white rounded-xl border border-slate-200/70 hover:border-indigo-200 hover:shadow-xs transition-all flex items-center justify-between gap-3"
-                                >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 text-slate-500 overflow-hidden">
-                                      {p.product_image ? (
-                                        <img src={p.product_image} alt="" className="w-full h-full object-cover" />
-                                      ) : (
-                                        <Package size={16} className="text-slate-400" />
-                                      )}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="text-xs font-bold text-slate-900 truncate" title={p.product_name}>
-                                        {p.product_name}
-                                      </div>
-                                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                                        <span className="font-mono text-slate-500 font-semibold">{p.product_sku || p.barcode || "No SKU"}</span>
-                                        {p.brand_name && <span>• {p.brand_name}</span>}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="text-right shrink-0">
-                                    <div className={`text-xs font-bold ${isZero ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
-                                      {stockNum} units
-                                    </div>
-                                    <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
-                                      {money(p.selling_price || 0)}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* ─── SUB CATEGORIES TAB (PaySplitX Style) ─── */}
-          {activeTab === "subcategory" && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-140px)]">
-              {/* Left Directory Panel */}
-              <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                      <ListTree size={14} />
-                    </div>
-                    <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Subcategory Directory</span>
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {subcategories.length} Total
-                  </span>
-                </div>
-
-                {/* Search & Action Header */}
-                <div className="p-3 border-b border-slate-100 space-y-2.5">
-                  <div className="relative">
-                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search sub categories..."
-                      value={subcategoryListSearch}
-                      onChange={(e) => setSubcategoryListSearch(e.target.value)}
-                      className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                    {subcategoryListSearch && (
-                      <button onClick={() => setSubcategoryListSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                        <X size={13} />
-                      </button>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setShowSubcatModal(true)}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-100 transition-all hover:scale-[1.01]"
-                  >
-                    <Plus size={14} strokeWidth={2.5} />
-                    <span>Add New Subcategory</span>
-                  </button>
-                </div>
-
-                {/* Subcategory List */}
-                <div className="overflow-y-auto flex-1 p-2 space-y-1">
-                  {(() => {
-                    const subRows = subcategories
-                      .filter((sc) => {
-                        const q = subcategoryListSearch.toLowerCase();
-                        if (!q) return true;
-                        const catName = categories.find(c => c.id === sc.category_id)?.name || "";
-                        return sc.name?.toLowerCase().includes(q) || catName.toLowerCase().includes(q);
-                      })
-                      .map((sc) => ({
-                        ...sc,
-                        categoryName: categories.find(c => c.id === sc.category_id)?.name || "",
-                        count: products.filter(p => Number(p.subcategory_id) === Number(sc.id)).length,
-                      }));
-
-                    if (subRows.length === 0) {
-                      return <div className="p-8 text-center text-slate-400 text-xs">No sub categories found</div>;
-                    }
-                    return subRows.map((sc) => {
-                      const isSelected = selectedSubcategory?.id === sc.id;
                       return (
                         <div
-                          key={sc.id}
-                          onClick={() => setSelectedSubcategory(sc)}
-                          className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
-                            isSelected
-                              ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
-                              : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
-                          }`}
+                          className="bg-white rounded-2xl border border-amber-200/80 hover:border-amber-400 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-                              <ListTree size={13} />
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-100/60 to-transparent rounded-bl-full pointer-events-none" />
+                          <div>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white font-bold flex items-center justify-center text-sm shadow-md shadow-amber-500/20 shrink-0">
+                                  <Package size={20} />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-sm text-slate-900 font-display flex items-center gap-1.5">
+                                    <span>Uncategorized Items</span>
+                                  </h4>
+                                  <span className="text-[11px] text-amber-700 font-medium mt-0.5 inline-block">
+                                    Needs Category Assignment
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                                {uncategorizedItems.length} SKUs
+                              </span>
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-xs truncate font-bold">{sc.name}</div>
-                              {sc.categoryName && (
-                                <div className="text-[10px] text-slate-400 truncate">{sc.categoryName}</div>
-                              )}
+
+                            {/* Metrics Strip */}
+                            <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-xs">
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase font-bold block">Available Stock</span>
+                                <span className="font-extrabold text-slate-800 font-mono">{uncategorizedStock} units</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase font-bold block">Status</span>
+                                <span className="font-bold text-amber-600 inline-flex items-center gap-1">
+                                  <AlertTriangle size={11} />
+                                  <span>Unassigned</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Product preview pills */}
+                            <div className="mt-3.5 space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Recent Items:</span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {uncategorizedItems.slice(0, 3).map((p) => (
+                                  <span key={p.id} className="text-[11px] bg-slate-50 border border-slate-200/80 text-slate-700 px-2 py-0.5 rounded-md truncate max-w-[160px]">
+                                    {p.product_name}
+                                  </span>
+                                ))}
+                                {uncategorizedItems.length > 3 && (
+                                  <span className="text-[11px] text-slate-400 self-center">
+                                    +{uncategorizedItems.length - 3} more
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ml-2 shrink-0 ${isSelected ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
-                            {sc.count}
-                          </span>
+
+                          {/* Card Action footer */}
+                          <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedCategory(null);
+                                setCategoryViewMode("split");
+                              }}
+                              className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <span>Explore Uncategorized SKUs</span>
+                              <ArrowRight size={13} />
+                            </button>
+                          </div>
                         </div>
                       );
-                    });
-                  })()}
-                </div>
-              </div>
+                    })()}
 
-              {/* Right Content Panel */}
-              <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
-                {(() => {
-                  const items = selectedSubcategory
-                    ? products.filter(p => Number(p.subcategory_id) === Number(selectedSubcategory.id))
-                    : [];
-                  const filteredItems = items.filter(p =>
-                    p.product_name?.toLowerCase().includes(subcategoryItemsSearch.toLowerCase())
-                  );
+                    {/* Category Cards */}
+                    {(() => {
+                      const filteredCategories = categories.filter((c) =>
+                        c.name?.toLowerCase().includes(categoryListSearch.toLowerCase())
+                      );
 
-                  return (
-                    <>
-                      {/* Header */}
-                      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                            <ListTree size={18} />
+                      if (filteredCategories.length === 0 && categoryListSearch) {
+                        return (
+                          <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-200/80">
+                            <Layers size={36} className="text-slate-300 mx-auto mb-2" />
+                            <div className="text-sm font-bold text-slate-700">No categories found matching "{categoryListSearch}"</div>
+                            <p className="text-xs text-slate-400 mt-1">Try another search keyword or create a new category</p>
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-bold text-slate-900">
-                                {selectedSubcategory ? selectedSubcategory.name : "Select a Sub Category"}
-                              </h3>
-                              {selectedSubcategory && (
-                                <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
-                                  {items.length} items
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-400">Inventory items assigned under this subcategory classification</p>
-                          </div>
-                        </div>
-                        {selectedSubcategory && (
-                          <button
-                            onClick={() => setShowMoveSubcategoryModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200/80 text-indigo-600 hover:bg-indigo-100/70 text-xs font-bold rounded-xl transition-all"
+                        );
+                      }
+
+                      return filteredCategories.map((c, idx) => {
+                        const catItems = products.filter((p) => p.category_name === c.name);
+                        const catStock = catItems.reduce((s, p) => s + Number(p.stock || 0), 0);
+                        const catValue = catItems.reduce((s, p) => {
+                          const price = Number(p.purchase_price || p.price || 0);
+                          return s + Number(p.stock || 0) * price;
+                        }, 0);
+                        const subcatsCount = subcategories.filter((sc) => Number(sc.category_id) === Number(c.id)).length;
+                        const lowStockInCat = catItems.filter((p) => Number(p.stock || 0) <= Number(p.min_stock_alert || 5)).length;
+
+                        // Monogram / Initials
+                        const monogram = (c.name || "C")
+                          .split(" ")
+                          .map((w) => w[0])
+                          .join("")
+                          .substring(0, 2)
+                          .toUpperCase();
+
+                        const gradientList = [
+                          "from-indigo-600 to-purple-600",
+                          "from-blue-600 to-cyan-600",
+                          "from-emerald-600 to-teal-600",
+                          "from-rose-600 to-pink-600",
+                          "from-amber-600 to-orange-600",
+                          "from-purple-600 to-fuchsia-600",
+                        ];
+                        const gradient = gradientList[idx % gradientList.length];
+
+                        return (
+                          <div
+                            key={c.id}
+                            className="bg-white rounded-2xl border border-slate-200/80 hover:border-indigo-300 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden"
                           >
-                            <ArrowUpRight size={13} />
-                            <span>Move Items Here</span>
-                          </button>
-                        )}
-                      </div>
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-indigo-50/50 to-transparent rounded-bl-full pointer-events-none" />
+                            <div>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${gradient} text-white font-black tracking-wider flex items-center justify-center text-sm shadow-md shadow-indigo-500/15 shrink-0`}>
+                                    {monogram}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-sm text-slate-900 font-display truncate max-w-[150px]" title={c.name}>
+                                      {c.name}
+                                    </h4>
+                                    <span className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                      <span>ID: #{c.id}</span>
+                                      {subcatsCount > 0 && <span>• {subcatsCount} subcategories</span>}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0">
+                                  {catItems.length} Products
+                                </span>
+                              </div>
 
-                      {/* Content Area */}
-                      <div className="flex-1 overflow-y-auto flex flex-col">
-                        {!selectedSubcategory ? (
-                          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 mb-3">
-                              <ListTree size={28} />
-                            </div>
-                            <div className="text-sm font-bold text-slate-800">Select a sub category</div>
-                            <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                              Choose a subcategory from the left panel to inspect its assigned products and inventory levels.
-                            </p>
-                          </div>
-                        ) : (
-                          <>
-                            {/* Search Filter Bar */}
-                            <div className="p-3 border-b border-slate-100 bg-white">
-                              <div className="relative">
-                                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input
-                                  type="text"
-                                  value={subcategoryItemsSearch}
-                                  onChange={(e) => setSubcategoryItemsSearch(e.target.value)}
-                                  placeholder={`Filter ${items.length} items in this subcategory...`}
-                                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                                />
-                                {subcategoryItemsSearch && (
-                                  <button onClick={() => setSubcategoryItemsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                                    <X size={13} />
-                                  </button>
+                              {/* Metrics Strip */}
+                              <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-xs">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Available Stock</span>
+                                  <span className="font-extrabold text-slate-800 font-mono">{catStock} units</span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Inventory Value</span>
+                                  <span className="font-extrabold text-emerald-600 font-mono">₹{fmt(catValue)}</span>
+                                </div>
+                              </div>
+
+                              {/* Stock Health indicator */}
+                              <div className="mt-3 flex items-center justify-between text-[11px]">
+                                <span className="text-slate-400 font-medium">Stock Health:</span>
+                                {lowStockInCat > 0 ? (
+                                  <span className="text-amber-600 font-bold flex items-center gap-1">
+                                    <AlertTriangle size={11} />
+                                    <span>{lowStockInCat} low stock warning</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-emerald-600 font-bold flex items-center gap-1">
+                                    <Check size={11} />
+                                    <span>Healthy stock</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Product preview pills */}
+                              <div className="mt-3.5 space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Classified Products:</span>
+                                {catItems.length === 0 ? (
+                                  <p className="text-[11px] text-slate-400 italic">No products assigned yet</p>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {catItems.slice(0, 3).map((p) => (
+                                      <span key={p.id} className="text-[11px] bg-slate-50 border border-slate-200/80 text-slate-700 px-2 py-0.5 rounded-md truncate max-w-[160px]">
+                                        {p.product_name}
+                                      </span>
+                                    ))}
+                                    {catItems.length > 3 && (
+                                      <span className="text-[11px] text-slate-400 self-center">
+                                        +{catItems.length - 3} more
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
 
-                            {/* Items Grid */}
-                            <div className="flex-1 overflow-y-auto p-4">
-                              {filteredItems.length === 0 ? (
-                                <div className="py-16 text-center">
-                                  <Boxes size={36} className="text-slate-300 mx-auto mb-2" />
-                                  <div className="text-sm font-bold text-slate-700">No items found</div>
-                                  <p className="text-xs text-slate-400 mt-1">This subcategory has no assigned inventory items</p>
+                            {/* Card Action footer */}
+                            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedCategory(c);
+                                  setShowMoveCategoryModal(true);
+                                }}
+                                className="py-2 px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-semibold text-xs rounded-xl border border-slate-200/80 transition flex items-center gap-1 cursor-pointer"
+                                title="Move inventory items into this category"
+                              >
+                                <ArrowUpRight size={13} />
+                                <span>Move Items</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedCategory(c);
+                                  setCategoryViewMode("split");
+                                }}
+                                className="flex-1 py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <span>View Inventory</span>
+                                <ArrowRight size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 3.B VIEW MODE: STUDIO MASTER-DETAIL VIEW ── */}
+              {categoryViewMode === "split" && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-190px)]">
+                  {/* Left Category Directory Panel */}
+                  <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                    <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                          <Layers size={14} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Category Directory</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {categories.length} Total
+                      </span>
+                    </div>
+
+                    {/* Category List Scrollable Body */}
+                    <div className="overflow-y-auto flex-1 p-2 space-y-1.5 custom-scrollbar">
+                      {(() => {
+                        const uncategorizedCount = products.filter((p) => !p.category_name).length;
+                        const catRows = categories
+                          .filter((c) => c.name?.toLowerCase().includes(categoryListSearch.toLowerCase()))
+                          .map((c) => ({
+                            ...c,
+                            count: products.filter((p) => p.category_name === c.name).length,
+                            subcatCount: subcategories.filter((sc) => Number(sc.category_id) === Number(c.id)).length,
+                          }));
+                        const showUncategorized = categoryListSearch === "" || "uncategorized generic".includes(categoryListSearch.toLowerCase());
+
+                        return (
+                          <>
+                            {showUncategorized && (
+                              <div
+                                onClick={() => setSelectedCategory(null)}
+                                className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                                  selectedCategory === null
+                                    ? "bg-amber-50/90 border border-amber-300 text-amber-950 font-bold shadow-xs ring-1 ring-amber-400/20"
+                                    : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${selectedCategory === null ? "bg-amber-500 text-white shadow-xs" : "bg-amber-50 text-amber-600 border border-amber-200"}`}>
+                                    <Package size={14} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="text-xs truncate font-bold">Uncategorized Items</div>
+                                    <div className="text-[10px] text-amber-700 font-medium">Unassigned Classification</div>
+                                  </div>
                                 </div>
-                              ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {filteredItems.map((p) => {
-                                    const stockNum = Number(p.stock || 0);
-                                    const minStock = Number(p.min_stock_alert || 0);
-                                    const isLow = stockNum <= minStock && stockNum > 0;
-                                    const isZero = stockNum <= 0;
-                                    return (
-                                      <div
-                                        key={p.id}
-                                        className="p-3 bg-white rounded-xl border border-slate-200/70 hover:border-indigo-200 hover:shadow-xs transition-all flex items-center justify-between gap-3"
-                                      >
-                                        <div className="flex items-center gap-2.5 min-w-0">
-                                          <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 text-slate-500 overflow-hidden">
+                                <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ml-2 shrink-0 ${selectedCategory === null ? "bg-amber-200 text-amber-900" : "bg-slate-100 text-slate-500"}`}>
+                                  {uncategorizedCount}
+                                </span>
+                              </div>
+                            )}
+
+                            {catRows.map((c) => {
+                              const isSelected = selectedCategory?.id === c.id;
+                              const monogram = (c.name || "C").substring(0, 2).toUpperCase();
+
+                              return (
+                                <div
+                                  key={c.id}
+                                  onClick={() => setSelectedCategory(c)}
+                                  className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                                    isSelected
+                                      ? "bg-indigo-50/90 border border-indigo-300 text-indigo-950 font-bold shadow-xs ring-1 ring-indigo-400/20"
+                                      : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className={`w-8 h-8 rounded-xl font-bold text-[11px] flex items-center justify-center shrink-0 ${
+                                      isSelected
+                                        ? "bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white shadow-xs"
+                                        : "bg-slate-100 text-slate-600 border border-slate-200/70"
+                                    }`}>
+                                      {monogram}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-xs truncate font-bold">{c.name}</div>
+                                      <div className="text-[10px] text-slate-400">
+                                        {c.subcatCount > 0 ? `${c.subcatCount} subcategories` : `ID: #${c.id}`}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ml-2 shrink-0 ${isSelected ? "bg-indigo-200 text-indigo-900" : "bg-slate-100 text-slate-500"}`}>
+                                    {c.count}
+                                  </span>
+                                </div>
+                              );
+                            })}
+
+                            {catRows.length === 0 && !showUncategorized && (
+                              <div className="p-8 text-center text-slate-400 text-xs">No categories found</div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Right Category Command Center Panel */}
+                  <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                    {(() => {
+                      const isUncategorized = selectedCategory === null;
+                      const label = isUncategorized ? "Uncategorized Products" : selectedCategory?.name || "Select a Category";
+                      const allCatItems = isUncategorized
+                        ? products.filter((p) => !p.category_name)
+                        : products.filter((p) => p.category_name === selectedCategory?.name);
+
+                      // Sub-filtered items
+                      const filteredItems = allCatItems.filter((p) => {
+                        const matchesSearch = p.product_name?.toLowerCase().includes(categoryItemsSearch.toLowerCase()) ||
+                          p.product_code?.toLowerCase().includes(categoryItemsSearch.toLowerCase()) ||
+                          p.barcode?.toLowerCase().includes(categoryItemsSearch.toLowerCase());
+                        if (!matchesSearch) return false;
+
+                        const stock = Number(p.stock || 0);
+                        if (categoryItemFilter === "in_stock") return stock > 5;
+                        if (categoryItemFilter === "low_stock") return stock <= 5 && stock > 0;
+                        if (categoryItemFilter === "out_of_stock") return stock <= 0;
+                        return true;
+                      });
+
+                      const totalUnits = allCatItems.reduce((s, p) => s + Number(p.stock || 0), 0);
+                      const totalValuation = allCatItems.reduce((s, p) => {
+                        const price = Number(p.purchase_price || p.price || 0);
+                        return s + Number(p.stock || 0) * price;
+                      }, 0);
+                      const lowStockUnits = allCatItems.filter((p) => Number(p.stock || 0) <= 5 && Number(p.stock || 0) > 0).length;
+
+                      return (
+                        <>
+                          {/* Category Hero Header */}
+                          <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/90 via-indigo-50/30 to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3.5">
+                              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-white text-base shadow-sm shrink-0 ${
+                                isUncategorized ? "bg-gradient-to-tr from-amber-500 to-orange-500 shadow-amber-500/20" : "bg-gradient-to-tr from-indigo-600 to-violet-600 shadow-indigo-500/20"
+                              }`}>
+                                {isUncategorized ? <Package size={22} /> : (label.substring(0, 2).toUpperCase())}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-base font-bold text-slate-900 font-display">{label}</h3>
+                                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                                    isUncategorized ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-indigo-50 text-indigo-700 border-indigo-100"
+                                  }`}>
+                                    {allCatItems.length} SKUs
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap font-mono">
+                                  <span>Units: <b className="text-slate-800">{totalUnits}</b></span>
+                                  <span>•</span>
+                                  <span>Value: <b className="text-emerald-600">₹{fmt(totalValuation)}</b></span>
+                                  {lowStockUnits > 0 && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-amber-600 font-bold flex items-center gap-1">
+                                        <AlertTriangle size={11} /> {lowStockUnits} low stock
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Actions on active category */}
+                            <div className="flex items-center gap-2 self-start sm:self-center">
+                              {!isUncategorized && selectedCategory && (
+                                <button
+                                  onClick={() => setShowMoveCategoryModal(true)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                                >
+                                  <ArrowUpRight size={13} />
+                                  <span>Move Items Here</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setShowAddModal(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                              >
+                                <Plus size={13} strokeWidth={2.5} />
+                                <span>Add Product</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Filter Segment & Search Bar */}
+                          <div className="p-3 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            {/* Filter segments */}
+                            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl flex-wrap">
+                              {[
+                                { id: "all", label: "All Items", count: allCatItems.length },
+                                { id: "in_stock", label: "In Stock", count: allCatItems.filter((p) => Number(p.stock || 0) > 5).length },
+                                { id: "low_stock", label: "Low Stock", count: lowStockUnits },
+                                { id: "out_of_stock", label: "Out of Stock", count: allCatItems.filter((p) => Number(p.stock || 0) <= 0).length },
+                              ].map((f) => (
+                                <button
+                                  key={f.id}
+                                  onClick={() => setCategoryItemFilter(f.id)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                                    categoryItemFilter === f.id
+                                      ? "bg-white text-indigo-700 font-bold shadow-xs"
+                                      : "text-slate-600 hover:text-slate-900"
+                                  }`}
+                                >
+                                  <span>{f.label}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                    categoryItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200/70 text-slate-500"
+                                  }`}>
+                                    {f.count}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Search input & layout switch */}
+                            <div className="flex items-center gap-2">
+                              <div className="relative min-w-[200px]">
+                                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  type="text"
+                                  value={categoryItemsSearch}
+                                  onChange={(e) => setCategoryItemsSearch(e.target.value)}
+                                  placeholder={`Filter ${allCatItems.length} items...`}
+                                  className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                />
+                                {categoryItemsSearch && (
+                                  <button onClick={() => setCategoryItemsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                    <X size={12} />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/60 shrink-0">
+                                <button
+                                  onClick={() => setCategoryItemsLayout("grid")}
+                                  className={`p-1.5 rounded-md transition cursor-pointer ${categoryItemsLayout === "grid" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                                  title="Cards layout"
+                                >
+                                  <Grid size={13} />
+                                </button>
+                                <button
+                                  onClick={() => setCategoryItemsLayout("table")}
+                                  className={`p-1.5 rounded-md transition cursor-pointer ${categoryItemsLayout === "table" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                                  title="Table layout"
+                                >
+                                  <List size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Items Display Area */}
+                          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                            {filteredItems.length === 0 ? (
+                              <div className="py-16 text-center">
+                                <Layers size={36} className="text-slate-300 mx-auto mb-2" />
+                                <div className="text-sm font-bold text-slate-700">No products found</div>
+                                <p className="text-xs text-slate-400 mt-1">
+                                  {allCatItems.length === 0
+                                    ? "This category currently has no inventory items assigned"
+                                    : "No items match your active search / status filters"}
+                                </p>
+                              </div>
+                            ) : categoryItemsLayout === "grid" ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {filteredItems.map((p) => {
+                                  const stockNum = Number(p.stock || 0);
+                                  const minStock = Number(p.min_stock_alert || 5);
+                                  const isLow = stockNum <= minStock && stockNum > 0;
+                                  const isZero = stockNum <= 0;
+
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      className="p-3.5 bg-white rounded-xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-xs transition-all flex flex-col justify-between gap-3 group"
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                          <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center shrink-0 text-slate-500 overflow-hidden">
                                             {p.product_image ? (
                                               <img src={p.product_image} alt="" className="w-full h-full object-cover" />
                                             ) : (
-                                              <Package size={16} className="text-slate-400" />
+                                              <Package size={18} className="text-slate-400" />
                                             )}
                                           </div>
                                           <div className="min-w-0">
-                                            <div className="text-xs font-bold text-slate-900 truncate" title={p.product_name}>
+                                            <h4 className="text-xs font-bold text-slate-900 truncate" title={p.product_name}>
                                               {p.product_name}
-                                            </div>
+                                            </h4>
                                             <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                                              <span className="font-mono text-slate-500 font-semibold">{p.product_sku || p.barcode || "No SKU"}</span>
+                                              <span className="font-mono font-semibold text-slate-500">{p.product_sku || p.barcode || "No SKU"}</span>
                                               {p.brand_name && <span>• {p.brand_name}</span>}
                                             </div>
                                           </div>
                                         </div>
-                                        <div className="text-right shrink-0">
-                                          <div className={`text-xs font-bold ${isZero ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
-                                            {stockNum} units
-                                          </div>
-                                          <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
-                                            {money(p.selling_price || 0)}
-                                          </div>
+
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border ${
+                                          isZero ? "bg-rose-50 text-rose-700 border-rose-200" : isLow ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        }`}>
+                                          {isZero ? "Out of Stock" : isLow ? "Low Stock" : "In Stock"}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                                        <div>
+                                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Selling Price</span>
+                                          <span className="font-bold text-slate-900 font-mono">{money(p.selling_price || p.price || 0)}</span>
+                                        </div>
+                                        <div className="text-right">
+                                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Available Units</span>
+                                          <span className={`font-bold font-mono ${isZero ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
+                                            {stockNum} {p.unit || "units"}
+                                          </span>
+                                        </div>
+
+                                        {/* Quick Action Buttons */}
+                                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                                          <button
+                                            onClick={() => openProductDrawer(p)}
+                                            title="View Product History"
+                                            className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                                          >
+                                            <Eye size={13} />
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              handleSelectProduct(p);
+                                              setShowEditModal(true);
+                                            }}
+                                            title="Edit Product"
+                                            className="w-7 h-7 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                                          >
+                                            <Pencil size={12} />
+                                          </button>
                                         </div>
                                       </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              /* Compact Table View */
+                              <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-2xs">
+                                <table className="w-full text-left text-xs border-collapse">
+                                  <thead>
+                                    <tr className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200/80">
+                                      <th className="p-3">Product Name</th>
+                                      <th className="p-3">SKU / Code</th>
+                                      <th className="p-3">Brand</th>
+                                      <th className="p-3">Selling Price</th>
+                                      <th className="p-3">Stock Level</th>
+                                      <th className="p-3 text-right">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {filteredItems.map((p) => {
+                                      const stockNum = Number(p.stock || 0);
+                                      const minStock = Number(p.min_stock_alert || 5);
+                                      const isLow = stockNum <= minStock && stockNum > 0;
+                                      const isZero = stockNum <= 0;
+
+                                      return (
+                                        <tr key={p.id} className="hover:bg-slate-50/80 transition">
+                                          <td className="p-3 font-bold text-slate-900 flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 overflow-hidden">
+                                              {p.product_image ? (
+                                                <img src={p.product_image} alt="" className="w-full h-full object-cover" />
+                                              ) : (
+                                                <Package size={14} className="text-slate-400" />
+                                              )}
+                                            </div>
+                                            <span className="truncate max-w-[180px]">{p.product_name}</span>
+                                          </td>
+                                          <td className="p-3 font-mono text-slate-600 font-semibold">{p.product_sku || p.barcode || "-"}</td>
+                                          <td className="p-3 text-slate-500">{p.brand_name || "-"}</td>
+                                          <td className="p-3 font-bold text-slate-900 font-mono">{money(p.selling_price || p.price || 0)}</td>
+                                          <td className="p-3">
+                                            <span className={`inline-flex items-center gap-1 font-bold font-mono px-2 py-0.5 rounded-full text-[11px] ${
+                                              isZero ? "bg-rose-50 text-rose-700" : isLow ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+                                            }`}>
+                                              <span className={`w-1.5 h-1.5 rounded-full ${isZero ? "bg-rose-500" : isLow ? "bg-amber-500" : "bg-emerald-500"}`} />
+                                              {stockNum} {p.unit || ""}
+                                            </span>
+                                          </td>
+                                          <td className="p-3 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              <button
+                                                onClick={() => openProductDrawer(p)}
+                                                title="View Product"
+                                                className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                                              >
+                                                <Eye size={13} />
+                                              </button>
+                                              <button
+                                                onClick={() => {
+                                                  handleSelectProduct(p);
+                                                  setShowEditModal(true);
+                                                }}
+                                                title="Edit Product"
+                                                className="w-7 h-7 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                                              >
+                                                <Pencil size={12} />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ─── BRAND TAB (PaySplitX Style) ─── */}
-          {activeTab === "brand" && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-140px)]">
-              {/* Left Directory Panel */}
-              <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                      <Tags size={14} />
-                    </div>
-                    <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Brand Catalog</span>
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {brands.length} Total
-                  </span>
-                </div>
 
-                {/* Search & Action Header */}
-                <div className="p-3 border-b border-slate-100 space-y-2.5">
-                  <div className="relative">
+
+          {/* ─── BRAND TAB (Modernized UI/UX) ─── */}
+          {activeTab === "brand" && (
+            <div className="space-y-4">
+              {/* ── 1. BRAND METRIC KPI STRIP ── */}
+              {(() => {
+                const unbrandedProducts = products.filter((p) => !p.brand_name);
+                const brandedProducts = products.filter((p) => Boolean(p.brand_name));
+                const totalBrandedStock = brandedProducts.reduce((s, p) => s + Number(p.stock || 0), 0);
+                const totalBrandedValuation = brandedProducts.reduce((s, p) => {
+                  const price = Number(p.purchase_price || p.price || 0);
+                  return s + Number(p.stock || 0) * price;
+                }, 0);
+                const brandedPercentage = products.length > 0
+                  ? Math.round((brandedProducts.length / products.length) * 100)
+                  : 0;
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {/* Total Brands */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Registered Brands</span>
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                          <Tags size={16} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+                        {brands.length}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="text-indigo-600 font-bold">{brandedProducts.length} items</span>
+                        <span>tagged under brands</span>
+                      </div>
+                    </div>
+
+                    {/* Branded Catalog Coverage */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Catalog Coverage</span>
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                          <Sparkles size={16} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-emerald-600 tracking-tight my-1 font-display">
+                        {brandedPercentage}%
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="text-emerald-700 font-bold">{totalBrandedStock} units</span>
+                        <span>in branded stock</span>
+                      </div>
+                    </div>
+
+                    {/* Unbranded Alert */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className={`absolute top-0 left-0 right-0 h-1 ${unbrandedProducts.length > 0 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Unbranded Items</span>
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${unbrandedProducts.length > 0 ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"}`}>
+                          {unbrandedProducts.length > 0 ? <AlertTriangle size={16} /> : <Check size={16} />}
+                        </div>
+                      </div>
+                      <div className={`text-2xl font-bold tracking-tight my-1 font-display ${unbrandedProducts.length > 0 ? "text-amber-600" : "text-slate-900"}`}>
+                        {unbrandedProducts.length}
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className={unbrandedProducts.length > 0 ? "text-amber-700 font-semibold" : "text-slate-500"}>
+                          {unbrandedProducts.length > 0 ? "Generic / unassigned" : "All products branded"}
+                        </span>
+                        {unbrandedProducts.length > 0 && (
+                          <button
+                            onClick={() => {
+                              setSelectedBrand(null);
+                              setBrandViewMode("split");
+                            }}
+                            className="text-indigo-600 hover:text-indigo-700 font-bold underline cursor-pointer"
+                          >
+                            View
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Branded Valuation */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-cyan-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Branded Stock Value</span>
+                        <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                          <TrendingUp size={16} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-cyan-700 tracking-tight my-1 font-display">
+                        ₹{fmt(totalBrandedValuation)}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Asset value of branded products
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── 2. BRAND TOOLBAR & VIEW CONTROLS ── */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                {/* Left search */}
+                <div className="flex items-center gap-3 flex-1 max-w-md">
+                  <div className="relative w-full">
                     <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Search brands..."
+                      placeholder="Search brands by name..."
                       value={brandListSearch}
                       onChange={(e) => setBrandListSearch(e.target.value)}
                       className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
@@ -1895,1036 +2374,1875 @@ export default function ProductList() {
                       </button>
                     )}
                   </div>
-                  <button
-                    onClick={() => setShowBrandModal(true)}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-100 transition-all hover:scale-[1.01]"
-                  >
-                    <Plus size={14} strokeWidth={2.5} />
-                    <span>Add New Brand</span>
-                  </button>
                 </div>
 
-                {/* Brand List */}
-                <div className="overflow-y-auto flex-1 p-2 space-y-1">
-                  {(() => {
-                    const unbrandedCount = products.filter(p => !p.brand_name).length;
-                    const brandRows = brands
-                      .filter(b => b.name?.toLowerCase().includes(brandListSearch.toLowerCase()))
-                      .map(b => ({ ...b, count: products.filter(p => p.brand_name === b.name).length }));
-                    const showUnbranded = brandListSearch === "" || "not in any brand".includes(brandListSearch.toLowerCase());
+                {/* Right controls: View Toggle & Add Button */}
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/60">
+                    <button
+                      onClick={() => setBrandViewMode("split")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        brandViewMode === "split"
+                          ? "bg-white text-indigo-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      title="Studio Master-Detail Explorer"
+                    >
+                      <Layers size={13} />
+                      <span>Studio View</span>
+                    </button>
+                    <button
+                      onClick={() => setBrandViewMode("cards")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        brandViewMode === "cards"
+                          ? "bg-white text-indigo-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      title="Visual Brand Card Showcase"
+                    >
+                      <LayoutGrid size={13} />
+                      <span>Card Showcase</span>
+                    </button>
+                  </div>
 
-                    return (
-                      <>
-                        {showUnbranded && (
-                          <div
-                            onClick={() => setSelectedBrand(null)}
-                            className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
-                              selectedBrand === null
-                                ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
-                                : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${selectedBrand === null ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-                                <Package size={13} />
-                              </div>
-                              <span className="text-xs truncate">Unbranded Products</span>
-                            </div>
-                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${selectedBrand === null ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
-                              {unbrandedCount}
-                            </span>
-                          </div>
-                        )}
-                        {brandRows.map((b) => {
-                          const isSelected = selectedBrand?.id === b.id;
-                          return (
-                            <div
-                              key={b.id}
-                              onClick={() => setSelectedBrand(b)}
-                              className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
-                                isSelected
-                                  ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
-                                  : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-                                  <Tags size={13} />
-                                </div>
-                                <span className="text-xs truncate">{b.name}</span>
-                              </div>
-                              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${isSelected ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
-                                {b.count}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {brandRows.length === 0 && !showUnbranded && (
-                          <div className="p-8 text-center text-slate-400 text-xs">No brands found</div>
-                        )}
-                      </>
-                    );
-                  })()}
+                  {/* Add New Brand Button */}
+                  <button
+                    onClick={() => setShowBrandModal(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-glow-brand transition transform active:scale-95 cursor-pointer"
+                  >
+                    <Plus size={14} strokeWidth={2.6} />
+                    <span>Add Brand</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Right Content Panel */}
-              <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
-                {(() => {
-                  const isUnbranded = selectedBrand === null;
-                  const label = isUnbranded ? "Unbranded Items" : selectedBrand?.name || "Select a brand";
-                  const items = isUnbranded
-                    ? products.filter(p => !p.brand_name)
-                    : products.filter(p => p.brand_name === selectedBrand?.name);
-                  const filteredItems = items.filter(p =>
-                    p.product_name?.toLowerCase().includes(brandItemsSearch.toLowerCase())
-                  );
+              {/* ── 3.A VIEW MODE: VISUAL BRAND SHOWCASE GRID ── */}
+              {brandViewMode === "cards" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {/* Special Card: Unbranded / Generic Items */}
+                    {(() => {
+                      const unbrandedItems = products.filter((p) => !p.brand_name);
+                      const unbrandedStock = unbrandedItems.reduce((s, p) => s + Number(p.stock || 0), 0);
+                      const showCard = brandListSearch === "" || "unbranded generic".includes(brandListSearch.toLowerCase());
 
-                  return (
-                    <>
-                      {/* Header */}
-                      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                            <Tags size={18} />
-                          </div>
+                      if (!showCard && unbrandedItems.length === 0) return null;
+
+                      return (
+                        <div
+                          className="bg-white rounded-2xl border border-amber-200/80 hover:border-amber-400 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden"
+                        >
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-100/60 to-transparent rounded-bl-full pointer-events-none" />
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-bold text-slate-900">{label}</h3>
-                              <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
-                                {items.length} items
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white font-bold flex items-center justify-center text-sm shadow-md shadow-amber-500/20 shrink-0">
+                                  <Package size={20} />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-sm text-slate-900 font-display flex items-center gap-1.5">
+                                    <span>Unbranded Items</span>
+                                  </h4>
+                                  <span className="text-[11px] text-amber-700 font-medium mt-0.5 inline-block">
+                                    Needs Brand Assignment
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                                {unbrandedItems.length} SKUs
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-400">Products assigned under this manufacturer or brand label</p>
-                          </div>
-                        </div>
-                        {!isUnbranded && selectedBrand && (
-                          <button
-                            onClick={() => setShowMoveBrandModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200/80 text-indigo-600 hover:bg-indigo-100/70 text-xs font-bold rounded-xl transition-all"
-                          >
-                            <ArrowUpRight size={13} />
-                            <span>Move Items Here</span>
-                          </button>
-                        )}
-                      </div>
 
-                      {/* Search Filter Bar */}
-                      <div className="p-3 border-b border-slate-100 bg-white">
-                        <div className="relative">
-                          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <input
-                            type="text"
-                            value={brandItemsSearch}
-                            onChange={(e) => setBrandItemsSearch(e.target.value)}
-                            placeholder={`Filter ${items.length} items in this brand...`}
-                            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                          />
-                          {brandItemsSearch && (
-                            <button onClick={() => setBrandItemsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                              <X size={13} />
+                            {/* Metrics Strip */}
+                            <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-xs">
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase font-bold block">Available Stock</span>
+                                <span className="font-extrabold text-slate-800 font-mono">{unbrandedStock} units</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase font-bold block">Status</span>
+                                <span className="font-bold text-amber-600 inline-flex items-center gap-1">
+                                  <AlertTriangle size={11} />
+                                  <span>Unassigned</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Product preview pills */}
+                            <div className="mt-3.5 space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Recent Items:</span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {unbrandedItems.slice(0, 3).map((p) => (
+                                  <span key={p.id} className="text-[11px] bg-slate-50 border border-slate-200/80 text-slate-700 px-2 py-0.5 rounded-md truncate max-w-[160px]">
+                                    {p.product_name}
+                                  </span>
+                                ))}
+                                {unbrandedItems.length > 3 && (
+                                  <span className="text-[11px] text-slate-400 self-center">
+                                    +{unbrandedItems.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Card Action footer */}
+                          <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedBrand(null);
+                                setBrandViewMode("split");
+                              }}
+                              className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <span>Explore Unbranded SKUs</span>
+                              <ArrowRight size={13} />
                             </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Items Grid */}
-                      <div className="flex-1 overflow-y-auto p-4">
-                        {filteredItems.length === 0 ? (
-                          <div className="py-16 text-center">
-                            <Tags size={36} className="text-slate-300 mx-auto mb-2" />
-                            <div className="text-sm font-bold text-slate-700">No items found</div>
-                            <p className="text-xs text-slate-400 mt-1">This brand has no assigned inventory items</p>
                           </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {filteredItems.map((p) => {
-                              const stockNum = Number(p.stock || 0);
-                              const minStock = Number(p.min_stock_alert || 0);
-                              const isLow = stockNum <= minStock && stockNum > 0;
-                              const isZero = stockNum <= 0;
+                        </div>
+                      );
+                    })()}
+
+                    {/* Brand Cards */}
+                    {(() => {
+                      const filteredBrands = brands.filter((b) =>
+                        b.name?.toLowerCase().includes(brandListSearch.toLowerCase())
+                      );
+
+                      if (filteredBrands.length === 0 && brandListSearch) {
+                        return (
+                          <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-200/80">
+                            <Tags size={36} className="text-slate-300 mx-auto mb-2" />
+                            <div className="text-sm font-bold text-slate-700">No brands found matching "{brandListSearch}"</div>
+                            <p className="text-xs text-slate-400 mt-1">Try another search keyword or create a new brand</p>
+                          </div>
+                        );
+                      }
+
+                      return filteredBrands.map((b, idx) => {
+                        const brandItems = products.filter((p) => p.brand_name === b.name);
+                        const brandStock = brandItems.reduce((s, p) => s + Number(p.stock || 0), 0);
+                        const brandValue = brandItems.reduce((s, p) => {
+                          const price = Number(p.purchase_price || p.price || 0);
+                          return s + Number(p.stock || 0) * price;
+                        }, 0);
+                        const lowStockInBrand = brandItems.filter((p) => Number(p.stock || 0) <= Number(p.min_stock_alert || 5)).length;
+
+                        // Monogram / Initials
+                        const monogram = (b.name || "B")
+                          .split(" ")
+                          .map((w) => w[0])
+                          .join("")
+                          .substring(0, 2)
+                          .toUpperCase();
+
+                        const gradientList = [
+                          "from-indigo-600 to-violet-600",
+                          "from-blue-600 to-cyan-600",
+                          "from-emerald-600 to-teal-600",
+                          "from-rose-600 to-pink-600",
+                          "from-amber-600 to-orange-600",
+                          "from-purple-600 to-fuchsia-600",
+                        ];
+                        const gradient = gradientList[idx % gradientList.length];
+
+                        return (
+                          <div
+                            key={b.id}
+                            className="bg-white rounded-2xl border border-slate-200/80 hover:border-indigo-300 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden"
+                          >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-indigo-50/50 to-transparent rounded-bl-full pointer-events-none" />
+                            <div>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${gradient} text-white font-black tracking-wider flex items-center justify-center text-sm shadow-md shadow-indigo-500/15 shrink-0`}>
+                                    {monogram}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-sm text-slate-900 font-display truncate max-w-[150px]" title={b.name}>
+                                      {b.name}
+                                    </h4>
+                                    <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                      <span>ID: #{b.id}</span>
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0">
+                                  {brandItems.length} Products
+                                </span>
+                              </div>
+
+                              {/* Metrics Strip */}
+                              <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-xs">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Available Stock</span>
+                                  <span className="font-extrabold text-slate-800 font-mono">{brandStock} units</span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Inventory Value</span>
+                                  <span className="font-extrabold text-emerald-600 font-mono">₹{fmt(brandValue)}</span>
+                                </div>
+                              </div>
+
+                              {/* Stock Health indicator */}
+                              <div className="mt-3 flex items-center justify-between text-[11px]">
+                                <span className="text-slate-400 font-medium">Stock Health:</span>
+                                {lowStockInBrand > 0 ? (
+                                  <span className="text-amber-600 font-bold flex items-center gap-1">
+                                    <AlertTriangle size={11} />
+                                    <span>{lowStockInBrand} low stock warning</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-emerald-600 font-bold flex items-center gap-1">
+                                    <Check size={11} />
+                                    <span>Healthy stock</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Product preview pills */}
+                              <div className="mt-3.5 space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Assigned Products:</span>
+                                {brandItems.length === 0 ? (
+                                  <p className="text-[11px] text-slate-400 italic">No products assigned yet</p>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {brandItems.slice(0, 3).map((p) => (
+                                      <span key={p.id} className="text-[11px] bg-slate-50 border border-slate-200/80 text-slate-700 px-2 py-0.5 rounded-md truncate max-w-[160px]">
+                                        {p.product_name}
+                                      </span>
+                                    ))}
+                                    {brandItems.length > 3 && (
+                                      <span className="text-[11px] text-slate-400 self-center">
+                                        +{brandItems.length - 3} more
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Card Action footer */}
+                            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedBrand(b);
+                                  setShowMoveBrandModal(true);
+                                }}
+                                className="py-2 px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-semibold text-xs rounded-xl border border-slate-200/80 transition flex items-center gap-1 cursor-pointer"
+                                title="Move inventory items into this brand"
+                              >
+                                <ArrowUpRight size={13} />
+                                <span>Move Items</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedBrand(b);
+                                  setBrandViewMode("split");
+                                }}
+                                className="flex-1 py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <span>View Inventory</span>
+                                <ArrowRight size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 3.B VIEW MODE: STUDIO MASTER-DETAIL VIEW ── */}
+              {brandViewMode === "split" && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-190px)]">
+                  {/* Left Brand Directory Panel */}
+                  <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                    <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                          <Tags size={14} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Brand Explorer</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {brands.length} Total
+                      </span>
+                    </div>
+
+                    {/* Brand List Scrollable Body */}
+                    <div className="overflow-y-auto flex-1 p-2 space-y-1.5 custom-scrollbar">
+                      {(() => {
+                        const unbrandedCount = products.filter((p) => !p.brand_name).length;
+                        const brandRows = brands
+                          .filter((b) => b.name?.toLowerCase().includes(brandListSearch.toLowerCase()))
+                          .map((b) => ({
+                            ...b,
+                            count: products.filter((p) => p.brand_name === b.name).length,
+                          }));
+                        const showUnbranded = brandListSearch === "" || "unbranded generic".includes(brandListSearch.toLowerCase());
+
+                        return (
+                          <>
+                            {showUnbranded && (
+                              <div
+                                onClick={() => setSelectedBrand(null)}
+                                className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                                  selectedBrand === null
+                                    ? "bg-amber-50/90 border border-amber-300 text-amber-950 font-bold shadow-xs ring-1 ring-amber-400/20"
+                                    : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${selectedBrand === null ? "bg-amber-500 text-white shadow-xs" : "bg-amber-50 text-amber-600 border border-amber-200"}`}>
+                                    <Package size={14} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="text-xs truncate font-bold">Unbranded Products</div>
+                                    <div className="text-[10px] text-amber-700 font-medium">Generic / Unassigned</div>
+                                  </div>
+                                </div>
+                                <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ml-2 shrink-0 ${selectedBrand === null ? "bg-amber-200 text-amber-900" : "bg-slate-100 text-slate-500"}`}>
+                                  {unbrandedCount}
+                                </span>
+                              </div>
+                            )}
+
+                            {brandRows.map((b, idx) => {
+                              const isSelected = selectedBrand?.id === b.id;
+                              const monogram = (b.name || "B").substring(0, 2).toUpperCase();
+
                               return (
                                 <div
-                                  key={p.id}
-                                  className="p-3 bg-white rounded-xl border border-slate-200/70 hover:border-indigo-200 hover:shadow-xs transition-all flex items-center justify-between gap-3"
+                                  key={b.id}
+                                  onClick={() => setSelectedBrand(b)}
+                                  className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                                    isSelected
+                                      ? "bg-indigo-50/90 border border-indigo-300 text-indigo-950 font-bold shadow-xs ring-1 ring-indigo-400/20"
+                                      : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                                  }`}
                                 >
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 text-slate-500 overflow-hidden">
-                                      {p.product_image ? (
-                                        <img src={p.product_image} alt="" className="w-full h-full object-cover" />
-                                      ) : (
-                                        <Package size={16} className="text-slate-400" />
-                                      )}
+                                    <div className={`w-8 h-8 rounded-xl font-bold text-[11px] flex items-center justify-center shrink-0 ${
+                                      isSelected
+                                        ? "bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white shadow-xs"
+                                        : "bg-slate-100 text-slate-600 border border-slate-200/70"
+                                    }`}>
+                                      {monogram}
                                     </div>
                                     <div className="min-w-0">
-                                      <div className="text-xs font-bold text-slate-900 truncate" title={p.product_name}>
-                                        {p.product_name}
-                                      </div>
-                                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                                        <span className="font-mono text-slate-500 font-semibold">{p.product_sku || p.barcode || "No SKU"}</span>
-                                        {p.category_name && <span>• {p.category_name}</span>}
-                                      </div>
+                                      <div className="text-xs truncate font-bold">{b.name}</div>
+                                      <div className="text-[10px] text-slate-400">ID: #{b.id}</div>
                                     </div>
                                   </div>
-                                  <div className="text-right shrink-0">
-                                    <div className={`text-xs font-bold ${isZero ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
-                                      {stockNum} units
-                                    </div>
-                                    <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
-                                      {money(p.selling_price || 0)}
-                                    </div>
-                                  </div>
+                                  <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ml-2 shrink-0 ${isSelected ? "bg-indigo-200 text-indigo-900" : "bg-slate-100 text-slate-500"}`}>
+                                    {b.count}
+                                  </span>
                                 </div>
                               );
                             })}
+
+                            {brandRows.length === 0 && !showUnbranded && (
+                              <div className="p-8 text-center text-slate-400 text-xs">No brands found</div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Right Brand Inventory Center Panel */}
+                  <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                    {(() => {
+                      const isUnbranded = selectedBrand === null;
+                      const label = isUnbranded ? "Unbranded Products" : selectedBrand?.name || "Select a Brand";
+                      const allBrandItems = isUnbranded
+                        ? products.filter((p) => !p.brand_name)
+                        : products.filter((p) => p.brand_name === selectedBrand?.name);
+
+                      // Sub-filtered items
+                      const filteredItems = allBrandItems.filter((p) => {
+                        const matchesSearch = p.product_name?.toLowerCase().includes(brandItemsSearch.toLowerCase()) ||
+                          p.product_code?.toLowerCase().includes(brandItemsSearch.toLowerCase()) ||
+                          p.barcode?.toLowerCase().includes(brandItemsSearch.toLowerCase());
+                        if (!matchesSearch) return false;
+
+                        const stock = Number(p.stock || 0);
+                        if (brandItemFilter === "in_stock") return stock > 5;
+                        if (brandItemFilter === "low_stock") return stock <= 5 && stock > 0;
+                        if (brandItemFilter === "out_of_stock") return stock <= 0;
+                        return true;
+                      });
+
+                      const totalUnits = allBrandItems.reduce((s, p) => s + Number(p.stock || 0), 0);
+                      const totalValuation = allBrandItems.reduce((s, p) => {
+                        const price = Number(p.purchase_price || p.price || 0);
+                        return s + Number(p.stock || 0) * price;
+                      }, 0);
+                      const lowStockUnits = allBrandItems.filter((p) => Number(p.stock || 0) <= 5 && Number(p.stock || 0) > 0).length;
+
+                      return (
+                        <>
+                          {/* Brand Hero Header */}
+                          <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/90 via-indigo-50/30 to-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3.5">
+                              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-white text-base shadow-sm shrink-0 ${
+                                isUnbranded ? "bg-gradient-to-tr from-amber-500 to-orange-500 shadow-amber-500/20" : "bg-gradient-to-tr from-indigo-600 to-violet-600 shadow-indigo-500/20"
+                              }`}>
+                                {isUnbranded ? <Package size={22} /> : (label.substring(0, 2).toUpperCase())}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-base font-bold text-slate-900 font-display">{label}</h3>
+                                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                                    isUnbranded ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-indigo-50 text-indigo-700 border-indigo-100"
+                                  }`}>
+                                    {allBrandItems.length} SKUs
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap font-mono">
+                                  <span>Units: <b className="text-slate-800">{totalUnits}</b></span>
+                                  <span>•</span>
+                                  <span>Value: <b className="text-emerald-600">₹{fmt(totalValuation)}</b></span>
+                                  {lowStockUnits > 0 && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-amber-600 font-bold flex items-center gap-1">
+                                        <AlertTriangle size={11} /> {lowStockUnits} low stock
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Actions on active brand */}
+                            <div className="flex items-center gap-2 self-start sm:self-center">
+                              {!isUnbranded && selectedBrand && (
+                                <button
+                                  onClick={() => setShowMoveBrandModal(true)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                                >
+                                  <ArrowUpRight size={13} />
+                                  <span>Move Items Here</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setShowAddModal(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                              >
+                                <Plus size={13} strokeWidth={2.5} />
+                                <span>Add Product</span>
+                              </button>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
+
+                          {/* Filter Segment & Search Bar */}
+                          <div className="p-3 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            {/* Filter segments */}
+                            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl flex-wrap">
+                              {[
+                                { id: "all", label: "All Items", count: allBrandItems.length },
+                                { id: "in_stock", label: "In Stock", count: allBrandItems.filter((p) => Number(p.stock || 0) > 5).length },
+                                { id: "low_stock", label: "Low Stock", count: lowStockUnits },
+                                { id: "out_of_stock", label: "Out of Stock", count: allBrandItems.filter((p) => Number(p.stock || 0) <= 0).length },
+                              ].map((f) => (
+                                <button
+                                  key={f.id}
+                                  onClick={() => setBrandItemFilter(f.id)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                                    brandItemFilter === f.id
+                                      ? "bg-white text-indigo-700 font-bold shadow-xs"
+                                      : "text-slate-600 hover:text-slate-900"
+                                  }`}
+                                >
+                                  <span>{f.label}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                    brandItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200/70 text-slate-500"
+                                  }`}>
+                                    {f.count}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Search input & layout switch */}
+                            <div className="flex items-center gap-2">
+                              <div className="relative min-w-[200px]">
+                                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  type="text"
+                                  value={brandItemsSearch}
+                                  onChange={(e) => setBrandItemsSearch(e.target.value)}
+                                  placeholder={`Filter ${allBrandItems.length} items...`}
+                                  className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                />
+                                {brandItemsSearch && (
+                                  <button onClick={() => setBrandItemsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                    <X size={12} />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/60 shrink-0">
+                                <button
+                                  onClick={() => setBrandItemsLayout("grid")}
+                                  className={`p-1.5 rounded-md transition cursor-pointer ${brandItemsLayout === "grid" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                                  title="Cards layout"
+                                >
+                                  <Grid size={13} />
+                                </button>
+                                <button
+                                  onClick={() => setBrandItemsLayout("table")}
+                                  className={`p-1.5 rounded-md transition cursor-pointer ${brandItemsLayout === "table" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                                  title="Table layout"
+                                >
+                                  <List size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Items Display Area */}
+                          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                            {filteredItems.length === 0 ? (
+                              <div className="py-16 text-center">
+                                <Tags size={36} className="text-slate-300 mx-auto mb-2" />
+                                <div className="text-sm font-bold text-slate-700">No products found</div>
+                                <p className="text-xs text-slate-400 mt-1">
+                                  {allBrandItems.length === 0
+                                    ? "This brand currently has no inventory items assigned"
+                                    : "No items match your active search / status filters"}
+                                </p>
+                              </div>
+                            ) : brandItemsLayout === "grid" ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {filteredItems.map((p) => {
+                                  const stockNum = Number(p.stock || 0);
+                                  const minStock = Number(p.min_stock_alert || 5);
+                                  const isLow = stockNum <= minStock && stockNum > 0;
+                                  const isZero = stockNum <= 0;
+
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      className="p-3.5 bg-white rounded-xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-xs transition-all flex flex-col justify-between gap-3 group"
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                          <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center shrink-0 text-slate-500 overflow-hidden">
+                                            {p.product_image ? (
+                                              <img src={p.product_image} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                              <Package size={18} className="text-slate-400" />
+                                            )}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <h4 className="text-xs font-bold text-slate-900 truncate" title={p.product_name}>
+                                              {p.product_name}
+                                            </h4>
+                                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                              <span className="font-mono font-semibold text-slate-500">{p.product_sku || p.barcode || "No SKU"}</span>
+                                              {p.category_name && <span>• {p.category_name}</span>}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border ${
+                                          isZero ? "bg-rose-50 text-rose-700 border-rose-200" : isLow ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        }`}>
+                                          {isZero ? "Out of Stock" : isLow ? "Low Stock" : "In Stock"}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                                        <div>
+                                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Selling Price</span>
+                                          <span className="font-bold text-slate-900 font-mono">{money(p.selling_price || p.price || 0)}</span>
+                                        </div>
+                                        <div className="text-right">
+                                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Available Units</span>
+                                          <span className={`font-bold font-mono ${isZero ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
+                                            {stockNum} {p.unit || "units"}
+                                          </span>
+                                        </div>
+
+                                        {/* Quick Action Buttons */}
+                                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                                          <button
+                                            onClick={() => openProductDrawer(p)}
+                                            title="View Product History"
+                                            className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                                          >
+                                            <Eye size={13} />
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              handleSelectProduct(p);
+                                              setShowEditModal(true);
+                                            }}
+                                            title="Edit Product"
+                                            className="w-7 h-7 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                                          >
+                                            <Pencil size={12} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              /* Compact Table View */
+                              <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-2xs">
+                                <table className="w-full text-left text-xs border-collapse">
+                                  <thead>
+                                    <tr className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200/80">
+                                      <th className="p-3">Product Name</th>
+                                      <th className="p-3">SKU / Code</th>
+                                      <th className="p-3">Category</th>
+                                      <th className="p-3">Selling Price</th>
+                                      <th className="p-3">Stock Level</th>
+                                      <th className="p-3 text-right">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {filteredItems.map((p) => {
+                                      const stockNum = Number(p.stock || 0);
+                                      const minStock = Number(p.min_stock_alert || 5);
+                                      const isLow = stockNum <= minStock && stockNum > 0;
+                                      const isZero = stockNum <= 0;
+
+                                      return (
+                                        <tr key={p.id} className="hover:bg-slate-50/80 transition">
+                                          <td className="p-3 font-bold text-slate-900 flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 overflow-hidden">
+                                              {p.product_image ? (
+                                                <img src={p.product_image} alt="" className="w-full h-full object-cover" />
+                                              ) : (
+                                                <Package size={14} className="text-slate-400" />
+                                              )}
+                                            </div>
+                                            <span className="truncate max-w-[180px]">{p.product_name}</span>
+                                          </td>
+                                          <td className="p-3 font-mono text-slate-600 font-semibold">{p.product_sku || p.barcode || "-"}</td>
+                                          <td className="p-3 text-slate-500">{p.category_name || "-"}</td>
+                                          <td className="p-3 font-bold text-slate-900 font-mono">{money(p.selling_price || p.price || 0)}</td>
+                                          <td className="p-3">
+                                            <span className={`inline-flex items-center gap-1 font-bold font-mono px-2 py-0.5 rounded-full text-[11px] ${
+                                              isZero ? "bg-rose-50 text-rose-700" : isLow ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+                                            }`}>
+                                              <span className={`w-1.5 h-1.5 rounded-full ${isZero ? "bg-rose-500" : isLow ? "bg-amber-500" : "bg-emerald-500"}`} />
+                                              {stockNum} {p.unit || ""}
+                                            </span>
+                                          </td>
+                                          <td className="p-3 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              <button
+                                                onClick={() => openProductDrawer(p)}
+                                                title="View Product"
+                                                className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                                              >
+                                                <Eye size={13} />
+                                              </button>
+                                              <button
+                                                onClick={() => {
+                                                  handleSelectProduct(p);
+                                                  setShowEditModal(true);
+                                                }}
+                                                title="Edit Product"
+                                                className="w-7 h-7 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                                              >
+                                                <Pencil size={12} />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ─── UNIT TAB (PaySplitX Style) ─── */}
+          {/* ─── UNIT TAB (Modernized UI/UX) ─── */}
           {activeTab === "unit" && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-140px)]">
-              {/* Left Directory Panel */}
-              <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                      <Ruler size={14} />
+            <div className="space-y-4">
+              {/* ── 1. UNIT METRIC KPI STRIP ── */}
+              {(() => {
+                const totalUnitsCount = units.length;
+                const productsWithUnit = products.filter((p) => Boolean(p.unit));
+                const unitCoveragePercent = products.length > 0
+                  ? Math.round((productsWithUnit.length / products.length) * 100)
+                  : 0;
+                
+                // Calculate total conversion rules count across predefined map + dynamic conversions
+                const totalConversionsCount = Object.values(unitConversionMap).reduce((acc, curr) => acc + curr.length, 0) + conversions.length;
+                
+                const totalUnitStock = productsWithUnit.reduce((s, p) => s + Number(p.stock || 0), 0);
+                const totalUnitValuation = productsWithUnit.reduce((s, p) => {
+                  const price = Number(p.purchase_price || p.price || 0);
+                  return s + Number(p.stock || 0) * price;
+                }, 0);
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {/* Registered Units */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Registered Units</span>
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                          <Ruler size={16} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+                        {totalUnitsCount}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="text-indigo-600 font-bold">{productsWithUnit.length} products</span>
+                        <span>measured with units</span>
+                      </div>
                     </div>
-                    <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Measurement Units</span>
+
+                    {/* Unit Measurement Coverage */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Unit Coverage</span>
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                          <Sparkles size={16} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+                        {unitCoveragePercent}%
+                      </div>
+                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${unitCoveragePercent}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Conversions Matrix */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Conversion Matrix</span>
+                        <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                          <RefreshCw size={15} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display">
+                        {totalConversionsCount}
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                        <span className="text-blue-600 font-bold">{conversions.length} active</span>
+                        <span>in selected unit</span>
+                      </div>
+                    </div>
+
+                    {/* Total Unit Stock Valuation */}
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-purple-500" />
+                      <div className="flex items-start justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Stock Valuation</span>
+                        <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                          <TrendingUp size={16} />
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 tracking-tight my-1 font-display font-mono">
+                        ₹{fmt(totalUnitValuation)}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="text-purple-600 font-bold">{totalUnitStock} units</span>
+                        <span>total measured quantity</span>
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {units.length} Total
-                  </span>
+                );
+              })()}
+
+              {/* ── 2. TOOLBAR & VIEW CONTROLS ── */}
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                {/* Search */}
+                <div className="relative flex-1 max-w-md">
+                  <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search unit name or symbol (e.g. Kg, Litre, Pcs)..."
+                    value={unitListSearch}
+                    onChange={(e) => setUnitListSearch(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                  {unitListSearch && (
+                    <button
+                      onClick={() => setUnitListSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
                 </div>
 
-                {/* Search & Action Header */}
-                <div className="p-3 border-b border-slate-100 space-y-2.5">
-                  <div className="relative">
-                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search units..."
-                      value={unitListSearch}
-                      onChange={(e) => setUnitListSearch(e.target.value)}
-                      className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                    {unitListSearch && (
-                      <button onClick={() => setUnitListSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                        <X size={13} />
-                      </button>
-                    )}
+                {/* Right controls */}
+                <div className="flex items-center gap-2.5 self-end sm:self-center">
+                  {/* View mode switcher */}
+                  <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/70">
+                    <button
+                      onClick={() => setUnitViewMode("split")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        unitViewMode === "split"
+                          ? "bg-white text-indigo-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <LayoutList size={14} />
+                      <span className="hidden sm:inline">Studio View</span>
+                    </button>
+                    <button
+                      onClick={() => setUnitViewMode("cards")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        unitViewMode === "cards"
+                          ? "bg-white text-indigo-600 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <LayoutGrid size={14} />
+                      <span className="hidden sm:inline">Showcase</span>
+                    </button>
                   </div>
+
+                  {/* Add Unit Button */}
                   <button
-                    onClick={() => setShowUnitModal(true)}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-100 transition-all hover:scale-[1.01]"
+                    onClick={() => {
+                      setUnitFullForm("");
+                      setUnitShortForm("");
+                      setShowUnitModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-sm shadow-indigo-200 transition-all hover:scale-[1.01] cursor-pointer"
                   >
                     <Plus size={14} strokeWidth={2.5} />
                     <span>Add New Unit</span>
                   </button>
                 </div>
-
-                {/* Unit List */}
-                <div className="overflow-y-auto flex-1 p-2 space-y-1">
-                  {units
-                    .filter(u => 
-                      u.full.toLowerCase().includes(unitListSearch.toLowerCase()) || 
-                      u.short.toLowerCase().includes(unitListSearch.toLowerCase())
-                    )
-                    .map((u) => {
-                      const isSelected = selectedUnit?.full === u.full;
-                      return (
-                        <div
-                          key={u.full}
-                          onClick={() => handleSelectUnit(u)}
-                          className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
-                            isSelected
-                              ? "bg-indigo-50/90 border border-indigo-200/80 text-indigo-950 font-bold shadow-xs"
-                              : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
-                              <Ruler size={13} />
-                            </div>
-                            <span className="text-xs truncate font-semibold">{u.full}</span>
-                          </div>
-                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ml-2 shrink-0 ${isSelected ? "bg-indigo-200/70 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
-                            {u.short}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  {units.filter(u => 
-                    u.full.toLowerCase().includes(unitListSearch.toLowerCase()) || 
-                    u.short.toLowerCase().includes(unitListSearch.toLowerCase())
-                  ).length === 0 && (
-                    <div className="p-8 text-center text-slate-400 text-xs">No units found</div>
-                  )}
-                </div>
               </div>
 
-              {/* Right Panel - Unit Details */}
-              <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
-                {!selectedUnit ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 mb-3">
-                      <Ruler size={28} />
-                    </div>
-                    <div className="text-sm font-bold text-slate-800">Select a unit</div>
-                    <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                      Click on any unit from the list to view its specifications and configure conversion factors.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Unit Header */}
-                    <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                          <Ruler size={18} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-slate-900">{selectedUnit.full}</h3>
-                            <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full">
-                              {selectedUnit.short}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Unit of measurement specification and conversion rates</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setUnitFullForm(selectedUnit.full);
-                          setUnitShortForm(selectedUnit.short);
-                          setShowUnitModal(true);
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-xl transition-all shadow-xs"
-                      >
-                        <Pencil size={12} />
-                        <span>Edit Unit</span>
-                      </button>
-                    </div>
+              {/* ── 3.A VIEW MODE: CARD SHOWCASE GRID ── */}
+              {unitViewMode === "cards" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {(() => {
+                      const filteredUnits = units.filter(
+                        (u) =>
+                          u.full.toLowerCase().includes(unitListSearch.toLowerCase()) ||
+                          u.short.toLowerCase().includes(unitListSearch.toLowerCase())
+                      );
 
-                    {/* Unit Details Content */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                      {/* Specifications Card */}
-                      <div className="space-y-2">
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                          Unit Specifications
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50/70 border border-slate-200/70 rounded-xl">
-                          <div>
-                            <div className="text-[11px] font-medium text-slate-400">FULL NAME</div>
-                            <div className="text-sm font-bold text-slate-900 mt-0.5">{selectedUnit.full}</div>
+                      if (filteredUnits.length === 0) {
+                        return (
+                          <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-200/80">
+                            <Ruler size={36} className="text-slate-300 mx-auto mb-2" />
+                            <div className="text-sm font-bold text-slate-700">No units matched your query</div>
+                            <p className="text-xs text-slate-400 mt-1">Try adjusting your search criteria</p>
                           </div>
-                          <div>
-                            <div className="text-[11px] font-medium text-slate-400">SHORT CODE / SYMBOL</div>
-                            <div className="text-sm font-bold text-indigo-600 mt-0.5">{selectedUnit.short}</div>
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      }
 
-                      {/* Conversion Section */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                            Conversion Rates
-                          </span>
-                          <button
-                            onClick={() => setShowConversionModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-xs transition-all"
+                      return filteredUnits.map((u, idx) => {
+                        const unitKey = u.full.replace(/\s+/g, "_");
+                        const unitConvs = unitConversionMap[unitKey] || unitConversionMap[u.full] || [];
+                        const unitItems = products.filter(
+                          (p) =>
+                            (p.unit || "").trim().toUpperCase() === u.short.trim().toUpperCase() ||
+                            (p.unit || "").trim().toUpperCase() === u.full.trim().toUpperCase()
+                        );
+                        const unitStock = unitItems.reduce((s, p) => s + Number(p.stock || 0), 0);
+                        const unitValue = unitItems.reduce((s, p) => {
+                          const price = Number(p.purchase_price || p.price || 0);
+                          return s + Number(p.stock || 0) * price;
+                        }, 0);
+                        const lowStockInUnit = unitItems.filter(
+                          (p) => Number(p.stock || 0) <= Number(p.min_stock_alert || 5) && Number(p.stock || 0) > 0
+                        ).length;
+
+                        const monogram = u.short.substring(0, 4).toUpperCase();
+                        const gradientList = [
+                          "from-indigo-600 to-purple-600",
+                          "from-blue-600 to-cyan-600",
+                          "from-emerald-600 to-teal-600",
+                          "from-rose-600 to-pink-600",
+                          "from-amber-600 to-orange-600",
+                          "from-purple-600 to-fuchsia-600",
+                        ];
+                        const gradient = gradientList[idx % gradientList.length];
+
+                        return (
+                          <div
+                            key={u.full}
+                            className="bg-white rounded-2xl border border-slate-200/80 hover:border-indigo-300 p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden"
                           >
-                            <Plus size={13} strokeWidth={2.5} />
-                            <span>Add Conversion</span>
-                          </button>
-                        </div>
-
-                        {/* Conversion List */}
-                        {conversions.length === 0 ? (
-                          <div className="p-8 border-2 border-dashed border-slate-200/80 rounded-2xl text-center bg-slate-50/50">
-                            <Ruler size={28} className="text-slate-300 mx-auto mb-2" />
-                            <div className="text-xs font-bold text-slate-600">No conversions configured</div>
-                            <p className="text-[11px] text-slate-400 mt-0.5">Define multi-pack and bulk conversion rates for billing accuracy</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {conversions.map((conv, index) => (
-                              <div
-                                key={index}
-                                className="p-3 bg-white border border-slate-200/70 rounded-xl flex items-center justify-between shadow-xs hover:border-indigo-200 transition-all"
-                              >
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-indigo-50/50 to-transparent rounded-bl-full pointer-events-none" />
+                            <div>
+                              <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                                    1x
+                                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${gradient} text-white font-black tracking-wider flex items-center justify-center text-xs shadow-md shadow-indigo-500/15 shrink-0`}>
+                                    {monogram}
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-900">
-                                      1 {conv.fromUnit || selectedUnit.full}
-                                    </span>
-                                    <span className="text-slate-400 font-bold text-xs">=</span>
-                                    <span className="text-xs font-bold text-indigo-600">
-                                      {conv.value} {conv.toUnit}
-                                    </span>
-                                    {conv.isBase && (
-                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 ml-1">
-                                        Base Unit
+                                  <div>
+                                    <h4 className="font-bold text-sm text-slate-900 font-display truncate max-w-[140px]" title={u.full}>
+                                      {u.full}
+                                    </h4>
+                                    <span className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                      <span className="font-mono text-indigo-600 font-bold bg-indigo-50 border border-indigo-100 px-1.5 py-0.2 rounded">
+                                        {u.short}
                                       </span>
-                                    )}
+                                      {unitConvs.length > 0 && <span>• {unitConvs.length} conversions</span>}
+                                    </span>
                                   </div>
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    setConversions(prev => prev.filter((_, i) => i !== index));
-                                    showToast("Conversion removed");
-                                  }}
-                                  className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-all"
-                                  title="Remove conversion"
+                                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0">
+                                  {unitItems.length} Products
+                                </span>
+                              </div>
+
+                              {/* Metrics Strip */}
+                              <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-xs">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Available Stock</span>
+                                  <span className="font-extrabold text-slate-800 font-mono">{unitStock} {u.short}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Stock Value</span>
+                                  <span className="font-extrabold text-emerald-600 font-mono">₹{fmt(unitValue)}</span>
+                                </div>
+                              </div>
+
+                              {/* Stock Health indicator */}
+                              <div className="mt-3 flex items-center justify-between text-[11px]">
+                                <span className="text-slate-400 font-medium">Stock Status:</span>
+                                {lowStockInUnit > 0 ? (
+                                  <span className="text-amber-600 font-bold flex items-center gap-1">
+                                    <AlertTriangle size={11} />
+                                    <span>{lowStockInUnit} low stock</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-emerald-600 font-bold flex items-center gap-1">
+                                    <Check size={11} />
+                                    <span>Healthy stock</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Conversion Preview Formula */}
+                              <div className="mt-3.5 space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Conversion Equation:</span>
+                                {unitConvs.length === 0 ? (
+                                  <p className="text-[11px] text-slate-400 italic">No conversion rule defined</p>
+                                ) : (
+                                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-2 text-xs font-medium text-slate-700 flex items-center justify-between">
+                                    <span className="font-bold text-slate-900">1 {u.short}</span>
+                                    <span className="text-indigo-600 font-bold">= {unitConvs[0].value} {unitConvs[0].toUnit}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Card Action footer */}
+                            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                              <button
+                                onClick={() => {
+                                  handleSelectUnit(u);
+                                  setShowConversionModal(true);
+                                }}
+                                className="py-2 px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-semibold text-xs rounded-xl border border-slate-200/80 transition flex items-center gap-1 cursor-pointer"
+                                title="Add conversion rate for this unit"
+                              >
+                                <Plus size={13} />
+                                <span>Add Conv</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  handleSelectUnit(u);
+                                  setUnitViewMode("split");
+                                }}
+                                className="flex-1 py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <span>Unit Studio</span>
+                                <ArrowRight size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 3.B VIEW MODE: STUDIO MASTER-DETAIL VIEW ── */}
+              {unitViewMode === "split" && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-[calc(100vh-190px)]">
+                  {/* Left Unit Directory Panel */}
+                  <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                    <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                          <Ruler size={14} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-900 tracking-wide uppercase">Unit Directory</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {units.length} Total
+                      </span>
+                    </div>
+
+                    {/* Unit List Scrollable Body */}
+                    <div className="overflow-y-auto flex-1 p-2 space-y-1.5 custom-scrollbar">
+                      {(() => {
+                        const unitRows = units
+                          .filter(
+                            (u) =>
+                              u.full.toLowerCase().includes(unitListSearch.toLowerCase()) ||
+                              u.short.toLowerCase().includes(unitListSearch.toLowerCase())
+                          )
+                          .map((u) => ({
+                            ...u,
+                            count: products.filter(
+                              (p) =>
+                                (p.unit || "").trim().toUpperCase() === u.short.trim().toUpperCase() ||
+                                (p.unit || "").trim().toUpperCase() === u.full.trim().toUpperCase()
+                            ).length,
+                          }));
+
+                        if (unitRows.length === 0) {
+                          return <div className="p-8 text-center text-slate-400 text-xs">No units found</div>;
+                        }
+
+                        return unitRows.map((u) => {
+                          const isSelected = selectedUnit?.full === u.full;
+                          const monogram = u.short.substring(0, 3).toUpperCase();
+
+                          return (
+                            <div
+                              key={u.full}
+                              onClick={() => handleSelectUnit(u)}
+                              className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                                isSelected
+                                  ? "bg-indigo-50/90 border border-indigo-300 text-indigo-950 font-bold shadow-xs ring-1 ring-indigo-400/20"
+                                  : "hover:bg-slate-50 text-slate-700 font-medium border border-transparent"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div
+                                  className={`w-8 h-8 rounded-xl font-bold text-[11px] flex items-center justify-center shrink-0 ${
+                                    isSelected
+                                      ? "bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white shadow-xs"
+                                      : "bg-slate-100 text-slate-600 border border-slate-200/70"
+                                  }`}
                                 >
-                                  <X size={14} />
+                                  {monogram}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs truncate font-bold">{u.full}</div>
+                                  <div className="text-[10px] text-slate-400">Symbol: <span className="font-mono font-bold text-indigo-600">{u.short}</span></div>
+                                </div>
+                              </div>
+                              <span
+                                className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ml-2 shrink-0 ${
+                                  isSelected ? "bg-indigo-200 text-indigo-900" : "bg-slate-100 text-slate-500"
+                                }`}
+                              >
+                                {u.count} items
+                              </span>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Right Unit Studio Panel */}
+                  <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden">
+                    {(() => {
+                      if (!selectedUnit) {
+                        return (
+                          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                            <div className="w-16 h-16 rounded-3xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-3 shadow-xs">
+                              <Ruler size={30} />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900">Select a Measurement Unit</h3>
+                            <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                              Choose a measurement unit from the directory panel to configure specifications, conversion rates, and browse inventory items.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      const activeUnit = selectedUnit;
+                      const allUnitItems = products.filter(
+                        (p) =>
+                          (p.unit || "").trim().toUpperCase() === activeUnit.short.trim().toUpperCase() ||
+                          (p.unit || "").trim().toUpperCase() === activeUnit.full.trim().toUpperCase()
+                      );
+
+                      const filteredItems = allUnitItems.filter((p) => {
+                        const stockNum = Number(p.stock || 0);
+                        const minStock = Number(p.min_stock_alert || 5);
+                        if (unitItemFilter === "in_stock") return stockNum > minStock;
+                        if (unitItemFilter === "low_stock") return stockNum <= minStock && stockNum > 0;
+                        if (unitItemFilter === "out_of_stock") return stockNum <= 0;
+                        return true;
+                      }).filter((p) => {
+                        if (!unitItemsSearch) return true;
+                        const q = unitItemsSearch.toLowerCase();
+                        return (
+                          p.product_name?.toLowerCase().includes(q) ||
+                          p.product_sku?.toLowerCase().includes(q) ||
+                          p.barcode?.toLowerCase().includes(q)
+                        );
+                      });
+
+                      const totalStockUnits = allUnitItems.reduce((s, p) => s + Number(p.stock || 0), 0);
+                      const totalStockValuation = allUnitItems.reduce((s, p) => {
+                        const price = Number(p.purchase_price || p.price || 0);
+                        return s + Number(p.stock || 0) * price;
+                      }, 0);
+                      const lowStockUnits = allUnitItems.filter(
+                        (p) => Number(p.stock || 0) <= Number(p.min_stock_alert || 5) && Number(p.stock || 0) > 0
+                      ).length;
+
+                      return (
+                        <>
+                          {/* Unit Studio Header */}
+                          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white flex items-center justify-center font-black text-sm shadow-md shadow-indigo-500/20 shrink-0">
+                                {activeUnit.short.substring(0, 3).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-base font-bold text-slate-900 font-display">
+                                    {activeUnit.full}
+                                  </h3>
+                                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200/80">
+                                    Symbol: {activeUnit.short}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                                  <span>{allUnitItems.length} Products Measured</span>
+                                  <span>•</span>
+                                  <span>{totalStockUnits} Available Stock ({activeUnit.short})</span>
+                                  <span>•</span>
+                                  <span className="font-semibold text-emerald-600">₹{fmt(totalStockValuation)} Value</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Actions on active unit */}
+                            <div className="flex items-center gap-2 self-start sm:self-center">
+                              <button
+                                onClick={() => {
+                                  setUnitFullForm(activeUnit.full);
+                                  setUnitShortForm(activeUnit.short);
+                                  setShowUnitModal(true);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                              >
+                                <Pencil size={12} />
+                                <span>Edit Unit</span>
+                              </button>
+                              <button
+                                onClick={() => setShowConversionModal(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                              >
+                                <Plus size={13} />
+                                <span>Add Conversion</span>
+                              </button>
+                              <button
+                                onClick={() => setShowAddModal(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                              >
+                                <Plus size={13} strokeWidth={2.5} />
+                                <span>Add Product</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Unit Specifications & Conversions Mini Strip */}
+                          <div className="p-4 border-b border-slate-100 bg-white space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <RefreshCw size={13} className="text-indigo-600" />
+                                <span>Configured Conversion Equations</span>
+                              </span>
+                              <span className="text-xs text-slate-400 font-medium">
+                                {conversions.length} active formula{conversions.length === 1 ? "" : "s"}
+                              </span>
+                            </div>
+
+                            {conversions.length === 0 ? (
+                              <div className="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                                <span>No dynamic conversions defined for {activeUnit.full}.</span>
+                                <button
+                                  onClick={() => setShowConversionModal(true)}
+                                  className="text-indigo-600 font-bold hover:underline"
+                                >
+                                  + Define Conversion Rate
                                 </button>
                               </div>
-                            ))}
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                {conversions.map((conv, index) => (
+                                  <div
+                                    key={index}
+                                    className="p-2.5 bg-slate-50/90 border border-slate-200/80 rounded-xl flex items-center justify-between shadow-2xs hover:border-indigo-300 transition-all group"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-extrabold text-[10px] shrink-0">
+                                        1×
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="text-xs font-bold text-slate-900 truncate">
+                                          1 {conv.fromUnit || activeUnit.full} = {conv.value} {conv.toUnit}
+                                        </div>
+                                        {conv.isBase && (
+                                          <span className="text-[10px] font-bold text-emerald-600">Base Unit Reference</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        setConversions((prev) => prev.filter((_, i) => i !== index));
+                                        showToast("Conversion removed");
+                                      }}
+                                      className="text-slate-400 hover:text-rose-600 p-1 rounded-md hover:bg-rose-50 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                                      title="Remove conversion"
+                                    >
+                                      <X size={13} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+
+                          {/* Filter Segment & Search Bar */}
+                          <div className="p-3 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            {/* Filter segments */}
+                            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl flex-wrap">
+                              {[
+                                { id: "all", label: "All Items", count: allUnitItems.length },
+                                { id: "in_stock", label: "In Stock", count: allUnitItems.filter((p) => Number(p.stock || 0) > 5).length },
+                                { id: "low_stock", label: "Low Stock", count: lowStockUnits },
+                                { id: "out_of_stock", label: "Out of Stock", count: allUnitItems.filter((p) => Number(p.stock || 0) <= 0).length },
+                              ].map((f) => (
+                                <button
+                                  key={f.id}
+                                  onClick={() => setUnitItemFilter(f.id)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                                    unitItemFilter === f.id
+                                      ? "bg-white text-indigo-700 font-bold shadow-xs"
+                                      : "text-slate-600 hover:text-slate-900"
+                                  }`}
+                                >
+                                  <span>{f.label}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                    unitItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200/70 text-slate-500"
+                                  }`}>
+                                    {f.count}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Search input & layout switch */}
+                            <div className="flex items-center gap-2">
+                              <div className="relative min-w-[200px]">
+                                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  type="text"
+                                  value={unitItemsSearch}
+                                  onChange={(e) => setUnitItemsSearch(e.target.value)}
+                                  placeholder={`Filter ${allUnitItems.length} items...`}
+                                  className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                />
+                                {unitItemsSearch && (
+                                  <button onClick={() => setUnitItemsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                    <X size={12} />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/60 shrink-0">
+                                <button
+                                  onClick={() => setUnitItemsLayout("grid")}
+                                  className={`p-1.5 rounded-md transition cursor-pointer ${unitItemsLayout === "grid" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                                  title="Cards layout"
+                                >
+                                  <Grid size={13} />
+                                </button>
+                                <button
+                                  onClick={() => setUnitItemsLayout("table")}
+                                  className={`p-1.5 rounded-md transition cursor-pointer ${unitItemsLayout === "table" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                                  title="Table layout"
+                                >
+                                  <List size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Items Display Area */}
+                          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                            {filteredItems.length === 0 ? (
+                              <div className="py-16 text-center">
+                                <Ruler size={36} className="text-slate-300 mx-auto mb-2" />
+                                <div className="text-sm font-bold text-slate-700">No products found</div>
+                                <p className="text-xs text-slate-400 mt-1">
+                                  {allUnitItems.length === 0
+                                    ? "This unit currently has no inventory items measured with it"
+                                    : "No items match your active search / status filters"}
+                                </p>
+                              </div>
+                            ) : unitItemsLayout === "grid" ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {filteredItems.map((p) => {
+                                  const stockNum = Number(p.stock || 0);
+                                  const minStock = Number(p.min_stock_alert || 5);
+                                  const isLow = stockNum <= minStock && stockNum > 0;
+                                  const isZero = stockNum <= 0;
+
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      className="p-3.5 bg-white rounded-xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-xs transition-all flex flex-col justify-between gap-3 group"
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                          <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center shrink-0 text-slate-500 overflow-hidden">
+                                            {p.product_image ? (
+                                              <img src={p.product_image} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                              <Package size={18} className="text-slate-400" />
+                                            )}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <h4 className="text-xs font-bold text-slate-900 truncate" title={p.product_name}>
+                                              {p.product_name}
+                                            </h4>
+                                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                              <span className="font-mono font-semibold text-slate-500">{p.product_sku || p.barcode || "No SKU"}</span>
+                                              {p.category_name && <span>• {p.category_name}</span>}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border ${
+                                          isZero ? "bg-rose-50 text-rose-700 border-rose-200" : isLow ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        }`}>
+                                          {isZero ? "Out of Stock" : isLow ? "Low Stock" : "In Stock"}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                                        <div>
+                                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Selling Price</span>
+                                          <span className="font-bold text-slate-900 font-mono">{money(p.selling_price || p.price || 0)}</span>
+                                        </div>
+                                        <div className="text-right">
+                                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Available Units</span>
+                                          <span className={`font-bold font-mono ${isZero ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
+                                            {stockNum} {p.unit || activeUnit.short}
+                                          </span>
+                                        </div>
+
+                                        {/* Quick Action Buttons */}
+                                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                                          <button
+                                            onClick={() => openProductDrawer(p)}
+                                            title="View Product History"
+                                            className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                                          >
+                                            <Eye size={13} />
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              handleSelectProduct(p);
+                                              setShowEditModal(true);
+                                            }}
+                                            title="Edit Product"
+                                            className="w-7 h-7 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                                          >
+                                            <Pencil size={12} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              /* Compact Table View */
+                              <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-2xs">
+                                <table className="w-full text-left text-xs border-collapse">
+                                  <thead>
+                                    <tr className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200/80">
+                                      <th className="p-3">Product Name</th>
+                                      <th className="p-3">SKU / Code</th>
+                                      <th className="p-3">Category</th>
+                                      <th className="p-3">Selling Price</th>
+                                      <th className="p-3">Stock Level</th>
+                                      <th className="p-3 text-right">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {filteredItems.map((p) => {
+                                      const stockNum = Number(p.stock || 0);
+                                      const minStock = Number(p.min_stock_alert || 5);
+                                      const isLow = stockNum <= minStock && stockNum > 0;
+                                      const isZero = stockNum <= 0;
+
+                                      return (
+                                        <tr key={p.id} className="hover:bg-slate-50/80 transition">
+                                          <td className="p-3 font-bold text-slate-900 flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 overflow-hidden">
+                                              {p.product_image ? (
+                                                <img src={p.product_image} alt="" className="w-full h-full object-cover" />
+                                              ) : (
+                                                <Package size={14} className="text-slate-400" />
+                                              )}
+                                            </div>
+                                            <span className="truncate max-w-[180px]">{p.product_name}</span>
+                                          </td>
+                                          <td className="p-3 font-mono text-slate-600 font-semibold">{p.product_sku || p.barcode || "-"}</td>
+                                          <td className="p-3 text-slate-500">{p.category_name || "-"}</td>
+                                          <td className="p-3 font-bold text-slate-900 font-mono">{money(p.selling_price || p.price || 0)}</td>
+                                          <td className="p-3">
+                                            <span className={`inline-flex items-center gap-1 font-bold font-mono px-2 py-0.5 rounded-full text-[11px] ${
+                                              isZero ? "bg-rose-50 text-rose-700" : isLow ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+                                            }`}>
+                                              <span className={`w-1.5 h-1.5 rounded-full ${isZero ? "bg-rose-500" : isLow ? "bg-amber-500" : "bg-emerald-500"}`} />
+                                              {stockNum} {p.unit || activeUnit.short}
+                                            </span>
+                                          </td>
+                                          <td className="p-3 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              <button
+                                                onClick={() => openProductDrawer(p)}
+                                                title="View Product"
+                                                className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                                              >
+                                                <Eye size={13} />
+                                              </button>
+                                              <button
+                                                onClick={() => {
+                                                  handleSelectProduct(p);
+                                                  setShowEditModal(true);
+                                                }}
+                                                title="Edit Product"
+                                                className="w-7 h-7 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+                                              >
+                                                <Pencil size={12} />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* ─── MODALS ─── */}
+      {/* ─── ADD CATEGORY MODAL (Modernized Tailwind Structure) ─── */}
       {showCatModal && (
         <div
           onClick={(e) => { if (e.target === e.currentTarget) setShowCatModal(false); }}
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(10,22,40,.5)",
-            backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            animation: "fadeIn 0.15s ease",
-          }}
+          className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
         >
-          <div
-            style={{
-              background: COLORS.surface,
-              borderRadius: RADIUS.lg,
-              width: "100%",
-              maxWidth: 400,
-              maxHeight: "90vh",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              boxShadow: SHADOW.modal,
-              animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
-            }}
-          >
-            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Category</h3>
-            </div>
-            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
-                Category Name *
-              </label>
-              <input
-                className="focus-ring"
-                value={catForm}
-                onChange={e => setCatForm(e.target.value)}
-                placeholder="e.g. Electronics"
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  borderRadius: RADIUS.sm,
-                  border: `1.5px solid ${COLORS.border}`,
-                  outline: "none",
-                  fontSize: 14,
-                  transition: "all 0.15s",
-                }}
-                onKeyDown={e => e.key === "Enter" && handleAddCategory()}
-              />
-            </div>
-            <div style={{ padding: "16px 24px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 10 }}>
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200/90 overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/70 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+                  <Layers size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">Add Category</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Organize and group catalog inventory</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowCatModal(false)}
-                style={{
-                  flex: 1,
-                  padding: "10px",
-                  borderRadius: RADIUS.sm,
-                  border: `1.5px solid ${COLORS.border}`,
-                  background: "transparent",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  color: COLORS.textSoft,
-                  transition: "all 0.15s",
-                }}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Category Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Layers size={15} />
+                  </div>
+                  <input
+                    type="text"
+                    value={catForm}
+                    onChange={(e) => setCatForm(e.target.value)}
+                    placeholder="e.g. Beverages, Electronics, Groceries"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                    onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                    autoFocus
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5">This category will be available for tagging products immediately.</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowCatModal(false)}
+                className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAddCategory}
                 disabled={savingSub}
-                style={{
-                  flex: 2,
-                  padding: "10px",
-                  borderRadius: RADIUS.sm,
-                  border: "none",
-                  background: savingSub ? COLORS.textMuted : COLORS.primary,
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: savingSub ? "not-allowed" : "pointer",
-                  transition: "all 0.15s",
-                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 active:from-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-200 flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {savingSub ? "Saving..." : "Save Category"}
+                {savingSub ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Save Category</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {showSubcatModal && (
-        <div
-          onClick={(e) => { if (e.target === e.currentTarget) setShowSubcatModal(false); }}
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(10,22,40,.5)",
-            backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            animation: "fadeIn 0.15s ease",
-          }}
-        >
-          <div
-            style={{
-              background: COLORS.surface,
-              borderRadius: RADIUS.lg,
-              width: "100%",
-              maxWidth: 400,
-              maxHeight: "90vh",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              boxShadow: SHADOW.modal,
-              animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
-            }}
-          >
-            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Subcategory</h3>
-            </div>
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: 1 }}>
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
-                  Parent Category *
-                </label>
-                <select
-                  value={subcatCategoryId}
-                  onChange={(e) => setSubcatCategoryId(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    borderRadius: RADIUS.sm,
-                    border: `1.5px solid ${COLORS.border}`,
-                    outline: "none",
-                    fontSize: 14,
-                    background: COLORS.bg,
-                    cursor: "pointer",
-                  }}
-                >
-                  <option value="">Select category</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
-                  Subcategory Name *
-                </label>
-                <input
-                  className="focus-ring"
-                  value={subcatForm}
-                  onChange={(e) => setSubcatForm(e.target.value)}
-                  placeholder="e.g. Mobile Phones"
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    borderRadius: RADIUS.sm,
-                    border: `1.5px solid ${COLORS.border}`,
-                    outline: "none",
-                    fontSize: 14,
-                    transition: "all 0.15s",
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddSubcategory()}
-                />
-              </div>
-            </div>
-            <div style={{ padding: "16px 24px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 10 }}>
-              <button
-                onClick={() => setShowSubcatModal(false)}
-                style={{
-                  flex: 1,
-                  padding: "10px",
-                  borderRadius: RADIUS.sm,
-                  border: `1.5px solid ${COLORS.border}`,
-                  background: "transparent",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  color: COLORS.textSoft,
-                  transition: "all 0.15s",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddSubcategory}
-                disabled={savingSub}
-                style={{
-                  flex: 2,
-                  padding: "10px",
-                  borderRadius: RADIUS.sm,
-                  border: "none",
-                  background: savingSub ? COLORS.textMuted : COLORS.primary,
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: savingSub ? "not-allowed" : "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
-                {savingSub ? "Saving..." : "Save Subcategory"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* ─── ADD BRAND MODAL (Modernized Tailwind Structure) ─── */}
       {showBrandModal && (
         <div
           onClick={(e) => { if (e.target === e.currentTarget) setShowBrandModal(false); }}
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(10,22,40,.5)",
-            backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            animation: "fadeIn 0.15s ease",
-          }}
+          className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
         >
-          <div
-            style={{
-              background: COLORS.surface,
-              borderRadius: RADIUS.lg,
-              width: "100%",
-              maxWidth: 400,
-              maxHeight: "90vh",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              boxShadow: SHADOW.modal,
-              animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
-            }}
-          >
-            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Brand</h3>
-            </div>
-            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
-                Brand Name *
-              </label>
-              <input
-                className="focus-ring"
-                value={brandForm}
-                onChange={e => setBrandForm(e.target.value)}
-                placeholder="e.g. Nike"
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  borderRadius: RADIUS.sm,
-                  border: `1.5px solid ${COLORS.border}`,
-                  outline: "none",
-                  fontSize: 14,
-                  transition: "all 0.15s",
-                }}
-                onKeyDown={e => e.key === "Enter" && handleAddBrand()}
-              />
-            </div>
-            <div style={{ padding: "16px 24px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 10 }}>
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200/90 overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/70 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+                  <Tags size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">Add Brand</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Register a brand or manufacturer</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowBrandModal(false)}
-                style={{
-                  flex: 1,
-                  padding: "10px",
-                  borderRadius: RADIUS.sm,
-                  border: `1.5px solid ${COLORS.border}`,
-                  background: "transparent",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  color: COLORS.textSoft,
-                  transition: "all 0.15s",
-                }}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Brand Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Tag size={15} />
+                  </div>
+                  <input
+                    type="text"
+                    value={brandForm}
+                    onChange={(e) => setBrandForm(e.target.value)}
+                    placeholder="e.g. Apple, Nestlé, Amul, Samsung"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                    onKeyDown={(e) => e.key === "Enter" && handleAddBrand()}
+                    autoFocus
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5">Brand will be visible in filter chips and inventory tags.</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowBrandModal(false)}
+                className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAddBrand}
                 disabled={savingSub}
-                style={{
-                  flex: 2,
-                  padding: "10px",
-                  borderRadius: RADIUS.sm,
-                  border: "none",
-                  background: savingSub ? COLORS.textMuted : COLORS.primary,
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: savingSub ? "not-allowed" : "pointer",
-                  transition: "all 0.15s",
-                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 active:from-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-200 flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {savingSub ? "Saving..." : "Save Brand"}
+                {savingSub ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Save Brand</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* ─── ADD UNIT MODAL (Modernized Tailwind Structure) ─── */}
       {showUnitModal && (
         <div
           onClick={(e) => { if (e.target === e.currentTarget) setShowUnitModal(false); }}
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(10,22,40,.5)",
-            backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            animation: "fadeIn 0.15s ease",
-          }}
+          className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
         >
-          <div
-            style={{
-              background: COLORS.surface,
-              borderRadius: RADIUS.lg,
-              width: "100%",
-              maxWidth: 400,
-              maxHeight: "90vh",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              boxShadow: SHADOW.modal,
-              animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
-            }}
-          >
-            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}` }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>Add Unit</h3>
-            </div>
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: 1 }}>
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
-                  Full Name *
-                </label>
-                <input
-                  className="focus-ring"
-                  value={unitFullForm}
-                  onChange={e => setUnitFullForm(e.target.value)}
-                  placeholder="e.g. KILOGRAMS"
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    borderRadius: RADIUS.sm,
-                    border: `1.5px solid ${COLORS.border}`,
-                    outline: "none",
-                    fontSize: 14,
-                    transition: "all 0.15s",
-                  }}
-                  onKeyDown={e => e.key === "Enter" && handleAddUnit()}
-                />
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200/90 overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/70 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+                  <Ruler size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">Add Measurement Unit</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Configure unit definition and symbol</p>
+                </div>
               </div>
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", marginBottom: 6 }}>
-                  Short Name *
-                </label>
-                <input
-                  className="focus-ring"
-                  value={unitShortForm}
-                  onChange={e => setUnitShortForm(e.target.value)}
-                  placeholder="e.g. Kg"
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    borderRadius: RADIUS.sm,
-                    border: `1.5px solid ${COLORS.border}`,
-                    outline: "none",
-                    fontSize: 14,
-                    transition: "all 0.15s",
-                  }}
-                  onKeyDown={e => e.key === "Enter" && handleAddUnit()}
-                />
-              </div>
-            </div>
-            <div style={{ padding: "16px 24px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 10 }}>
               <button
                 onClick={() => setShowUnitModal(false)}
-                style={{
-                  flex: 1,
-                  padding: "10px",
-                  borderRadius: RADIUS.sm,
-                  border: `1.5px solid ${COLORS.border}`,
-                  background: "transparent",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  color: COLORS.textSoft,
-                  transition: "all 0.15s",
-                }}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Ruler size={15} />
+                  </div>
+                  <input
+                    type="text"
+                    value={unitFullForm}
+                    onChange={(e) => setUnitFullForm(e.target.value)}
+                    placeholder="e.g. KILOGRAMS, LITRES, PIECES"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold uppercase tracking-wide text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                    onKeyDown={(e) => e.key === "Enter" && handleAddUnit()}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Short Code / Symbol <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-mono font-bold text-xs">
+                    #
+                  </div>
+                  <input
+                    type="text"
+                    value={unitShortForm}
+                    onChange={(e) => setUnitShortForm(e.target.value)}
+                    placeholder="e.g. Kg, Ltr, Pcs, Box"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                    onKeyDown={(e) => e.key === "Enter" && handleAddUnit()}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5">This symbol will appear beside product stock quantities on invoices.</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowUnitModal(false)}
+                className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAddUnit}
-                style={{
-                  flex: 2,
-                  padding: "10px",
-                  borderRadius: RADIUS.sm,
-                  border: "none",
-                  background: COLORS.primary,
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 active:from-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-200 flex items-center gap-2 cursor-pointer"
               >
-                Save Unit
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Save Unit</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ─── ADD CONVERSION MODAL ─── */}
+      {/* ─── ADD CONVERSION MODAL (Modernized Tailwind Structure) ─── */}
       {showConversionModal && (
         <div
           onClick={(e) => { if (e.target === e.currentTarget) setShowConversionModal(false); }}
-          style={{
-            position: "fixed", inset: 0, zIndex: 99999,
-            background: "rgba(10,22,40,.5)",
-            backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            animation: "fadeIn 0.15s ease",
-          }}
+          className="fixed inset-0 z-[99999] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
         >
-          <div
-            style={{
-              background: COLORS.surface,
-              borderRadius: RADIUS.lg,
-              width: "100%",
-              maxWidth: 520,
-              boxShadow: SHADOW.modal,
-              animation: "popIn 0.2s cubic-bezier(0.2,0.8,0.2,1)",
-            }}
-          >
-            {/* Modal Header */}
-            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: COLORS.text }}>
-                Add Conversion
-              </h3>
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-200/90 overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-b from-slate-50/70 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+                  <RefreshCw size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">Add Unit Conversion</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Define multi-pack and bulk conversion ratio</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowConversionModal(false)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  color: COLORS.textMuted,
-                  padding: 4,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: RADIUS.sm,
-                  transition: "all 0.15s",
-                }}
-                className="hover-bg"
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer"
               >
-                <X size={20} />
+                <X size={15} />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div style={{ padding: "24px" }}>
-              {/* From Unit */}
-              <div style={{ marginBottom: 18 }}>
-                <label style={{ 
-                  fontSize: 12, 
-                  fontWeight: 600, 
-                  color: COLORS.textMuted, 
-                  textTransform: "uppercase", 
-                  letterSpacing: "0.04em", 
-                  display: "block", 
-                  marginBottom: 6 
-                }}>
-                  From Unit
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              {/* From Unit Preview */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Source Unit
                 </label>
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: RADIUS.sm,
-                    border: `1.5px solid ${COLORS.border}`,
-                    background: COLORS.bg,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: COLORS.text,
-                  }}
-                >
-                  {selectedUnit?.full || "Select a unit"}
+                <div className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-900 font-bold text-xs flex items-center justify-between">
+                  <span>1 {selectedUnit?.full || "UNIT"}</span>
+                  <span className="text-[11px] font-semibold text-indigo-600 font-mono">({selectedUnit?.short || ""})</span>
                 </div>
               </div>
 
-              {/* Conversion Value */}
-              <div style={{ marginBottom: 18 }}>
-                <label style={{ 
-                  fontSize: 12, 
-                  fontWeight: 600, 
-                  color: COLORS.textMuted, 
-                  textTransform: "uppercase", 
-                  letterSpacing: "0.04em", 
-                  display: "block", 
-                  marginBottom: 6 
-                }}>
-                  Conversion Value *
-                </label>
-                <input
-                  className="focus-ring"
-                  value={conversionValue}
-                  onChange={(e) => setConversionValue(e.target.value)}
-                  placeholder="e.g. 1000"
-                  type="number"
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    borderRadius: RADIUS.sm,
-                    border: `1.5px solid ${COLORS.border}`,
-                    outline: "none",
-                    fontSize: 14,
-                    color: COLORS.text,
-                    transition: "all 0.15s",
-                  }}
-                  onKeyDown={e => e.key === "Enter" && handleAddConversion()}
-                />
+              {/* Conversion Equation Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Conversion Value <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={conversionValue}
+                    onChange={(e) => setConversionValue(e.target.value)}
+                    placeholder="e.g. 1000 or 12"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
+                    onKeyDown={(e) => e.key === "Enter" && handleAddConversion()}
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Target Unit <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={conversionToUnit}
+                      onChange={(e) => setConversionToUnit(e.target.value)}
+                      className="w-full px-3.5 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 appearance-none cursor-pointer"
+                    >
+                      <option value="">Select target unit</option>
+                      {units
+                        .filter((u) => u.full !== selectedUnit?.full)
+                        .map((u) => (
+                          <option key={u.full} value={u.full}>
+                            {u.full} ({u.short})
+                          </option>
+                        ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
               </div>
 
-              {/* To Unit */}
-              <div style={{ marginBottom: 18 }}>
-                <label style={{ 
-                  fontSize: 12, 
-                  fontWeight: 600, 
-                  color: COLORS.textMuted, 
-                  textTransform: "uppercase", 
-                  letterSpacing: "0.04em", 
-                  display: "block", 
-                  marginBottom: 6 
-                }}>
-                  To Unit *
-                </label>
-                <select
-                  className="focus-ring"
-                  value={conversionToUnit}
-                  onChange={(e) => setConversionToUnit(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    borderRadius: RADIUS.sm,
-                    border: `1.5px solid ${COLORS.border}`,
-                    outline: "none",
-                    fontSize: 14,
-                    color: COLORS.text,
-                    background: COLORS.surface,
-                    transition: "all 0.15s",
-                    cursor: "pointer",
-                  }}
-                >
-                  <option value="">Select a unit</option>
-                  {units
-                    .filter(u => u.full !== selectedUnit?.full)
-                    .map((u) => (
-                      <option key={u.full} value={u.full}>
-                        {u.full} ({u.short})
-                      </option>
-                    ))}
-                </select>
-              </div>
+              {/* Equation Preview Box */}
+              {conversionValue && conversionToUnit && (
+                <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-xs text-indigo-900 flex items-center justify-between">
+                  <span className="font-medium text-slate-600">Calculated Ratio:</span>
+                  <span className="font-bold">
+                    1 {selectedUnit?.full} = {conversionValue} {conversionToUnit}
+                  </span>
+                </div>
+              )}
 
               {/* Base Unit Checkbox */}
-              <div style={{ marginBottom: 18 }}>
-                <label style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: 10, 
-                  cursor: "pointer",
-                  fontSize: 13,
-                  color: COLORS.textSoft,
-                }}>
+              <div className="pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={conversionIsBase}
                     onChange={(e) => setConversionIsBase(e.target.checked)}
-                    style={{
-                      width: 18,
-                      height: 18,
-                      cursor: "pointer",
-                      accentColor: COLORS.primary,
-                    }}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                   />
-                  <span>Set as base unit</span>
+                  <span className="text-xs font-semibold text-slate-700">Set as base fundamental reference unit</span>
                 </label>
-              </div>
-
-              {/* Rate (optional) */}
-              <div>
-                <label style={{ 
-                  fontSize: 12, 
-                  fontWeight: 600, 
-                  color: COLORS.textMuted, 
-                  textTransform: "uppercase", 
-                  letterSpacing: "0.04em", 
-                  display: "block", 
-                  marginBottom: 6 
-                }}>
-                  Rate (Optional)
-                </label>
-                <input
-                  className="focus-ring"
-                  value={conversionRate}
-                  onChange={(e) => setConversionRate(e.target.value)}
-                  placeholder="e.g. 0.001"
-                  type="number"
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    borderRadius: RADIUS.sm,
-                    border: `1.5px solid ${COLORS.border}`,
-                    outline: "none",
-                    fontSize: 14,
-                    color: COLORS.text,
-                    transition: "all 0.15s",
-                  }}
-                />
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div style={{ padding: "16px 24px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5">
               <button
+                type="button"
                 onClick={() => {
                   setShowConversionModal(false);
                   setConversionValue("");
@@ -2932,38 +4250,27 @@ export default function ProductList() {
                   setConversionIsBase(false);
                   setConversionRate("");
                 }}
-                style={{
-                  padding: "10px 24px",
-                  borderRadius: RADIUS.sm,
-                  border: `1.5px solid ${COLORS.border}`,
-                  background: "transparent",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  color: COLORS.textSoft,
-                  transition: "all 0.15s",
-                }}
-                className="hover-bg"
+                className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleAddConversion}
                 disabled={savingConversion}
-                style={{
-                  padding: "10px 32px",
-                  borderRadius: RADIUS.sm,
-                  border: "none",
-                  background: savingConversion ? COLORS.textMuted : COLORS.gradient,
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: savingConversion ? "not-allowed" : "pointer",
-                  transition: "all 0.15s",
-                }}
-                className="hover-lift"
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 active:from-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-200 flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {savingConversion ? "Saving..." : "Save Conversion"}
+                {savingConversion ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} strokeWidth={2.5} />
+                    <span>Save Conversion</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -332,7 +332,7 @@ export default function ItemWiseProfitAndLoss() {
   const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans">
+    <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 space-y-3.5 max-w-[1600px] mx-auto text-slate-800 font-sans">
       {viewMode === "analytics" ? (
         <ItemWiseProfitAndLossAnalytics
           rows={analyticsRows}

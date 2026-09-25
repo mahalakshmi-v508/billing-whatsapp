@@ -1,11 +1,29 @@
 import { useState, useEffect } from "react";
 import { 
-  ChevronDown, QrCode, Printer, Maximize2, X, Check, Palette, Sparkles 
+  ChevronDown, 
+  QrCode, 
+  Printer, 
+  Maximize2, 
+  X, 
+  Check, 
+  Palette, 
+  Sparkles, 
+  Layers, 
+  Sliders, 
+  Eye, 
+  FileText, 
+  Receipt, 
+  ZoomIn, 
+  ZoomOut, 
+  CheckCircle2,
+  Settings2,
+  RotateCcw
 } from "lucide-react";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
-import { SettingsHeader, InfoIcon, CheckRow } from "./settingsUI";
+import { SettingsHeader, InfoIcon, CheckRow, Badge } from "./settingsUI";
 import { DESIGN_COMPONENTS } from "../billing/Invoice";
+
 const blue = "#2563eb";
 const STORAGE_KEY = "print_settings";
 
@@ -345,50 +363,52 @@ function loadState() {
 
 function CollapsibleSection({ title, open, onToggle, children, badge }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+    <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden transition-all duration-150">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between gap-2 py-3 px-4 hover:bg-slate-50 transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between gap-2 py-3 px-4 hover:bg-slate-50/80 transition-colors cursor-pointer select-none text-left"
       >
-        <span className="flex items-center gap-2 text-[14px] font-bold text-slate-800">
-          <span className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(135deg,#1f8cff,#4338ca)" }} />
-          {title}
+        <span className="flex items-center gap-2.5 text-[13.5px] font-bold text-slate-800">
+          <span className="w-1 h-3.5 rounded-full bg-blue-600 flex-shrink-0" />
+          <span>{title}</span>
           {badge && (
-            <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2 py-0.5">{badge}</span>
+            <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2 py-0.5">
+              {badge}
+            </span>
           )}
         </span>
-        <ChevronDown size={17} className={`text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${open ? "rotate-180 text-blue-600" : ""}`} />
       </button>
-      {open && <div className="px-4 pb-4 border-t border-gray-100">{children}</div>}
+      {open && <div className="px-4 pb-4 pt-1 border-t border-slate-100/90 space-y-1">{children}</div>}
     </div>
   );
 }
 
 function LayerRow({ label, checked, onChange, input, onChangeText, info, placeholder }) {
   return (
-    <div className="py-1.5 px-1">
+    <div className="py-1">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={checked}
             onChange={(e) => onChange(e.target.checked)}
-            className="w-5 h-5 cursor-pointer shrink-0 rounded"
+            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
             style={{ accentColor: blue }}
           />
-          <span className="text-[13.5px] text-gray-700">{label}</span>
-        </div>
+          <span className="text-[13px] font-medium text-slate-700">{label}</span>
+        </label>
         {info && <InfoIcon title={info} />}
       </div>
       {checked && onChangeText && (
-        <div className="mt-2 ml-9">
+        <div className="mt-2 ml-6">
           <input
             type="text"
             value={input}
             onChange={(e) => onChangeText(e.target.value)}
             placeholder={placeholder}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[13.5px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
           />
         </div>
       )}
@@ -398,22 +418,22 @@ function LayerRow({ label, checked, onChange, input, onChangeText, info, placeho
 
 function SelectRow({ label, value, onChange, options, info }) {
   return (
-    <div className="py-1.5 px-1">
+    <div className="py-1.5">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[13.5px] text-gray-700 flex items-center gap-1.5">{label}</span>
+        <span className="text-[13px] font-medium text-slate-700 flex items-center gap-1.5">{label}</span>
         {info && <InfoIcon title={info} />}
       </div>
       <div className="relative">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-[13.5px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+          className="w-full px-3 py-2 pr-8 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none cursor-pointer transition shadow-2xs"
         >
           {options.map((o) => (
             <option key={o} value={o}>{o}</option>
           ))}
         </select>
-        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
       </div>
     </div>
   );
@@ -421,16 +441,16 @@ function SelectRow({ label, value, onChange, options, info }) {
 
 function NumberSpinner({ label, value, onChange, info }) {
   return (
-    <div className="py-1.5 px-1">
+    <div className="py-1.5">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[13.5px] text-gray-700 flex items-center gap-1.5">{label}</span>
+        <span className="text-[13px] font-medium text-slate-700 flex items-center gap-1.5">{label}</span>
         {info && <InfoIcon title={info} />}
       </div>
-      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden w-28">
+      <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden w-32 bg-white shadow-2xs">
         <button
           type="button"
           onClick={() => onChange(Math.max(0, value - 1))}
-          className="px-3 py-2 text-gray-500 hover:bg-gray-100 text-sm cursor-pointer"
+          className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 text-sm font-bold cursor-pointer transition select-none"
         >
           −
         </button>
@@ -442,12 +462,12 @@ function NumberSpinner({ label, value, onChange, info }) {
             const n = parseInt(e.target.value, 10);
             onChange(isNaN(n) ? 0 : Math.max(0, n));
           }}
-          className="w-12 text-center text-[13.5px] text-gray-700 focus:outline-none"
+          className="w-full text-center text-xs font-bold text-slate-800 focus:outline-none"
         />
         <button
           type="button"
           onClick={() => onChange(value + 1)}
-          className="px-3 py-2 text-gray-500 hover:bg-gray-100 text-sm cursor-pointer"
+          className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 text-sm font-bold cursor-pointer transition select-none"
         >
           +
         </button>
@@ -463,7 +483,7 @@ function ColorSwatch({ hex, name, selected, onClick }) {
       onClick={onClick}
       title={name || hex}
       aria-label={`Color ${name || hex}`}
-      className={`w-8 h-8 rounded-lg flex-shrink-0 transition-all cursor-pointer relative flex items-center justify-center ${
+      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex-shrink-0 transition-all cursor-pointer relative flex items-center justify-center ${
         selected ? "ring-2 ring-slate-900 ring-offset-2 scale-110 shadow-md z-10" : "hover:scale-105 border border-black/10 opacity-90 hover:opacity-100"
       }`}
       style={{ background: hex }}
@@ -476,7 +496,7 @@ function ColorSwatch({ hex, name, selected, onClick }) {
 function ColorPalette({ value, onChange }) {
   return (
     <div>
-      <div className="grid grid-cols-6 gap-2.5 py-2"> 
+      <div className="grid grid-cols-6 gap-2 py-2"> 
         {PALETTE_COLORS.map((c) => (
           <ColorSwatch
             key={c.hex}
@@ -491,11 +511,12 @@ function ColorPalette({ value, onChange }) {
   );
 }
 
-function LinkText({ children }) {
+function LinkText({ children, onClick }) {
   return (
     <button
       type="button"
-      className="text-[13px] text-blue-600 hover:text-blue-800 font-medium mt-1.5 cursor-pointer text-left"
+      onClick={onClick}
+      className="text-xs text-blue-600 hover:text-blue-700 font-bold mt-1.5 cursor-pointer text-left hover:underline flex items-center gap-1"
     >
       {children}
     </button>
@@ -508,13 +529,18 @@ function PrintCompanyHeader({ state, set, open, onToggle }) {
       <CheckRow label="Make Regular Printer Default" checked={state.regularDefault} onChange={set("regularDefault")} info="Make regular printer the default" />
       <CheckRow label="Print repeat header in all pages" checked={state.repeatHeader} onChange={set("repeatHeader")} info="Repeat company header on every page" />
       <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" info="Company name printed on invoice" />
-      <div className="py-1.5 px-1">
+      <div className="py-1 px-0.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <input type="checkbox" checked={state.companyLogo} onChange={(e) => set("companyLogo")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
-            <span className="text-[13.5px] text-gray-700">Company Logo</span>
-            <button type="button" className="text-xs text-blue-600 hover:text-blue-800 font-medium">(Change)</button>
-          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input 
+              type="checkbox" 
+              checked={state.companyLogo} 
+              onChange={(e) => set("companyLogo")(e.target.checked)} 
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" 
+              style={{ accentColor: blue }} 
+            />
+            <span className="text-[13px] font-medium text-slate-700">Company Logo</span>
+          </label>
           <InfoIcon title="Print company logo" />
         </div>
       </div>
@@ -535,7 +561,6 @@ function PrintOptions({ state, set, open, onToggle }) {
       <SelectRow label="Invoice Text Size" value={state.invoiceTextSize} onChange={set("invoiceTextSize")} options={["Small", "Medium", "Large"]} info="Invoice text size" />
       <CheckRow label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} info="Print original/duplicate copies" />
       <NumberSpinner label="Extra space on Top of PDF" value={state.extraSpaceTop} onChange={set("extraSpaceTop")} info="Extra space at top of PDF" />
-      <LinkText>Change Transaction Names &gt;</LinkText>
     </CollapsibleSection>
   );
 }
@@ -545,7 +570,6 @@ function ItemTableSection({ state, set, open, onToggle }) {
     <CollapsibleSection title="Item Table" open={open} onToggle={onToggle}>
       <CheckRow label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} info="Expand item table to full width" />
       <NumberSpinner label="Min No. of Rows in Item Table" value={state.minRowsItemTable} onChange={set("minRowsItemTable")} info="Minimum rows in item table" />
-      <LinkText>Item Table Customization &gt;</LinkText>
     </CollapsibleSection>
   );
 }
@@ -554,12 +578,18 @@ function TotalsAndTaxes({ state, set, open, onToggle }) {
   return (
     <CollapsibleSection title="Totals & Taxes" open={open} onToggle={onToggle}>
       <CheckRow label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} info="Print total item quantity" />
-      <div className="py-1.5 px-1">
+      <div className="py-1 px-0.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <input type="checkbox" checked={state.amountWithDecimal} onChange={(e) => set("amountWithDecimal")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
-            <span className="text-[13.5px] text-gray-700">Amount with Decimal <span className="text-gray-400 ml-1">e.g. 0.00</span></span>
-          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input 
+              type="checkbox" 
+              checked={state.amountWithDecimal} 
+              onChange={(e) => set("amountWithDecimal")(e.target.checked)} 
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" 
+              style={{ accentColor: blue }} 
+            />
+            <span className="text-[13px] font-medium text-slate-700">Amount with Decimal <span className="text-slate-400 ml-1">e.g. 0.00</span></span>
+          </label>
           <InfoIcon title="Print amount with decimal places" />
         </div>
       </div>
@@ -582,10 +612,20 @@ function FooterSection({ state, set, open, onToggle }) {
       <CheckRow label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} info="Print received by" />
       <CheckRow label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} info="Print delivered by" />
       <LayerRow label="Print Signature Text" checked={state.printSignatureText} onChange={set("printSignatureText")} input={state.signatureText} onChangeText={set("signatureText")} placeholder="Authorized Signatory" info="Text for signature line" />
-      <LinkText>Change Signature</LinkText>
       <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} info="Print payment mode" />
       <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} info="Print acknowledgement" />
     </CollapsibleSection>
+  );
+}
+
+function DashedLine() {
+  return (
+    <div
+      className="my-2"
+      style={{
+        borderTop: "1px dashed #9ca3af",
+      }}
+    />
   );
 }
 
@@ -733,21 +773,9 @@ function ThermalReceiptPreview({ state }) {
   );
 }
 
-function DashedLine() {
-  return (
-    <div
-      className="my-2"
-      style={{
-        borderTop: "1px dashed #9ca3af",
-      }}
-    />
-  );
-}
-
 function ThermalSettings({ state, set, isOpen, toggle }) {
-
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-3 pb-2">
       <CollapsibleSection title="POS Receipt Layout" badge={POS_LAYOUT_OPTIONS.find(p => p.id === (state.posLayout || "pos_classic"))?.label || "Classic POS"} open={isOpen("thermalLayouts")} onToggle={() => toggle("thermalLayouts")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
           {POS_LAYOUT_OPTIONS.map((posOpt) => {
@@ -759,14 +787,14 @@ function ThermalSettings({ state, set, isOpen, toggle }) {
                 onClick={() => set("posLayout")(posOpt.id)}
                 className={`border rounded-xl p-2.5 text-left transition cursor-pointer flex items-center justify-between gap-2 ${
                   isSelected
-                    ? "bg-blue-50/90 border-blue-600 shadow-sm ring-1 ring-blue-500/30"
-                    : "hover:bg-slate-50 border-gray-200 bg-white"
+                    ? "bg-blue-50/90 border-blue-600 shadow-xs ring-1 ring-blue-500/30"
+                    : "hover:bg-slate-50 border-slate-200 bg-white"
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-lg">{posOpt.icon}</span>
                   <div className="min-w-0">
-                    <div className="text-[12px] font-bold text-slate-900 truncate">{posOpt.label}</div>
+                    <div className="text-xs font-bold text-slate-900 truncate">{posOpt.label}</div>
                     <div className="text-[10px] text-slate-500">{posOpt.category}</div>
                   </div>
                 </div>
@@ -805,12 +833,18 @@ function ThermalSettings({ state, set, isOpen, toggle }) {
 
       <CollapsibleSection title="Print Company Info / Header" badge="Thermal" open={isOpen("thermalCompanyHeader")} onToggle={() => toggle("thermalCompanyHeader")}>
         <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" />
-        <div className="py-1.5 px-1">
+        <div className="py-1 px-0.5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <input type="checkbox" checked={state.companyLogo} onChange={(e) => set("companyLogo")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
-              <span className="text-[13.5px] text-gray-700">Company Logo</span>
-            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                checked={state.companyLogo} 
+                onChange={(e) => set("companyLogo")(e.target.checked)} 
+                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" 
+                style={{ accentColor: blue }} 
+              />
+              <span className="text-[13px] font-medium text-slate-700">Company Logo</span>
+            </label>
           </div>
         </div>
         <LayerRow label="Address" checked={state.address} onChange={set("address")} input={state.addressText} onChangeText={set("addressText")} placeholder="Company address" />
@@ -820,7 +854,7 @@ function ThermalSettings({ state, set, isOpen, toggle }) {
       </CollapsibleSection>
 
       <CollapsibleSection title="Change Transaction Names" open={isOpen("changeTransactionNames")} onToggle={() => toggle("changeTransactionNames")}>
-        <button className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">Change Transaction Names &gt;</button>
+        <button type="button" className="text-blue-600 hover:text-blue-800 text-xs font-bold cursor-pointer hover:underline">Change Transaction Names &gt;</button>
       </CollapsibleSection>
 
       <CollapsibleSection title="Item Table" open={isOpen("thermalItemTable")} onToggle={() => toggle("thermalItemTable")}>
@@ -864,17 +898,17 @@ function ThermalSettings({ state, set, isOpen, toggle }) {
 
       <CollapsibleSection title="Billing Printer Setup" open={isOpen("billingPrinterSetup")} onToggle={() => toggle("billingPrinterSetup")}>
         <div className="space-y-2">
-          <div className="flex items-center justify-between p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
-            <span className="text-sm text-gray-700">1. 2 Inch (VYPRTP2001) - Quick Setup</span>
-            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">Setup</button>
+          <div className="flex items-center justify-between p-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+            <span className="text-xs font-semibold text-slate-700">1. 2 Inch (VYPRTP2001) - Quick Setup</span>
+            <button type="button" className="text-blue-600 hover:text-blue-800 text-xs font-bold cursor-pointer">Setup</button>
           </div>
-          <div className="flex items-center justify-between p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
-            <span className="text-sm text-gray-700">2. 3 Inch (VYPRTP3001) - Quick Setup</span>
-            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">Setup</button>
+          <div className="flex items-center justify-between p-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+            <span className="text-xs font-semibold text-slate-700">2. 3 Inch (VYPRTP3001) - Quick Setup</span>
+            <button type="button" className="text-blue-600 hover:text-blue-800 text-xs font-bold cursor-pointer">Setup</button>
           </div>
-          <div className="flex items-center justify-between p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
-            <span className="text-sm text-gray-700">3. 2 Inch (VYPRTP2002) - Quick Setup</span>
-            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium cursor-pointer">Setup</button>
+          <div className="flex items-center justify-between p-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+            <span className="text-xs font-semibold text-slate-700">3. 2 Inch (VYPRTP2002) - Quick Setup</span>
+            <button type="button" className="text-blue-600 hover:text-blue-800 text-xs font-bold cursor-pointer">Setup</button>
           </div>
         </div>
       </CollapsibleSection>
@@ -984,415 +1018,483 @@ export default function Print() {
   };
 
   return (
-    <div className="overflow-hidden flex flex-col flex-1">
-      <div className="flex flex-col flex-1">
-        <SettingsHeader
-          title="Print Settings"
-          subtitle="LAYOUT, COLORS & PRINTERS"
-          icon={<Printer size={22} strokeWidth={2.2} />}
-          onClose={() => setSettingsTab && setSettingsTab("general")}
-        />
+    <div className="overflow-hidden flex flex-col h-[calc(100vh-130px)] min-h-[620px] bg-slate-50/50 rounded-2xl border border-slate-200/80 shadow-xs">
+      {/* ── Top Header Bar ── */}
+      <SettingsHeader
+        title="Print Settings"
+        subtitle="LAYOUT, COLORS, THERMAL POS & PRINTER CONFIGURATION"
+        icon={<Printer size={22} strokeWidth={2.2} />}
+        onClose={() => setSettingsTab && setSettingsTab("general")}
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500 hidden sm:inline">Active Mode:</span>
+            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/80 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+              {state.printer === "thermal" ? "Thermal POS" : "Regular Laser/Inkjet"}
+            </span>
+          </div>
+        }
+      />
 
-        {/* Two column layout with independent scrolling */}
-        <div className="flex-1 flex min-h-0">
-          {/* Left Panel - Settings with independent scroll */}
-          <div className="w-1/2 border-r border-gray-200 overflow-y-auto overflow-x-hidden bg-transparent">
-            <div className="p-6">
-              {/* Printer tabs */}
-              <div className="flex items-center gap-2 mb-6 flex-shrink-0">
-                <div className="flex gap-1 bg-gray-100 rounded-lg p-1 flex-1">
-                  {[
-                    { id: "regular", label: "REGULAR PRINTER" },
-                    { id: "thermal", label: "THERMAL PRINTER" },
-                  ].map((t) => (
+      {/* ── Two Column Dual-Scroll Body Container ── */}
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+        
+        {/* ── LEFT PANEL: Independent Scrollable Configuration / Controls ── */}
+        <div className="w-full lg:w-[48%] xl:w-[45%] 2xl:w-[42%] h-full flex flex-col min-h-0 bg-white border-r border-slate-200/80 overflow-hidden">
+          
+          {/* Fixed Sticky Header for Left Panel */}
+          <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/60 flex-shrink-0 space-y-3">
+            {/* Primary Printer Mode Tabs */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex gap-1.5 bg-slate-200/70 rounded-xl p-1 flex-1 shadow-inner">
+                {[
+                  { id: "regular", label: "REGULAR PRINTER", icon: FileText },
+                  { id: "thermal", label: "THERMAL POS", icon: Receipt },
+                ].map((t) => {
+                  const Icon = t.icon;
+                  const isSelected = state.printer === t.id;
+                  return (
                     <button
                       key={t.id}
                       type="button"
                       onClick={() => set("printer")(t.id)}
-                      className={`flex-1 px-4 py-2 text-xs font-semibold rounded-md transition cursor-pointer ${
-                        state.printer === t.id
-                          ? "bg-white text-blue-600 shadow-sm"
-                          : "text-gray-600 hover:text-gray-900"
+                      className={`flex-1 py-2 px-3 text-xs font-extrabold rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                        isSelected
+                          ? "bg-white text-blue-700 shadow-sm shadow-slate-300/50"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
                       }`}
                     >
-                      {t.label}
+                      <Icon size={14} className={isSelected ? "text-blue-600" : "text-slate-400"} />
+                      <span>{t.label}</span>
                     </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={expandAll}
-                    title="Expand all sections"
-                    className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 transition cursor-pointer"
-                  >
-                    Expand
-                  </button>
-                  <button
-                    type="button"
-                    onClick={collapseAll}
-                    title="Collapse all sections"
-                    className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 transition cursor-pointer"
-                  >
-                    Collapse
-                  </button>
-                </div>
+                  );
+                })}
               </div>
 
-              {state.printer === "regular" ? (
-                <>
-                  {/* Secondary tabs for Regular Printer */}
-                  <div className="flex gap-6 border-b border-gray-200 mb-6 flex-shrink-0">
-                    {[
-                      { id: "layout", label: "CHANGE LAYOUT" },
-                      { id: "colors", label: "CHANGE COLORS" },
-                    ].map((m) => (
-                      <div key={m.id} className="flex items-stretch relative">
-                        {state.mode === m.id && (
-                          <span className="absolute top-0 left-0 right-0 h-[2px] bg-blue-600" />
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => set("mode")(m.id)}
-                          className={`px-1 pt-2 pb-2 text-xs font-semibold tracking-wide transition cursor-pointer ${
-                            state.mode === m.id ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
-                          }`}
-                        >
-                          {m.label}
-                        </button>
-                        {state.mode === m.id && (
-                          <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-pink-500" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-6 pb-4">
-                    {state.mode === "colors" && (
-                      <>
-                        {/* Color palette */}
-                        <CollapsibleSection title="Theme Color" open={isOpen("themeColor")} onToggle={() => toggle("themeColor")}>
-                          <ColorPalette value={state.themeColor} onChange={set("themeColor")} />
-                          <p className="text-xs text-gray-500 mt-2">Choose an accent theme color for the printed invoice.</p>
-                        </CollapsibleSection>
-
-                        {/* Print Company Info / Header */}
-                        <PrintCompanyHeader state={state} set={set} open={isOpen("companyHeader")} onToggle={() => toggle("companyHeader")} />
-
-                        {/* Print Options */}
-                        <PrintOptions state={state} set={set} open={isOpen("printOptions")} onToggle={() => toggle("printOptions")} />
-
-                        {/* Item Table */}
-                        <ItemTableSection state={state} set={set} open={isOpen("itemTable")} onToggle={() => toggle("itemTable")} />
-
-                        {/* Totals & Taxes */}
-                        <TotalsAndTaxes state={state} set={set} open={isOpen("totalsTaxes")} onToggle={() => toggle("totalsTaxes")} />
-
-                        {/* Footer */}
-                        <FooterSection state={state} set={set} open={isOpen("footer")} onToggle={() => toggle("footer")} />
-                      </>
-                    )}
-
-                    {state.mode === "layout" && (
-                      <>
-                        {/* Templates (Synchronized with InvoiceDesign themes) */}
-                        <CollapsibleSection title="Templates" open={isOpen("templates")} onToggle={() => toggle("templates")}>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                            {THEME_OPTIONS.map((tpl) => {
-                              const isSelected = activeThemeId === tpl.id;
-                              return (
-                                <button
-                                  key={tpl.id}
-                                  type="button"
-                                  onClick={() => {
-                                    set("template")(tpl.id);
-                                    set("theme")(tpl.id);
-                                  }}
-                                  className={`border rounded-xl p-2.5 text-center transition cursor-pointer flex flex-col items-center justify-between ${
-                                    isSelected
-                                      ? "bg-blue-50/80 border-blue-600 shadow-sm ring-1 ring-blue-500/30"
-                                      : "hover:bg-slate-50 border-gray-200 bg-white"
-                                  }`}
-                                >
-                                  <div className="w-full h-11 bg-slate-100 rounded-lg border border-slate-200/80 mb-1.5 flex items-center justify-center text-xl">
-                                    {tpl.icon || "📄"}
-                                  </div>
-                                  <span className="text-[11.5px] font-bold text-slate-900 block truncate w-full">{tpl.label}</span>
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    <span className="text-[9.5px] font-semibold text-slate-400 uppercase tracking-wide">{tpl.category}</span>
-                                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" />}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </CollapsibleSection>
-
-                        {/* Company Info */}
-                        <PrintCompanyHeader state={state} set={set} open={isOpen("companyHeader")} onToggle={() => toggle("companyHeader")} />
-                        <CollapsibleSection title="Print Settings" open={isOpen("printSettings")} onToggle={() => toggle("printSettings")}>
-                          <SelectRow label="Paper Size" value={state.paperSize} onChange={set("paperSize")} options={["A4", "A5", "Legal", "Thermal 80mm", "Thermal 58mm"]} />
-                          <SelectRow label="Orientation" value={state.orientation} onChange={set("orientation")} options={["Portrait", "Landscape"]} />
-                          <SelectRow label="Company Name Text Size" value={state.companyNameSize} onChange={set("companyNameSize")} options={["Small", "Medium", "Large"]} />
-                          <SelectRow label="Invoice Text Size" value={state.invoiceTextSize} onChange={set("invoiceTextSize")} options={["Small", "Medium", "Large"]} />
-                          <CheckRow label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} />
-                          <NumberSpinner label="Extra space on Top of PDF" value={state.extraSpaceTop} onChange={set("extraSpaceTop")} />
-                        </CollapsibleSection>
-
-                        {/* Item Table */}
-                        <CollapsibleSection title="Item Table" open={isOpen("itemTable")} onToggle={() => toggle("itemTable")}>
-                          <CheckRow label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} />
-                          <NumberSpinner label="Min No. of Rows in Item Table" value={state.minRowsItemTable} onChange={set("minRowsItemTable")} />
-                        </CollapsibleSection>
-
-                        {/* Totals & Taxes */}
-                        <CollapsibleSection title="Totals & Taxes" open={isOpen("totalsTaxes")} onToggle={() => toggle("totalsTaxes")}>
-                          <CheckRow label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} />
-                          <div className="py-1.5 px-1">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2.5">
-                                <input type="checkbox" checked={state.amountWithDecimal} onChange={(e) => set("amountWithDecimal")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
-                                <span className="text-[13.5px] text-gray-700">Amount with Decimal <span className="text-gray-400 ml-1">e.g. 0.00</span></span>
-                              </div>
-                            </div>
-                          </div>
-                          <CheckRow label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} />
-                          <CheckRow label="Balance Amount" checked={state.balanceAmount} onChange={set("balanceAmount")} />
-                          <CheckRow label="Current Balance of Party" checked={state.currentBalanceParty} onChange={set("currentBalanceParty")} />
-                          <CheckRow label="Tax Details" checked={state.taxDetails} onChange={set("taxDetails")} />
-                          <CheckRow label="You Saved" checked={state.youSaved} onChange={set("youSaved")} />
-                          <CheckRow label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} />
-                          <SelectRow label="Amount in Words" value={state.amountInWords} onChange={set("amountInWords")} options={["Indian", "English", "International"]} />
-                        </CollapsibleSection>
-
-                        {/* Footer */}
-                        <CollapsibleSection title="Footer" open={isOpen("footer")} onToggle={() => toggle("footer")}>
-                          <CheckRow label="Print Description" checked={state.printDescription} onChange={set("printDescription")} />
-                          <CheckRow label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} />
-                          <CheckRow label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} />
-                          <CheckRow label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} />
-                          <LayerRow label="Print Signature Text" checked={state.printSignatureText} onChange={set("printSignatureText")} input={state.signatureText} onChangeText={set("signatureText")} placeholder="Authorized Signatory" />
-                          <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} />
-                          <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} />
-                        </CollapsibleSection>
-                      </>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Secondary tabs for Thermal Printer */}
-                  <div className="flex gap-6 border-b border-gray-200 mb-6 flex-shrink-0">
-                    {[
-                      { id: "layout", label: "CHANGE POS LAYOUT" },
-                      { id: "settings", label: "THERMAL SETTINGS" },
-                    ].map((m) => (
-                      <div key={m.id} className="flex items-stretch relative">
-                        {(state.thermalMode || "layout") === m.id && (
-                          <span className="absolute top-0 left-0 right-0 h-[2px] bg-blue-600" />
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => set("thermalMode")(m.id)}
-                          className={`px-1 pt-2 pb-2 text-xs font-semibold tracking-wide transition cursor-pointer ${
-                            (state.thermalMode || "layout") === m.id ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
-                          }`}
-                        >
-                          {m.label}
-                        </button>
-                        {(state.thermalMode || "layout") === m.id && (
-                          <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-pink-500" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-6 pb-4">
-                    {(state.thermalMode || "layout") === "layout" && (
-                      <>
-                        {/* POS Layouts Selection Grid */}
-                        <CollapsibleSection title="POS Receipt Layouts" badge="5 Layouts" open={isOpen("thermalLayouts")} onToggle={() => toggle("thermalLayouts")}>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                            {POS_LAYOUT_OPTIONS.map((posOpt) => {
-                              const isSelected = activePosId === posOpt.id;
-                              return (
-                                <button
-                                  key={posOpt.id}
-                                  type="button"
-                                  onClick={() => set("posLayout")(posOpt.id)}
-                                  className={`border rounded-xl p-3 text-left transition cursor-pointer flex flex-col justify-between relative ${
-                                    isSelected
-                                      ? "bg-blue-50/90 border-blue-600 shadow-sm ring-2 ring-blue-500/30"
-                                      : "hover:bg-slate-50 border-gray-200 bg-white"
-                                  }`}
-                                >
-                                  <div className="flex items-start justify-between gap-2 mb-2">
-                                    <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-xl flex-shrink-0">
-                                      {posOpt.icon}
-                                    </div>
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                      isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
-                                    }`}>
-                                      {posOpt.badge}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <div className="text-[13px] font-bold text-slate-900 flex items-center gap-1.5">
-                                      {posOpt.label}
-                                      {isSelected && <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />}
-                                    </div>
-                                    <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
-                                      {posOpt.desc}
-                                    </div>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </CollapsibleSection>
-
-                        {/* Page Size & Printing Type in Layout Mode */}
-                        <CollapsibleSection title="Page Size & Printer Config" open={isOpen("thermalPageSize")} onToggle={() => toggle("thermalPageSize")}>
-                          <SelectRow 
-                            label="Page Size" 
-                            value={state.pageSize} 
-                            onChange={set("pageSize")} 
-                            options={["2 Inch: 58mm", "3 Inch: 68mm", "4 Inch: 88mm", "Custom (Chars)"]} 
-                          />
-                          <SelectRow 
-                            label="Printing Type" 
-                            value={state.printingType} 
-                            onChange={set("printingType")} 
-                            options={["Text Printing", "Image Printing", "Both"]} 
-                          />
-                        </CollapsibleSection>
-
-                        {/* Print Company Info / Header in Layout Mode */}
-                        <CollapsibleSection title="Print Company Info / Header" badge="Thermal" open={isOpen("thermalCompanyHeader")} onToggle={() => toggle("thermalCompanyHeader")}>
-                          <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" />
-                          <div className="py-1.5 px-1">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2.5">
-                                <input type="checkbox" checked={state.companyLogo} onChange={(e) => set("companyLogo")(e.target.checked)} className="w-5 h-5 cursor-pointer shrink-0 rounded" style={{ accentColor: blue }} />
-                                <span className="text-[13.5px] text-gray-700">Company Logo</span>
-                              </div>
-                            </div>
-                          </div>
-                          <LayerRow label="Address" checked={state.address} onChange={set("address")} input={state.addressText} onChangeText={set("addressText")} placeholder="Company address" />
-                          <LayerRow label="Email" checked={state.email} onChange={set("email")} input={state.emailText} onChangeText={set("emailText")} placeholder="Email" />
-                          <LayerRow label="Phone Number" checked={state.phone} onChange={set("phone")} input={state.phoneText} onChangeText={set("phoneText")} placeholder="Phone" />
-                          <LayerRow label="GSTIN on Sale" checked={state.gstin} onChange={set("gstin")} input={state.gstinText} onChangeText={set("gstinText")} placeholder="GSTIN" />
-                        </CollapsibleSection>
-                      </>
-                    )}
-
-                    {(state.thermalMode || "layout") === "settings" && (
-                      <ThermalSettings state={state} set={set} isOpen={isOpen} toggle={toggle} />
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Right Panel - Dynamic Live Theme Preview */}
-          <div className="w-1/2 flex flex-col overflow-hidden bg-slate-100 border-l border-gray-200">
-            {/* Top Preview Control Bar */}
-            <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between gap-2 flex-shrink-0 shadow-xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wide truncate">
-                  {state.printer === "thermal" ? "Thermal POS Live Preview" : "Live Bill Preview"}
-                </span>
-                {state.printer === "thermal" ? (
-                  <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-md text-white bg-slate-800 shadow-xs truncate hidden sm:inline-block">
-                    {activePosObj?.label || "Classic POS"} ({state.pageSize && state.pageSize.includes("58mm") ? "58mm Roll" : "80mm Roll"})
-                  </span>
-                ) : (
-                  <span
-                    className="text-[10.5px] font-bold px-2 py-0.5 rounded-md text-white shadow-xs truncate hidden sm:inline-block"
-                    style={{ background: state.themeColor || "#2563eb" }}
-                  >
-                    {activeThemeObj.label}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {state.printer !== "thermal" && (
-                  <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-xs font-semibold text-slate-600 border border-slate-200">
-                    {[55, 68, 80].map((z) => (
-                      <button
-                        key={z}
-                        type="button"
-                        onClick={() => setZoomLevel(z)}
-                        className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
-                          zoomLevel === z ? "bg-slate-900 text-white font-bold" : "hover:bg-slate-200 text-slate-700"
-                        }`}
-                      >
-                        {z}%
-                      </button>
-                    ))}
-                  </div>
-                )}
-
+              {/* Global Expand / Collapse Accordions */}
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsFullscreenPreview(true)}
-                  className="text-xs font-semibold text-slate-700 hover:text-blue-600 bg-white hover:bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs transition flex items-center gap-1 cursor-pointer"
-                  title="Fullscreen Preview"
+                  onClick={expandAll}
+                  title="Expand all sections"
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition cursor-pointer"
                 >
-                  <Maximize2 size={13} />
-                  <span className="hidden sm:inline">Fullscreen</span>
+                  Expand
+                </button>
+                <button
+                  type="button"
+                  onClick={collapseAll}
+                  title="Collapse all sections"
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
+                >
+                  Collapse
                 </button>
               </div>
             </div>
 
-            {/* Preview Canvas Area */}
-            <div className="flex-1 p-4 bg-slate-100/90 flex justify-center items-start overflow-y-auto overflow-x-hidden relative">
+            {/* Secondary Segmented Sub-Tabs */}
+            {state.printer === "regular" ? (
+              <div className="flex gap-2">
+                {[
+                  { id: "layout", label: "CHANGE LAYOUT & TEMPLATES", icon: Layers },
+                  { id: "colors", label: "THEME COLOR & ACCENTS", icon: Palette },
+                ].map((m) => {
+                  const Icon = m.icon;
+                  const isSelected = state.mode === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => set("mode")(m.id)}
+                      className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
+                        isSelected
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20"
+                          : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Icon size={13} className={isSelected ? "text-white" : "text-slate-400"} />
+                      <span>{m.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                {[
+                  { id: "layout", label: "CHANGE POS RECEIPT LAYOUT", icon: Receipt },
+                  { id: "settings", label: "THERMAL SETTINGS & SIZES", icon: Sliders },
+                ].map((m) => {
+                  const Icon = m.icon;
+                  const isSelected = (state.thermalMode || "layout") === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => set("thermalMode")(m.id)}
+                      className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
+                        isSelected
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20"
+                          : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Icon size={13} className={isSelected ? "text-white" : "text-slate-400"} />
+                      <span>{m.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Independent Scrollable Accordion Settings Body */}
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-5 paysplitx-scrollbar-light space-y-3.5">
+            {state.printer === "regular" ? (
+              <>
+                {state.mode === "colors" && (
+                  <>
+                    {/* Theme Color Palette */}
+                    <CollapsibleSection title="Theme Color Accent" badge={state.themeColor || "#2563eb"} open={isOpen("themeColor")} onToggle={() => toggle("themeColor")}>
+                      <div className="pt-1">
+                        <ColorPalette value={state.themeColor} onChange={set("themeColor")} />
+                        <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100">
+                          <span className="text-xs text-slate-500">Selected Hex:</span>
+                          <span 
+                            className="text-xs font-mono font-bold px-2.5 py-1 rounded-md text-white shadow-2xs"
+                            style={{ backgroundColor: state.themeColor || "#2563eb" }}
+                          >
+                            {state.themeColor || "#2563eb"}
+                          </span>
+                        </div>
+                      </div>
+                    </CollapsibleSection>
+
+                    {/* Print Company Info / Header */}
+                    <PrintCompanyHeader state={state} set={set} open={isOpen("companyHeader")} onToggle={() => toggle("companyHeader")} />
+
+                    {/* Print Options */}
+                    <PrintOptions state={state} set={set} open={isOpen("printOptions")} onToggle={() => toggle("printOptions")} />
+
+                    {/* Item Table */}
+                    <ItemTableSection state={state} set={set} open={isOpen("itemTable")} onToggle={() => toggle("itemTable")} />
+
+                    {/* Totals & Taxes */}
+                    <TotalsAndTaxes state={state} set={set} open={isOpen("totalsTaxes")} onToggle={() => toggle("totalsTaxes")} />
+
+                    {/* Footer */}
+                    <FooterSection state={state} set={set} open={isOpen("footer")} onToggle={() => toggle("footer")} />
+                  </>
+                )}
+
+                {state.mode === "layout" && (
+                  <>
+                    {/* Templates Grid Selection */}
+                    <CollapsibleSection title="Invoice Templates" badge="7 Styles" open={isOpen("templates")} onToggle={() => toggle("templates")}>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1.5">
+                        {THEME_OPTIONS.map((tpl) => {
+                          const isSelected = activeThemeId === tpl.id;
+                          return (
+                            <button
+                              key={tpl.id}
+                              type="button"
+                              onClick={() => {
+                                set("template")(tpl.id);
+                                set("theme")(tpl.id);
+                              }}
+                              className={`border rounded-xl p-2.5 text-center transition cursor-pointer flex flex-col items-center justify-between ${
+                                isSelected
+                                  ? "bg-blue-50/80 border-blue-600 shadow-sm ring-1 ring-blue-500/30"
+                                  : "hover:bg-slate-50 border-slate-200/90 bg-white"
+                              }`}
+                            >
+                              <div className="w-full h-11 bg-slate-100 rounded-lg border border-slate-200/80 mb-1.5 flex items-center justify-center text-xl">
+                                {tpl.icon || "📄"}
+                              </div>
+                              <span className="text-xs font-bold text-slate-900 block truncate w-full">{tpl.label}</span>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span className="text-[9.5px] font-semibold text-slate-400 uppercase tracking-wide">{tpl.category}</span>
+                                {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </CollapsibleSection>
+
+                    {/* Company Info */}
+                    <PrintCompanyHeader state={state} set={set} open={isOpen("companyHeader")} onToggle={() => toggle("companyHeader")} />
+                    
+                    {/* Print Settings */}
+                    <CollapsibleSection title="Page Size & Layout Config" open={isOpen("printSettings")} onToggle={() => toggle("printSettings")}>
+                      <SelectRow label="Paper Size" value={state.paperSize} onChange={set("paperSize")} options={["A4", "A5", "Legal", "Thermal 80mm", "Thermal 58mm"]} />
+                      <SelectRow label="Orientation" value={state.orientation} onChange={set("orientation")} options={["Portrait", "Landscape"]} />
+                      <SelectRow label="Company Name Text Size" value={state.companyNameSize} onChange={set("companyNameSize")} options={["Small", "Medium", "Large"]} />
+                      <SelectRow label="Invoice Text Size" value={state.invoiceTextSize} onChange={set("invoiceTextSize")} options={["Small", "Medium", "Large"]} />
+                      <CheckRow label="Print Original/Duplicate" checked={state.printOriginalDuplicate} onChange={set("printOriginalDuplicate")} />
+                      <NumberSpinner label="Extra space on Top of PDF" value={state.extraSpaceTop} onChange={set("extraSpaceTop")} />
+                    </CollapsibleSection>
+
+                    {/* Item Table */}
+                    <CollapsibleSection title="Item Table" open={isOpen("itemTable")} onToggle={() => toggle("itemTable")}>
+                      <CheckRow label="Expand table to print on whole page" checked={state.expandTableWholePage} onChange={set("expandTableWholePage")} />
+                      <NumberSpinner label="Min No. of Rows in Item Table" value={state.minRowsItemTable} onChange={set("minRowsItemTable")} />
+                    </CollapsibleSection>
+
+                    {/* Totals & Taxes */}
+                    <CollapsibleSection title="Totals & Taxes" open={isOpen("totalsTaxes")} onToggle={() => toggle("totalsTaxes")}>
+                      <CheckRow label="Total Item Quantity" checked={state.totalItemQty} onChange={set("totalItemQty")} />
+                      <div className="py-1 px-0.5">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                            <input 
+                              type="checkbox" 
+                              checked={state.amountWithDecimal} 
+                              onChange={(e) => set("amountWithDecimal")(e.target.checked)} 
+                              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" 
+                              style={{ accentColor: blue }} 
+                            />
+                            <span className="text-[13px] font-medium text-slate-700">Amount with Decimal <span className="text-slate-400 ml-1">e.g. 0.00</span></span>
+                          </label>
+                        </div>
+                      </div>
+                      <CheckRow label="Received Amount" checked={state.receivedAmount} onChange={set("receivedAmount")} />
+                      <CheckRow label="Balance Amount" checked={state.balanceAmount} onChange={set("balanceAmount")} />
+                      <CheckRow label="Current Balance of Party" checked={state.currentBalanceParty} onChange={set("currentBalanceParty")} />
+                      <CheckRow label="Tax Details" checked={state.taxDetails} onChange={set("taxDetails")} />
+                      <CheckRow label="You Saved" checked={state.youSaved} onChange={set("youSaved")} />
+                      <CheckRow label="Print Amount with Grouping" checked={state.printAmountGrouping} onChange={set("printAmountGrouping")} />
+                      <SelectRow label="Amount in Words" value={state.amountInWords} onChange={set("amountInWords")} options={["Indian", "English", "International"]} />
+                    </CollapsibleSection>
+
+                    {/* Footer */}
+                    <CollapsibleSection title="Footer" open={isOpen("footer")} onToggle={() => toggle("footer")}>
+                      <CheckRow label="Print Description" checked={state.printDescription} onChange={set("printDescription")} />
+                      <CheckRow label="Print Terms and Conditions" checked={state.printTerms} onChange={set("printTerms")} />
+                      <CheckRow label="Print Received by details" checked={state.printReceivedBy} onChange={set("printReceivedBy")} />
+                      <CheckRow label="Print Delivered by details" checked={state.printDeliveredBy} onChange={set("printDeliveredBy")} />
+                      <LayerRow label="Print Signature Text" checked={state.printSignatureText} onChange={set("printSignatureText")} input={state.signatureText} onChangeText={set("signatureText")} placeholder="Authorized Signatory" />
+                      <CheckRow label="Payment Mode" checked={state.paymentMode} onChange={set("paymentMode")} />
+                      <CheckRow label="Print Acknowledgement" checked={state.printAcknowledgement} onChange={set("printAcknowledgement")} />
+                    </CollapsibleSection>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {(state.thermalMode || "layout") === "layout" && (
+                  <>
+                    {/* POS Layouts Selection Grid */}
+                    <CollapsibleSection title="POS Receipt Layouts" badge="5 Styles" open={isOpen("thermalLayouts")} onToggle={() => toggle("thermalLayouts")}>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        {POS_LAYOUT_OPTIONS.map((posOpt) => {
+                          const isSelected = activePosId === posOpt.id;
+                          return (
+                            <button
+                              key={posOpt.id}
+                              type="button"
+                              onClick={() => set("posLayout")(posOpt.id)}
+                              className={`border rounded-xl p-3 text-left transition cursor-pointer flex flex-col justify-between relative ${
+                                isSelected
+                                  ? "bg-blue-50/90 border-blue-600 shadow-xs ring-2 ring-blue-500/30"
+                                  : "hover:bg-slate-50 border-slate-200/90 bg-white"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-lg flex-shrink-0">
+                                  {posOpt.icon}
+                                </div>
+                                <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md ${
+                                  isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                                }`}>
+                                  {posOpt.badge}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                  {posOpt.label}
+                                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" />}
+                                </div>
+                                <div className="text-[10.5px] text-slate-500 mt-0.5 line-clamp-2">
+                                  {posOpt.desc}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </CollapsibleSection>
+
+                    {/* Page Size & Printing Type in Layout Mode */}
+                    <CollapsibleSection title="Page Size & Printer Config" open={isOpen("thermalPageSize")} onToggle={() => toggle("thermalPageSize")}>
+                      <SelectRow 
+                        label="Page Size" 
+                        value={state.pageSize} 
+                        onChange={set("pageSize")} 
+                        options={["2 Inch: 58mm", "3 Inch: 68mm", "4 Inch: 88mm", "Custom (Chars)"]} 
+                      />
+                      <SelectRow 
+                        label="Printing Type" 
+                        value={state.printingType} 
+                        onChange={set("printingType")} 
+                        options={["Text Printing", "Image Printing", "Both"]} 
+                      />
+                    </CollapsibleSection>
+
+                    {/* Print Company Info / Header in Layout Mode */}
+                    <CollapsibleSection title="Print Company Info / Header" badge="Thermal" open={isOpen("thermalCompanyHeader")} onToggle={() => toggle("thermalCompanyHeader")}>
+                      <LayerRow label="Company Name" checked={state.companyName} onChange={set("companyName")} input={state.companyNameText} onChangeText={set("companyNameText")} placeholder="My Company" />
+                      <div className="py-1 px-0.5">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                            <input 
+                              type="checkbox" 
+                              checked={state.companyLogo} 
+                              onChange={(e) => set("companyLogo")(e.target.checked)} 
+                              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" 
+                              style={{ accentColor: blue }} 
+                            />
+                            <span className="text-[13px] font-medium text-slate-700">Company Logo</span>
+                          </label>
+                        </div>
+                      </div>
+                      <LayerRow label="Address" checked={state.address} onChange={set("address")} input={state.addressText} onChangeText={set("addressText")} placeholder="Company address" />
+                      <LayerRow label="Email" checked={state.email} onChange={set("email")} input={state.emailText} onChangeText={set("emailText")} placeholder="Email" />
+                      <LayerRow label="Phone Number" checked={state.phone} onChange={set("phone")} input={state.phoneText} onChangeText={set("phoneText")} placeholder="Phone" />
+                      <LayerRow label="GSTIN on Sale" checked={state.gstin} onChange={set("gstin")} input={state.gstinText} onChangeText={set("gstinText")} placeholder="GSTIN" />
+                    </CollapsibleSection>
+                  </>
+                )}
+
+                {(state.thermalMode || "layout") === "settings" && (
+                  <ThermalSettings state={state} set={set} isOpen={isOpen} toggle={toggle} />
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL: Independent Scrollable Document Preview Canvas ── */}
+        <div className="w-full lg:w-[52%] xl:w-[55%] 2xl:w-[58%] h-full flex flex-col min-h-0 bg-slate-100/90 overflow-hidden">
+          
+          {/* Top Preview Control Toolbar */}
+          <div className="px-4 sm:px-5 py-3 bg-white border-b border-slate-200/80 flex items-center justify-between gap-3 flex-shrink-0 shadow-2xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+              <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wide truncate">
+                {state.printer === "thermal" ? "Thermal POS Live Preview" : "Live Bill Preview"}
+              </span>
               {state.printer === "thermal" ? (
-                <div 
-                  className="bg-white p-4 sm:p-5 rounded-lg shadow-md border border-slate-200 mt-2 mb-6 transition-all"
-                  style={{
-                    width: state.pageSize && state.pageSize.includes("58mm") ? 270 : 310,
-                    maxWidth: "100%",
-                  }}
-                >
-                  {renderThermalPreview()}
-                </div>
+                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-md text-white bg-slate-800 shadow-2xs truncate hidden sm:inline-block">
+                  {activePosObj?.label || "Classic POS"} ({state.pageSize && state.pageSize.includes("58mm") ? "58mm Roll" : "80mm Roll"})
+                </span>
               ) : (
-                <div
-                  className="transition-all duration-200"
-                  style={{
-                    width: 794,
-                    background: "#ffffff",
-                    padding: "28px 32px",
-                    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06)",
-                    borderRadius: 4,
-                    transform: `scale(${currentScale})`,
-                    transformOrigin: "top center",
-                    marginBottom: `-${Math.round(1050 * (1 - currentScale))}px`,
-                    pointerEvents: "none",
-                    userSelect: "none",
-                    flexShrink: 0
-                  }}
+                <span
+                  className="text-[10.5px] font-bold px-2 py-0.5 rounded-md text-white shadow-2xs truncate hidden sm:inline-block"
+                  style={{ background: state.themeColor || "#2563eb" }}
                 >
-                  {renderThemePreview()}
-                </div>
+                  {activeThemeObj.label}
+                </span>
               )}
             </div>
 
-            {/* Bottom Status Bar */}
-            <div className="px-4 py-2 bg-white border-t border-slate-200 text-center text-xs text-slate-500 flex-shrink-0">
-              {state.printer === "thermal" ? (
-                <span>
-                  Active Thermal Layout: <strong>{activePosObj?.label || "Classic POS"}</strong> ({state.pageSize || "80mm / 58mm"})
-                </span>
-              ) : (
-                <span>
-                  Showing <strong>{activeThemeObj.label}</strong> with accent <strong style={{ color: state.themeColor }}>{state.themeColor}</strong>
-                </span>
+            {/* Zoom Controls & Fullscreen */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {state.printer !== "thermal" && (
+                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-xs font-semibold text-slate-600 border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel((z) => Math.max(40, z - 10))}
+                    className="px-1.5 py-0.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded cursor-pointer transition font-bold"
+                    title="Zoom Out"
+                  >
+                    −
+                  </button>
+                  {[55, 68, 80].map((z) => (
+                    <button
+                      key={z}
+                      type="button"
+                      onClick={() => setZoomLevel(z)}
+                      className={`px-2 py-0.5 rounded-md transition cursor-pointer text-[11px] ${
+                        zoomLevel === z ? "bg-slate-900 text-white font-bold" : "hover:bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {z}%
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel((z) => Math.min(100, z + 10))}
+                    className="px-1.5 py-0.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded cursor-pointer transition font-bold"
+                    title="Zoom In"
+                  >
+                    +
+                  </button>
+                </div>
               )}
+
+              <button
+                type="button"
+                onClick={() => setIsFullscreenPreview(true)}
+                className="text-xs font-bold text-slate-700 hover:text-blue-600 bg-white hover:bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs transition flex items-center gap-1.5 cursor-pointer"
+                title="Fullscreen Preview"
+              >
+                <Maximize2 size={13} />
+                <span className="hidden sm:inline">Fullscreen</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Independent Scrollable Preview Area */}
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto p-4 sm:p-6 lg:p-8 flex justify-center items-start bg-slate-100/80 paysplitx-scrollbar">
+            {state.printer === "thermal" ? (
+              <div 
+                className="bg-white p-4 sm:p-5 rounded-lg shadow-md border border-slate-200/90 my-2 transition-all flex-shrink-0"
+                style={{
+                  width: state.pageSize && state.pageSize.includes("58mm") ? 270 : 310,
+                  maxWidth: "100%",
+                }}
+              >
+                {renderThermalPreview()}
+              </div>
+            ) : (
+              <div
+                className="transition-all duration-200 flex-shrink-0"
+                style={{
+                  width: 794,
+                  background: "#ffffff",
+                  padding: "28px 32px",
+                  boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06)",
+                  borderRadius: 4,
+                  transform: `scale(${currentScale})`,
+                  transformOrigin: "top center",
+                  marginBottom: `-${Math.round(1050 * (1 - currentScale))}px`,
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}
+              >
+                {renderThemePreview()}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Status Toolbar */}
+          <div className="px-4 py-2.5 bg-white border-t border-slate-200/80 text-center sm:text-left text-xs text-slate-500 flex items-center justify-between flex-shrink-0 shadow-2xs">
+            {state.printer === "thermal" ? (
+              <div className="flex items-center gap-2">
+                <Receipt size={14} className="text-slate-400" />
+                <span>
+                  Active POS Layout: <strong className="text-slate-800">{activePosObj?.label || "Classic POS"}</strong> • Roll: <strong className="text-slate-800">{state.pageSize || "80mm"}</strong>
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <FileText size={14} className="text-slate-400" />
+                <span>
+                  Active Template: <strong className="text-slate-800">{activeThemeObj.label}</strong> • Accent: <strong style={{ color: state.themeColor || "#2563eb" }}>{state.themeColor || "#2563eb"}</strong> • Size: <strong className="text-slate-800">{state.paperSize || "A4"}</strong>
+                </span>
+              </div>
+            )}
+            <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
+              <span>Independent dual-pane scrolling enabled</span>
             </div>
           </div>
         </div>
@@ -1400,7 +1502,7 @@ export default function Print() {
 
       {/* ── FULL-SCREEN HIGH RESOLUTION PREVIEW MODAL ── */}
       {isFullscreenPreview && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex flex-col justify-between p-4 sm:p-6 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/85 backdrop-blur-md flex flex-col justify-between p-4 sm:p-6 overflow-y-auto">
           {/* Top Floating Modal Bar */}
           <div className="max-w-4xl w-full mx-auto bg-white/95 backdrop-blur px-5 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-slate-200/80 mb-4 sticky top-0 z-20">
             <div className="flex items-center gap-3">
