@@ -179,7 +179,7 @@ function trackUsage(product) {
     price: product.price,
     product_code: product.product_code,
     unit: product.unit,
-    gst_percentage: product.gst_percentage || product.gst || 0,
+    gst_percentage: Number(product.gst_percentage ?? product.gst ?? product.tax_percent ?? 0),
     stock: product.stock,
     status: "active",
   });
@@ -329,8 +329,21 @@ export default function Billing() {
   /* ══ EFFECTS ══ */
   useEffect(() => {
     api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
-      .then((res) => { if (res.data.status) setCompanies(res.data.data || []); });
-  }, [adminId]);
+      .then((res) => {
+        if (!res.data.status) return;
+        const loadedCompanies = res.data.data || [];
+        setCompanies(loadedCompanies);
+
+        const company = loadedCompanies.find((c) => String(c.id) === String(selectedCompany));
+        if (company?.gst_type === "with_gst") {
+          setBills((prev) => prev.map((bill) => (
+            bill.rows.every((row) => !row.name && !row.product_id)
+              ? { ...bill, billType: "gst_bill" }
+              : bill
+          )));
+        }
+      });
+  }, [adminId, selectedCompany]);
 
   useEffect(() => {
     if (!selectedCompany) return;
@@ -648,7 +661,7 @@ export default function Billing() {
           name: p.product_name || p.name,
           product_code: p.product_code || "",
           price: Number(p.price),
-          gst: Number(p.gst_percentage || p.gst || 0),
+          gst: Number(p.gst_percentage ?? p.gst ?? p.tax_percent ?? 0),
           qty: qtyNum,
           discount: 0,
           freeQty: 0,
@@ -698,7 +711,7 @@ export default function Billing() {
             name: p.product_name || p.name,
             product_code: p.product_code || "",
             price: Number(p.price),
-            gst: Number(p.gst_percentage || p.gst || 0),
+            gst: Number(p.gst_percentage ?? p.gst ?? p.tax_percent ?? 0),
             qty: qtyNum,
             discount: 0,
             freeQty: 0,
@@ -959,7 +972,6 @@ export default function Billing() {
   const handleGenerate = async () => {
     if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
     if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
-    if (billType === "gst_bill" && !customer.gst_no.trim()) { showToast("GST Number is mandatory for GST Bill!", "error"); return; }
     if (validRows.length === 0) { showToast("Add at least one product to the invoice!", "error"); return; }
     if (paymentMethod !== "credit" && received <= 0 && advanceUsed < total) { showToast("Enter received payment amount!", "error"); return; }
     if (paymentMethod === "credit" && Number(customer.credit_enabled) === 1) {
@@ -1881,7 +1893,7 @@ export default function Billing() {
               {billType === "gst_bill" && (
                 <div className="pt-2 border-t border-slate-100">
                   <label className="block text-[10.5px] font-bold text-amber-800 uppercase tracking-wider mb-1">
-                    GSTIN (Mandatory) *
+                    GSTIN (Optional)
                   </label>
                   <input
                     type="text"
