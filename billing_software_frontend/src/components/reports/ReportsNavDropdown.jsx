@@ -277,60 +277,71 @@ export default function ReportsNavDropdown() {
 
   return (
     <div className="space-y-2 mb-2 font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* ── 1. CATEGORY TABS & TOP TOOLBAR STRIP ── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        {/* Category Tabs Strip */}
-        <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 overflow-x-auto paysplitx-scrollbar-light max-w-full">
-          {CATEGORIES.map((cat) => {
-            const isSelected = categoryFilter === cat;
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap shrink-0 ${isSelected
-                  ? "bg-white text-blue-600 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-                  }`}
-              >
-                {cat}
-              </button>
-            );
-          })}
+      {/* ── 1. FIRST ROW: SEARCH, VIEWING ACTIVE REPORT, & SETTINGS BUTTON ── */}
+      <div className="flex items-center justify-between gap-3 bg-white p-2 sm:px-3 sm:py-2 rounded-2xl border border-slate-200/80 shadow-2xs flex-wrap">
+        {/* Left: Quick Search */}
+        <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search reports..."
+            className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-2xs font-medium transition"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-0.5"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
-        {/* Right Top Status, Search & Menu Settings Button */}
-        <div className="flex items-center gap-2.5 ml-auto">
-          {/* Quick Search */}
-          <div className="relative hidden sm:block">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search reports..."
-              className="pl-7 pr-3 py-1 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 w-32 lg:w-40 shadow-2xs"
-            />
-          </div>
+        {/* Center: Viewing Active Report */}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200/70 rounded-xl text-xs text-slate-500 font-semibold truncate">
+          <Eye size={13} className="text-blue-600 shrink-0" />
+          <span className="text-slate-400 font-medium">Viewing:</span>
+          <strong className="text-slate-800 font-bold truncate max-w-[180px] sm:max-w-[320px]">
+            {activeReport ? activeReport.title : "Report"}
+          </strong>
+        </div>
 
-          <span className="text-xs text-slate-400 font-semibold whitespace-nowrap overflow-hidden text-ellipsis w-40 md:inline">
-            Viewing: <strong className="text-slate-800 font-bold">{activeReport ? activeReport.title : "Report"}</strong>
+        {/* Right: ⚙️ Report Menu Settings Button */}
+        <button
+          type="button"
+          onClick={() => setIsSettingsOpen(true)}
+          title="Configure Report Menu & Visibility"
+          className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center gap-2 shadow-2xs cursor-pointer flex-shrink-0"
+        >
+          <Settings2 size={14} className="text-blue-600" />
+          <span className="hidden sm:inline">Settings</span>
+          <span className="text-[10.5px] font-bold px-1.5 py-0.2 rounded-md bg-blue-50 text-blue-600 border border-blue-100">
+            {enabledCount}/{totalCount}
           </span>
+        </button>
+      </div>
 
-          {/* ⚙️ Report Menu Settings Button */}
-          <button
-            type="button"
-            onClick={() => setIsSettingsOpen(true)}
-            title="Configure Report Menu & Visibility"
-            className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer flex-shrink-0"
-          >
-            <Settings2 size={14} className="text-blue-600" />
-            <span className="hidden sm:inline">Settings</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-              {enabledCount}/{totalCount}
-            </span>
-          </button>
-        </div>
+      {/* ── 2. SECOND ROW: CATEGORY TABS STRIP ── */}
+      <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 overflow-x-auto paysplitx-scrollbar-light max-w-full">
+        {CATEGORIES.map((cat) => {
+          const isSelected = categoryFilter === cat;
+          return (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategoryFilter(cat)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap shrink-0 ${isSelected
+                ? "bg-white text-blue-600 shadow-xs"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+            >
+              {cat}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── 2. HORIZONTAL SCROLLABLE REPORT CARDS SELECTOR STRIP ── */}
