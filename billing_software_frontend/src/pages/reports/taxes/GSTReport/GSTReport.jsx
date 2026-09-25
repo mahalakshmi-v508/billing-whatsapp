@@ -291,6 +291,7 @@ export default function GSTReport() {
         />
       ) : (
         <>
+      <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">GST Report</h1>
       {/* Filter Card */}
       <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-4">

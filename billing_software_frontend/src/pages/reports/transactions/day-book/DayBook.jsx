@@ -491,13 +491,11 @@ export default function DayBook() {
     }
   };
 
-  const headerCell = (col, alignRight = false) => (
-    <th
-      key={col}
-      className={`px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-50/90 border-b border-slate-200 select-none ${
-        alignRight ? "text-right" : "text-left"
-      }`}
-    >
+  const headerCell = (col, alignRight = false) => {
+    const headerClassName = `px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-50/90 border-b border-slate-200 select-none ${alignRight ? "text-right" : "text-left"}`;
+
+    return (
+    <th key={col} className={headerClassName}>
       <div
         className="inline-flex items-center gap-1.5 cursor-pointer hover:text-slate-800 transition"
         onClick={() => toggleSort(col)}
@@ -524,7 +522,8 @@ export default function DayBook() {
         <Filter size={11} fill={colFilters[col] ? "currentColor" : "none"} />
       </button>
     </th>
-  );
+    );
+  };
 
   const totalRows = displayed.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
@@ -558,6 +557,7 @@ export default function DayBook() {
         />
       ) : (
         <>
+      <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">Day Book</h1>
       {/* ── TOP CONTROL CARD ── */}
       <div className="bg-white rounded-2xl p-4 md:p-5 shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">

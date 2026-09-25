@@ -256,7 +256,7 @@ export default function FormNo27EQ() {
               <FileText className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Form No. 27EQ</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">Form No. 27EQ</h1>
               <p className="text-xs font-semibold text-slate-400 mt-0.5">
                 Tax Collected at Source (TCS) quarterly statement & transaction audit
               </p>

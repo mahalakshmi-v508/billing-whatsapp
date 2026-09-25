@@ -362,7 +362,7 @@ export default function PaymentOut() {
             <TrendingDown size={24} />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Payment-Out</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">Payment Out</h1>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               Record vendor outward payments, settle supplier ledger balances &amp; track disbursements
             </p>

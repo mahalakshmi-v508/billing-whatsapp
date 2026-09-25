@@ -705,6 +705,7 @@ console.warn(
         />
       ) : (
         <>
+      <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">Sale Summary By HSN</h1>
       <div ref={printHeaderRef} style={{ display: "none" }}>
         <b>Firm:</b> {firmLabel} | <b>Period:</b> {filterMeta}
         {search.trim() ? ` | Search: ${search.trim()}` : ""}

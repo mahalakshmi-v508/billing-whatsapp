@@ -312,6 +312,7 @@ export default function AllParties() {
         />
       ) : (
         <>
+      <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">All Parties</h1>
       {/* ═══════════════════════════════════════════════════════════════
           1. TOP FILTER BAR
           ═══════════════════════════════════════════════════════════════ */}

@@ -1466,6 +1466,7 @@ return (
         />
       ) : (
         <>
+      <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">GSTR 2</h1>
       {/* ═══════════════════════════════════════════════════════════════
           1. HEADER & FILTER BAR
           ═══════════════════════════════════════════════════════════════ */}

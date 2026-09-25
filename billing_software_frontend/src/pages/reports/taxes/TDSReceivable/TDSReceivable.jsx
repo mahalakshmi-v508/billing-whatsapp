@@ -258,7 +258,7 @@ export default function TDSReceivable() {
               <FileText className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">TDS Receivable</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">TDS Receivable</h1>
               <p className="text-xs font-semibold text-slate-400 mt-0.5">
                 Tax Deducted at Source receivable claimable against invoices
               </p>

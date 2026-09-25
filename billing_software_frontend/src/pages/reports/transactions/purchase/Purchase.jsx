@@ -1760,7 +1760,7 @@ export default function Purchase() {
       ===================================================== */}
       <div className="pb-no-print flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
             Purchase Bills
           </h1>
           <p className="text-xs text-slate-500 mt-1 font-medium">

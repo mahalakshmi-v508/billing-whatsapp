@@ -376,6 +376,7 @@ export default function PartyReportByItem() {
         />
       ) : (
         <>
+      <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">Party Report By Item</h1>
       {/* ═══════════════════════════════════════════════════════════════
           1. HEADER CONTROLS (Period, Dates, Firm, Category, Item, Actions)
           ═══════════════════════════════════════════════════════════════ */}

@@ -352,6 +352,7 @@ export default function SalePurchaseByPartyGroup() {
         />
       ) : (
         <>
+      <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">Sale Purchase By Party Group</h1>
       {/* ═══════════════════════════════════════════════════════════════
           1. HEADER & FILTER BAR
           ═══════════════════════════════════════════════════════════════ */}
