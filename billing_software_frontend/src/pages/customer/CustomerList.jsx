@@ -40,52 +40,52 @@ const distributePayment = (pendingInvoices, totalAmount) => {
 export default function CustomerList() {
   const navigate = useNavigate();
 
-  const [customers, setCustomers]               = useState([]);
-  const [search, setSearch]                     = useState("");
+  const [customers, setCustomers] = useState([]);
+  const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [invoiceHistory, setInvoiceHistory]     = useState([]);
-  const [allHistory, setAllHistory]             = useState([]);
-  const [toast, setToast]                       = useState(null);
+  const [invoiceHistory, setInvoiceHistory] = useState([]);
+  const [allHistory, setAllHistory] = useState([]);
+  const [toast, setToast] = useState(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [paymentHistory, setPaymentHistory]     = useState([]);
-  const [loadingHistory, setLoadingHistory]     = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   /* Tab Filter: 'all' | 'active' | 'pending' | 'advance' */
-  const [filterTab, setFilterTab]               = useState("all");
+  const [filterTab, setFilterTab] = useState("all");
 
   /* Customer Detail Drawer */
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
 
   /* collect popup */
-  const [showCollect, setShowCollect]           = useState(false);
-  const [collectAmount, setCollectAmount]       = useState("");
-  const [collectMethod, setCollectMethod]       = useState("cash");
-  const [collectDate, setCollectDate]           = useState(new Date().toISOString().split("T")[0]);
-  const [collectNotes, setCollectNotes]         = useState("");
-  const [collecting, setCollecting]             = useState(false);
-  const [preview, setPreview]                   = useState([]);
+  const [showCollect, setShowCollect] = useState(false);
+  const [collectAmount, setCollectAmount] = useState("");
+  const [collectMethod, setCollectMethod] = useState("cash");
+  const [collectDate, setCollectDate] = useState(new Date().toISOString().split("T")[0]);
+  const [collectNotes, setCollectNotes] = useState("");
+  const [collecting, setCollecting] = useState(false);
+  const [preview, setPreview] = useState([]);
 
-  const [sendingReminder, setSendingReminder]   = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
 
-  const [companies, setCompanies]               = useState([]);
-  const [selectedCompany, setSelectedCompany]   = useState("");
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState("");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const admin_id = user?.id;
 
-  const [selectedRows, setSelectedRows]         = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
 
   // Modal states
-  const [showAddModal, setShowAddModal]         = useState(false);
-  const [showEditModal, setShowEditModal]       = useState(false);
-  const [editCustomerId, setEditCustomerId]     = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editCustomerId, setEditCustomerId] = useState(null);
 
   // 3-dot menu state
-  const [activeMenuId, setActiveMenuId]         = useState(null);
+  const [activeMenuId, setActiveMenuId] = useState(null);
 
   // View customer modal state
-  const [showViewModal, setShowViewModal]       = useState(false);
-  const [viewCustomer, setViewCustomer]         = useState(null);
-  const [viewLoading, setViewLoading]           = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewCustomer, setViewCustomer] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
 
   /* ── toast ── */
   const showToast = (msg, ok = true) => {
@@ -351,9 +351,8 @@ export default function CustomerList() {
       {/* ── TOAST NOTIFICATION ── */}
       {toast && (
         <div
-          className={`fixed top-5 right-5 z-[99999] px-4 py-3 rounded-xl text-white font-semibold text-xs shadow-2xl flex items-center gap-2 animate-in slide-in-from-top duration-200 ${
-            toast.ok ? "bg-gradient-to-r from-indigo-600 to-indigo-500" : "bg-gradient-to-r from-rose-600 to-red-600"
-          }`}
+          className={`fixed top-5 right-5 z-[99999] px-4 py-3 rounded-xl text-white font-semibold text-xs shadow-2xl flex items-center gap-2 animate-in slide-in-from-top duration-200 ${toast.ok ? "bg-gradient-to-r from-indigo-600 to-indigo-500" : "bg-gradient-to-r from-rose-600 to-red-600"
+            }`}
         >
           {toast.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
           <span>{toast.msg}</span>
@@ -480,19 +479,17 @@ export default function CustomerList() {
             <button
               key={tab.id}
               onClick={() => setFilterTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                filterTab === tab.id
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${filterTab === tab.id
                   ? "bg-white text-indigo-600 shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
-              }`}
+                }`}
             >
               <span>{tab.label}</span>
               <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  filterTab === tab.id
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${filterTab === tab.id
                     ? "bg-indigo-50 text-indigo-700"
                     : "bg-slate-200/70 text-slate-600"
-                }`}
+                  }`}
               >
                 {tab.count}
               </span>
@@ -1066,9 +1063,8 @@ export default function CustomerList() {
                             <td className="font-bold text-emerald-600">{willPay ? `₹${fmt(p._applying)}` : "—"}</td>
                             <td>
                               <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  fullyClear ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                                }`}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fullyClear ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                                  }`}
                               >
                                 {fullyClear ? "✓ Cleared" : `₹${fmt(p._newBalance)}`}
                               </span>

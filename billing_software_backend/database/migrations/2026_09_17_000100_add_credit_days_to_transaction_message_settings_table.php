@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('transaction_message_settings')) {
+            return;
+        }
+
         if (!Schema::hasColumn('transaction_message_settings', 'credit_days')) {
             Schema::table('transaction_message_settings', function (Blueprint $table) {
                 $table->unsignedInteger('credit_days')
@@ -23,6 +27,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (!Schema::hasTable('transaction_message_settings')) {
+            return;
+        }
+
         if (Schema::hasColumn('transaction_message_settings', 'credit_days')) {
             Schema::table('transaction_message_settings', function (Blueprint $table) {
                 $table->dropColumn('credit_days');

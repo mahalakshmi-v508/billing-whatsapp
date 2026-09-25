@@ -83,11 +83,10 @@ export default function EwayHistory({ onViewBillByEwb }) {
               key={f.id}
               type="button"
               onClick={() => setFilter(f.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                filter === f.id
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${filter === f.id
                   ? "bg-blue-600 text-white shadow-xs"
                   : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60"
-              }`}
+                }`}
             >
               {f.label}
             </button>
@@ -112,25 +111,25 @@ export default function EwayHistory({ onViewBillByEwb }) {
               const dotColor = isGen
                 ? "bg-emerald-500 ring-4 ring-emerald-100"
                 : isVeh
-                ? "bg-blue-500 ring-4 ring-blue-100"
-                : isExt
-                ? "bg-amber-500 ring-4 ring-amber-100"
-                : "bg-rose-500 ring-4 ring-rose-100";
+                  ? "bg-blue-500 ring-4 ring-blue-100"
+                  : isExt
+                    ? "bg-amber-500 ring-4 ring-amber-100"
+                    : "bg-rose-500 ring-4 ring-rose-100";
 
               const badgeColor = isGen
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                 : isVeh
-                ? "bg-blue-50 text-blue-700 border-blue-200"
-                : isExt
-                ? "bg-amber-50 text-amber-700 border-amber-200"
-                : "bg-rose-50 text-rose-700 border-rose-200";
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : isExt
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-rose-50 text-rose-700 border-rose-200";
 
               return (
                 <div key={evt.id} className="relative group">
                   {/* Timeline Dot */}
                   <span className={`absolute -left-[31px] top-1.5 w-3.5 h-3.5 rounded-full ${dotColor} transition-transform group-hover:scale-125`} />
 
-                  <div className="bg-slate-50/70 hover:bg-slate-50 rounded-2xl border border-slate-200/80 p-4.5 space-y-2 transition shadow-2xs">
+                  <div className="bg-slate-50/70 hover:bg-slate-50 rounded-2xl border border-slate-200/80 p-4 space-y-2 transition shadow-2xs">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 flex-wrap">
                         <h3 className="text-sm font-black text-slate-900">{evt.event}</h3>
