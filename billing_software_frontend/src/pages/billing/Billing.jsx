@@ -972,6 +972,7 @@ export default function Billing() {
   const handleGenerate = async () => {
     if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
     if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
+    if (billType === "gst_bill" && !customer.gst_no.trim()) { showToast("GST Number is mandatory for GST Bill!", "error"); return; }
     if (validRows.length === 0) { showToast("Add at least one product to the invoice!", "error"); return; }
     if (paymentMethod !== "credit" && received <= 0 && advanceUsed < total) { showToast("Enter received payment amount!", "error"); return; }
     if (paymentMethod === "credit" && Number(customer.credit_enabled) === 1) {
@@ -1893,7 +1894,7 @@ export default function Billing() {
               {billType === "gst_bill" && (
                 <div className="pt-2 border-t border-slate-100">
                   <label className="block text-[10.5px] font-bold text-amber-800 uppercase tracking-wider mb-1">
-                    GSTIN (Optional)
+                    GSTIN (Mandatory) *
                   </label>
                   <input
                     type="text"
