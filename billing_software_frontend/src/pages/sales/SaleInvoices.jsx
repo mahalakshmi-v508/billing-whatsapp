@@ -58,6 +58,17 @@ const DEFAULT_COLUMNS = [
   { key: "actions", label: "Actions", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "Print, View & Delete" },
 ];
 
+// A bill's origin. The backend stores this in `invoices.source` ("pos" for the
+// counter screen, "sale" for the sale form). The legacy keys are kept as
+// fallbacks so rows written before the column existed still classify correctly.
+const isPosInvoice = (inv) =>
+  inv?.source === "pos" ||
+  inv?.is_pos === true ||
+  inv?.is_pos === 1 ||
+  inv?.is_pos === "1";
+
+const transactionLabel = (inv) => (isPosInvoice(inv) ? "PoS" : "Sale");
+
 const periodLabels = {
   all_time: "All Time",
   today: "Today",
@@ -490,7 +501,7 @@ export default function SaleInvoices() {
       Date: formatDateDMY(inv.created_at),
       "Invoice No": inv.invoice_no,
       "Party Name": inv.customer_name || "Cash Sale",
-      Transaction: inv.is_pos ? "PoS Sale" : "Sale",
+      Transaction: transactionLabel(inv),
       "Payment Type": inv.payment_method || "Cash",
       Amount: Number(inv.total_amount || 0),
       Paid: Number(inv.paid_amount || 0),
@@ -1022,7 +1033,7 @@ export default function SaleInvoices() {
                 {paginatedInvoices.map((inv, idx) => {
                   const isPaid = Number(inv.balance_amount || 0) === 0;
                   const isUnpaid = Number(inv.paid_amount || 0) === 0;
-                  const isPos = inv.is_pos || inv.source === "pos" || (String(inv.payment_method).toLowerCase() === "cash" && !inv.customer_id);
+                  const isPos = isPosInvoice(inv);
                   const isMenuOpen = activeMenuId === inv.invoice_no;
                   const initial = (inv.customer_name || "C").charAt(0).toUpperCase();
 
@@ -1071,7 +1082,7 @@ export default function SaleInvoices() {
                               isPos ? "bg-purple-50 text-purple-700 border border-purple-200" : "bg-blue-50 text-blue-700 border border-blue-200"
                             }`}
                           >
-                            {isPos ? "PoS Sale" : "Sale"}
+                            {transactionLabel(inv)}
                           </span>
                         </td>
                       )}
