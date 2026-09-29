@@ -11,7 +11,7 @@ import {
   Lock, LogOut, Plus, ReceiptText, PackagePlus, UserPlus, Truck,
   FolderPlus, Building2, CheckCircle2, ArrowUpRight, ShieldCheck,
   AlertCircle, RotateCw, ExternalLink, Calendar, Search, CreditCard,
-  Sparkles, Filter, Users, Layers, Activity, ArrowRight, CheckCircle
+  Sparkles, Filter, Users, Layers, Activity, ArrowRight, CheckCircle, Check
 } from "lucide-react";
 import StatCard from "../../components/ui/StatCard";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -38,8 +38,11 @@ export default function Dashboard() {
 
   const [showProfile, setShowProfile] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [companySearch, setCompanySearch] = useState("");
   const bellRef = useRef(null);
   const profileRef = useRef(null);
+  const companyDropdownRef = useRef(null);
 
   /* ── Company State ── */
   const [companies, setCompanies] = useState([]);
@@ -210,10 +213,12 @@ export default function Dashboard() {
   }, []);
 
   /* ── Company Change Handler ── */
-  const handleCompanyChange = (e) => {
-    const id = e.target.value;
-    setSelectedCompany(id);
-    localStorage.setItem("selected_company_id", id);
+  const handleSelectCompany = (id) => {
+    const strId = String(id);
+    setSelectedCompany(strId);
+    localStorage.setItem("selected_company_id", strId);
+    window.dispatchEvent(new Event("storage"));
+    setShowCompanyDropdown(false);
   };
 
   /* ── Close Popovers on Click Outside ── */
@@ -221,10 +226,25 @@ export default function Dashboard() {
     const handler = (e) => {
       if (!e.target.closest(".notif-bell")) setShowNotif(false);
       if (profileRef.current && !profileRef.current.contains(e.target)) setShowProfile(false);
+      if (companyDropdownRef.current && !companyDropdownRef.current.contains(e.target)) {
+        setShowCompanyDropdown(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  /* ── Filtered Companies for Dropdown Search ── */
+  const filteredCompanies = useMemo(() => {
+    if (!companySearch.trim()) return companies;
+    const q = companySearch.toLowerCase();
+    return companies.filter(
+      (c) =>
+        c.company_name?.toLowerCase().includes(q) ||
+        c.company_code?.toLowerCase().includes(q) ||
+        c.gstin?.toLowerCase().includes(q)
+    );
+  }, [companies, companySearch]);
 
   /* ── Derived Analytics & Performance Metrics ── */
   const activeCompany = companies.find((c) => String(c.id) === String(selectedCompany));
@@ -343,23 +363,176 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right Header Toolbar: Company Branch Selector, Sync Button & Notifications */}
+        {/* Right Header Toolbar: Company Branch Selector & Sync Button */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Branch / Company Selector */}
-          <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl px-3.5 py-2 transition shadow-inner">
-            <Building2 size={16} className="text-indigo-600 flex-shrink-0" />
-            <select
-              value={selectedCompany}
-              onChange={handleCompanyChange}
-              className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer pr-2 max-w-[190px] truncate"
+          {/* 🏢 Premium Company Branch Selector Dropdown */}
+          <div className="relative" ref={companyDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowCompanyDropdown((prev) => !prev)}
+              className={`h-11 px-3.5 rounded-2xl border transition-all flex items-center gap-3 cursor-pointer shadow-xs group ${
+                showCompanyDropdown
+                  ? "bg-indigo-50/90 border-indigo-300 ring-2 ring-indigo-500/20 shadow-md"
+                  : "bg-white hover:bg-slate-50/90 border-slate-200/90 hover:border-slate-300"
+              }`}
             >
-              <option value="">Select Branch</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.company_name}
-                </option>
-              ))}
-            </select>
+              <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center font-black text-[11px] shadow-xs flex-shrink-0">
+                {activeCompany ? (
+                  activeCompany.company_name
+                    ?.split(" ")
+                    .slice(0, 2)
+                    .map((w) => w[0])
+                    .join("")
+                    .toUpperCase()
+                ) : (
+                  <Building2 size={14} />
+                )}
+              </div>
+
+              <div className="text-left min-w-0 pr-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block leading-none">
+                    Active Branch
+                  </span>
+                  {activeCompany?.company_code && (
+                    <span className="font-mono text-[9px] font-extrabold px-1 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                      {activeCompany.company_code}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs sm:text-sm font-extrabold text-slate-900 truncate max-w-[150px] sm:max-w-[200px] leading-snug mt-0.5">
+                  {activeCompany?.company_name || "Select Branch..."}
+                </div>
+              </div>
+
+              <ChevronDown
+                size={15}
+                className={`text-slate-400 group-hover:text-indigo-600 transition-transform duration-200 flex-shrink-0 ${
+                  showCompanyDropdown ? "rotate-180 text-indigo-600" : ""
+                }`}
+              />
+            </button>
+
+            {/* Floating Company Selection Menu */}
+            {showCompanyDropdown && (
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-3xl border border-slate-200/90 shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-xl">
+                {/* Header with Search */}
+                <div className="p-2 border-b border-slate-100 mb-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 size={15} className="text-indigo-600" />
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                        Switch Company Branch
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                      {companies.length} {companies.length === 1 ? "Entity" : "Entities"}
+                    </span>
+                  </div>
+
+                  {companies.length > 3 && (
+                    <div className="relative">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={companySearch}
+                        onChange={(e) => setCompanySearch(e.target.value)}
+                        placeholder="Search by company name or code..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Company Items List */}
+                <div className="max-h-64 overflow-y-auto space-y-1 paysplitx-scrollbar-light pr-0.5">
+                  {filteredCompanies.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400 font-medium">
+                      No matching companies found.
+                    </div>
+                  ) : (
+                    filteredCompanies.map((comp) => {
+                      const isSelected = String(comp.id) === String(selectedCompany);
+                      const initials =
+                        comp.company_name
+                          ?.split(" ")
+                          .slice(0, 2)
+                          .map((w) => w[0])
+                          .join("")
+                          .toUpperCase() || "CO";
+
+                      return (
+                        <button
+                          key={comp.id}
+                          type="button"
+                          onClick={() => handleSelectCompany(comp.id)}
+                          className={`w-full text-left p-2.5 rounded-2xl transition flex items-center justify-between gap-3 cursor-pointer group ${
+                            isSelected
+                              ? "bg-indigo-50/80 border border-indigo-200/90 text-indigo-950"
+                              : "hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-transparent"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0 transition shadow-xs ${
+                                isSelected
+                                  ? "bg-indigo-600 text-white"
+                                  : "bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600"
+                              }`}
+                            >
+                              {initials}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-extrabold truncate block">
+                                  {comp.company_name}
+                                </span>
+                                {comp.company_code && (
+                                  <span className="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded bg-white text-slate-600 border border-slate-200">
+                                    {comp.company_code}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                <span>ID #{comp.id}</span>
+                                {comp.gstin && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="font-mono">{comp.gstin}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {isSelected && (
+                            <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                              <Check size={12} strokeWidth={3} />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer Quick Action */}
+                <div className="p-2 border-t border-slate-100 mt-2 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400 font-medium">Manage entities</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCompanyDropdown(false);
+                      navigate("/company");
+                    }}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>View All Companies</span>
+                    <ArrowRight size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sync / Refresh Button */}
@@ -368,7 +541,7 @@ export default function Dashboard() {
             onClick={handleRefresh}
             disabled={isRefreshing || !selectedCompany}
             title="Synchronize Live Telemetry"
-            className="h-10 px-3.5 rounded-2xl bg-white border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/50 text-slate-700 hover:text-indigo-600 transition flex items-center gap-2 font-bold text-xs cursor-pointer shadow-sm disabled:opacity-50"
+            className="h-11 px-4 rounded-2xl bg-white border border-slate-200/90 hover:border-indigo-200 hover:bg-indigo-50/50 text-slate-700 hover:text-indigo-600 transition flex items-center gap-2 font-bold text-xs cursor-pointer shadow-xs disabled:opacity-50"
           >
             <RotateCw size={15} className={isRefreshing ? "animate-spin text-indigo-600" : ""} />
             <span>{isRefreshing ? "Syncing..." : "Sync Live Data"}</span>

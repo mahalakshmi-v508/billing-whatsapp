@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
 /* PaySplitX Design System Variables */
 :root {
@@ -9,20 +9,199 @@
   --sidebar-navy-700: #1f2b4c;
   --sidebar-border: rgba(255, 255, 255, 0.07);
   --brand-primary: #6366f1;
+  --brand-primary-hover: #4f46e5;
   --brand-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   --brand-gradient-hover: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
   --card-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
   --card-shadow-hover: 0 12px 28px -6px rgba(15, 23, 42, 0.09), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+  --dropdown-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: #f8faff;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* PaySplitX Scrollbars */
+/* ─────────────────────────────────────────────────────────────────────────────
+   ✨ GLOBAL PREMIUM DROPDOWN (<select>) STYLING
+───────────────────────────────────────────────────────────────────────────── */
+select,
+.custom-select,
+.psx-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236366f1' stroke-width='2.4'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.75rem center !important;
+  background-size: 1.05rem 1.05rem !important;
+  padding-right: 2.35rem !important;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+/* Subtle background tint for table / dense selects */
+select:hover,
+.custom-select:hover,
+.psx-select:hover {
+  border-color: #a5b4fc;
+  background-color: #ffffff;
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.08);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234f46e5' stroke-width='2.6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+}
+
+select:focus,
+.custom-select:focus,
+.psx-select:focus {
+  outline: none !important;
+  border-color: #6366f1 !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 0 3.5px rgba(99, 102, 241, 0.18), 0 2px 8px rgba(99, 102, 241, 0.1) !important;
+}
+
+select:disabled,
+.custom-select:disabled,
+.psx-select:disabled {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+  opacity: 0.75 !important;
+  box-shadow: none !important;
+}
+
+/* Option styling */
+select option {
+  background-color: #ffffff;
+  color: #1e293b;
+  font-weight: 500;
+  font-size: 13.5px;
+  padding: 10px 14px;
+}
+
+select option:checked {
+  background-color: #eef2ff !important;
+  color: #4338ca !important;
+  font-weight: 700 !important;
+}
+
+select option:hover {
+  background-color: #f8faff !important;
+}
+
+select optgroup {
+  font-weight: 800;
+  color: #64748b;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 12px 4px;
+  background-color: #f8faff;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ✨ GLOBAL FORM INPUT & TEXTAREA STYLING
+───────────────────────────────────────────────────────────────────────────── */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="search"],
+input[type="url"],
+input[type="date"],
+textarea {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Modern Date Input Styling */
+input[type="date"] {
+  position: relative;
+  cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+  filter: invert(36%) sepia(85%) saturate(1637%) hue-rotate(222deg) brightness(97%) contrast(92%);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+input[type="date"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ✨ CUSTOM DROPDOWN MENUS, POPOVERS & SELECT BOX CONTAINERS
+───────────────────────────────────────────────────────────────────────────── */
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dropdown-menu,
+.dropdown-popover,
+.dropdown-box,
+.custom-dropdown-panel {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 18px;
+  box-shadow: 0 20px 30px -6px rgba(15, 23, 42, 0.12), 0 10px 14px -6px rgba(15, 23, 42, 0.05);
+  animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dropdown-item,
+.custom-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.dropdown-item:hover,
+.custom-dropdown-item:hover {
+  background-color: #eef2ff;
+  color: #4f46e5;
+  transform: translateX(2px);
+}
+
+.dropdown-item.active,
+.custom-dropdown-item.active {
+  background-color: #e0e7ff;
+  color: #3730a3;
+  font-weight: 700;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ✨ UTILITY CLASSES & SCROLLBARS
+───────────────────────────────────────────────────────────────────────────── */
 .paysplitx-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -57,7 +236,7 @@ body {
 .psx-card {
   background: #ffffff;
   border: 1px solid #e8edf5;
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -68,18 +247,18 @@ body {
 
 /* Glass panel */
 .psx-glass {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.7);
 }
 
 /* PaySplitX Buttons */
 .psx-btn-primary {
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: #ffffff;
-  font-weight: 600;
-  border-radius: 10px;
+  font-weight: 700;
+  border-radius: 12px;
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
   transition: all 0.18s ease;
 }
@@ -93,8 +272,8 @@ body {
   background: #ffffff;
   color: #334155;
   border: 1px solid #e2e8f0;
-  font-weight: 500;
-  border-radius: 10px;
+  font-weight: 600;
+  border-radius: 12px;
   transition: all 0.15s ease;
 }
 .psx-btn-secondary:hover {
@@ -103,7 +282,7 @@ body {
   color: #0f172a;
 }
 
-/* App primary action buttons (Save / Submit / primary CTAs) */
+/* App primary action buttons */
 .app-btn-primary {
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: #ffffff;
@@ -118,7 +297,7 @@ body {
 .psx-table-container {
   background: #ffffff;
   border: 1px solid #e8edf5;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04);
 }
@@ -127,10 +306,10 @@ body {
   background: #f8faff;
   color: #64748b;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 12px 18px;
+  padding: 13px 18px;
   border-bottom: 1px solid #e8edf5;
 }
 
@@ -146,18 +325,18 @@ body {
   background-color: #f8faff !important;
 }
 
-/* Input Styles */
+/* Form Input Standard Utility */
 .psx-input {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 8px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 9px 14px;
   font-size: 13.5px;
   color: #0f172a;
-  transition: all 0.15s ease;
+  transition: all 0.18s ease;
 }
 .psx-input:focus {
   outline: none;
   border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3.5px rgba(99, 102, 241, 0.16);
 }

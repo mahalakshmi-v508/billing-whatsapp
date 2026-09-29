@@ -84,6 +84,8 @@ Route::prefix('auth')->group(function () {
     Route::post('send_otp_for_credit', [AuthController::class, 'sendOtpForCredit']);
     Route::post('verify_otp', [AuthController::class, 'verifyOtp']);
     Route::post('logout', [AuthController::class, 'logout']);
+    Route::match(['get', 'post'], 'get_profile', [AuthController::class, 'getProfile']);
+    Route::post('update_profile', [AuthController::class, 'updateProfile']);
 });
 
 // ── ADMIN ROUTES ──

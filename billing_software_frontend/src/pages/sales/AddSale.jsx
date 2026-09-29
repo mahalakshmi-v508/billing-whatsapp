@@ -91,8 +91,6 @@ function createNewSaleTab(id, index, defaultInvNo = "") {
     stateOfSupply: "Select",
     rows: [
       createInitialRow(),
-      createInitialRow(),
-      createInitialRow(),
     ],
     showTerms: false,
     termsText: "",

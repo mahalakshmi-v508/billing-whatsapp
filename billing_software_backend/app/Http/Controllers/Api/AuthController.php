@@ -405,4 +405,149 @@ class AuthController extends Controller
             "message" => "Logged out successfully"
         ]);
     }
+
+    public function getProfile(Request $request)
+    {
+        $id = intval($request->input('id') ?: $request->input('user_id') ?: $request->query('id', 0) ?: $request->query('user_id', 0));
+
+        if (!$id) {
+            return response()->json([
+                "status" => false,
+                "message" => "User ID required"
+            ]);
+        }
+
+        $user = User::where('id', $id)->first();
+        if ($user) {
+            $companyName = null;
+            if ($user->company_id) {
+                $comp = Company::find($user->company_id);
+                $companyName = $comp ? $comp->company_name : null;
+            } elseif ($user->role === 'admin') {
+                $comp = Company::where('admin_id', $user->id)->first();
+                $companyName = $comp ? $comp->company_name : null;
+            }
+
+            return response()->json([
+                "status" => true,
+                "data" => [
+                    "id"           => $user->id,
+                    "name"         => $user->name,
+                    "email"        => $user->email,
+                    "phone"        => $user->phone ?? "",
+                    "role"         => $user->role,
+                    "status"       => $user->status ?? "active",
+                    "company_id"   => $user->company_id,
+                    "company_name" => $companyName,
+                    "admin_id"     => $user->admin_id,
+                    "created_at"   => $user->created_at
+                ]
+            ]);
+        }
+
+        // Fallback: check company owner
+        $company = Company::find($id);
+        if ($company) {
+            return response()->json([
+                "status" => true,
+                "data" => [
+                    "id"           => $company->id,
+                    "name"         => $company->owner_name ?: $company->company_name,
+                    "email"        => $company->owner_email,
+                    "phone"        => $company->phone ?? "",
+                    "role"         => "admin",
+                    "status"       => "active",
+                    "company_id"   => $company->id,
+                    "company_name" => $company->company_name,
+                    "admin_id"     => $company->admin_id,
+                    "created_at"   => $company->created_at ?? null
+                ]
+            ]);
+        }
+
+        return response()->json([
+            "status" => false,
+            "message" => "User profile not found"
+        ]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $id    = intval($request->input('id', 0) ?: $request->input('user_id', 0));
+        $name  = trim($request->input('name', ''));
+        $email = trim($request->input('email', ''));
+        $phone = trim($request->input('phone', $request->input('mobile', '')));
+        $password = trim($request->input('password', ''));
+
+        if (!$id || !$name || !$email) {
+            return response()->json([
+                "status" => false,
+                "message" => "Name and email are required"
+            ]);
+        }
+
+        $user = User::where('id', $id)->first();
+        if ($user) {
+            $duplicate = User::where('email', $email)->where('id', '!=', $id)->exists();
+            if ($duplicate) {
+                return response()->json([
+                    "status" => false,
+                    "message" => "This email address is already in use"
+                ]);
+            }
+
+            $updateData = [
+                'name'  => $name,
+                'email' => $email,
+                'phone' => $phone ?: null,
+            ];
+
+            if (!empty($password)) {
+                $updateData['password'] = Hash::make($password);
+            }
+
+            $user->update($updateData);
+
+            return response()->json([
+                "status" => true,
+                "message" => "User profile updated successfully",
+                "data" => [
+                    "id"    => $user->id,
+                    "name"  => $user->name,
+                    "email" => $user->email,
+                    "phone" => $user->phone,
+                    "role"  => $user->role,
+                    "company_id" => $user->company_id,
+                    "admin_id" => $user->admin_id
+                ]
+            ]);
+        }
+
+        $company = Company::find($id);
+        if ($company) {
+            $company->update([
+                'owner_name'  => $name,
+                'owner_email' => $email,
+                'phone'       => $phone ?: $company->phone
+            ]);
+
+            return response()->json([
+                "status" => true,
+                "message" => "User profile updated successfully",
+                "data" => [
+                    "id"    => $company->id,
+                    "name"  => $name,
+                    "email" => $email,
+                    "phone" => $phone,
+                    "role"  => "admin",
+                    "company_id" => $company->id
+                ]
+            ]);
+        }
+
+        return response()->json([
+            "status" => false,
+            "message" => "User not found"
+        ]);
+    }
 }

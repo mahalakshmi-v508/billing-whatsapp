@@ -115,6 +115,9 @@ function getHeaderBreadcrumbs(pathname) {
   if (pathname.startsWith("/billing")) {
     return { section: "POS Terminal", title: "POS Counter Billing", icon: Store };
   }
+  if (pathname.startsWith("/admin")) {
+    return { section: "Administration", title: "Admin Management", icon: UserCog };
+  }
   return { section: "Workspace", title: "Cashio", icon: Home };
 }
 
