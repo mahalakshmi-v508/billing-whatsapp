@@ -1,6 +1,23 @@
 import { useEffect, useState, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import api, { API_BASE_URL_IMAGE } from "../../services/api";
 import { getEcho, leaveChannel } from "../../services/echo";
+import InvoicePdfCapture from "../../components/InvoicePdfCapture";
+import {
+  buildInvoiceShareCaption,
+  composeShareDocument,
+  isValidWaPhone,
+  normalizeWaPhone as normalizePhoneForWa,
+  sendInvoiceDocument,
+  sendTextMessage,
+  MISSING_PHONE_MESSAGE,
+} from "../../utils/whatsappShare";
+import {
+  clearPendingWhatsAppSend,
+  getPendingWhatsAppSend,
+  isPendingWhatsAppSendCompleted,
+  markPendingWhatsAppSendSent,
+} from "../../utils/pendingWhatsAppSend";
 import {
   Search,
   FileText,
@@ -103,6 +120,7 @@ const previewIcon = (m) => {
 const statusRank = { pending: 0, sent: 1, delivered: 2, read: 3, received: 4 };
 
 export default function WhatsAppChat() {
+  const location = useLocation();
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(localStorage.getItem("selected_company_id") || "");
   // connection state: 'checking' | 'initializing' | 'reconnecting' | 'authenticated' | 'ready' | 'qr_ready' | 'disconnected' | 'auth_failure'
@@ -167,6 +185,17 @@ export default function WhatsAppChat() {
   // list and chat header without re-requesting on every poll/render.
   const [profilePics, setProfilePics] = useState({});
   const profilePicLoadingRef = useRef(new Set()); // phones with an in-flight DP request
+
+  /* ── PENDING INVOICE SHARE (hand-off from Reports / Sale Invoices) ──────
+     A "Share → WhatsApp" click on a not-connected account stores the full
+     invoice context and routes here. Once the QR is scanned and WhatsApp
+     reports "ready", the send resumes automatically — the user never has to
+     go back to Reports or click Share again.                              */
+  const [pendingSend, setPendingSend] = useState(() => getPendingWhatsAppSend());
+  const [pendingPhase, setPendingPhase] = useState("idle"); // idle|waiting|sending|sent|error
+  const [pendingError, setPendingError] = useState(null);
+  const [pendingDoc, setPendingDoc] = useState(null);
+  const pendingIdRef = useRef(null); // id currently being processed (re-render / event guard)
 
   const userObj = (() => { try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; } })();
   const adminId = userObj.role === "cashier" ? userObj.admin_id : (userObj.id || null);
@@ -351,13 +380,215 @@ export default function WhatsAppChat() {
     loadMessages(chat.phone);
   };
 
+  // Deep link from a customer record: open that conversation once connected.
+  useEffect(() => {
+    if (!connected || !companyId) return;
+    const wanted = normalizePhoneForWa(location.state?.openPhone || "");
+    if (!wanted) return;
+    setSelectedPhone(wanted);
+    stickToBottom.current = true;
+    markRead(wanted);
+    loadMessages(wanted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, companyId]);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     PENDING INVOICE SHARE — auto-resume after WhatsApp authentication.
+
+     Triggered by the real connection state (connState === "ready" from
+     /whatsapp/connect_status). No timers, no simulated statuses.
+
+     Guards against duplicate sends:
+       • pendingIdRef      — one in-flight action at a time (re-render safe)
+       • session history   — a sent id is recorded and never sent again,
+                             so refreshing /whatsapp is a no-op
+       • completed check   — the stored action is marked "sent" on success
+     ══════════════════════════════════════════════════════════════════════ */
+
+  const pendingCompanyOk =
+    !pendingSend?.companyId || String(pendingSend.companyId) === String(companyId);
+
+  /* A pending share always targets the company that owns the invoice — switch
+     to it once on arrival so the send uses that company's WhatsApp connection.
+     A later manual company change abandons the action (see handleCompanyChange). */
+  const pendingCompanySyncedRef = useRef(false);
+  useEffect(() => {
+    if (pendingCompanySyncedRef.current) return;
+    if (!pendingSend?.companyId) return;
+    pendingCompanySyncedRef.current = true;
+    if (String(pendingSend.companyId) === String(companyId)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCompanyId(String(pendingSend.companyId));
+    localStorage.setItem("selected_company_id", String(pendingSend.companyId));
+  }, [pendingSend, companyId]);
+
+  /* An action that was already delivered (or cancelled) must never be shown
+     or auto-sent again — this is what makes a refresh of /whatsapp a no-op. */
+  const visiblePending =
+    pendingSend && pendingCompanyOk && !isPendingWhatsAppSendCompleted(pendingSend)
+      ? pendingSend
+      : null;
+
+  /* The success banner stays visible after delivery, so the delivered action is
+     still rendered even though it no longer qualifies as "visiblePending". */
+  const bannerAction = pendingPhase === "sent" ? pendingSend : visiblePending;
+
+  const finishPendingSuccess = async (phone) => {
+    const action = pendingIdRef.current ? getPendingWhatsAppSend() : pendingSend;
+    if (action) {
+      markPendingWhatsAppSendSent(action);
+      setPendingSend({ ...action, status: "sent" });
+    }
+    pendingIdRef.current = null;
+    setPendingDoc(null);
+    setPendingError(null);
+    setPendingPhase("sent");
+
+    // Land the user in the real conversation that now holds the invoice.
+    if (phone) {
+      setSelectedPhone(phone);
+      stickToBottom.current = true;
+      await loadMessages(phone);
+    }
+    await loadChats();
+  };
+
+  const failPending = (message) => {
+    pendingIdRef.current = null;
+    setPendingDoc(null);
+    setPendingError(message);
+    setPendingPhase("error");
+  };
+
+  // Text-only share (E-Way Bill / estimate summary) — same internal service.
+  const sendPendingText = async (action, phone) => {
+    const message = action.message || `${action.docType || "Document"} ${action.invoiceNumber || ""}`.trim();
+
+    const res = await sendTextMessage({ companyId: action.companyId || companyId, phone, message });
+    if (!res.data?.status) {
+      throw new Error(res.data?.message || "WhatsApp could not send this message.");
+    }
+    await finishPendingSuccess(phone);
+  };
+
+  // Invoice share — rebuild the exact document from the clicked report row,
+  // let InvoicePdfCapture render + convert it, then POST /whatsapp/send_invoice.
+  const preparePendingInvoice = async (action) => {
+    const doc = await composeShareDocument({
+      transaction: { invoice_no: action.invoiceNumber, company_id: action.companyId },
+      type: action.docType || "Invoice",
+      docNo: action.invoiceNumber,
+      partyName: action.customerName,
+      phone: action.phone,
+      rawDate: action.createdAt,
+      paymentMode: "Cash",
+      rawAmount: action.amount,
+    });
+    setPendingDoc({ ...doc, captureKey: `pending-${action.id}` });
+  };
+
+  const handlePendingCapture = async (result) => {
+    const action = pendingIdRef.current ? getPendingWhatsAppSend() : pendingSend;
+    if (!action) {
+      setPendingDoc(null);
+      return;
+    }
+    // Belt-and-braces: an already-delivered action is never re-sent, even if a
+    // capture callback arrives late (StrictMode re-mount, re-render, retry).
+    if (!pendingIdRef.current || isPendingWhatsAppSendCompleted(action)) {
+      setPendingDoc(null);
+      return;
+    }
+    if (!result?.ok) {
+      failPending(result?.error?.message || "Could not generate the invoice PDF.");
+      return;
+    }
+
+    const phone = normalizePhoneForWa(action.phone);
+    try {
+      const res = await sendInvoiceDocument({
+        companyId: action.companyId || companyId,
+        invoiceNo: action.invoiceNumber,
+        phone,
+        pdfBase64: result.pdf_base64,
+        caption: buildInvoiceShareCaption({
+          customerName: action.customerName,
+          invoiceNumber: action.invoiceNumber,
+          amount: action.amount,
+        }),
+      });
+      if (!res.data?.status) {
+        throw new Error(res.data?.message || "WhatsApp could not send this invoice.");
+      }
+      await finishPendingSuccess(phone);
+    } catch (err) {
+      failPending(err.response?.data?.message || err.message || "Failed to send invoice via WhatsApp.");
+    }
+  };
+
+  const runPendingSend = async (action) => {
+    if (!action || pendingIdRef.current) return;
+    if (isPendingWhatsAppSendCompleted(action)) return;
+
+    const phone = normalizePhoneForWa(action.phone);
+
+    // Customer validation happens BEFORE anything is sent. No silent failure,
+    // no external redirect — the banner below shows a clear error.
+    if (!isValidWaPhone(phone)) {
+      pendingIdRef.current = null;
+      setPendingError(MISSING_PHONE_MESSAGE);
+      setPendingPhase("error");
+      return;
+    }
+
+    pendingIdRef.current = action.id;
+    setPendingError(null);
+    setPendingPhase("sending");
+
+    try {
+      if (action.type === "message") {
+        await sendPendingText(action, phone);
+      } else {
+        await preparePendingInvoice(action);
+      }
+    } catch (err) {
+      failPending(err.response?.data?.message || err.message || "Failed to send via WhatsApp.");
+    }
+  };
+
+  const retryPendingSend = () => {
+    const action = getPendingWhatsAppSend();
+    if (action) {
+      setPendingSend(action);
+      runPendingSend(action);
+    }
+  };
+
+  const cancelPendingSend = () => {
+    pendingIdRef.current = null;
+    clearPendingWhatsAppSend();
+    setPendingSend(null);
+    setPendingDoc(null);
+    setPendingError(null);
+    setPendingPhase("idle");
+  };
+
+  /* Auto-resume the moment the real connection state reports "ready".
+     Runs at most once per action: pendingIdRef blocks re-entry while a send
+     is in flight, and the stored status + history block it after delivery. */
+  useEffect(() => {
+    if (!connected || !companyId || !visiblePending) return;
+    if (pendingPhase !== "waiting" && pendingPhase !== "idle") return;
+    runPendingSend(visiblePending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, companyId, visiblePending, pendingPhase]);
+
   // ── CONTACT PANEL ──
   // Normalize a stored 10-digit customer phone to the WhatsApp-side 12-digit
   // number (with India country code) so it opens the existing chat flow.
-  const normalizeWaPhone = (phone) => {
-    const digits = String(phone || "").replace(/\D/g, "");
-    return digits.length === 10 ? "91" + digits : digits;
-  };
+  // Shared with the invoice-share flow so a shared invoice always lands in the
+  // exact same conversation.
+  const normalizeWaPhone = (phone) => normalizePhoneForWa(phone);
 
   const loadContacts = async () => {
     if (!adminId) return;
@@ -654,6 +885,11 @@ export default function WhatsAppChat() {
 
   const handleCompanyChange = (e) => {
     const id = e.target.value;
+    // A pending invoice share belongs to one company — switching companies
+    // abandons it instead of leaving an undeliverable action hanging around.
+    if (pendingSend && String(pendingSend.companyId || "") !== String(id)) {
+      cancelPendingSend();
+    }
     setCompanyId(id);
     setSelectedPhone(null);
     setMessages([]);
@@ -1462,6 +1698,26 @@ export default function WhatsAppChat() {
         .wc-contacts-page-search:focus { border-color: #25d366; }
         .wc-contacts-page-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 18px 18px; display: flex; flex-direction: column; gap: 2px; }
 
+        /* PENDING INVOICE SHARE BANNER */
+        .wa-pending { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; margin-bottom: 14px;
+          background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #25d366; border-radius: 14px;
+          box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06); position: relative; }
+        .wa-pending-icon { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 11px; display: flex;
+          align-items: center; justify-content: center; background: #dcfce7; color: #16a34a; }
+        .wa-pending-icon.ok { background: #dcfce7; color: #16a34a; }
+        .wa-pending-icon.err { background: #fee2e2; color: #dc2626; }
+        .wa-pending-body { flex: 1; min-width: 0; }
+        .wa-pending-title { font-size: 14.5px; font-weight: 700; color: #0f172a; }
+        .wa-pending-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; font-size: 12.5px;
+          font-weight: 600; color: #475569; }
+        .wa-pending-note { margin-top: 5px; font-size: 12.5px; color: #64748b; line-height: 1.5; }
+        .wa-pending-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+        .wa-pending-dismiss { flex: 0 0 auto; background: transparent; border: none; color: #94a3b8; cursor: pointer;
+          padding: 4px; border-radius: 8px; display: flex; }
+        .wa-pending-dismiss:hover { background: #f1f5f9; color: #475569; }
+        .wa-btn-ghost { background: #f1f5f9; color: #475569; box-shadow: none; }
+        .wa-btn-ghost:hover { background: #e2e8f0; }
+
         /* CONNECT VIEW (QR) */
         .wa-connect-wrap { flex: 1; min-height: 0; overflow-y: auto; display: flex; align-items: center; justify-content: center; padding: 10px; }
         .wa-card { width: 100%; max-width: 860px; background: #fff; border-radius: 20px; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08); overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; }
@@ -1638,6 +1894,74 @@ export default function WhatsAppChat() {
           WhatsApp
         </div>
       </div>
+
+      {/* PENDING INVOICE SHARE — resumes automatically once WhatsApp is live */}
+      {bannerAction && (
+        <div className="wa-pending">
+          <div className={`wa-pending-icon ${pendingPhase === "error" ? "err" : pendingPhase === "sent" ? "ok" : ""}`}>
+            {pendingPhase === "sending" ? (
+              <Loader2 size={20} className="wa-spin" />
+            ) : pendingPhase === "sent" ? (
+              <CheckCircle2 size={20} />
+            ) : pendingPhase === "error" ? (
+              <X size={20} />
+            ) : (
+              <FileText size={20} />
+            )}
+          </div>
+
+          <div className="wa-pending-body">
+            <div className="wa-pending-title">
+              {pendingPhase === "sent"
+                ? `Invoice sent successfully to ${bannerAction.customerName || "customer"}`
+                : pendingPhase === "sending"
+                ? "WhatsApp connected. Sending invoice..."
+                : "Invoice ready to send"}
+            </div>
+
+            <div className="wa-pending-meta">
+              <span>Invoice: #{bannerAction.invoiceNumber || bannerAction.invoiceId || "-"}</span>
+              {bannerAction.customerName && <span>Customer: {bannerAction.customerName}</span>}
+              {bannerAction.amount && <span>Amount: ₹{bannerAction.amount}</span>}
+            </div>
+
+            <div className="wa-pending-note">
+              {pendingPhase === "sent"
+                ? "You can close this banner and continue with your work."
+                : pendingPhase === "sending"
+                ? "Please wait while the PDF is generated and delivered."
+                : pendingPhase === "error"
+                ? pendingError
+                : "Connect WhatsApp to continue"}
+            </div>
+          </div>
+
+          {pendingPhase === "error" && (
+            <div className="wa-pending-actions">
+              <button className="wa-btn wa-btn-ghost" onClick={cancelPendingSend}>
+                Cancel
+              </button>
+              <button className="wa-btn" onClick={retryPendingSend} disabled={!connected}>
+                <RefreshCw size={14} /> Retry
+              </button>
+            </div>
+          )}
+
+          {pendingPhase !== "error" && pendingPhase !== "sending" && (
+            <button className="wa-pending-dismiss" onClick={cancelPendingSend} title="Dismiss">
+              <X size={15} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Off-screen invoice render → base64 PDF for the resumed send.
+          The layout matches the one used when the invoice was shared. */}
+      <InvoicePdfCapture
+        doc={pendingDoc}
+        isPOS={Boolean(pendingSend?.isPOS)}
+        onCapture={handlePendingCapture}
+      />
 
       {!companyId ? (
         <div className="wa-empty-center">

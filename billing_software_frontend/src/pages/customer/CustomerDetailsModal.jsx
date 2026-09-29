@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { WHATSAPP_ROUTE } from "../../utils/whatsappShare";
 import {
   User,
   Phone,
@@ -73,6 +75,14 @@ export default function CustomerDetailsModal({
   onViewHistory,
 }) {
   const [copiedKey, setCopiedKey] = useState(null);
+  const navigate = useNavigate();
+
+  // WhatsApp chats always open in the app's own /whatsapp page, which handles
+  // connection and sending. wa.me / WhatsApp Web are never opened.
+  const openWhatsAppChat = () => {
+    if (onClose) onClose();
+    navigate(WHATSAPP_ROUTE, { state: { openPhone: customer?.phone || null } });
+  };
 
   // Close on Escape key
   useEffect(() => {
@@ -366,14 +376,13 @@ export default function CustomerDetailsModal({
                         >
                           <Phone size={10} /> Call
                         </a>
-                        <a
-                          href={`https://wa.me/91${customer.phone.replace(/\D/g, "")}`}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={openWhatsAppChat}
                           className="text-[11px] font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
                         >
                           <MessageCircle size={10} /> Chat
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>

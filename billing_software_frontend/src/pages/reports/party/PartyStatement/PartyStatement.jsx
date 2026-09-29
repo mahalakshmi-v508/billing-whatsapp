@@ -30,6 +30,13 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../../../services/api";
 import { generateInvoicePdfBase64 } from "../../../../utils/invoiceShare";
+import {
+  fetchWhatsAppConnection,
+  isValidWaPhone,
+  normalizeWaPhone,
+  WHATSAPP_ROUTE,
+} from "../../../../utils/whatsappShare";
+import { queuePendingWhatsAppSend } from "../../../../utils/pendingWhatsAppSend";
 import ReportPagination from "../../../../components/reports/ReportPagination";
 import PartyStatementAnalytics from "./PartyStatementAnalytics";
 import { showToast } from "../../../../utils/reportToast";
@@ -508,10 +515,41 @@ export default function PartyStatement() {
     closeSharePopup();
 
     const partyName = summary.party_name || selectedParty?.name || "Party";
-    const phone = selectedParty?.phone || "";
+    const phone = normalizeWaPhone(selectedParty?.phone || "");
+    const saleRef = t.kind === "sale" ? t.ref_no : null;
+
+    /* WhatsApp always goes through the app's own /whatsapp page: when the
+       account is not connected we keep the full statement context and let the
+       send resume automatically after the QR scan. No wa.me / WhatsApp Web. */
+    const message = saleRef
+      ? `Party Statement — ${partyName}\nInvoice: ${t.ref_no}\nDate: ${t.date || "-"}\nTotal: ${fmtINR(t.total)}\nReceivable: ${fmtINR(t.receivable_bal)}`
+      : `Party Statement — ${partyName}\nType: ${t.txn_type || "-"}\nRef: ${t.ref_no || "-"}\nDate: ${t.date || "-"}\nTotal: ${fmtINR(t.total)}\nReceivable: ${fmtINR(t.receivable_bal)}`;
+
+    if (!isValidWaPhone(phone) || !(await fetchWhatsAppConnection(companyId)).connected) {
+      queuePendingWhatsAppSend({
+        type: saleRef ? "invoice" : "message",
+        action: saleRef ? "send_invoice" : "send_message",
+        invoiceId: saleRef,
+        invoiceNumber: saleRef,
+        invoiceType: "Invoice",
+        customerId: selectedParty?.id || null,
+        customerName: partyName,
+        phone,
+        amount: t.total != null ? String(t.total) : "",
+        companyId: companyId,
+        isPOS: false,
+        docType: "Invoice",
+        message,
+        source: window.location.pathname + window.location.search,
+        returnTo: window.location.pathname,
+      });
+      setWhatsappSending(false);
+      navigate(WHATSAPP_ROUTE);
+      return;
+    }
 
     try {
-      if (t.kind === "sale" && t.ref_no) {
+      if (saleRef) {
         const el = buildTransactionElement(t);
         document.body.appendChild(el);
         el.style.position = "absolute";
@@ -519,34 +557,54 @@ export default function PartyStatement() {
         el.style.top = "0";
 
         try {
-          const pdfBase64 = await generateInvoicePdfBase64({ element: el, invoiceNo: t.ref_no, isPOS: false });
+          const pdfBase64 = await generateInvoicePdfBase64({ element: el, invoiceNo: saleRef, isPOS: false });
           const res = await api.post("/whatsapp/send_invoice", {
             company_id: companyId,
-            invoice_no: t.ref_no,
-            phone: phone,
+            invoice_no: saleRef,
+            phone,
             pdf_base64: pdfBase64,
-            filename: `${t.ref_no}.pdf`,
+            filename: `${saleRef}.pdf`,
           });
+          if (!res.data?.status) {
+            throw new Error(res.data?.message || "WhatsApp could not send this statement.");
+          }
           showToast(res.data?.message || "Invoice sent via WhatsApp!", "success");
-        } catch {
-          const fallbackMsg = encodeURIComponent(
-            `Party Statement — ${partyName}\nInvoice: ${t.ref_no}\nDate: ${t.date || "-"}\nTotal: ${fmtINR(t.total)}\nReceivable: ${fmtINR(t.receivable_bal)}`
-          );
-          window.open(`https://wa.me/${phone}?text=${fallbackMsg}`, "_blank");
         } finally {
           el.remove();
         }
       } else {
-        const message = encodeURIComponent(
-          `Party Statement — ${partyName}\nType: ${t.txn_type || "-"}\nRef: ${t.ref_no || "-"}\nDate: ${t.date || "-"}\nTotal: ${fmtINR(t.total)}\nReceivable: ${fmtINR(t.receivable_bal)}`
-        );
-        window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
+        const res = await api.post("/whatsapp/send_message", {
+          company_id: companyId,
+          phone,
+          message,
+        });
+        if (!res.data?.status) {
+          throw new Error(res.data?.message || "WhatsApp could not send this message.");
+        }
+        showToast(res.data?.message || "Sent via WhatsApp!", "success");
       }
     } catch {
-      const fallbackMsg = encodeURIComponent(
-        `Party Statement — ${partyName}\nType: ${t.txn_type || "-"}\nRef: ${t.ref_no || "-"}\nDate: ${t.date || "-"}\nTotal: ${fmtINR(t.total)}`
-      );
-      window.open(`https://wa.me/${phone}?text=${fallbackMsg}`, "_blank");
+      // Stay on the current report and keep the invoice context — the user
+      // never gets bounced to an external WhatsApp client.
+      queuePendingWhatsAppSend({
+        type: saleRef ? "invoice" : "message",
+        action: saleRef ? "send_invoice" : "send_message",
+        invoiceId: saleRef,
+        invoiceNumber: saleRef,
+        invoiceType: "Invoice",
+        customerId: selectedParty?.id || null,
+        customerName: partyName,
+        phone,
+        amount: t.total != null ? String(t.total) : "",
+        companyId: companyId,
+        isPOS: false,
+        docType: "Invoice",
+        message,
+        source: window.location.pathname + window.location.search,
+        returnTo: window.location.pathname,
+      });
+      navigate(WHATSAPP_ROUTE);
+      return;
     } finally {
       setWhatsappSending(false);
     }
