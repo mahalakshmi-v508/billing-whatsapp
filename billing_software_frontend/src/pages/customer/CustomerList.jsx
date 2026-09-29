@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import CustomerForm from "./CustomerForm";
 import EditCustomer from "./EditCustomer";
+import CustomerDetailsModal from "./CustomerDetailsModal";
 import StatusBadge from "../../components/ui/StatusBadge";
 
 /* ─────────────────── helpers ─────────────────── */
@@ -169,6 +170,17 @@ export default function CustomerList() {
     return customers.filter((c) => Number(c.advance_balance || 0) > 0).length;
   }, [customers]);
 
+  const creditCustomersCount = useMemo(() => {
+    return customers.filter(
+      (c) =>
+        Number(c.credit_enabled) === 1 ||
+        c.credit_enabled === "1" ||
+        c.credit_enabled === true ||
+        Number(c.credit_limit || 0) > 0 ||
+        Number(c.credit_days || 0) > 0
+    ).length;
+  }, [customers]);
+
   const pendingInvoices = (invoiceHistory || []).filter((i) => Number(i.balance_amount) > 0);
   const totalPending = pendingInvoices.reduce((s, i) => s + Number(i.balance_amount), 0);
 
@@ -186,6 +198,15 @@ export default function CustomerList() {
       if (!matchesSearch) return false;
 
       const pt = getCustomerPendingTotal(c.id);
+      if (filterTab === "credit") {
+        return (
+          Number(c.credit_enabled) === 1 ||
+          c.credit_enabled === "1" ||
+          c.credit_enabled === true ||
+          Number(c.credit_limit || 0) > 0 ||
+          Number(c.credit_days || 0) > 0
+        );
+      }
       if (filterTab === "pending") return pt > 0;
       if (filterTab === "advance") return Number(c.advance_balance || 0) > 0;
       if (filterTab === "active") return Number(c.status !== "inactive");
@@ -257,17 +278,18 @@ export default function CustomerList() {
   // Open view customer modal
   const openViewCustomer = async (cust) => {
     setSelectedCustomer(cust);
+    setViewCustomer(cust);
     setShowViewModal(true);
-    setViewCustomer(null);
     setViewLoading(true);
     setActiveMenuId(null);
     try {
       const res = await api.get(`/customer/get_customer_by_id?id=${cust.id}`);
       if (res.data.status) {
-        setViewCustomer(res.data.data);
+        setViewCustomer({ ...cust, ...res.data.data });
       }
     } catch (err) {
       console.error(err);
+      setViewCustomer(cust);
     } finally {
       setViewLoading(false);
     }
@@ -473,6 +495,7 @@ export default function CustomerList() {
         <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl flex-wrap">
           {[
             { id: "all", label: "All Customers", count: customers.length },
+            { id: "credit", label: "Credit Customers", count: creditCustomersCount },
             { id: "pending", label: "With Pending Dues", count: customersWithDues },
             { id: "advance", label: "Advance Balance", count: customersWithAdvance },
           ].map((tab) => (
@@ -1162,63 +1185,26 @@ export default function CustomerList() {
         </div>
       )}
 
-      {/* ── VIEW CUSTOMER DETAILS MODAL ── */}
-      {showViewModal && (
-        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 font-display">Customer Master Profile</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{viewCustomer?.name || "Loading..."}</p>
-              </div>
-              <button
-                onClick={() => setShowViewModal(false)}
-                className="w-8 h-8 rounded-lg hover:bg-slate-200/60 text-slate-500 flex items-center justify-center cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto flex-1 space-y-4 text-xs paysplitx-scrollbar-light">
-              {viewLoading ? (
-                <div className="py-12 text-center text-indigo-600 font-semibold">Loading profile...</div>
-              ) : viewCustomer ? (
-                <>
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase">Contact Information</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><span className="text-slate-400">Phone:</span> <strong className="text-slate-800">{viewCustomer.phone}</strong></div>
-                      <div><span className="text-slate-400">Email:</span> <strong className="text-slate-800">{viewCustomer.email || "-"}</strong></div>
-                      <div><span className="text-slate-400">State:</span> <strong className="text-slate-800">{viewCustomer.state || "-"}</strong></div>
-                      <div><span className="text-slate-400">City:</span> <strong className="text-slate-800">{viewCustomer.city || "-"}</strong></div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase">GST & Tax Identifiers</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><span className="text-slate-400">GST Type:</span> <strong className="text-slate-800">{viewCustomer.type || "Regular"}</strong></div>
-                      <div><span className="text-slate-400">GSTIN:</span> <strong className="text-slate-800">{viewCustomer.gst_no || "-"}</strong></div>
-                      <div><span className="text-slate-400">PAN:</span> <strong className="text-slate-800">{viewCustomer.pan_number || "-"}</strong></div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase">Credit & Balance Status</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><span className="text-slate-400">Credit Limit:</span> <strong className="text-slate-800">₹{fmt(viewCustomer.credit_limit)}</strong></div>
-                      <div><span className="text-slate-400">Credit Days:</span> <strong className="text-slate-800">{viewCustomer.credit_days || 0} days</strong></div>
-                      <div><span className="text-slate-400">Advance Balance:</span> <strong className="text-emerald-600">₹{fmt(viewCustomer.advance_balance)}</strong></div>
-                      <div><span className="text-slate-400">Pending Amount:</span> <strong className="text-rose-600">₹{fmt(viewCustomer.pending_amount)}</strong></div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="py-12 text-center text-slate-400">Failed to load customer profile.</div>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* ── VIEW CUSTOMER DETAILS MODAL (Current Modern Code Structure) ── */}
+      {showViewModal && (viewCustomer || selectedCustomer) && (
+        <CustomerDetailsModal
+          customer={viewCustomer || selectedCustomer}
+          pendingTotal={getCustomerPendingTotal((viewCustomer || selectedCustomer).id)}
+          isOpen={showViewModal}
+          onClose={() => {
+            setShowViewModal(false);
+            setViewCustomer(null);
+          }}
+          onEdit={(id) => {
+            setShowViewModal(false);
+            setEditCustomerId(id);
+            setShowEditModal(true);
+          }}
+          onCollect={(cust) => openCollectForCustomer(cust)}
+          onSendReminder={(cust) => sendCustomerReminder(cust)}
+          onViewLedger={(cust) => openCustomerLedger(cust)}
+          onViewHistory={(cust) => openCustomerHistoryModal(cust)}
+        />
       )}
 
       {/* ── ADD CUSTOMER MODAL ── */}

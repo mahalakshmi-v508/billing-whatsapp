@@ -31,6 +31,7 @@ import * as XLSX from "xlsx";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
 import { useTableColumns } from "../../hooks/useTableColumns";
+import AddSupplierModal from "../supplier/AddSupplierModal";
 
 const DEFAULT_PURCHASE_FORM_COLUMNS = [
   { id: "status", label: "Status", defaultVisible: true },
@@ -64,6 +65,7 @@ export default function PurchaseForm() {
   );
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
   const [purchaseNo, setPurchaseNo] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split("T")[0]);
   const [paidAmount, setPaidAmount] = useState(0);
@@ -109,18 +111,23 @@ export default function PurchaseForm() {
     }
   }, []);
 
+  const fetchSuppliers = (companyId) => {
+    if (!companyId) return;
+    api.get(`/supplier/get_all?company_id=${companyId}`)
+      .then(res => {
+        if (res.data.status) {
+          setSuppliers(res.data.data || []);
+        }
+      })
+      .catch(console.error);
+  };
+
   // Load basic configurations when company or draft ID changes
   useEffect(() => {
     if (!selectedCompany) return;
 
     // Load Suppliers for selected company
-    api.get(`/supplier/get_all?company_id=${selectedCompany}`)
-      .then(res => {
-        if (res.data.status) {
-          setSuppliers(res.data.data);
-        }
-      })
-      .catch(console.error);
+    fetchSuppliers(selectedCompany);
 
     // Load Categories for selected company
     api.get(`/category/get_active_category?company_id=${selectedCompany}`)
@@ -846,9 +853,26 @@ export default function PurchaseForm() {
 
                   {/* Supplier Select */}
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 mb-1 block">
-                      Supplier / Vendor <span className="text-rose-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-slate-600">
+                        Supplier / Vendor <span className="text-rose-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedCompany) {
+                            setToast({ type: "error", message: "Please select a company first before adding a supplier." });
+                            return;
+                          }
+                          setShowAddSupplierModal(true);
+                        }}
+                        disabled={isLocked}
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Plus size={12} className="stroke-[3]" />
+                        <span>Add Supplier</span>
+                      </button>
+                    </div>
                     <select
                       value={selectedSupplier}
                       disabled={isLocked || !selectedCompany}
@@ -1402,6 +1426,24 @@ export default function PurchaseForm() {
         onResetColumns={resetColumns}
         title="Customize Invoice Item Columns"
       />
+
+      {/* Add Supplier Modal */}
+      {showAddSupplierModal && (
+        <AddSupplierModal
+          isOpen={showAddSupplierModal}
+          onClose={() => setShowAddSupplierModal(false)}
+          companyId={selectedCompany}
+          onSupplierAdded={(newSup) => {
+            if (selectedCompany) {
+              fetchSuppliers(selectedCompany);
+            }
+            if (newSup?.id) {
+              setSelectedSupplier(newSup.id);
+            }
+            setShowAddSupplierModal(false);
+          }}
+        />
+      )}
 
     </div>
   );

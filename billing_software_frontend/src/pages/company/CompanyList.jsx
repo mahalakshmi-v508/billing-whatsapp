@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import CompanyForm from "./CompanyForm";
 import EditCompany from "./EditCompany";
+import CompanyDetailsModal from "./CompanyDetailsModal";
 import {
   Pencil,
+  Eye,
   Search,
   Building2,
   Plus,
@@ -30,6 +32,7 @@ export default function CompanyList() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCompanyId, setEditingCompanyId] = useState(null);
+  const [viewingCompany, setViewingCompany] = useState(null);
 
   const isLimitReached = companies.length >= MAX_COMPANIES;
 
@@ -358,15 +361,20 @@ export default function CompanyList() {
 
                       {/* Company Profile (Avatar + Name + Email) */}
                       <td className="py-3.5 px-5">
-                        <div className="flex items-center gap-3">
+                        <div
+                          onClick={() => setViewingCompany(c)}
+                          className="flex items-center gap-3 cursor-pointer group"
+                          title="Click to view full company details"
+                        >
                           <div
-                            className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ring-2 ${colorClass}`}
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ring-2 group-hover:scale-105 transition-transform ${colorClass}`}
                           >
                             {getInitials(c.company_name)}
                           </div>
                           <div>
-                            <div className="font-bold text-slate-900 text-xs sm:text-sm">
-                              {c.company_name}
+                            <div className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                              <span>{c.company_name}</span>
+                              <Eye size={12} className="opacity-0 group-hover:opacity-100 text-indigo-500 transition-opacity" />
                             </div>
                             {c.email ? (
                               <div className="text-[11px] text-slate-500 font-normal">
@@ -460,13 +468,22 @@ export default function CompanyList() {
 
                       {/* Actions */}
                       <td className="py-3.5 px-5 text-right">
-                        <button
-                          onClick={() => setEditingCompanyId(c.id)}
-                          className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
-                          title="Edit Company"
-                        >
-                          <Pencil size={15} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setViewingCompany(c)}
+                            className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+                            title="View Full Details"
+                          >
+                            <Eye size={15} />
+                          </button>
+                          <button
+                            onClick={() => setEditingCompanyId(c.id)}
+                            className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+                            title="Edit Company"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -509,6 +526,25 @@ export default function CompanyList() {
           </div>
         )}
       </div>
+
+      {/* ── COMPANY FULL DETAILS MODAL POPUP ── */}
+      {viewingCompany && (
+        <CompanyDetailsModal
+          company={viewingCompany}
+          isOpen={Boolean(viewingCompany)}
+          onClose={() => setViewingCompany(null)}
+          onEdit={(id) => {
+            setViewingCompany(null);
+            setEditingCompanyId(id);
+          }}
+          onToggleStatus={async (comp) => {
+            await toggleStatus(comp);
+            setViewingCompany((prev) =>
+              prev ? { ...prev, status: prev.status === "active" ? "inactive" : "active" } : null
+            );
+          }}
+        />
+      )}
 
       {/* ── ADD COMPANY MODAL POPUP ── */}
       {showAddModal && (

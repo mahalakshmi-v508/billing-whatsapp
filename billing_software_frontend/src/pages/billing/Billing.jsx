@@ -390,7 +390,7 @@ export default function Billing() {
   }, []);
 
   const handleAiCopilotSubmit = async (queryText) => {
-    const text = queryText || aiPrompt;
+    const text = queryText || globalSearch || aiPrompt;
     if (!text.trim() || !selectedCompany) return;
     setAiLoading(true);
     try {
@@ -434,6 +434,9 @@ export default function Billing() {
           addMultipleProducts(itemsToAdd);
         }
         setAiPrompt("");
+        setGlobalSearch("");
+        setShowSuggest(false);
+        setShowNoResult(false);
       } else {
         showToast(res.data.message, "warning");
       }
@@ -456,6 +459,7 @@ export default function Billing() {
     setIsListening(true);
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
+      setGlobalSearch(transcript);
       setAiPrompt(transcript);
       setIsListening(false);
       handleAiCopilotSubmit(transcript);
@@ -628,7 +632,17 @@ export default function Billing() {
         addOrMergeProduct(productByCode[code]);
         return;
       }
-      if (globalSuggestions.length > 0) addOrMergeProduct(globalSuggestions[0]);
+      if (globalSuggestions.length === 1) {
+        addOrMergeProduct(globalSuggestions[0]);
+        return;
+      }
+      if (globalSuggestions.length === 0 && globalSearch.trim()) {
+        handleAiCopilotSubmit(globalSearch);
+        return;
+      }
+      if (globalSuggestions.length > 0) {
+        addOrMergeProduct(globalSuggestions[0]);
+      }
     } else if (e.key === "Escape") {
       setShowSuggest(false);
       setSuggestIndex(-1);
@@ -1301,8 +1315,14 @@ export default function Billing() {
 
           <button
             type="button"
-            onClick={() => navigate("/dashboard")}
-            title="Return to Dashboard"
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate("/dashboard");
+              }
+            }}
+            title="Go Back"
             className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-white/10"
           >
             <X size={16} />
@@ -1311,7 +1331,7 @@ export default function Billing() {
       </header>
 
       {/* ════════════════════════════════════════════════════════════════════
-          2. PRODUCT LIVE SEARCH & BARCODE SCANNER TOOLBAR
+          2. UNIFIED PRODUCT & AI OMNISEARCH TOOLBAR
       ════════════════════════════════════════════════════════════════════ */}
       <div
         ref={suggestBoxRef}
@@ -1319,7 +1339,7 @@ export default function Billing() {
       >
         {/* Search Input Box */}
         <div className="relative flex-1 min-w-0">
-          <div className="relative">
+          <div className="relative flex items-center">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
               <Search size={16} />
             </div>
@@ -1327,7 +1347,7 @@ export default function Billing() {
               ref={globalSearchRef}
               id="global-product-search"
               type="text"
-              placeholder="Scan Barcode or type item name / HSN code / model..."
+              placeholder='Search item, scan barcode, or ask AI (e.g. "Add 2 Rice & pay UPI")...'
               value={globalSearch}
               onChange={(e) => handleGlobalSearch(e.target.value)}
               onFocus={() => {
@@ -1339,21 +1359,83 @@ export default function Billing() {
               }}
               onKeyDown={handleSearchKeyDown}
               autoComplete="off"
-              className="w-full pl-10 pr-24 py-2 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 rounded-2xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 transition-all outline-none"
+              className="w-full pl-10 pr-36 sm:pr-48 py-2 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 rounded-2xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 transition-all outline-none"
             />
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-1.5 pointer-events-none">
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-200/80 px-1.5 py-0.5 rounded-md">
-                <Barcode size={13} />
-              </span>
-              <kbd className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-mono font-bold text-[10px] border border-indigo-200">
-                F2
-              </kbd>
+            
+            {/* Inline Action Controls */}
+            <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1.5">
+              {/* Voice Speech Mic Button */}
+              <button
+                type="button"
+                onClick={startVoiceCommand}
+                title={isListening ? "Listening... Speak command" : "Voice AI Command Input"}
+                className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                  isListening
+                    ? "bg-red-500 text-white animate-pulse shadow-xs"
+                    : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                }`}
+              >
+                {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+              </button>
+
+              {/* AI Run Button (active when input has text) */}
+              {globalSearch.trim() && (
+                <button
+                  type="button"
+                  onClick={() => handleAiCopilotSubmit(globalSearch)}
+                  disabled={aiLoading}
+                  title="Run AI Copilot Command"
+                  className="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-[11px] font-bold shadow-xs transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  {aiLoading ? (
+                    <RefreshCw size={11} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={11} />
+                  )}
+                  <span>AI</span>
+                </button>
+              )}
+
+              {/* Barcode & F2 shortcut indicator */}
+              <div className="hidden sm:flex items-center gap-1 pointer-events-none pl-1 border-l border-slate-200">
+                <span className="inline-flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-200/80 px-1.5 py-0.5 rounded-md">
+                  <Barcode size={13} />
+                </span>
+                <kbd className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-mono font-bold text-[10px] border border-indigo-200">
+                  F2
+                </kbd>
+              </div>
             </div>
           </div>
 
           {/* Live Search Suggestions Dropdown */}
-          {showSuggest && globalSuggestions.length > 0 && (
+          {showSuggest && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 max-h-80 overflow-y-auto p-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+              {/* Optional AI prompt option if user typed query */}
+              {globalSearch.trim() && (
+                <div
+                  onMouseDown={() => handleAiCopilotSubmit(globalSearch)}
+                  className="flex items-center justify-between p-2.5 mb-1 rounded-xl bg-gradient-to-r from-indigo-50/90 to-violet-50/90 text-indigo-950 border border-indigo-200/70 hover:from-indigo-100 hover:to-violet-100 cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                      <Sparkles size={13} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 truncate">
+                        Ask AI Copilot: <span className="text-indigo-600">"{globalSearch}"</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        Auto-detect item, quantity, payment method, or customer
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] font-extrabold text-indigo-600 shrink-0 bg-white/80 px-2 py-0.5 rounded-md border border-indigo-200/60">
+                    Run AI ↵
+                  </div>
+                </div>
+              )}
+
               {!globalSearch.trim() && recentProducts.length > 0 && (
                 <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                   <Clock size={12} /> Recent Items
@@ -1365,8 +1447,9 @@ export default function Billing() {
                   <div
                     key={s.id}
                     onMouseDown={() => addOrMergeProduct(s)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${isSelected ? "bg-indigo-50/90 text-indigo-950 border border-indigo-200" : "hover:bg-slate-50"
-                      }`}
+                    className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                      isSelected ? "bg-indigo-50/90 text-indigo-950 border border-indigo-200" : "hover:bg-slate-50"
+                    }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
@@ -1535,40 +1618,6 @@ export default function Billing() {
       <div className="flex-1 flex overflow-hidden min-h-0 bg-slate-100">
         {/* ── LEFT: PRODUCTS CART TABLE ── */}
         <div className="flex-1 flex flex-col overflow-hidden bg-white border-r border-slate-200">
-          {/* AI Copilot Input Bar */}
-          <div className="px-4 py-2 bg-gradient-to-r from-indigo-50/50 to-slate-50 border-b border-slate-100 flex items-center gap-2.5 flex-shrink-0">
-            <span className="px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1">
-              <Sparkles size={11} /> AI
-            </span>
-            <input
-              type="text"
-              placeholder='Try typing "Add 2 Sonamasuri Rice and payment by UPI"...'
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAiCopilotSubmit();
-              }}
-              className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-            />
-            <button
-              type="button"
-              onClick={startVoiceCommand}
-              title="Voice Speech Input"
-              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isListening ? "bg-red-500 text-white animate-pulse" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-            >
-              {isListening ? <MicOff size={15} /> : <Mic size={15} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAiCopilotSubmit()}
-              disabled={aiLoading}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1"
-            >
-              {aiLoading ? <RefreshCw size={12} className="animate-spin" /> : "Run"}
-            </button>
-          </div>
-
           {/* AI Anomaly Warnings */}
           {aiAnomalies.length > 0 && (
             <div className="px-4 py-2 bg-red-50 border-b border-red-200 space-y-1">

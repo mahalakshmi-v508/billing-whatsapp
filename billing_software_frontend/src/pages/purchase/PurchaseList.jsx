@@ -5,7 +5,8 @@ import {
   Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search,
   Phone, Mail, MapPin, Wallet, Plus, Share2, Building2, CheckCircle2,
   AlertCircle, ShieldAlert, ShoppingCart, ArrowUpRight, X, ChevronRight,
-  Filter, Check, UserCheck, Layers, LayoutGrid, Calendar, RefreshCw
+  Filter, Check, UserCheck, Layers, LayoutGrid, Calendar, RefreshCw,
+  Printer, FileText
 } from "lucide-react";
 import AddSupplierModal from "../supplier/AddSupplierModal";
 import TableActions from "../../components/ui/TableActions";
@@ -314,11 +315,20 @@ export default function PurchaseList() {
 
   // ── Financial Intelligence Calculations (PaySplitX KPI Metrics) ──
   const kpiMetrics = useMemo(() => {
-    const totalPurchasesVal = purchases.reduce((acc, p) => acc + Number(p.total_amount || 0), 0);
-    const totalPaidVal = purchases.reduce((acc, p) => acc + Number(p.paid_amount || 0), 0);
+    // If status is draft, no need to include in Total Purchases volume
+    const confirmedPurchases = purchases.filter((p) => p.status !== "draft");
+    const draftPurchases = purchases.filter((p) => p.status === "draft");
+
+    const totalPurchasesVal = confirmedPurchases.reduce((acc, p) => acc + Number(p.total_amount || 0), 0);
+    const totalPaidVal = confirmedPurchases.reduce((acc, p) => acc + Number(p.paid_amount || 0), 0);
     const totalPendingVal = purchases
       .filter((p) => p.status === "submitted")
       .reduce((acc, p) => acc + Number(p.balance_amount || 0), 0);
+
+    // Separate draft purchases amount and count
+    const totalDraftVal = draftPurchases.reduce((acc, p) => acc + Number(p.total_amount || 0), 0);
+    const draftBillsCount = draftPurchases.length;
+    const submittedBillsCount = confirmedPurchases.length;
 
     const pendingBillsCount = purchases.filter(
       (p) => Number(p.balance_amount) > 0 && p.status === "submitted"
@@ -336,6 +346,9 @@ export default function PurchaseList() {
       totalPurchasesVal,
       totalPaidVal,
       totalPendingVal,
+      totalDraftVal,
+      draftBillsCount,
+      submittedBillsCount,
       pendingBillsCount,
       settledBillsCount,
       suppliersWithDuesCount,
@@ -409,13 +422,12 @@ export default function PurchaseList() {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
-            onClick={() => navigate("/purchases/reports")}
-            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl shadow-xs transition cursor-pointer"
+            onClick={() => setShowAddSupplierModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm rounded-xl shadow-xs transition cursor-pointer"
           >
-            <FileSpreadsheet size={15} className="text-emerald-600" />
-            <span>GST Report</span>
+            <Plus size={16} className="text-indigo-600" />
+            <span>Add Supplier</span>
           </button>
-          <HeaderSettingsButton onClick={openSettings} variant="table" />
           <button
             onClick={() => navigate("/purchases/new")}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
@@ -426,9 +438,9 @@ export default function PurchaseList() {
         </div>
       </div>
 
-      {/* ── 2. METRIC STAT CARDS (PaySplitX 4-Card Strip) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Purchases Volume */}
+      {/* ── 2. METRIC STAT CARDS (PaySplitX 5-Card Strip) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        {/* Total Purchases Volume (Excluding Drafts) */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
           <div className="flex items-start justify-between">
@@ -441,8 +453,26 @@ export default function PurchaseList() {
             ₹{fmt(kpiMetrics.totalPurchasesVal)}
           </div>
           <div className="flex items-center gap-2 text-[11px] text-slate-500">
-            <span className="text-indigo-600 font-bold">{purchases.length}</span>
-            <span>recorded purchase bills</span>
+            <span className="text-indigo-600 font-bold">{kpiMetrics.submittedBillsCount}</span>
+            <span>confirmed purchase bills</span>
+          </div>
+        </div>
+
+        {/* Draft Purchases (Separate Card for Draft Product Amount) */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Draft Purchases</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <FileText size={16} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-amber-600 tracking-tight my-1 font-display">
+            ₹{fmt(kpiMetrics.totalDraftVal)}
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            <span className="text-amber-600 font-bold">{kpiMetrics.draftBillsCount}</span>
+            <span>drafts pending confirmation</span>
           </div>
         </div>
 
@@ -483,10 +513,10 @@ export default function PurchaseList() {
 
         {/* Active Suppliers Base */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="absolute top-0 left-0 right-0 h-1 bg-slate-500" />
           <div className="flex items-start justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Registered Vendors</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
               <Building2 size={16} />
             </div>
           </div>
@@ -887,42 +917,61 @@ export default function PurchaseList() {
                             </td>
                           )}
                           <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                            <TableActions
-                              onPrint={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
-                              printTitle="Print Bill"
-                              shareTransaction={p}
-                              shareType="Purchase Bill"
-                              onViewInvoice={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
-                              viewInvoiceLabel="View Invoice"
-                              menuItems={[
-                                {
-                                  label: "View Invoice",
-                                  icon: Eye,
-                                  onClick: () => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`),
-                                },
-                                {
-                                  label: p.status === "draft" ? "Edit Draft" : "View / Edit Bill",
-                                  icon: Pencil,
-                                  onClick: () => navigate(`/purchases/edit/${p.id}`),
-                                },
-                                ...(Number(p.balance_amount) > 0
-                                  ? [
-                                      {
-                                        label: "Pay Bill",
-                                        icon: CreditCard,
-                                        onClick: () => openPayModal(p),
-                                      },
-                                    ]
-                                  : []),
-                                { isDivider: true },
-                                {
-                                  label: "Delete",
-                                  icon: Trash2,
-                                  isDanger: true,
-                                  onClick: () => handleDelete(p.id),
-                                },
-                              ]}
-                            />
+                            {p.status === "draft" ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                                  title="Print Draft Bill"
+                                  className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                                >
+                                  <Printer size={15} />
+                                </button>
+                                <button
+                                  onClick={() => navigate(`/purchases/edit/${p.id}`)}
+                                  title="Edit Draft"
+                                  className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center transition cursor-pointer"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <TableActions
+                                onPrint={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                                printTitle="Print Bill"
+                                shareTransaction={p}
+                                shareType="Purchase Bill"
+                                onViewInvoice={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                                viewInvoiceLabel="View Invoice"
+                                menuItems={[
+                                  {
+                                    label: "View Invoice",
+                                    icon: Eye,
+                                    onClick: () => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`),
+                                  },
+                                  {
+                                    label: "View / Edit Bill",
+                                    icon: Pencil,
+                                    onClick: () => navigate(`/purchases/edit/${p.id}`),
+                                  },
+                                  ...(Number(p.balance_amount) > 0
+                                    ? [
+                                        {
+                                          label: "Pay Bill",
+                                          icon: CreditCard,
+                                          onClick: () => openPayModal(p),
+                                        },
+                                      ]
+                                    : []),
+                                  { isDivider: true },
+                                  {
+                                    label: "Delete",
+                                    icon: Trash2,
+                                    isDanger: true,
+                                    onClick: () => handleDelete(p.id),
+                                  },
+                                ]}
+                              />
+                            )}
                           </td>
                         </tr>
                       );
@@ -1074,42 +1123,61 @@ export default function PurchaseList() {
                           </td>
                         )}
                         <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <TableActions
-                            onPrint={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
-                            printTitle="Print Bill"
-                            shareTransaction={p}
-                            shareType="Purchase Bill"
-                            onViewInvoice={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
-                            viewInvoiceLabel="View Invoice"
-                            menuItems={[
-                              {
-                                label: "View Invoice",
-                                icon: Eye,
-                                onClick: () => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`),
-                              },
-                              {
-                                label: p.status === "draft" ? "Edit Draft" : "View / Edit Bill",
-                                icon: Pencil,
-                                onClick: () => navigate(`/purchases/edit/${p.id}`),
-                              },
-                              ...(Number(p.balance_amount) > 0
-                                ? [
-                                    {
-                                      label: "Pay Bill",
-                                      icon: CreditCard,
-                                      onClick: () => openPayModal(p),
-                                    },
-                                  ]
-                                : []),
-                              { isDivider: true },
-                              {
-                                label: "Delete",
-                                icon: Trash2,
-                                isDanger: true,
-                                onClick: () => handleDelete(p.id),
-                              },
-                            ]}
-                          />
+                          {p.status === "draft" ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                                title="Print Draft Bill"
+                                className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center transition cursor-pointer"
+                              >
+                                <Printer size={15} />
+                              </button>
+                              <button
+                                onClick={() => navigate(`/purchases/edit/${p.id}`)}
+                                title="Edit Draft"
+                                className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center transition cursor-pointer"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <TableActions
+                              onPrint={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                              printTitle="Print Bill"
+                              shareTransaction={p}
+                              shareType="Purchase Bill"
+                              onViewInvoice={() => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`)}
+                              viewInvoiceLabel="View Invoice"
+                              menuItems={[
+                                {
+                                  label: "View Invoice",
+                                  icon: Eye,
+                                  onClick: () => navigate(p.purchase_no ? `/invoice/${p.purchase_no}` : `/purchases/edit/${p.id}`),
+                                },
+                                {
+                                  label: "View / Edit Bill",
+                                  icon: Pencil,
+                                  onClick: () => navigate(`/purchases/edit/${p.id}`),
+                                },
+                                ...(Number(p.balance_amount) > 0
+                                  ? [
+                                      {
+                                        label: "Pay Bill",
+                                        icon: CreditCard,
+                                        onClick: () => openPayModal(p),
+                                      },
+                                    ]
+                                  : []),
+                                { isDivider: true },
+                                {
+                                  label: "Delete",
+                                  icon: Trash2,
+                                  isDanger: true,
+                                  onClick: () => handleDelete(p.id),
+                                },
+                              ]}
+                            />
+                          )}
                         </td>
                       </tr>
                     );

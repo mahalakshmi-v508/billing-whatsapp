@@ -54,6 +54,8 @@ import {
   Wallet,
 } from "lucide-react";
 import HeaderQuickMenu from "../components/layout/HeaderQuickMenu";
+import HeaderNotifications from "../components/layout/HeaderNotifications";
+import HeaderUserDropdown from "../components/layout/HeaderUserDropdown";
 
 function getHeaderBreadcrumbs(pathname) {
   if (pathname === "/dashboard") {
@@ -316,6 +318,7 @@ export default function MainLayout() {
     ...(role === "admin"
       ? [
         { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
+        { name: "Point of Sale (POS)", path: "/billing", icon: <Store size={18} /> },
         {
           name: "Customer & CRM",
           icon: <User size={18} />,
@@ -835,8 +838,8 @@ export default function MainLayout() {
             })()}
           </div>
 
-          {/* Right: Quick Actions Command Menu & POS Launcher */}
-          <div className="flex items-center gap-3">
+          {/* Right: Quick Actions Command Menu, Notifications & User Dropdown */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <HeaderQuickMenu
               isOpen={quickAddOpen}
               setIsOpen={setQuickAddOpen}
@@ -844,6 +847,12 @@ export default function MainLayout() {
               role={role}
               containerRef={quickAddRef}
             />
+
+            {/* Notification Bell with Badge & Dropdown */}
+            <HeaderNotifications />
+
+            {/* User Profile & Account Dropdown */}
+            <HeaderUserDropdown />
           </div>
         </header>
 

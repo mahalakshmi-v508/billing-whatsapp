@@ -8,7 +8,8 @@ import {
   ShoppingBag, Layers, ListTree, Grid, List, BarChart3,
   ChevronRight, ChevronLeft, Star, Zap, Eye, Building2,
   CheckCircle2, AlertTriangle, ShieldAlert, RefreshCw, Pencil,
-  Tag, Sparkles, TrendingUp, LayoutGrid, LayoutList, ArrowRight, Check
+  Tag, Sparkles, TrendingUp, LayoutGrid, LayoutList, ArrowRight, Check,
+  IndianRupee, Hash, Percent, Receipt, Calendar, Info, History, DollarSign, ScanBarcode
 } from "lucide-react";
 import AddProductModal from "./AddProductModal";
 import EditProductModal from "./EditProductModal";
@@ -80,6 +81,7 @@ export default function ProductList() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [productFilterTab, setProductFilterTab] = useState("all");
   const [showProductDrawer, setShowProductDrawer] = useState(false);
+  const [productDrawerTab, setProductDrawerTab] = useState("all");
   const [selectedProductRows, setSelectedProductRows] = useState([]);
 
   const [saleHistory, setSaleHistory] = useState([]);
@@ -377,8 +379,10 @@ export default function ProductList() {
   }, [selectedCompany]);
 
   useEffect(() => {
-    if (selectedProduct) fetchSaleHistory(selectedProduct.id);
-  }, [selectedProduct?.id]);
+    if (selectedProduct && showProductDrawer) {
+      fetchSaleHistory(selectedProduct.id);
+    }
+  }, [selectedProduct?.id, showProductDrawer]);
 
   useEffect(() => {
     if (activeTab === "unit" && !selectedUnit && units.length > 0) {
@@ -461,22 +465,30 @@ export default function ProductList() {
   }, [filtered, productFilterTab]);
 
   const openProductDrawer = (p) => {
-    handleSelectProduct(p);
+    setSelectedProduct(p);
     setShowProductDrawer(true);
+    setTxnSearch("");
+    setProductDrawerTab("all");
+    if (p?.id) {
+      fetchSaleHistory(p.id);
+    }
   };
 
-  const filteredHistory = saleHistory.filter((s) => {
-    const q = txnSearch.toLowerCase();
-    if (!q) return true;
-    return (
+  const filteredHistory = useMemo(() => {
+    const q = txnSearch.trim().toLowerCase();
+    if (!q) return saleHistory;
+    return saleHistory.filter((s) =>
       (s.invoice_no || "").toLowerCase().includes(q) ||
-      (s.customer_name || "").toLowerCase().includes(q)
+      (s.customer_name || "").toLowerCase().includes(q) ||
+      (s.customer_phone || "").toLowerCase().includes(q)
     );
-  });
+  }, [saleHistory, txnSearch]);
 
   const handleSelectProduct = (p) => {
     setSelectedProduct(p);
-    setSaleHistory([]);
+    if (p?.id && showProductDrawer) {
+      fetchSaleHistory(p.id);
+    }
   };
 
   const handleAddCategory = async () => {
@@ -619,15 +631,18 @@ export default function ProductList() {
       showToast("Nothing to export", false);
       return;
     }
-    const header = ["Type", "Invoice/Ref", "Name", "Date", "Quantity", "Price/Unit", "Status"];
+    const header = ["Type", "Invoice No", "Customer Name", "Customer Phone", "Date", "Quantity", "Unit", "Price/Unit", "Total Amount", "Status"];
     const rows = filteredHistory.map((s) => [
       s.type || "Sale",
       s.invoice_no || "N/A",
       s.customer_name || "-",
+      s.customer_phone || "-",
       formatDate(s.date),
-      `${s.quantity ?? ""} ${selectedProduct?.unit || ""}`.trim(),
+      s.quantity ?? "",
+      selectedProduct?.unit || "",
       s.price ?? "",
-      s.status || "Paid",
+      s.total || (Number(s.price || 0) * Number(s.quantity || 0)),
+      s.status || "Completed",
     ]);
     const csv = [header, ...rows]
       .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
@@ -636,7 +651,7 @@ export default function ProductList() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${selectedProduct?.product_name || "transactions"}.csv`;
+    a.download = `${selectedProduct?.product_name || "transactions"}_stock_history.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1298,123 +1313,6 @@ export default function ProductList() {
                   </table>
                 </div>
               </div>
-
-              {/* ── SLIDE-OVER PRODUCT DETAIL & TRANSACTION HISTORY DRAWER ── */}
-              {showProductDrawer && selectedProduct && (
-                <div className="fixed inset-0 z-50 overflow-hidden">
-                  <div
-                    className="absolute inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
-                    onClick={() => setShowProductDrawer(false)}
-                  />
-                  <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-                    <div className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-250">
-                      {/* Header */}
-                      <div className="p-6 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-start justify-between flex-shrink-0">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center font-bold text-lg shadow-glow-brand">
-                            <Package size={22} />
-                          </div>
-                          <div>
-                            <h2 className="text-lg font-bold font-display">{selectedProduct.product_name}</h2>
-                            <p className="text-xs text-indigo-300 flex items-center gap-2 mt-0.5 font-mono">
-                              <span>SKU: {selectedProduct.product_code || "N/A"}</span>
-                              {selectedProduct.category_name && <span>• {selectedProduct.category_name}</span>}
-                            </p>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => setShowProductDrawer(false)}
-                          className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-
-                      {/* Pricing & Stock KPI strip */}
-                      <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 flex-wrap flex-shrink-0">
-                        <div className="flex items-center gap-4">
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Sale Price</span>
-                            <span className="text-sm font-extrabold text-slate-900">₹{fmt(selectedProduct.sale_price || selectedProduct.price || 0)}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Purchase Price</span>
-                            <span className="text-sm font-extrabold text-slate-700">₹{fmt(selectedProduct.purchase_price || 0)}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Available Stock</span>
-                            <span className="text-sm font-extrabold text-emerald-600">{selectedProduct.stock} {selectedProduct.unit || ""}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setShowEditModal(true)}
-                            className="psx-btn-primary px-3.5 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-glow-brand"
-                          >
-                            <Pencil size={13} />
-                            <span>Edit Product</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Drawer Body: Transactions */}
-                      <div className="flex-1 overflow-y-auto p-6 space-y-4 paysplitx-scrollbar-light">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-bold text-slate-900 font-display uppercase tracking-wider">
-                            Stock Movement & Sales History ({filteredHistory.length})
-                          </h3>
-                          <button
-                            onClick={exportToCSV}
-                            className="psx-btn-secondary px-3 py-1 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <FileSpreadsheet size={13} className="text-emerald-600" />
-                            <span>Export CSV</span>
-                          </button>
-                        </div>
-
-                        <div className="psx-table-container">
-                          <table className="w-full text-left border-collapse psx-table text-xs">
-                            <thead>
-                              <tr>
-                                <th>Customer</th>
-                                <th>Phone</th>
-                                <th>Quantity</th>
-                                <th>Sale Price</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {loadingHistory ? (
-                                <tr>
-                                  <td colSpan={4} className="py-8 text-center text-slate-400">
-                                    Loading history...
-                                  </td>
-                                </tr>
-                              ) : filteredHistory.length === 0 ? (
-                                <tr>
-                                  <td colSpan={4} className="py-8 text-center text-slate-400">
-                                    No transaction history recorded yet for this product.
-                                  </td>
-                                </tr>
-                              ) : (
-                                filteredHistory.map((s, i) => (
-                                  <tr key={i}>
-                                    <td className="font-semibold text-slate-800">{s.customer_name || "-"}</td>
-                                    <td className="text-slate-500">{s.customer_phone || "-"}</td>
-                                    <td className="font-bold text-slate-900">{s.quantity} {selectedProduct.unit || ""}</td>
-                                    <td className="font-bold text-emerald-600">₹{fmt(s.price)}</td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -4569,6 +4467,457 @@ export default function ProductList() {
           </div>
         </div>
       )}
+
+      {/* ─── ENHANCED PRODUCT FULL DETAILS & STOCK MOVEMENT / SALES HISTORY MODAL DRAWER ─── */}
+      {showProductDrawer && selectedProduct && (() => {
+        const stockNum = Number(selectedProduct.stock || 0);
+        const minStock = Number(selectedProduct.min_stock_alert || 5);
+        const isOut = stockNum <= 0;
+        const isLow = !isOut && stockNum <= minStock;
+        const salePrice = Number(selectedProduct.sale_price || selectedProduct.price || 0);
+        const purchasePrice = Number(selectedProduct.purchase_price || 0);
+        const marginVal = salePrice - purchasePrice;
+        const marginPercent = purchasePrice > 0 ? ((marginVal / purchasePrice) * 100).toFixed(1) : null;
+        const stockValuation = stockNum * (purchasePrice || salePrice);
+        const retailValuation = stockNum * salePrice;
+        const totalUnitsSold = filteredHistory.reduce((s, x) => s + Number(x.quantity || 0), 0);
+        const totalRevenue = filteredHistory.reduce((s, x) => s + (Number(x.total) || (Number(x.price || 0) * Number(x.quantity || 0))), 0);
+
+        return (
+          <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in"
+              onClick={() => setShowProductDrawer(false)}
+            />
+
+            {/* Slide-over Panel */}
+            <div className="relative w-screen max-w-3xl bg-white shadow-2xl flex flex-col border-l border-slate-200 z-10 animate-in slide-in-from-right duration-250 h-full">
+              {/* Header */}
+              <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-start justify-between flex-shrink-0 shadow-md">
+                <div className="flex items-start gap-4">
+                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-violet-500 text-white flex items-center justify-center font-bold text-xl shadow-glow-brand ring-4 ring-white/10 shrink-0">
+                    <Package size={26} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-xl font-bold font-display tracking-tight text-white">{selectedProduct.product_name}</h2>
+                      {isOut ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                          Out of Stock
+                        </span>
+                      ) : isLow ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          Low Stock
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                          In Stock
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-white/10 text-slate-300">
+                        {selectedProduct.status || "Active"}
+                      </span>
+                    </div>
+
+                    {/* Metadata Chips */}
+                    <div className="flex items-center gap-2 mt-2 flex-wrap text-xs text-indigo-200/90 font-mono">
+                      <span className="px-2 py-0.5 rounded-md bg-white/10 text-indigo-100 flex items-center gap-1 font-semibold">
+                        <Tag size={11} className="text-indigo-400" />
+                        SKU: {selectedProduct.product_code || "N/A"}
+                      </span>
+                      {selectedProduct.barcode && (
+                        <span className="px-2 py-0.5 rounded-md bg-white/10 text-slate-200 flex items-center gap-1">
+                          <ScanBarcode size={11} className="text-indigo-400" />
+                          {selectedProduct.barcode}
+                        </span>
+                      )}
+                      {selectedProduct.category_name && (
+                        <span className="px-2 py-0.5 rounded-md bg-indigo-500/25 text-indigo-200 border border-indigo-400/30">
+                          {selectedProduct.category_name}
+                        </span>
+                      )}
+                      {selectedProduct.brand_name && (
+                        <span className="px-2 py-0.5 rounded-md bg-violet-500/25 text-violet-200 border border-violet-400/30">
+                          {selectedProduct.brand_name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 ml-4">
+                  <button
+                    onClick={() => {
+                      handleSelectProduct(selectedProduct);
+                      setShowEditModal(true);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-white/15 shadow-sm"
+                  >
+                    <Pencil size={13} />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => setShowProductDrawer(false)}
+                    className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer border border-white/15"
+                    title="Close Details"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* ── KEY PRODUCT METRICS STRIP ── */}
+              <div className="p-4 bg-slate-50 border-b border-slate-200/90 grid grid-cols-2 sm:grid-cols-4 gap-3 flex-shrink-0">
+                {/* Selling Price */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Selling Price</span>
+                  <div className="text-base font-extrabold text-slate-900 mt-0.5 font-mono">
+                    ₹{fmt(salePrice)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {selectedProduct.gst_percentage ? `GST: ${selectedProduct.gst_percentage}%` : "0% GST / Inclusive"}
+                  </span>
+                </div>
+
+                {/* Purchase Price & Margin */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cost & Margin</span>
+                  <div className="text-base font-extrabold text-slate-800 mt-0.5 font-mono">
+                    ₹{fmt(purchasePrice)}
+                  </div>
+                  <span className={`text-[10px] font-bold ${marginVal >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {marginVal >= 0 ? `+₹${fmt(marginVal)}` : `-₹${fmt(Math.abs(marginVal))}`} {marginPercent ? `(${marginPercent}%)` : ""}
+                  </span>
+                </div>
+
+                {/* Available Stock */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Available Stock</span>
+                  <div className={`text-base font-extrabold mt-0.5 font-mono ${isOut ? "text-rose-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
+                    {stockNum} <span className="text-xs font-medium text-slate-500">{selectedProduct.unit || "units"}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500">
+                    Valuation: ₹{fmt(stockValuation)}
+                  </span>
+                </div>
+
+                {/* Sales Performance */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Sold</span>
+                  <div className="text-base font-extrabold text-indigo-600 mt-0.5 font-mono">
+                    {totalUnitsSold} <span className="text-xs font-medium text-slate-500">{selectedProduct.unit || "units"}</span>
+                  </div>
+                  <span className="text-[10px] text-indigo-500 font-semibold font-mono">
+                    ₹{fmt(totalRevenue)} total
+                  </span>
+                </div>
+              </div>
+
+              {/* ── TAB SELECTOR ── */}
+              <div className="px-6 pt-3 pb-0 bg-white border-b border-slate-200 flex items-center gap-4 flex-shrink-0">
+                <button
+                  onClick={() => setProductDrawerTab("all")}
+                  className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                    productDrawerTab === "all"
+                      ? "border-indigo-600 text-indigo-600 font-extrabold"
+                      : "border-transparent text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  <History size={14} />
+                  <span>Stock Movement & Sales History</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
+                    {filteredHistory.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setProductDrawerTab("specs")}
+                  className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                    productDrawerTab === "specs"
+                      ? "border-indigo-600 text-indigo-600 font-extrabold"
+                      : "border-transparent text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  <Info size={14} />
+                  <span>Product Specifications & Master Details</span>
+                </button>
+              </div>
+
+              {/* ── DRAWER BODY CONTENT ── */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 paysplitx-scrollbar-light">
+                {productDrawerTab === "all" && (
+                  <div className="space-y-4">
+                    {/* Filter & Export Bar */}
+                    <div className="flex items-center justify-between gap-3 flex-wrap bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                      <div className="relative flex-1 min-w-[220px]">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={txnSearch}
+                          onChange={(e) => setTxnSearch(e.target.value)}
+                          placeholder="Search customer, phone, or invoice no..."
+                          className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        />
+                        {txnSearch && (
+                          <button
+                            onClick={() => setTxnSearch("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          {filteredHistory.length} {filteredHistory.length === 1 ? "entry" : "entries"}
+                        </span>
+                        <button
+                          onClick={exportToCSV}
+                          disabled={filteredHistory.length === 0}
+                          className="psx-btn-secondary px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+                        >
+                          <FileSpreadsheet size={13} className="text-emerald-600" />
+                          <span>Export CSV</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Transactions Table */}
+                    <div className="border border-slate-200/90 rounded-xl overflow-hidden shadow-2xs bg-white">
+                      <div className="max-h-[380px] overflow-y-auto paysplitx-scrollbar-light">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs z-10 border-b border-slate-200 text-slate-600 font-bold">
+                            <tr>
+                              <th className="py-2.5 px-3.5">Date</th>
+                              <th className="py-2.5 px-3.5">Invoice #</th>
+                              <th className="py-2.5 px-3.5">Customer</th>
+                              <th className="py-2.5 px-3.5 text-right">Quantity</th>
+                              <th className="py-2.5 px-3.5 text-right">Unit Price</th>
+                              <th className="py-2.5 px-3.5 text-right">Total</th>
+                              <th className="py-2.5 px-3.5 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {loadingHistory ? (
+                              <tr>
+                                <td colSpan={7} className="py-12 text-center text-slate-400">
+                                  <div className="flex flex-col items-center justify-center gap-2">
+                                    <RefreshCw size={22} className="animate-spin text-indigo-500" />
+                                    <span className="text-xs font-semibold text-slate-600">Loading stock movement & sales history...</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : filteredHistory.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="py-12 text-center text-slate-400">
+                                  <div className="flex flex-col items-center justify-center gap-2">
+                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                      <Boxes size={20} />
+                                    </div>
+                                    <span className="text-xs font-bold text-slate-700">No Sales or Movement Recorded</span>
+                                    <span className="text-[11px] text-slate-400 max-w-sm">
+                                      {txnSearch ? "No records matched your search query." : "Invoices and customer sales containing this product will automatically appear here."}
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              filteredHistory.map((s, i) => {
+                                const lineTotal = Number(s.total) || (Number(s.price || 0) * Number(s.quantity || 0));
+                                return (
+                                  <tr key={i} className="hover:bg-slate-50/70 transition">
+                                    <td className="py-2.5 px-3.5 text-slate-600 font-mono text-[11px] whitespace-nowrap">
+                                      {formatDate(s.date)}
+                                    </td>
+                                    <td className="py-2.5 px-3.5 whitespace-nowrap">
+                                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono font-bold text-[11px] border border-slate-200">
+                                        #{s.invoice_no || "N/A"}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3.5">
+                                      <div className="font-bold text-slate-900">{s.customer_name || "Walk-in Customer"}</div>
+                                      {s.customer_phone && (
+                                        <div className="text-[10px] text-slate-400 font-mono">{s.customer_phone}</div>
+                                      )}
+                                    </td>
+                                    <td className="py-2.5 px-3.5 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                                      {s.quantity} <span className="text-[10px] font-normal text-slate-400">{selectedProduct.unit || ""}</span>
+                                    </td>
+                                    <td className="py-2.5 px-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
+                                      ₹{fmt(s.price)}
+                                    </td>
+                                    <td className="py-2.5 px-3.5 text-right font-mono font-extrabold text-emerald-600 whitespace-nowrap">
+                                      ₹{fmt(lineTotal)}
+                                    </td>
+                                    <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <CheckCircle2 size={10} />
+                                        <span>Completed</span>
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Table Summary Footer */}
+                      {filteredHistory.length > 0 && (
+                        <div className="bg-slate-50/90 border-t border-slate-200 px-4 py-2.5 flex items-center justify-between text-xs font-bold text-slate-700 flex-wrap gap-2">
+                          <span>Total Recorded: {filteredHistory.length} sales</span>
+                          <div className="flex items-center gap-4 font-mono">
+                            <span>Quantity Sold: <strong className="text-slate-900">{totalUnitsSold} {selectedProduct.unit || ""}</strong></span>
+                            <span>Total Revenue: <strong className="text-emerald-700 text-sm">₹{fmt(totalRevenue)}</strong></span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── TAB 2: FULL PRODUCT MASTER SPECIFICATIONS ── */}
+                {productDrawerTab === "specs" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Identity & Master Codes */}
+                      <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 font-display uppercase tracking-wider">
+                          <Tag size={14} className="text-indigo-600" />
+                          <span>Product Identification</span>
+                        </div>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Product Name</span>
+                            <span className="font-bold text-slate-900 text-right">{selectedProduct.product_name}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Product Code / SKU</span>
+                            <span className="font-mono font-bold text-slate-800">{selectedProduct.product_code || "-"}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Barcode</span>
+                            <span className="font-mono text-slate-800">{selectedProduct.barcode || "-"}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">HSN / SAC Code</span>
+                            <span className="font-mono text-slate-800">{selectedProduct.hsn_code || selectedProduct.hsn || "-"}</span>
+                          </div>
+                          <div className="flex justify-between py-1">
+                            <span className="text-slate-500 font-medium">Internal ID</span>
+                            <span className="font-mono text-slate-500">#{selectedProduct.id}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Categorization & Taxonomy */}
+                      <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 font-display uppercase tracking-wider">
+                          <Layers size={14} className="text-indigo-600" />
+                          <span>Classification & Grouping</span>
+                        </div>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Category</span>
+                            <span className="font-bold text-slate-900">{selectedProduct.category_name || "Uncategorized"}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Subcategory</span>
+                            <span className="font-medium text-slate-800">{selectedProduct.subcategory_name || "-"}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Brand</span>
+                            <span className="font-semibold text-slate-800">{selectedProduct.brand_name || "Generic"}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Base Unit</span>
+                            <span className="font-bold text-indigo-700 uppercase">{selectedProduct.unit || "PCS"}</span>
+                          </div>
+                          <div className="flex justify-between py-1">
+                            <span className="text-slate-500 font-medium">Status</span>
+                            <span className="font-bold text-slate-800 capitalize">{selectedProduct.status || "active"}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pricing & Margins */}
+                      <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 font-display uppercase tracking-wider">
+                          <IndianRupee size={14} className="text-emerald-600" />
+                          <span>Pricing & Tax Breakdown</span>
+                        </div>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Selling Price (Retail)</span>
+                            <span className="font-bold font-mono text-slate-900">₹{fmt(salePrice)}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Purchase / Cost Price</span>
+                            <span className="font-mono text-slate-800">₹{fmt(purchasePrice)}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">GST / Tax Rate</span>
+                            <span className="font-bold font-mono text-slate-800">{selectedProduct.gst_percentage || 0}%</span>
+                          </div>
+                          <div className="flex justify-between py-1">
+                            <span className="text-slate-500 font-medium">Profit Margin / Unit</span>
+                            <span className={`font-mono font-bold ${marginVal >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                              ₹{fmt(marginVal)} {marginPercent ? `(${marginPercent}%)` : ""}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Inventory Rules */}
+                      <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 font-display uppercase tracking-wider">
+                          <Boxes size={14} className="text-indigo-600" />
+                          <span>Inventory Rules & Valuation</span>
+                        </div>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Current Stock</span>
+                            <span className="font-bold font-mono text-slate-900">{stockNum} {selectedProduct.unit || ""}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Min Stock Alert Level</span>
+                            <span className="font-mono text-slate-800">{minStock} {selectedProduct.unit || ""}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200/60">
+                            <span className="text-slate-500 font-medium">Stock Value (at Cost)</span>
+                            <span className="font-mono font-bold text-slate-800">₹{fmt(stockValuation)}</span>
+                          </div>
+                          <div className="flex justify-between py-1">
+                            <span className="text-slate-500 font-medium">Stock Value (at Retail)</span>
+                            <span className="font-mono font-bold text-emerald-600">₹{fmt(retailValuation)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Bar inside Specs */}
+                    <div className="pt-2 flex justify-end">
+                      <button
+                        onClick={() => {
+                          handleSelectProduct(selectedProduct);
+                          setShowEditModal(true);
+                        }}
+                        className="psx-btn-primary px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-glow-brand"
+                      >
+                        <Pencil size={14} />
+                        <span>Edit Product Details</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
