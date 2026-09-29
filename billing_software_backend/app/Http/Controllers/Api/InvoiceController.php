@@ -377,20 +377,47 @@ class InvoiceController extends Controller
         }
     }
 
+    /**
+     * Sale invoice list. All filters are optional and are applied ON TOP of the
+     * existing admin/company tenant scope so filtering can never widen access.
+     *
+     * Supported: from_date, to_date, company_id (branch), cashier_id (user),
+     * customer_id, payment_status (paid|unpaid|partial), search, admin_id.
+     *
+     * Payment status is derived from the amount columns (paid_amount /
+     * balance_amount) rather than the stored `payment_status` text, which can go
+     * stale after a payment is recorded.
+     *
+     * Also returns `totals` computed over the filtered set so the report cards
+     * never disagree with the rows they sit above.
+     */
     public function getAllInvoice(Request $request)
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
         $admin_id   = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
 
+        $from_date      = trim((string)$request->input('from_date', ''));
+        $to_date        = trim((string)$request->input('to_date', ''));
+        $user_id        = intval($request->input('cashier_id') ?: $request->input('user_id', 0));
+        $customer_id    = intval($request->input('customer_id', 0));
+        $payment_status = trim((string)$request->input('payment_status', 'all'));
+        $search         = trim((string)$request->input('search', $request->input('q', '')));
+
+        // Reject inverted ranges instead of silently returning nothing.
+        if ($from_date !== '' && $to_date !== '' && $from_date > $to_date) {
+            return response()->json([
+                "status"  => false,
+                "message" => "from_date cannot be after to_date",
+            ], 422);
+        }
+
+        // ── Tenant scope ───────────────────────────────────────────────
+        // Always enforced first; the optional filters below narrow it further.
         $query = DB::table('invoices as i')
             ->leftJoin('users as u', 'i.cashier_id', '=', 'u.id')
-            ->leftJoin('companies as c', 'i.company_id', '=', 'c.id')
-            ->select('i.*', 'u.name as cashier_name', 'c.company_name')
-            ->orderBy('i.id', 'desc');
+            ->leftJoin('companies as c', 'i.company_id', '=', 'c.id');
 
-        if ($company_id > 0) {
-            $query->where('i.company_id', $company_id);
-        } elseif ($admin_id > 0) {
+        if ($admin_id > 0) {
             $query->where(function ($q) use ($admin_id) {
                 $q->where('c.admin_id', $admin_id)
                   ->orWhere('u.admin_id', $admin_id)
@@ -403,7 +430,80 @@ class InvoiceController extends Controller
             });
         }
 
-        $invoices = $query->get();
+        // Branch filter. When admin_id is present this is ANDed onto the tenant
+        // scope rather than replacing it, so a branch id from another admin
+        // cannot be used to read foreign invoices.
+        if ($company_id > 0) {
+            $query->where('i.company_id', $company_id);
+        }
+
+        // ── Non-date filters (shared by rows, totals and the previous-period total) ──
+        if ($user_id > 0) {
+            $query->where('i.cashier_id', $user_id);
+        }
+
+        if ($customer_id > 0) {
+            $query->where('i.customer_id', $customer_id);
+        }
+
+        if ($payment_status !== '' && $payment_status !== 'all') {
+            if ($payment_status === 'paid') {
+                $query->where('i.balance_amount', '<=', 0);
+            } elseif ($payment_status === 'unpaid') {
+                $query->where('i.paid_amount', '<=', 0)->where('i.balance_amount', '>', 0);
+            } elseif ($payment_status === 'partial') {
+                $query->where('i.paid_amount', '>', 0)->where('i.balance_amount', '>', 0);
+            }
+        }
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('i.invoice_no', 'like', "%{$search}%")
+                  ->orWhere('i.customer_name', 'like', "%{$search}%")
+                  ->orWhere('i.customer_phone', 'like', "%{$search}%");
+            });
+        }
+
+        // ── Date window (inclusive on both ends) ────────────────────────
+        $applyDateRange = function ($q) use ($from_date, $to_date) {
+            if ($from_date !== '') {
+                $q->whereDate('i.created_at', '>=', $from_date);
+            }
+            if ($to_date !== '') {
+                $q->whereDate('i.created_at', '<=', $to_date);
+            }
+            return $q;
+        };
+
+        // Totals must describe exactly the rows that are returned, so this runs
+        // against the fully filtered set (tenant + non-date filters + dates).
+        $totalsRow = $applyDateRange(clone $query)->selectRaw(
+            'COUNT(*) as invoice_count,
+             COALESCE(SUM(i.total_amount), 0)   as total_invoiced,
+             COALESCE(SUM(i.paid_amount), 0)    as payments_collected,
+             COALESCE(SUM(i.balance_amount), 0) as pending_receivables'
+        )->first();
+
+        $invoice_count       = (int)($totalsRow->invoice_count ?? 0);
+        $total_invoiced      = (float)($totalsRow->total_invoiced ?? 0);
+        $payments_collected  = (float)($totalsRow->payments_collected ?? 0);
+        $pending_receivables = (float)($totalsRow->pending_receivables ?? 0);
+
+        // Previous calendar month, same non-date filters, for the % change card.
+        $anchor     = $to_date !== '' ? $to_date : date('Y-m-d');
+        $prevAnchor = strtotime('-1 month', strtotime($anchor));
+        $prevFrom   = date('Y-m-01', $prevAnchor);
+        $prevTo     = date('Y-m-t', $prevAnchor);
+
+        $previous_period_amount = (float) (clone $query)
+            ->whereDate('i.created_at', '>=', $prevFrom)
+            ->whereDate('i.created_at', '<=', $prevTo)
+            ->sum('i.total_amount');
+
+        $invoices = $applyDateRange($query)
+            ->select('i.*', 'u.name as cashier_name', 'c.company_name')
+            ->orderBy('i.id', 'desc')
+            ->get();
 
         $data = [];
         foreach ($invoices as $row) {
@@ -416,7 +516,15 @@ class InvoiceController extends Controller
 
         return response()->json([
             "status" => true,
-            "data" => $data
+            "data"   => $data,
+            "totals" => [
+                "invoice_count"          => $invoice_count,
+                "total_invoiced"         => $total_invoiced,
+                "payments_collected"     => $payments_collected,
+                "pending_receivables"    => $pending_receivables,
+                "previous_period_amount" => $previous_period_amount,
+                "average_invoice"        => $invoice_count > 0 ? $total_invoiced / $invoice_count : 0,
+            ],
         ]);
     }
 

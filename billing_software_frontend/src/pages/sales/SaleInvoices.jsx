@@ -63,10 +63,54 @@ const periodLabels = {
   today: "Today",
   yesterday: "Yesterday",
   this_week: "This Week",
+  last_week: "Last Week",
   this_month: "This Month",
   last_month: "Last Month",
   this_year: "This Year",
   custom: "Custom Range",
+};
+
+const fmtYMD = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+// Resolves a period preset to an inclusive { fromDate, toDate } window.
+// Pure so it can seed initial state without an extra render + request.
+const resolvePreset = (type) => {
+  const now = new Date();
+  let from = new Date(now);
+  let to = new Date(now);
+
+  if (type === "all_time") return { fromDate: "", toDate: "" };
+
+  if (type === "today" || type === "yesterday") {
+    const d = type === "yesterday" ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1) : now;
+    from = d;
+    to = d;
+  } else if (type === "this_week") {
+    const day = now.getDay() || 7;
+    from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day + 1);
+    to = now;
+  } else if (type === "last_week") {
+    const day = now.getDay() || 7;
+    const thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day + 1);
+    from = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate() - 7);
+    to = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate() - 1);
+  } else if (type === "this_month") {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  } else if (type === "last_month") {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0);
+  } else if (type === "this_year") {
+    from = new Date(now.getFullYear(), 0, 1);
+    to = new Date(now.getFullYear(), 11, 31);
+  }
+
+  return { fromDate: fmtYMD(from), toDate: fmtYMD(to) };
 };
 
 export default function SaleInvoices() {
@@ -79,8 +123,13 @@ export default function SaleInvoices() {
   // Data states
   const [invoices, setInvoices] = useState([]);
   const [companies, setCompanies] = useState([]);
-  const [cashiers, setCashiers] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
+  const [dateError, setDateError] = useState("");
+  // Authoritative totals for the *filtered* set, returned by the backend.
+  const [totals, setTotals] = useState(null);
 
   // Column Customization Drawer state & persistence
   const [showColumnDrawer, setShowColumnDrawer] = useState(false);
@@ -123,18 +172,19 @@ export default function SaleInvoices() {
 
   const visibleColumnCount = DEFAULT_COLUMNS.filter((col) => visibleColumns[col.key]).length || 1;
 
-  // Filter states
+  // Filter states — the single source of truth for the API query (req 20)
   const [period, setPeriod] = useState("this_month");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [firmOpen, setFirmOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState("all");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("all");
   const [userOpen, setUserOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "paid" | "unpaid" | "partial"
 
-  // Date range
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  // Date range — seeded directly from the default preset so the first render
+  // already has a valid window (avoids a duplicate initial request).
+  const [fromDate, setFromDate] = useState(() => resolvePreset("this_month").fromDate);
+  const [toDate, setToDate] = useState(() => resolvePreset("this_month").toDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Analytics view swap (in-place like SaleOrders — keeps dropdowns intact)
@@ -142,6 +192,8 @@ export default function SaleInvoices() {
 
   // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
+  // Debounced mirror so typing does not fire a request per keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [activeShareId, setActiveShareId] = useState(null);
@@ -156,6 +208,10 @@ export default function SaleInvoices() {
   const [rowsPerPage, setRowsPerPage] = useState(15);
 
   const menuRef = useRef(null);
+  const periodRef = useRef(null);
+  const firmRef = useRef(null);
+  const userRef = useRef(null);
+  const datePickerRef = useRef(null);
 
   // Helper: Format DD/MM/YYYY
   const formatDateDMY = (dateStr) => {
@@ -168,86 +224,83 @@ export default function SaleInvoices() {
     return `${day} ${month} ${year}`;
   };
 
-  // Preset Date Helper
+  // Preset Date Helper — delegates to the pure resolver above.
   const setPresetDates = (type) => {
-    const now = new Date();
-    let from = new Date();
-    let to = new Date();
-
-    if (type === "all_time") {
-      setFromDate("");
-      setToDate("");
-      setPeriod("all_time");
-      setPeriodOpen(false);
-      return;
-    }
-
-    if (type === "today") {
-      from = now;
-      to = now;
-    } else if (type === "yesterday") {
-      from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-      to = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-    } else if (type === "this_week") {
-      const day = now.getDay() || 7;
-      from.setDate(now.getDate() - day + 1);
-      to = now;
-    } else if (type === "this_month") {
-      from = new Date(now.getFullYear(), now.getMonth(), 1);
-      to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    } else if (type === "last_month") {
-      from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      to = new Date(now.getFullYear(), now.getMonth(), 0);
-    } else if (type === "this_year") {
-      from = new Date(now.getFullYear(), 0, 1);
-      to = new Date(now.getFullYear(), 11, 31);
-    }
-
-    const fmtYMD = (d) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${day}`;
-    };
-
-    setFromDate(fmtYMD(from));
-    setToDate(fmtYMD(to));
+    const { fromDate: f, toDate: t } = resolvePreset(type);
+    setFromDate(f);
+    setToDate(t);
     setPeriod(type);
     setPeriodOpen(false);
+    setCurrentPage(1);
   };
 
-  // Initial date calculation
-  useEffect(() => {
-    setPresetDates("this_month");
-  }, []);
+  // Single, predictable API query built from the filter state (req 20).
+  // "all"/"" values are omitted so the backend treats them as "no filter".
+  const buildInvoiceQuery = () => {
+    const params = new URLSearchParams();
+    params.set("admin_id", String(adminId || 0));
 
-  // Fetch Invoices
+    if (fromDate) params.set("from_date", fromDate);
+    if (toDate) params.set("to_date", toDate);
+    if (selectedFirm && selectedFirm !== "all") params.set("company_id", String(selectedFirm));
+    if (selectedCustomerId && selectedCustomerId !== "all") params.set("customer_id", String(selectedCustomerId));
+    if (statusFilter && statusFilter !== "all") params.set("payment_status", statusFilter);
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+
+    return params.toString();
+  };
+
+  // Fetch Invoices — filtering happens in the database; the response already
+  // contains only the matching rows plus their totals.
   const fetchInvoices = async () => {
+    // Guard against an inverted range without hitting the API (req 21).
+    if (fromDate && toDate && fromDate > toDate) {
+      setDateError("From date must be on or before To date");
+      setInvoices([]);
+      setTotals(null);
+      setLoading(false);
+      return;
+    }
+    setDateError("");
+
     setLoading(true);
+    setFetchError("");
     try {
-      const res = await api.get(`/invoice/get_all_invoices?admin_id=${adminId || 0}`);
+      const res = await api.get(`/invoice/get_all_invoices?${buildInvoiceQuery()}`);
       if (res.data?.status) {
         setInvoices(res.data.data || []);
+        setTotals(res.data.totals || null);
       } else {
         setInvoices([]);
+        setTotals(null);
+        setFetchError(res.data?.message || "Could not load sale invoices.");
       }
     } catch (err) {
       console.error(err);
-      try {
-        const fallbackRes = await api.get(`/invoice/get_all_invoice?admin_id=${adminId || 0}`);
-        if (fallbackRes.data?.status) {
-          setInvoices(fallbackRes.data.data || []);
-        } else {
-          setInvoices([]);
-        }
-      } catch (fallbackErr) {
-        console.error(fallbackErr);
-        setInvoices([]);
-      }
+      setInvoices([]);
+      setTotals(null);
+      setFetchError(
+        err.response?.status === 422
+          ? err.response?.data?.message || "Invalid date range."
+          : "Could not load sale invoices. Check your connection and try again."
+      );
     } finally {
       setLoading(false);
     }
   };
+
+  // Debounce the search box so typing does not fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Fetch Invoices whenever any active filter changes. admin_id is part of the
+  // same effect so switching account context does not double-request.
+  useEffect(() => {
+    fetchInvoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminId, fromDate, toDate, selectedFirm, selectedCustomerId, statusFilter, debouncedSearch]);
 
   // Fetch Companies
   const fetchCompanies = async () => {
@@ -262,31 +315,30 @@ export default function SaleInvoices() {
     }
   };
 
-  // Fetch Cashiers
-  const fetchCashiers = async () => {
-    if (!adminId) return;
+  // Fetch Customers — drives the "All Users" dropdown and the customer_id filter.
+  const fetchCustomers = async () => {
+    if (!adminId) {
+      setCustomers([]);
+      return;
+    }
+    setCustomersLoading(true);
     try {
-      const res = await api.get(`/cashier/get_all_cashier?admin_id=${adminId}`);
-      if (res.data?.status) {
-        setCashiers(res.data.data || []);
-      }
+      const res = await api.get(`/customer/get_all_customer?admin_id=${adminId}`);
+      setCustomers(res.data?.status ? res.data.data || [] : []);
     } catch (err) {
-      console.error(err);
-      try {
-        const postRes = await api.post("/cashier/get_cashiers", { admin_id: adminId });
-        if (postRes.data?.status) {
-          setCashiers(postRes.data.data || []);
-        }
-      } catch (e) {
-        console.error(e);
-      }
+      console.error("Error loading customers:", err);
+      setCustomers([]);
+    } finally {
+      setCustomersLoading(false);
     }
   };
 
+  // Lookup lists only depend on the admin/company context, not on the filters,
+  // so they are fetched once per context change (no duplicate requests).
   useEffect(() => {
-    fetchInvoices();
     fetchCompanies();
-    fetchCashiers();
+    fetchCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminId]);
 
   // Close menus on outside click
@@ -295,78 +347,69 @@ export default function SaleInvoices() {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setActiveMenuId(null);
       }
-      setPeriodOpen(false);
-      setFirmOpen(false);
-      setUserOpen(false);
+
+      if (periodRef.current && !periodRef.current.contains(e.target)) {
+        setPeriodOpen(false);
+      }
+
+      if (firmRef.current && !firmRef.current.contains(e.target)) {
+        setFirmOpen(false);
+      }
+
+      if (userRef.current && !userRef.current.contains(e.target)) {
+        setUserOpen(false);
+      }
+
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setShowDatePicker(false);
+      }
     };
+
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
-  // Filtered Invoices List
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter((item) => {
-      // Date filter
-      if (fromDate && toDate && item.created_at) {
-        const itemDate = item.created_at.split("T")[0].split(" ")[0];
-        if (itemDate < fromDate || itemDate > toDate) return false;
-      }
+  // Rows for the table. The backend already applied every active filter, so this
+  // is the filtered set as-is. Keeping the name keeps pagination, export, print
+  // and analytics reading from one place.
+  const filteredInvoices = invoices;
 
-      // Company/Firm filter
-      if (selectedFirm !== "all" && item.company_id) {
-        if (String(item.company_id) !== String(selectedFirm)) return false;
-      }
+  // Currently selected customer — drives the button label and the empty state.
+  // Resolved by id, so duplicate customer names cannot cause a mismatch.
+  const selectedCustomer = useMemo(
+    () => customers.find((c) => String(c.id) === String(selectedCustomerId)) || null,
+    [customers, selectedCustomerId]
+  );
 
-      // Cashier/User filter
-      if (selectedUser !== "all") {
-        if (String(item.cashier_id) !== String(selectedUser)) return false;
-      }
-
-      // Status tab filter
-      if (statusFilter !== "all") {
-        const bal = Number(item.balance_amount || 0);
-        const paid = Number(item.paid_amount || 0);
-        if (statusFilter === "paid" && bal > 0) return false;
-        if (statusFilter === "unpaid" && (bal <= 0 || paid > 0)) return false;
-        if (statusFilter === "partial" && (bal <= 0 || paid <= 0)) return false;
-      }
-
-      // Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const invoiceNo = String(item.invoice_no || "").toLowerCase();
-        const customer = String(item.customer_name || "").toLowerCase();
-        const phone = String(item.customer_phone || "").toLowerCase();
-        const paymentType = String(item.payment_method || "").toLowerCase();
-        if (!invoiceNo.includes(q) && !customer.includes(q) && !phone.includes(q) && !paymentType.includes(q)) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [invoices, fromDate, toDate, selectedFirm, selectedUser, statusFilter, searchQuery]);
-
-  // Financial KPIs (Matching EstimateQuotation 4-card structure)
+  // Financial KPIs. Prefer the backend totals (computed over the exact same
+  // filtered rows); fall back to a local sum if they are unavailable.
   const summary = useMemo(() => {
-    let total_amount = 0;
-    let total_paid = 0;
-    let total_pending = 0;
-    let paidCount = 0;
+    const local = filteredInvoices.reduce(
+      (acc, inv) => {
+        acc.total_amount += Number(inv.total_amount || 0);
+        acc.total_paid += Number(inv.paid_amount || 0);
+        acc.total_pending += Number(inv.balance_amount || 0);
+        if (Number(inv.balance_amount || 0) <= 0) acc.paidCount++;
+        return acc;
+      },
+      { total_amount: 0, total_paid: 0, total_pending: 0, paidCount: 0 }
+    );
 
-    filteredInvoices.forEach((inv) => {
-      const tot = Number(inv.total_amount || 0);
-      const bal = Number(inv.balance_amount || 0);
-      const pd = Number(inv.paid_amount || 0);
+    if (!totals) return local;
 
-      total_amount += tot;
-      total_paid += pd;
-      total_pending += bal;
-      if (bal <= 0) paidCount++;
-    });
+    return {
+      total_amount: Number(totals.total_invoiced ?? local.total_amount) || 0,
+      total_paid: Number(totals.payments_collected ?? local.total_paid) || 0,
+      total_pending: Number(totals.pending_receivables ?? local.total_pending) || 0,
+      paidCount: local.paidCount,
+    };
+  }, [filteredInvoices, totals]);
 
-    return { total_amount, total_paid, total_pending, paidCount };
-  }, [filteredInvoices]);
+  // Filtered invoice count — authoritative count from the backend when present.
+  const invoiceCount = useMemo(() => {
+    const n = Number(totals?.invoice_count);
+    return Number.isFinite(n) ? n : filteredInvoices.length;
+  }, [totals, filteredInvoices]);
 
   // Analytics rows (Sale Invoices → group by party)
   const analyticsRows = useMemo(
@@ -383,18 +426,22 @@ export default function SaleInvoices() {
     [filteredInvoices]
   );
 
-  // % change vs last month calculation
+  // % change vs last month. The baseline is computed server-side over the same
+  // non-date filters, because the rows we hold are already date-filtered.
   const pctChange = useMemo(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const end = new Date(now.getFullYear(), now.getMonth(), 0);
-    const lastMonthTotal = invoices.reduce((acc, inv) => {
-      if (!inv.created_at) return acc;
-      const d = new Date(inv.created_at);
-      return d >= start && d <= end ? acc + Number(inv.total_amount || 0) : acc;
-    }, 0);
+    let lastMonthTotal = Number(totals?.previous_period_amount);
+    if (!Number.isFinite(lastMonthTotal)) {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      lastMonthTotal = invoices.reduce((acc, inv) => {
+        if (!inv.created_at) return acc;
+        const d = new Date(inv.created_at);
+        return d >= start && d <= end ? acc + Number(inv.total_amount || 0) : acc;
+      }, 0);
+    }
     return lastMonthTotal > 0 ? ((summary.total_amount - lastMonthTotal) / lastMonthTotal) * 100 : 0;
-  }, [invoices, summary.total_amount]);
+  }, [invoices, totals, summary.total_amount]);
 
   // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / rowsPerPage));
@@ -481,7 +528,7 @@ export default function SaleInvoices() {
                 Sales Invoices &amp; Billing
               </h1>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-                {filteredInvoices.length} Invoices
+                {invoiceCount} Invoices
               </span>
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -524,7 +571,7 @@ export default function SaleInvoices() {
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>{filteredInvoices.length} Total invoices</span>
+            <span>{invoiceCount} Total invoices</span>
             <span className={`inline-flex items-center gap-1 font-bold ${pctChange >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
               {pctChange.toFixed(0)}% <TrendingUp size={13} />
             </span>
@@ -582,7 +629,7 @@ export default function SaleInvoices() {
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Average Invoice</p>
               <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
-                ₹ {filteredInvoices.length > 0 ? Math.round(summary.total_amount / filteredInvoices.length).toLocaleString("en-IN") : 0}
+                ₹ {invoiceCount > 0 ? Math.round(summary.total_amount / invoiceCount).toLocaleString("en-IN") : 0}
               </h3>
             </div>
             <div className="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
@@ -602,7 +649,7 @@ export default function SaleInvoices() {
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
 
           {/* Period Dropdown */}
-          <div className="relative">
+          <div className="relative" ref={periodRef}>
             <button
               onClick={() => {
                 setPeriodOpen(!periodOpen);
@@ -641,7 +688,7 @@ export default function SaleInvoices() {
           </div>
 
           {/* Firm / Company Dropdown */}
-          <div className="relative">
+          <div className="relative" ref={firmRef}>
             <button
               onClick={() => {
                 setFirmOpen(!firmOpen);
@@ -661,7 +708,7 @@ export default function SaleInvoices() {
             {firmOpen && (
               <div className="absolute left-0 mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 max-h-56 overflow-y-auto">
                 <button
-                  onClick={() => { setSelectedFirm("all"); setFirmOpen(false); }}
+                  onClick={() => { setSelectedFirm("all"); setFirmOpen(false); setCurrentPage(1); }}
                   className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
                     selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
@@ -671,7 +718,7 @@ export default function SaleInvoices() {
                 {companies.map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => { setSelectedFirm(c.id); setFirmOpen(false); }}
+                    onClick={() => { setSelectedFirm(c.id); setFirmOpen(false); setCurrentPage(1); }}
                     className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition truncate cursor-pointer ${
                       String(selectedFirm) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                     }`}
@@ -683,8 +730,8 @@ export default function SaleInvoices() {
             )}
           </div>
 
-          {/* Cashier / User Dropdown */}
-          <div className="relative">
+          {/* Customer / User Dropdown */}
+          <div className="relative" ref={userRef}>
             <button
               onClick={() => {
                 setUserOpen(!userOpen);
@@ -695,9 +742,9 @@ export default function SaleInvoices() {
             >
               <User size={13} className="text-slate-500" />
               <span>
-                {selectedUser === "all"
+                {selectedCustomerId === "all"
                   ? "All Users"
-                  : cashiers.find((u) => String(u.id) === String(selectedUser))?.name || "User"}
+                  : selectedCustomer?.name || selectedCustomer?.phone || "User"}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${userOpen ? "rotate-180" : ""}`} />
             </button>
@@ -705,30 +752,43 @@ export default function SaleInvoices() {
             {userOpen && (
               <div className="absolute left-0 mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 max-h-56 overflow-y-auto">
                 <button
-                  onClick={() => { setSelectedUser("all"); setUserOpen(false); }}
+                  onClick={() => { setSelectedCustomerId("all"); setUserOpen(false); setCurrentPage(1); }}
                   className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
-                    selectedUser === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                    selectedCustomerId === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
                   All Users
                 </button>
-                {cashiers.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => { setSelectedUser(u.id); setUserOpen(false); }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition truncate cursor-pointer ${
-                      String(selectedUser) === String(u.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
-                    }`}
-                  >
-                    {u.name || u.email}
-                  </button>
-                ))}
+
+                {customersLoading ? (
+                  <div className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-400 flex items-center gap-2">
+                    <RefreshCw size={12} className="animate-spin" />
+                    <span>Loading customers…</span>
+                  </div>
+                ) : customers.length === 0 ? (
+                  <div className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-400">
+                    No customers found
+                  </div>
+                ) : (
+                  customers.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => { setSelectedCustomerId(c.id); setUserOpen(false); setCurrentPage(1); }}
+                      className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
+                        String(selectedCustomerId) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                      }`}
+                    >
+                      <div className="truncate font-semibold">{c.name || c.phone || "Customer"}</div>
+                      {c.phone && <div className="text-[11px] text-slate-400 font-normal truncate">{c.phone}</div>}
+                    </button>
+                  ))
+                )}
               </div>
             )}
           </div>
 
           {/* Custom Date Range Picker */}
-          <div className="relative">
+          <div className="relative" ref={datePickerRef}>
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
               className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
@@ -783,6 +843,7 @@ export default function SaleInvoices() {
                   <button
                     onClick={() => {
                       setPeriod("custom");
+                      setCurrentPage(1);
                       setShowDatePicker(false);
                     }}
                     className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm cursor-pointer"
@@ -896,14 +957,42 @@ export default function SaleInvoices() {
 
       {/* ── 4. DIRECTORY TABLE CARD (Matching EstimateQuotation) ── */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        {filteredInvoices.length === 0 ? (
+        {loading && filteredInvoices.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <RefreshCw size={32} className="text-indigo-500 animate-spin mb-4" />
+            <h3 className="text-base font-bold text-slate-800">Loading sale invoices…</h3>
+          </div>
+        ) : dateError || fetchError ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-base font-bold text-slate-800">{dateError || fetchError}</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mb-6">
+              Please check the selected filters and try again.
+            </p>
+            <button
+              onClick={fetchInvoices}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-100 transition hover:from-indigo-700 hover:to-indigo-800 cursor-pointer"
+            >
+              <RefreshCw size={16} strokeWidth={2.8} />
+              <span>Retry</span>
+            </button>
+          </div>
+        ) : filteredInvoices.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
               <Receipt size={32} />
             </div>
-            <h3 className="text-base font-bold text-slate-800">No sale invoices found</h3>
+            <h3 className="text-base font-bold text-slate-800">
+              {selectedCustomer
+                ? `No invoices found for ${selectedCustomer.name || selectedCustomer.phone}`
+                : "No sale invoices found"}
+            </h3>
             <p className="text-xs text-slate-400 mt-1 max-w-sm mb-6">
-              There are no sale invoices matching the selected filters or date range.
+              {selectedCustomer
+                ? `There are no sale invoices for this customer${fromDate && toDate ? " within the selected date range" : ""}.`
+                : "There are no sale invoices matching the selected filters or date range."}
             </p>
             <button
               onClick={() => navigate("/sales/add")}
