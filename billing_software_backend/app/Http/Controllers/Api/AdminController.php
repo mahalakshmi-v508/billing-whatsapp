@@ -50,6 +50,7 @@ class AdminController extends Controller
     {
         $name         = trim($request->input('name', ''));
         $email        = trim($request->input('email', ''));
+        $phone        = trim($request->input('phone', $request->input('mobile', '')));
         $password     = $request->input('password', '');
         $role         = $request->input('role', '');
         $company_id   = intval($request->input('company_id', 0));
@@ -112,6 +113,7 @@ class AdminController extends Controller
             User::create([
                 'name' => $name,
                 'email' => $email,
+                'phone' => $phone ?: null,
                 'password' => $hashed,
                 'role' => $role,
                 'company_id' => $company_val ?: null
@@ -134,7 +136,7 @@ class AdminController extends Controller
 
     public function getAdmins()
     {
-        $admins = User::where('role', 'admin')->select('id', 'name', 'email', 'status')->orderBy('id', 'desc')->get();
+        $admins = User::where('role', 'admin')->select('id', 'name', 'email', 'phone', 'status')->orderBy('id', 'desc')->get();
 
         return response()->json([
             "status" => true,
@@ -145,7 +147,7 @@ class AdminController extends Controller
     public function getAdminById(Request $request)
     {
         $id = intval($request->query('id', 0));
-        $admin = User::where('id', $id)->where('role', 'admin')->select('id', 'name', 'email', 'status')->first();
+        $admin = User::where('id', $id)->where('role', 'admin')->select('id', 'name', 'email', 'phone', 'status')->first();
 
         if (!$admin) {
             return response()->json([
@@ -195,6 +197,7 @@ class AdminController extends Controller
         $id       = intval($request->input('id', 0));
         $name     = trim($request->input('name', ''));
         $email    = trim($request->input('email', ''));
+        $phone    = trim($request->input('phone', $request->input('mobile', '')));
         $password = trim($request->input('password', ''));
 
         if (!$id || !$name || !$email) {
@@ -222,7 +225,8 @@ class AdminController extends Controller
 
         $updateData = [
             'name' => $name,
-            'email' => $email
+            'email' => $email,
+            'phone' => $phone ?: null,
         ];
 
         if (!empty($password)) {

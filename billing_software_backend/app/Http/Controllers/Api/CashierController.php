@@ -151,13 +151,19 @@ class CashierController extends Controller
 
         DB::beginTransaction();
         try {
+            $name = $cashierReq->name ?: ($cashierReq->cashier_name ?? '');
+            $email = $cashierReq->email ?: ($cashierReq->cashier_email ?? '');
+            $password = $cashierReq->password ?: ($cashierReq->cashier_password ?? '');
+            $admin_id = $cashierReq->admin_id ?: ($cashierReq->requested_by ?? null);
+            $company_id = $cashierReq->company_id ?: null;
+
             User::create([
-                'name' => $cashierReq->name,
-                'email' => $cashierReq->email,
-                'password' => $cashierReq->password,
+                'name' => $name,
+                'email' => $email,
+                'password' => $password,
                 'role' => 'cashier',
-                'admin_id' => $cashierReq->admin_id,
-                'company_id' => $cashierReq->company_id
+                'admin_id' => $admin_id,
+                'company_id' => $company_id
             ]);
 
             $cashierReq->update(['status' => 'approved']);
@@ -180,8 +186,17 @@ class CashierController extends Controller
     {
         $requests = DB::table('cashier_requests as cr')
             ->leftJoin('companies as c', 'c.id', '=', 'cr.company_id')
-            ->leftJoin('users as u', 'u.id', '=', 'cr.requested_by')
-            ->select('cr.*', 'c.company_name as company_name', 'u.name as requested_user')
+            ->leftJoin('users as u', function ($join) {
+                $join->on('u.id', '=', 'cr.requested_by')
+                     ->orOn('u.id', '=', 'cr.admin_id');
+            })
+            ->select(
+                'cr.*',
+                'c.company_name as company_name',
+                DB::raw('COALESCE(u.name, "Administrator") as requested_user'),
+                DB::raw('COALESCE(cr.name, cr.cashier_name) as name'),
+                DB::raw('COALESCE(cr.email, cr.cashier_email) as email')
+            )
             ->where('cr.status', 'pending')
             ->orderBy('cr.id', 'desc')
             ->get();
