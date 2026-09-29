@@ -1851,7 +1851,7 @@
 
 //reports neat ui
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 
 import {
@@ -1869,6 +1869,13 @@ import {
   sendInvoiceViaWhatsAppApi,
   getInvoiceLogoUrl,
 } from "../../utils/invoiceShare";
+import {
+  fetchWhatsAppConnection,
+  isValidWaPhone,
+  normalizeWaPhone,
+  WHATSAPP_ROUTE,
+} from "../../utils/whatsappShare";
+import { queuePendingWhatsAppSend } from "../../utils/pendingWhatsAppSend";
 
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -2172,6 +2179,7 @@ function ProductReportCard({
 export default function Reports() {
   useStyles();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   // Works for both admin and cashier:
@@ -2390,10 +2398,39 @@ allRows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     }
   };
 
-  /* step 1 — fetch the full invoice for the selected row */
+  /* step 1 — fetch the full invoice for the selected row.
+     For the WhatsApp action we first check the real connection state: when
+     WhatsApp is not connected we keep the whole invoice context and move to the
+     app's own /whatsapp page so the send resumes right after the QR scan.
+     WhatsApp Web / wa.me are never opened. */
   const startRowAction = async (inv, mode) => {
     setMenuOpenFor(null);
     if (actionBusy) return;
+
+    if (mode === "whatsapp") {
+      const phone = normalizeWaPhone(inv.customer_phone);
+
+      if (!isValidWaPhone(phone) || !(await fetchWhatsAppConnection(inv.company_id)).connected) {
+        queuePendingWhatsAppSend({
+          type: "invoice",
+          action: "send_invoice",
+          invoiceId: inv.invoice_no,
+          invoiceNumber: inv.invoice_no,
+          invoiceType: "Invoice",
+          customerId: inv.customer_id || null,
+          customerName: inv.customer_name,
+          phone,
+          amount: inv.total_amount != null ? String(inv.total_amount) : "",
+          companyId: inv.company_id || null,
+          isPOS: true,
+          docType: "Invoice",
+          source: location.pathname + location.search,
+          returnTo: location.pathname,
+        });
+        navigate(WHATSAPP_ROUTE);
+        return;
+      }
+    }
 
     setRowAction({ mode, phase:"loading", invoiceNo:inv.invoice_no, message:null });
 

@@ -1,4 +1,13 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  fetchWhatsAppConnection,
+  isValidWaPhone,
+  normalizeWaPhone,
+  sendTextMessage,
+  WHATSAPP_ROUTE,
+} from "../../utils/whatsappShare";
+import { queuePendingWhatsAppSend } from "../../utils/pendingWhatsAppSend";
 import {
   Truck,
   Plus,
@@ -39,6 +48,7 @@ const SUB_NAV_TABS = [
 ];
 
 export default function EwayBills() {
+  const navigate = useNavigate();
   const [currentTab, setCurrentTab] = useState("dashboard");
   const [bills, setBills] = useState(MOCK_EWAY_BILLS);
   const [toast, setToast] = useState(null);
@@ -105,11 +115,60 @@ export default function EwayBills() {
     showToast(`Downloading official PDF for E-Way Bill #${bill.ewb_no}...`);
   };
 
-  const handleWhatsApp = (bill) => {
-    const text = encodeURIComponent(
-      `Hello ${bill.customer_name},\nYour E-Way Bill #${bill.ewb_no} for Invoice ${bill.invoice_no} (Vehicle: ${bill.vehicle_no}) has been generated. Valid until ${bill.valid_until}.\nThank you!`
-    );
-    window.open(`https://wa.me/?text=${text}`, "_blank");
+  /* WhatsApp sharing runs through the app's own /whatsapp page: connected →
+     send immediately, otherwise hand the message over and let it resume after
+     the QR scan. WhatsApp Web / wa.me are never opened. */
+  const handleWhatsApp = async (bill) => {
+    const text =
+      `Hello ${bill.customer_name},\nYour E-Way Bill #${bill.ewb_no} for Invoice ${bill.invoice_no} (Vehicle: ${bill.vehicle_no}) has been generated. Valid until ${bill.valid_until}.\nThank you!`;
+
+    const user = (() => {
+      try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
+    })();
+    const companyId = bill.company_id || user.company_id || localStorage.getItem("selected_company_id") || null;
+    const phone = normalizeWaPhone(bill.customer_phone || bill.phone || "");
+
+    if (!isValidWaPhone(phone) || !(await fetchWhatsAppConnection(companyId)).connected) {
+      queuePendingWhatsAppSend({
+        type: "message",
+        action: "send_message",
+        invoiceId: bill.invoice_no,
+        invoiceNumber: bill.invoice_no,
+        customerId: bill.customer_id || null,
+        customerName: bill.customer_name,
+        phone,
+        companyId: Number(companyId) || null,
+        docType: `E-Way Bill #${bill.ewb_no}`,
+        message: text,
+        source: window.location.pathname + window.location.search,
+        returnTo: window.location.pathname,
+      });
+      navigate(WHATSAPP_ROUTE);
+      return;
+    }
+
+    try {
+      const res = await sendTextMessage({ companyId, phone, message: text });
+      if (!res.data?.status) throw new Error(res.data?.message || "WhatsApp could not send this message.");
+      showToast(res.data?.message || "E-Way Bill sent via WhatsApp!");
+    } catch {
+      // Keep the message context and retry from the internal WhatsApp page.
+      queuePendingWhatsAppSend({
+        type: "message",
+        action: "send_message",
+        invoiceId: bill.invoice_no,
+        invoiceNumber: bill.invoice_no,
+        customerId: bill.customer_id || null,
+        customerName: bill.customer_name,
+        phone,
+        companyId: Number(companyId) || null,
+        docType: `E-Way Bill #${bill.ewb_no}`,
+        message: text,
+        source: window.location.pathname + window.location.search,
+        returnTo: window.location.pathname,
+      });
+      navigate(WHATSAPP_ROUTE);
+    }
   };
 
   const handleGenerateNewFromExpired = (bill) => {

@@ -1,8 +1,18 @@
 import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import api from "../services/api";
-import { generateInvoicePdfBase64, getInvoiceLogoUrl } from "../utils/invoiceShare";
-import { DESIGN_COMPONENTS } from "../pages/billing/Invoice";
+import { useLocation, useNavigate } from "react-router-dom";
+import InvoicePdfCapture from "./InvoicePdfCapture";
+import {
+  buildInvoiceShareCaption,
+  composeShareDocument,
+  fetchWhatsAppConnection,
+  formatAmount,
+  isValidWaPhone,
+  normalizeWaPhone,
+  sendInvoiceDocument,
+  WHATSAPP_ROUTE,
+} from "../utils/whatsappShare";
+import { queuePendingWhatsAppSend } from "../utils/pendingWhatsAppSend";
 
 /* ── 1. Official Google Gmail Icon SVG (Crisp Pixel-Perfect) ── */
 export function GmailIcon({ size = 28 }) {
@@ -67,8 +77,10 @@ export default function ShareTransactionPopover({
 }) {
   const popoverRef = useRef(null);
   const [isSending, setIsSending] = useState(false);
-  const [renderDoc, setRenderDoc] = useState(null);
+  const [sendDoc, setSendDoc] = useState(null);
   const [pos, setPos] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Close on click outside or Escape key
   useEffect(() => {
@@ -120,7 +132,7 @@ export default function ShareTransactionPopover({
     };
   }, [isOpen, anchorElRef]);
 
-  if (!isOpen && !renderDoc) return null;
+  if (!isOpen && !sendDoc) return null;
 
   // Extract common fields safely
   const docNo =
@@ -187,10 +199,7 @@ export default function ShareTransactionPopover({
     transaction.grandTotal ??
     0;
 
-  const formattedAmount = Number(rawAmount || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const formattedAmount = formatAmount(rawAmount);
 
   const paymentMode =
     transaction.payment_type ||
@@ -212,206 +221,117 @@ export default function ShareTransactionPopover({
   }
 
   const cleanPhone = String(phone || "").replace(/[^0-9]/g, "");
-  const targetPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+  const targetPhone = normalizeWaPhone(phone);
 
-  /* ── 1. Share via WhatsApp (Direct to customer number with high-res PDF) ── */
-  const handleShareWhatsApp = async (e) => {
-    e.stopPropagation();
+  /* ── 1. Share via WhatsApp ──────────────────────────────────────────────
+     WhatsApp is ALWAYS handled by the application's own /whatsapp page.
+       • already connected  → render PDF + POST /whatsapp/send_invoice right here
+       • not connected      → persist the full invoice context, then navigate
+                             internally to /whatsapp so the user can scan the
+                             QR and the send resumes automatically.
+     WhatsApp Web / wa.me / the desktop app are never opened.               */
+  const buildPendingAction = () => ({
+    type: "invoice",
+    action: "send_invoice",
+    invoiceId: docNo,
+    invoiceNumber: docNo,
+    invoiceType: type,
+    customerId: transaction.customer_id || transaction.party_id || transaction.supplier_id || null,
+    customerName: partyName,
+    phone: targetPhone,
+    amount: formattedAmount,
+    companyId: Number(companyId) || null,
+    isPOS: false,
+    source: location.pathname + location.search,
+    returnTo: location.pathname,
+    docType: type,
+  });
 
-    const text =
-      `Hello ${partyName} 👋\n\n` +
-      `Please find your invoice attached.\n\n` +
-      `Invoice: ${docNo}\n` +
-      `Amount: ₹${formattedAmount}\n\n` +
-      `Thank you for your business.`;
-
-    if (companyId && targetPhone) {
-      setIsSending(true);
-      try {
-        // 1. Fetch complete document details from API
-        let fullTxn = transaction;
-        let compObj = null;
-
-        try {
-          const invRes = await api.get(`/invoice/get_invoice_by_id?id=${docNo}`);
-          if (invRes.data?.status && invRes.data?.data) {
-            fullTxn = { ...transaction, ...invRes.data.data };
-            compObj = {
-              company_name: invRes.data.data.company_name,
-              company_address: invRes.data.data.company_address,
-              phone: invRes.data.data.phone,
-              gstin: invRes.data.data.gstin,
-              logo: invRes.data.data.logo,
-              bank_name: invRes.data.data.bank_name,
-              account_no: invRes.data.data.account_no,
-              ifsc_code: invRes.data.data.ifsc_code,
-            };
-          }
-        } catch (fetchErr) {
-          console.log("Using list item fallback data:", fetchErr);
-        }
-
-        // Fallback company details
-        if (!compObj || !compObj.company_name) {
-          let user = {};
-          try {
-            user = JSON.parse(localStorage.getItem("user") || "{}");
-          } catch {
-            /* fallback to empty user */
-          }
-          compObj = {
-            company_name: fullTxn.company_name || user?.company_name || user?.name || "My Company",
-            company_address: fullTxn.company_address || fullTxn.address || user?.company_address || user?.address || "",
-            phone: fullTxn.company_phone || fullTxn.phone || user?.phone || user?.mobile || "",
-            gstin: fullTxn.gstin || user?.gstin || "",
-            logo: fullTxn.logo || user?.logo || null,
-          };
-        }
-
-        // Prepare products / rows
-        let products = fullTxn.products;
-        if (typeof products === "string") {
-          try {
-            products = JSON.parse(products);
-          } catch {
-            products = [];
-          }
-        } else if (!Array.isArray(products)) {
-          if (Array.isArray(fullTxn.items)) products = fullTxn.items;
-          else if (typeof fullTxn.items === "string") {
-            try {
-              products = JSON.parse(fullTxn.items);
-            } catch {
-              products = [];
-            }
-          } else if (Array.isArray(fullTxn.rows)) products = fullTxn.rows;
-          else products = [];
-        }
-
-        const isPaymentVoucher =
-          type.toLowerCase().includes("payment in") ||
-          type.toLowerCase().includes("payment out");
-
-        if (!isPaymentVoucher && (!products || products.length === 0)) {
-          products = [
-            {
-              item_name: `${type} #${docNo}`,
-              hsn_code: "-",
-              qty: 1,
-              price: Number(rawAmount || 0),
-              gst: 0,
-              amount: Number(rawAmount || 0),
-              tax_amount: 0,
-            },
-          ];
-        }
-
-        const vType =
-          type.toLowerCase().includes("payment in")
-            ? "payment_in"
-            : type.toLowerCase().includes("payment out")
-            ? "payment_out"
-            : type.toLowerCase().includes("credit")
-            ? "credit_note"
-            : type.toLowerCase().includes("debit")
-            ? "debit_note"
-            : type.toLowerCase().includes("expense")
-            ? "expense"
-            : type.toLowerCase().includes("purchase")
-            ? "purchase"
-            : "sale";
-
-        const invoiceDoc = {
-          ...fullTxn,
-          invoice_no: fullTxn.invoice_no || fullTxn.purchase_no || fullTxn.return_no || fullTxn.receipt_no || docNo,
-          voucher_type: vType,
-          customer_name: fullTxn.customer_name || fullTxn.supplier_name || fullTxn.party_name || partyName,
-          customer_phone: fullTxn.customer_phone || fullTxn.supplier_phone || fullTxn.party_phone || phone,
-          billing_address: fullTxn.billing_address || fullTxn.address || "",
-          payment_type: fullTxn.payment_type || fullTxn.payment_method || paymentMode,
-          created_at: fullTxn.created_at || fullTxn.invoice_date || fullTxn.bill_date || rawDate,
-          products,
-          total_amount: Number(fullTxn.total_amount ?? fullTxn.amount ?? fullTxn.grandTotal ?? rawAmount ?? 0),
-          paid_amount: Number(fullTxn.paid_amount ?? fullTxn.received_amount ?? fullTxn.total_amount ?? rawAmount ?? 0),
-          sub_total: Number(
-            fullTxn.sub_total ??
-              (Number(fullTxn.total_amount || rawAmount || 0) -
-                Number(fullTxn.gst_total || fullTxn.tax_amount || 0))
-          ),
-          gst_total: Number(fullTxn.gst_total ?? fullTxn.tax_amount ?? 0),
-        };
-
-        // 2. Render React ThemeTally in state
-        setRenderDoc({
-          invoice: invoiceDoc,
-          company: compObj,
-          invoice_no: docNo,
-        });
-
-        // 3. Wait for DOM paint and image assets to settle
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        const element = document.getElementById(`share-popover-print-area-${docNo}`);
-        if (!element) {
-          throw new Error("Unable to locate rendered voucher print area");
-        }
-
-        try {
-          await Promise.all(
-            [...element.querySelectorAll("img")].map((im) =>
-              im.complete
-                ? null
-                : new Promise((r) => {
-                    im.onload = r;
-                    im.onerror = r;
-                  })
-            )
-          );
-        } catch {
-          /* ignore image wait errors */
-        }
-
-        // 4. Generate high-fidelity Base64 PDF (A4 ThemeTally)
-        const pdf_base64 = await generateInvoicePdfBase64({
-          element,
-          invoiceNo: docNo,
-          isPOS: false,
-        });
-
-        // 5. Send PDF Document + Caption via backend WhatsApp Service
-        const res = await api.post("/whatsapp/send_invoice", {
-          company_id: companyId,
-          invoice_no: docNo,
-          phone: targetPhone,
-          pdf_base64,
-          filename: `${docNo}.pdf`,
-          caption: text,
-        });
-
-        if (res.data?.status) {
-          alert(res.data.message || `${type} PDF sent via WhatsApp!`);
-          setIsSending(false);
-          setRenderDoc(null);
-          onClose();
-          return;
-        } else {
-          throw new Error(res.data?.message || "WhatsApp service response was not successful");
-        }
-      } catch (err) {
-        console.log("Direct WhatsApp service error, falling back to WhatsApp Web/App...", err);
-      } finally {
-        setIsSending(false);
-        setRenderDoc(null);
-      }
+  // InvoicePdfCapture keeps this handler in a ref, so a plain function is safe
+  // here even though the component re-renders on every state change.
+  const handleCapture = async (result) => {
+    if (!result?.ok) {
+      setIsSending(false);
+      setSendDoc(null);
+      alert("Could not generate the invoice PDF. Please try again.");
+      return;
     }
 
-    // Direct WhatsApp Web / Mobile chat opening with the customer's phone number
-    const url = targetPhone
-      ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    try {
+      const res = await sendInvoiceDocument({
+        companyId,
+        invoiceNo: docNo,
+        phone: targetPhone,
+        pdfBase64: result.pdf_base64,
+        caption: buildInvoiceShareCaption({
+          customerName: partyName,
+          invoiceNumber: docNo,
+          amount: formattedAmount,
+        }),
+      });
 
-    window.open(url, "_blank");
-    onClose();
+      if (res.data?.status) {
+        alert(res.data.message || `${type} PDF sent via WhatsApp!`);
+        onClose();
+      } else {
+        alert(res.data?.message || "WhatsApp could not send this invoice. Please try again.");
+      }
+    } catch (err) {
+      alert(
+        err.response?.data?.message ||
+          "Could not reach the WhatsApp service. Please try again."
+      );
+    } finally {
+      setIsSending(false);
+      setSendDoc(null);
+    }
+  };
+
+  const handleShareWhatsApp = async (e) => {
+    e.stopPropagation();
+    if (isSending) return;
+
+    setIsSending(true);
+
+    // 0. Missing / invalid customer number → hand off to the internal
+    //    /whatsapp page, which shows a clear, non-fatal validation error.
+    if (!isValidWaPhone(targetPhone)) {
+      queuePendingWhatsAppSend(buildPendingAction());
+      setIsSending(false);
+      onClose();
+      navigate(WHATSAPP_ROUTE);
+      return;
+    }
+
+    // 1. Real connection check against the existing WhatsApp service.
+    const { connected } = await fetchWhatsAppConnection(companyId);
+
+    // 2. Not connected → keep the invoice context and go to /whatsapp.
+    if (!connected) {
+      queuePendingWhatsAppSend(buildPendingAction());
+      setIsSending(false);
+      onClose();
+      navigate(WHATSAPP_ROUTE);
+      return;
+    }
+
+    // 3. Connected → send immediately through the existing endpoint.
+    try {
+      const doc = await composeShareDocument({
+        transaction,
+        type,
+        docNo,
+        partyName,
+        phone,
+        rawDate,
+        paymentMode,
+        rawAmount,
+      });
+      setSendDoc({ ...doc, captureKey: `popover-${docNo}` });
+    } catch {
+      setIsSending(false);
+      alert("Could not prepare this invoice for sharing. Please try again.");
+    }
   };
 
   /* ── 2. Share via Gmail / Email ── */
@@ -437,41 +357,8 @@ export default function ShareTransactionPopover({
 
   return (
     <>
-      {/* ── OFF-SCREEN INVOICE (ThemeTally layout matching Screenshot) ── */}
-      {renderDoc && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "740px",
-            background: "#ffffff",
-            zIndex: -99999,
-            pointerEvents: "none",
-            boxSizing: "border-box",
-          }}
-        >
-          <div
-            id={`share-popover-print-area-${renderDoc.invoice_no || docNo}`}
-            style={{
-              background: "#ffffff",
-              width: "740px",
-              minHeight: "1000px",
-              padding: "20px 24px",
-              boxSizing: "border-box",
-              margin: "0 auto",
-            }}
-          >
-            <DESIGN_COMPONENTS.tally
-              invoice={renderDoc.invoice}
-              company={renderDoc.company}
-              color="#6366f1"
-              logoUrl={getInvoiceLogoUrl(renderDoc.company?.logo)}
-            />
-          </div>
-        </div>
-      )}
+      {/* ── OFF-SCREEN INVOICE → base64 PDF (shared with /whatsapp) ── */}
+      <InvoicePdfCapture doc={sendDoc} isPOS={false} onCapture={handleCapture} />
 
       {/* ── Popover Menu UI ── */}
       {isOpen &&

@@ -25,6 +25,14 @@ import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
+import {
+  fetchWhatsAppConnection,
+  isValidWaPhone,
+  normalizeWaPhone,
+  sendTextMessage,
+  WHATSAPP_ROUTE,
+} from "../../../utils/whatsappShare";
+import { queuePendingWhatsAppSend } from "../../../utils/pendingWhatsAppSend";
 
 const DEFAULT_COLUMNS = [
   { key: "ref_no", label: "Ref No", icon: FileText, color: "text-blue-600", bg: "bg-blue-50", desc: "Reference quote number" },
@@ -285,12 +293,43 @@ export default function EstimateQuotation() {
     setTimeout(() => win.print(), 400);
   };
 
-  // Share estimate summary via WhatsApp
-  const shareEstimate = (est) => {
+  // Share estimate summary via the app's own /whatsapp page.
+  // WhatsApp Web / wa.me are never opened: connected → send immediately,
+  // otherwise the message is handed over and resumes after the QR scan.
+  const shareEstimate = async (est) => {
     if (!est) return;
     const text = `*Estimate #${est.refNo}*\nCustomer: ${est.customer_name || "-"}\nDate: ${formatDateDMY(est.invoiceDate)}\nTotal: ${formatCurrency(est.total_amount)}\n`;
-    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
+    const phone = normalizeWaPhone(est.customer_phone || est.phone || "");
+
+    const queue = () =>
+      queuePendingWhatsAppSend({
+        type: "message",
+        action: "send_message",
+        invoiceId: est.refNo,
+        invoiceNumber: est.refNo,
+        customerId: est.customer_id || null,
+        customerName: est.customer_name,
+        phone,
+        companyId: Number(companyId) || null,
+        docType: `Estimate #${est.refNo}`,
+        message: text,
+        source: window.location.pathname + window.location.search,
+        returnTo: window.location.pathname,
+      });
+
+    if (!isValidWaPhone(phone) || !(await fetchWhatsAppConnection(companyId)).connected) {
+      queue();
+      navigate(WHATSAPP_ROUTE);
+      return;
+    }
+
+    try {
+      const res = await sendTextMessage({ companyId, phone, message: text });
+      if (!res.data?.status) throw new Error(res.data?.message || "WhatsApp could not send this estimate.");
+    } catch {
+      queue();
+      navigate(WHATSAPP_ROUTE);
+    }
   };
 
   const handleAddEstimate = () => navigate("/sales/estimate-quotation/add");
