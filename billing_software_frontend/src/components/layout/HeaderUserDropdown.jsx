@@ -34,6 +34,25 @@ export default function HeaderUserDropdown() {
   }, []);
 
   const handleLogout = async () => {
+    // Unlink the WhatsApp device BEFORE ending the website session, otherwise the
+    // user is signed out while the device stays on the phone's Linked Devices.
+    const companyId = localStorage.getItem("selected_company_id");
+
+    if (companyId) {
+      try {
+        const res = await api.post("/whatsapp/logout", { company_id: companyId });
+
+        if (res.data?.status === false) {
+          alert("Unable to logout from WhatsApp. Please try again.");
+          return;
+        }
+      } catch (err) {
+        console.error("WhatsApp logout failed:", err);
+        alert("Unable to logout from WhatsApp. Please try again.");
+        return;
+      }
+    }
+
     setIsOpen(false);
     try {
       if (user && user.id) {

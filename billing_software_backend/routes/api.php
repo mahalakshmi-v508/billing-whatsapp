@@ -289,6 +289,7 @@ Route::prefix('whatsapp')->group(function () {
     Route::post('send_reminder', [WhatsappController::class, 'sendReminder']);
     Route::get('connect_status', [WhatsappConnectController::class, 'getStatus']);
     Route::post('connect', [WhatsappConnectController::class, 'connect']);
+    Route::post('logout', [WhatsappConnectController::class, 'logout']);
     Route::post('disconnect', [WhatsappConnectController::class, 'disconnect']);
     Route::post('send_message', [WhatsappConnectController::class, 'sendMessage']);
     Route::post('update_message', [WhatsappConnectController::class, 'updateMessage']);

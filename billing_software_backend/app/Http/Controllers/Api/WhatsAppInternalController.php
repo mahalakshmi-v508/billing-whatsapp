@@ -313,7 +313,7 @@ class WhatsAppInternalController extends Controller
             $connection->connected_at = now();
         }
 
-        if ($status === 'disconnected') {
+        if ($status === 'disconnected' || $status === 'logged_out') {
             $connection->disconnected_at = now();
         }
 
@@ -340,13 +340,25 @@ class WhatsAppInternalController extends Controller
 
         $sessionIds = $request->input('session_ids', []);
 
-        $existing = WhatsAppConnection::whereIn('session_id', $sessionIds)
+        // A manually logged-out session must NEVER be restored, otherwise a
+        // service restart would silently re-link the old device using its
+        // stored credentials. Transient states (ready / connecting /
+        // disconnected) stay restorable so normal reconnect-after-restart
+        // behaviour is preserved.
+        $blocked = WhatsAppConnection::whereIn('session_id', $sessionIds)
+            ->where('status', 'logged_out')
+            ->pluck('session_id')
+            ->toArray();
+
+        $valid = WhatsAppConnection::whereIn('session_id', $sessionIds)
+            ->where('status', '!=', 'logged_out')
             ->pluck('session_id')
             ->toArray();
 
         return response()->json([
             "status" => true,
-            "valid_sessions" => $existing
+            "valid_sessions" => $valid,
+            "blocked_sessions" => $blocked
         ]);
     }
 
