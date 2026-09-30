@@ -59,7 +59,10 @@ class InvoiceController extends Controller
         $payment_type   = trim($request->input('payment_type', 'cash'));
         $gst_type       = trim($request->input('gst_type', 'without_gst'));
         $gst_no         = trim($request->input('gst_no', ''));
-        
+
+        /* SOURCE — which screen raised this bill (pos counter vs sale form) */
+        $source = strtolower(trim($request->input('source', 'sale'))) === 'pos' ? 'pos' : 'sale';
+
         /* SEQUENTIAL INVOICE NUMBER GENERATION (VIA INVOICE_SETTINGS TABLE) */
         $custom_invoice_no = trim($request->input('invoice_no', ''));
         $invSetting = InvoiceSetting::getForCompany($company_id);
@@ -282,6 +285,7 @@ class InvoiceController extends Controller
                 'current_balance' => $current_balance,
                 'payment_method' => $payment_method,
                 'payment_type' => $payment_type,
+                'source' => $source,
                 'gst_type' => $gst_type,
                 'gst_no' => $gst_no ?: null,
                 'payment_status' => $payment_status,
@@ -2309,6 +2313,11 @@ class InvoiceController extends Controller
         $payment_type   = trim($request->input('payment_type', 'cash'));
         $gst_type       = trim($request->input('gst_type', 'with_gst'));
 
+        /* SOURCE — keep the original screen the bill was raised from. Editing a
+           POS bill must not silently re-label it as a plain sale. */
+        $source = strtolower(trim($request->input('source', ''))) ?: (string) ($invoice->source ?: 'sale');
+        $source = $source === 'pos' ? 'pos' : 'sale';
+
         if (count($products) == 0) {
             return response()->json(["status" => false, "message" => "No products in invoice"]);
         }
@@ -2420,6 +2429,7 @@ class InvoiceController extends Controller
                 'due_date'       => $due_date,
                 'payment_method' => $payment_method,
                 'payment_type'   => $payment_type,
+                'source'         => $source,
                 'gst_type'       => $gst_type,
                 'payment_status' => $payment_status,
                 'company_id'     => $company_id,

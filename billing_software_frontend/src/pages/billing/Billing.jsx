@@ -1015,6 +1015,7 @@ export default function Billing() {
         paid_amount: paymentMethod === "credit" ? 0 : received,
         payment_method: paymentMethod,
         payment_type: paymentMethod === "credit" ? "credit" : "cash",
+        source: "pos",
       });
       if (res.data.status) {
         const parts = [];

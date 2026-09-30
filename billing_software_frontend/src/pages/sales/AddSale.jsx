@@ -648,6 +648,7 @@ export default function AddSale() {
             : 0)),
       payment_method: activeSale.paymentType === "cash" ? "cash" : "credit",
       payment_type: activeSale.paymentType,
+      source: "sale",
       due_date: activeSale.paymentType === "credit" ? (activeSale.dueDate || activeSale.invoiceDate) : null,
       gst_type: totals.totalTaxAmount > 0 ? "with_gst" : "without_gst",
       state_of_supply: activeSale.stateOfSupply,
