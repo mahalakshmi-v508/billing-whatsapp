@@ -274,13 +274,27 @@ class WhatsappConnectController extends Controller
         $connection->disconnected_at = now();
         $connection->save();
 
+        $wasAlreadyOut = (bool) ($result['result']['already'] ?? false);
+        $wasUnlinked = (bool) ($result['result']['unlinked'] ?? false);
+
+        // Only claim the linked device was removed when the service actually
+        // confirmed the remove-companion-device handshake. The idempotent path
+        // legitimately has unlinked=false and must not claim a removal.
+        if ($wasAlreadyOut) {
+            $message = "WhatsApp is already logged out on this device.";
+        } elseif ($wasUnlinked) {
+            $message = "WhatsApp logged out. The linked device has been removed.";
+        } else {
+            $message = "WhatsApp session closed.";
+        }
+
         return response()->json([
             "status" => true,
             "logged_out" => true,
             "state" => "LOGGED_OUT",
-            "already_logged_out" => (bool) ($result['result']['already'] ?? false),
-            "device_unlinked" => (bool) ($result['result']['unlinked'] ?? false),
-            "message" => "WhatsApp logged out. The linked device has been removed."
+            "already_logged_out" => $wasAlreadyOut,
+            "device_unlinked" => $wasUnlinked,
+            "message" => $message
         ]);
     }
 

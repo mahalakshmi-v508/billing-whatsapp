@@ -514,6 +514,21 @@ async function handleLogout(req, res) {
 
         const result = await manager.logout(session_id);
 
+        // Never report success unless the device really was unlinked. The
+        // "already logged out" no-op legitimately has unlinked:false.
+        const unlinked = Boolean(result.unlinked);
+        const already = Boolean(result.already);
+
+        if (!unlinked && !already) {
+            return res.status(502).json({
+                success: false,
+                status: 'logout_failed',
+                service: 'whatsapp-service',
+                message: 'WhatsApp device could not be unlinked. The session is still active.',
+                result
+            });
+        }
+
         return res.json({
             success: true,
             status: 'logged_out',
@@ -525,9 +540,15 @@ async function handleLogout(req, res) {
 
         console.error('[logout] failed:', error.stack || error.message);
 
-        return res.status(500).json({
+        // 502 when the failure is "could not unlink an existing session": the
+        // caller must keep the session marked as active rather than assume the
+        // device was logged out.
+        const statusCode = error.statusCode || 500;
+
+        return res.status(statusCode).json({
             success: false,
-            status: 'error',
+            status: error.unlinked === false ? 'logout_failed' : 'error',
+            service: 'whatsapp-service',
             message: error.message
         });
     }

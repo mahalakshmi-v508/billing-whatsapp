@@ -303,8 +303,34 @@ export default function MainLayout() {
 
   // 🔥 LOGOUT
   const handleLogout = async () => {
+    // A real "Log out" must unlink the WhatsApp device too. Calling only
+    // /auth/logout ended the website session while the phone kept the device
+    // in Settings -> Linked Devices.
+    //
+    // Order matters:
+    //   1. tell the backend to unlink the WhatsApp device,
+    //   2. only then drop the website session.
+    // If the WhatsApp logout fails we stop here: the user stays signed in, sees
+    // the error and can retry, instead of being told the logout worked.
+    const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+    const companyId = localStorage.getItem("selected_company_id");
+
+    if (companyId) {
+      try {
+        const res = await api.post("/whatsapp/logout", { company_id: companyId });
+
+        if (res.data?.status === false) {
+          alert("Unable to logout from WhatsApp. Please try again.");
+          return;
+        }
+      } catch (err) {
+        console.error("WhatsApp logout failed:", err);
+        alert("Unable to logout from WhatsApp. Please try again.");
+        return;
+      }
+    }
+
     try {
-      const userObj = JSON.parse(localStorage.getItem("user") || "{}");
       if (userObj && userObj.id) {
         await api.post("/auth/logout", { id: userObj.id, role: userObj.role });
       }

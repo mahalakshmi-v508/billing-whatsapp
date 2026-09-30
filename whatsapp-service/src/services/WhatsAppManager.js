@@ -1453,6 +1453,114 @@ class WhatsAppManager {
         this.pendingAcks.delete(sessionId);
     }
 
+    // Notify Laravel WITHOUT blocking the HTTP response that triggered the
+    // logout.
+    //
+    // This matters: `php artisan serve` runs the single-threaded `php -S` web
+    // server, so while it is handling the frontend's Laravel->service logout
+    // request it cannot serve the service's own callback into
+    // /api/internal/whatsapp/events. Awaiting that callback here made the two
+    // wait on each other until the browser's axios timeout expired, which the
+    // user saw as "Logout failed".
+    //
+    // Laravel already wrote the terminal state to the database inside its own
+    // logout() handler, so this callback is only a best-effort sync and must
+    // never gate the response.
+    notifyLaravelNoWait(sessionId, payload) {
+        Promise.resolve()
+            .then(() => this.updateLaravel(sessionId, payload))
+            .catch((error) => {
+                console.warn(
+                    `[WA][${sessionId}] background Laravel notify failed:`,
+                    error?.message || error
+                );
+            });
+    }
+
+    // Wait until the socket is actually connected, bounded by a timeout.
+    // Required before sock.logout(): Baileys' sendNode() calls
+    // waitForSocketOpen() and throws Boom('Connection Closed') on a socket that
+    // is not open, which would abort the unlink and leave the linked device
+    // active.
+    waitForSocketOpen(sock, timeoutMs = 25000) {
+        return new Promise((resolve) => {
+            if (!sock) {
+                return resolve(false);
+            }
+
+            if (sock.ws && sock.ws.isOpen) {
+                return resolve(true);
+            }
+
+            let settled = false;
+            let timer = null;
+
+            const finish = (value) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                if (timer) {
+                    clearTimeout(timer);
+                }
+                try {
+                    sock.ev.off('connection.update', onUpdate);
+                } catch (error) {
+                    // ignore
+                }
+                resolve(value);
+            };
+
+            const onUpdate = (update) => {
+                if (update?.connection === 'open') {
+                    finish(true);
+                } else if (update?.connection === 'close') {
+                    finish(false);
+                }
+            };
+
+            sock.ev.on('connection.update', onUpdate);
+
+            timer = setTimeout(() => {
+                console.warn(
+                    `[WA] socket did not open within ${timeoutMs}ms`
+                );
+                finish(false);
+            }, timeoutMs);
+        });
+    }
+
+    // Baileys' end() strips EVERY 'error' listener from the websocket client. If
+    // the underlying socket then emits 'error' (e.g. it was closed while still
+    // CONNECTING) there is no listener left and Node raises an uncaught
+    // exception, which would take the whole service down mid-teardown.
+    endSocket(sock, error) {
+        if (!sock) {
+            return;
+        }
+
+        try {
+            sock.end(error);
+        } catch (endError) {
+            console.error(
+                `[WA] socket end() failed:`,
+                endError.message
+            );
+        }
+
+        try {
+            if (sock.ws && typeof sock.ws.on === 'function') {
+                sock.ws.on('error', (err) => {
+                    console.warn(
+                        `[WA] socket error during teardown: ${err?.message || err}`
+                    );
+                });
+            }
+        } catch (guardError) {
+            // ignore
+        }
+    }
+
     // The real Baileys logout. In @whiskeysockets/baileys 6.7.x this sends
     // <remove-companion-device reason="user_initiated"> to s.whatsapp.net and
     // then ends the socket with DisconnectReason.loggedOut. That is what makes
@@ -1461,6 +1569,17 @@ class WhatsAppManager {
         if (!sock || typeof sock.logout !== 'function') {
             return false;
         }
+
+        const opened = await this.waitForSocketOpen(sock);
+
+        if (!opened) {
+            console.error(
+                `[WA] cannot unlink: socket never opened ` +
+                `(remove-companion-device could not be sent)`
+            );
+            return false;
+        }
+
         try {
             await sock.logout(reason);
             return true;
@@ -1506,7 +1625,7 @@ class WhatsAppManager {
                 name: null
             });
 
-            await this.updateLaravel(sessionId, {
+            this.notifyLaravelNoWait(sessionId, {
                 status: notifyStatus
             });
 
@@ -1547,19 +1666,48 @@ class WhatsAppManager {
 
         // 3) Make sure the socket is really gone (logout() already ends it).
         if (sock) {
-            try {
-                sock.end(this.loggedOutError(reason));
-            } catch (error) {
-                // already ended by sock.logout()
-            }
+            this.endSocket(sock, this.loggedOutError(reason));
             this.clients.delete(sessionId);
         }
 
-        // 4) Invalidate the persisted auth state only AFTER the logout
-        //    operation has been handled, then report the real outcome.
-        this.clearReconnectWork(sessionId);
-        this.resetSessionMemory(sessionId);
+        // 4) Report the REAL outcome.
+        //
+        //    If a device was supposed to be unlinked but the
+        //    remove-companion-device handshake did NOT complete, we must not
+        //    delete the credentials: doing so would throw away the only handle
+        //    on the still-linked device and make the leak impossible to retry.
+        //    The caller gets an error, the database row is left untouched, and
+        //    the frontend keeps showing the live session so the user can retry.
+        const unlinkRequired = Boolean(existingSock || wasRegistered);
 
+        if (unlinkRequired && !unlinked) {
+
+            console.error(
+                `[WA][${sessionId}] logout FAILED: device was not unlinked. ` +
+                `Credentials retained so the logout can be retried.`
+            );
+
+            // Session stays inactive for now: the manual-logout flag stops all
+            // reconnect paths in this process until an explicit connect/logout.
+            this.clearReconnectWork(sessionId);
+
+            this.notifyLaravelNoWait(sessionId, {
+                status: 'disconnected',
+                error: 'whatsapp_unlink_failed'
+            });
+
+            const err = new Error(
+                'WhatsApp device could not be unlinked. The WhatsApp session ' +
+                'is still active, so the logout was not applied.'
+            );
+            err.statusCode = 502;
+            err.sessionId = sessionId;
+            err.unlinked = false;
+            throw err;
+        }
+
+        // 5) The device is genuinely unlinked (or was never linked): now it is
+        //    safe to invalidate the persisted auth state.
         let credsRemoved = false;
 
         try {
@@ -1582,7 +1730,7 @@ class WhatsAppManager {
             name: null
         });
 
-        await this.updateLaravel(sessionId, {
+        this.notifyLaravelNoWait(sessionId, {
             status: notifyStatus
         });
 
@@ -1635,11 +1783,7 @@ class WhatsAppManager {
 
             this.removedSessions.add(sessionId);
 
-            try {
-                sock.end(new Error('Client removed'));
-            } catch (error) {
-                // ignore
-            }
+            this.endSocket(sock, new Error('Client removed'));
 
             this.clients.delete(sessionId);
         }
