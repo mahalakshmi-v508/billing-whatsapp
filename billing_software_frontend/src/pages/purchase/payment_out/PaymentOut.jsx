@@ -40,6 +40,7 @@ import {
   getTotalAmount,
   getPaidAmount,
   getBalanceAmount,
+  getAdvanceAmount,
 } from "./paymentOutFilters";
 
 const DEFAULT_PAYMENT_OUT_COLUMNS = [
@@ -50,6 +51,7 @@ const DEFAULT_PAYMENT_OUT_COLUMNS = [
   { id: "total_amount", label: "Total Amount", defaultVisible: true },
   { id: "paid_amount", label: "Paid Amount", defaultVisible: true },
   { id: "balance", label: "Balance", defaultVisible: true },
+  { id: "advance", label: "Advance", defaultVisible: true },
   { id: "actions", label: "Actions", defaultVisible: true, fixed: true },
 ];
 
@@ -333,6 +335,7 @@ export default function PaymentOut() {
       "Total Amount": getTotalAmount(p),
       "Paid Amount": getPaidAmount(p),
       "Balance": getBalanceAmount(p),
+      "Advance": getAdvanceAmount(p),
       "Payment Type": p.payment_method || "Cash",
       "Status": "Paid",
       "Notes": p.notes || ""
@@ -786,13 +789,14 @@ return (
                   {isColumnVisible("total_amount") && <th className="py-3.5 px-4 font-bold text-right">Total Amount</th>}
                   {isColumnVisible("paid_amount") && <th className="py-3.5 px-4 font-bold text-right">Paid Amount</th>}
                   {isColumnVisible("balance") && <th className="py-3.5 px-4 font-bold text-right">Balance</th>}
+                  {isColumnVisible("advance") && <th className="py-3.5 px-4 font-bold text-right">Advance</th>}
                   <th className="py-3.5 px-4 font-bold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
                   <tr>
-                    <td colSpan={visibleColumnCount || 8} className="py-16 text-center text-slate-400">
+                    <td colSpan={visibleColumnCount || 9} className="py-16 text-center text-slate-400">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <RefreshCw size={24} className="animate-spin text-purple-600" />
                         <span className="text-xs font-semibold">Loading payment-out vouchers...</span>
@@ -801,7 +805,7 @@ return (
                   </tr>
                 ) : paginatedPayments.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleColumnCount || 8} className="py-16 text-center text-slate-400">
+                    <td colSpan={visibleColumnCount || 9} className="py-16 text-center text-slate-400">
                       <div className="flex flex-col items-center justify-center gap-1.5">
                         <Wallet size={32} className="text-slate-300" />
                         <span className="text-sm font-bold text-slate-700 mt-2">No Payment-Out records found</span>
@@ -815,6 +819,7 @@ return (
                     const total = getTotalAmount(p);
                     const paid = getPaidAmount(p);
                     const bal = getBalanceAmount(p);
+                    const adv = getAdvanceAmount(p);
 
                     return (
                       <tr key={p.id} className="hover:bg-purple-50/20 transition-colors">
@@ -887,6 +892,18 @@ return (
                                 }`}
                             >
                               ₹ {bal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                        )}
+
+                        {/* Advance */}
+                        {isColumnVisible("advance") && (
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black ${adv > 0 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "text-slate-400"
+                                }`}
+                            >
+                              ₹ {adv.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </span>
                           </td>
                         )}

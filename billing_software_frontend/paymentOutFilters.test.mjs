@@ -5,6 +5,7 @@ import {
   getTotalAmount,
   getPaidAmount,
   getBalanceAmount,
+  getAdvanceAmount,
 } from "./src/pages/purchase/payment_out/paymentOutFilters.js";
 
 const COMPANIES = [
@@ -224,10 +225,21 @@ test("summary cards follow the filtered set", () => {
 });
 
 test("amount helpers fall back to the linked purchase invoice", () => {
-  assert.equal(getTotalAmount({ amount: 1000, invoice_total: 4000 }), 4000);
+  assert.equal(getTotalAmount({ amount: 1000, purchase_id: 1, invoice_total: 4000 }), 4000);
   assert.equal(getPaidAmount({ amount: 1000 }), 1000);
-  assert.equal(getBalanceAmount({ invoice_balance: 3000 }), 3000);
+  assert.equal(getBalanceAmount({ purchase_id: 1, invoice_balance: 3000 }), 3000);
   assert.equal(getBalanceAmount({}), 0);
+});
+
+test("amount helpers fall back to supplier total due, balance due, and advance for vouchers", () => {
+  assert.equal(getTotalAmount({ amount: 500, supplier_total: 7500 }), 7500);
+  assert.equal(getTotalAmount({ amount: 500, supplier_total_due: 7500 }), 7500);
+  assert.equal(getPaidAmount({ amount: 500 }), 500);
+  assert.equal(getBalanceAmount({ amount: 500, supplier_balance: 2500 }), 2500);
+  assert.equal(getBalanceAmount({ amount: 500, supplier_balance_due: 2500 }), 2500);
+  assert.equal(getAdvanceAmount({ amount: 500, supplier_advance: 1200 }), 1200);
+  assert.equal(getAdvanceAmount({ amount: 500, advance_balance: 800 }), 800);
+  assert.equal(getAdvanceAmount({}), 0);
 });
 
 test("null payment_date falls back to created_at for the date filter", () => {

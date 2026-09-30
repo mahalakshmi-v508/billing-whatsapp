@@ -21,11 +21,53 @@ export const toNum = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-// Prefer payment-level fields, fall back to the linked purchase invoice so the
-// table and KPI cards always reflect real values.
-export const getTotalAmount = (p) => toNum(p.total_amount ?? p.invoice_total ?? p.amount);
-export const getPaidAmount = (p) => toNum(p.paid_amount ?? p.amount);
-export const getBalanceAmount = (p) => toNum(p.balance_amount ?? p.invoice_balance);
+// Supplier-based Total Amount (sum of all submitted purchase bills for this supplier)
+export const getTotalAmount = (p) => {
+  if (!p) return 0;
+  if (p.supplier_total != null && toNum(p.supplier_total) > 0) {
+    return toNum(p.supplier_total);
+  }
+  if (p.supplier_total_due != null && toNum(p.supplier_total_due) > 0) {
+    return toNum(p.supplier_total_due);
+  }
+  if (p.invoice_total != null && toNum(p.invoice_total) > 0) {
+    return toNum(p.invoice_total);
+  }
+  if (p.total_amount != null && toNum(p.total_amount) > 0) {
+    return toNum(p.total_amount);
+  }
+  return toNum(p.amount);
+};
+
+// Payment voucher disbursed amount
+export const getPaidAmount = (p) => {
+  if (!p) return 0;
+  return toNum(p.amount ?? p.paid_amount);
+};
+
+// Supplier-based remaining Balance Due (total outstanding dues across submitted bills)
+export const getBalanceAmount = (p) => {
+  if (!p) return 0;
+  if (p.supplier_balance != null) {
+    return toNum(p.supplier_balance);
+  }
+  if (p.supplier_balance_due != null) {
+    return toNum(p.supplier_balance_due);
+  }
+  if (p.balance_amount != null) {
+    return toNum(p.balance_amount);
+  }
+  if (p.invoice_balance != null) {
+    return toNum(p.invoice_balance);
+  }
+  return 0;
+};
+
+// Supplier-based Advance Balance
+export const getAdvanceAmount = (p) => {
+  if (!p) return 0;
+  return toNum(p.supplier_advance ?? p.advance_balance ?? p.advance_amount ?? 0);
+};
 
 const idOf = (value) => (value == null || value === "" ? "" : String(value));
 
@@ -98,6 +140,7 @@ export function filterPaymentOuts(
         getTotalAmount(item),
         getPaidAmount(item),
         getBalanceAmount(item),
+        getAdvanceAmount(item),
       ];
       if (!haystack.some((field) => String(field ?? "").toLowerCase().includes(query))) {
         return false;

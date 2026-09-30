@@ -21,6 +21,7 @@ import {
   FileText,
   Wallet,
 } from "lucide-react";
+import { getTotalAmount, getPaidAmount, getBalanceAmount } from "./paymentOutFilters";
 
 const COLORS = ["#7c3aed", "#6366f1", "#f59e0b", "#10b981", "#0891b2", "#f43f5e", "#eab308"];
 
@@ -81,8 +82,8 @@ export default function PaymentOutAnalytics({ rows = [], period = "", onClose })
         receipt: p.receipt_no || `REC-${p.id || i + 1}`,
         party: p.supplier_name || p.party_name || "Unknown Supplier",
         method: p.payment_method || "Cash",
-        paid: Number(p.paid_amount || p.amount || 0),
-        billed: Number(p.amount || p.total_amount || p.paid_amount || 0),
+        paid: getPaidAmount(p),
+        billed: getTotalAmount(p),
       })),
     [rows]
   );
