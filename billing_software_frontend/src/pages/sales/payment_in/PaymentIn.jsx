@@ -70,7 +70,7 @@ export default function PaymentIn() {
   // Data states
   const [payments, setPayments] = useState([]);
   const [companies, setCompanies] = useState([]);
-  const [cashiers, setCashiers] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filter states
@@ -165,15 +165,19 @@ export default function PaymentIn() {
           if (compRes.data.status) {
             setCompanies(compRes.data.data || []);
           }
-          const cashRes = await api.get(`/cashier/get_cashier?admin_id=${adminId}`);
-          if (cashRes.data.status) {
-            setCashiers(cashRes.data.data || []);
+
+          const customerRes = await api.get(`/customer/get_all_customer?admin_id=${adminId}`);
+          if (customerRes.data?.status) {
+            setCustomers(customerRes.data.data || []);
+          } else {
+            setCustomers([]);
           }
         }
       } catch (err) {
-        console.error("Error loading companies/cashiers:", err);
+        console.error("Error loading companies/customers:", err);
       }
     };
+
     loadMeta();
   }, [adminId, user.role]);
 
@@ -219,9 +223,15 @@ export default function PaymentIn() {
         if (String(item.company_id) !== String(selectedFirm)) return false;
       }
 
-      // User filter
-      if (selectedUser !== "all" && item.cashier_id) {
-        if (String(item.cashier_id) !== String(selectedUser)) return false;
+      // User/customer filter
+      if (selectedUser !== "all") {
+        const selectedCustomerId = String(selectedUser);
+        const matchesCustomerId = item.customer_id != null && String(item.customer_id) === selectedCustomerId;
+        const matchesCustomerName = !item.customer_id && item.customer_name && customers.some(
+          (cust) => String(cust.id) === selectedCustomerId && (cust.name || cust.customer_name || cust.phone) === item.customer_name
+        );
+
+        if (!matchesCustomerId && !matchesCustomerName) return false;
       }
 
       // Search query
@@ -245,7 +255,7 @@ export default function PaymentIn() {
 
       return true;
     });
-  }, [payments, fromDate, toDate, selectedFirm, selectedUser, searchQuery]);
+  }, [payments, customers, fromDate, toDate, selectedFirm, selectedUser, searchQuery]);
 
   // Summary Metrics (Total Amount, Received Amount, Discount Amount, Balance Amount)
   const metrics = useMemo(() => {
@@ -609,7 +619,11 @@ export default function PaymentIn() {
               className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
               <span>
-                {selectedUser === "all" ? "All Users" : cashiers.find((c) => String(c.id) === String(selectedUser))?.name || "User"}
+                {selectedUser === "all"
+                  ? "All Users"
+                  : customers.find((c) => String(c.id) === String(selectedUser))?.name ||
+                    customers.find((c) => String(c.id) === String(selectedUser))?.phone ||
+                    "Customer"}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${userOpen ? "rotate-180" : ""}`} />
             </button>
@@ -627,7 +641,7 @@ export default function PaymentIn() {
                 >
                   All Users
                 </button>
-                {cashiers.map((u) => (
+                {customers.map((u) => (
                   <button
                     key={u.id}
                     onClick={() => {
@@ -638,7 +652,8 @@ export default function PaymentIn() {
                       String(selectedUser) === String(u.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                     }`}
                   >
-                    {u.name}
+                    <div className="font-semibold truncate">{u.name || u.customer_name || "Customer"}</div>
+                    {u.phone && <div className="text-[11px] text-slate-400 truncate">{u.phone}</div>}
                   </button>
                 ))}
               </div>
@@ -1045,8 +1060,8 @@ export default function PaymentIn() {
         onSelectAll={selectAllColumns}
         onReset={resetDefaultColumns}
       />
-   </>
-    
-  )}
-  </div>);
+        </>
+      )}
+    </div>
+  );
 }
