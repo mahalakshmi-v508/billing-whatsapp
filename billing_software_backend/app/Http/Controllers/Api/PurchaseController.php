@@ -1066,17 +1066,20 @@ class PurchaseController extends Controller
     {
         $this->ensureSchemaUpdated();
 
+        $adminId    = intval($request->query('admin_id') ?: $request->input('admin_id', 0));
         $companyId  = intval($request->query('company_id') ?: $request->input('company_id', 0));
         $supplierId = intval($request->query('supplier_id') ?: $request->input('supplier_id', 0));
-        $fromDate   = $request->query('from_date');
-        $toDate     = $request->query('to_date');
+        $fromDate   = $request->query('from_date') ?: $request->input('from_date');
+        $toDate     = $request->query('to_date') ?: $request->input('to_date');
+        $search     = trim((string)($request->query('search') ?: $request->input('search', '')));
 
         $query = DB::table('purchase_payments as pp')
             ->leftJoin('purchases as p', 'pp.purchase_id', '=', 'p.id')
-            ->leftJoin('suppliers as s', function($join) {
+            ->leftJoin('suppliers as s', function ($join) {
                 $join->on('p.supplier_id', '=', 's.id')
                      ->orWhere('pp.supplier_id', '=', 's.id');
             })
+            ->leftJoin('companies as comp', 'pp.company_id', '=', 'comp.id')
             ->select(
                 'pp.id',
                 'pp.purchase_id',
@@ -1090,26 +1093,60 @@ class PurchaseController extends Controller
                 DB::raw("COALESCE(pp.receipt_no, CONCAT('REC-', pp.id)) as receipt_no"),
                 'p.purchase_no',
                 'p.total_amount as invoice_total',
+                'p.paid_amount as invoice_paid',
                 'p.balance_amount as invoice_balance',
-                's.id as supplier_id',
-                's.supplier_name',
-                's.mobile_number as supplier_phone'
+                // Resolve the supplier from whichever link is populated so the
+                // supplier filter never loses a record to a broken join.
+                DB::raw('COALESCE(pp.supplier_id, p.supplier_id, s.id) as supplier_id'),
+                DB::raw('COALESCE(s.supplier_name, (SELECT supplier_name FROM suppliers WHERE id = COALESCE(pp.supplier_id, p.supplier_id))) as supplier_name'),
+                's.mobile_number as supplier_phone',
+                'comp.company_name'
             );
 
+        // Scope to the logged-in admin's firms. Only applied when that admin
+        // actually owns at least one company, so unassigned/legacy rows are
+        // never silently hidden.
+        if ($adminId > 0) {
+            $adminCompanyIds = DB::table('companies')
+                ->where('admin_id', $adminId)
+                ->where('is_deleted', 0)
+                ->pluck('id')
+                ->all();
+
+            if (!empty($adminCompanyIds)) {
+                $query->whereIn('pp.company_id', $adminCompanyIds);
+            }
+        }
+
         if ($companyId > 0) {
-            $query->where(function($q) use ($companyId) {
-                $q->where('pp.company_id', $companyId)
-                  ->orWhere('p.company_id', $companyId);
-            });
+            $query->where('pp.company_id', $companyId);
         }
+
         if ($supplierId > 0) {
-            $query->where(function($q) use ($supplierId) {
-                $q->where('p.supplier_id', $supplierId)
-                  ->orWhere('pp.supplier_id', $supplierId);
+            $query->where(function ($q) use ($supplierId) {
+                $q->where('pp.supplier_id', $supplierId)
+                  ->orWhere('p.supplier_id', $supplierId);
             });
         }
-        if (!empty($fromDate) && !empty($toDate)) {
-            $query->whereBetween('pp.payment_date', [$fromDate, $toDate]);
+
+        // Single-sided ranges are valid: a from-date alone or a to-date alone
+        // must still narrow the result set.
+        if (!empty($fromDate)) {
+            $query->whereDate('pp.payment_date', '>=', $fromDate);
+        }
+        if (!empty($toDate)) {
+            $query->whereDate('pp.payment_date', '<=', $toDate);
+        }
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->where('pp.receipt_no', 'like', $like)
+                  ->orWhere('p.purchase_no', 'like', $like)
+                  ->orWhere('s.supplier_name', 'like', $like)
+                  ->orWhere('pp.notes', 'like', $like)
+                  ->orWhere('pp.payment_method', 'like', $like);
+            });
         }
 
         $payments = $query->orderBy('pp.payment_date', 'desc')

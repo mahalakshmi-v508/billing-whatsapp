@@ -33,6 +33,14 @@ import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import { useTableColumns } from "../../../hooks/useTableColumns";
+import {
+  filterPaymentOuts,
+  summarizePayments,
+  toDateKey,
+  getTotalAmount,
+  getPaidAmount,
+  getBalanceAmount,
+} from "./paymentOutFilters";
 
 const DEFAULT_PAYMENT_OUT_COLUMNS = [
   { id: "date", label: "Date", defaultVisible: true },
@@ -91,6 +99,9 @@ export default function PaymentOut() {
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
 
+  // Ref used to keep dropdowns open while the user clicks inside the toolbar.
+  const filterBarRef = useRef(null);
+
   // Analytics view state
   const [viewMode, setViewMode] = useState("report");
 
@@ -101,8 +112,14 @@ export default function PaymentOut() {
   // Helper: Format DD/MM/YYYY
   const formatDateDMY = (dateStr) => {
     if (!dateStr) return "-";
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
+    const str = String(dateStr);
+    const dateOnly = toDateKey(str);
+    // Date-only values are parsed as UTC by the Date constructor, which can
+    // shift the day backwards in negative-offset timezones. Build them locally.
+    const d = dateOnly
+      ? new Date(Number(dateOnly.slice(0, 4)), Number(dateOnly.slice(5, 7)) - 1, Number(dateOnly.slice(8, 10)))
+      : new Date(str);
+    if (isNaN(d.getTime())) return str;
     const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const year = d.getFullYear();
@@ -173,14 +190,22 @@ export default function PaymentOut() {
       .catch(console.error);
   }, [adminId]);
 
-  // Fetch Suppliers
+  // Fetch Suppliers (scoped to the selected firm)
   useEffect(() => {
     const compParam = selectedFirm !== "all" ? `?company_id=${selectedFirm}` : "";
     api
       .get(`/supplier/get_all${compParam}`)
       .then((res) => {
         if (res.data?.status) {
-          setSuppliers(res.data.data || []);
+          const list = res.data.data || [];
+          setSuppliers(list);
+          // Changing firm reloads the supplier list. Drop a now-invalid supplier
+          // selection instead of leaving a filter that can never match.
+          setSelectedSupplier((prev) =>
+            prev === "all" || list.some((s) => String(s.id) === String(prev)) ? prev : "all"
+          );
+        } else {
+          setSuppliers([]);
         }
       })
       .catch(console.error);
@@ -206,73 +231,70 @@ export default function PaymentOut() {
     }
   };
 
+  // Refetch whenever a server-side filter (firm / date range / admin) changes.
   useEffect(() => {
     fetchPaymentOuts();
   }, [selectedFirm, fromDate, toDate, adminId]);
 
   // Close filter dropdowns on outside click
   useEffect(() => {
-    const handleOutside = () => {
-      setPeriodOpen(false);
-      setFirmOpen(false);
-      setSupplierOpen(false);
+    const handleOutside = (e) => {
+      const inFilterBar = filterBarRef.current && filterBarRef.current.contains(e.target);
+      if (!inFilterBar) {
+        setPeriodOpen(false);
+        setFirmOpen(false);
+        setSupplierOpen(false);
+        setShowDatePicker(false);
+      }
     };
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  // Filtered Payments
-  const filteredPayments = useMemo(() => {
-    return payments.filter((item) => {
-      // Date filter
-      if (fromDate && toDate && item.payment_date) {
-        const itemDate = item.payment_date.split("T")[0].split(" ")[0];
-        if (itemDate < fromDate || itemDate > toDate) return false;
-      }
+  // Any filter change should bring the user back to the first page, otherwise
+  // they can land on an out-of-range page and think the filter did nothing.
+  // Adjusted during render (React's documented pattern) rather than in an
+  // effect, which would cause a cascading second render.
+  const filterSignature = [
+    period,
+    selectedFirm,
+    selectedSupplier,
+    fromDate,
+    toDate,
+    searchQuery,
+  ].join("|");
+  const [lastFilterSignature, setLastFilterSignature] = useState(filterSignature);
+  if (lastFilterSignature !== filterSignature) {
+    setLastFilterSignature(filterSignature);
+    setCurrentPage(1);
+  }
 
-      // Firm filter
-      if (selectedFirm !== "all" && item.company_id) {
-        if (String(item.company_id) !== String(selectedFirm)) return false;
-      }
+  // Filtered Payments — all active filters combine with AND.
+  const filteredPayments = useMemo(
+    () =>
+      filterPaymentOuts(payments, {
+        fromDate,
+        toDate,
+        selectedFirm,
+        selectedSupplier,
+        searchQuery,
+        companies,
+        suppliers,
+      }),
+    [
+    payments,
+    companies,
+    suppliers,
+    fromDate,
+    toDate,
+    selectedFirm,
+    selectedSupplier,
+    searchQuery,
+  ]);
 
-      // Supplier filter
-      if (selectedSupplier !== "all") {
-        if (String(item.supplier_id) !== String(selectedSupplier)) return false;
-      }
-
-      // Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const refNo = String(item.receipt_no || item.id || "").toLowerCase();
-        const party = String(item.supplier_name || "").toLowerCase();
-        const notes = String(item.notes || "").toLowerCase();
-        if (!refNo.includes(q) && !party.includes(q) && !notes.includes(q)) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [payments, fromDate, toDate, selectedFirm, selectedSupplier, searchQuery]);
-
-  // Financial Metrics (PaySplitX 4-KPIs matching Payment In)
-  const metrics = useMemo(() => {
-    return filteredPayments.reduce(
-      (acc, p) => {
-        const amt = parseFloat(p.amount || p.total_amount || 0);
-        const pd = parseFloat(p.paid_amount || p.amount || 0);
-        const disc = parseFloat(p.discount_amount || 0);
-        const bal = parseFloat(p.balance_amount || 0);
-
-        acc.total += amt;
-        acc.paid += pd;
-        acc.discount += disc;
-        acc.balance += bal;
-        return acc;
-      },
-      { total: 0, paid: 0, discount: 0, balance: 0 }
-    );
-  }, [filteredPayments]);
+  // Financial Metrics (PaySplitX 4-KPIs matching Payment In) — always scoped
+  // to the currently filtered set so the cards move with the table.
+  const metrics = useMemo(() => summarizePayments(filteredPayments), [filteredPayments]);
 
   // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredPayments.length / rowsPerPage));
@@ -289,13 +311,13 @@ export default function PaymentOut() {
       filteredPayments.map((p) => ({
         date: p.payment_date || "",
         group: p.supplier_name || "Unknown Party",
-        value: Number(p.paid_amount || p.amount || 0),
+        value: getPaidAmount(p),
         count: 1,
       })),
     [filteredPayments]
   );
 
-  // Export to Excel
+  // Export to Excel — exports exactly what the filtered table is showing.
   const exportToExcel = () => {
     if (filteredPayments.length === 0) {
       alert("No payment-out data to export.");
@@ -304,9 +326,12 @@ export default function PaymentOut() {
     const data = filteredPayments.map((p) => ({
       "Date": formatDateDMY(p.payment_date),
       "Ref No.": p.receipt_no || `REC-${p.id}`,
+      "Purchase No.": p.purchase_no || "",
       "Party Name": p.supplier_name || "Unknown Party",
-      "Total Amount": parseFloat(p.amount || p.total_amount || 0),
-      "Paid Amount": parseFloat(p.paid_amount || p.amount || 0),
+      "Firm": p.company_name || "",
+      "Total Amount": getTotalAmount(p),
+      "Paid Amount": getPaidAmount(p),
+      "Balance": getBalanceAmount(p),
       "Payment Type": p.payment_method || "Cash",
       "Status": "Paid",
       "Notes": p.notes || ""
@@ -341,7 +366,6 @@ export default function PaymentOut() {
       setTimeout(() => setActionToast(null), 3500);
     } finally {
       setDeleting(false);
-      setActiveMenuId(null);
     }
   };
 
@@ -473,7 +497,10 @@ export default function PaymentOut() {
       </div>
 
       {/* ── 3. FILTER TOOLBAR (Matching Payment In) ── */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
+      <div
+        ref={filterBarRef}
+        className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3"
+      >
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
 
@@ -487,7 +514,7 @@ export default function PaymentOut() {
               }}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <span className="capitalize">{period === "all_time" ? "All Time" : period.replace("_", " ")}</span>
+              <span className="capitalize">{period === "all_time" ? "All Time" : period === "custom" ? "Custom Range" : period.replace("_", " ")}</span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -659,8 +686,9 @@ export default function PaymentOut() {
                 <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                   <button
                     onClick={() => {
-                      setFromDate("");
-                      setToDate("");
+                      // Clearing the range must also clear the active period so the
+                      // period button does not keep showing a stale selection.
+                      setPresetDates("all_time");
                       setShowDatePicker(false);
                     }}
                     className="px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
@@ -789,9 +817,9 @@ export default function PaymentOut() {
               ) : (
                 paginatedPayments.map((p) => {
                   const paymentMethod = (p.payment_method || "cash").toUpperCase();
-                  const total = parseFloat(p.amount || p.total_amount || 0);
-                  const paid = parseFloat(p.paid_amount || p.amount || 0);
-                  const bal = parseFloat(p.balance_amount || 0);
+                  const total = getTotalAmount(p);
+                  const paid = getPaidAmount(p);
+                  const bal = getBalanceAmount(p);
 
                   return (
                     <tr key={p.id} className="hover:bg-purple-50/20 transition-colors">
