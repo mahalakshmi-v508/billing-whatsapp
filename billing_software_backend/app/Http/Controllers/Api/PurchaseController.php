@@ -1170,7 +1170,13 @@ class PurchaseController extends Controller
                 DB::raw("COALESCE(s.supplier_name, (SELECT supplier_name FROM suppliers WHERE id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id))) as supplier_name"),
                 DB::raw("COALESCE(s.supplier_name, (SELECT supplier_name FROM suppliers WHERE id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id))) as party_name"),
                 's.mobile_number as supplier_phone',
-                'comp.company_name'
+                'comp.company_name',
+                DB::raw('(SELECT COALESCE(SUM(purchases.balance_amount), 0) FROM purchases WHERE purchases.supplier_id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id, s.id) AND purchases.status = "submitted") as supplier_balance'),
+                DB::raw('(SELECT COALESCE(SUM(purchases.balance_amount), 0) FROM purchases WHERE purchases.supplier_id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id, s.id) AND purchases.status = "submitted") as supplier_balance_due'),
+                DB::raw('(SELECT COALESCE(SUM(purchases.total_amount), 0) FROM purchases WHERE purchases.supplier_id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id, s.id) AND purchases.status = "submitted") as supplier_total'),
+                DB::raw('(SELECT COALESCE(SUM(purchases.total_amount), 0) FROM purchases WHERE purchases.supplier_id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id, s.id) AND purchases.status = "submitted") as supplier_total_due'),
+                DB::raw('(COALESCE((SELECT advance_balance FROM suppliers WHERE id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id, s.id)), s.advance_balance, 0) + (SELECT COALESCE(SUM(amount), 0) FROM purchase_payments WHERE purchase_payments.supplier_id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id, s.id) AND (purchase_payments.purchase_id = 0 OR purchase_payments.purchase_id IS NULL))) as supplier_advance'),
+                DB::raw('(COALESCE((SELECT advance_balance FROM suppliers WHERE id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id, s.id)), s.advance_balance, 0) + (SELECT COALESCE(SUM(amount), 0) FROM purchase_payments WHERE purchase_payments.supplier_id = COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id, s.id) AND (purchase_payments.purchase_id = 0 OR purchase_payments.purchase_id IS NULL))) as advance_balance')
             );
 
         // Scope to the logged-in admin's firms. Only applied when that admin

@@ -12,9 +12,21 @@ use App\Models\InvoiceSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 
 class InvoiceController extends Controller
 {
+    private function ensureSchemaUpdated()
+    {
+        if (Schema::hasTable('invoices')) {
+            if (!Schema::hasColumn('invoices', 'source')) {
+                Schema::table('invoices', function ($table) {
+                    $table->string('source', 20)->default('sale')->after('payment_type');
+                });
+            }
+        }
+    }
+
     public function getNextInvoiceNo(Request $request)
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
@@ -44,6 +56,7 @@ class InvoiceController extends Controller
 
     public function createInvoice(Request $request)
     {
+        $this->ensureSchemaUpdated();
         $company_id     = intval($request->input('company_id', 0));
         $customer_id    = intval($request->input('customer_id', 0));
         $customer_name  = trim($request->input('customer_name', ''));
