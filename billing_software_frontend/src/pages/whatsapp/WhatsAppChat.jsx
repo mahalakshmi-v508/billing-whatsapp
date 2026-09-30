@@ -776,14 +776,23 @@ export default function WhatsAppChat() {
     }
   };
 
-  const disconnectWhatsApp = async () => {
-    if (!window.confirm("Disconnect WhatsApp? You will need to scan the QR code again.")) return;
+  const logoutWhatsApp = async () => {
+    if (
+      !window.confirm(
+        "Logout WhatsApp? The linked device will be removed from your phone and you will need to scan the QR code again."
+      )
+    )
+      return;
 
     setDisconnecting(true);
     try {
-      const res = await api.post("/whatsapp/disconnect", { company_id: companyId });
-      if (res.data.status) {
-        showToast(res.data.message || "WhatsApp disconnected");
+      // The real unlink endpoint. The backend keeps the session marked as
+      // connected when the device could not be unlinked, so only clear the UI
+      // once the server confirms success.
+      const res = await api.post("/whatsapp/logout", { company_id: companyId });
+
+      if (res.data?.status === true) {
+        showToast(res.data.message || "WhatsApp logged out");
         setDrawerOpen(false);
         setSelectedPhone(null);
         setMessages([]);
@@ -791,10 +800,19 @@ export default function WhatsAppChat() {
         setQr(null);
         setConnState("disconnected");
       } else {
-        showToast(res.data.message || "Failed to disconnect", false);
+        showToast(
+          res.data?.message || "Unable to logout from WhatsApp. Please try again.",
+          false
+        );
       }
     } catch (err) {
-      showToast(err.response?.data?.message || "Failed to disconnect", false);
+      // Keep the current UI state: the device is still linked, so pretending
+      // it was removed would be a lie.
+      showToast(
+        err.response?.data?.message ||
+          "Unable to logout from WhatsApp. Please try again.",
+        false
+      );
     } finally {
       setDisconnecting(false);
     }
@@ -2272,24 +2290,24 @@ export default function WhatsAppChat() {
                 </div>
               </div>
 
-              {/* SESSION / DISCONNECT */}
+              {/* SESSION / LOGOUT */}
               <div>
                 <div className="wc-drawer-label">Session</div>
                 <button
                   className="wc-disconnect-btn"
-                  onClick={disconnectWhatsApp}
+                  onClick={logoutWhatsApp}
                   disabled={disconnecting || !connected}
                   style={{ width: "100%" }}
                 >
                   {disconnecting ? (
-                    <><Loader2 size={15} /> Disconnecting…</>
+                    <><Loader2 size={15} /> Logging out…</>
                   ) : (
-                    <><Unplug size={15} /> Disconnect WhatsApp</>
+                    <><Unplug size={15} /> Logout WhatsApp</>
                   )}
                 </button>
                 <p style={{ fontSize: 11.5, color: "#94a3b8", lineHeight: 1.6, marginTop: 10 }}>
-                  Disconnecting logs out this WhatsApp session. Scan the QR code
-                  again to reconnect a new or the same account.
+                  Logging out removes this device from your phone&apos;s Linked Devices. Scan the
+                  QR code again to reconnect a new or the same account.
                 </p>
               </div>
             </div>
