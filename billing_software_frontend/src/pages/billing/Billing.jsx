@@ -875,7 +875,9 @@ export default function Billing() {
   };
 
   const handleNameSearch = (value) => {
-    setCustomer((c) => ({ ...c, name: value, id: null, credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
+    // A new name means a new customer — the previous customer's GSTIN must not
+    // linger, otherwise it gets saved against whoever is selected next.
+    setCustomer((c) => ({ ...c, name: value, id: null, gst_no: "", credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
     clearTimeout(nameSearchTimer.current);
     if (!value || value.length < 2) {
       setNameSuggestions([]);
@@ -897,7 +899,8 @@ export default function Billing() {
 
   const handlePhoneSearch = (value) => {
     const digits = value.replace(/\D/g, "").slice(0, 10);
-    setCustomer((c) => ({ ...c, phone: digits, id: null, name: c.id ? "" : c.name, credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
+    // Same as above: switching phone switches customer, so drop the old GSTIN.
+    setCustomer((c) => ({ ...c, phone: digits, id: null, name: c.id ? "" : c.name, gst_no: "", credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
     setPhoneSuggestions([]);
     clearTimeout(phoneSearchTimer.current);
     if (digits.length !== 10) return;
@@ -938,7 +941,7 @@ export default function Billing() {
         if (phoneRes.data.status && phoneRes.data.data) {
           await selectCustomer(phoneRes.data.data);
         } else {
-          setCustomer((c) => ({ ...c, name: addCustomerName.trim(), phone: addCustomerPhone.trim(), address: addCustomerAddress.trim() }));
+          setCustomer((c) => ({ ...c, name: addCustomerName.trim(), phone: addCustomerPhone.trim(), address: addCustomerAddress.trim(), gst_no: "" }));
         }
         showToast("Customer profile created successfully", "success");
         setShowAddCustomer(false);
@@ -1940,11 +1943,20 @@ export default function Billing() {
                   <input
                     type="text"
                     placeholder="22ABCDE1234F1Z5"
-                    value={customer.gst_no}
+                    value={customer.gst_no ?? ""}
                     maxLength={15}
                     onChange={(e) => setCustomer((c) => ({ ...c, gst_no: e.target.value.toUpperCase() }))}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-amber-300 rounded-xl text-xs font-bold font-mono uppercase tracking-wider text-slate-900 focus:outline-none focus:bg-white"
+                    className={`w-full px-3 py-1.5 border rounded-xl text-xs font-bold font-mono uppercase tracking-wider focus:outline-none focus:bg-white ${
+                      customer.gst_no?.trim()
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                        : "bg-slate-50 border-amber-300 text-slate-900"
+                    }`}
                   />
+                  {!customer.gst_no?.trim() && (
+                    <p className="mt-1 text-[10.5px] font-semibold text-amber-700">
+                      No GSTIN on file — enter one to raise a GST Bill.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
