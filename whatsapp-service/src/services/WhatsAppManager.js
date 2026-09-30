@@ -83,10 +83,22 @@ class WhatsAppManager {
         this.reconnectAttempts = new Map();
         this.lidToPhone = new Map();
         this.removedSessions = new Set();
+
+        // Sessions terminated by an EXPLICIT user logout.
+        // Unlike removedSessions this set is durable: it is never consumed by the
+        // connection.update handler, so a late/duplicate "close" event (or the
+        // reconnect backoff timer, the watchdog, the sync interval or a service
+        // restart) can never resurrect the logged-out device with the old creds.
+        // It is only cleared by an explicit new connect() (a fresh QR scan).
+        this.manualLogouts = new Set();
         this.creating = new Map();
         this.pairRestarts = new Map();
         this.watchdog = null;
         this.syncInterval = null;
+    }
+
+    isManualLogout(sessionId) {
+        return this.manualLogouts.has(sessionId);
     }
 
     baileysSessionPath(sessionId) {
@@ -151,7 +163,20 @@ class WhatsAppManager {
         }
     }
 
-    async createClient(sessionId) {
+    // `explicit: true` means a human asked to connect (Connect button / QR scan).
+    // That is the ONLY thing allowed to clear a previous manual logout, so a
+    // reconnect that races with logout can never re-open the old session.
+    async createClient(sessionId, options = {}) {
+
+        if (options.explicit) {
+            this.manualLogouts.delete(sessionId);
+            this.removedSessions.delete(sessionId);
+        } else if (this.isManualLogout(sessionId)) {
+            console.log(
+                `[WA][${sessionId}] skipping implicit client creation (manual logout)`
+            );
+            return null;
+        }
 
         if (this.clients.has(sessionId)) {
             return this.clients.get(sessionId);
@@ -285,6 +310,10 @@ class WhatsAppManager {
                     continue;
                 }
 
+                if (this.isManualLogout(sessionId)) {
+                    continue;
+                }
+
                 if (
                     state.status === 'ready' &&
                     !this.clients.has(sessionId)
@@ -327,11 +356,21 @@ class WhatsAppManager {
 
             const { connection, lastDisconnect, qr } = update;
 
+            // While a manual logout is in progress this socket is being torn down
+            // on purpose. Any "connecting"/"qr_ready"/"open" it manages to emit
+            // on the way out is noise and must never be reported to Laravel,
+            // otherwise a logged-out device would look connected again.
+            const tearingDown = this.isManualLogout(sessionId);
+
             if (update.connection) {
                 console.log(`[BAILEYS] connection status=${update.connection}`);
             }
 
             if (qr) {
+
+                if (tearingDown) {
+                    return;
+                }
 
                 console.log(`[WA][${sessionId}] qr_ready`);
                 console.log('[BAILEYS] QR received');
@@ -350,6 +389,10 @@ class WhatsAppManager {
 
             if (connection === 'connecting') {
 
+                if (tearingDown) {
+                    return;
+                }
+
                 this.setState(sessionId, {
                     status: 'connecting',
                     qr: null
@@ -357,6 +400,10 @@ class WhatsAppManager {
             }
 
             if (connection === 'open') {
+
+                if (tearingDown) {
+                    return;
+                }
 
                 console.log(`[WA][${sessionId}] ready`);
 
@@ -397,9 +444,20 @@ class WhatsAppManager {
 
                 this.clients.delete(sessionId);
 
-                if (this.removedSessions.has(sessionId)) {
+                // ── EXPLICIT LOGOUT / INTENTIONAL REMOVAL ──
+                // Terminate for good: no backoff reconnect, no watchdog rebuild,
+                // no sync-interval rebuild, and no automatic re-pair. manualLogouts
+                // is deliberately NOT deleted here, so a second (duplicate) close
+                // event or an already-scheduled reconnect still resolves to this
+                // same branch instead of falling through to auto-reconnect.
+                if (this.isManualLogout(sessionId) || this.removedSessions.has(sessionId)) {
 
                     this.removedSessions.delete(sessionId);
+
+                    console.log(
+                        `[WA][${sessionId}] manual logout — staying disconnected, ` +
+                        `reconnect suppressed`
+                    );
 
                     return;
                 }
@@ -507,6 +565,13 @@ class WhatsAppManager {
                 const timer = setTimeout(async () => {
 
                     this.reconnectTimers.delete(sessionId);
+
+                    if (this.isManualLogout(sessionId)) {
+                        console.log(
+                            `[WA][${sessionId}] reconnect cancelled (manual logout)`
+                        );
+                        return;
+                    }
 
                     if (this.clients.has(sessionId)) {
                         return;
@@ -1348,48 +1413,167 @@ class WhatsAppManager {
         }
     }
 
-    async disconnect(sessionId) {
+    // ── MANUAL LOGOUT / SESSION TERMINATION ──────────────────────────────
 
-        console.log(`[WA][${sessionId}] explicit disconnect requested`);
+    // Reads the persisted Baileys creds without creating a socket. `creds.me`
+    // is only present for a device that actually completed pairing, i.e. one
+    // that WhatsApp lists under Linked Devices and that can be unlinked.
+    readStoredCreds(sessionId) {
+        try {
+            const file = path.join(this.baileysSessionPath(sessionId), 'creds.json');
+            if (!fs.existsSync(file)) {
+                return null;
+            }
+            const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (error) {
+            return null;
+        }
+    }
 
-        const sock = this.clients.get(sessionId);
+    loggedOutError(message) {
+        const error = new Error(message || 'Manual logout');
+        error.output = { statusCode: DisconnectReason.loggedOut };
+        return error;
+    }
 
+    clearReconnectWork(sessionId) {
         const timer = this.reconnectTimers.get(sessionId);
-
         if (timer) {
             clearTimeout(timer);
             this.reconnectTimers.delete(sessionId);
         }
-
         this.reconnectAttempts.delete(sessionId);
+        this.pairRestarts.delete(sessionId);
+    }
 
+    resetSessionMemory(sessionId) {
+        this.authStates.delete(sessionId);
+        this.lidToPhone.delete(sessionId);
+        this.pendingAcks.delete(sessionId);
+    }
+
+    // The real Baileys logout. In @whiskeysockets/baileys 6.7.x this sends
+    // <remove-companion-device reason="user_initiated"> to s.whatsapp.net and
+    // then ends the socket with DisconnectReason.loggedOut. That is what makes
+    // the linked device disappear from the WhatsApp account's Linked Devices.
+    async unlinkDevice(sock, reason) {
+        if (!sock || typeof sock.logout !== 'function') {
+            return false;
+        }
+        try {
+            await sock.logout(reason);
+            return true;
+        } catch (error) {
+            console.error(
+                `[WA] unlink via sock.logout() failed:`,
+                error.message
+            );
+            return false;
+        }
+    }
+
+    // Single teardown path shared by /logout and /disconnect.
+    async terminateSession(sessionId, options = {}) {
+
+        const notifyStatus = options.notifyStatus || 'logged_out';
+        const reason = options.reason || 'Manual logout';
+
+        // 1) Flag the manual logout FIRST. Everything below is inherently racy
+        //    (socket close events, backoff timers, watchdog, sync interval), so
+        //    this flag is what guarantees the old credentials are never reused.
+        this.manualLogouts.add(sessionId);
         this.removedSessions.add(sessionId);
+
+        this.clearReconnectWork(sessionId);
+
+        const existingSock = this.clients.get(sessionId);
+        const storedCreds = this.readStoredCreds(sessionId);
+        const wasRegistered = Boolean(storedCreds && storedCreds.me && storedCreds.me.id);
+
+        // 2) Nothing live and nothing registered -> already logged out.
+        //    Logout is idempotent: succeed without touching anything.
+        if (!existingSock && !wasRegistered) {
+
+            console.log(`[WA][${sessionId}] logout: already logged out (idempotent)`);
+
+            this.resetSessionMemory(sessionId);
+
+            this.setState(sessionId, {
+                status: 'disconnected',
+                qr: null,
+                phone: null,
+                name: null
+            });
+
+            await this.updateLaravel(sessionId, {
+                status: notifyStatus
+            });
+
+            return {
+                logged_out: true,
+                unlinked: false,
+                already: true
+            };
+        }
+
+        let sock = existingSock;
+        let unlinked = false;
 
         if (sock) {
 
+            unlinked = await this.unlinkDevice(sock, reason);
+
+        } else if (wasRegistered) {
+
+            // Baileys can only unlink a linked device from a LIVE socket. The
+            // service may have restarted since the device was paired, so
+            // rehydrate a temporary socket from the stored creds purely to
+            // unlink, then tear it down again.
+            console.log(
+                `[WA][${sessionId}] no live socket, rehydrating from creds to unlink device`
+            );
+
             try {
-                await sock.logout();
+                sock = await this.buildClient(sessionId);
             } catch (error) {
-                try {
-                    sock.end(new Error('Manual disconnect'));
-                } catch (endError) {
-                    // ignore
-                }
+                console.error(`[WA][${sessionId}] rehydrate failed:`, error.message);
             }
 
+            if (sock) {
+                unlinked = await this.unlinkDevice(sock, reason);
+            }
+        }
+
+        // 3) Make sure the socket is really gone (logout() already ends it).
+        if (sock) {
+            try {
+                sock.end(this.loggedOutError(reason));
+            } catch (error) {
+                // already ended by sock.logout()
+            }
             this.clients.delete(sessionId);
         }
 
-        this.authStates.delete(sessionId);
+        // 4) Invalidate the persisted auth state only AFTER the logout
+        //    operation has been handled, then report the real outcome.
+        this.clearReconnectWork(sessionId);
+        this.resetSessionMemory(sessionId);
+
+        let credsRemoved = false;
 
         try {
-            fs.rmSync(this.baileysSessionPath(sessionId), { recursive: true, force: true });
+            const dir = this.baileysSessionPath(sessionId);
+            if (fs.existsSync(dir)) {
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+            credsRemoved = true;
         } catch (error) {
-            // ignore
+            console.error(
+                `[WA][${sessionId}] failed to remove session dir:`,
+                error.message
+            );
         }
-
-        this.lidToPhone.delete(sessionId);
-        this.pendingAcks.delete(sessionId);
 
         this.setState(sessionId, {
             status: 'disconnected',
@@ -1399,7 +1583,40 @@ class WhatsAppManager {
         });
 
         await this.updateLaravel(sessionId, {
-            status: 'disconnected'
+            status: notifyStatus
+        });
+
+        console.log(
+            `[WA][${sessionId}] logout complete (unlinked=${unlinked}, ` +
+            `creds_removed=${credsRemoved})`
+        );
+
+        return {
+            logged_out: true,
+            unlinked,
+            creds_removed: credsRemoved,
+            was_registered: wasRegistered,
+            already: false
+        };
+    }
+
+    // Explicit "Logout WhatsApp": terminate the Baileys session and unlink the
+    // device from the WhatsApp account. Durable — no auto-reconnect afterwards.
+    async logout(sessionId) {
+        console.log(`[WA][${sessionId}] LOGOUT requested (unlink linked device)`);
+        return this.terminateSession(sessionId, {
+            notifyStatus: 'logged_out',
+            reason: 'Manual logout'
+        });
+    }
+
+    // Existing endpoint, same guarantees (kept so nothing that calls
+    // /api/whatsapp/disconnect regresses).
+    async disconnect(sessionId) {
+        console.log(`[WA][${sessionId}] explicit disconnect requested`);
+        return this.terminateSession(sessionId, {
+            notifyStatus: 'disconnected',
+            reason: 'Manual disconnect'
         });
     }
 
@@ -1494,7 +1711,14 @@ class WhatsAppManager {
             return;
         }
 
-        let validIds = candidates;
+        let validIds = candidates.filter(id => !this.isManualLogout(id));
+
+        if (validIds.length !== candidates.length) {
+            console.log(
+                `[WA] Skipped ${candidates.length - validIds.length} manually ` +
+                `logged-out session(s)`
+            );
+        }
 
         try {
 
@@ -1692,6 +1916,10 @@ class WhatsAppManager {
             for (const [sessionId, state] of this.states.entries()) {
 
                 if (this.removedSessions.has(sessionId)) {
+                    continue;
+                }
+
+                if (this.isManualLogout(sessionId)) {
                     continue;
                 }
 

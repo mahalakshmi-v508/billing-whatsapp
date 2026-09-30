@@ -31,10 +31,19 @@ const manager =
 
 
 // ── HEALTH ──
+// Unauthenticated on purpose: this is the reachability probe. It reports only
+// the SERVICE's own liveness and configuration — never a WhatsApp connection
+// state. "service running" must never be mistaken for "account connected".
 app.get('/health', (req, res) => {
     return res.json({
         success: true,
-        message: 'WhatsApp service is running'
+        service: 'whatsapp-service',
+        status: 'running',
+        message: 'WhatsApp service is running',
+        port: config.port,
+        token_configured: config.internalTokenConfigured,
+        sessions: manager.clients.size,
+        uptime_seconds: Math.round(process.uptime())
     });
 });
 
@@ -63,8 +72,10 @@ app.post(
             console.log('[WHATSAPP CONNECT] connect requested');
             console.log(`[WHATSAPP CONNECT] sessionId=${session_id}`);
 
-            // respond immediately; QR arrives via events/polling
-            manager.createClient(session_id)
+            // respond immediately; QR arrives via events/polling.
+            // explicit:true — a human asked to connect, so any previous manual
+            // logout is cleared and a fresh QR pairing flow may start.
+            manager.createClient(session_id, { explicit: true })
                 .catch(error => {
                     console.error(
                         `[${session_id}] init failed`,
@@ -483,47 +494,52 @@ app.post(
 );
 
 
-// ── DISCONNECT ──
-app.post(
-    '/api/whatsapp/disconnect',
-    internalAuth,
-    async (req, res) => {
+// ── LOGOUT (TERMINATE BAILEYS SESSION + UNLINK THE DEVICE) ──
+// This is the real teardown. It must never be a no-op that only flips a flag:
+// the manager calls sock.logout() (remove-companion-device), ends the socket,
+// drops the persisted auth state and suppresses every auto-reconnect path.
+async function handleLogout(req, res) {
 
-        try {
+    try {
 
-            const {
-                session_id
-            } = req.body;
+        const { session_id } = req.body;
 
-            if (!session_id) {
-
-                return res.status(422).json({
-                    success: false,
-                    message: 'session_id is required'
-                });
-            }
-
-            await manager.disconnect(
-                session_id
-            );
-
-            return res.json({
-                success: true,
-                message:
-                    'WhatsApp disconnected'
-            });
-
-        } catch (error) {
-
-            console.error(error.message);
-
-            return res.status(500).json({
+        if (!session_id) {
+            return res.status(422).json({
                 success: false,
-                message: error.message
+                status: 'error',
+                message: 'session_id is required'
             });
         }
+
+        const result = await manager.logout(session_id);
+
+        return res.json({
+            success: true,
+            status: 'logged_out',
+            service: 'whatsapp-service',
+            result
+        });
+
+    } catch (error) {
+
+        console.error('[logout] failed:', error.stack || error.message);
+
+        return res.status(500).json({
+            success: false,
+            status: 'error',
+            message: error.message
+        });
     }
-);
+}
+
+
+app.post('/api/whatsapp/logout', internalAuth, handleLogout);
+
+
+// Same handler for the pre-existing endpoint name so no client regresses.
+app.post('/api/whatsapp/disconnect', internalAuth, handleLogout);
+
 
 
 app.listen(
@@ -533,6 +549,19 @@ app.listen(
         console.log(
             `WhatsApp service running on port ${config.port}`
         );
+
+        if (!config.internalTokenConfigured) {
+
+            console.error(
+                '[FATAL] No internal token configured — every /api/whatsapp/* ' +
+                'request will be refused with 503. Set LARAVEL_API_KEY in ' +
+                'whatsapp-service/.env to match WHATSAPP_INTERNAL_TOKEN in the ' +
+                'Laravel .env.'
+            );
+
+        } else {
+            console.log('Internal auth token loaded from .env');
+        }
 
         manager.startSyncInterval();
 

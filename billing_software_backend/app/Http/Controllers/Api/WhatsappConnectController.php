@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\WhatsAppServiceException;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\WhatsAppConnection;
@@ -14,6 +15,12 @@ use Illuminate\Support\Str;
 class WhatsappConnectController extends Controller
 {
     // ── GET CONNECTION STATUS (FOR REACT POLLING) ──
+    //
+    // Two independent facts are reported and never conflated:
+    //   * service_* — can Laravel talk to the Node whatsapp-service at all?
+    //   * data      — the real state of the WhatsApp device session.
+    // A reachable service is NOT a connected account, and a dead service must
+    // never be reported as "connected" from a stale database row.
     public function getStatus(Request $request, WhatsAppService $whatsapp)
     {
         $company_id = $request->input('company_id', $request->query('company_id'));
@@ -25,14 +32,19 @@ class WhatsappConnectController extends Controller
             ]);
         }
 
-        $connection = WhatsAppConnection::where('company_id', $company_id)->first();
+        $health = $whatsapp->health();
 
-        if (!$connection) {
+        if (!$health['reachable']) {
             return response()->json([
                 "status" => true,
                 "connected" => false,
+                "service_online" => false,
+                "service_state" => "service_offline",
+                "service_message" => $health['detail'] ??
+                    'WhatsApp service is not reachable. Start the whatsapp-service (node src/server.js).',
                 "data" => [
-                    "status" => "disconnected",
+                    "status" => "service_offline",
+                    "state" => "SERVICE_OFFLINE",
                     "qr" => null,
                     "phone" => null,
                     "name" => null
@@ -40,39 +52,117 @@ class WhatsappConnectController extends Controller
             ]);
         }
 
-        // live status from node service, fallback to db status
-        try {
-            if ($whatsapp->isConfigured()) {
-                $remote = $whatsapp->status($connection->session_id);
-                $state = $remote['state'] ?? null;
+        if (!$health['configured']) {
+            return response()->json([
+                "status" => true,
+                "connected" => false,
+                "service_online" => true,
+                "service_state" => "service_error",
+                "service_message" =>
+                    'WhatsApp service is running but its internal token is not configured. ' .
+                    'Set LARAVEL_API_KEY in whatsapp-service/.env to match ' .
+                    'WHATSAPP_INTERNAL_TOKEN in the Laravel .env.',
+                "data" => [
+                    "status" => "service_error",
+                    "state" => "ERROR",
+                    "qr" => null,
+                    "phone" => null,
+                    "name" => null
+                ]
+            ]);
+        }
 
-                if ($state && !empty($state['status'])) {
-                    return response()->json([
-                        "status" => true,
-                        "connected" => $state['status'] === 'ready',
-                        "data" => [
-                            "status" => $state['status'],
-                            "qr" => $state['qr'] ?? null,
-                            "phone" => $state['phone'] ?? $connection->phone_number,
-                            "name" => $state['name'] ?? $connection->display_name
-                        ]
-                    ]);
-                }
+        $connection = WhatsAppConnection::where('company_id', $company_id)->first();
+
+        if (!$connection) {
+            return response()->json([
+                "status" => true,
+                "connected" => false,
+                "service_online" => true,
+                "service_state" => "service_running",
+                "service_message" => null,
+                "data" => [
+                    "status" => "disconnected",
+                    "state" => "DISCONNECTED",
+                    "qr" => null,
+                    "phone" => null,
+                    "name" => null
+                ]
+            ]);
+        }
+
+        // live status from the node service
+        try {
+            $remote = $whatsapp->status($connection->session_id);
+            $state = $remote['state'] ?? null;
+
+            if ($state && !empty($state['status'])) {
+
+                $nodeStatus = $state['status'];
+
+                return response()->json([
+                    "status" => true,
+                    "connected" => $nodeStatus === 'ready',
+                    "service_online" => true,
+                    "service_state" => "service_running",
+                    "service_message" => null,
+                    "data" => [
+                        "status" => $nodeStatus,
+                        "state" => $this->frontendState($nodeStatus),
+                        "qr" => $state['qr'] ?? null,
+                        "phone" => $state['phone'] ?? $connection->phone_number,
+                        "name" => $state['name'] ?? $connection->display_name
+                    ]
+                ]);
             }
-        } catch (\Exception $e) {
-            // node service down - report db status
+        } catch (WhatsAppServiceException $e) {
+
+            // The service is up on /health but refused the session call (usually
+            // a token mismatch). Report the real reason and do NOT fall back to
+            // the database status, which could still say "ready".
+            return response()->json([
+                "status" => true,
+                "connected" => false,
+                "service_online" => true,
+                "service_state" => "service_error",
+                "service_message" => $e->getMessage(),
+                "data" => [
+                    "status" => "service_error",
+                    "state" => "ERROR",
+                    "qr" => null,
+                    "phone" => $connection->phone_number,
+                    "name" => $connection->display_name
+                ]
+            ]);
         }
 
         return response()->json([
             "status" => true,
-            "connected" => $connection->status === 'ready',
+            "connected" => false,
+            "service_online" => true,
+            "service_state" => "service_running",
+            "service_message" => null,
             "data" => [
-                "status" => $connection->status,
+                "status" => "disconnected",
+                "state" => "DISCONNECTED",
                 "qr" => null,
                 "phone" => $connection->phone_number,
                 "name" => $connection->display_name
             ]
         ]);
+    }
+
+    // Map the service's internal status onto the explicit UI state enum.
+    private function frontendState(string $nodeStatus): string
+    {
+        return match ($nodeStatus) {
+            'ready' => 'CONNECTED',
+            'qr_ready' => 'QR_REQUIRED',
+            'connecting', 'initializing' => 'CONNECTING',
+            'logged_out' => 'LOGGED_OUT',
+            'error' => 'ERROR',
+            default => 'DISCONNECTED',
+        };
     }
 
     // ── CONNECT (GENERATE QR) ──
@@ -111,14 +201,14 @@ class WhatsappConnectController extends Controller
 
         try {
             $result = $whatsapp->connect($connection->session_id);
-        } catch (\Exception $e) {
+        } catch (WhatsAppServiceException $e) {
             $connection->status = 'disconnected';
             $connection->save();
 
             return response()->json([
                 "status" => false,
-                "message" => "WhatsApp service is not reachable. Start the whatsapp-service (node src/server.js).",
-                "data" => $e->getMessage()
+                "reason" => $e->reason,
+                "message" => $e->getMessage()
             ]);
         }
 
@@ -132,8 +222,16 @@ class WhatsappConnectController extends Controller
         ]);
     }
 
-    // ── DISCONNECT ──
-    public function disconnect(Request $request, WhatsAppService $whatsapp)
+    // ── LOGOUT (TERMINATE BAILEYS SESSION + UNLINK THE DEVICE) ──
+    //
+    // This is the real teardown. It deliberately does NOT swallow a failed
+    // service call: if the Baileys session could not be terminated, the database
+    // row is left untouched and the caller is told the truth, so the UI can
+    // never claim a logout that did not happen.
+    //
+    // Idempotent: logging out an already-disconnected / never-connected company
+    // succeeds without error.
+    public function logout(Request $request, WhatsAppService $whatsapp)
     {
         $company_id = $request->input('company_id');
 
@@ -146,22 +244,31 @@ class WhatsappConnectController extends Controller
 
         $connection = WhatsAppConnection::where('company_id', $company_id)->first();
 
+        // No session was ever created for this company -> already logged out.
         if (!$connection) {
             return response()->json([
-                "status" => false,
-                "message" => "WhatsApp is not connected."
+                "status" => true,
+                "state" => "LOGGED_OUT",
+                "already_logged_out" => true,
+                "message" => "WhatsApp is already logged out."
             ]);
         }
 
         try {
-            if ($whatsapp->isConfigured()) {
-                $whatsapp->disconnect($connection->session_id);
-            }
-        } catch (\Exception $e) {
-            // still mark disconnected in db
+            $result = $whatsapp->logout($connection->session_id);
+        } catch (WhatsAppServiceException $e) {
+
+            // The Baileys session is still alive. Keep the row as-is so the UI
+            // keeps showing the real connection state and the user can retry.
+            return response()->json([
+                "status" => false,
+                "logged_out" => false,
+                "reason" => $e->reason,
+                "message" => $e->getMessage()
+            ], 200);
         }
 
-        $connection->status = 'disconnected';
+        $connection->status = 'logged_out';
         $connection->phone_number = null;
         $connection->display_name = null;
         $connection->disconnected_at = now();
@@ -169,8 +276,20 @@ class WhatsappConnectController extends Controller
 
         return response()->json([
             "status" => true,
-            "message" => "WhatsApp disconnected successfully."
+            "logged_out" => true,
+            "state" => "LOGGED_OUT",
+            "already_logged_out" => (bool) ($result['result']['already'] ?? false),
+            "device_unlinked" => (bool) ($result['result']['unlinked'] ?? false),
+            "message" => "WhatsApp logged out. The linked device has been removed."
         ]);
+    }
+
+    // ── DISCONNECT (kept for the existing button/clients) ──
+    // Delegates to the same real teardown so the older endpoint can no longer
+    // report success while leaving the device linked.
+    public function disconnect(Request $request, WhatsAppService $whatsapp)
+    {
+        return $this->logout($request, $whatsapp);
     }
 
     // ── SEND TEXT MESSAGE ──
