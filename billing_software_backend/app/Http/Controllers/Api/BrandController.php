@@ -22,18 +22,26 @@ class BrandController extends Controller
             ]);
         }
 
-        Brand::create([
-            'name' => $name,
-            'category_id' => $category_id,
-            'subcategory_id' => $subcategory_id,
-            'company_id' => $company_id,
-            'status' => 'active',
-            'is_deleted' => 0
-        ]);
+        $brand = Brand::where('company_id', $company_id)
+            ->where('is_deleted', 0)
+            ->whereRaw('LOWER(name) = ?', [strtolower($name)])
+            ->first();
+
+        if (!$brand) {
+            $brand = Brand::create([
+                'name' => $name,
+                'category_id' => $category_id,
+                'subcategory_id' => $subcategory_id,
+                'company_id' => $company_id,
+                'status' => 'active',
+                'is_deleted' => 0
+            ]);
+        }
 
         return response()->json([
             "status" => true,
-            "message" => "Brand created successfully"
+            "message" => "Brand created successfully",
+            "data" => $brand
         ]);
     }
 

@@ -37,7 +37,7 @@ import { useTableColumns } from "../../../hooks/useTableColumns";
 const DEFAULT_PAYMENT_OUT_COLUMNS = [
   { id: "date", label: "Date", defaultVisible: true },
   { id: "ref_no", label: "Ref No.", defaultVisible: true },
-  { id: "party_name", label: "Party Name", defaultVisible: true, fixed: true },
+  { id: "supplier_name", label: "Supplier Name", defaultVisible: true, fixed: true },
   { id: "payment_type", label: "Payment Type", defaultVisible: true },
   { id: "total_amount", label: "Total Amount", defaultVisible: true },
   { id: "paid_amount", label: "Paid Amount", defaultVisible: true },
@@ -244,9 +244,9 @@ export default function PaymentOut() {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const refNo = String(item.receipt_no || item.id || "").toLowerCase();
-        const party = String(item.supplier_name || "").toLowerCase();
+        const supplier = String(item.supplier_name || item.party_name || "").toLowerCase();
         const notes = String(item.notes || "").toLowerCase();
-        if (!refNo.includes(q) && !party.includes(q) && !notes.includes(q)) {
+        if (!refNo.includes(q) && !supplier.includes(q) && !notes.includes(q)) {
           return false;
         }
       }
@@ -283,12 +283,12 @@ export default function PaymentOut() {
     return filteredPayments.slice(start, start + rowsPerPage);
   }, [filteredPayments, safePage, rowsPerPage]);
 
-  // Analytics rows (Payment-Out grouped by party)
+  // Analytics rows (Payment-Out grouped by supplier)
   const analyticsRows = useMemo(
     () =>
       filteredPayments.map((p) => ({
         date: p.payment_date || "",
-        group: p.supplier_name || "Unknown Party",
+        group: p.supplier_name || p.party_name || "Unknown Supplier",
         value: Number(p.paid_amount || p.amount || 0),
         count: 1,
       })),
@@ -304,7 +304,7 @@ export default function PaymentOut() {
     const data = filteredPayments.map((p) => ({
       "Date": formatDateDMY(p.payment_date),
       "Ref No.": p.receipt_no || `REC-${p.id}`,
-      "Party Name": p.supplier_name || "Unknown Party",
+      "Supplier Name": p.supplier_name || p.party_name || "Unknown Supplier",
       "Total Amount": parseFloat(p.amount || p.total_amount || 0),
       "Paid Amount": parseFloat(p.paid_amount || p.amount || 0),
       "Payment Type": p.payment_method || "Cash",
@@ -758,7 +758,7 @@ export default function PaymentOut() {
               <tr className="bg-slate-50/60 border-b border-slate-200/80 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
                 {isColumnVisible("date") && <th className="py-3.5 px-4 font-bold">Date</th>}
                 {isColumnVisible("ref_no") && <th className="py-3.5 px-4 font-bold">Ref No.</th>}
-                {isColumnVisible("party_name") && <th className="py-3.5 px-4 font-bold">Party Name</th>}
+                {(isColumnVisible("supplier_name") || isColumnVisible("party_name")) && <th className="py-3.5 px-4 font-bold">Supplier Name</th>}
                 {isColumnVisible("payment_type") && <th className="py-3.5 px-4 font-bold">Payment Type</th>}
                 {isColumnVisible("total_amount") && <th className="py-3.5 px-4 font-bold text-right">Total Amount</th>}
                 {isColumnVisible("paid_amount") && <th className="py-3.5 px-4 font-bold text-right">Paid Amount</th>}
@@ -809,15 +809,15 @@ export default function PaymentOut() {
                         </td>
                       )}
 
-                      {/* Party Name with Avatar */}
-                      {isColumnVisible("party_name") && (
+                      {/* Supplier Name with Avatar */}
+                      {(isColumnVisible("supplier_name") || isColumnVisible("party_name")) && (
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <div className="flex items-center gap-2.5">
                             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
-                              {(p.supplier_name || "P").charAt(0).toUpperCase()}
+                              {(p.supplier_name || p.party_name || "S").charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <span className="font-bold text-slate-900 block">{p.supplier_name || "Unknown Party"}</span>
+                              <span className="font-bold text-slate-900 block">{p.supplier_name || p.party_name || "Unknown Supplier"}</span>
                               {p.notes && <span className="text-[11px] text-slate-400 truncate block max-w-xs">{p.notes}</span>}
                             </div>
                           </div>

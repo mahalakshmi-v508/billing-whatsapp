@@ -22,16 +22,24 @@ class CategoryController extends Controller
             ]);
         }
 
-        Category::create([
-            'name' => $name,
-            'company_id' => $company_id,
-            'status' => 'active',
-            'is_deleted' => 0
-        ]);
+        $category = Category::where('company_id', $company_id)
+            ->where('is_deleted', 0)
+            ->whereRaw('LOWER(name) = ?', [strtolower($name)])
+            ->first();
+
+        if (!$category) {
+            $category = Category::create([
+                'name' => $name,
+                'company_id' => $company_id,
+                'status' => 'active',
+                'is_deleted' => 0
+            ]);
+        }
 
         return response()->json([
             "status" => true,
-            "message" => "Category created successfully"
+            "message" => "Category created successfully",
+            "data" => $category
         ]);
     }
 

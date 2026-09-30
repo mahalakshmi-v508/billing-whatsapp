@@ -397,7 +397,7 @@ export default function PurchaseList() {
 
   return (
     <div className="space-y-6 min-h-screen bg-[#f8faff] p-4 sm:p-6 lg:p-8 font-sans animate-in fade-in duration-300">
-      
+
       {/* ── 1. PAGE HEADER (PaySplitX Header Design) ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
@@ -540,11 +540,10 @@ export default function PurchaseList() {
               <button
                 key={c.id}
                 onClick={() => handleCompanyChange(c.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  isActive
-                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 ring-2 ring-indigo-600/20"
-                    : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900"
-                }`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${isActive
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 ring-2 ring-indigo-600/20"
+                  : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
               >
                 <span>🏢</span>
                 <span>{c.company_name}</span>
@@ -557,22 +556,20 @@ export default function PurchaseList() {
         <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 self-start md:self-auto">
           <button
             onClick={() => setViewMode("all")}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              viewMode === "all"
-                ? "bg-white text-indigo-700 shadow-xs"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "all"
+              ? "bg-white text-indigo-700 shadow-xs"
+              : "text-slate-500 hover:text-slate-800"
+              }`}
           >
             <Layers size={14} />
             <span>All Purchase Bills ({purchases.length})</span>
           </button>
           <button
             onClick={() => setViewMode("split")}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              viewMode === "split"
-                ? "bg-white text-indigo-700 shadow-xs"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "split"
+              ? "bg-white text-indigo-700 shadow-xs"
+              : "text-slate-500 hover:text-slate-800"
+              }`}
           >
             <LayoutGrid size={14} />
             <span>By Supplier View</span>
@@ -584,7 +581,7 @@ export default function PurchaseList() {
       {viewMode === "split" ? (
         /* ── VIEW A: MASTER-DETAIL BY SUPPLIER ── */
         <div className="grid grid-cols-1 lg:grid-cols-[330px_1fr] gap-6 items-start">
-          
+
           {/* LEFT: SUPPLIERS DIRECTORY SIDEBAR */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col overflow-hidden">
             {/* Sidebar Top: Search & Add */}
@@ -611,33 +608,31 @@ export default function PurchaseList() {
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setSupplierFilter("all")}
-                  className={`flex-1 py-1 text-[11px] font-bold rounded-lg transition text-center cursor-pointer ${
-                    supplierFilter === "all"
-                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                      : "text-slate-500 hover:bg-slate-50 border border-transparent"
-                  }`}
+                  className={`flex-1 py-1 text-[11px] font-bold rounded-lg transition text-center cursor-pointer ${supplierFilter === "all"
+                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                    : "text-slate-500 hover:bg-slate-50 border border-transparent"
+                    }`}
                 >
                   All ({suppliers.length})
                 </button>
                 <button
                   onClick={() => setSupplierFilter("dues")}
-                  className={`flex-1 py-1 text-[11px] font-bold rounded-lg transition text-center cursor-pointer ${
-                    supplierFilter === "dues"
-                      ? "bg-rose-50 text-rose-700 border border-rose-200"
-                      : "text-slate-500 hover:bg-slate-50 border border-transparent"
-                  }`}
+                  className={`flex-1 py-1 text-[11px] font-bold rounded-lg transition text-center cursor-pointer ${supplierFilter === "dues"
+                    ? "bg-rose-50 text-rose-700 border border-rose-200"
+                    : "text-slate-500 hover:bg-slate-50 border border-transparent"
+                    }`}
                 >
                   With Dues ({kpiMetrics.suppliersWithDuesCount})
                 </button>
               </div>
 
-              <button
+              {/* <button
                 onClick={() => setShowAddSupplierModal(true)}
                 className="w-full py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
               >
                 <Plus size={14} strokeWidth={2.6} />
-                <span>+ Add Supplier</span>
-              </button>
+                <span>Add Supplier</span>
+              </button> */}
             </div>
 
             {/* Supplier List Items */}
@@ -664,19 +659,17 @@ export default function PurchaseList() {
                         setSelectedSupplier(s);
                         setSearch("");
                       }}
-                      className={`p-3.5 cursor-pointer transition-all flex items-center justify-between gap-3 ${
-                        isSelected
-                          ? "bg-indigo-50/70 border-l-4 border-indigo-600"
-                          : "hover:bg-slate-50 border-l-4 border-transparent"
-                      }`}
+                      className={`p-3.5 cursor-pointer transition-all flex items-center justify-between gap-3 ${isSelected
+                        ? "bg-indigo-50/70 border-l-4 border-indigo-600"
+                        : "hover:bg-slate-50 border-l-4 border-transparent"
+                        }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
-                            isSelected
-                              ? "bg-indigo-600 text-white shadow-xs"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${isSelected
+                            ? "bg-indigo-600 text-white shadow-xs"
+                            : "bg-slate-100 text-slate-600"
+                            }`}
                         >
                           {initial}
                         </div>
@@ -716,7 +709,7 @@ export default function PurchaseList() {
 
           {/* RIGHT: SELECTED SUPPLIER INVOICES & LEDGER */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col overflow-hidden">
-            
+
             {/* Supplier Executive Header Banner */}
             {selectedSupplier && (
               <div className="p-5 border-b border-slate-100 bg-slate-50/50">
@@ -809,11 +802,10 @@ export default function PurchaseList() {
                     <button
                       key={tab.id}
                       onClick={() => setBillFilter(tab.id)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                        billFilter === tab.id
-                          ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                          : "text-slate-500 hover:bg-slate-50 border border-transparent"
-                      }`}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${billFilter === tab.id
+                        ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                        : "text-slate-500 hover:bg-slate-50 border border-transparent"
+                        }`}
                     >
                       {tab.label}
                     </button>
@@ -890,9 +882,8 @@ export default function PurchaseList() {
                           {isColumnVisible("balance_due") && (
                             <td className="py-3 px-4 text-right whitespace-nowrap">
                               <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
-                                  isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
-                                }`}
+                                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
+                                  }`}
                               >
                                 ₹{fmt(p.balance_amount)}
                               </span>
@@ -901,16 +892,14 @@ export default function PurchaseList() {
                           {isColumnVisible("status") && (
                             <td className="py-3 px-4 text-center whitespace-nowrap">
                               <span
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                  p.status === "submitted"
-                                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                    : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                                }`}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${p.status === "submitted"
+                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                  }`}
                               >
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
-                                  }`}
+                                  className={`w-1.5 h-1.5 rounded-full ${p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
+                                    }`}
                                 />
                                 {p.status}
                               </span>
@@ -955,12 +944,12 @@ export default function PurchaseList() {
                                   },
                                   ...(Number(p.balance_amount) > 0
                                     ? [
-                                        {
-                                          label: "Pay Bill",
-                                          icon: CreditCard,
-                                          onClick: () => openPayModal(p),
-                                        },
-                                      ]
+                                      {
+                                        label: "Pay Bill",
+                                        icon: CreditCard,
+                                        onClick: () => openPayModal(p),
+                                      },
+                                    ]
                                     : []),
                                   { isDivider: true },
                                   {
@@ -1015,11 +1004,10 @@ export default function PurchaseList() {
                 <button
                   key={tab.id}
                   onClick={() => setBillFilter(tab.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    billFilter === tab.id
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                  }`}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${billFilter === tab.id
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -1096,9 +1084,8 @@ export default function PurchaseList() {
                         {isColumnVisible("balance_due") && (
                           <td className="py-3.5 px-4 text-right whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${
-                                isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
-                              }`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${isPaid ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
+                                }`}
                             >
                               ₹{fmt(p.balance_amount)}
                             </span>
@@ -1107,16 +1094,14 @@ export default function PurchaseList() {
                         {isColumnVisible("status") && (
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                p.status === "submitted"
-                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                              }`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${p.status === "submitted"
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                }`}
                             >
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
-                                }`}
+                                className={`w-1.5 h-1.5 rounded-full ${p.status === "submitted" ? "bg-emerald-600" : "bg-amber-600"
+                                  }`}
                               />
                               {p.status}
                             </span>
@@ -1161,12 +1146,12 @@ export default function PurchaseList() {
                                 },
                                 ...(Number(p.balance_amount) > 0
                                   ? [
-                                      {
-                                        label: "Pay Bill",
-                                        icon: CreditCard,
-                                        onClick: () => openPayModal(p),
-                                      },
-                                    ]
+                                    {
+                                      label: "Pay Bill",
+                                      icon: CreditCard,
+                                      onClick: () => openPayModal(p),
+                                    },
+                                  ]
                                   : []),
                                 { isDivider: true },
                                 {
@@ -1518,9 +1503,8 @@ export default function PurchaseList() {
                             </td>
                             <td className="py-2 px-3 text-right font-bold">
                               <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] ${
-                                  fullyClear ? "bg-emerald-100 text-emerald-800" : (willPay ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600")
-                                }`}
+                                className={`px-2 py-0.5 rounded-full text-[10px] ${fullyClear ? "bg-emerald-100 text-emerald-800" : (willPay ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600")
+                                  }`}
                               >
                                 {fullyClear ? "✓ Cleared" : `₹${fmt(p._newBalance)}`}
                               </span>

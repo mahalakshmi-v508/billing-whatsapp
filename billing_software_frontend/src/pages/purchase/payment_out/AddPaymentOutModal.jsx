@@ -10,8 +10,12 @@ import {
   Building2,
   Calendar,
   DollarSign,
-  CheckCircle2
+  CheckCircle2,
+  Search,
+  Plus,
+  Wallet
 } from "lucide-react";
+import AddSupplierModal from "../../supplier/AddSupplierModal";
 
 export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initialSupplier = null, editPayment = null }) {
   const navigate = useNavigate();
@@ -21,9 +25,11 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
   // Form States
   const [partyQuery, setPartyQuery] = useState("");
   const [selectedSupplier, setSelectedSupplier] = useState(initialSupplier || null);
+  const [suppliers, setSuppliers] = useState([]);
   const [supplierSuggestions, setSupplierSuggestions] = useState([]);
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [searchingParty, setSearchingParty] = useState(false);
+  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
 
   const [paymentType, setPaymentType] = useState("Cash");
   const [receiptNo, setReceiptNo] = useState(1);
@@ -68,7 +74,13 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
       } else {
         setSelectedSupplier(initialSupplier || null);
         setPartyQuery(initialSupplier ? (initialSupplier.supplier_name || initialSupplier.name || "") : "");
-        const initialDue = Number(initialSupplier?.pending_balance ?? 0);
+        const initialDue = parseFloat(
+          initialSupplier?.pending_balance ??
+          initialSupplier?.balance_amount ??
+          initialSupplier?.total_balance ??
+          initialSupplier?.balance ??
+          0
+        );
         setPaidAmount(initialDue > 0 ? String(initialDue) : "");
         setPaymentType("Cash");
         setPaymentDate(new Date().toISOString().split("T")[0]);
@@ -97,14 +109,15 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
     return () => { cancelled = true; };
   }, [isOpen, editPayment, initialSupplier, companyId]);
 
-  // Load suppliers list quietly on open without forcing dropdown open
-  const fetchSupplierSuggestions = async (q = "") => {
+  // Load suppliers list
+  const fetchSuppliers = async (q = "") => {
     if (!companyId) return;
     setSearchingParty(true);
     try {
       const res = await api.get(`/supplier/get_all?company_id=${companyId}`);
       if (res.data.status) {
         const all = res.data.data || [];
+        setSuppliers(all);
         if (!q.trim()) {
           setSupplierSuggestions(all.slice(0, 15));
         } else {
@@ -127,28 +140,25 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
 
   useEffect(() => {
     if (!isOpen || !companyId) return;
-    let cancelled = false;
-    const loadSuppliers = async () => {
-      try {
-        const res = await api.get(`/supplier/get_all?company_id=${companyId}`);
-        if (cancelled) return;
-        if (res.data.status) {
-          const all = res.data.data || [];
-          setSupplierSuggestions(all.slice(0, 15));
-        }
-      } catch (err) {
-        console.error("Error loading suppliers:", err);
-      }
-    };
-    loadSuppliers();
-    return () => { cancelled = true; };
+    fetchSuppliers();
   }, [isOpen, companyId]);
 
   // Search Suppliers when typing
   const handleSearchSuppliers = (q) => {
     setPartyQuery(q);
     setShowPartyDropdown(true);
-    fetchSupplierSuggestions(q);
+    if (!q.trim()) {
+      setSupplierSuggestions(suppliers.slice(0, 15));
+    } else {
+      const query = q.toLowerCase();
+      setSupplierSuggestions(
+        suppliers.filter(
+          (s) =>
+            (s.supplier_name || s.name || "").toLowerCase().includes(query) ||
+            (s.mobile_number || s.phone || "").includes(query)
+        )
+      );
+    }
   };
 
   const selectSupplier = (sup) => {
@@ -157,7 +167,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
     setShowPartyDropdown(false);
     setErrorMsg("");
 
-    const pending = parseFloat(sup.pending_balance ?? sup.balance ?? 0);
+    const pending = parseFloat(sup.pending_balance ?? sup.balance_amount ?? sup.total_balance ?? sup.balance ?? 0);
     if (pending > 0 && (!paidAmount || paidAmount === "0" || paidAmount === "")) {
       setPaidAmount(String(pending));
     }
@@ -269,6 +279,19 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
     }
   };
 
+  const vendorDues = parseFloat(
+    selectedSupplier?.pending_balance ??
+    selectedSupplier?.balance_amount ??
+    selectedSupplier?.total_balance ??
+    selectedSupplier?.balance ??
+    0
+  );
+  const vendorAdvance = parseFloat(
+    selectedSupplier?.advance_balance ??
+    selectedSupplier?.advance_amount ??
+    0
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -327,64 +350,131 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
             {/* Left Column: Party & Method */}
             <div className="space-y-3.5">
-              {/* Party Selector */}
+              {/* Supplier Autocomplete Search Input */}
               <div ref={partyRef} className="relative">
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Supplier / Vendor *
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search supplier..."
-                    value={partyQuery}
-                    onChange={(e) => handleSearchSuppliers(e.target.value)}
-                    onFocus={() => setShowPartyDropdown(true)}
-                    className="w-full px-3.5 py-2.5 pr-8 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
-                  />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-bold text-slate-600">
+                    Supplier / Vendor Name <span className="text-rose-500">*</span>
+                  </label>
+
+                </div>
+
+                <div
+                  className={`relative border rounded-xl px-3.5 py-2 transition bg-white flex items-center justify-between ${showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/15" : "border-slate-300 hover:border-slate-400"
+                    }`}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <Search size={14} className="text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search supplier by name or phone..."
+                      value={partyQuery}
+                      onChange={(e) => handleSearchSuppliers(e.target.value)}
+                      onFocus={() => {
+                        setShowPartyDropdown(true);
+                        if (supplierSuggestions.length === 0) setSupplierSuggestions(suppliers.slice(0, 15));
+                      }}
+                      className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
+                    />
+                  </div>
                   <ChevronDown
                     size={14}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer"
-                    onClick={() => setShowPartyDropdown(!showPartyDropdown)}
+                    className="text-slate-400 cursor-pointer ml-1.5 shrink-0"
+                    onClick={() => {
+                      setShowPartyDropdown((v) => !v);
+                      if (supplierSuggestions.length === 0) setSupplierSuggestions(suppliers.slice(0, 15));
+                    }}
                   />
                 </div>
 
-                {/* Selected Supplier Live Unpaid Balance */}
+                {/* Selected Supplier Info & Balance Chip */}
                 {selectedSupplier && (
-                  <div className="flex justify-between items-center mt-1.5 px-1 text-[11px] bg-slate-50 py-1 rounded-lg border border-slate-200">
-                    <span className="text-slate-500 font-medium">Pending Due:</span>
-                    <span className={`font-black ${Number(selectedSupplier.pending_balance || 0) > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                      ₹ {Number(selectedSupplier.pending_balance || 0).toFixed(2)}
-                    </span>
+                  <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 bg-slate-50 border border-slate-200/90 rounded-xl text-[11px] shadow-2xs animate-in fade-in duration-100">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-bold text-slate-800 truncate">
+                        {selectedSupplier.supplier_name || selectedSupplier.name}
+                      </span>
+                      {(selectedSupplier.mobile_number || selectedSupplier.phone) && (
+                        <span className="text-slate-500 font-medium font-mono text-[10px] shrink-0">
+                          • 📱 {selectedSupplier.mobile_number || selectedSupplier.phone}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 text-right">
+                      {vendorAdvance > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold text-[10px]">
+                          Adv: ₹{vendorAdvance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        Due:{" "}
+                        <span className={`font-bold font-mono ${vendorDues > 0 ? "text-rose-600 font-black" : "text-slate-700"}`}>
+                          ₹{vendorDues.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 )}
 
                 {/* Supplier Suggestions Dropdown */}
                 {showPartyDropdown && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-48 overflow-y-auto z-50 py-1">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 divide-y divide-slate-100 animate-in fade-in duration-100">
+                    <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                      <span
+                        onClick={() => {
+                          setShowPartyDropdown(false);
+                          setShowAddSupplierModal(true);
+                        }}
+                        className="text-xs font-bold text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <Plus size={12} strokeWidth={2.5} />
+                        <span>Add New Supplier</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Due / Advance</span>
+                    </div>
                     {searchingParty ? (
                       <div className="p-3 text-xs text-slate-400 text-center font-medium">Loading suppliers...</div>
                     ) : supplierSuggestions.length === 0 ? (
-                      <div className="p-3 text-xs text-slate-600">
-                        No match. Will save as <b>"{partyQuery}"</b>
+                      <div className="p-3 text-xs text-slate-600 text-center">
+                        {partyQuery.trim() ? (
+                          <>No match. Will save as <b>"{partyQuery}"</b></>
+                        ) : (
+                          "No suppliers found"
+                        )}
                       </div>
                     ) : (
-                      supplierSuggestions.map((sup) => (
-                        <button
-                          key={sup.id}
-                          onClick={() => selectSupplier(sup)}
-                          className="w-full text-left px-3.5 py-2 text-xs hover:bg-blue-50 flex items-center justify-between border-b border-slate-50 cursor-pointer"
-                        >
-                          <div>
-                            <div className="font-bold text-slate-900">{sup.supplier_name || sup.name}</div>
-                            {sup.mobile_number && <div className="text-[10px] text-slate-400">{sup.mobile_number}</div>}
+                      supplierSuggestions.map((s) => {
+                        const sDue = parseFloat(s.pending_balance ?? s.balance_amount ?? s.total_balance ?? s.pending_amount ?? 0);
+                        const sAdv = parseFloat(s.advance_balance ?? s.advance_amount ?? 0);
+                        const sPhone = s.mobile_number || s.phone || s.supplier_phone;
+                        return (
+                          <div
+                            key={s.id}
+                            onClick={() => selectSupplier(s)}
+                            className="px-3.5 py-2.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+                          >
+                            <div>
+                              <div className="font-bold text-slate-900">{s.supplier_name || s.name}</div>
+                              <div className="text-[11px] text-slate-400 mt-0.5">
+                                {sPhone ? `📱 ${sPhone}` : (s.city || s.state || "Registered Vendor")}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 ml-2">
+                              {sAdv > 0 && (
+                                <div className="text-[10px] font-bold text-indigo-700">
+                                  Adv: ₹{sAdv.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-[9.5px] text-slate-400 font-semibold uppercase mr-1">Due:</span>
+                                <span className={`font-bold text-xs ${sDue > 0 ? "text-rose-600 font-black" : "text-slate-700"}`}>
+                                  ₹{sDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          {Number(sup.pending_balance) > 0 && (
-                            <span className="font-bold text-rose-600 text-[11px]">
-                              Due: ₹{Number(sup.pending_balance).toFixed(2)}
-                            </span>
-                          )}
-                        </button>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 )}
@@ -401,11 +491,10 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                       key={type}
                       type="button"
                       onClick={() => setPaymentType(type)}
-                      className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
-                        paymentType === type
-                          ? "bg-blue-600 text-white border-blue-600 shadow-xs shadow-blue-600/30"
-                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                      }`}
+                      className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${paymentType === type
+                        ? "bg-blue-600 text-white border-blue-600 shadow-xs shadow-blue-600/30"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        }`}
                     >
                       {type}
                     </button>
@@ -466,25 +555,33 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
                 INR Currency
               </span>
             </div>
+            {selectedSupplier && vendorAdvance > 0 && (
+              <div className="flex justify-between items-center text-slate-600 font-semibold">
+                <span>Supplier Advance Balance</span>
+                <span className="font-bold text-indigo-700">
+                  ₹ {vendorAdvance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
             {selectedSupplier && (
               <div className="flex justify-between items-center text-slate-600 font-semibold">
                 <span>Supplier Current Due</span>
-                <span className="font-bold text-rose-600">
-                  ₹ {Number(selectedSupplier.pending_balance || 0).toFixed(2)}
+                <span className={`font-bold ${vendorDues > 0 ? "text-rose-600 font-black" : "text-slate-700"}`}>
+                  ₹ {vendorDues.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             )}
             <div className="flex justify-between items-center text-slate-600 font-semibold">
               <span>Disbursed Amount</span>
               <span className="font-bold text-slate-900">
-                ₹ {(parseFloat(paidAmount) || 0).toFixed(2)}
+                ₹ {(parseFloat(paidAmount) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             {selectedSupplier && (
               <div className="flex justify-between items-center pt-1.5 border-t border-slate-200 text-xs">
                 <span className="font-bold text-slate-900">Remaining Payable Due</span>
-                <span className={`font-bold ${Math.max(0, (Number(selectedSupplier.pending_balance || 0) - (parseFloat(paidAmount) || 0))) > 0 ? "text-rose-600 font-black text-sm" : "text-emerald-700 font-black text-sm"}`}>
-                  ₹ {Math.max(0, (Number(selectedSupplier.pending_balance || 0) - (parseFloat(paidAmount) || 0))).toFixed(2)}
+                <span className={`font-bold ${Math.max(0, (vendorDues - (parseFloat(paidAmount) || 0))) > 0 ? "text-rose-600 font-black text-sm" : "text-emerald-700 font-black text-sm"}`}>
+                  ₹ {Math.max(0, (vendorDues - (parseFloat(paidAmount) || 0))).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             )}
@@ -522,6 +619,17 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
           </button>
         </div>
       </div>
+
+      <AddSupplierModal
+        isOpen={showAddSupplierModal}
+        onClose={() => setShowAddSupplierModal(false)}
+        companyId={companyId}
+        onSupplierAdded={(s) => {
+          selectSupplier(s);
+          fetchSuppliers("");
+        }}
+      />
     </div>
   );
 }
+

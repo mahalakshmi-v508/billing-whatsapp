@@ -79,6 +79,14 @@ class PurchaseController extends Controller
                 }
             });
         }
+
+        if (Schema::hasTable('suppliers')) {
+            Schema::table('suppliers', function (Blueprint $table) {
+                if (!Schema::hasColumn('suppliers', 'advance_balance')) {
+                    $table->decimal('advance_balance', 12, 2)->default(0.00)->after('mobile_number');
+                }
+            });
+        }
     }
     /**
      * Parse and validate imported Excel/JSON items.
@@ -453,9 +461,47 @@ class PurchaseController extends Controller
 
             $roundOff = floatval($request->input('round_off', 0));
             $finalTotal = floatval($request->input('total_amount', $computedTotal + $roundOff));
-            $paidAmount = floatval($request->input('paid_amount', 0));
+            $directPaid = floatval($request->input('paid_amount', 0));
+            $paidAmount = $directPaid;
             $balanceAmount = max(0.00, $finalTotal - $paidAmount);
             $paymentType = $request->input('payment_type', 'Cash');
+
+            // 1. Check Supplier Advance Balance and adjust against remaining balance
+            $supplier = Supplier::find($supplierId);
+            $advanceBalance = $supplier ? floatval($supplier->advance_balance ?? 0) : 0;
+            $unassignedAdvancePayments = PurchasePayment::where('supplier_id', $supplierId)
+                ->where(function($q) {
+                    $q->where('purchase_id', 0)->orWhereNull('purchase_id');
+                })
+                ->get();
+            $unassignedSum = floatval($unassignedAdvancePayments->sum('amount'));
+            $availAdvance = max($advanceBalance, $unassignedSum);
+
+            $advanceUsed = 0.00;
+            if ($availAdvance > 0 && $balanceAmount > 0) {
+                $advanceUsed = min($availAdvance, $balanceAmount);
+                $paidAmount += $advanceUsed;
+                $balanceAmount = max(0.00, $finalTotal - $paidAmount);
+
+                if ($supplier) {
+                    $supplier->advance_balance = max(0.00, $availAdvance - $advanceUsed);
+                    $supplier->save();
+                }
+
+                $remToAdjust = $advanceUsed;
+                foreach ($unassignedAdvancePayments as $advPay) {
+                    if ($remToAdjust <= 0) break;
+                    $advAmt = floatval($advPay->amount);
+                    if ($advAmt <= $remToAdjust) {
+                        $remToAdjust -= $advAmt;
+                        $advPay->delete();
+                    } else {
+                        $advPay->amount = max(0.00, $advAmt - $remToAdjust);
+                        $advPay->save();
+                        $remToAdjust = 0;
+                    }
+                }
+            }
 
             $purchaseData = [
                 'purchase_no' => $purchaseNo ?: null,
@@ -489,6 +535,32 @@ class PurchaseController extends Controller
                 PurchaseItem::where('purchase_id', $purchase->id)->delete();
             } else {
                 $purchase = Purchase::create($purchaseData);
+            }
+
+            if ($advanceUsed > 0) {
+                PurchasePayment::create([
+                    'purchase_id'    => $purchase->id,
+                    'company_id'     => $companyId,
+                    'supplier_id'    => $supplierId,
+                    'receipt_no'     => 'ADV-' . $purchase->id,
+                    'amount'         => $advanceUsed,
+                    'payment_method' => 'advance',
+                    'payment_date'   => $purchaseDate,
+                    'notes'          => 'Advance payment adjusted against Purchase #' . ($purchaseNo ?: $purchase->id)
+                ]);
+            }
+
+            if ($directPaid > 0) {
+                PurchasePayment::create([
+                    'purchase_id'    => $purchase->id,
+                    'company_id'     => $companyId,
+                    'supplier_id'    => $supplierId,
+                    'receipt_no'     => 'REC-' . $purchase->id,
+                    'amount'         => $directPaid,
+                    'payment_method' => strtolower($paymentType ?: 'cash'),
+                    'payment_date'   => $purchaseDate,
+                    'notes'          => 'Direct payment on Purchase Bill #' . ($purchaseNo ?: $purchase->id)
+                ]);
             }
 
             // 2. Process items & update/create inventory stock
@@ -530,35 +602,35 @@ class PurchaseController extends Controller
                 }
 
                 // Dynamic Category / Subcategory / Brand resolution
+                if (!$categoryId && !empty($categoryName)) {
+                    $cat = Category::firstOrCreate(
+                        ['company_id' => $companyId, 'name' => $categoryName, 'is_deleted' => 0],
+                        ['status' => 'active']
+                    );
+                    $categoryId = $cat->id;
+                }
+
+                if (!$subcategoryId && !empty($subcategoryName) && $categoryId) {
+                    $sub = Subcategory::firstOrCreate(
+                        ['company_id' => $companyId, 'category_id' => $categoryId, 'name' => $subcategoryName, 'is_deleted' => 0],
+                        ['status' => 'active']
+                    );
+                    $subcategoryId = $sub->id;
+                }
+
+                if (!$brandId && !empty($brandName)) {
+                    $brand = Brand::firstOrCreate(
+                        ['company_id' => $companyId, 'name' => $brandName, 'is_deleted' => 0],
+                        [
+                            'category_id' => $categoryId ?: 0,
+                            'subcategory_id' => $subcategoryId ?: 0,
+                            'status' => 'active'
+                        ]
+                    );
+                    $brandId = $brand->id;
+                }
+
                 if (!$productId) {
-                    if (!$categoryId && !empty($categoryName)) {
-                        $cat = Category::firstOrCreate(
-                            ['company_id' => $companyId, 'name' => $categoryName, 'is_deleted' => 0],
-                            ['status' => 'active']
-                        );
-                        $categoryId = $cat->id;
-                    }
-
-                    if (!$subcategoryId && !empty($subcategoryName) && $categoryId) {
-                        $sub = Subcategory::firstOrCreate(
-                            ['company_id' => $companyId, 'category_id' => $categoryId, 'name' => $subcategoryName, 'is_deleted' => 0],
-                            ['status' => 'active']
-                        );
-                        $subcategoryId = $sub->id;
-                    }
-
-                    if (!$brandId && !empty($brandName)) {
-                        $brand = Brand::firstOrCreate(
-                            ['company_id' => $companyId, 'name' => $brandName, 'is_deleted' => 0],
-                            [
-                                'category_id' => $categoryId ?: 0,
-                                'subcategory_id' => $subcategoryId ?: 0,
-                                'status' => 'active'
-                            ]
-                        );
-                        $brandId = $brand->id;
-                    }
-
                     $existingProd = Product::where('company_id', $companyId)
                         ->where('is_deleted', 0)
                         ->where(function($q) use ($productName, $productCode, $barcode) {
@@ -1074,8 +1146,7 @@ class PurchaseController extends Controller
         $query = DB::table('purchase_payments as pp')
             ->leftJoin('purchases as p', 'pp.purchase_id', '=', 'p.id')
             ->leftJoin('suppliers as s', function($join) {
-                $join->on('p.supplier_id', '=', 's.id')
-                     ->orWhere('pp.supplier_id', '=', 's.id');
+                $join->on('s.id', '=', DB::raw('COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id)'));
             })
             ->select(
                 'pp.id',
@@ -1091,9 +1162,10 @@ class PurchaseController extends Controller
                 'p.purchase_no',
                 'p.total_amount as invoice_total',
                 'p.balance_amount as invoice_balance',
-                's.id as supplier_id',
-                's.supplier_name',
-                's.mobile_number as supplier_phone'
+                DB::raw("COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id, s.id, 0) as supplier_id"),
+                DB::raw("COALESCE(s.supplier_name, '') as supplier_name"),
+                DB::raw("COALESCE(s.supplier_name, '') as party_name"),
+                DB::raw("COALESCE(s.mobile_number, '') as supplier_phone")
             );
 
         if ($companyId > 0) {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import {
@@ -26,6 +26,9 @@ import {
   Sparkles,
   Search,
   Package,
+  Phone,
+  ChevronDown,
+  UserCheck,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
@@ -50,8 +53,8 @@ const DEFAULT_PURCHASE_FORM_COLUMNS = [
 ];
 
 const unitOptions = [
-  "Piece", "Kg", "Gram", "Litre", "ML", "Meter", "Feet", 
-  "Box", "Pack", "Dozen", "Pair", "Roll", "Bag", "Bottle", 
+  "Piece", "Kg", "Gram", "Litre", "ML", "Meter", "Feet",
+  "Box", "Pack", "Dozen", "Pair", "Roll", "Bag", "Bottle",
   "Can", "Set"
 ];
 
@@ -65,6 +68,11 @@ export default function PurchaseForm() {
   );
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierPhone, setSupplierPhone] = useState("");
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const [supplierSuggestions, setSupplierSuggestions] = useState([]);
+  const supplierBoxRef = useRef(null);
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
   const [purchaseNo, setPurchaseNo] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split("T")[0]);
@@ -91,6 +99,16 @@ export default function PurchaseForm() {
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
 
+  // Modals for Quick Add Category and Brand
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [showAddBrandModal, setShowAddBrandModal] = useState(false);
+  const [activeRowIndex, setActiveRowIndex] = useState(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newBrandName, setNewBrandName] = useState("");
+  const [newBrandCategoryId, setNewBrandCategoryId] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [savingBrand, setSavingBrand] = useState(false);
+
   // Load Companies
   useEffect(() => {
     let user = {};
@@ -116,10 +134,107 @@ export default function PurchaseForm() {
     api.get(`/supplier/get_all?company_id=${companyId}`)
       .then(res => {
         if (res.data.status) {
-          setSuppliers(res.data.data || []);
+          const list = res.data.data || [];
+          setSuppliers(list);
+          setSupplierSuggestions(list);
         }
       })
       .catch(console.error);
+  };
+
+  const fetchCategories = (companyId) => {
+    if (!companyId) return;
+    api.get(`/category/get_active_category?company_id=${companyId}`)
+      .then(res => {
+        if (res.data.status) {
+          setCategories(res.data.data || []);
+        }
+      })
+      .catch(console.error);
+  };
+
+  const fetchBrands = (companyId) => {
+    if (!companyId) return;
+    api.get(`/brand/get_active_brand?company_id=${companyId}`)
+      .then(res => {
+        if (res.data.status) {
+          setBrands(res.data.data || []);
+        }
+      })
+      .catch(console.error);
+  };
+
+  /* ── Sync Supplier Name and Phone ── */
+  useEffect(() => {
+    if (selectedSupplier && suppliers.length > 0) {
+      const found = suppliers.find((s) => String(s.id) === String(selectedSupplier));
+      if (found) {
+        setSupplierName(found.supplier_name || found.name || "");
+        setSupplierPhone(found.mobile_number || found.phone || found.supplier_phone || "");
+      }
+    }
+  }, [selectedSupplier, suppliers]);
+
+  /* ── Close Supplier Dropdown on Click Outside ── */
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (supplierBoxRef.current && !supplierBoxRef.current.contains(e.target)) {
+        setShowSupplierDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedSupplierObj = useMemo(() => {
+    return suppliers.find((s) => String(s.id) === String(selectedSupplier)) || null;
+  }, [suppliers, selectedSupplier]);
+
+  const vendorDues = useMemo(() => {
+    if (!selectedSupplierObj) return 0;
+    return parseFloat(
+      selectedSupplierObj.pending_balance ??
+      selectedSupplierObj.balance_amount ??
+      selectedSupplierObj.total_balance ??
+      selectedSupplierObj.pending_amount ??
+      0
+    );
+  }, [selectedSupplierObj]);
+
+  const vendorAdvance = useMemo(() => {
+    if (!selectedSupplierObj) return 0;
+    return parseFloat(
+      selectedSupplierObj.advance_balance ??
+      selectedSupplierObj.advance_amount ??
+      0
+    );
+  }, [selectedSupplierObj]);
+
+  const handleSupplierSearch = (val) => {
+    setSupplierName(val);
+    setShowSupplierDropdown(true);
+    if (!val.trim()) {
+      setSupplierSuggestions(suppliers);
+      return;
+    }
+    const q = val.toLowerCase();
+    const filtered = suppliers.filter(
+      (s) =>
+        s.supplier_name?.toLowerCase().includes(q) ||
+        s.name?.toLowerCase().includes(q) ||
+        s.mobile_number?.toLowerCase().includes(q) ||
+        s.phone?.toLowerCase().includes(q) ||
+        s.supplier_phone?.toLowerCase().includes(q) ||
+        s.company_name?.toLowerCase().includes(q)
+    );
+    setSupplierSuggestions(filtered);
+  };
+
+  const selectSupplier = (s) => {
+    setSelectedSupplier(s.id);
+    setSupplierName(s.supplier_name || s.name || "");
+    setSupplierPhone(s.mobile_number || s.phone || s.supplier_phone || "");
+    setShowSupplierDropdown(false);
   };
 
   // Load basic configurations when company or draft ID changes
@@ -130,22 +245,10 @@ export default function PurchaseForm() {
     fetchSuppliers(selectedCompany);
 
     // Load Categories for selected company
-    api.get(`/category/get_active_category?company_id=${selectedCompany}`)
-      .then(res => {
-        if (res.data.status) {
-          setCategories(res.data.data);
-        }
-      })
-      .catch(console.error);
+    fetchCategories(selectedCompany);
 
     // Load All Active Brands for selected company (Standalone)
-    api.get(`/brand/get_active_brand?company_id=${selectedCompany}`)
-      .then(res => {
-        if (res.data.status) {
-          setBrands(res.data.data || []);
-        }
-      })
-      .catch(console.error);
+    fetchBrands(selectedCompany);
 
     // If ID is provided, load the draft purchase
     if (id) {
@@ -198,7 +301,7 @@ export default function PurchaseForm() {
             setPurchaseNo(prev => prev || res.data.formatted_number);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [selectedCompany, id]);
 
@@ -251,7 +354,7 @@ export default function PurchaseForm() {
     let hasLocalError = false;
     const validatedLocalItems = items.map((item) => {
       const errors = [];
-      
+
       if (!item.product_name || !item.product_name.trim()) {
         errors.push("Product name is required");
       }
@@ -509,6 +612,126 @@ export default function PurchaseForm() {
     setItems(updated);
   };
 
+  // Create new Category on the fly
+  const handleCreateCategory = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedCompany) {
+      alert("Please select a company first!");
+      return;
+    }
+    const catName = newCategoryName.trim();
+    if (!catName) {
+      alert("Please enter a category name");
+      return;
+    }
+
+    setSavingCategory(true);
+    try {
+      const res = await api.post("/category/create", {
+        name: catName,
+        company_id: selectedCompany,
+      });
+
+      if (res.data.status) {
+        const createdCat = res.data.data || { id: Date.now(), name: catName };
+        setToast(`Category "${catName}" added successfully!`);
+        setTimeout(() => setToast(null), 3000);
+
+        setCategories((prev) => {
+          if (prev.some((c) => Number(c.id) === Number(createdCat.id) || (c.name || "").toLowerCase() === catName.toLowerCase())) {
+            return prev;
+          }
+          return [...prev, createdCat];
+        });
+        fetchCategories(selectedCompany);
+
+        if (activeRowIndex !== null && items[activeRowIndex]) {
+          const updated = [...items];
+          updated[activeRowIndex] = {
+            ...updated[activeRowIndex],
+            category_id: createdCat.id,
+            category_name: createdCat.name,
+            status: "pending",
+            errors: []
+          };
+          setItems(updated);
+        }
+
+        setNewCategoryName("");
+        setShowAddCategoryModal(false);
+        setActiveRowIndex(null);
+      } else {
+        alert(res.data.message || "Failed to create category");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error creating category");
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  // Create new Brand on the fly
+  const handleCreateBrand = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedCompany) {
+      alert("Please select a company first!");
+      return;
+    }
+    const bName = newBrandName.trim();
+    if (!bName) {
+      alert("Please enter a brand name");
+      return;
+    }
+
+    setSavingBrand(true);
+    try {
+      const res = await api.post("/brand/create", {
+        name: bName,
+        category_id: newBrandCategoryId || (activeRowIndex !== null ? items[activeRowIndex]?.category_id || 0 : 0),
+        company_id: selectedCompany,
+      });
+
+      if (res.data.status) {
+        const createdBrand = res.data.data || { id: Date.now(), name: bName, brand_name: bName };
+        setToast(`Brand "${bName}" added successfully!`);
+        setTimeout(() => setToast(null), 3000);
+
+        setBrands((prev) => {
+          if (prev.some((b) => Number(b.id) === Number(createdBrand.id) || (b.name || b.brand_name || "").toLowerCase() === bName.toLowerCase())) {
+            return prev;
+          }
+          return [...prev, createdBrand];
+        });
+        fetchBrands(selectedCompany);
+
+        if (activeRowIndex !== null && items[activeRowIndex]) {
+          const updated = [...items];
+          updated[activeRowIndex] = {
+            ...updated[activeRowIndex],
+            brand_id: createdBrand.id,
+            brand_name: createdBrand.name || createdBrand.brand_name || bName,
+            status: "pending",
+            errors: []
+          };
+          setItems(updated);
+        }
+
+        setNewBrandName("");
+        setNewBrandCategoryId("");
+        setShowAddBrandModal(false);
+        setActiveRowIndex(null);
+      } else {
+        alert(res.data.message || "Failed to create brand");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error creating brand");
+    } finally {
+      setSavingBrand(false);
+    }
+  };
+
   // Remove row
   const deleteRow = (index) => {
     const updated = items.filter((_, i) => i !== index);
@@ -691,11 +914,11 @@ export default function PurchaseForm() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 pb-24 antialiased">
-      
+
       {/* ── 1. EXECUTIVE COMMAND BAR & PURCHASE VOUCHER TAB ── */}
       <div className="bg-white border-b border-slate-200/80 px-4 md:px-6 pt-3 pb-0 shadow-xs sticky top-0 z-30">
         <div className="flex items-center justify-between gap-4">
-          
+
           {/* Voucher Workspace Tab Strip */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             <div className="group relative flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-t-2 border-blue-600 bg-slate-50 text-blue-700 shadow-xs font-bold">
@@ -770,11 +993,10 @@ export default function PurchaseForm() {
               </button>
 
               <label
-                className={`px-4 py-2 rounded-xl text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 ${
-                  selectedCompany
-                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 cursor-pointer shadow-blue-500/20"
-                    : "bg-slate-300 text-slate-500 cursor-not-allowed"
-                }`}
+                className={`px-4 py-2 rounded-xl text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 ${selectedCompany
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 cursor-pointer shadow-blue-500/20"
+                  : "bg-slate-300 text-slate-500 cursor-not-allowed"
+                  }`}
                 title={selectedCompany ? "Upload Excel Spreadsheet" : "Select company first to upload excel"}
               >
                 <UploadCloud size={15} />
@@ -810,18 +1032,38 @@ export default function PurchaseForm() {
         <>
           {/* ── 3. SUPPLIER INTELLIGENCE & INVOICE PARAMETERS CARDS ── */}
           <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
-            
+
             {/* Left: Supplier & Company Profile (7 Cols) */}
-            <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+            <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between" ref={supplierBoxRef}>
               <div>
-                <div className="flex items-center gap-2 mb-3.5">
-                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                    <Truck size={16} />
+                <div className="flex items-center justify-between mb-3.5 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                      <Truck size={16} />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Supplier &amp; Vendor Information</h3>
+                      <p className="text-[11px] text-slate-400">Search vendor directory or select registered supplier</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Supplier &amp; Vendor Profile</h3>
-                    <p className="text-[11px] text-slate-400">Select company branch and supplier for procurement tracking</p>
-                  </div>
+
+                  {selectedSupplierObj && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {vendorAdvance > 0 && (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs border bg-indigo-50 border-indigo-200 text-indigo-800">
+                          <Wallet size={11} className="text-indigo-600" />
+                          <span>Advance: ₹{vendorAdvance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </span>
+                      )}
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs border ${vendorDues > 0
+                        ? "bg-amber-50 border-amber-200 text-amber-800"
+                        : "bg-slate-100 border-slate-200 text-slate-700"
+                        }`}>
+                        {vendorDues > 0 ? <AlertCircle size={11} className="text-amber-600" /> : <CheckCircle2 size={11} className="text-emerald-600" />}
+                        <span>Due: ₹{vendorDues.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -838,11 +1080,12 @@ export default function PurchaseForm() {
                         setSelectedCompany(compId);
                         localStorage.setItem("selected_company_id", compId);
                         setSelectedSupplier("");
+                        setSupplierName("");
                         setItems([]);
                         setCategories([]);
                         setBrands([]);
                       }}
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed transition"
+                      className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed transition"
                     >
                       <option value="">Select Company</option>
                       {companies.map(c => (
@@ -851,39 +1094,128 @@ export default function PurchaseForm() {
                     </select>
                   </div>
 
-                  {/* Supplier Select */}
-                  <div>
+                  {/* Supplier Autocomplete Search Input */}
+                  <div className="relative">
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-[11px] font-bold text-slate-600">
-                        Supplier / Vendor <span className="text-rose-500">*</span>
+                        Supplier / Vendor Name <span className="text-rose-500">*</span>
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!selectedCompany) {
-                            setToast({ type: "error", message: "Please select a company first before adding a supplier." });
-                            return;
-                          }
-                          setShowAddSupplierModal(true);
-                        }}
-                        disabled={isLocked}
-                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Plus size={12} className="stroke-[3]" />
-                        <span>Add Supplier</span>
-                      </button>
                     </div>
-                    <select
-                      value={selectedSupplier}
-                      disabled={isLocked || !selectedCompany}
-                      onChange={(e) => setSelectedSupplier(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed transition"
+
+                    <div
+                      className={`relative border rounded-xl px-3.5 py-2 transition bg-white flex items-center justify-between ${showSupplierDropdown ? "border-blue-500 ring-2 ring-blue-500/15" : "border-slate-300 hover:border-slate-400"
+                        } ${isLocked || !selectedCompany ? "bg-slate-100 opacity-75 cursor-not-allowed" : ""}`}
                     >
-                      <option value="">{selectedCompany ? "Select Supplier" : "Select Company First"}</option>
-                      {suppliers.map(s => (
-                        <option key={s.id} value={s.id}>{s.supplier_name}</option>
-                      ))}
-                    </select>
+                      <div className="flex items-center gap-2 w-full">
+                        <Search size={14} className="text-slate-400 flex-shrink-0" />
+                        <input
+                          type="text"
+                          disabled={isLocked || !selectedCompany}
+                          placeholder={selectedCompany ? "Search supplier by name or phone..." : "Select company first..."}
+                          value={supplierName}
+                          onChange={(e) => handleSupplierSearch(e.target.value)}
+                          onFocus={() => {
+                            if (!selectedCompany || isLocked) return;
+                            setShowSupplierDropdown(true);
+                            if (supplierSuggestions.length === 0) setSupplierSuggestions(suppliers);
+                          }}
+                          className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent disabled:cursor-not-allowed"
+                        />
+                      </div>
+                      <ChevronDown
+                        size={14}
+                        className="text-slate-400 cursor-pointer ml-1.5 flex-shrink-0"
+                        onClick={() => {
+                          if (!selectedCompany || isLocked) return;
+                          setShowSupplierDropdown(v => !v);
+                          if (supplierSuggestions.length === 0) setSupplierSuggestions(suppliers);
+                        }}
+                      />
+                    </div>
+
+                    {/* Selected Supplier Info & Balance Chip */}
+                    {selectedSupplierObj && (
+                      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 bg-slate-50 border border-slate-200/90 rounded-xl text-[11px] shadow-2xs animate-in fade-in duration-100">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-bold text-slate-800 truncate">
+                            {selectedSupplierObj.supplier_name || selectedSupplierObj.name}
+                          </span>
+                          {(selectedSupplierObj.mobile_number || selectedSupplierObj.phone) && (
+                            <span className="text-slate-500 font-medium font-mono text-[10px] shrink-0">
+                              • 📱 {selectedSupplierObj.mobile_number || selectedSupplierObj.phone}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 text-right">
+                          {vendorAdvance > 0 && (
+                            <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold text-[10px]">
+                              Adv: ₹{vendorAdvance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            Due:{" "}
+                            <span className={`font-bold font-mono ${vendorDues > 0 ? "text-rose-600 font-black" : "text-slate-700"}`}>
+                              ₹{vendorDues.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Autocomplete Dropdown */}
+                    {showSupplierDropdown && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 divide-y divide-slate-100 animate-in fade-in duration-100">
+                        <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                          <span
+                            onClick={() => {
+                              setShowSupplierDropdown(false);
+                              setShowAddSupplierModal(true);
+                            }}
+                            className="text-xs font-bold text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
+                          >
+                            <Plus size={12} strokeWidth={2.5} />
+                            <span>Add New Supplier</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Due / Advance</span>
+                        </div>
+                        {supplierSuggestions.length === 0 ? (
+                          <div className="p-3 text-xs text-slate-400 text-center">No suppliers found</div>
+                        ) : (
+                          supplierSuggestions.map((s) => {
+                            const sDue = parseFloat(s.pending_balance ?? s.balance_amount ?? s.total_balance ?? s.pending_amount ?? 0);
+                            const sAdv = parseFloat(s.advance_balance ?? s.advance_amount ?? 0);
+                            const sPhone = s.mobile_number || s.phone || s.supplier_phone;
+                            return (
+                              <div
+                                key={s.id}
+                                onClick={() => selectSupplier(s)}
+                                className="px-3.5 py-2.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+                              >
+                                <div>
+                                  <div className="font-bold text-slate-900">{s.supplier_name || s.name}</div>
+                                  <div className="text-[11px] text-slate-400 mt-0.5">
+                                    {sPhone ? `📱 ${sPhone}` : (s.city || s.state || "Registered Vendor")}
+                                  </div>
+                                </div>
+                                <div className="text-right flex-shrink-0 ml-2">
+                                  {sAdv > 0 && (
+                                    <div className="text-[10px] font-bold text-indigo-700">
+                                      Adv: ₹{sAdv.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="text-[9.5px] text-slate-400 font-semibold uppercase mr-1">Due:</span>
+                                    <span className={`font-bold text-xs ${sDue > 0 ? "text-rose-600 font-black" : "text-slate-700"}`}>
+                                      ₹{sDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -936,7 +1268,7 @@ export default function PurchaseForm() {
           {/* ── 4. PURCHASED ITEMS MATRIX TABLE ── */}
           <div className="px-6 md:px-8 mb-6">
             <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-              
+
               <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
@@ -955,11 +1287,10 @@ export default function PurchaseForm() {
                     type="button"
                     onClick={addManualRow}
                     disabled={!selectedCompany}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
-                      selectedCompany
-                        ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 shadow-2xs"
-                        : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                    }`}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer ${selectedCompany
+                      ? "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 shadow-2xs"
+                      : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                      }`}
                   >
                     <Plus size={14} strokeWidth={2.5} />
                     <span>Add Item Row</span>
@@ -1035,9 +1366,8 @@ export default function PurchaseForm() {
                         return (
                           <tr
                             key={index}
-                            className={`transition-colors ${
-                              isRowErrored ? "bg-rose-50/50 hover:bg-rose-50" : "hover:bg-blue-50/30"
-                            }`}
+                            className={`transition-colors ${isRowErrored ? "bg-rose-50/50 hover:bg-rose-50" : "hover:bg-blue-50/30"
+                              }`}
                           >
                             {/* Status */}
                             {isColumnVisible("status") && (
@@ -1060,11 +1390,10 @@ export default function PurchaseForm() {
                                   disabled={isLocked}
                                   onChange={(e) => updateRowField(index, "product_name", e.target.value)}
                                   placeholder="Enter product name..."
-                                  className={`w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white rounded-lg text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/15 transition ${
-                                    isRowErrored && (!item.product_name || !item.product_name.trim())
-                                      ? "border border-rose-400 focus:border-rose-500"
-                                      : "border border-slate-200 focus:border-blue-500"
-                                  }`}
+                                  className={`w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white rounded-lg text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/15 transition ${isRowErrored && (!item.product_name || !item.product_name.trim())
+                                    ? "border border-rose-400 focus:border-rose-500"
+                                    : "border border-slate-200 focus:border-blue-500"
+                                    }`}
                                 />
                               </td>
                             )}
@@ -1111,10 +1440,25 @@ export default function PurchaseForm() {
                                 <select
                                   value={item.category_id || ""}
                                   disabled={isLocked || !selectedCompany}
-                                  onChange={(e) => handleCategoryChange(index, e.target.value)}
-                                  className="w-full px-2 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none cursor-pointer disabled:bg-slate-100"
+                                  onChange={(e) => {
+                                    if (e.target.value === "__NEW_CATEGORY__") {
+                                      if (!selectedCompany) {
+                                        setToast("Please select a company first.");
+                                        return;
+                                      }
+                                      setActiveRowIndex(index);
+                                      setNewCategoryName("");
+                                      setShowAddCategoryModal(true);
+                                    } else {
+                                      handleCategoryChange(index, e.target.value);
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none cursor-pointer disabled:bg-slate-100 focus:bg-white focus:border-blue-500 transition"
                                 >
                                   <option value="">Select Category (Opt)</option>
+                                  <option value="__NEW_CATEGORY__" className="text-blue-600 font-bold bg-blue-50">
+                                    + Add New Category
+                                  </option>
                                   {categories.map(c => (
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                   ))}
@@ -1128,10 +1472,26 @@ export default function PurchaseForm() {
                                 <select
                                   value={item.brand_id || ""}
                                   disabled={isLocked || !selectedCompany}
-                                  onChange={(e) => handleBrandChange(index, e.target.value)}
-                                  className="w-full px-2 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none cursor-pointer disabled:bg-slate-100"
+                                  onChange={(e) => {
+                                    if (e.target.value === "__NEW_BRAND__") {
+                                      if (!selectedCompany) {
+                                        setToast("Please select a company first.");
+                                        return;
+                                      }
+                                      setActiveRowIndex(index);
+                                      setNewBrandName("");
+                                      setNewBrandCategoryId(item.category_id || "");
+                                      setShowAddBrandModal(true);
+                                    } else {
+                                      handleBrandChange(index, e.target.value);
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none cursor-pointer disabled:bg-slate-100 focus:bg-white focus:border-blue-500 transition"
                                 >
                                   <option value="">Select Brand (Opt)</option>
+                                  <option value="__NEW_BRAND__" className="text-blue-600 font-bold bg-blue-50">
+                                    + Add New Brand
+                                  </option>
                                   {brands.map(b => (
                                     <option key={b.id} value={b.id}>{b.name || b.brand_name}</option>
                                   ))}
@@ -1271,7 +1631,7 @@ export default function PurchaseForm() {
 
           {/* ── 5. FINANCIAL RECONCILIATION & TOTALS SUMMARY ── */}
           <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            
+
             {/* Left 7 Columns: Inward Instructions & Details */}
             <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -1352,12 +1712,43 @@ export default function PurchaseForm() {
                       />
                     </div>
                   </div>
-                  <div className="flex justify-between items-center font-bold">
-                    <span className="text-slate-600">Remaining Balance Due</span>
-                    <span className={`text-xs font-black ${Math.max(0, grandTotal - paidAmount) > 0 ? "text-rose-600" : "text-emerald-700"}`}>
-                      ₹ {Math.max(0, grandTotal - paidAmount).toFixed(2)}
-                    </span>
-                  </div>
+                  {(() => {
+                    const directPaid = parseFloat(paidAmount || 0);
+                    const remainingBeforeAdv = Math.max(0, grandTotal - directPaid);
+                    const advAdjusted = Math.min(vendorAdvance, remainingBeforeAdv);
+                    const remainingBalanceDue = Math.max(0, remainingBeforeAdv - advAdjusted);
+                    const remainingBalanceAdv = Math.max(0, vendorAdvance - advAdjusted);
+
+                    return (
+                      <>
+                        {vendorAdvance > 0 && (
+                          <div className="flex justify-between items-center text-xs px-2.5 py-1.5 bg-indigo-50/80 border border-indigo-200/80 rounded-xl font-bold text-indigo-900">
+                            <div className="flex items-center gap-1.5">
+                              <Wallet size={13} className="text-indigo-600" />
+                              <span>Supplier Advance Adjusted</span>
+                            </div>
+                            <span className="font-mono text-indigo-700">
+                              - ₹ {advAdjusted.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center font-bold">
+                          <span className="text-slate-600">Remaining Balance Due</span>
+                          <span className={`text-xs font-black ${remainingBalanceDue > 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                            ₹ {remainingBalanceDue.toFixed(2)}
+                          </span>
+                        </div>
+                        {vendorAdvance > 0 && (
+                          <div className="flex justify-between items-center font-bold">
+                            <span className="text-slate-600">Remaining Balance Advance</span>
+                            <span className={`text-xs font-black ${remainingBalanceAdv > 0 ? "text-indigo-600" : "text-slate-500"}`}>
+                              ₹ {remainingBalanceAdv.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-xs font-bold">
@@ -1443,6 +1834,174 @@ export default function PurchaseForm() {
             setShowAddSupplierModal(false);
           }}
         />
+      )}
+
+      {/* Quick Add Category Modal */}
+      {showAddCategoryModal && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
+          onClick={() => {
+            setShowAddCategoryModal(false);
+            setActiveRowIndex(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 shadow-xs">
+                  <Layers size={17} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-slate-900 tracking-tight">Add New Category</h2>
+                  <p className="text-[11px] text-slate-500 font-medium">Create and link category for products</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddCategoryModal(false);
+                  setActiveRowIndex(null);
+                }}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCategory} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Category Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  placeholder="e.g. Grocery, Electronics, Apparels..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddCategoryModal(false);
+                    setActiveRowIndex(null);
+                  }}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCategory || !newCategoryName.trim()}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition cursor-pointer disabled:opacity-50"
+                >
+                  {savingCategory ? "Saving..." : "Add Category"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Brand Modal */}
+      {showAddBrandModal && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
+          onClick={() => {
+            setShowAddBrandModal(false);
+            setActiveRowIndex(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 shadow-xs">
+                  <Package size={17} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-slate-900 tracking-tight">Add New Brand</h2>
+                  <p className="text-[11px] text-slate-500 font-medium">Create and link brand for products</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddBrandModal(false);
+                  setActiveRowIndex(null);
+                }}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateBrand} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Brand Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  placeholder="e.g. Nestle, Samsung, Nike..."
+                  value={newBrandName}
+                  onChange={(e) => setNewBrandName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Link to Category (Optional)
+                </label>
+                <select
+                  value={newBrandCategoryId}
+                  onChange={(e) => setNewBrandCategoryId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-medium text-slate-800 text-xs outline-none focus:border-blue-600 transition bg-white"
+                >
+                  <option value="">No Category / General</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddBrandModal(false);
+                    setActiveRowIndex(null);
+                  }}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingBrand || !newBrandName.trim()}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition cursor-pointer disabled:opacity-50"
+                >
+                  {savingBrand ? "Saving..." : "Add Brand"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>

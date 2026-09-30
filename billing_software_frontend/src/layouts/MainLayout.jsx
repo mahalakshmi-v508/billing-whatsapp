@@ -118,6 +118,9 @@ function getHeaderBreadcrumbs(pathname) {
   if (pathname.startsWith("/admin")) {
     return { section: "Administration", title: "Admin Management", icon: UserCog };
   }
+  if (pathname.startsWith("/settings")) {
+    return { section: "Settings", title: "settings", icon: Settings };
+  }
   return { section: "Workspace", title: "Cashio", icon: Home };
 }
 
@@ -321,7 +324,6 @@ export default function MainLayout() {
     ...(role === "admin"
       ? [
         { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
-        { name: "Point of Sale (POS)", path: "/billing", icon: <Store size={18} /> },
         {
           name: "Customer & CRM",
           icon: <User size={18} />,
@@ -358,6 +360,7 @@ export default function MainLayout() {
           ],
         },
         { name: "Inventory Products", path: "/products", icon: <PackageSearch size={18} /> },
+        { name: "Point of Sale (POS)", path: "/billing", icon: <Store size={18} /> },
         { name: "E-Way Bills", path: "/e-way", icon: <Truck size={18} /> },
         {
           name: "Companies & Staff",

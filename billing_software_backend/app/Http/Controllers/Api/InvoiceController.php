@@ -1070,7 +1070,10 @@ class InvoiceController extends Controller
 
         $ppQuery = DB::table('purchase_payments as pp')
             ->leftJoin('companies as c', 'pp.company_id', '=', 'c.id')
-            ->leftJoin('suppliers as s', 'pp.supplier_id', '=', 's.id')
+            ->leftJoin('purchases as p', 'pp.purchase_id', '=', 'p.id')
+            ->leftJoin('suppliers as s', function($join) {
+                $join->on('s.id', '=', DB::raw('COALESCE(NULLIF(pp.supplier_id, 0), p.supplier_id)'));
+            })
             ->select($selectCols);
 
         $ppRec = (clone $ppQuery)->where('pp.receipt_no', $idVal)->first();

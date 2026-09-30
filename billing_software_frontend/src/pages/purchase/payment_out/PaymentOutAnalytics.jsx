@@ -79,7 +79,7 @@ export default function PaymentOutAnalytics({ rows = [], period = "", onClose })
       rows.map((p, i) => ({
         date: p.payment_date || "",
         receipt: p.receipt_no || `REC-${p.id || i + 1}`,
-        party: p.supplier_name || "Unknown Party",
+        party: p.supplier_name || p.party_name || "Unknown Supplier",
         method: p.payment_method || "Cash",
         paid: Number(p.paid_amount || p.amount || 0),
         billed: Number(p.amount || p.total_amount || p.paid_amount || 0),
@@ -404,7 +404,7 @@ export default function PaymentOutAnalytics({ rows = [], period = "", onClose })
                   <th className="py-2.5 pr-3 font-bold">#</th>
                   <th className="py-2.5 px-3 font-bold">Date</th>
                   <th className="py-2.5 px-3 font-bold">Ref No</th>
-                  <th className="py-2.5 px-3 font-bold">Supplier</th>
+                  <th className="py-2.5 px-3 font-bold">Supplier Name</th>
                   <th className="py-2.5 px-3 font-bold">Method</th>
                   <th className="py-2.5 px-3 font-bold text-right">Paid</th>
                   <th className="py-2.5 pl-3 font-bold">Share</th>

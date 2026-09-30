@@ -5,11 +5,25 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Supplier;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 
 class SupplierController extends Controller
 {
+    private function ensureSchemaUpdated()
+    {
+        if (Schema::hasTable('suppliers')) {
+            Schema::table('suppliers', function (Blueprint $table) {
+                if (!Schema::hasColumn('suppliers', 'advance_balance')) {
+                    $table->decimal('advance_balance', 12, 2)->default(0.00)->after('mobile_number');
+                }
+            });
+        }
+    }
+
     public function create(Request $request)
     {
+        $this->ensureSchemaUpdated();
         $company_id     = intval($request->input('company_id', 0));
         $supplier_name  = trim($request->input('supplier_name', ''));
         $mobile_number  = trim($request->input('mobile_number', ''));
@@ -22,6 +36,7 @@ class SupplierController extends Controller
         $state          = trim($request->input('state', ''));
         $pincode        = trim($request->input('pincode', ''));
         $country        = trim($request->input('country', ''));
+        $advance_balance = floatval($request->input('advance_balance', 0.00));
 
         if (!$company_id || !$supplier_name || !$mobile_number) {
             return response()->json([
@@ -43,6 +58,7 @@ class SupplierController extends Controller
             'state' => $state ?: null,
             'pincode' => $pincode ?: null,
             'country' => $country ?: null,
+            'advance_balance' => $advance_balance,
             'status' => 'active',
             'is_deleted' => 0
         ]);
@@ -55,6 +71,7 @@ class SupplierController extends Controller
 
     public function getAll(Request $request)
     {
+        $this->ensureSchemaUpdated();
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
         $query = Supplier::where('is_deleted', 0);
         if ($company_id > 0) {
@@ -63,6 +80,9 @@ class SupplierController extends Controller
 
         $suppliers = $query->select('suppliers.*')
             ->selectRaw('(SELECT COALESCE(SUM(balance_amount), 0) FROM purchases WHERE purchases.supplier_id = suppliers.id AND purchases.status = "submitted") as pending_balance')
+            ->selectRaw('(SELECT COALESCE(SUM(balance_amount), 0) FROM purchases WHERE purchases.supplier_id = suppliers.id AND purchases.status = "submitted") as balance_amount')
+            ->selectRaw('(SELECT COALESCE(SUM(balance_amount), 0) FROM purchases WHERE purchases.supplier_id = suppliers.id AND purchases.status = "submitted") as total_balance')
+            ->selectRaw('(COALESCE(suppliers.advance_balance, 0) + (SELECT COALESCE(SUM(amount), 0) FROM purchase_payments WHERE purchase_payments.supplier_id = suppliers.id AND (purchase_payments.purchase_id = 0 OR purchase_payments.purchase_id IS NULL))) as advance_balance')
             ->orderBy('id', 'desc')
             ->get();
 
@@ -74,8 +94,15 @@ class SupplierController extends Controller
 
     public function getById(Request $request)
     {
+        $this->ensureSchemaUpdated();
         $id = intval($request->input('id') ?: $request->query('id', 0));
-        $supplier = Supplier::find($id);
+        $supplier = Supplier::where('id', $id)
+            ->select('suppliers.*')
+            ->selectRaw('(SELECT COALESCE(SUM(balance_amount), 0) FROM purchases WHERE purchases.supplier_id = suppliers.id AND purchases.status = "submitted") as pending_balance')
+            ->selectRaw('(SELECT COALESCE(SUM(balance_amount), 0) FROM purchases WHERE purchases.supplier_id = suppliers.id AND purchases.status = "submitted") as balance_amount')
+            ->selectRaw('(SELECT COALESCE(SUM(balance_amount), 0) FROM purchases WHERE purchases.supplier_id = suppliers.id AND purchases.status = "submitted") as total_balance')
+            ->selectRaw('(COALESCE(suppliers.advance_balance, 0) + (SELECT COALESCE(SUM(amount), 0) FROM purchase_payments WHERE purchase_payments.supplier_id = suppliers.id AND (purchase_payments.purchase_id = 0 OR purchase_payments.purchase_id IS NULL))) as advance_balance')
+            ->first();
 
         if (!$supplier) {
             return response()->json([
