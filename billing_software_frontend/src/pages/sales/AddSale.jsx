@@ -99,6 +99,7 @@ function createNewSaleTab(id, index, defaultInvNo = "") {
     shippingAddress: "",
     creditDays: 0,
     customerPendingBalance: 0,
+    customerAdvanceBalance: 0,
     customerCreditLimit: 0,
     invoicePrefix: "INV-",
     invoiceNumber: defaultInvNo || "INV-0001",
@@ -392,6 +393,8 @@ export default function AddSale() {
       customerName: val,
       customerId: null,
       creditDays: 0,
+      customerPendingBalance: 0,
+      customerAdvanceBalance: 0,
       dueDate: isCredit ? (activeSale?.invoiceDate || new Date().toISOString().split("T")[0]) : (activeSale?.dueDate || "")
     });
     try {
@@ -431,6 +434,7 @@ export default function AddSale() {
       billingAddress: c.address || c.billing_address || "",
       shippingAddress: c.shipping_address || c.address || "",
       customerPendingBalance: parseFloat(c.pending_amount) || 0,
+      customerAdvanceBalance: parseFloat(c.advance_balance) || 0,
       customerCreditLimit: parseFloat(c.credit_limit) || 0,
       creditDays: cDays,
       dueDate: calcDueDate,
@@ -1113,11 +1117,18 @@ export default function AddSale() {
                 </div>
               </div>
 
-              {activeSale.customerPendingBalance > 0 && (
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-1">
-                  <AlertCircle size={11} /> Debt: ₹{activeSale.customerPendingBalance.toLocaleString()}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {activeSale.customerAdvanceBalance > 0 && (
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 size={11} /> Adv: ₹{activeSale.customerAdvanceBalance.toLocaleString("en-IN")}
+                  </span>
+                )}
+                {activeSale.customerPendingBalance > 0 && (
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-1">
+                    <AlertCircle size={11} /> Due: ₹{activeSale.customerPendingBalance.toLocaleString("en-IN")}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
@@ -1164,7 +1175,7 @@ export default function AddSale() {
                       <span onClick={() => navigate("/customers/add")} className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">
                         + Add New Customer
                       </span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Party Balance</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Due / Adv</span>
                     </div>
                     {(() => {
                       const list = isCredit
@@ -1178,7 +1189,8 @@ export default function AddSale() {
                         );
                       }
                       return list.map((c) => {
-                        const bal = parseFloat(c.pending_amount || 0);
+                        const due = parseFloat(c.pending_amount || 0);
+                        const adv = parseFloat(c.advance_balance || 0);
                         const cDays = Number(c.credit_days) || 0;
                         return (
                           <div
@@ -1186,8 +1198,8 @@ export default function AddSale() {
                             onClick={() => selectCustomer(c)}
                             className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
                           >
-                            <div>
-                              <div className="font-bold text-slate-900">{c.name || c.customer_name}</div>
+                            <div className="min-w-0 pr-2">
+                              <div className="font-bold text-slate-900 truncate">{c.name || c.customer_name}</div>
                               <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                                 <span>{c.phone || c.customer_phone || ""}</span>
                                 {isCredit && (
@@ -1197,8 +1209,31 @@ export default function AddSale() {
                                 )}
                               </div>
                             </div>
-                            <div className="text-right">
-                              <span className="font-bold text-slate-800">₹{bal.toLocaleString()}</span>
+                            <div className="text-right shrink-0 ml-auto pl-2">
+                              {due > 0 && adv > 0 ? (
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-xs font-bold text-rose-600 inline-flex items-center gap-1">
+                                    <span className="text-[10px] font-semibold text-slate-500">Due:</span>
+                                    <span>₹{due.toLocaleString("en-IN")}</span>
+                                  </span>
+                                  <span className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1">
+                                    <span className="text-[10px] font-semibold text-slate-500">Adv:</span>
+                                    <span>₹{adv.toLocaleString("en-IN")}</span>
+                                  </span>
+                                </div>
+                              ) : adv > 0 ? (
+                                <span className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1">
+                                  <span className="text-[10.5px] font-semibold text-slate-500">Adv:</span>
+                                  <span className="font-extrabold text-emerald-600">₹{adv.toLocaleString("en-IN")}</span>
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold text-slate-700 inline-flex items-center gap-1">
+                                  <span className="text-[10.5px] font-semibold text-slate-500">Due:</span>
+                                  <span className={due > 0 ? "text-rose-600 font-extrabold" : "text-slate-800 font-bold"}>
+                                    ₹{due.toLocaleString("en-IN")}
+                                  </span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         );
