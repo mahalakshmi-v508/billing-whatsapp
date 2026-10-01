@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use App\Models\PurchasePayment;
+use App\Support\GstCalculator;
 
 class PurchaseController extends Controller
 {
@@ -239,6 +240,82 @@ class PurchaseController extends Controller
     }
 
     /**
+     * Resolve + calculate a single purchase line.
+     *
+     * This is the ONLY place purchase line GST is derived in this controller;
+     * the actual maths lives in App\Support\GstCalculator. Every loop below
+     * (draft totals, draft items, submit totals, submit items) calls this, so
+     * the totals and the persisted per-row amounts can never drift apart.
+     *
+     * Pricing mode resolution order:
+     *   1. an explicit tax_mode on the line (what the Purchase form sends, and
+     *      what it seeds from the product),
+     *   2. the linked product's saved purchase_price_type,
+     *   3. without_gst - the historical default, so every pre-existing product
+     *      keeps behaving exactly as it did before this feature.
+     */
+    private function calculateItemLine(array $item, $productId = null): array
+    {
+        $qty = floatval($item['quantity'] ?? 0);
+        $discountPct = floatval($item['discount_percent'] ?? 0);
+        $discountAmt = floatval($item['discount_amount'] ?? 0);
+
+        // Distinguish "not supplied" from "supplied as 0". A line that omits a
+        // value inherits the product's saved configuration; a line that
+        // explicitly sends 0 is respected (the user really did clear the field).
+        $rawPrice = $item['price'] ?? null;
+        $hasPrice = $rawPrice !== null && $rawPrice !== '';
+        $rawGstPct = $item['gst_percentage'] ?? null;
+        $hasGstPct = $rawGstPct !== null && $rawGstPct !== '';
+        $taxMode = $item['tax_mode'] ?? null;
+        $hasTaxMode = $taxMode !== null && $taxMode !== '';
+
+        $price = $hasPrice ? floatval($rawPrice) : 0.0;
+        $gstPct = $hasGstPct ? floatval($rawGstPct) : 0.0;
+        $calcMode = $hasTaxMode ? GstCalculator::normaliseMode($taxMode) : null;
+
+        // Fall back to the linked product for anything the line left out, so a
+        // product configured "With GST" cannot be invoiced as tax-free just
+        // because the caller did not repeat its rate and mode.
+        if ($productId && (!$hasPrice || !$hasGstPct || !$hasTaxMode)) {
+            $product = Product::find($productId);
+            if ($product) {
+                $resolved = GstCalculator::resolveFromProduct(
+                    $product,
+                    $hasGstPct ? $gstPct : null,
+                    $calcMode,
+                    'purchase'
+                );
+                if (!$hasPrice) {
+                    $price = $resolved['price'];
+                }
+                $gstPct = $resolved['rate'];
+                $calcMode = $resolved['mode'];
+            }
+        }
+
+        $calc = GstCalculator::calculateLine(
+            $price,
+            $qty,
+            $gstPct,
+            $calcMode ?? GstCalculator::WITHOUT_GST,
+            $discountAmt,
+            $discountPct
+        );
+
+        return [
+            'qty' => $qty,
+            'price' => $price,
+            'gst_pct' => $gstPct,
+            'tax_mode' => $calc['mode'],
+            'discount_amount' => $calc['discount'],
+            'taxable' => $calc['taxable'],
+            'tax_amount' => $calc['gst'],
+            'line_total' => $calc['total'],
+        ];
+    }
+
+    /**
      * Save purchase as draft.
      */
     public function saveDraft(Request $request)
@@ -267,36 +344,12 @@ class PurchaseController extends Controller
             $computedTotal = 0;
 
             foreach ($items as $item) {
-                $qty = floatval($item['quantity'] ?? 0);
-                $price = floatval($item['price'] ?? 0);
-                $taxMode = $item['tax_mode'] ?? 'without_tax';
-                $discountPct = floatval($item['discount_percent'] ?? 0);
-                $discountAmt = floatval($item['discount_amount'] ?? 0);
-                $gstPct = floatval($item['gst_percentage'] ?? 0);
+                $line = $this->calculateItemLine($item, $item['product_id'] ?? null);
 
-                // Base calculation
-                $rawSub = $qty * $price;
-                if ($discountPct > 0) {
-                    $discountAmt = $rawSub * ($discountPct / 100);
-                }
-                $lineTaxable = max(0, $rawSub - $discountAmt);
-
-                if ($taxMode === 'with_tax') {
-                    // Reverse tax calculation: price is inclusive of GST
-                    $inclusiveTotal = max(0, ($qty * $price) - $discountAmt);
-                    $lineTax = $inclusiveTotal - ($inclusiveTotal / (1 + ($gstPct / 100)));
-                    $lineSub = $inclusiveTotal - $lineTax;
-                    $lineTotal = $inclusiveTotal;
-                } else {
-                    $lineTax = $lineTaxable * ($gstPct / 100);
-                    $lineSub = $lineTaxable;
-                    $lineTotal = $lineTaxable + $lineTax;
-                }
-
-                $subTotal += $lineSub;
-                $gstTotal += $lineTax;
-                $discountTotal += $discountAmt;
-                $computedTotal += $lineTotal;
+                $subTotal += $line['taxable'];
+                $gstTotal += $line['tax_amount'];
+                $discountTotal += $line['discount_amount'];
+                $computedTotal += $line['line_total'];
             }
 
             $roundOff = floatval($request->input('round_off', 0));
@@ -336,27 +389,15 @@ class PurchaseController extends Controller
             }
 
             foreach ($items as $item) {
-                $qty = floatval($item['quantity'] ?? 0);
-                $price = floatval($item['price'] ?? 0);
-                $taxMode = $item['tax_mode'] ?? 'without_tax';
-                $discountPct = floatval($item['discount_percent'] ?? 0);
-                $discountAmt = floatval($item['discount_amount'] ?? 0);
-                $gstPct = floatval($item['gst_percentage'] ?? 0);
+                $line = $this->calculateItemLine($item, $item['product_id'] ?? null);
 
-                $rawSub = $qty * $price;
-                if ($discountPct > 0) {
-                    $discountAmt = $rawSub * ($discountPct / 100);
-                }
-                $lineTaxable = max(0, $rawSub - $discountAmt);
-
-                if ($taxMode === 'with_tax') {
-                    $inclusiveTotal = max(0, ($qty * $price) - $discountAmt);
-                    $lineTax = $inclusiveTotal - ($inclusiveTotal / (1 + ($gstPct / 100)));
-                    $lineTotal = $inclusiveTotal;
-                } else {
-                    $lineTax = $lineTaxable * ($gstPct / 100);
-                    $lineTotal = $lineTaxable + $lineTax;
-                }
+                $qty = $line['qty'];
+                $price = $line['price'];
+                $gstPct = $line['gst_pct'];
+                $taxMode = $line['tax_mode'];
+                $discountAmt = $line['discount_amount'];
+                $lineTax = $line['tax_amount'];
+                $lineTotal = $line['line_total'];
 
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
@@ -429,34 +470,12 @@ class PurchaseController extends Controller
             $computedTotal = 0;
 
             foreach ($items as $item) {
-                $qty = floatval($item['quantity'] ?? 0);
-                $price = floatval($item['price'] ?? 0);
-                $taxMode = $item['tax_mode'] ?? 'without_tax';
-                $discountPct = floatval($item['discount_percent'] ?? 0);
-                $discountAmt = floatval($item['discount_amount'] ?? 0);
-                $gstPct = floatval($item['gst_percentage'] ?? 0);
+                $line = $this->calculateItemLine($item, $item['product_id'] ?? null);
 
-                $rawSub = $qty * $price;
-                if ($discountPct > 0) {
-                    $discountAmt = $rawSub * ($discountPct / 100);
-                }
-                $lineTaxable = max(0, $rawSub - $discountAmt);
-
-                if ($taxMode === 'with_tax') {
-                    $inclusiveTotal = max(0, ($qty * $price) - $discountAmt);
-                    $lineTax = $inclusiveTotal - ($inclusiveTotal / (1 + ($gstPct / 100)));
-                    $lineSub = $inclusiveTotal - $lineTax;
-                    $lineTotal = $inclusiveTotal;
-                } else {
-                    $lineTax = $lineTaxable * ($gstPct / 100);
-                    $lineSub = $lineTaxable;
-                    $lineTotal = $lineTaxable + $lineTax;
-                }
-
-                $subTotal += $lineSub;
-                $gstTotal += $lineTax;
-                $discountTotal += $discountAmt;
-                $computedTotal += $lineTotal;
+                $subTotal += $line['taxable'];
+                $gstTotal += $line['tax_amount'];
+                $discountTotal += $line['discount_amount'];
+                $computedTotal += $line['line_total'];
             }
 
             $roundOff = floatval($request->input('round_off', 0));
@@ -572,9 +591,6 @@ class PurchaseController extends Controller
                 $subcategoryName = trim($item['subcategory_name'] ?? '');
                 $brandName = trim($item['brand_name'] ?? '');
                 $price = floatval($item['price'] ?? 0);
-                $taxMode = $item['tax_mode'] ?? 'without_tax';
-                $discountPct = floatval($item['discount_percent'] ?? 0);
-                $discountAmt = floatval($item['discount_amount'] ?? 0);
                 $sellingPrice = floatval($item['selling_price'] ?? 0);
                 $sellingPricePerUnit = trim($item['selling_price_per_unit'] ?? '');
                 $qty = floatval($item['quantity'] ?? 0);
@@ -586,20 +602,11 @@ class PurchaseController extends Controller
                 $subcategoryId = $item['subcategory_id'] ?? null;
                 $brandId = $item['brand_id'] ?? null;
 
-                $rawSub = $qty * $price;
-                if ($discountPct > 0) {
-                    $discountAmt = $rawSub * ($discountPct / 100);
-                }
-                $lineTaxable = max(0, $rawSub - $discountAmt);
-
-                if ($taxMode === 'with_tax') {
-                    $inclusiveTotal = max(0, ($qty * $price) - $discountAmt);
-                    $lineTax = $inclusiveTotal - ($inclusiveTotal / (1 + ($gstPct / 100)));
-                    $lineTotal = $inclusiveTotal;
-                } else {
-                    $lineTax = $lineTaxable * ($gstPct / 100);
-                    $lineTotal = $lineTaxable + $lineTax;
-                }
+                $line = $this->calculateItemLine($item, $productId);
+                $taxMode = $line['tax_mode'];
+                $discountAmt = $line['discount_amount'];
+                $lineTax = $line['tax_amount'];
+                $lineTotal = $line['line_total'];
 
                 // Dynamic Category / Subcategory / Brand resolution
                 if (!$categoryId && !empty($categoryName)) {

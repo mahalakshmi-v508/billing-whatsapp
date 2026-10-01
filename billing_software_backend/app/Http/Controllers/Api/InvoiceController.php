@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Payment;
 use App\Models\Customer;
 use App\Models\InvoiceSetting;
+use App\Support\GstCalculator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -262,6 +263,9 @@ class InvoiceController extends Controller
                             'product_code'   => $code,
                             'price'          => $price,
                             'sale_price'     => $price,
+                            // Carry the invoiced line's GST mode so that reusing
+                            // this auto-created product later bills the same way.
+                            'sale_price_type' => GstCalculator::normaliseMode($item['price_type'] ?? null),
                             'purchase_price' => 0,
                             'stock'          => -floatval($qty), // Automatically added with minus quantity
                             'unit'           => $unit,
@@ -2387,6 +2391,7 @@ class InvoiceController extends Controller
                             'product_code'   => $code,
                             'price'          => $price,
                             'sale_price'     => $price,
+                            'sale_price_type' => GstCalculator::normaliseMode($item['price_type'] ?? null),
                             'purchase_price' => 0,
                             'stock'          => -floatval($qty),
                             'unit'           => $unit,

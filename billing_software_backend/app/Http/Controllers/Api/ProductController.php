@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Subcategory;
 use App\Models\Brand;
 use Illuminate\Support\Facades\DB;
+use App\Support\GstCalculator;
 
 class ProductController extends Controller
 {
@@ -28,6 +29,12 @@ class ProductController extends Controller
         $supplier_id    = intval($request->input('supplier_id', 0));
         $sale_price     = floatval($request->input('sale_price', 0));
         $purchase_price = floatval($request->input('purchase_price', 0));
+
+        // "with_gst" / "without_gst" for each price, independently. Anything
+        // unrecognised (including a missing field) normalises to without_gst,
+        // which is the historical behaviour.
+        $sale_price_type     = GstCalculator::normaliseMode($request->input('sale_price_type'));
+        $purchase_price_type = GstCalculator::normaliseMode($request->input('purchase_price_type'));
 
         $new_category_name    = trim($request->input('new_category_name', ''));
         $new_subcategory_name = trim($request->input('new_subcategory_name', ''));
@@ -104,6 +111,8 @@ class ProductController extends Controller
             'price' => $price,
             'sale_price' => $sale_price ?: null,
             'purchase_price' => $purchase_price ?: null,
+            'sale_price_type' => $sale_price_type,
+            'purchase_price_type' => $purchase_price_type,
             'stock' => $stock,
             'barcode' => $barcode ?: null,
             'unit' => $unit ?: null,
@@ -257,6 +266,10 @@ class ProductController extends Controller
                 'p.product_code',
                 'p.barcode',
                 'p.price',
+                'p.sale_price',
+                'p.purchase_price',
+                'p.sale_price_type',
+                'p.purchase_price_type',
                 'p.unit',
                 'p.gst_percentage',
                 'p.category_id',
@@ -299,6 +312,23 @@ class ProductController extends Controller
             return response()->json(["status" => false, "message" => "ID and Product Name required"]);
         }
 
+        // This method is a destructive full-replace, so a client that never
+        // sends the pricing mode would silently reset it. Only overwrite when
+        // the field is actually present, otherwise keep what is already saved.
+        $existing = Product::find($id);
+
+        if ($request->has('sale_price_type')) {
+            $sale_price_type = GstCalculator::normaliseMode($request->input('sale_price_type'));
+        } else {
+            $sale_price_type = GstCalculator::normaliseMode($existing->sale_price_type ?? null);
+        }
+
+        if ($request->has('purchase_price_type')) {
+            $purchase_price_type = GstCalculator::normaliseMode($request->input('purchase_price_type'));
+        } else {
+            $purchase_price_type = GstCalculator::normaliseMode($existing->purchase_price_type ?? null);
+        }
+
         $updateData = [
             'product_name' => $product_name,
             'product_code' => $product_code ?: null,
@@ -313,11 +343,17 @@ class ProductController extends Controller
             'supplier_id' => $supplier_id > 0 ? $supplier_id : null,
             'sale_price' => $sale_price ?: null,
             'purchase_price' => $purchase_price ?: null,
+            'sale_price_type' => $sale_price_type,
+            'purchase_price_type' => $purchase_price_type,
         ];
 
         Product::where('id', $id)->update($updateData);
 
-        return response()->json(["status" => true, "message" => "Product updated successfully"]);
+        return response()->json([
+            "status" => true,
+            "message" => "Product updated successfully",
+            "data" => Product::find($id)
+        ]);
     }
 
     public function move(Request $request)
