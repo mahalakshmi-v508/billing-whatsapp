@@ -206,7 +206,7 @@ function createFreshBill(id) {
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════ */
-export default function Billing() {
+export default function Billing({ startCashBill = false }) {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
   const navigate = useNavigate();
@@ -333,7 +333,7 @@ export default function Billing() {
         setCompanies(loadedCompanies);
 
         const company = loadedCompanies.find((c) => String(c.id) === String(selectedCompany));
-        if (company?.gst_type === "with_gst") {
+        if (company?.gst_type === "with_gst" && !startCashBill) {
           setBills((prev) => prev.map((bill) => (
             bill.rows.every((row) => !row.name && !row.product_id)
               ? { ...bill, billType: "gst_bill" }
@@ -341,7 +341,7 @@ export default function Billing() {
           )));
         }
       });
-  }, [adminId, selectedCompany]);
+  }, [adminId, selectedCompany, startCashBill]);
 
   useEffect(() => {
     if (!selectedCompany) return;
