@@ -11,6 +11,7 @@ import {
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
 import useTableColumns from "../../hooks/useTableColumns";
+import CustomerForm from "../customer/CustomerForm";
 
 /* ── Item Table Columns List for customization drawer with rich icons & colors ─ */
 const DEFAULT_ITEM_COLUMNS = [
@@ -172,6 +173,7 @@ export default function AddSale() {
   /* ── Modals State ── */
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [rowToDelete, setRowToDelete] = useState(null);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
 
   /* ── Companies & Products ── */
   const [companies, setCompanies] = useState([]);
@@ -441,6 +443,58 @@ export default function AddSale() {
       stateOfSupply: c.state || activeSale.stateOfSupply,
     });
     setShowCustomerDropdown(false);
+  };
+
+  const handleCustomerCreated = async (createdCustomer) => {
+    setShowAddCustomerModal(false);
+    showToast("Customer created successfully!", true);
+
+    const isCredit = activeSale?.paymentType === "credit";
+    try {
+      const searchParam = createdCustomer?.phone || createdCustomer?.name || "";
+      const creditParam = isCredit ? "&credit_only=1" : "";
+      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${encodeURIComponent(searchParam)}${creditParam}`);
+
+      let matched = null;
+      if (res.data?.status && Array.isArray(res.data.data) && res.data.data.length > 0) {
+        matched = res.data.data.find(c =>
+          (createdCustomer?.phone && String(c.phone) === String(createdCustomer.phone)) ||
+          (createdCustomer?.name && String(c.name).toLowerCase() === String(createdCustomer.name).toLowerCase())
+        ) || res.data.data[0];
+      }
+
+      await loadInitialCustomers(isCredit);
+
+      if (matched) {
+        setCustomerSuggestions(prev => {
+          const exists = prev.some(c => String(c.id) === String(matched.id));
+          return exists ? prev : [matched, ...prev];
+        });
+
+        if (isCredit) {
+          if (Number(matched.credit_enabled) === 1) {
+            selectCustomer(matched);
+          } else {
+            showToast("Customer created, but credit billing is not enabled for this customer.", false);
+          }
+        } else {
+          selectCustomer(matched);
+        }
+      } else if (createdCustomer) {
+        if (isCredit) {
+          if (Number(createdCustomer.credit_enabled) === 1) {
+            selectCustomer(createdCustomer);
+          } else {
+            showToast("Customer created, but credit billing is not enabled for this customer.", false);
+          }
+        } else {
+          selectCustomer(createdCustomer);
+        }
+      }
+    } catch (err) {
+      console.error("Error refreshing customer after creation:", err);
+      await loadInitialCustomers(isCredit);
+    }
   };
 
   /* ── Row Calculation (Initial amount = 0 when quantity/price empty) ── */
@@ -1172,7 +1226,13 @@ export default function AddSale() {
                 {showCustomerDropdown && (
                   <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 divide-y divide-slate-100 animate-in fade-in duration-100">
                     <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                      <span onClick={() => navigate("/customers/add")} className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">
+                      <span
+                        onClick={() => {
+                          setShowCustomerDropdown(false);
+                          setShowAddCustomerModal(true);
+                        }}
+                        className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                      >
                         + Add New Customer
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Due / Adv</span>
@@ -1992,6 +2052,18 @@ export default function AddSale() {
                 <span>Save &amp; Continue</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Customer Modal */}
+      {showAddCustomerModal && (
+        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full">
+            <CustomerForm
+              onSuccess={handleCustomerCreated}
+              onCancel={() => setShowAddCustomerModal(false)}
+            />
           </div>
         </div>
       )}
