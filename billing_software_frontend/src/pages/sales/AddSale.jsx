@@ -68,8 +68,24 @@ function createInitialRow() {
   };
 }
 
+/* ── Due Date Calculator based on Invoice Date and Customer Credit Days ──── */
+function calculateDueDate(invDateStr, days) {
+  if (!invDateStr) return new Date().toISOString().split("T")[0];
+  const parts = String(invDateStr).split("-").map(Number);
+  if (parts.length !== 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) {
+    return invDateStr;
+  }
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  d.setDate(d.getDate() + (Number(days) || 0));
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /* ── Factory to create a brand new independent Sale tab state ────────────── */
 function createNewSaleTab(id, index, defaultInvNo = "") {
+  const today = new Date().toISOString().split("T")[0];
   return {
     id,
     label: `Sale #${index}`,
@@ -81,14 +97,14 @@ function createNewSaleTab(id, index, defaultInvNo = "") {
     gstNo: "",
     billingAddress: "",
     shippingAddress: "",
-    creditDays: 30,
+    creditDays: 0,
     customerPendingBalance: 0,
     customerCreditLimit: 0,
     invoicePrefix: "INV-",
     invoiceNumber: defaultInvNo || "INV-0001",
     formattedInvoiceNo: defaultInvNo || "INV-0001",
-    invoiceDate: new Date().toISOString().split("T")[0],
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    invoiceDate: today,
+    dueDate: today,
     stateOfSupply: "Select",
     rows: [
       createInitialRow(),
@@ -299,6 +315,7 @@ export default function AddSale() {
             gstNo: inv.gst_no || (inv.customer && inv.customer.gst_no) || "",
             billingAddress: inv.billing_address || "",
             shippingAddress: inv.shipping_address || "",
+            creditDays: Number(inv.customer?.credit_days || 0),
             rows: mappedRows,
             overallDiscountPercent: "",
             overallDiscountAmount: "",
@@ -369,10 +386,17 @@ export default function AddSale() {
   };
 
   /* ── Customer Search & Auto Fetch ── */
-  const handleCustomerSearch = async (val) => {
-    updateActiveSale({ customerName: val, customerId: null });
+  const handleCustomerSearch = async (val, forceCreditOnly) => {
+    const isCredit = forceCreditOnly !== undefined ? forceCreditOnly : (activeSale?.paymentType === "credit");
+    updateActiveSale({
+      customerName: val,
+      customerId: null,
+      creditDays: 0,
+      dueDate: isCredit ? (activeSale?.invoiceDate || new Date().toISOString().split("T")[0]) : (activeSale?.dueDate || "")
+    });
     try {
-      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${encodeURIComponent(val || "")}`);
+      const creditParam = isCredit ? "&credit_only=1" : "";
+      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${encodeURIComponent(val || "")}${creditParam}`);
       if (res.data.status) {
         setCustomerSuggestions(res.data.data || []);
         setShowCustomerDropdown(true);
@@ -382,9 +406,11 @@ export default function AddSale() {
     }
   };
 
-  const loadInitialCustomers = async () => {
+  const loadInitialCustomers = async (forceCreditOnly) => {
     try {
-      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=`);
+      const isCredit = forceCreditOnly !== undefined ? forceCreditOnly : (activeSale?.paymentType === "credit");
+      const creditParam = isCredit ? "&credit_only=1" : "";
+      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${creditParam}`);
       if (res.data.status) {
         setCustomerSuggestions(res.data.data || []);
       }
@@ -394,10 +420,8 @@ export default function AddSale() {
   };
 
   const selectCustomer = (c) => {
-    const cDays = c.credit_days !== undefined && c.credit_days !== null && c.credit_days !== "" ? Number(c.credit_days) : 30;
-    const baseDate = new Date(activeSale.invoiceDate || Date.now());
-    baseDate.setDate(baseDate.getDate() + cDays);
-    const calcDueDate = baseDate.toISOString().split("T")[0];
+    const cDays = c.credit_days !== undefined && c.credit_days !== null && c.credit_days !== "" ? Number(c.credit_days) : 0;
+    const calcDueDate = calculateDueDate(activeSale.invoiceDate, cDays);
 
     updateActiveSale({
       customerId: c.id,
@@ -973,7 +997,10 @@ export default function AddSale() {
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
               <button
                 type="button"
-                onClick={() => updateActiveSale({ paymentType: "cash", gstNo: "" })}
+                onClick={() => {
+                  updateActiveSale({ paymentType: "cash", gstNo: "" });
+                  loadInitialCustomers(false);
+                }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   activeSale.paymentType === "cash" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
                 }`}
@@ -984,10 +1011,32 @@ export default function AddSale() {
               <button
                 type="button"
                 onClick={() => {
-                  const cDays = Number(activeSale.creditDays) || 30;
-                  const baseDate = new Date(activeSale.invoiceDate || Date.now());
-                  baseDate.setDate(baseDate.getDate() + cDays);
-                  updateActiveSale({ paymentType: "credit", dueDate: baseDate.toISOString().split("T")[0], gstNo: "" });
+                  let cDays = 0;
+                  let retainCustomer = false;
+                  if (activeSale.customerId) {
+                    const currentCust = customerSuggestions.find(c => c.id === activeSale.customerId);
+                    if (currentCust && Number(currentCust.credit_enabled) === 1) {
+                      cDays = Number(currentCust.credit_days) || 0;
+                      retainCustomer = true;
+                    }
+                  }
+                  const newDueDate = calculateDueDate(activeSale.invoiceDate, cDays);
+                  updateActiveSale({
+                    paymentType: "credit",
+                    creditDays: cDays,
+                    dueDate: newDueDate,
+                    gstNo: "",
+                    ...(activeSale.customerId && !retainCustomer ? {
+                      customerId: null,
+                      customerName: "",
+                      customerPhone: "",
+                      billingAddress: "",
+                      shippingAddress: "",
+                      customerPendingBalance: 0,
+                      customerCreditLimit: 0,
+                    } : {})
+                  });
+                  loadInitialCustomers(true);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   isCredit ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
@@ -998,7 +1047,10 @@ export default function AddSale() {
               </button>
               <button
                 type="button"
-                onClick={() => updateActiveSale({ paymentType: "gst" })}
+                onClick={() => {
+                  updateActiveSale({ paymentType: "gst" });
+                  loadInitialCustomers(false);
+                }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   isGst ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
                 }`}
@@ -1089,7 +1141,7 @@ export default function AddSale() {
                       onFocus={() => {
                         setIsCustomerFocused(true);
                         setShowCustomerDropdown(true);
-                        if (customerSuggestions.length === 0) loadInitialCustomers();
+                        if (customerSuggestions.length === 0) loadInitialCustomers(isCredit);
                       }}
                       onBlur={() => setIsCustomerFocused(false)}
                       className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
@@ -1100,7 +1152,7 @@ export default function AddSale() {
                     className="text-slate-400 cursor-pointer ml-1.5 flex-shrink-0"
                     onClick={() => {
                       setShowCustomerDropdown(v => !v);
-                      if (customerSuggestions.length === 0) loadInitialCustomers();
+                      if (customerSuggestions.length === 0) loadInitialCustomers(isCredit);
                     }}
                   />
                 </div>
@@ -1114,11 +1166,20 @@ export default function AddSale() {
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Party Balance</span>
                     </div>
-                    {customerSuggestions.length === 0 ? (
-                      <div className="p-3 text-xs text-slate-400 text-center">No customers found</div>
-                    ) : (
-                      customerSuggestions.map((c) => {
+                    {(() => {
+                      const list = isCredit
+                        ? customerSuggestions.filter(c => Number(c.credit_enabled) === 1)
+                        : customerSuggestions;
+                      if (list.length === 0) {
+                        return (
+                          <div className="p-3 text-xs text-slate-400 text-center">
+                            {isCredit ? "No credit customers found" : "No customers found"}
+                          </div>
+                        );
+                      }
+                      return list.map((c) => {
                         const bal = parseFloat(c.pending_amount || 0);
+                        const cDays = Number(c.credit_days) || 0;
                         return (
                           <div
                             key={c.id}
@@ -1127,15 +1188,22 @@ export default function AddSale() {
                           >
                             <div>
                               <div className="font-bold text-slate-900">{c.name || c.customer_name}</div>
-                              <div className="text-[11px] text-slate-400">{c.phone || c.customer_phone || ""}</div>
+                              <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                <span>{c.phone || c.customer_phone || ""}</span>
+                                {isCredit && (
+                                  <span className="font-bold text-amber-700 bg-amber-50 border border-amber-200/80 px-1.5 py-0.2 rounded text-[10px]">
+                                    {cDays} {cDays === 1 ? "Day" : "Days"} Credit
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div className="text-right">
                               <span className="font-bold text-slate-800">₹{bal.toLocaleString()}</span>
                             </div>
                           </div>
                         );
-                      })
-                    )}
+                      });
+                    })()}
                   </div>
                 )}
               </div>
@@ -1234,12 +1302,11 @@ export default function AddSale() {
                     value={activeSale.invoiceDate}
                     onChange={e => {
                       const newInvDate = e.target.value;
-                      const cDays = Number(activeSale.creditDays) || 30;
-                      const baseDate = new Date(newInvDate || Date.now());
-                      baseDate.setDate(baseDate.getDate() + cDays);
+                      const cDays = Number(activeSale.creditDays) || 0;
+                      const newDueDate = calculateDueDate(newInvDate, cDays);
                       updateActiveSale({
                         invoiceDate: newInvDate,
-                        dueDate: baseDate.toISOString().split("T")[0]
+                        dueDate: newDueDate
                       });
                     }}
                     className="w-full text-xs font-bold text-slate-800 outline-none bg-transparent cursor-pointer"
@@ -1275,7 +1342,7 @@ export default function AddSale() {
                 <div>
                   <label className="text-[11px] font-bold text-slate-600 mb-1 block">Credit Terms</label>
                   <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-600">
-                    Due in <strong className="text-slate-900">{activeSale.creditDays || 30} days</strong>
+                    Due in <strong className="text-slate-900">{Number(activeSale.creditDays) || 0} {Number(activeSale.creditDays) === 1 ? "Day" : "Days"}</strong>
                   </div>
                 </div>
               </div>

@@ -190,15 +190,24 @@ class CustomerController extends Controller
                 ->update(['customer_id' => $c->id]);
         }
 
-        $customers = Customer::where('admin_id', $admin_id)
-            ->where('is_deleted', 0)
-            ->where(function($query) use ($q) {
-                $query->where('name', 'like', "%{$q}%")
-                      ->orWhere('phone', 'like', "%{$q}%");
-            })
+        $query = Customer::where('admin_id', $admin_id)
+            ->where('is_deleted', 0);
+
+        if ($request->boolean('credit_only') || $request->input('credit_only') == '1') {
+            $query->where('credit_enabled', 1);
+        }
+
+        if (!empty($q)) {
+            $query->where(function($sub) use ($q) {
+                $sub->where('name', 'like', "%{$q}%")
+                    ->orWhere('phone', 'like', "%{$q}%");
+            });
+        }
+
+        $customers = $query
             ->select('id', 'name', 'phone', 'gst_no', 'credit_enabled', 'credit_limit', 'credit_days', 'loyalty_points', 'advance_balance', 'pending_amount')
             ->orderBy('name', 'asc')
-            ->limit(10)
+            ->limit(15)
             ->get();
 
         return response()->json(["status" => true, "data" => $customers]);
