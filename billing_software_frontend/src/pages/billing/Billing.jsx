@@ -298,7 +298,7 @@ export default function Billing({ startCashBill = false }) {
   /* ── Derived Totals ── */
   const subtotal = rows.reduce((s, r) => s + r.price * r.qty, 0);
   const totalDiscount = rows.reduce((s, r) => s + (Number(r.discount) || 0), 0);
-  const gstTotal = billType === "gst_bill" ? rows.reduce((s, r) => s + (r.price * r.qty * r.gst) / 100, 0) : 0;
+  const gstTotal = rows.reduce((s, r) => s + (r.price * r.qty * r.gst) / 100, 0);
   const total = subtotal + gstTotal - totalDiscount;
   const earnedPoints = Math.floor(total / 100);
   const received = parseFloat(payment.received) || 0;
@@ -1013,6 +1013,7 @@ export default function Billing({ startCashBill = false }) {
         sub_total: subtotal,
         gst_total: gstTotal,
         total_amount: total,
+        include_product_gst: billType === "cash_bill",
         gst_type: billType === "gst_bill" ? "with_gst" : "without_gst",
         gst_no: billType === "gst_bill" ? customer.gst_no : "",
         paid_amount: paymentMethod === "credit" ? 0 : received,
@@ -2002,9 +2003,9 @@ export default function Billing({ startCashBill = false }) {
                     </div>
                   )}
                   <div className="flex justify-between text-slate-500">
-                    <span>GST {billType === "cash_bill" ? "(Cash Bill)" : ""}</span>
+                    <span>GST</span>
                     <span className="font-bold text-slate-800">
-                      {billType === "gst_bill" ? formatCurrency(gstTotal) : "—"}
+                      {formatCurrency(gstTotal)}
                     </span>
                   </div>
                   {advanceUsed > 0 && (
