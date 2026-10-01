@@ -19,17 +19,32 @@ class InvoiceController extends Controller
 {
     private function ensureSchemaUpdated()
     {
+        static $schemaChecked = false;
+        if ($schemaChecked) return;
+
         if (Schema::hasTable('invoices')) {
             if (!Schema::hasColumn('invoices', 'source')) {
-                Schema::table('invoices', function ($table) {
-                    $table->string('source', 20)->default('sale')->after('payment_type');
-                });
+                try {
+                    Schema::table('invoices', function ($table) {
+                        $table->string('source', 20)->default('sale')->after('payment_type');
+                    });
+                } catch (\Throwable $e) {}
+            }
+
+            try {
+                DB::statement("ALTER TABLE `invoices` MODIFY COLUMN `payment_type` VARCHAR(50) NOT NULL DEFAULT 'cash'");
+            } catch (\Throwable $e) {
+                try {
+                    DB::statement("ALTER TABLE `invoices` MODIFY COLUMN `payment_type` ENUM('cash', 'credit', 'gst') NOT NULL DEFAULT 'cash'");
+                } catch (\Throwable $e2) {}
             }
         }
+        $schemaChecked = true;
     }
 
     public function getNextInvoiceNo(Request $request)
     {
+        $this->ensureSchemaUpdated();
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
         if (!$company_id) {
             return response()->json(["status" => false, "message" => "company_id required"]);
@@ -289,7 +304,7 @@ class InvoiceController extends Controller
             $products = $processedProducts;
 
             /* INSERT INVOICE */
-            $invoice = Invoice::create([
+            $invoiceData = [
                 'invoice_no' => $invoice_no,
                 'customer_id' => $customer_id > 0 ? $customer_id : null,
                 'customer_name' => $customer_name,
@@ -312,7 +327,18 @@ class InvoiceController extends Controller
                 'company_id' => $company_id,
                 'due_date' => $due_date,
                 'created_at' => now()
-            ]);
+            ];
+
+            try {
+                $invoice = Invoice::create($invoiceData);
+            } catch (\Throwable $ex) {
+                if ($payment_type === 'gst') {
+                    $invoiceData['payment_type'] = 'cash';
+                    $invoice = Invoice::create($invoiceData);
+                } else {
+                    throw $ex;
+                }
+            }
 
             /* INSERT PAYMENT */
             Payment::create([
@@ -2303,6 +2329,7 @@ class InvoiceController extends Controller
 
     public function updateInvoice(Request $request)
     {
+        $this->ensureSchemaUpdated();
         $invoice_no = trim($request->input('invoice_no', ''));
         $id = intval($request->input('id', 0));
 
@@ -2440,7 +2467,7 @@ class InvoiceController extends Controller
             }
 
             // 4. Update Invoice
-            $invoice->update([
+            $invoiceUpdateData = [
                 'customer_id'    => $customer_id > 0 ? $customer_id : null,
                 'customer_name'  => $customer_name,
                 'customer_phone' => $customer_phone,
@@ -2457,7 +2484,18 @@ class InvoiceController extends Controller
                 'gst_type'       => $gst_type,
                 'payment_status' => $payment_status,
                 'company_id'     => $company_id,
-            ]);
+            ];
+
+            try {
+                $invoice->update($invoiceUpdateData);
+            } catch (\Throwable $ex) {
+                if ($payment_type === 'gst') {
+                    $invoiceUpdateData['payment_type'] = 'cash';
+                    $invoice->update($invoiceUpdateData);
+                } else {
+                    throw $ex;
+                }
+            }
 
             // 5. Update/Sync Payment record
             Payment::where('invoice_id', $invoice->id)->orWhere('invoice_no', $invoice->invoice_no)->delete();

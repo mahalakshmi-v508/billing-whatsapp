@@ -78,6 +78,7 @@ function createNewSaleTab(id, index, defaultInvNo = "") {
     customerName: "",
     customerPhone: "",
     customerId: null,
+    gstNo: "",
     billingAddress: "",
     shippingAddress: "",
     creditDays: 30,
@@ -287,7 +288,7 @@ export default function AddSale() {
             id: 1,
             tabIndex: 1,
             label: `Edit Sale #${inv.invoice_no}`,
-            paymentType: inv.payment_type || (String(inv.payment_method).toLowerCase() === "credit" ? "credit" : "cash"),
+            paymentType: inv.payment_type === "gst" || (inv.payment_type === "cash" && (inv.gst_no || (inv.customer && inv.customer.gst_no))) ? "gst" : (inv.payment_type || (String(inv.payment_method).toLowerCase() === "credit" ? "credit" : "cash")),
             invoiceNumber: inv.invoice_no,
             invoiceDate: inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0],
             stateOfSupply: inv.state_of_supply || "Tamil Nadu",
@@ -295,6 +296,7 @@ export default function AddSale() {
             customerName: inv.customer_name || "",
             customerPhone: inv.customer_phone || "",
             customerId: inv.customer_id || null,
+            gstNo: inv.gst_no || (inv.customer && inv.customer.gst_no) || "",
             billingAddress: inv.billing_address || "",
             shippingAddress: inv.shipping_address || "",
             rows: mappedRows,
@@ -401,6 +403,7 @@ export default function AddSale() {
       customerId: c.id,
       customerName: c.name || c.customer_name,
       customerPhone: c.phone || c.customer_phone || "",
+      gstNo: activeSale.paymentType === "gst" ? (c.gst_no || activeSale.gstNo || "") : "",
       billingAddress: c.address || c.billing_address || "",
       shippingAddress: c.shipping_address || c.address || "",
       customerPendingBalance: parseFloat(c.pending_amount) || 0,
@@ -625,32 +628,33 @@ export default function AddSale() {
       customer_id: activeSale.customerId || 0,
       customer_name: activeSale.customerName?.trim() || "Cash Customer",
       customer_phone: activeSale.customerPhone || "",
-      billing_address: activeSale.paymentType === "cash" ? activeSale.billingAddress : "",
-      shipping_address: activeSale.paymentType === "cash" ? activeSale.shippingAddress : "",
+      billing_address: activeSale.paymentType === "credit" ? "" : activeSale.billingAddress,
+      shipping_address: activeSale.paymentType === "credit" ? "" : activeSale.shippingAddress,
       cashier_id: user.id || 0,
       products: payloadProducts,
       sub_total: totals.subtotalAmount,
       gst_total: totals.totalTaxAmount,
       total_amount: totals.roundedGrandTotal,
-      paid_amount: activeSale.paymentType === "cash"
-        ? totals.roundedGrandTotal
-        : (activeSale.receivedEnabled !== false
+      paid_amount: activeSale.paymentType === "credit"
+        ? (activeSale.receivedEnabled !== false
             ? (activeSale.receivedAmount !== "" && activeSale.receivedAmount !== undefined
                 ? (parseFloat(activeSale.receivedAmount) || 0)
                 : totals.roundedGrandTotal)
-            : 0),
-      balance_amount: activeSale.paymentType === "cash"
-        ? 0
-        : Math.max(0, totals.roundedGrandTotal - (activeSale.receivedEnabled !== false
+            : 0)
+        : totals.roundedGrandTotal,
+      balance_amount: activeSale.paymentType === "credit"
+        ? Math.max(0, totals.roundedGrandTotal - (activeSale.receivedEnabled !== false
             ? (activeSale.receivedAmount !== "" && activeSale.receivedAmount !== undefined
                 ? (parseFloat(activeSale.receivedAmount) || 0)
                 : totals.roundedGrandTotal)
-            : 0)),
-      payment_method: activeSale.paymentType === "cash" ? "cash" : "credit",
+            : 0))
+        : 0,
+      payment_method: activeSale.paymentType === "credit" ? "credit" : "cash",
       payment_type: activeSale.paymentType,
       source: "sale",
       due_date: activeSale.paymentType === "credit" ? (activeSale.dueDate || activeSale.invoiceDate) : null,
       gst_type: totals.totalTaxAmount > 0 ? "with_gst" : "without_gst",
+      gst_no: activeSale.paymentType === "gst" ? (activeSale.gstNo?.trim() || "") : "",
       state_of_supply: activeSale.stateOfSupply,
       terms_conditions: activeSale.termsText,
       description: activeSale.descriptionText,
@@ -859,6 +863,7 @@ export default function AddSale() {
 
   if (!activeSale) return null;
   const isCredit = activeSale.paymentType === "credit";
+  const isGst = activeSale.paymentType === "gst";
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 pb-24 antialiased">
@@ -964,13 +969,13 @@ export default function AddSale() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Credit / Cash Mode Switcher */}
+            {/* Sale Type Mode Switcher: Cash Sale | Credit Sale | GST Sale */}
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
               <button
                 type="button"
-                onClick={() => updateActiveSale({ paymentType: "cash" })}
+                onClick={() => updateActiveSale({ paymentType: "cash", gstNo: "" })}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                  !isCredit ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  activeSale.paymentType === "cash" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <Wallet size={13} />
@@ -982,7 +987,7 @@ export default function AddSale() {
                   const cDays = Number(activeSale.creditDays) || 30;
                   const baseDate = new Date(activeSale.invoiceDate || Date.now());
                   baseDate.setDate(baseDate.getDate() + cDays);
-                  updateActiveSale({ paymentType: "credit", dueDate: baseDate.toISOString().split("T")[0] });
+                  updateActiveSale({ paymentType: "credit", dueDate: baseDate.toISOString().split("T")[0], gstNo: "" });
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   isCredit ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
@@ -990,6 +995,16 @@ export default function AddSale() {
               >
                 <CreditCard size={13} />
                 <span>Credit Sale</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => updateActiveSale({ paymentType: "gst" })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  isGst ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <ReceiptText size={13} />
+                <span>GST Sale</span>
               </button>
             </div>
 
@@ -1041,7 +1056,7 @@ export default function AddSale() {
                   <UserCheck size={16} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Customer &amp; Party Information</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Customer Information</h3>
                   <p className="text-[11px] text-slate-400">Search customer directory or enter walk-in party</p>
                 </div>
               </div>
@@ -1141,6 +1156,23 @@ export default function AddSale() {
                   />
                 </div>
               </div>
+
+              {/* GST No Field (Visible only when GST Sale is selected) */}
+              {isGst && (
+                <div className="sm:col-span-12">
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">GST No</label>
+                  <div className="relative border border-slate-300 rounded-xl px-3.5 py-2 bg-white flex items-center gap-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 transition">
+                    <ReceiptText size={13} className="text-slate-400 flex-shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Enter customer GSTIN (e.g. 33AAAAA0000A1Z5)"
+                      value={activeSale.gstNo || ""}
+                      onChange={(e) => updateActiveSale({ gstNo: e.target.value.toUpperCase() })}
+                      className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent uppercase"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Cash Billing & Shipping Address (Editable in Cash Mode) */}
@@ -1607,7 +1639,7 @@ export default function AddSale() {
             </div>
             <div className="text-right">
               <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
-                {isCredit ? "Credit Mode" : "Cash Paid"}
+                {isCredit ? "Credit Mode" : isGst ? "GST Sale" : "Cash Paid"}
               </span>
             </div>
           </div>
