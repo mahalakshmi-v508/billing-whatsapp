@@ -2189,14 +2189,23 @@ class InvoiceController extends Controller
             ->where(function ($q) {
                 $q->where('p.payment_type', 'payment_in')
                   ->orWhere('p.notes', 'like', '%Payment received%')
-                  ->orWhere('p.receipt_no', 'like', 'REC-%');
+                  ->orWhere('p.receipt_no', 'like', 'REC-%')
+                  ->orWhere(function ($sub) {
+                      $sub->whereNotNull('p.receipt_no')
+                          ->where('p.receipt_no', '!=', '');
+                  });
             })
             ->orderBy('p.id', 'desc');
 
         if ($admin_id > 0) {
-            $query->where(function ($q) use ($admin_id) {
+            $companyIds = DB::table('companies')->where('admin_id', $admin_id)->pluck('id')->toArray();
+            $query->where(function ($q) use ($admin_id, $companyIds) {
                 $q->where('c.admin_id', $admin_id)
-                  ->orWhereNull('c.admin_id');
+                  ->orWhere('comp.admin_id', $admin_id);
+                if (!empty($companyIds)) {
+                    $q->orWhereIn('p.company_id', $companyIds);
+                }
+                $q->orWhereNull('c.admin_id');
             });
         }
 

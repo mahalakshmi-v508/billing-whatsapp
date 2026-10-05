@@ -777,12 +777,9 @@ export default function EstimateForm() {
               <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
                 <FileText size={13} className="text-slate-400" /> Quotation Ref #
               </span>
-              <input
-                type="text"
-                value={activeTab?.refNo || ""}
-                onChange={(e) => updateActiveTab({ refNo: e.target.value })}
-                className="w-40 text-right font-mono font-bold text-xs text-blue-700 bg-blue-50/50 border border-blue-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500"
-              />
+              <div className="w-40 px-2.5 py-1.5 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs font-black text-blue-700 font-mono tracking-wide text-right select-all">
+                {activeTab?.refNo || "EST-0001"}
+              </div>
             </div>
 
             {/* Estimate Date */}

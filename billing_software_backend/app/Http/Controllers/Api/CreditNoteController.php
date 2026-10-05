@@ -255,7 +255,13 @@ class CreditNoteController extends Controller
         $query = CreditNote::where('is_deleted', 0);
 
         if ($admin_id > 0) {
-            $query->where('admin_id', $admin_id);
+            $companyIds = DB::table('companies')->where('admin_id', $admin_id)->pluck('id')->toArray();
+            $query->where(function ($q) use ($admin_id, $companyIds) {
+                $q->where('admin_id', $admin_id);
+                if (!empty($companyIds)) {
+                    $q->orWhereIn('company_id', $companyIds);
+                }
+            });
         }
         if ($company_id > 0) {
             $query->where('company_id', $company_id);

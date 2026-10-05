@@ -73,7 +73,7 @@ export default function EstimateQuotation() {
   } = useTableColumns("estimate_quotation_columns", DEFAULT_COLUMNS);
 
   // Header filters
-  const [period, setPeriod] = useState("this_month");
+  const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [firmOpen, setFirmOpen] = useState(false);
@@ -182,8 +182,8 @@ export default function EstimateQuotation() {
     return { start, end };
   };
 
-  // Date range (defaults to current month)
-  const initialRange = getPeriodRange("this_month");
+  // Date range (defaults to all time so all saved estimates are visible)
+  const initialRange = getPeriodRange("all_time");
   const [fromDate, setFromDate] = useState(initialRange.start ? formatYMD(initialRange.start) : "");
   const [toDate, setToDate] = useState(initialRange.end ? formatYMD(initialRange.end) : "");
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -545,7 +545,13 @@ export default function EstimateQuotation() {
           >
             <Calendar size={13} className="text-slate-400" />
             <span>
-              {fromDate ? formatDateDMY(fromDate) : "Start"} — {toDate ? formatDateDMY(toDate) : "End"}
+              {fromDate && toDate
+                ? `${formatDateDMY(fromDate)} — ${formatDateDMY(toDate)}`
+                : fromDate
+                ? `${formatDateDMY(fromDate)} — End`
+                : toDate
+                ? `Start — ${formatDateDMY(toDate)}`
+                : "All Dates"}
             </span>
           </div>
 

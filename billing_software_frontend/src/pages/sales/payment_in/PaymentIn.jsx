@@ -54,7 +54,7 @@ const DEFAULT_COLUMNS = [
 export default function PaymentIn() {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
-  const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+  const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
 
   // Table Column Customization Hook
   const {
@@ -74,7 +74,7 @@ export default function PaymentIn() {
   const [loading, setLoading] = useState(true);
 
   // Filter states
-  const [period, setPeriod] = useState("this_month");
+  const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [firmOpen, setFirmOpen] = useState(false);
@@ -156,7 +156,7 @@ export default function PaymentIn() {
 
   // Initial Load: Companies & Date Range
   useEffect(() => {
-    setPresetDates("this_month");
+    setPresetDates("all_time");
 
     const loadMeta = async () => {
       try {
@@ -532,7 +532,11 @@ export default function PaymentIn() {
               <span>
                 {fromDate && toDate
                   ? `${formatDateDMY(fromDate)} — ${formatDateDMY(toDate)}`
-                  : "Custom Date"}
+                  : fromDate
+                  ? `${formatDateDMY(fromDate)} — End`
+                  : toDate
+                  ? `Start — ${formatDateDMY(toDate)}`
+                  : "All Dates"}
               </span>
             </button>
 
