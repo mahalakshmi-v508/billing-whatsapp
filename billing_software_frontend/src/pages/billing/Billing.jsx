@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
+import AddProductModal from "../products/AddProductModal";
 import {
   Search,
   Plus,
@@ -226,7 +227,7 @@ function createFreshBill(id) {
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════ */
-export default function Billing() {
+export default function Billing({ startCashBill = false }) {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
   const navigate = useNavigate();
@@ -288,6 +289,8 @@ export default function Billing() {
 
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickItem, setQuickItem] = useState({ name: "", price: "", qty: 1, unit: "", price_type: "without_gst" });
+  const [showProductAddModal, setShowProductAddModal] = useState(false);
+  const [quickAddProductName, setQuickAddProductName] = useState("");
 
   const [showHelp, setShowHelp] = useState(false);
   const [helpLang, setHelpLang] = useState("en");
@@ -312,6 +315,7 @@ export default function Billing() {
   const [isListening, setIsListening] = useState(false);
 
   const [generating, setGenerating] = useState(false);
+  const [printInvoiceUrl, setPrintInvoiceUrl] = useState("");
   const [toasts, setToasts] = useState([]);
   const handleGenerateRef = useRef(null);
 
@@ -355,7 +359,7 @@ export default function Billing() {
         setCompanies(loadedCompanies);
 
         const company = loadedCompanies.find((c) => String(c.id) === String(selectedCompany));
-        if (company?.gst_type === "with_gst") {
+        if (company?.gst_type === "with_gst" && !startCashBill) {
           setBills((prev) => prev.map((bill) => (
             bill.rows.every((row) => !row.name && !row.product_id)
               ? { ...bill, billType: "gst_bill" }
@@ -363,7 +367,7 @@ export default function Billing() {
           )));
         }
       });
-  }, [adminId, selectedCompany]);
+  }, [adminId, selectedCompany, startCashBill]);
 
   useEffect(() => {
     if (!selectedCompany) return;
@@ -1009,7 +1013,7 @@ export default function Billing() {
     throw new Error(res.data.message || "Failed to save customer");
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (action = "print") => {
     if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
     if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
     if (billType === "gst_bill" && !customer.gst_no.trim()) { showToast("GST Number is mandatory for GST Bill!", "error"); return; }
@@ -1051,6 +1055,7 @@ export default function Billing() {
         sub_total: subtotal,
         gst_total: gstTotal,
         total_amount: total,
+        include_product_gst: billType === "cash_bill",
         gst_type: billType === "gst_bill" ? "with_gst" : "without_gst",
         gst_no: billType === "gst_bill" ? customer.gst_no : "",
         paid_amount: paymentMethod === "credit" ? 0 : received,
@@ -1064,7 +1069,13 @@ export default function Billing() {
         if (res.data.balance_amount > 0) parts.push(`${formatCurrency(parseFloat(res.data.balance_amount))} pending`);
         if (balance > 0 && res.data.advance_delta > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_delta))} added to advance`);
         showToast(parts.length > 0 ? `Invoice generated! ${parts.join(" · ")}` : "Invoice generated successfully!", "success");
-        setTimeout(() => navigate(`/invoice/${res.data.invoice_no}`), 900);
+        setTimeout(() => {
+          if (action === "print") {
+            setPrintInvoiceUrl(`/invoice/${res.data.invoice_no}?autoPrint=1&posPrint=1`);
+          } else {
+            navigate(`/invoice/${res.data.invoice_no}`);
+          }
+        }, 900);
       } else {
         showToast(res.data.message || "Something went wrong", "error");
       }
@@ -1075,6 +1086,19 @@ export default function Billing() {
   };
 
   useEffect(() => { handleGenerateRef.current = handleGenerate; });
+
+  useEffect(() => {
+    if (!printInvoiceUrl) return;
+
+    const handlePrintComplete = (event) => {
+      if (event.origin === window.location.origin && event.data?.type === "invoice-print-complete") {
+        setPrintInvoiceUrl("");
+      }
+    };
+
+    window.addEventListener("message", handlePrintComplete);
+    return () => window.removeEventListener("message", handlePrintComplete);
+  }, [printInvoiceUrl]);
 
   const paymentMethods = [
     { val: "cash", label: "Cash", color: "emerald", keyNum: "1" },
@@ -1547,8 +1571,9 @@ export default function Billing() {
             <button
               type="button"
               onClick={() => {
-                setShowQuickAdd(true);
-                setQuickItem({ name: globalSearch.trim(), price: "", qty: 1, unit: "" });
+                setQuickAddProductName(globalSearch.trim());
+                setShowProductAddModal(true);
+                setShowNoResult(false);
               }}
               className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
             >
@@ -1557,6 +1582,19 @@ export default function Billing() {
           </div>
         )}
 
+        <AddProductModal
+          isOpen={showProductAddModal}
+          onClose={() => setShowProductAddModal(false)}
+          initialProductName={quickAddProductName}
+        />
+        {printInvoiceUrl && (
+          <iframe
+            title="POS invoice print"
+            src={printInvoiceUrl}
+            aria-hidden="true"
+            className="fixed inset-0 z-[-1] h-screen w-screen border-0 opacity-0 pointer-events-none"
+          />
+        )}
         {/* Date Badge */}
         <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 flex-shrink-0">
           <Calendar size={13} className="text-slate-400" />
@@ -2040,9 +2078,9 @@ export default function Billing() {
                     </div>
                   )}
                   <div className="flex justify-between text-slate-500">
-                    <span>GST {billType === "cash_bill" ? "(Cash Bill)" : ""}</span>
+                    <span>GST</span>
                     <span className="font-bold text-slate-800">
-                      {billType === "gst_bill" ? formatCurrency(gstTotal) : "—"}
+                      {formatCurrency(gstTotal)}
                     </span>
                   </div>
                   {advanceUsed > 0 && (
@@ -2134,12 +2172,13 @@ export default function Billing() {
           </div>
 
           {/* Bottom Fixed Action Buttons */}
-          <div className="p-4 bg-white border-t border-slate-200 flex gap-2.5 flex-shrink-0">
+          <div className="p-4 bg-white border-t border-slate-200 grid grid-cols-2 gap-2.5 flex-shrink-0">
             <button
               type="button"
-              onClick={handleGenerate}
+              onClick={() => handleGenerate("print")}
               disabled={generating || !selectedCompany}
-              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-extrabold shadow-sm shadow-emerald-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Save and print (Ctrl+P)"
+              className="py-3 px-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-extrabold shadow-sm shadow-emerald-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {generating ? (
                 <>
@@ -2150,18 +2189,25 @@ export default function Billing() {
                 <>
                   <Printer size={15} />
                   <span>Save & Print Bill</span>
-                  <kbd className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-800 text-emerald-200 ml-1">
-                    Ctrl+P
-                  </kbd>
                 </>
               )}
             </button>
 
             <button
               type="button"
+              onClick={() => handleGenerate("preview")}
+              disabled={generating || !selectedCompany}
+              className="py-3 px-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-sm shadow-indigo-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Receipt size={15} />
+              <span>Save & Preview</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setPaymentMethod("credit")}
               title="Switch to Credit Payment Mode"
-              className="px-3.5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              className="col-span-2 px-3.5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
               Credit (F4)
             </button>

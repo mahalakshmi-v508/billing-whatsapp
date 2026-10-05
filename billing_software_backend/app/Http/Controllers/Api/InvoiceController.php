@@ -76,6 +76,9 @@ class InvoiceController extends Controller
 
         /* SOURCE — which screen raised this bill (pos counter vs sale form) */
         $source = strtolower(trim($request->input('source', 'sale'))) === 'pos' ? 'pos' : 'sale';
+        $include_product_gst = $source === 'pos'
+            && $gst_type === 'without_gst'
+            && $request->boolean('include_product_gst');
 
         /* SEQUENTIAL INVOICE NUMBER GENERATION (VIA INVOICE_SETTINGS TABLE) */
         $custom_invoice_no = trim($request->input('invoice_no', ''));
@@ -110,7 +113,7 @@ class InvoiceController extends Controller
         }
 
         /* GST CONTROL */
-        if ($gst_type === "without_gst") {
+        if ($gst_type === "without_gst" && !$include_product_gst) {
             $gst_total    = 0;
             $total_amount = $sub_total;
         }

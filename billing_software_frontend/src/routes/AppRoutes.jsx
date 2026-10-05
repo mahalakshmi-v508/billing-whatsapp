@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Dashboard from "../pages/dashboard/Dashboard";
@@ -120,6 +120,18 @@ import TicketDetails from "../pages/helpdesk/TicketDetails";
 import HelpdeskDashboard from "../pages/helpdesk/HelpdeskDashboard";
 import WhatsAppChat from "../pages/whatsapp/WhatsAppChat";
 
+function BillingRoute() {
+  const location = useLocation();
+  const startCashBill = location.state?.startCashBill === true;
+
+  return (
+    <Billing
+      key={location.state?.entryKey ?? "billing"}
+      startCashBill={startCashBill}
+    />
+  );
+}
+
 export default function AppRoutes() {
   return (
     <BrowserRouter>
@@ -154,7 +166,7 @@ export default function AppRoutes() {
           <Route path="/purchases/expenses/edit/:id" element={<AddExpense />} />
           <Route path="/invoice/:invoiceNo" element={<Invoice />} />
           <Route path="/invoice" element={<Invoice />} />
-          <Route path="/billing" element={<Billing />} />
+          <Route path="/billing" element={<BillingRoute />} />
         </Route>
 
         {/* 🔐 Protected Routes with MainLayout (Sidebar Displayed) */}
@@ -243,7 +255,7 @@ export default function AppRoutes() {
           </Route>
 
           {/* Cashier and Admin billing route */}
-          <Route path="/billing" element={<Billing />} />
+          <Route path="/billing" element={<BillingRoute />} />
 
           {/* 2. Admin & Management Routes (Inside MainLayout) */}
           <Route element={<ProtectedRoute allowedRoles={["admin", "superadmin", "developer"]} />}>

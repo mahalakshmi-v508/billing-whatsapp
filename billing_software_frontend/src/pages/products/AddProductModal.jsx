@@ -76,7 +76,14 @@ function ToastPortal({ toasts, remove }) {
   );
 }
 
-export default function AddProductModal({ isOpen, onClose, onProductAdded, onProductUpdated, product = null }) {
+export default function AddProductModal({
+  isOpen,
+  onClose,
+  onProductAdded,
+  onProductUpdated,
+  product = null,
+  initialProductName = "",
+}) {
   const { toasts, show, remove } = useToast();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -212,7 +219,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, onPro
     if (isOpen) {
       let cancelled = false;
       const emptyForm = {
-          name: "",
+          name: initialProductName,
           product_code: "",
           price: "",
           stock: "",
@@ -293,7 +300,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, onPro
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, product?.id]);
+  }, [isOpen, product?.id, initialProductName]);
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);
