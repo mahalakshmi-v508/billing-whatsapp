@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import {
@@ -236,6 +237,27 @@ export default function AddSale() {
 
   const customerBoxRef = useRef(null);
   const itemSuggestRef = useRef(null);
+  const activeInputRef = useRef(null);
+  const [suggestCoords, setSuggestCoords] = useState(null);
+
+  const updateSuggestPosition = (inputEl) => {
+    if (!inputEl) return;
+    const rect = inputEl.getBoundingClientRect();
+    const dropdownHeight = 224;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let top = rect.bottom + 4;
+    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+      top = Math.max(8, rect.top - dropdownHeight - 4);
+    }
+
+    setSuggestCoords({
+      top,
+      left: rect.left,
+      width: Math.max(rect.width, 320),
+    });
+  };
 
   /* ── Load Companies & Products ── */
   useEffect(() => {
@@ -637,13 +659,38 @@ export default function AddSale() {
     };
   }, [activeSale]);
 
+  /* ── Reposition Product Suggestion on Scroll / Resize ── */
+  useEffect(() => {
+    if (!activeRowSuggestId || !activeInputRef.current) return;
+    const handleReposition = () => {
+      if (activeInputRef.current) {
+        const rect = activeInputRef.current.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) {
+          setActiveRowSuggestId(null);
+          return;
+        }
+        updateSuggestPosition(activeInputRef.current);
+      }
+    };
+    window.addEventListener("scroll", handleReposition, true);
+    window.addEventListener("resize", handleReposition);
+    return () => {
+      window.removeEventListener("scroll", handleReposition, true);
+      window.removeEventListener("resize", handleReposition);
+    };
+  }, [activeRowSuggestId]);
+
   /* ── Click Outside Listeners ── */
   useEffect(() => {
     const handler = (e) => {
       if (customerBoxRef.current && !customerBoxRef.current.contains(e.target)) {
         setShowCustomerDropdown(false);
       }
-      if (itemSuggestRef.current && !itemSuggestRef.current.contains(e.target)) {
+      if (
+        itemSuggestRef.current &&
+        !itemSuggestRef.current.contains(e.target) &&
+        (!activeInputRef.current || !activeInputRef.current.contains(e.target))
+      ) {
         setActiveRowSuggestId(null);
       }
     };
@@ -1449,9 +1496,9 @@ export default function AddSale() {
 
       {/* ── 4. LINE ITEMS MATRIX TABLE CARD ── */}
       <div className="px-6 md:px-8 mb-6">
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs">
           
-          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 rounded-t-2xl flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
                 <Layers size={14} />
@@ -1468,7 +1515,7 @@ export default function AddSale() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto min-h-[160px]">
             <table className="w-full text-left text-xs border-collapse min-w-[980px]">
               <thead>
                 <tr className="bg-slate-50/60 border-b border-slate-200/80 text-slate-600 font-bold select-none text-[11px] uppercase tracking-wider">
@@ -1521,41 +1568,26 @@ export default function AddSale() {
 
                     {/* Item Name Autocomplete */}
                     {visibleColumns.item_name !== false && (
-                      <td className="py-2 px-3 border-r border-slate-200/60 relative">
+                      <td className="py-2 px-3 border-r border-slate-200/60 min-w-[240px]">
                         <input
                           type="text"
                           placeholder="Search product from inventory or type..."
                           value={row.item_name}
                           onChange={(e) => {
+                            activeInputRef.current = e.currentTarget;
+                            updateSuggestPosition(e.currentTarget);
                             updateRowField(row.id, "item_name", e.target.value);
                             setItemSearchQuery(e.target.value);
                             setActiveRowSuggestId(row.id);
                           }}
-                          onFocus={() => {
-                            setItemSearchQuery(row.item_name);
+                          onFocus={(e) => {
+                            activeInputRef.current = e.currentTarget;
+                            updateSuggestPosition(e.currentTarget);
+                            setItemSearchQuery(row.item_name || "");
                             setActiveRowSuggestId(row.id);
                           }}
                           className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
-
-                        {/* Product Suggestions Dropdown */}
-                        {activeRowSuggestId === row.id && (
-                          <div ref={itemSuggestRef} className="absolute left-3 top-full mt-1 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 divide-y divide-slate-100 animate-in fade-in duration-100">
-                            {filteredProducts.map(p => (
-                              <div
-                                key={p.id}
-                                onClick={() => handleSelectProduct(row.id, p)}
-                                className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
-                              >
-                                <div>
-                                  <div className="font-bold text-slate-900">{p.product_name || p.name}</div>
-                                  <div className="text-[11px] text-slate-400">Stock: {p.stock} {p.unit || ""}</div>
-                                </div>
-                                <div className="font-extrabold text-blue-600">₹{parseFloat(p.price || 0).toLocaleString()}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                       </td>
                     )}
 
@@ -1717,6 +1749,45 @@ export default function AddSale() {
           </div>
         </div>
       </div>
+
+      {/* Product Suggestions Floating Dropdown (Rendered via Portal to eliminate clipping) */}
+      {activeRowSuggestId && suggestCoords && createPortal(
+        <div
+          ref={itemSuggestRef}
+          style={{
+            position: "fixed",
+            top: `${suggestCoords.top}px`,
+            left: `${suggestCoords.left}px`,
+            width: `${suggestCoords.width}px`,
+            zIndex: 99999,
+          }}
+          className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 animate-in fade-in duration-100"
+        >
+          {filteredProducts.length === 0 ? (
+            <div className="px-3.5 py-3 text-center text-xs text-slate-400">
+              No matching products found
+            </div>
+          ) : (
+            filteredProducts.map(p => (
+              <div
+                key={p.id}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelectProduct(activeRowSuggestId, p);
+                }}
+                className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+              >
+                <div>
+                  <div className="font-bold text-slate-900">{p.product_name || p.name}</div>
+                  <div className="text-[11px] text-slate-400">Stock: {p.stock} {p.unit || ""}</div>
+                </div>
+                <div className="font-extrabold text-blue-600">₹{parseFloat(p.price || 0).toLocaleString()}</div>
+              </div>
+            ))
+          )}
+        </div>,
+        document.body
+      )}
 
       {/* ── 5. FINANCIAL RECONCILIATION & TOTALS SUMMARY ── */}
       <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
