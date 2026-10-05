@@ -74,7 +74,7 @@ function ToastPortal({ toasts, remove }) {
   );
 }
 
-export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
+export default function AddProductModal({ isOpen, onClose, onProductAdded, initialProductName = "" }) {
   const { toasts, show, remove } = useToast();
   const [loading, setLoading] = useState(false);
   const [gstEnabled, setGstEnabled] = useState(false);
@@ -199,7 +199,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
     if (isOpen) {
       const timer = setTimeout(() => {
         setForm({
-          name: "",
+          name: initialProductName,
           product_code: "",
           price: "",
           stock: "",
@@ -228,7 +228,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen]);
+  }, [isOpen, initialProductName]);
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);

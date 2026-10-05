@@ -1,6 +1,6 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import api from "../../services/api";
 import html2pdf from "html2pdf.js";
 import {
@@ -2250,12 +2250,16 @@ function getInitialPrintSettings() {
 export default function InvoicePreview() {
   const { invoiceNo } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const query = new URLSearchParams(location.search);
+  const autoPrint = query.get("autoPrint") === "1";
+  const forcePosPrint = query.get("posPrint") === "1";
 
   const initialSettings = getInitialPrintSettings();
   const [invoice, setInvoice] = useState(null);
   const [company, setCompany] = useState(null);
-  const [printerType, setPrinterType] = useState(() => initialSettings.printer);
-  const [selectedTheme, setSelectedTheme] = useState(() => initialSettings.theme);
+  const [printerType, setPrinterType] = useState(() => forcePosPrint ? "thermal" : initialSettings.printer);
+  const [selectedTheme, setSelectedTheme] = useState(() => forcePosPrint ? "pos" : initialSettings.theme);
   const [selectedColor, setSelectedColor] = useState(() => initialSettings.color);
   const [selectedPosLayout, setSelectedPosLayout] = useState(() => initialSettings.posLayout);
   const [pageSize, setPageSize] = useState(() => initialSettings.pageSize);
@@ -2271,6 +2275,7 @@ export default function InvoicePreview() {
   const [tmSending, setTmSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [settingsLoadedFor, setSettingsLoadedFor] = useState(null);
   const tmAttachDone = useRef(false);
 
   /* Modern UX & Canvas Controls */
@@ -2294,10 +2299,23 @@ export default function InvoicePreview() {
   /* Insert Print CSS */
   useEffect(() => {
     const s = document.createElement("style");
-    s.innerHTML = PRINT_CSS;
+    const rollWidth = pageSize?.includes("80mm") ? "80mm" : "58mm";
+    const posPrintCss = forcePosPrint
+      ? `@media print {
+          @page { size: ${rollWidth} auto; margin: 0; }
+          #invoice-print-area {
+            box-sizing: border-box !important;
+            width: ${rollWidth} !important;
+            max-width: ${rollWidth} !important;
+            padding: 2mm !important;
+            margin: 0 !important;
+          }
+        }`
+      : "";
+    s.innerHTML = `${PRINT_CSS}${posPrintCss}`;
     document.head.appendChild(s);
     return () => document.head.removeChild(s);
-  }, []);
+  }, [forcePosPrint, pageSize]);
 
   /* Load Invoice Data */
   useEffect(() => {
@@ -2348,10 +2366,13 @@ export default function InvoicePreview() {
         const designSettings = data.invoiceDesign || {};
 
         const activePrinter = printSettings.printer || (designSettings.theme === "pos" ? "thermal" : "regular");
-        if (activePrinter) setPrinterType(activePrinter);
+        if (forcePosPrint) setPrinterType("thermal");
+        else if (activePrinter) setPrinterType(activePrinter);
 
         const themeCandidate = printSettings.template || printSettings.theme || designSettings.template || designSettings.theme;
-        if (themeCandidate) {
+        if (forcePosPrint) {
+          setSelectedTheme("pos");
+        } else if (themeCandidate) {
           const map = {
             "Tally Theme": "tally",
             "GST Theme 1": "gst1",
@@ -2376,8 +2397,26 @@ export default function InvoicePreview() {
 
         if (printSettings.pageSize) setPageSize(printSettings.pageSize);
       })
-      .catch(() => {});
-  }, [invoice]);
+      .catch(() => {})
+      .finally(() => setSettingsLoadedFor(invoice.invoice_no));
+  }, [forcePosPrint, invoice]);
+
+  useEffect(() => {
+    if (!autoPrint || !invoice || loading || settingsLoadedFor !== invoice.invoice_no) return;
+
+    const handleAfterPrint = () => {
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: "invoice-print-complete" }, window.location.origin);
+      }
+    };
+
+    window.addEventListener("afterprint", handleAfterPrint);
+    const timer = window.setTimeout(() => window.print(), 250);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("afterprint", handleAfterPrint);
+    };
+  }, [autoPrint, invoice, loading, settingsLoadedFor]);
 
   /* Auto-Send: attach PDF */
   useEffect(() => {
