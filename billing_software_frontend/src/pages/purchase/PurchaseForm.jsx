@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import {
   ArrowLeft,
   Save,
@@ -322,7 +323,8 @@ export default function PurchaseForm() {
           selling_price_per_unit: item.selling_price_per_unit || "",
           quantity: item.quantity,
           unit: item.unit,
-          gst_percentage: item.gst_percentage
+          gst_percentage: item.gst_percentage,
+          tax_mode: item.tax_mode || "without_gst"
         }))
       });
       if (res.data.status) {
@@ -410,7 +412,8 @@ export default function PurchaseForm() {
           selling_price_per_unit: item.selling_price_per_unit || "",
           quantity: item.quantity,
           unit: item.unit,
-          gst_percentage: item.gst_percentage
+          gst_percentage: item.gst_percentage,
+          tax_mode: item.tax_mode || "without_gst"
         }))
       });
 
@@ -523,7 +526,8 @@ export default function PurchaseForm() {
             selling_price_per_unit: item.selling_price_per_unit || "",
             quantity: item.quantity,
             unit: item.unit,
-            gst_percentage: item.gst_percentage
+            gst_percentage: item.gst_percentage,
+            tax_mode: item.tax_mode || "without_gst"
           }))
         });
         if (res.data.status) {
@@ -567,6 +571,7 @@ export default function PurchaseForm() {
       quantity: 1,
       unit: "Piece",
       gst_percentage: 0,
+      tax_mode: "without_gst",
       status: "pending",
       errors: [],
       warnings: []
@@ -745,6 +750,9 @@ export default function PurchaseForm() {
       const res = await api.get(`/product/get_by_code?company_id=${selectedCompany}&product_code=${encodeURIComponent(code)}`);
       if (res.data.status) {
         const p = res.data.data;
+        // Take the purchase price + its saved GST mode from the product, so a
+        // product configured "With GST" is not silently billed as tax-free.
+        const pricing = resolveProductPricing(p, { use: "purchase" });
         const updated = [...items];
         updated[index] = {
           ...updated[index],
@@ -755,9 +763,10 @@ export default function PurchaseForm() {
           category_name: p.category_name || "",
           brand_id: p.brand_id || "",
           brand_name: p.brand_name || "",
-          price: p.price || updated[index].price,
+          price: pricing.price || updated[index].price,
           unit: p.unit || updated[index].unit,
-          gst_percentage: p.gst_percentage || updated[index].gst_percentage,
+          gst_percentage: pricing.gstRate || updated[index].gst_percentage,
+          tax_mode: pricing.priceType,
           product_id: p.id,
           status: "valid",
           errors: [],
@@ -770,10 +779,22 @@ export default function PurchaseForm() {
     }
   };
 
-  // Calculation totals
-  const subTotal = items.reduce((sum, item) => sum + ((Number(item.quantity) || 0) * (parseFloat(item.price) || 0)), 0);
-  const gstTotal = items.reduce((sum, item) => sum + (((Number(item.quantity) || 0) * (parseFloat(item.price) || 0)) * ((parseFloat(item.gst_percentage) || 0) / 100)), 0);
-  const grandTotal = subTotal + gstTotal;
+  // Calculation totals.
+  // Routed through utils/gst.js so the on-screen total is produced by the same
+  // maths as App\Support\GstCalculator on the server; otherwise a product saved
+  // as "With GST" would show GST-on-top here while the backend treated its price
+  // as already inclusive, and the two would disagree by the whole tax amount.
+  const lineTotals = items.map((item) =>
+    calculateLine({
+      price: parseFloat(item.price) || 0,
+      quantity: Number(item.quantity) || 0,
+      gstRate: parseFloat(item.gst_percentage) || 0,
+      priceType: item.tax_mode,
+    })
+  );
+  const subTotal = lineTotals.reduce((s, l) => s + l.taxable, 0);
+  const gstTotal = lineTotals.reduce((s, l) => s + l.gst, 0);
+  const grandTotal = lineTotals.reduce((s, l) => s + l.total, 0);
 
   // Actions
   const handleSaveDraft = async () => {
@@ -812,7 +833,8 @@ export default function PurchaseForm() {
           selling_price_per_unit: item.selling_price_per_unit || "",
           quantity: item.quantity,
           unit: item.unit,
-          gst_percentage: item.gst_percentage
+          gst_percentage: item.gst_percentage,
+          tax_mode: item.tax_mode || "without_gst"
         }))
       });
       if (res.data.status) {
@@ -867,7 +889,8 @@ export default function PurchaseForm() {
           selling_price_per_unit: item.selling_price_per_unit || "",
           quantity: item.quantity,
           unit: item.unit,
-          gst_percentage: item.gst_percentage
+          gst_percentage: item.gst_percentage,
+          tax_mode: item.tax_mode || "without_gst"
         }))
       });
       if (res.data.status) {
@@ -1586,6 +1609,20 @@ export default function PurchaseForm() {
                                   onChange={(e) => updateRowField(index, "gst_percentage", parseFloat(e.target.value) || 0)}
                                   className="w-full py-1.5 px-1 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 text-center outline-none focus:border-blue-500 transition"
                                 />
+                                {/* Whether the entered price already contains this
+                                    GST. Seeded from the product's saved
+                                    purchase_price_type, and editable per line for
+                                    one-off/imported items. */}
+                                <select
+                                  value={normalisePriceType(item.tax_mode)}
+                                  disabled={isLocked}
+                                  onChange={(e) => updateRowField(index, "tax_mode", e.target.value)}
+                                  title="Is the price above inclusive of GST?"
+                                  className="mt-1 w-full py-1 px-0.5 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-[10.5px] font-semibold text-slate-700 text-center outline-none focus:border-blue-500 transition"
+                                >
+                                  <option value="with_gst">With GST</option>
+                                  <option value="without_gst">Without GST</option>
+                                </select>
                               </td>
                             )}
 

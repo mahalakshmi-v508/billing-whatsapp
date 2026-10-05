@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../../services/api";
+import { calculateLine, resolveProductPricing, round2 } from "../../../utils/gst";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
@@ -69,6 +70,7 @@ function createInitialRow(id = null) {
     unit: "PCS",
     price: 0,
     discount_pct: 0,
+    price_type: "without_gst",
     discount_amt: 0,
     tax_rate: 0,
     tax_amt: 0,
@@ -296,28 +298,30 @@ export default function AddCreditNote() {
   }, []);
 
   // Row Calculation Helper
+  // Delegates to utils/gst.js so a credit note mirrors the GST treatment of the
+  // invoice it reverses. Previously tax was always added on top of the price,
+  // so crediting a GST-inclusive product refunded the customer more than was
+  // originally invoiced.
   const recalculateRow = (row) => {
-    const q = parseFloat(row.qty) || 0;
-    const p = parseFloat(row.price) || 0;
-    const gross = q * p;
+    const hasDiscPct = parseFloat(row.discount_pct) > 0;
+    const hasDiscAmt = parseFloat(row.discount_amt) > 0;
 
-    let disc = parseFloat(row.discount_amt) || 0;
-    if (parseFloat(row.discount_pct) > 0) {
-      disc = (gross * parseFloat(row.discount_pct)) / 100;
-    }
-    const taxable = Math.max(0, gross - disc);
+    const line = calculateLine({
+      price: parseFloat(row.price) || 0,
+      quantity: parseFloat(row.qty) || 0,
+      gstRate: parseFloat(row.tax_rate) || 0,
+      priceType: row.price_type,
+      // A percentage discount and a flat discount are mutually exclusive here:
+      // the percentage wins, otherwise the flat amount is used.
+      discount: hasDiscPct ? 0 : hasDiscAmt ? parseFloat(row.discount_amt) : 0,
+      discountPercent: hasDiscPct ? parseFloat(row.discount_pct) : 0,
+    });
 
-    let tax = 0;
-    if (parseFloat(row.tax_rate) > 0) {
-      tax = (taxable * parseFloat(row.tax_rate)) / 100;
-    }
-
-    const amt = taxable + tax;
     return {
       ...row,
-      discount_amt: disc,
-      tax_amt: tax,
-      amount: amt,
+      discount_amt: line.discount,
+      tax_amt: line.gst,
+      amount: line.total,
     };
   };
 
@@ -332,8 +336,10 @@ export default function AddCreditNote() {
   // Select Product for Row
   const selectProductForRow = (idx, prod) => {
     const nextRows = [...activeTab.rows];
-    const price = parseFloat(prod.price || prod.sale_price || prod.mrp || 0);
-    const taxRate = parseFloat(prod.tax_rate || prod.gst_rate || 0);
+    // Take the saved sale price + GST mode from the product. The old code read
+    // `tax_rate`/`gst_rate`, which the products table does not have (the column
+    // is gst_percentage), so a credit note could be raised at 0% tax.
+    const pricing = resolveProductPricing(prod, { use: "sale" });
     const currentQty = nextRows[idx].qty;
     const initialQty = currentQty && parseFloat(currentQty) > 0 ? currentQty : "1";
     nextRows[idx] = recalculateRow({
@@ -341,8 +347,9 @@ export default function AddCreditNote() {
       product_id: prod.id,
       item: prod.product_name || prod.name,
       qty: initialQty,
-      price: price,
-      tax_rate: taxRate,
+      price: pricing.price,
+      tax_rate: pricing.gstRate,
+      price_type: pricing.priceType,
       unit: prod.unit || "PCS",
     });
     updateActiveTab({ rows: nextRows });
@@ -364,20 +371,31 @@ export default function AddCreditNote() {
   };
 
   // Summary Calculations for Active Tab
+  // Built from the stored per-line taxable/gst/total rather than re-deriving
+  // them from qty*price, so the summary can never disagree with the rows above
+  // it. `grandTotal` is no longer rounded to a whole rupee: that silently
+  // discarded up to Rs.49 per note (round_off was hardcoded to 0 on save).
   const totals = useMemo(() => {
-    let sub = 0;
     let tax = 0;
     let disc = 0;
     let totalQty = 0;
+    let sub = 0;
+    let grandTotal = 0;
 
     (activeTab.rows || []).forEach((r) => {
-      sub += (parseFloat(r.qty) || 0) * (parseFloat(r.price) || 0);
-      disc += parseFloat(r.discount_amt) || 0;
-      tax += parseFloat(r.tax_amt) || 0;
+      const line = calculateLine({
+        price: parseFloat(r.price) || 0,
+        quantity: parseFloat(r.qty) || 0,
+        gstRate: parseFloat(r.tax_rate) || 0,
+        priceType: r.price_type,
+        discount: parseFloat(r.discount_amt) || 0,
+      });
+      sub += line.taxable;
+      tax += line.gst;
+      disc += line.discount;
+      grandTotal += line.total;
       totalQty += parseFloat(r.qty) || 0;
     });
-
-    const grandTotal = Math.max(0, sub - disc + tax);
 
     const paidAmt = activeTab.paidAmountEnabled
       ? (activeTab.paidAmount !== "" ? parseFloat(activeTab.paidAmount) : grandTotal)
@@ -389,7 +407,7 @@ export default function AddCreditNote() {
       discount: disc,
       tax: tax,
       totalQty,
-      grandTotal: Math.round(grandTotal),
+      grandTotal: round2(grandTotal),
       paidAmount: paidAmt,
       balance: balAmt,
     };

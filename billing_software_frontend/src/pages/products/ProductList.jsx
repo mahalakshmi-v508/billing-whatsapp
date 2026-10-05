@@ -89,6 +89,7 @@ export default function ProductList() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showFullEditModal, setShowFullEditModal] = useState(false);
   const [productFilterTab, setProductFilterTab] = useState("all");
   const [showProductDrawer, setShowProductDrawer] = useState(false);
   const [productDrawerTab, setProductDrawerTab] = useState("all");
@@ -309,13 +310,16 @@ export default function ProductList() {
     }
   };
 
-  const fetchProducts = async (company_id) => {
+  const fetchProducts = async (company_id, preferredProductId = null) => {
     setLoading(true);
     try {
       const res = await api.get(`/product/get?company_id=${company_id}`);
       if (res.data.status) {
         setProducts(res.data.data);
-        setSelectedProduct(res.data.data?.[0] || null);
+        const preferredProduct = preferredProductId
+          ? res.data.data?.find((item) => Number(item.id) === Number(preferredProductId))
+          : null;
+        setSelectedProduct(preferredProduct || res.data.data?.[0] || null);
         setSaleHistory([]);
       }
     } catch (err) {
@@ -902,6 +906,14 @@ export default function ProductList() {
           fetchProducts(selectedCompany);
         }}
       />
+      <AddProductModal
+        isOpen={showFullEditModal}
+        onClose={() => setShowFullEditModal(false)}
+        product={selectedProduct}
+        onProductUpdated={(updatedProduct) => {
+          fetchProducts(selectedCompany, updatedProduct?.id || selectedProduct?.id);
+        }}
+      />
 
       {/* ─── MAIN LAYOUT ─── */}
       <div style={{ minHeight: "100%", width: "100%", background: COLORS.bg, fontFamily: FONT, color: COLORS.textSoft }}>
@@ -1302,7 +1314,7 @@ export default function ProductList() {
                                   <button
                                     onClick={() => {
                                       handleSelectProduct(p);
-                                      setShowEditModal(true);
+                                      setShowFullEditModal(true);
                                     }}
                                     title="Edit Product"
                                     className="w-8 h-8 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
@@ -4535,16 +4547,6 @@ export default function ProductList() {
 
                 <div className="flex items-center gap-2 shrink-0 ml-4">
                   <button
-                    onClick={() => {
-                      handleSelectProduct(selectedProduct);
-                      setShowEditModal(true);
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border border-white/15 shadow-sm"
-                  >
-                    <Pencil size={13} />
-                    <span>Edit</span>
-                  </button>
-                  <button
                     onClick={() => setShowProductDrawer(false)}
                     className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer border border-white/15"
                     title="Close Details"
@@ -4890,7 +4892,7 @@ export default function ProductList() {
                       <button
                         onClick={() => {
                           handleSelectProduct(selectedProduct);
-                          setShowEditModal(true);
+                          setShowFullEditModal(true);
                         }}
                         className="psx-btn-primary px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-glow-brand"
                       >

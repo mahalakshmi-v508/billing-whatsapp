@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import {
   X, Plus, Calendar, ChevronDown, Check,
   Trash2, AlignLeft, BarChart2,
@@ -57,7 +58,7 @@ function createInitialRow() {
     free_qty: "",
     unit: "NONE",
     price: "",
-    price_type: "without_tax",
+    price_type: "without_gst",
     discount_percent: "",
     discount_amount: "",
     tax_percent: 0,
@@ -277,6 +278,10 @@ export default function AddSale() {
                 discount_amount: p.discount ? String(p.discount) : "",
                 tax_percent: parseFloat(p.gst ?? p.tax_percent ?? 0) || 0,
                 tax_amount: parseFloat(p.tax_amount) || 0,
+                // price_type is stored in the invoice's products JSON. Older
+                // invoices predate the column, so normalisePriceType falls back
+                // to "without_gst" and the line recalculates exactly as before.
+                price_type: normalisePriceType(p.price_type),
                 amount: parseFloat(p.amount) || 0,
                 stock: p.stock || null,
                 product_code: p.product_code || "",
@@ -412,7 +417,13 @@ export default function AddSale() {
     setShowCustomerDropdown(false);
   };
 
-  /* ── Row Calculation (Initial amount = 0 when quantity/price empty) ── */
+  /* ── Row Calculation (Initial amount = 0 when quantity/price empty) ──
+   *
+   * Delegates entirely to utils/gst.js, which is the single source of truth
+   * shared with POS, Purchase and the backend GstCalculator. This is what makes
+   * a product saved as "With GST" keep its entered price instead of having GST
+   * added on top.
+   */
   const recalculateRow = (row) => {
     const q = parseFloat(row.qty);
     const p = parseFloat(row.price);
@@ -426,26 +437,25 @@ export default function AddSale() {
       };
     }
 
-    let base = q * p;
-    let disc = 0;
-    if (parseFloat(row.discount_percent) > 0) {
-      disc = (base * parseFloat(row.discount_percent)) / 100;
-    } else if (parseFloat(row.discount_amount) > 0) {
-      disc = parseFloat(row.discount_amount);
-    }
+    // A discount_percent and a discount_amount are mutually exclusive in this
+    // form: the percentage wins, otherwise the flat amount is used.
+    const hasDiscPct = parseFloat(row.discount_percent) > 0;
+    const hasDiscAmt = parseFloat(row.discount_amount) > 0;
 
-    const afterDisc = Math.max(0, base - disc);
-    let tax = 0;
-    if (parseFloat(row.tax_percent) > 0) {
-      tax = (afterDisc * parseFloat(row.tax_percent)) / 100;
-    }
+    const line = calculateLine({
+      price: p,
+      quantity: q,
+      gstRate: parseFloat(row.tax_percent) || 0,
+      priceType: row.price_type,
+      discount: hasDiscPct ? 0 : hasDiscAmt ? parseFloat(row.discount_amount) : 0,
+      discountPercent: hasDiscPct ? parseFloat(row.discount_percent) : 0,
+    });
 
-    const totalAmt = afterDisc + tax;
     return {
       ...row,
-      discount_amount: disc ? disc.toFixed(2) : "",
-      tax_amount: tax,
-      amount: totalAmt,
+      discount_amount: line.discount ? line.discount.toFixed(2) : "",
+      tax_amount: line.gst,
+      amount: line.total,
     };
   };
 
@@ -466,14 +476,20 @@ export default function AddSale() {
       const updatedRows = sale.rows.map(r => {
         if (r.id !== rowId) return r;
         const currentQty = (r.qty !== "" && r.qty !== null && parseFloat(r.qty) > 0) ? r.qty : 1;
+        // Pull the saved sale price + its GST mode straight from the API so a
+        // product saved "With GST" keeps its entered price, and one saved
+        // "Without GST" still gets GST added on top. sale_price falls back to
+        // the legacy `price` column for products that predate it.
+        const pricing = resolveProductPricing(prod, { use: "sale" });
         const updated = {
           ...r,
           product_id: prod.id,
           item_name: prod.product_name || prod.name,
-          price: parseFloat(prod.price) || 0,
+          price: pricing.price,
           qty: currentQty,
           unit: prod.unit || "NONE",
-          tax_percent: parseFloat(prod.gst_percentage || prod.gst) || 0,
+          tax_percent: pricing.gstRate,
+          price_type: pricing.priceType,
           stock: prod.stock,
           product_code: prod.product_code || "",
         };
@@ -611,6 +627,9 @@ export default function AddSale() {
       free_qty: parseFloat(r.free_qty) || 0,
       unit: r.unit,
       price: parseFloat(r.price) || 0,
+      // Persisted so reopening the invoice bills it the same way. The backend
+      // stores the products array as JSON, so this key round-trips as-is.
+      price_type: normalisePriceType(r.price_type),
       discount: parseFloat(r.discount_amount) || 0,
       gst: parseFloat(r.tax_percent) || 0,
       tax_amount: parseFloat(r.tax_amount) || 0,
@@ -789,13 +808,15 @@ export default function AddSale() {
         updateActiveSale(sale => {
           const updatedRows = sale.rows.map(r => {
             if (r.id === currentItem.id || (r.item_name && r.item_name.trim().toLowerCase() === currentItem.item_name.trim().toLowerCase())) {
+              const pricing = resolveProductPricing(newProduct, { use: "sale" });
               const updated = {
                 ...r,
                 product_id: newProduct.id,
                 item_name: newProduct.product_name,
-                price: parseFloat(newProduct.sale_price || newProduct.price) || 0,
+                price: pricing.price,
                 unit: (newProduct.unit && newProduct.unit !== "NONE") ? newProduct.unit : r.unit,
-                tax_percent: parseFloat(newProduct.gst_percentage || 0),
+                tax_percent: pricing.gstRate,
+                price_type: pricing.priceType,
                 stock: newProduct.stock,
                 product_code: newProduct.product_code || ""
               };
