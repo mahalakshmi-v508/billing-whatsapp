@@ -7,12 +7,13 @@ import {
   Trash2, AlignLeft, BarChart2,
   Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap,
   Search, RotateCcw, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
-  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert
+  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert, ArrowRight
 } from "lucide-react";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
 import useTableColumns from "../../hooks/useTableColumns";
 import CustomerForm from "../customer/CustomerForm";
+import AddProductModal from "../products/AddProductModal";
 
 /* ── Item Table Columns List for customization drawer with rich icons & colors ─ */
 const DEFAULT_ITEM_COLUMNS = [
@@ -175,6 +176,12 @@ export default function AddSale() {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [rowToDelete, setRowToDelete] = useState(null);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [productNotFoundDialog, setProductNotFoundDialog] = useState(null); // { rowId, query }
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [productInitialName, setProductInitialName] = useState("");
+  const [pendingProductRowId, setPendingProductRowId] = useState(null);
+  const searchDebounceTimerRef = useRef(null);
+  const blurTimerRef = useRef(null);
 
   /* ── Companies & Products ── */
   const [companies, setCompanies] = useState([]);
@@ -259,41 +266,101 @@ export default function AddSale() {
     });
   };
 
-  /* ── Load Companies & Products ── */
+  /* ── Reposition and Dismiss Dropdown on Scroll / Resize / Outside Click ── */
   useEffect(() => {
-    const loadCompanies = async () => {
-      try {
-        const res = await api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role}`);
-        if (res.data.status) {
-          setCompanies(res.data.data || []);
-          if (!selectedCompany && res.data.data.length > 0) {
-            const firstId = String(res.data.data[0].id);
-            setSelectedCompany(firstId);
-            localStorage.setItem("selected_company_id", firstId);
-          }
-        }
-      } catch (err) {
-        console.error(err);
+    const handleDocumentClick = (e) => {
+      if (
+        itemSuggestRef.current &&
+        !itemSuggestRef.current.contains(e.target) &&
+        activeInputRef.current &&
+        !activeInputRef.current.contains(e.target)
+      ) {
+        setActiveRowSuggestId(null);
       }
     };
-    loadCompanies();
+    document.addEventListener("mousedown", handleDocumentClick);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+    };
   }, []);
 
   useEffect(() => {
-    const compId = selectedCompany || user?.company_id || (companies[0] ? companies[0].id : "");
-    if (!compId) return;
-    const loadProducts = async () => {
-      try {
-        const res = await api.get(`/product/get?company_id=${compId}`);
-        if (res.data.status) {
-          setProducts(res.data.data || []);
-        }
-      } catch (err) {
-        console.error(err);
+    if (!activeRowSuggestId || !activeInputRef.current) return;
+    const handleReposition = () => {
+      if (activeInputRef.current) {
+        updateSuggestPosition(activeInputRef.current);
       }
     };
-    loadProducts();
-  }, [selectedCompany, user?.company_id, companies]);
+    window.addEventListener("scroll", handleReposition, true);
+    window.addEventListener("resize", handleReposition);
+    return () => {
+      window.removeEventListener("scroll", handleReposition, true);
+      window.removeEventListener("resize", handleReposition);
+    };
+  }, [activeRowSuggestId]);
+
+  /* ── Fetch Products from Company / Admin / Catalog ── */
+  const fetchAllProducts = async (targetCompanyId) => {
+    try {
+      const compId = targetCompanyId || selectedCompany || localStorage.getItem("selected_company_id");
+      let prods = [];
+      if (compId) {
+        const res = await api.get(`/product/get?company_id=${compId}`);
+        if (res.data?.status && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          prods = res.data.data;
+        }
+      }
+      if (prods.length === 0 && adminId) {
+        const res = await api.get(`/product/get?admin_id=${adminId}`);
+        if (res.data?.status && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          prods = res.data.data;
+        }
+      }
+      if (prods.length === 0) {
+        const res = await api.get(`/product/get`);
+        if (res.data?.status && Array.isArray(res.data.data)) {
+          prods = res.data.data;
+        }
+      }
+      setProducts(prods);
+      return prods;
+    } catch (err) {
+      console.error("Error loading products in AddSale:", err);
+      return [];
+    }
+  };
+
+  /* ── Load Companies & Products on Mount ── */
+  useEffect(() => {
+    const loadCompaniesAndProducts = async () => {
+      let companyList = [];
+      try {
+        const res = await api.get(`/company/get_companies_by_admin?admin_id=${adminId || ""}&role=${user.role || ""}`);
+        if (res.data?.status && Array.isArray(res.data.data)) {
+          companyList = res.data.data;
+          setCompanies(companyList);
+        }
+      } catch (err) {
+        console.error("Error loading companies:", err);
+      }
+
+      let activeCid = selectedCompany || localStorage.getItem("selected_company_id");
+      const isValid = companyList.some(c => String(c.id) === String(activeCid));
+      if ((!activeCid || !isValid) && companyList.length > 0) {
+        activeCid = String(companyList[0].id);
+        setSelectedCompany(activeCid);
+        localStorage.setItem("selected_company_id", activeCid);
+      }
+
+      await fetchAllProducts(activeCid);
+    };
+    loadCompaniesAndProducts();
+  }, [adminId, user.role]);
+
+  useEffect(() => {
+    if (!selectedCompany) return;
+    fetchAllProducts(selectedCompany);
+  }, [selectedCompany]);
 
   /* ── Load Existing Invoice when in Edit Mode ── */
   useEffect(() => {
@@ -567,7 +634,7 @@ export default function AddSale() {
     });
   };
 
-  /* ── Product Selection: Automatically sets Quantity = 1 (if was empty) ── */
+  /* ── Product Selection: Automatically sets Quantity = 1 (if was empty) & appends next row ── */
   const handleSelectProduct = (rowId, prod) => {
     updateActiveSale(sale => {
       const updatedRows = sale.rows.map(r => {
@@ -586,9 +653,92 @@ export default function AddSale() {
         };
         return recalculateRow(updated);
       });
+
+      // Automatically append next row if the current row was the last row or if the bottom row is filled
+      const isLastRow = updatedRows.length > 0 && updatedRows[updatedRows.length - 1].id === rowId;
+      const lastRow = updatedRows[updatedRows.length - 1];
+      const lastRowHasProduct = Boolean(
+        lastRow && (lastRow.product_id || (lastRow.item_name && lastRow.item_name.trim() !== ""))
+      );
+
+      if (isLastRow || lastRowHasProduct) {
+        return { ...sale, rows: [...updatedRows, createInitialRow()] };
+      }
+
       return { ...sale, rows: updatedRows };
     });
     setActiveRowSuggestId(null);
+  };
+
+  /* ── Product Not Found Dialog & Add Product Modal Handlers ── */
+  const triggerProductNotFound = (rowId, query) => {
+    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    setActiveRowSuggestId(null);
+    setPendingProductRowId(rowId);
+    setProductNotFoundDialog({
+      rowId,
+      query: (query || "").trim(),
+    });
+  };
+
+  const handleCancelProductNotFound = () => {
+    if (productNotFoundDialog?.rowId) {
+      const rId = productNotFoundDialog.rowId;
+      updateActiveSale(sale => {
+        const updatedRows = sale.rows.map(r => {
+          if (r.id !== rId) return r;
+          if (!r.product_id) {
+            return { ...r, item_name: "" };
+          }
+          return r;
+        });
+        return { ...sale, rows: updatedRows };
+      });
+    }
+    setProductNotFoundDialog(null);
+    setPendingProductRowId(null);
+  };
+
+  const handleProceedProductNotFound = () => {
+    const query = productNotFoundDialog?.query || "";
+    const rowId = productNotFoundDialog?.rowId || pendingProductRowId;
+    setPendingProductRowId(rowId);
+    setProductInitialName(query);
+    setProductNotFoundDialog(null);
+    setShowAddProductModal(true);
+  };
+
+  const handleProductCreated = async (createdProd) => {
+    setShowAddProductModal(false);
+    const targetRowId = pendingProductRowId;
+    setPendingProductRowId(null);
+    setProductInitialName("");
+
+    showToast("Product added successfully!", true);
+
+    const compId = selectedCompany || user?.company_id || (companies[0] ? companies[0].id : "");
+    const freshProducts = await fetchAllProducts(compId);
+
+    let matched = null;
+    if (createdProd?.id) {
+      matched = freshProducts.find(p => String(p.id) === String(createdProd.id));
+    }
+    if (!matched && (createdProd?.product_name || createdProd?.name)) {
+      const pName = (createdProd.product_name || createdProd.name || "").trim().toLowerCase();
+      matched = freshProducts.find(p => (p.product_name || p.name || "").trim().toLowerCase() === pName);
+    }
+    if (!matched && createdProd) {
+      matched = createdProd;
+      setProducts(prev => {
+        const exists = prev.some(p => String(p.id) === String(createdProd.id));
+        return exists ? prev : [createdProd, ...prev];
+      });
+    }
+
+    if (matched && targetRowId) {
+      handleSelectProduct(targetRowId, matched);
+    }
   };
 
   const addRow = () => {
@@ -982,12 +1132,14 @@ export default function AddSale() {
   };
 
   const filteredProducts = useMemo(() => {
-    if (!itemSearchQuery) return products.slice(0, 8);
-    const q = itemSearchQuery.toLowerCase();
+    if (!itemSearchQuery || !itemSearchQuery.trim()) return products.slice(0, 50);
+    const q = itemSearchQuery.trim().toLowerCase();
     return products.filter(p =>
       (p.product_name && p.product_name.toLowerCase().includes(q)) ||
-      (p.product_code && String(p.product_code).toLowerCase().includes(q))
-    ).slice(0, 8);
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.product_code && String(p.product_code).toLowerCase().includes(q)) ||
+      (p.barcode && String(p.barcode).toLowerCase().includes(q))
+    ).slice(0, 50);
   }, [products, itemSearchQuery]);
 
   if (!activeSale) return null;
@@ -1574,17 +1726,89 @@ export default function AddSale() {
                           placeholder="Search product from inventory or type..."
                           value={row.item_name}
                           onChange={(e) => {
+                            const val = e.target.value;
+                            if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
                             activeInputRef.current = e.currentTarget;
                             updateSuggestPosition(e.currentTarget);
-                            updateRowField(row.id, "item_name", e.target.value);
-                            setItemSearchQuery(e.target.value);
+                            updateRowField(row.id, "item_name", val);
+                            setItemSearchQuery(val);
                             setActiveRowSuggestId(row.id);
+
+                            const trimmed = val.trim();
+                            if (trimmed.length >= 2) {
+                              const q = trimmed.toLowerCase();
+                              const hasMatch = products.some(p =>
+                                (p.product_name && p.product_name.toLowerCase().includes(q)) ||
+                                (p.name && p.name.toLowerCase().includes(q)) ||
+                                (p.product_code && String(p.product_code).toLowerCase().includes(q)) ||
+                                (p.barcode && String(p.barcode).toLowerCase().includes(q))
+                              );
+                              if (!hasMatch) {
+                                searchDebounceTimerRef.current = setTimeout(() => {
+                                  triggerProductNotFound(row.id, trimmed);
+                                }, 750);
+                              }
+                            }
                           }}
                           onFocus={(e) => {
+                            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
                             activeInputRef.current = e.currentTarget;
                             updateSuggestPosition(e.currentTarget);
                             setItemSearchQuery(row.item_name || "");
                             setActiveRowSuggestId(row.id);
+                            if (products.length === 0) {
+                              fetchAllProducts();
+                            }
+                          }}
+                          onClick={(e) => {
+                            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                            activeInputRef.current = e.currentTarget;
+                            updateSuggestPosition(e.currentTarget);
+                            setItemSearchQuery(row.item_name || "");
+                            setActiveRowSuggestId(row.id);
+                            if (products.length === 0) {
+                              fetchAllProducts();
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                              const val = (row.item_name || "").trim();
+                              if (!val) return;
+                              const match = products.find(
+                                (p) =>
+                                  (p.product_name || p.name || "").trim().toLowerCase() === val.toLowerCase() ||
+                                  (p.product_code && String(p.product_code).trim().toLowerCase() === val.toLowerCase()) ||
+                                  (p.barcode && String(p.barcode).trim().toLowerCase() === val.toLowerCase())
+                              );
+                              if (match) {
+                                handleSelectProduct(row.id, match);
+                              } else {
+                                triggerProductNotFound(row.id, val);
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const val = (e.target.value || "").trim();
+                            if (!val) return;
+                            if (row.product_id) {
+                              const currentProd = products.find(p => String(p.id) === String(row.product_id));
+                              if (currentProd && (currentProd.product_name || currentProd.name || "").trim().toLowerCase() === val.toLowerCase()) {
+                                return;
+                              }
+                            }
+                            const match = products.find(
+                              (p) =>
+                                (p.product_name || p.name || "").trim().toLowerCase() === val.toLowerCase() ||
+                                (p.product_code && String(p.product_code).trim().toLowerCase() === val.toLowerCase()) ||
+                                (p.barcode && String(p.barcode).trim().toLowerCase() === val.toLowerCase())
+                            );
+                            if (match) {
+                              handleSelectProduct(row.id, match);
+                              return;
+                            }
                           }}
                           className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
@@ -1764,26 +1988,75 @@ export default function AddSale() {
           className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 animate-in fade-in duration-100"
         >
           {filteredProducts.length === 0 ? (
-            <div className="px-3.5 py-3 text-center text-xs text-slate-400">
-              No matching products found
-            </div>
-          ) : (
-            filteredProducts.map(p => (
+            itemSearchQuery.trim() ? (
               <div
-                key={p.id}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  handleSelectProduct(activeRowSuggestId, p);
+                  if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                  triggerProductNotFound(activeRowSuggestId, itemSearchQuery);
                 }}
-                className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+                className="px-4 py-3 hover:bg-amber-50 cursor-pointer flex items-center justify-between transition group border border-amber-200/60 rounded-xl m-1.5 bg-amber-50/40"
               >
-                <div>
-                  <div className="font-bold text-slate-900">{p.product_name || p.name}</div>
-                  <div className="text-[11px] text-slate-400">Stock: {p.stock} {p.unit || ""}</div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold text-amber-900">Product Not Found</div>
+                    <div className="text-[11px] text-slate-500">
+                      "{itemSearchQuery}" is not available in product list
+                    </div>
+                  </div>
                 </div>
-                <div className="font-extrabold text-blue-600">₹{parseFloat(p.price || 0).toLocaleString()}</div>
+                <button
+                  type="button"
+                  className="px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+                >
+                  <span>Proceed</span>
+                  <ArrowRight size={12} />
+                </button>
               </div>
-            ))
+            ) : (
+              <div className="px-4 py-3 text-center text-xs text-slate-400 select-none">
+                No products found in catalog. Type product name to search or add.
+              </div>
+            )
+          ) : (
+            <>
+              {filteredProducts.map(p => (
+                <div
+                  key={p.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                    handleSelectProduct(activeRowSuggestId, p);
+                  }}
+                  className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+                >
+                  <div className="min-w-0 pr-2">
+                    <div className="font-bold text-slate-900 truncate">{p.product_name || p.name}</div>
+                    <div className="text-[11px] text-slate-400">Stock: {p.stock ?? 0} {p.unit || ""}</div>
+                  </div>
+                  <div className="font-extrabold text-blue-600 shrink-0">₹{parseFloat(p.price || 0).toLocaleString()}</div>
+                </div>
+              ))}
+              {itemSearchQuery && !filteredProducts.some(p => (p.product_name || p.name || "").toLowerCase() === itemSearchQuery.toLowerCase()) && (
+                <div
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                    triggerProductNotFound(activeRowSuggestId, itemSearchQuery);
+                  }}
+                  className="px-3.5 py-2 hover:bg-amber-50/70 bg-slate-50/50 cursor-pointer flex items-center justify-between text-xs text-amber-800 font-bold border-t border-slate-100 transition"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <AlertCircle size={13} className="text-amber-600" />
+                    <span>Not in list? Click to add "{itemSearchQuery}"</span>
+                  </div>
+                  <span className="text-[11px] text-blue-600 font-bold flex items-center gap-0.5">
+                    Proceed <ArrowRight size={11} />
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </div>,
         document.body
@@ -2150,6 +2423,72 @@ export default function AddSale() {
         onReset={resetDefaultColumns}
         title="Customise Columns"
         subtitle="Show or hide table columns in line items"
+      />
+
+      {/* Product Not Found Dialog */}
+      {productNotFoundDialog && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={handleCancelProductNotFound}
+        >
+          <div
+            className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-amber-100 flex items-center gap-3 bg-amber-50">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 font-bold">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-amber-900">Product Not Found</h3>
+                <p className="text-[11px] text-amber-700">Item not available in product list</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-3">
+              <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                This product is not available in the product list. Would you like to add this product to the product list?
+              </p>
+              {productNotFoundDialog.query && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 flex items-center justify-between">
+                  <span className="text-slate-500">Product Name:</span>
+                  <span className="font-bold text-blue-600 font-mono">"{productNotFoundDialog.query}"</span>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={handleCancelProductNotFound}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleProceedProductNotFound}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-sm transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus size={14} />
+                <span>Proceed</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reused Existing Add Product Modal */}
+      <AddProductModal
+        isOpen={showAddProductModal}
+        onClose={() => {
+          setShowAddProductModal(false);
+          setPendingProductRowId(null);
+          setProductInitialName("");
+        }}
+        initialName={productInitialName}
+        companyId={selectedCompany || user?.company_id || (companies[0] ? companies[0].id : "")}
+        onProductAdded={handleProductCreated}
       />
 
     </div>

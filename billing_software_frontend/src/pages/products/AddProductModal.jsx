@@ -74,7 +74,7 @@ function ToastPortal({ toasts, remove }) {
   );
 }
 
-export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
+export default function AddProductModal({ isOpen, onClose, onProductAdded, initialName = "", companyId = "" }) {
   const { toasts, show, remove } = useToast();
   const [loading, setLoading] = useState(false);
   const [gstEnabled, setGstEnabled] = useState(false);
@@ -89,7 +89,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
   const [brands, setBrands] = useState([]);
   const [brandLoading, setBrandLoading] = useState(false);
 
-  const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
+  const getCompanyId = () => Number(companyId || localStorage.getItem("selected_company_id") || 0);
 
   const [form, setForm] = useState({
     name: "",
@@ -199,7 +199,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
     if (isOpen) {
       const timer = setTimeout(() => {
         setForm({
-          name: "",
+          name: initialName || "",
           product_code: "",
           price: "",
           stock: "",
@@ -228,7 +228,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen]);
+  }, [isOpen, initialName]);
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);
@@ -287,10 +287,20 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded }) {
 
       if (res.data.status) {
         show("success", "Product Added!", `"${form.name}" has been created successfully.`);
+        const createdProduct = res.data.data || {
+          product_name: form.name.trim(),
+          name: form.name.trim(),
+          price: Number(form.price !== "" ? form.price : form.sale_price || 0),
+          sale_price: form.sale_price || 0,
+          stock: form.stock,
+          unit: form.unit.trim(),
+          gst_percentage: gstEnabled ? Number(form.gst) || 0 : 0,
+          product_code: form.product_code.trim(),
+        };
         setTimeout(() => {
-          onProductAdded && onProductAdded();
+          onProductAdded && onProductAdded(createdProduct);
           onClose();
-        }, 800);
+        }, 500);
       } else {
         show("error", "Failed", res.data.message || "Something went wrong.");
       }
