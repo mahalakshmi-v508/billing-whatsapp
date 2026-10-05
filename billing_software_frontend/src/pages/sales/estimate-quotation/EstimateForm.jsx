@@ -129,6 +129,40 @@ function createNewEstimateTab(id, index, nextRefNo, savedEstimate = null) {
   };
 }
 
+/* ── Close Estimate Confirmation Dialog Component ───────────────────────── */
+function CloseEstimateModal({ isOpen, onCancel, onConfirm }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <AlertCircle size={16} />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">Close Estimate Workspace</h3>
+          </div>
+          <button onClick={onCancel} className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-6 text-xs text-slate-600 leading-relaxed font-medium">
+          Current unsaved quotation changes will be discarded. Do you wish to continue and return to the estimates list?
+        </div>
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
+          <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer">
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer">
+            OK, Discard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EstimateForm() {
   const navigate = useNavigate();
   const { id: editId } = useParams();
@@ -136,6 +170,9 @@ export default function EstimateForm() {
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
   const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
+
+  // Modals state
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // Read persisted estimates from localStorage & detect edit target
   const initialSaved = useMemo(() => {
@@ -202,7 +239,7 @@ export default function EstimateForm() {
   const handleCloseTab = (tabId, e) => {
     e.stopPropagation();
     if (tabs.length === 1) {
-      navigate("/sales/estimate-quotation");
+      setShowCloseConfirm(true);
       return;
     }
     const remaining = tabs.filter((t) => t.id !== tabId);
@@ -658,7 +695,7 @@ export default function EstimateForm() {
             {/* Close Page */}
             <button
               type="button"
-              onClick={() => navigate("/sales/estimate-quotation")}
+              onClick={() => setShowCloseConfirm(true)}
               className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               title="Close Workspace"
             >
@@ -673,7 +710,7 @@ export default function EstimateForm() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/sales/estimate-quotation")}
+              onClick={() => setShowCloseConfirm(true)}
               className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-xs cursor-pointer"
               title="Back to Quotations"
             >
@@ -1478,6 +1515,16 @@ export default function EstimateForm() {
         onReset={resetDefaultColumns}
         title="Customise Columns"
         subtitle="Show or hide table columns in line items"
+      />
+
+      {/* Close Confirm Modal */}
+      <CloseEstimateModal
+        isOpen={showCloseConfirm}
+        onCancel={() => setShowCloseConfirm(false)}
+        onConfirm={() => {
+          setShowCloseConfirm(false);
+          navigate("/sales/estimate-quotation");
+        }}
       />
     </div>
   );
