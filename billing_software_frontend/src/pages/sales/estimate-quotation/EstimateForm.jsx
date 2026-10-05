@@ -838,9 +838,14 @@ export default function EstimateForm() {
                 <Phone size={14} className="text-slate-400" />
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={activeTab?.phoneNo || ""}
-                  onChange={(e) => updateActiveTab({ phoneNo: e.target.value })}
-                  placeholder="e.g. +91 98765 43210"
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    updateActiveTab({ phoneNo: val });
+                  }}
+                  placeholder="10-digit mobile number"
                   className="w-full bg-transparent text-xs font-medium text-slate-800 outline-none"
                 />
               </div>

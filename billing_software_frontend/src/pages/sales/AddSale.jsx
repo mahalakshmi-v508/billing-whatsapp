@@ -1509,11 +1509,16 @@ export default function AddSale() {
                   <Phone size={13} className="text-slate-400 flex-shrink-0" />
                   <input
                     type="text"
-                    placeholder="Phone number"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="10-digit mobile number"
                     value={activeSale.customerPhone}
                     onFocus={() => setIsPhoneFocused(true)}
                     onBlur={() => setIsPhoneFocused(false)}
-                    onChange={(e) => updateActiveSale({ customerPhone: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      updateActiveSale({ customerPhone: val });
+                    }}
                     className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
                   />
                 </div>
