@@ -581,7 +581,7 @@ export default function EstimateQuotation() {
             >
               <span>
                 {selectedFirm === "all"
-                  ? "All Firms"
+                  ? "All Store"
                   : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
@@ -594,7 +594,7 @@ export default function EstimateQuotation() {
                     selectedFirm === "all" ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  All Firms
+                  All Store
                 </div>
                 {companies.map((c) => (
                   <div

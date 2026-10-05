@@ -502,7 +502,7 @@ export default function CreditNoteList() {
             >
               <span>
                 {selectedFirm === "all"
-                  ? "All Companies"
+                  ? "All Store"
                   : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Company"}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
@@ -519,7 +519,7 @@ export default function CreditNoteList() {
                     selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
-                  All Companies
+                  All Store
                 </button>
                 {companies.map((c) => (
                   <button

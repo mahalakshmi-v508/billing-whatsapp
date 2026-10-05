@@ -576,7 +576,7 @@ export default function PaymentIn() {
               className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
               <span>
-                {selectedFirm === "all" ? "All Firms" : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
+                {selectedFirm === "all" ? "All store" : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
             </button>
@@ -592,7 +592,7 @@ export default function PaymentIn() {
                     selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
-                  All Firms
+                  All Store
                 </button>
                 {companies.map((c) => (
                   <button
