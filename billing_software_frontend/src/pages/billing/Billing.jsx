@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import {
   Search,
   Plus,
@@ -188,7 +189,26 @@ function trackUsage(product) {
 }
 
 function emptyRow() {
-  return { product_id: null, name: "", product_code: "", price: 0, qty: 0, discount: 0, freeQty: 0, gst: 0, unit: "", stock: 0, isUnlisted: false };
+  return { product_id: null, name: "", product_code: "", price: 0, qty: 0, discount: 0, freeQty: 0, gst: 0, price_type: "without_gst", unit: "", stock: 0, isUnlisted: false };
+}
+
+/**
+ * The single POS line calculation. Both the row display (rowAmount) and the
+ * bill totals (subtotal/gstTotal/total) go through this one function, so the
+ * two can never disagree the way they used to - previously the totals charged
+ * GST on the pre-discount amount while the row display discounted first.
+ *
+ * GST is only charged on a gst_bill, which preserves the existing behaviour of
+ * a non-GST bill showing the entered price as-is.
+ */
+function posLineAmount(r, billType) {
+  return calculateLine({
+    price: Number(r.price) || 0,
+    quantity: Number(r.qty) || 0,
+    gstRate: billType === "gst_bill" ? Number(r.gst) || 0 : 0,
+    priceType: r.price_type,
+    discount: Number(r.discount) || 0,
+  });
 }
 
 function createFreshBill(id) {
@@ -267,7 +287,7 @@ export default function Billing() {
   const justSelectedRef = useRef(false);
 
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [quickItem, setQuickItem] = useState({ name: "", price: "", qty: 1, unit: "" });
+  const [quickItem, setQuickItem] = useState({ name: "", price: "", qty: 1, unit: "", price_type: "without_gst" });
 
   const [showHelp, setShowHelp] = useState(false);
   const [helpLang, setHelpLang] = useState("en");
@@ -298,8 +318,10 @@ export default function Billing() {
   /* ── Derived Totals ── */
   const subtotal = rows.reduce((s, r) => s + r.price * r.qty, 0);
   const totalDiscount = rows.reduce((s, r) => s + (Number(r.discount) || 0), 0);
-  const gstTotal = billType === "gst_bill" ? rows.reduce((s, r) => s + (r.price * r.qty * r.gst) / 100, 0) : 0;
-  const total = subtotal + gstTotal - totalDiscount;
+  const gstTotal = rows.reduce((s, r) => s + posLineAmount(r, billType).gst, 0);
+  // Summed from the authoritative per-line totals so the amount collected can
+  // never drift from the lines printed above it.
+  const total = rows.reduce((s, r) => s + posLineAmount(r, billType).total, 0);
   const earnedPoints = Math.floor(total / 100);
   const received = parseFloat(payment.received) || 0;
   const advanceAvailable = parseFloat(customer.advance_balance) || 0;
@@ -654,6 +676,8 @@ export default function Billing() {
     const p = productById[product.id] || productById[product.product_id] || product;
     const pid = p.id || p.product_id;
     const qtyNum = Number(qtyToAdd) || 1;
+    // Saved sale price + its GST mode come straight from the API record.
+    const posPricing = resolveProductPricing(p, { use: "sale" });
 
     setRows((prevRows) => {
       const updated = [...prevRows];
@@ -672,8 +696,9 @@ export default function Billing() {
           product_id: pid,
           name: p.product_name || p.name,
           product_code: p.product_code || "",
-          price: Number(p.price),
-          gst: Number(p.gst_percentage ?? p.gst ?? p.tax_percent ?? 0),
+          price: posPricing.price,
+          gst: posPricing.gstRate,
+          price_type: posPricing.priceType,
           qty: qtyNum,
           discount: 0,
           freeQty: 0,
@@ -711,6 +736,7 @@ export default function Billing() {
         const qtyNum = Number(item.quantity || item.qty || 1);
         const p = productById[rawProduct.id] || productById[rawProduct.product_id] || rawProduct;
         const pid = p.id || p.product_id;
+        const posPricing = resolveProductPricing(p, { use: "sale" });
 
         const existingIdx = updated.findIndex((r) => String(r.product_id) === String(pid) && !r.isUnlisted);
 
@@ -722,8 +748,9 @@ export default function Billing() {
             product_id: pid,
             name: p.product_name || p.name,
             product_code: p.product_code || "",
-            price: Number(p.price),
-            gst: Number(p.gst_percentage ?? p.gst ?? p.tax_percent ?? 0),
+            price: posPricing.price,
+            gst: posPricing.gstRate,
+            price_type: posPricing.priceType,
             qty: qtyNum,
             discount: 0,
             freeQty: 0,
@@ -762,6 +789,9 @@ export default function Billing() {
       product_code: "",
       price: Number(quickItem.price),
       gst: 0,
+      // A free-typed quick item has no saved product config, so it follows the
+      // same historical default as a product that predates these columns.
+      price_type: normalisePriceType(quickItem.price_type),
       qty: Number(quickItem.qty) || 1,
       discount: 0,
       freeQty: 0,
@@ -777,7 +807,7 @@ export default function Billing() {
       if (updated[updated.length - 1].name) updated.push(emptyRow());
       return updated;
     });
-    setQuickItem({ name: "", price: "", qty: 1, unit: "" });
+    setQuickItem({ name: "", price: "", qty: 1, unit: "", price_type: "without_gst" });
     setShowQuickAdd(false);
     setGlobalSearch("");
     setShowNoResult(false);
@@ -815,12 +845,7 @@ export default function Billing() {
     });
   };
 
-  const rowAmount = (r) => {
-    const base = r.price * r.qty;
-    const disc = Number(r.discount) || 0;
-    const gstAmt = billType === "gst_bill" ? (base * r.gst) / 100 : 0;
-    return base + gstAmt - disc;
-  };
+  const rowAmount = (r) => posLineAmount(r, billType).total;
 
   /* ══ CUSTOMER SELECTION LOGIC ══ */
   const fetchCustomerById = async (id) => {
@@ -1003,13 +1028,26 @@ export default function Billing() {
     try {
       const u = JSON.parse(localStorage.getItem("user") || "{}");
       const customer_id = await saveOrGetCustomer();
+      // Send the POS row keys (name/gst/discount) the backend already reads,
+      // plus the canonical tax_amount/amount so printed invoices and reports
+      // never have to re-derive a GST-inclusive line from qty*price.
+      const invoiceProducts = validRows.map((r) => {
+        const line = posLineAmount(r, billType);
+        return {
+          ...r,
+          product_name: r.name,
+          price_type: normalisePriceType(r.price_type),
+          tax_amount: line.gst,
+          amount: line.total,
+        };
+      });
       const res = await api.post("/invoice/create_invoice", {
         company_id: selectedCompany,
         customer_id,
         customer_name: customer.name,
         customer_phone: customer.phone,
         cashier_id: u.id,
-        products: validRows,
+        products: invoiceProducts,
         sub_total: subtotal,
         gst_total: gstTotal,
         total_amount: total,

@@ -18,6 +18,7 @@ import {
   getInvoiceLogoUrl,
 } from "../../utils/invoiceShare";
 import { numberToWordsINR } from "../../utils/numberToWords";
+import { calculateLine, splitGst } from "../../utils/gst";
 
 /* ─── PRINT CSS STYLES ─────────────────────────────────────────────────────── */
 const PRINT_CSS = `
@@ -198,6 +199,64 @@ function renderItemExtras(p, printSettings = {}) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   CANONICAL PRINT FIGURES
+   Every theme below derives its numbers from these helpers instead of
+   re-deriving them inline. The rule everywhere is: trust what the document
+   actually saved, and only fall back to arithmetic when a legacy row is
+   missing it.
+
+   The old inline fallbacks were not just duplicated, they were wrong for
+   GST-inclusive products: `(lineAmt * gstPct) / 100` added tax on top of a
+   price that already contained it, and `totalAmount - totalGst` stripped tax
+   that had never been added on a without_gst document.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** The GST-inclusive line amount, preferring the persisted value. */
+function printLineAmount(p) {
+  const stored = parseFloat(p.amount ?? p.total);
+  if (Number.isFinite(stored) && stored !== 0) return stored;
+  return (parseFloat(p.qty || p.quantity) || 0) * (parseFloat(p.price || p.unit_price) || 0);
+}
+
+/** The GST component of a line, preferring the persisted value. */
+function printLineTax(p, lineAmount) {
+  const stored = parseFloat(p.tax_amount ?? p.tax_amt);
+  if (Number.isFinite(stored) && stored !== 0) return stored;
+
+  const rate = parseFloat(p.gst ?? p.tax_percent ?? p.tax_rate ?? p.gst_percentage) || 0;
+  if (rate <= 0) return 0;
+
+  // Only safe because calculateLine de-embeds tax for an inclusive price
+  // instead of adding it on top.
+  return calculateLine({
+    price: lineAmount,
+    quantity: 1,
+    gstRate: rate,
+    priceType: p.price_type,
+  }).gst;
+}
+
+/** The document's taxable base, preferring the persisted value. */
+function printDocSubTotal(invoice, totalAmount, totalGst) {
+  const stored = parseFloat(invoice.sub_total);
+  if (Number.isFinite(stored) && stored !== 0) return stored;
+  return Math.max(0, totalAmount - totalGst);
+}
+
+/**
+ * Intra- or inter-state supply, derived from the first two digits of each
+ * GSTIN (which are the state code). Falls back to intra-state when either side
+ * is missing, matching what the bill has always printed.
+ */
+function isInterStateSupply(invoice, company) {
+  const sellerGstin = (company?.gstin || company?.company_gstin || "").toString().trim().toUpperCase();
+  const buyerGstin = (invoice?.customer_gstin || invoice?.gst_no || "").toString().trim().toUpperCase();
+
+  if (sellerGstin.length < 2 || buyerGstin.length < 2) return false;
+  return sellerGstin.slice(0, 2) !== buyerGstin.slice(0, 2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    1. THEME: TALLY THEME (MATCHING SCREENSHOT 1 & 2)
 ═══════════════════════════════════════════════════════════════════════════ */
 function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
@@ -206,7 +265,7 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
   const totalQty = products.reduce((s, p) => s + (parseFloat(p.qty || p.quantity) || 0), 0);
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
   const totalAmount = parseFloat(invoice.total_amount) || 0;
-  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
@@ -340,8 +399,8 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
                 const qty = parseFloat(p.qty || p.quantity) || 1;
                 const price = parseFloat(p.price || p.unit_price) || 0;
                 const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
-                const lineAmt = parseFloat(p.amount || p.total) || (qty * price);
-                const gstAmt = parseFloat(p.tax_amount || p.tax_amt) || ((lineAmt * gstPct) / 100);
+                const lineAmt = printLineAmount(p);
+                const gstAmt = printLineTax(p, lineAmt);
 
                 return (
                   <tr key={idx} style={{ height: 28, borderBottom: idx === products.length - 1 ? "1px solid #94a3b8" : "none" }}>
@@ -486,7 +545,7 @@ function ThemeGST1({ invoice, company, color, logoUrl, printSettings = {} }) {
   const totalQty = products.reduce((s, p) => s + (parseFloat(p.qty || p.quantity) || 0), 0);
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
-  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
@@ -622,8 +681,8 @@ function ThemeGST1({ invoice, company, color, logoUrl, printSettings = {} }) {
                 const qty = parseFloat(p.qty || p.quantity) || 1;
                 const price = parseFloat(p.price || p.unit_price) || 0;
                 const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
-                const lineAmt = parseFloat(p.amount || p.total) || (qty * price);
-                const gstAmt = parseFloat(p.tax_amount || p.tax_amt) || ((lineAmt * gstPct) / 100);
+                const lineAmt = printLineAmount(p);
+                const gstAmt = printLineTax(p, lineAmt);
 
                 return (
                   <tr key={idx} style={{ borderBottom: "1px solid #e2e8f0", height: 32, background: idx % 2 === 0 ? "#ffffff" : "#f8fafc" }}>
@@ -727,7 +786,7 @@ function ThemeGST3({ invoice, company, color, logoUrl, printSettings = {} }) {
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
-  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
@@ -899,7 +958,7 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl, printSettings = {
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
-  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
@@ -1110,7 +1169,7 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
-  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const previousBalance = parseFloat(invoice.previous_balance) || 0;
@@ -1263,9 +1322,9 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
               {products.map((p, i) => {
                 const qty = parseFloat(p.qty || p.quantity) || 1;
                 const price = parseFloat(p.price || p.unit_price) || 0;
-                const amt = parseFloat(p.amount || p.total) || (qty * price);
+                const amt = printLineAmount(p);
                 const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
-                const gstAmt = parseFloat(p.tax_amount || p.tax_amt) || ((amt * gstPct) / 100);
+                const gstAmt = printLineTax(p, amt);
 
                 return (
                   <tr key={i} style={{ verticalAlign: "top" }}>
@@ -1413,7 +1472,7 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
-  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
@@ -1544,7 +1603,7 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
               {products.map((p, i) => {
                 const qty = parseFloat(p.qty || p.quantity) || 1;
                 const price = parseFloat(p.price || p.unit_price) || 0;
-                const amt = parseFloat(p.amount || p.total) || (qty * price);
+                const amt = printLineAmount(p);
                 const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
 
                 return (
@@ -1641,7 +1700,7 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
-  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
@@ -1667,7 +1726,12 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
   const showPaymentMode = printSettings.paymentMode !== false;
   const showAck = printSettings.printAcknowledgement;
 
-  const halfGst = totalGst / 2;
+  // splitGst assigns any odd paisa to SGST so the parts always add back up to
+  // the document total. The old `totalGst / 2` printed a half-paisa on each
+  // side, so CGST + SGST did not equal the Total Tax column on the customer's
+  // copy. It also had no IGST branch at all.
+  const interStateSupply = isInterStateSupply(invoice, company);
+  const gstSplit = splitGst(totalGst, interStateSupply);
 
   return (
     <div style={{
@@ -1773,7 +1837,7 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
               {products.map((p, i) => {
                 const qty = parseFloat(p.qty || p.quantity) || 1;
                 const price = parseFloat(p.price || p.unit_price) || 0;
-                const amt = parseFloat(p.amount || p.total) || (qty * price);
+                const amt = printLineAmount(p);
                 const gstPct = parseFloat(p.gst || p.tax_percent || p.tax_rate) || 0;
 
                 return (
@@ -1809,14 +1873,16 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
                   <th style={{ textAlign: "left", padding: "2px" }}>Tax Split</th>
                   <th style={{ textAlign: "right", padding: "2px" }}>CGST</th>
                   <th style={{ textAlign: "right", padding: "2px" }}>SGST</th>
+                  <th style={{ textAlign: "right", padding: "2px" }}>IGST</th>
                   <th style={{ textAlign: "right", padding: "2px" }}>Total Tax</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td style={{ padding: "2px" }}>GST (Standard)</td>
-                  <td style={{ textAlign: "right", padding: "2px" }}>₹{formatCurrency(halfGst, printSettings)}</td>
-                  <td style={{ textAlign: "right", padding: "2px" }}>₹{formatCurrency(halfGst, printSettings)}</td>
+                  <td style={{ padding: "2px" }}>{interStateSupply ? "IGST (Inter-State)" : "CGST + SGST (Intra-State)"}</td>
+                  <td style={{ textAlign: "right", padding: "2px" }}>₹{formatCurrency(gstSplit.cgst, printSettings)}</td>
+                  <td style={{ textAlign: "right", padding: "2px" }}>₹{formatCurrency(gstSplit.sgst, printSettings)}</td>
+                  <td style={{ textAlign: "right", padding: "2px" }}>₹{formatCurrency(gstSplit.igst, printSettings)}</td>
                   <td style={{ textAlign: "right", padding: "2px", fontWeight: "bold" }}>₹{formatCurrency(totalGst, printSettings)}</td>
                 </tr>
               </tbody>
@@ -1958,7 +2024,7 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
             {products.map((p, i) => {
               const qty = parseFloat(p.qty || p.quantity) || 1;
               const price = parseFloat(p.price || p.unit_price) || 0;
-              const amt = parseFloat(p.amount || p.total) || (qty * price);
+              const amt = printLineAmount(p);
 
               return (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
@@ -1996,7 +2062,7 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
-  const subTotal = parseFloat(invoice.sub_total) || (totalAmount - totalGst);
+  const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
@@ -2104,7 +2170,7 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
               {products.map((p, i) => {
                 const qty = parseFloat(p.qty || p.quantity) || 1;
                 const price = parseFloat(p.price || p.unit_price) || 0;
-                const amt = parseFloat(p.amount || p.total) || (qty * price);
+                const amt = printLineAmount(p);
 
                 return (
                   <tr key={i} style={{ verticalAlign: "top" }}>

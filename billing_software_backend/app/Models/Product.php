@@ -20,6 +20,7 @@ class Product extends Model
         'sale_price'        => 'float',
         'purchase_price'    => 'float',
         'gst_percentage'    => 'float',
+        'gst_enabled'       => 'boolean',
         'stock'             => 'integer',
         'sale_price_type'     => 'string',
         'purchase_price_type' => 'string',
