@@ -10,11 +10,12 @@ import {
   BarChart2, BarChart3, Wallet, Clock, IndianRupee, Bell, ChevronDown,
   Lock, LogOut, Plus, ReceiptText, PackagePlus, UserPlus, Truck,
   FolderPlus, Building2, CheckCircle2, ArrowUpRight, ShieldCheck,
-  AlertCircle, RotateCw, ExternalLink, Calendar, Search, CreditCard,
+  AlertCircle, RotateCw, ExternalLink, Calendar, Search, CreditCard, PackageX,
   Sparkles, Filter, Users, Layers, Activity, ArrowRight, CheckCircle, Check
 } from "lucide-react";
 import StatCard from "../../components/ui/StatCard";
 import StatusBadge from "../../components/ui/StatusBadge";
+import { LOW_STOCK_THRESHOLD, isLowStock, isOutOfStock } from "../../utils/stockAlerts";
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -139,11 +140,11 @@ export default function Dashboard() {
 
   const fetchLowStockProducts = async (companyId) => {
     try {
-      const res = await api.get(`/product/get?company_id=${companyId}`);
+      const res = await api.get(
+        `/dashboard/get_stock_alert_notifications?company_id=${companyId}&threshold=${LOW_STOCK_THRESHOLD}`
+      );
       if (res.data.status) {
-        setLowStockProducts(
-          res.data.data.filter((p) => p.status === "active" && Number(p.stock) <= 5)
-        );
+        setLowStockProducts(res.data.data || []);
       }
     } catch (e) {
       console.error(e);
@@ -251,6 +252,15 @@ export default function Dashboard() {
 
   const totalAlerts = overdueList.length + unsoldProducts.length;
 
+  const outOfStockProducts = useMemo(
+    () => lowStockProducts.filter((p) => isOutOfStock(p)),
+    [lowStockProducts]
+  );
+  const lowStockOnly = useMemo(
+    () => lowStockProducts.filter((p) => isLowStock(p)),
+    [lowStockProducts]
+  );
+
   const formattedDate = useMemo(() => {
     return new Date().toLocaleDateString("en-US", {
       weekday: "short",
@@ -318,7 +328,11 @@ export default function Dashboard() {
   const filteredLowStock = useMemo(() => {
     if (!tableSearch.trim()) return lowStockProducts;
     const q = tableSearch.toLowerCase();
-    return lowStockProducts.filter((p) => p.product_name?.toLowerCase().includes(q));
+    return lowStockProducts.filter(
+      (p) =>
+        p.product_name?.toLowerCase().includes(q) ||
+        p.product_code?.toLowerCase().includes(q)
+    );
   }, [lowStockProducts, tableSearch]);
 
   const filteredUnsold = useMemo(() => {
@@ -331,7 +345,7 @@ export default function Dashboard() {
     { key: "invoices", label: "Live Invoices Feed", icon: ReceiptText, count: invoices.length },
     { key: "sales", label: "Monthly Analytics", icon: BarChart2 },
     { key: "outstanding", label: "Receivables & Dues", icon: Wallet, count: creditList.length },
-    { key: "lowstock", label: "Low Stock Alert", icon: AlertTriangle, count: lowStockProducts.length },
+    { key: "lowstock", label: "Stock Alerts", icon: AlertTriangle, count: lowStockProducts.length },
     { key: "unsold", label: "Dormant Inventory", icon: Package, count: unsoldProducts.length },
   ];
 
@@ -686,7 +700,11 @@ export default function Dashboard() {
               suffix=" SKUs"
               icon={Package}
               accent="cyan"
-              badge={lowStockProducts.length > 0 ? `${lowStockProducts.length} Low` : "Optimal"}
+              badge={
+                lowStockProducts.length > 0
+                  ? `${outOfStockProducts.length} Out · ${lowStockOnly.length} Low`
+                  : "Optimal"
+              }
               subtitle={lowStockProducts.length > 0 ? "Requires restock" : "Healthy levels"}
             />
           </div>
@@ -1233,7 +1251,7 @@ export default function Dashboard() {
                         Critical Inventory Replenishment Alert
                       </h4>
                       <p className="text-[11px] text-slate-400">
-                        Products with stock levels at or below 5 units
+                        Out of stock (0 or less) and low stock (under {LOW_STOCK_THRESHOLD} units)
                       </p>
                     </div>
                     <button
@@ -1245,6 +1263,48 @@ export default function Dashboard() {
                       <ArrowRight size={13} />
                     </button>
                   </div>
+
+                  {/* Alert Split Summary */}
+                  {lowStockProducts.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-rose-50/70 border border-rose-200/80">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                            <PackageX size={16} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">
+                              Out of Stock
+                            </span>
+                            <span className="text-xs font-extrabold text-rose-700">
+                              Immediate restock
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-lg font-black text-rose-600">
+                          {outOfStockProducts.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                            <AlertTriangle size={16} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block">
+                              Low Stock
+                            </span>
+                            <span className="text-xs font-extrabold text-amber-700">
+                              Under {LOW_STOCK_THRESHOLD} units
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-lg font-black text-amber-600">
+                          {lowStockOnly.length}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse psx-table">
@@ -1260,31 +1320,57 @@ export default function Dashboard() {
                       </thead>
                       <tbody>
                         {filteredLowStock.length > 0 ? (
-                          filteredLowStock.map((item, i) => (
+                          filteredLowStock.map((item, i) => {
+                              const stock = Number(item.stock) || 0;
+                              const isOut = isOutOfStock(item);
+                              return (
                             <tr key={item.id} className="hover:bg-slate-50/80 transition">
                               <td className="font-mono text-slate-400 text-xs">
                                 {String(i + 1).padStart(2, "0")}
                               </td>
                               <td>
                                 <div className="flex items-center gap-2.5">
-                                  <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
-                                    <Package size={15} />
+                                  <div
+                                    className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
+                                      isOut
+                                        ? "bg-rose-100 text-rose-600"
+                                        : "bg-amber-50 text-amber-600"
+                                    }`}
+                                  >
+                                    {isOut ? <PackageX size={15} /> : <Package size={15} />}
                                   </div>
-                                  <span className="font-bold text-slate-800 text-xs">
-                                    {item.product_name}
-                                  </span>
+                                  <div className="min-w-0">
+                                    <span className="font-bold text-slate-800 text-xs block truncate">
+                                      {item.product_name}
+                                    </span>
+                                    {item.product_code && (
+                                      <span className="font-mono text-[10px] text-slate-400">
+                                        {item.product_code}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                               <td className="font-bold text-slate-700 text-xs">
-                                ₹{Number(item.price).toLocaleString("en-IN")}
+                                ₹{Number(item.price || 0).toLocaleString("en-IN")}
                               </td>
                               <td>
-                                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200">
-                                  {item.stock} left
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                                    isOut
+                                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {stock} {item.unit || "units"}
                                 </span>
                               </td>
                               <td>
-                                <StatusBadge status="danger" label="Replenish Now" size="sm" />
+                                <StatusBadge
+                                  status={isOut ? "danger" : "warning"}
+                                  label={isOut ? "Out of Stock" : "Low Stock"}
+                                  size="sm"
+                                />
                               </td>
                               <td>
                                 <button
@@ -1296,7 +1382,8 @@ export default function Dashboard() {
                                 </button>
                               </td>
                             </tr>
-                          ))
+                              );
+                            })
                         ) : (
                           <tr>
                             <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
