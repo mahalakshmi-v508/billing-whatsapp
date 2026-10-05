@@ -186,13 +186,25 @@ export default function EstimateQuotation() {
   const initialRange = getPeriodRange("all_time");
   const [fromDate, setFromDate] = useState(initialRange.start ? formatYMD(initialRange.start) : "");
   const [toDate, setToDate] = useState(initialRange.end ? formatYMD(initialRange.end) : "");
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const applyPeriod = (p) => {
+    if (p === "all_time") {
+      setFromDate("");
+      setToDate("");
+      setPeriod("all_time");
+      setPeriodOpen(false);
+      return;
+    }
+    if (p === "custom") {
+      setPeriod("custom");
+      setPeriodOpen(false);
+      return;
+    }
     const { start, end } = getPeriodRange(p);
     setFromDate(start ? formatYMD(start) : "");
     setToDate(end ? formatYMD(end) : "");
-    setShowDatePicker(false);
+    setPeriod(p);
+    setPeriodOpen(false);
   };
 
   // Fetch firms
@@ -505,7 +517,7 @@ export default function EstimateQuotation() {
       {/* ── 3. FILTER TOOLBAR & DATE SELECTORS ── */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Period:</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
 
           {/* Period Pill Dropdown */}
           <div className="relative">
@@ -513,7 +525,7 @@ export default function EstimateQuotation() {
               onClick={() => setPeriodOpen((v) => !v)}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <span>{PERIOD_LABELS[period] || "This Month"}</span>
+              <span>{PERIOD_LABELS[period] || "All Time"}</span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
             {periodOpen && (
@@ -522,10 +534,7 @@ export default function EstimateQuotation() {
                   <div
                     key={key}
                     onClick={() => {
-                      setPeriod(key);
-                      setPeriodOpen(false);
-                      if (key === "custom") setShowDatePicker(true);
-                      else applyPeriod(key);
+                      applyPeriod(key);
                     }}
                     className={`px-3.5 py-1.5 text-xs font-medium cursor-pointer transition ${
                       period === key ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
@@ -538,40 +547,29 @@ export default function EstimateQuotation() {
             )}
           </div>
 
-          {/* Date Range Button + Custom Picker */}
-          <div
-            onClick={() => setShowDatePicker((v) => !v)}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition cursor-pointer select-none"
-          >
+          {/* Date Range Picker */}
+          <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
             <Calendar size={13} className="text-slate-400" />
-            <span>
-              {fromDate && toDate
-                ? `${formatDateDMY(fromDate)} — ${formatDateDMY(toDate)}`
-                : fromDate
-                ? `${formatDateDMY(fromDate)} — End`
-                : toDate
-                ? `Start — ${formatDateDMY(toDate)}`
-                : "All Dates"}
-            </span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPeriod(e.target.value || toDate ? "custom" : "all_time");
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
+            <span className="text-slate-400 font-bold">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPeriod(fromDate || e.target.value ? "custom" : "all_time");
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
           </div>
-
-          {showDatePicker && (
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-indigo-200 shadow-sm text-xs">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="text-xs text-slate-700 outline-none font-medium"
-              />
-              <span className="text-slate-400 font-bold">to</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="text-xs text-slate-700 outline-none font-medium"
-              />
-            </div>
-          )}
 
           {/* Firms Dropdown Pill */}
           <div className="relative">

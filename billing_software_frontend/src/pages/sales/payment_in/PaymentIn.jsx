@@ -84,7 +84,6 @@ export default function PaymentIn() {
   // Date range
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,6 +115,11 @@ export default function PaymentIn() {
 
   // Preset Date Helper
   const setPresetDates = (type) => {
+    if (type === "custom") {
+      setPeriod("custom");
+      setPeriodOpen(false);
+      return;
+    }
     const now = new Date();
     let from = new Date();
     let to = new Date();
@@ -213,10 +217,9 @@ export default function PaymentIn() {
   const filteredPayments = useMemo(() => {
     return payments.filter((item) => {
       // Date range filter
-      if (fromDate && toDate) {
-        const itemDate = (item.payment_date || item.created_at || "").split("T")[0].split(" ")[0];
-        if (itemDate && (itemDate < fromDate || itemDate > toDate)) return false;
-      }
+      const itemDate = (item.payment_date || item.created_at || "").split("T")[0].split(" ")[0];
+      if (fromDate && itemDate && itemDate < fromDate) return false;
+      if (toDate && itemDate && itemDate > toDate) return false;
 
       // Firm filter
       if (selectedFirm !== "all" && item.company_id) {
@@ -522,47 +525,30 @@ export default function PaymentIn() {
             )}
           </div>
 
-          {/* Date Range Pill */}
-          <div className="relative">
-            <button
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition cursor-pointer"
-            >
-              <Calendar size={13} className="text-slate-400" />
-              <span>
-                {fromDate && toDate
-                  ? `${formatDateDMY(fromDate)} — ${formatDateDMY(toDate)}`
-                  : fromDate
-                  ? `${formatDateDMY(fromDate)} — End`
-                  : toDate
-                  ? `Start — ${formatDateDMY(toDate)}`
-                  : "All Dates"}
-              </span>
-            </button>
-
-            {showDatePicker && (
-              <div className="absolute left-0 mt-1.5 p-3 bg-white rounded-xl shadow-xl border border-slate-200 z-50 flex items-center gap-2 animate-in fade-in">
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-2 py-1 text-xs outline-none"
-                />
-                <span className="text-slate-400 font-bold text-xs">to</span>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-2 py-1 text-xs outline-none"
-                />
-                <button
-                  onClick={() => setShowDatePicker(false)}
-                  className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold"
-                >
-                  Apply
-                </button>
-              </div>
-            )}
+          {/* Date Range Picker */}
+          <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
+            <Calendar size={13} className="text-slate-400" />
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPeriod(e.target.value || toDate ? "custom" : "all_time");
+                setCurrentPage(1);
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
+            <span className="text-slate-400 font-bold">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPeriod(fromDate || e.target.value ? "custom" : "all_time");
+                setCurrentPage(1);
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
           </div>
 
           {/* All Firms Dropdown */}
