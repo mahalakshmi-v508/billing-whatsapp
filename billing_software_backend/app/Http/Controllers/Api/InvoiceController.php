@@ -968,35 +968,6 @@ class InvoiceController extends Controller
                         $data['ifsc_code']   = $s['ifsc_code'] ?? $s['ifscCode'] ?? '';
                         $data['upi_id']      = $s['upi_id'] ?? $s['upiId'] ?? '';
                         $data['branch_name'] = $s['branch_name'] ?? $s['branchName'] ?? '';
-
-                        // Fallback to active Terms & Conditions from Company Settings if invoice has none
-                        if (empty($data['terms_conditions']) && empty($data['terms']) && empty($data['terms_and_conditions'])) {
-                            if (!empty($s['terms_conditions']) && is_array($s['terms_conditions'])) {
-                                $vType = strtolower($data['voucher_type'] ?? 'sale');
-                                $field = match($vType) {
-                                    'credit_note' => 'applies_to_credit_note',
-                                    'estimate', 'quotation' => 'applies_to_estimate',
-                                    default => 'applies_to_sale'
-                                };
-                                $activeTexts = [];
-                                foreach ($s['terms_conditions'] as $tcItem) {
-                                    if (is_array($tcItem)) {
-                                        $isEnabled = ($tcItem['is_enabled'] ?? true) && ($tcItem['status'] ?? 'active') !== 'inactive';
-                                        $applies = !empty($tcItem[$field]) || (!empty($tcItem['applicable_to']) && (in_array($vType, (array)$tcItem['applicable_to']) || in_array('sale', (array)$tcItem['applicable_to'])));
-                                        if ($isEnabled && $applies && !empty($tcItem['text'])) {
-                                            $activeTexts[] = trim($tcItem['text']);
-                                        }
-                                    } elseif (is_string($tcItem) && trim($tcItem) !== '') {
-                                        $activeTexts[] = trim($tcItem);
-                                    }
-                                }
-                                if (!empty($activeTexts)) {
-                                    $data['terms_conditions'] = implode("\n", $activeTexts);
-                                }
-                            } elseif (!empty($s['terms_conditions']) && is_string($s['terms_conditions'])) {
-                                $data['terms_conditions'] = trim($s['terms_conditions']);
-                            }
-                        }
                     }
                 } catch (\Exception $ex) {
                     // Ignore settings merge errors
