@@ -79,7 +79,7 @@ function createNewDebitNoteTab(id, index, returnNoValue = null) {
     partyInput: "",
     selectedSupplier: null,
     supplierPhone: "",
-    returnNo: returnNoValue ? String(returnNoValue) : String(index),
+    returnNo: returnNoValue ? String(returnNoValue) : "",
     billNo: "",
     billDate: "",
     returnDate: new Date().toISOString().split("T")[0],
@@ -308,58 +308,45 @@ export default function AddDebitNote() {
     }
   };
 
+  // Fetch next return number immediately on mount in parallel
+  useEffect(() => {
+    if (isEditMode) return;
+    const cid = companyId || localStorage.getItem("selected_company_id") || user?.company_id || 0;
+    let cancelled = false;
+    api.get(`/invoice-settings/next-number?company_id=${cid || 0}&type=debit_note`)
+      .then((numRes) => {
+        if (cancelled) return;
+        if (numRes.data?.status && numRes.data?.formatted_number) {
+          updateActiveTab({ returnNo: numRes.data.formatted_number });
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching next debit note number:", err);
+      });
+    return () => { cancelled = true; };
+  }, [companyId, isEditMode]);
+
   // Load Suppliers and Products Catalog (with bulletproof fallbacks)
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
         const cid = companyId || localStorage.getItem("selected_company_id") || user?.company_id || 0;
         
-        // 1. Fetch Suppliers
-        const supRes = await api.get(`/supplier/get_all?company_id=${cid || 0}`);
-        let supsList = [];
-        if (supRes.data?.status && Array.isArray(supRes.data.data) && supRes.data.data.length > 0) {
-          supsList = supRes.data.data;
-        } else {
-          // Fallback to fetch all suppliers
-          const fallbackSup = await api.get("/supplier/get_all");
-          if (fallbackSup.data?.status && Array.isArray(fallbackSup.data.data)) {
-            supsList = fallbackSup.data.data;
-          }
-        }
-        setSuppliers(supsList);
+        // Fetch suppliers and products concurrently
+        const [supRes, prodRes, countRes] = await Promise.allSettled([
+          api.get(`/supplier/get_all?company_id=${cid || 0}`).catch(() => api.get("/supplier/get_all")),
+          api.get(`/product/get?company_id=${cid || 0}&admin_id=${adminId || 0}`).catch(() => api.get("/product/get")),
+          api.get(`/debit_note/list?company_id=${cid || 0}`)
+        ]);
 
-        // 2. Fetch Products
-        const prodRes = await api.get(`/product/get?company_id=${cid || 0}&admin_id=${adminId || 0}`);
-        let prodsList = [];
-        if (prodRes.data?.status && Array.isArray(prodRes.data.data) && prodRes.data.data.length > 0) {
-          prodsList = prodRes.data.data;
-        } else {
-          const fallbackProd = await api.get(`/product/get`);
-          if (fallbackProd.data?.status && Array.isArray(fallbackProd.data.data)) {
-            prodsList = fallbackProd.data.data;
-          }
+        if (supRes.status === "fulfilled" && supRes.value?.data?.data) {
+          setSuppliers(supRes.value.data.data);
         }
-        setProductsCatalog(prodsList);
-
-        // 3. Count & formatted number for return no from settings
-        try {
-          const numRes = await api.get(`/invoice-settings/next-number?company_id=${cid || 0}&type=debit_note`);
-          if (numRes.data?.status && numRes.data?.formatted_number) {
-            if (!isEditMode) {
-              updateActiveTab({ returnNo: numRes.data.formatted_number });
-            }
-          } else {
-            const countRes = await api.get(`/debit_note/list?company_id=${cid || 0}`);
-            const cnt = countRes.data?.count || 0;
-            setExistingCount(cnt);
-            if (!isEditMode) {
-              updateActiveTab({ returnNo: `DN-${String(cnt + 1).padStart(4, "0")}` });
-            }
-          }
-        } catch {
-          if (!isEditMode) {
-            updateActiveTab({ returnNo: "DN-0001" });
-          }
+        if (prodRes.status === "fulfilled" && prodRes.value?.data?.data) {
+          setProductsCatalog(prodRes.value.data.data);
+        }
+        if (countRes.status === "fulfilled" && countRes.value?.data?.count !== undefined) {
+          setExistingCount(countRes.value.data.count);
         }
       } catch (err) {
         console.error("Error loading catalog for Debit Note:", err);
@@ -1082,15 +1069,8 @@ export default function AddDebitNote() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">Debit Note Return #</label>
-                  <div className="relative">
-                    <Receipt size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Return #"
-                      value={activeTab.returnNo}
-                      onChange={(e) => updateActiveTab({ returnNo: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-bold text-slate-900 transition-all outline-hidden"
-                    />
+                  <div className="px-3.5 py-2 bg-rose-50/80 border border-rose-200/80 rounded-xl text-xs font-black text-rose-700 font-mono tracking-wide text-center">
+                    {activeTab.returnNo || "Auto Generated"}
                   </div>
                 </div>
 
