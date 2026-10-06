@@ -62,7 +62,7 @@ export default function DebitNoteList() {
   const [loading, setLoading] = useState(true);
 
   // Filter states
-  const [period, setPeriod] = useState("this_month");
+  const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [firmOpen, setFirmOpen] = useState(false);
@@ -97,6 +97,12 @@ export default function DebitNoteList() {
 
   // Preset Date Helper
   const setPresetDates = (type) => {
+    if (type === "custom") {
+      setPeriod("custom");
+      setPeriodOpen(false);
+      return;
+    }
+
     if (type === "all_time" || type === "all") {
       setFromDate("");
       setToDate("");
@@ -143,7 +149,7 @@ export default function DebitNoteList() {
 
   // Initial setup: preset dates, companies, and suppliers
   useEffect(() => {
-    setPresetDates("this_month");
+    setPresetDates("all_time");
 
     if (adminId) {
       api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
@@ -174,7 +180,9 @@ export default function DebitNoteList() {
     try {
       const compParam = selectedFirm !== "all" ? `&company_id=${selectedFirm}` : "";
       const supParam = selectedSupplier !== "all" ? `&supplier_id=${selectedSupplier}` : "";
-      const dateParam = fromDate && toDate ? `&from_date=${fromDate}&to_date=${toDate}` : "";
+      let dateParam = "";
+      if (fromDate) dateParam += `&from_date=${fromDate}`;
+      if (toDate) dateParam += `&to_date=${toDate}`;
       const res = await api.get(`/debit_note/list?admin_id=${adminId || 0}${compParam}${supParam}${dateParam}`);
       if (res.data?.status) {
         setDebitNotes(res.data.data || []);
@@ -200,9 +208,10 @@ export default function DebitNoteList() {
   const filteredNotes = useMemo(() => {
     return debitNotes.filter((item) => {
       // Date filter
-      if (fromDate && toDate && item.return_date) {
+      if (item.return_date) {
         const itemDate = item.return_date.split("T")[0];
-        if (itemDate < fromDate || itemDate > toDate) return false;
+        if (fromDate && itemDate < fromDate) return false;
+        if (toDate && itemDate > toDate) return false;
       }
 
       // Firm filter
@@ -447,7 +456,7 @@ export default function DebitNoteList() {
               onClick={() => setPeriodOpen(!periodOpen)}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <span>{period === "all_time" ? "All Time" : period === "this_month" ? "This Month" : period.replace("_", " ")}</span>
+              <span>{period === "all_time" ? "All Time" : period === "custom" ? "Custom Range" : period.replace("_", " ")}</span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -481,14 +490,22 @@ export default function DebitNoteList() {
             <input
               type="date"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPeriod(e.target.value || toDate ? "custom" : "all_time");
+                setCurrentPage(1);
+              }}
               className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
             />
             <span className="text-slate-400 font-bold">to</span>
             <input
               type="date"
               value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPeriod(fromDate || e.target.value ? "custom" : "all_time");
+                setCurrentPage(1);
+              }}
               className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
             />
           </div>
@@ -501,7 +518,7 @@ export default function DebitNoteList() {
             >
               <span>
                 {selectedFirm === "all"
-                  ? "All Companies"
+                  ? "All Store"
                   : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Company"}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
@@ -518,7 +535,7 @@ export default function DebitNoteList() {
                     selectedFirm === "all" ? "text-purple-600 font-bold bg-purple-50/50" : "text-slate-700"
                   }`}
                 >
-                  All Companies
+                  All Store
                 </button>
                 {companies.map((c) => (
                   <button

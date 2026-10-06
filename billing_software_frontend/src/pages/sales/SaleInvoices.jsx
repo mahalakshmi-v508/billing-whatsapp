@@ -184,7 +184,7 @@ export default function SaleInvoices() {
   const visibleColumnCount = DEFAULT_COLUMNS.filter((col) => visibleColumns[col.key]).length || 1;
 
   // Filter states — the single source of truth for the API query (req 20)
-  const [period, setPeriod] = useState("this_month");
+  const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [firmOpen, setFirmOpen] = useState(false);
@@ -192,11 +192,9 @@ export default function SaleInvoices() {
   const [userOpen, setUserOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "paid" | "unpaid" | "partial"
 
-  // Date range — seeded directly from the default preset so the first render
-  // already has a valid window (avoids a duplicate initial request).
-  const [fromDate, setFromDate] = useState(() => resolvePreset("this_month").fromDate);
-  const [toDate, setToDate] = useState(() => resolvePreset("this_month").toDate);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  // Date range — seeded directly from the default preset ("all_time" => empty strings)
+  const [fromDate, setFromDate] = useState(() => resolvePreset("all_time").fromDate);
+  const [toDate, setToDate] = useState(() => resolvePreset("all_time").toDate);
 
   // Analytics view swap (in-place like SaleOrders — keeps dropdowns intact)
   const [viewMode, setViewMode] = useState("report"); // "report" | "analytics"
@@ -222,7 +220,6 @@ export default function SaleInvoices() {
   const periodRef = useRef(null);
   const firmRef = useRef(null);
   const userRef = useRef(null);
-  const datePickerRef = useRef(null);
 
   // Helper: Format DD/MM/YYYY
   const formatDateDMY = (dateStr) => {
@@ -237,6 +234,11 @@ export default function SaleInvoices() {
 
   // Preset Date Helper — delegates to the pure resolver above.
   const setPresetDates = (type) => {
+    if (type === "custom") {
+      setPeriod("custom");
+      setPeriodOpen(false);
+      return;
+    }
     const { fromDate: f, toDate: t } = resolvePreset(type);
     setFromDate(f);
     setToDate(t);
@@ -369,10 +371,6 @@ export default function SaleInvoices() {
 
       if (userRef.current && !userRef.current.contains(e.target)) {
         setUserOpen(false);
-      }
-
-      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
-        setShowDatePicker(false);
       }
     };
 
@@ -669,7 +667,7 @@ export default function SaleInvoices() {
               }}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <span className="capitalize">{periodLabels[period] || "This Month"}</span>
+              <span className="capitalize">{periodLabels[period] || "All Time"}</span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -679,13 +677,7 @@ export default function SaleInvoices() {
                   <button
                     key={key}
                     onClick={() => {
-                      if (key === "custom") {
-                        setPeriod("custom");
-                        setPeriodOpen(false);
-                        setShowDatePicker(true);
-                      } else {
-                        setPresetDates(key);
-                      }
+                      setPresetDates(key);
                     }}
                     className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
                       period === key ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
@@ -696,6 +688,32 @@ export default function SaleInvoices() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Date Range Picker */}
+          <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
+            <Calendar size={13} className="text-slate-400" />
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPeriod(e.target.value || toDate ? "custom" : "all_time");
+                setCurrentPage(1);
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
+            <span className="text-slate-400 font-bold">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPeriod(fromDate || e.target.value ? "custom" : "all_time");
+                setCurrentPage(1);
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
           </div>
 
           {/* Firm / Company Dropdown */}
@@ -710,7 +728,7 @@ export default function SaleInvoices() {
             >
               <span>
                 {selectedFirm === "all"
-                  ? "All Branches"
+                  ? "All Store"
                   : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Branch"}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
@@ -724,7 +742,7 @@ export default function SaleInvoices() {
                     selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
-                  🏢 All Branches
+                  🏢 All Store
                 </button>
                 {companies.map((c) => (
                   <button
@@ -794,74 +812,6 @@ export default function SaleInvoices() {
                     </button>
                   ))
                 )}
-              </div>
-            )}
-          </div>
-
-          {/* Custom Date Range Picker */}
-          <div className="relative" ref={datePickerRef}>
-            <button
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
-                fromDate && toDate
-                  ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-              }`}
-            >
-              <Calendar size={13} className="text-slate-500" />
-              <span>{fromDate && toDate ? `${formatDateDMY(fromDate)} - ${formatDateDMY(toDate)}` : "Date Range"}</span>
-            </button>
-
-            {showDatePicker && (
-              <div className="absolute left-0 mt-2 p-4 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 w-72 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-xs font-bold text-slate-800">Select Custom Range</span>
-                  <button onClick={() => setShowDatePicker(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">From Date</label>
-                    <input
-                      type="date"
-                      value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
-                      className="w-full mt-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">To Date</label>
-                    <input
-                      type="date"
-                      value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
-                      className="w-full mt-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 outline-none"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    onClick={() => {
-                      setFromDate("");
-                      setToDate("");
-                      setShowDatePicker(false);
-                    }}
-                    className="px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPeriod("custom");
-                      setCurrentPage(1);
-                      setShowDatePicker(false);
-                    }}
-                    className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm cursor-pointer"
-                  >
-                    Apply
-                  </button>
-                </div>
               </div>
             )}
           </div>

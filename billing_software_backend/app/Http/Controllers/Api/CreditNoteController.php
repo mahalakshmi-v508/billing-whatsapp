@@ -39,10 +39,17 @@ class CreditNoteController extends Controller
                 $table->string('payment_type', 50)->default('cash');
                 $table->string('state_of_supply', 100)->nullable();
                 $table->text('description')->nullable();
+                $table->text('terms_and_conditions')->nullable();
                 $table->string('status', 50)->default('closed');
                 $table->tinyInteger('is_deleted')->default(0);
                 $table->timestamps();
             });
+        } elseif (!Schema::hasColumn('credit_notes', 'terms_and_conditions')) {
+            try {
+                Schema::table('credit_notes', function (Blueprint $table) {
+                    $table->text('terms_and_conditions')->nullable();
+                });
+            } catch (\Throwable $e) {}
         }
     }
 
@@ -122,8 +129,9 @@ class CreditNoteController extends Controller
         $total_amount    = floatval($request->input('total_amount', 0));
         $refund_amount   = floatval($request->input('refund_amount', 0));
         $payment_type    = trim($request->input('payment_type', 'cash'));
-        $state_of_supply = trim($request->input('state_of_supply', ''));
-        $description     = trim($request->input('description', ''));
+        $state_of_supply      = trim($request->input('state_of_supply', ''));
+        $description          = trim($request->input('description', ''));
+        $terms_and_conditions = trim($request->input('terms_and_conditions', ''));
 
         if (empty($products)) {
             return response()->json(['status' => false, 'message' => 'Please add at least one item to return.'], 400);
@@ -187,29 +195,30 @@ class CreditNoteController extends Controller
 
             // 3. Create Credit Note Record
             $creditNote = CreditNote::create([
-                'admin_id'        => $admin_id,
-                'company_id'      => $company_id,
-                'cashier_id'      => $cashier_id,
-                'return_no'       => $return_no,
-                'invoice_no'      => $invoice_no,
-                'invoice_date'    => $invoice_date,
-                'return_date'     => $return_date,
-                'customer_id'     => $customer_id > 0 ? $customer_id : null,
-                'customer_name'   => $customer_name,
-                'customer_phone'  => $customer_phone,
-                'products'        => $products,
-                'sub_total'       => $sub_total,
-                'tax_total'       => $tax_total,
-                'discount_total'  => $discount_total,
-                'round_off'       => $round_off,
-                'total_amount'    => $total_amount,
-                'refund_amount'   => $refund_amount,
-                'balance_amount'  => $balance_amount,
-                'payment_type'    => $payment_type,
-                'state_of_supply' => $state_of_supply,
-                'description'     => $description,
-                'status'          => 'closed',
-                'is_deleted'      => 0,
+                'admin_id'             => $admin_id,
+                'company_id'           => $company_id,
+                'cashier_id'           => $cashier_id,
+                'return_no'            => $return_no,
+                'invoice_no'           => $invoice_no,
+                'invoice_date'         => $invoice_date,
+                'return_date'          => $return_date,
+                'customer_id'          => $customer_id > 0 ? $customer_id : null,
+                'customer_name'        => $customer_name,
+                'customer_phone'       => $customer_phone,
+                'products'             => $products,
+                'sub_total'            => $sub_total,
+                'tax_total'            => $tax_total,
+                'discount_total'       => $discount_total,
+                'round_off'            => $round_off,
+                'total_amount'         => $total_amount,
+                'refund_amount'        => $refund_amount,
+                'balance_amount'       => $balance_amount,
+                'payment_type'         => $payment_type,
+                'state_of_supply'      => $state_of_supply,
+                'description'          => $description,
+                'terms_and_conditions' => $terms_and_conditions,
+                'status'               => 'closed',
+                'is_deleted'           => 0,
             ]);
 
             // Auto-increment credit_note_next_number in invoice_settings
@@ -255,7 +264,13 @@ class CreditNoteController extends Controller
         $query = CreditNote::where('is_deleted', 0);
 
         if ($admin_id > 0) {
-            $query->where('admin_id', $admin_id);
+            $companyIds = DB::table('companies')->where('admin_id', $admin_id)->pluck('id')->toArray();
+            $query->where(function ($q) use ($admin_id, $companyIds) {
+                $q->where('admin_id', $admin_id);
+                if (!empty($companyIds)) {
+                    $q->orWhereIn('company_id', $companyIds);
+                }
+            });
         }
         if ($company_id > 0) {
             $query->where('company_id', $company_id);
@@ -369,8 +384,9 @@ class CreditNoteController extends Controller
         $total_amount    = floatval($request->input('total_amount', 0));
         $refund_amount   = floatval($request->input('refund_amount', 0));
         $payment_type    = trim($request->input('payment_type', 'cash'));
-        $state_of_supply = trim($request->input('state_of_supply', ''));
-        $description     = trim($request->input('description', ''));
+        $state_of_supply      = trim($request->input('state_of_supply', ''));
+        $description          = trim($request->input('description', ''));
+        $terms_and_conditions = trim($request->input('terms_and_conditions', ''));
 
         if (empty($products)) {
             return response()->json(['status' => false, 'message' => 'Please add at least one item.'], 400);
@@ -414,23 +430,24 @@ class CreditNoteController extends Controller
             $balance_amount = max(0.0, $total_amount - $refund_amount);
 
             $creditNote->update([
-                'invoice_no'      => $invoice_no,
-                'invoice_date'    => $invoice_date,
-                'return_date'     => $return_date,
-                'customer_id'     => $customer_id > 0 ? $customer_id : null,
-                'customer_name'   => $customer_name,
-                'customer_phone'  => $customer_phone,
-                'products'        => $products,
-                'sub_total'       => $sub_total,
-                'tax_total'       => $tax_total,
-                'discount_total'  => $discount_total,
-                'round_off'       => $round_off,
-                'total_amount'    => $total_amount,
-                'refund_amount'   => $refund_amount,
-                'balance_amount'  => $balance_amount,
-                'payment_type'    => $payment_type,
-                'state_of_supply' => $state_of_supply,
-                'description'     => $description,
+                'invoice_no'           => $invoice_no,
+                'invoice_date'         => $invoice_date,
+                'return_date'          => $return_date,
+                'customer_id'          => $customer_id > 0 ? $customer_id : null,
+                'customer_name'        => $customer_name,
+                'customer_phone'       => $customer_phone,
+                'products'             => $products,
+                'sub_total'            => $sub_total,
+                'tax_total'            => $tax_total,
+                'discount_total'       => $discount_total,
+                'round_off'            => $round_off,
+                'total_amount'         => $total_amount,
+                'refund_amount'        => $refund_amount,
+                'balance_amount'       => $balance_amount,
+                'payment_type'         => $payment_type,
+                'state_of_supply'      => $state_of_supply,
+                'description'          => $description,
+                'terms_and_conditions' => $terms_and_conditions,
             ]);
 
             DB::commit();

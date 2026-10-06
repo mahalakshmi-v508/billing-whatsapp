@@ -370,7 +370,7 @@ export default function MainLayout() {
             { name: "Estimate / Quotation", path: "/sales/estimate-quotation", altPaths: ["/sales/estimate-quotation"] },
             { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
             { name: "Sale Return / Cr. Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
-            ...saleSubItemsFromSettings,
+            // ...saleSubItemsFromSettings,
           ],
         },
         {
@@ -496,6 +496,7 @@ export default function MainLayout() {
             {[
               { id: "general", label: "General Settings" },
               { id: "invoice-numbering", label: "Invoice Numbering" },
+              { id: "terms-conditions", label: "Terms & Conditions", icon: <FileText size={15} /> },
               { id: "print", label: "Print" },
               { id: "eway-bill", label: "E-Way Bill Integration", icon: <Truck size={15} /> },
               { id: "txn-messages", label: "WhatsApp & SMS Alerts" },

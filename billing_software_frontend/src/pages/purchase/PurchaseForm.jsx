@@ -59,14 +59,72 @@ const unitOptions = [
   "Can", "Set"
 ];
 
+/* ── Close Confirmation Modal ── */
+function CloseConfirmModal({ isOpen, onCancel, onConfirm }) {
+  if (!isOpen) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <AlertCircle size={16} />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">Close Purchase Workspace</h3>
+          </div>
+          <button
+            onClick={onCancel}
+            className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-6 text-xs text-slate-600 leading-relaxed">
+          Current unsaved changes will be discarded. Do you wish to continue and return to the purchase list?
+        </div>
+
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+          >
+            OK, Discard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PurchaseForm() {
   const navigate = useNavigate();
   const { id } = useParams(); // Draft ID if editing
 
+  const [showCloseModal, setShowCloseModal] = useState(false);
   const [companies, setCompanies] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState(
-    localStorage.getItem("selected_company_id") || ""
-  );
+  const [selectedCompany, setSelectedCompany] = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      return localStorage.getItem("selected_company_id") || (u?.company_id ? String(u.company_id) : "");
+    } catch {
+      return localStorage.getItem("selected_company_id") || "";
+    }
+  });
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [supplierName, setSupplierName] = useState("");
@@ -123,7 +181,13 @@ export default function PurchaseForm() {
       api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role || ""}`)
         .then(res => {
           if (res.data.status) {
-            setCompanies(res.data.data);
+            const list = res.data.data || [];
+            setCompanies(list);
+            setSelectedCompany(prev => {
+              if (prev) return prev;
+              const defId = localStorage.getItem("selected_company_id") || user?.company_id || (list[0] ? list[0].id : "");
+              return defId ? String(defId) : "";
+            });
           }
         })
         .catch(console.error);
@@ -295,16 +359,31 @@ export default function PurchaseForm() {
           console.error(err);
           setLoading(false);
         });
-    } else if (!id && selectedCompany) {
-      api.get(`/invoice-settings/next-number?company_id=${selectedCompany}&type=purchase_order`)
-        .then(res => {
-          if (res.data?.status && res.data?.formatted_number) {
-            setPurchaseNo(prev => prev || res.data.formatted_number);
-          }
-        })
-        .catch(() => { });
     }
-  }, [selectedCompany, id]);
+  }, [id]);
+
+  // Load Next Purchase Order / Bill Number immediately on mount or company change
+  useEffect(() => {
+    if (id) return;
+    let user = {};
+    try {
+      user = JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {}
+    const compId = selectedCompany || localStorage.getItem("selected_company_id") || user?.company_id || (companies[0] ? companies[0].id : 0);
+    if (!compId) return;
+
+    let cancelled = false;
+    api.get(`/invoice-settings/next-number?company_id=${compId}&type=purchase_order`)
+      .then(res => {
+        if (cancelled) return;
+        if (res.data?.status && res.data?.formatted_number) {
+          setPurchaseNo(res.data.formatted_number);
+        }
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [id, selectedCompany, companies]);
 
   // Run validation on local items with backend lookups
   const runBackendValidation = async (currentItems) => {
@@ -967,7 +1046,7 @@ export default function PurchaseForm() {
             {/* Close Page */}
             <button
               type="button"
-              onClick={() => navigate("/purchases")}
+              onClick={() => setShowCloseModal(true)}
               className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               title="Close Workspace"
             >
@@ -983,7 +1062,13 @@ export default function PurchaseForm() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/purchases")}
+              onClick={() => {
+                if (!isLocked && (items.length > 0 || selectedSupplier)) {
+                  setShowCloseModal(true);
+                } else {
+                  navigate("/purchases");
+                }
+              }}
               className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-xs cursor-pointer"
               title="Back to Purchases"
             >
@@ -1261,14 +1346,9 @@ export default function PurchaseForm() {
                   {/* Bill No */}
                   <div>
                     <label className="text-[11px] font-bold text-slate-600 mb-1 block">Bill / Invoice No</label>
-                    <input
-                      type="text"
-                      value={purchaseNo}
-                      disabled={isLocked}
-                      onChange={(e) => setPurchaseNo(e.target.value)}
-                      placeholder="Enter Bill No (e.g. PO-001)"
-                      className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold font-mono text-slate-900 outline-none focus:border-blue-500 disabled:bg-slate-100 transition"
-                    />
+                    <div className="px-3.5 py-2 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs font-black text-blue-700 font-mono tracking-wide text-center">
+                      {purchaseNo || "Auto Generated"}
+                    </div>
                   </div>
 
                   {/* Purchase Date */}
@@ -1803,7 +1883,13 @@ export default function PurchaseForm() {
       <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-6 py-3.5 z-30 flex items-center justify-between shadow-lg">
         <button
           type="button"
-          onClick={() => navigate("/purchases")}
+          onClick={() => {
+            if (!isLocked && (items.length > 0 || selectedSupplier)) {
+              setShowCloseModal(true);
+            } else {
+              navigate("/purchases");
+            }
+          }}
           className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
         >
           Discard / Back
@@ -2040,6 +2126,16 @@ export default function PurchaseForm() {
           </div>
         </div>
       )}
+
+      {/* Close Confirmation Dialog */}
+      <CloseConfirmModal
+        isOpen={showCloseModal}
+        onCancel={() => setShowCloseModal(false)}
+        onConfirm={() => {
+          setShowCloseModal(false);
+          navigate("/purchases");
+        }}
+      />
 
     </div>
   );

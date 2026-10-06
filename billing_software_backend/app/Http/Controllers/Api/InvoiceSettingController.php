@@ -202,42 +202,82 @@ class InvoiceSettingController extends Controller
         $seq     = max(1, intval($setting->{$seqField} ?? 1));
         $padding = max(1, intval($setting->{$paddingField} ?? 4));
 
-        // Skip existing numbers across tables
-        $checkExists = function($formattedNum) use ($type, $tableName, $columnName, $company_id) {
-            $numVariants = [
-                $formattedNum,
-                '#' . $formattedNum,
-                ltrim($formattedNum, '#')
-            ];
+        // Fetch existing numbers in a single query to avoid N+1 schema queries inside loop
+        $existingMap = [];
 
-            if ($type === 'payment_in' || $type === 'receipt') {
-                if (Schema::hasTable('payments')) {
-                    return DB::table('payments')
-                        ->when($company_id > 0 && Schema::hasColumn('payments', 'company_id'), fn($q) => $q->where('company_id', $company_id))
-                        ->where(function($q) use ($numVariants) {
-                            $q->whereIn('receipt_no', $numVariants)
-                              ->orWhereIn('invoice_no', $numVariants);
-                        })
-                        ->exists();
+        if ($type === 'payment_in' || $type === 'receipt') {
+            if (Schema::hasTable('payments')) {
+                $hasComp = Schema::hasColumn('payments', 'company_id');
+                $records = DB::table('payments')
+                    ->when($company_id > 0 && $hasComp, fn($q) => $q->where('company_id', $company_id))
+                    ->select(['receipt_no', 'invoice_no'])
+                    ->get();
+                foreach ($records as $r) {
+                    foreach ([$r->receipt_no ?? null, $r->invoice_no ?? null] as $num) {
+                        if ($num !== null && $num !== '') {
+                            $s = trim((string)$num);
+                            $clean = ltrim($s, '#');
+                            $existingMap[$s] = true;
+                            $existingMap['#' . $s] = true;
+                            $existingMap[$clean] = true;
+                            $existingMap[strtolower($s)] = true;
+                            $existingMap[strtolower($clean)] = true;
+                        }
+                    }
                 }
-            } elseif ($type === 'payment_out' || $type === 'voucher') {
-                if (Schema::hasTable('purchase_payments')) {
-                    return DB::table('purchase_payments')
-                        ->when($company_id > 0 && Schema::hasColumn('purchase_payments', 'company_id'), fn($q) => $q->where('company_id', $company_id))
-                        ->whereIn('receipt_no', $numVariants)
-                        ->exists();
-                }
-            } elseif (Schema::hasTable($tableName) && Schema::hasColumn($tableName, $columnName)) {
-                return DB::table($tableName)
-                    ->when($company_id > 0 && Schema::hasColumn($tableName, 'company_id'), fn($q) => $q->where('company_id', $company_id))
-                    ->whereIn($columnName, $numVariants)
-                    ->exists();
             }
-            return false;
-        };
+        } elseif ($type === 'payment_out' || $type === 'voucher') {
+            if (Schema::hasTable('purchase_payments')) {
+                $hasComp = Schema::hasColumn('purchase_payments', 'company_id');
+                $list = DB::table('purchase_payments')
+                    ->when($company_id > 0 && $hasComp, fn($q) => $q->where('company_id', $company_id))
+                    ->pluck('receipt_no');
+                foreach ($list as $num) {
+                    if ($num !== null && $num !== '') {
+                        $s = trim((string)$num);
+                        $clean = ltrim($s, '#');
+                        $existingMap[$s] = true;
+                        $existingMap['#' . $s] = true;
+                        $existingMap[$clean] = true;
+                        $existingMap[strtolower($s)] = true;
+                        $existingMap[strtolower($clean)] = true;
+                    }
+                }
+            }
+        } elseif (Schema::hasTable($tableName) && Schema::hasColumn($tableName, $columnName)) {
+            $hasComp = Schema::hasColumn($tableName, 'company_id');
+            $list = DB::table($tableName)
+                ->when($company_id > 0 && $hasComp, fn($q) => $q->where('company_id', $company_id))
+                ->pluck($columnName);
+            foreach ($list as $num) {
+                if ($num !== null && $num !== '') {
+                    $s = trim((string)$num);
+                    $clean = ltrim($s, '#');
+                    $existingMap[$s] = true;
+                    $existingMap['#' . $s] = true;
+                    $existingMap[$clean] = true;
+                    $existingMap[strtolower($s)] = true;
+                    $existingMap[strtolower($clean)] = true;
+                }
+            }
+        }
 
-        while ($checkExists(InvoiceSetting::formatNumber($prefix, $seq, $padding))) {
-            $seq++;
+        while (true) {
+            $candidate = InvoiceSetting::formatNumber($prefix, $seq, $padding);
+            $cleanCandidate = ltrim($candidate, '#');
+            $candLower = strtolower($candidate);
+            $cleanLower = strtolower($cleanCandidate);
+            if (
+                isset($existingMap[$candidate]) ||
+                isset($existingMap['#' . $candidate]) ||
+                isset($existingMap[$cleanCandidate]) ||
+                isset($existingMap[$candLower]) ||
+                isset($existingMap[$cleanLower])
+            ) {
+                $seq++;
+            } else {
+                break;
+            }
         }
 
         $formatted = InvoiceSetting::formatNumber($prefix, $seq, $padding);

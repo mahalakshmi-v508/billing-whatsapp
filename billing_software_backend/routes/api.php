@@ -164,6 +164,8 @@ Route::prefix('credit')->group(function () {
 Route::prefix('settings')->group(function () {
     Route::get('get', [SettingsController::class, 'get']);
     Route::post('save', [SettingsController::class, 'save']);
+    Route::get('terms', [SettingsController::class, 'getTerms']);
+    Route::post('terms', [SettingsController::class, 'saveTerms']);
 });
 
 // ── INVOICE SETTINGS ROUTES ──

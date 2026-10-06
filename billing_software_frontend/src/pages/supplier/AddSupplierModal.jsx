@@ -101,9 +101,11 @@ export default function AddSupplierModal({ isOpen, onClose, companyId, onSupplie
     setError("");
     setSuccess("");
 
-    const cId = Number(companyId || localStorage.getItem("selected_company_id"));
-    if (!cId) {
-      setError("Please select a company first.");
+    const storedCId = localStorage.getItem("selected_company_id");
+    const rawCId = companyId && companyId !== "all" ? companyId : (storedCId && storedCId !== "all" ? storedCId : null);
+    const cId = Number(rawCId);
+    if (!cId || isNaN(cId)) {
+      setError("Please select a specific company first.");
       return;
     }
 
