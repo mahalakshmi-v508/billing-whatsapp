@@ -73,7 +73,7 @@ export default function EditProductModal({ isOpen, onClose, product, onProductUp
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
-  const [form, setForm] = useState({ stock: "", price: "" });
+  const [form, setForm] = useState({ stock: "", price: "", expiry_date: "" });
 
   const set = (field, val) => setForm((p) => ({ ...p, [field]: val }));
 
@@ -82,6 +82,7 @@ export default function EditProductModal({ isOpen, onClose, product, onProductUp
       setForm({
         stock: product.stock ?? "",
         price: product.price ?? product.sale_price ?? "",
+        expiry_date: product.expiry_date ?? "",
       });
       setFetching(false);
     }
@@ -114,6 +115,7 @@ export default function EditProductModal({ isOpen, onClose, product, onProductUp
         company_id: product.company_id,
         price: form.price || product.price || 0,
         stock: form.stock,
+        expiry_date: form.expiry_date || null,
         gst_percentage: product.gst_percentage || 0,
         barcode: product.barcode || "",
         unit: product.unit || "",
@@ -242,6 +244,24 @@ export default function EditProductModal({ isOpen, onClose, product, onProductUp
                       onChange={(e) => set("price", e.target.value)}
                     />
                   </div>
+                </div>
+
+                {/* Expiry Date (Optional) */}
+                <div className="col-span-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11.5px] font-semibold text-slate-700">
+                      Expiry Date
+                    </label>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                      Optional
+                    </span>
+                  </div>
+                  <input
+                    type="date"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all cursor-pointer"
+                    value={form.expiry_date || ""}
+                    onChange={(e) => set("expiry_date", e.target.value)}
+                  />
                 </div>
               </div>
             </div>

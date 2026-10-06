@@ -9,7 +9,7 @@ import {
   ChevronRight, ChevronLeft, Star, Zap, Eye, Building2,
   CheckCircle2, AlertTriangle, ShieldAlert, RefreshCw, Pencil,
   Tag, Sparkles, TrendingUp, LayoutGrid, LayoutList, ArrowRight, Check,
-  IndianRupee, Hash, Percent, Receipt, Calendar, Info, History, DollarSign, ScanBarcode
+  IndianRupee, Hash, Percent, Receipt, Calendar, Info, History, DollarSign, ScanBarcode, Clock
 } from "lucide-react";
 import AddProductModal from "./AddProductModal";
 import EditProductModal from "./EditProductModal";
@@ -447,6 +447,23 @@ export default function ProductList() {
     return products.filter((p) => Number(p.stock || 0) > 5).length;
   }, [products]);
 
+  const isExpiringWithinMonth = (expiry_date) => {
+    if (!expiry_date) return false;
+    const parts = String(expiry_date).split("-").map(Number);
+    if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return false;
+    const expDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const thirtyDaysLater = new Date(todayStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+    thirtyDaysLater.setHours(23, 59, 59, 999);
+
+    return expDate >= todayStart && expDate <= thirtyDaysLater;
+  };
+
+  const expiringCount = useMemo(() => {
+    return products.filter((p) => (p.status ? p.status === "active" : true) && isExpiringWithinMonth(p.expiry_date)).length;
+  }, [products]);
+
   const totalInventoryValue = useMemo(() => {
     return products.reduce((s, p) => {
       const price = Number(p.purchase_price || p.price || 0);
@@ -460,6 +477,7 @@ export default function ProductList() {
       if (productFilterTab === "in_stock") return stock > 5;
       if (productFilterTab === "low_stock") return p.status === "active" && stock <= 5 && stock > 0;
       if (productFilterTab === "out_of_stock") return stock <= 0;
+      if (productFilterTab === "expire") return isExpiringWithinMonth(p.expiry_date);
       return true;
     });
   }, [filtered, productFilterTab]);
@@ -1069,13 +1087,16 @@ export default function ProductList() {
                     { id: "in_stock", label: "In Stock", count: inStockCount },
                     { id: "low_stock", label: "Low Stock Alert", count: lowStockCount },
                     { id: "out_of_stock", label: "Out of Stock", count: outOfStockCount },
+                    { id: "expire", label: "Expire", count: expiringCount },
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setProductFilterTab(tab.id)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                         productFilterTab === tab.id
-                          ? "bg-white text-indigo-600 shadow-xs"
+                          ? tab.id === "expire"
+                            ? "bg-white text-rose-600 shadow-xs"
+                            : "bg-white text-indigo-600 shadow-xs"
                           : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
@@ -1083,7 +1104,11 @@ export default function ProductList() {
                       <span
                         className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                           productFilterTab === tab.id
-                            ? "bg-indigo-50 text-indigo-700"
+                            ? tab.id === "expire"
+                              ? "bg-rose-50 text-rose-700"
+                              : "bg-indigo-50 text-indigo-700"
+                            : tab.id === "expire" && tab.count > 0
+                            ? "bg-rose-100 text-rose-700 font-bold"
                             : "bg-slate-200/70 text-slate-600"
                         }`}
                       >
@@ -1167,9 +1192,19 @@ export default function ProductList() {
                       ) : displayedProducts.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="py-16 text-center text-slate-400">
-                            <Package size={36} className="mx-auto text-slate-300 mb-2" />
-                            <p className="text-sm font-semibold text-slate-700">No products found</p>
-                            <p className="text-xs text-slate-400 mt-0.5">Try adjusting your filters or search keywords</p>
+                            {productFilterTab === "expire" ? (
+                              <>
+                                <Clock size={36} className="mx-auto text-emerald-400 mb-2" />
+                                <p className="text-sm font-semibold text-slate-700">No expiring products</p>
+                                <p className="text-xs text-slate-400 mt-0.5">All products are safe. None expiring within the next 30 days.</p>
+                              </>
+                            ) : (
+                              <>
+                                <Package size={36} className="mx-auto text-slate-300 mb-2" />
+                                <p className="text-sm font-semibold text-slate-700">No products found</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Try adjusting your filters or search keywords</p>
+                              </>
+                            )}
                           </td>
                         </tr>
                       ) : (
@@ -1208,7 +1243,7 @@ export default function ProductList() {
                                     >
                                       {p.product_name}
                                     </div>
-                                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5 flex-wrap">
                                       <span className="font-mono">{p.product_code || "No SKU"}</span>
                                       {p.category_name && (
                                         <>
@@ -1222,6 +1257,20 @@ export default function ProductList() {
                                         <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-600 font-medium">
                                           {p.brand_name}
                                         </span>
+                                      )}
+                                      {p.expiry_date && (
+                                        <>
+                                          <span>•</span>
+                                          <span
+                                            className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${
+                                              isExpiringWithinMonth(p.expiry_date)
+                                                ? "bg-rose-50 text-rose-600 border border-rose-200"
+                                                : "bg-slate-100 text-slate-600"
+                                            }`}
+                                          >
+                                            Exp: {p.expiry_date}
+                                          </span>
+                                        </>
                                       )}
                                     </div>
                                   </div>
@@ -1271,13 +1320,20 @@ export default function ProductList() {
 
                               {/* Status */}
                               <td>
-                                {isOut ? (
-                                  <StatusBadge status="danger" label="Out of Stock" size="sm" />
-                                ) : isLow ? (
-                                  <StatusBadge status="warning" label="Low Stock" size="sm" />
-                                ) : (
-                                  <StatusBadge status="success" label="In Stock" size="sm" />
-                                )}
+                                <div className="flex flex-col gap-1 items-start">
+                                  {isOut ? (
+                                    <StatusBadge status="danger" label="Out of Stock" size="sm" />
+                                  ) : isLow ? (
+                                    <StatusBadge status="warning" label="Low Stock" size="sm" />
+                                  ) : (
+                                    <StatusBadge status="success" label="In Stock" size="sm" />
+                                  )}
+                                  {isExpiringWithinMonth(p.expiry_date) && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                      <Clock size={10} /> Expiring Soon
+                                    </span>
+                                  )}
+                                </div>
                               </td>
 
                               {/* Action Buttons */}
@@ -4542,6 +4598,12 @@ export default function ProductList() {
                           {selectedProduct.brand_name}
                         </span>
                       )}
+                      {selectedProduct.expiry_date && (
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/25 text-amber-200 border border-amber-400/30 flex items-center gap-1 font-semibold">
+                          <Calendar size={11} className="text-amber-400" />
+                          Exp: {formatDate(selectedProduct.expiry_date)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -4886,6 +4948,14 @@ export default function ProductList() {
                             <span className="text-slate-500 font-medium">Min Stock Alert Level</span>
                             <span className="font-mono text-slate-800">{minStock} {selectedProduct.unit || ""}</span>
                           </div>
+                          {selectedProduct.expiry_date && (
+                            <div className="flex justify-between py-1 border-b border-slate-200/60">
+                              <span className="text-slate-500 font-medium">Expiry Date</span>
+                              <span className="font-mono font-bold text-amber-600 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded text-[11px]">
+                                {formatDate(selectedProduct.expiry_date)}
+                              </span>
+                            </div>
+                          )}
                           <div className="flex justify-between py-1 border-b border-slate-200/60">
                             <span className="text-slate-500 font-medium">Stock Value (at Cost)</span>
                             <span className="font-mono font-bold text-slate-800">₹{fmt(stockValuation)}</span>

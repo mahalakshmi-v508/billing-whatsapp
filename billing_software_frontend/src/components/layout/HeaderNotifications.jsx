@@ -17,9 +17,10 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function HeaderNotifications() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'overdue' | 'stock'
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'overdue' | 'stock' | 'expire'
   const [overdueList, setOverdueList] = useState([]);
   const [unsoldList, setUnsoldList] = useState([]);
+  const [expiringList, setExpiringList] = useState([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -50,13 +51,29 @@ export default function HeaderNotifications() {
             .then((res) => (res.data.status ? res.data.data || [] : []))
             .catch(() => [])
         );
+        promises.push(
+          api
+            .get(`/dashboard/get_expiring_products_notification?company_id=${selectedCompany}`)
+            .then((res) => (res.data.status ? res.data.data || [] : []))
+            .catch(() => [])
+        );
+      } else if (adminId) {
+        promises.push(Promise.resolve([]));
+        promises.push(
+          api
+            .get(`/dashboard/get_expiring_products_notification?admin_id=${adminId}`)
+            .then((res) => (res.data.status ? res.data.data || [] : []))
+            .catch(() => [])
+        );
       } else {
+        promises.push(Promise.resolve([]));
         promises.push(Promise.resolve([]));
       }
 
-      const [overdueRes, unsoldRes] = await Promise.all(promises);
-      setOverdueList(overdueRes);
-      setUnsoldList(unsoldRes);
+      const [overdueRes, unsoldRes, expiringRes] = await Promise.all(promises);
+      setOverdueList(overdueRes || []);
+      setUnsoldList(unsoldRes || []);
+      setExpiringList(expiringRes || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -79,7 +96,7 @@ export default function HeaderNotifications() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const totalCount = overdueList.length + unsoldList.length;
+  const totalCount = overdueList.length + unsoldList.length + expiringList.length;
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -144,11 +161,11 @@ export default function HeaderNotifications() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center bg-slate-50 border-b border-slate-100 px-3 py-1.5 gap-1.5 text-[11px] font-semibold">
+            <div className="flex items-center bg-slate-50 border-b border-slate-100 px-3 py-1.5 gap-1.5 text-[11px] font-semibold overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActiveTab("all")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                   activeTab === "all"
                     ? "bg-white text-indigo-600 shadow-xs font-bold"
                     : "text-slate-500 hover:text-slate-800"
@@ -159,7 +176,7 @@ export default function HeaderNotifications() {
               <button
                 type="button"
                 onClick={() => setActiveTab("overdue")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
                   activeTab === "overdue"
                     ? "bg-white text-rose-600 shadow-xs font-bold"
                     : "text-slate-500 hover:text-slate-800"
@@ -170,13 +187,24 @@ export default function HeaderNotifications() {
               <button
                 type="button"
                 onClick={() => setActiveTab("stock")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
                   activeTab === "stock"
                     ? "bg-white text-amber-600 shadow-xs font-bold"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
                 Stock ({unsoldList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("expire")}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
+                  activeTab === "expire"
+                    ? "bg-white text-rose-600 shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Expire ({expiringList.length})
               </button>
             </div>
 
@@ -194,11 +222,50 @@ export default function HeaderNotifications() {
                   </div>
                   <p className="text-xs font-bold text-slate-800">All clear!</p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    No overdue payments or stock warnings currently.
+                    No overdue payments, expiring items or stock warnings currently.
                   </p>
                 </div>
               ) : (
                 <>
+                  {/* Empty tab state for Expire */}
+                  {activeTab === "expire" && expiringList.length === 0 && (
+                    <div className="py-8 text-center px-4">
+                      <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2 font-bold">
+                        ✓
+                      </div>
+                      <p className="text-xs font-bold text-slate-800">No Expiring Products</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        All products are safe. None expiring within the next 30 days.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Empty tab state for Overdue */}
+                  {activeTab === "overdue" && overdueList.length === 0 && (
+                    <div className="py-8 text-center px-4">
+                      <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2 font-bold">
+                        ✓
+                      </div>
+                      <p className="text-xs font-bold text-slate-800">No Overdue Payments</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        All customer payments are up to date!
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Empty tab state for Stock */}
+                  {activeTab === "stock" && unsoldList.length === 0 && (
+                    <div className="py-8 text-center px-4">
+                      <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2 font-bold">
+                        ✓
+                      </div>
+                      <p className="text-xs font-bold text-slate-800">No Dormant Stock</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Inventory movement is healthy.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Overdue Items */}
                   {(activeTab === "all" || activeTab === "overdue") &&
                     overdueList.map((item, idx) => (
@@ -233,6 +300,90 @@ export default function HeaderNotifications() {
                         </div>
                       </div>
                     ))}
+
+                  {/* Expiring Products */}
+                  {(activeTab === "all" || activeTab === "expire") &&
+                    expiringList.map((item, idx) => {
+                      const isExpired = item.is_expired;
+                      const isToday = item.expires_today;
+                      const daysLeft = item.days_left;
+
+                      let badgeText = "";
+                      let badgeClass = "";
+                      let dueText = "";
+
+                      if (isExpired) {
+                        badgeText = "Expired";
+                        badgeClass = "bg-rose-100 text-rose-700 border-rose-200";
+                        dueText = `Expired: ${item.expiry_date} (${Math.abs(daysLeft)}d ago)`;
+                      } else if (isToday) {
+                        badgeText = "Expires Today";
+                        badgeClass = "bg-rose-100 text-rose-700 border-rose-200 font-bold animate-pulse";
+                        dueText = `Expires: Today (${item.expiry_date})`;
+                      } else {
+                        badgeText = `${daysLeft}d left`;
+                        badgeClass =
+                          daysLeft <= 7
+                            ? "bg-amber-100 text-amber-800 border-amber-200"
+                            : "bg-orange-50 text-orange-700 border-orange-200";
+                        dueText = `Expires: ${item.expiry_date} (in ${daysLeft} days)`;
+                      }
+
+                      return (
+                        <div
+                          key={`expire-${idx}`}
+                          onClick={() => {
+                            setIsOpen(false);
+                            navigate("/products");
+                          }}
+                          className="p-3 hover:bg-rose-50/40 transition cursor-pointer flex items-center justify-between gap-3 group"
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 font-bold ${
+                                isExpired || isToday
+                                  ? "bg-rose-100 text-rose-600"
+                                  : "bg-amber-100 text-amber-600"
+                              }`}
+                            >
+                              <AlertCircle size={14} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-900 truncate group-hover:text-rose-600 transition">
+                                {item.product_name}
+                              </p>
+                              <p
+                                className={`text-[10px] font-semibold ${
+                                  isExpired
+                                    ? "text-rose-600"
+                                    : isToday
+                                    ? "text-rose-500"
+                                    : "text-amber-700"
+                                }`}
+                              >
+                                {dueText}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                Stock:{" "}
+                                <strong className="text-slate-600 font-semibold">
+                                  {item.stock ?? 0} {item.unit || "units"}
+                                </strong>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-full border font-bold block mb-1 ${badgeClass}`}
+                            >
+                              {badgeText}
+                            </span>
+                            <span className="text-[10px] text-indigo-600 font-bold group-hover:underline inline-flex items-center gap-0.5">
+                              View <ChevronRight size={10} />
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
 
                   {/* Stock / Unsold Items */}
                   {(activeTab === "all" || activeTab === "stock") &&

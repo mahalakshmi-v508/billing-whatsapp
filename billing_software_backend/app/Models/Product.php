@@ -23,6 +23,7 @@ class Product extends Model
         'stock'             => 'integer',
         'sale_price_type'     => 'string',
         'purchase_price_type' => 'string',
+        'expiry_date'         => 'string',
     ];
 
     /**
