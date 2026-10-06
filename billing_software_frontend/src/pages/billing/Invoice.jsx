@@ -129,6 +129,10 @@ function getInvoiceType(invoice) {
   return getVoucherConfig(invoice).title;
 }
 
+function getPaymentMode(invoice) {
+  return String(invoice?.payment_method || invoice?.payment_type || "Cash").toUpperCase();
+}
+
 /* ─── VOUCHER LIST BACK ROUTE HELPER ─────────────────────────────────────── */
 function getVoucherBackRoute(invoice) {
   const { vType } = getVoucherConfig(invoice);
@@ -268,7 +272,7 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
   const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
-  const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
+  const paymentType = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
@@ -548,7 +552,7 @@ function ThemeGST1({ invoice, company, color, logoUrl, printSettings = {} }) {
   const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
-  const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
+  const paymentType = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
@@ -789,7 +793,7 @@ function ThemeGST3({ invoice, company, color, logoUrl, printSettings = {} }) {
   const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
-  const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
+  const paymentType = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
@@ -961,7 +965,7 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl, printSettings = {
   const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
-  const paymentType = (invoice.payment_type || invoice.payment_method || "Cash").toUpperCase();
+  const paymentType = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
@@ -1174,7 +1178,7 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
   const previousBalance = parseFloat(invoice.previous_balance) || 0;
   const currentBalance = parseFloat(invoice.current_balance) || (previousBalance + balanceAmount);
-  const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+  const paymentMethod = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
@@ -1475,7 +1479,7 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
   const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
-  const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+  const paymentMethod = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
@@ -1703,7 +1707,7 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
   const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
-  const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+  const paymentMethod = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
@@ -1961,7 +1965,7 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const totalQty = products.reduce((s, p) => s + (parseFloat(p.qty || p.quantity) || 0), 0);
-  const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+  const paymentMethod = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
@@ -2065,7 +2069,7 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
   const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
   const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
-  const paymentMethod = (invoice.payment_method || invoice.payment_type || "CASH").toUpperCase();
+  const paymentMethod = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
@@ -2655,7 +2659,7 @@ export default function InvoicePreview() {
   const shareEmail = useCallback(() => {
     const subject = encodeURIComponent(`Invoice #${invoice.invoice_no} from ${company?.company_name || "Company"}`);
     const body = encodeURIComponent(
-      `Dear ${invoice.customer_name || "Customer"},\n\nPlease find your invoice #${invoice.invoice_no} details:\nTotal Amount: ₹${invoice.total_amount}\nPayment Type: ${invoice.payment_type || "Cash"}\n\nThank you for your business!`
+      `Dear ${invoice.customer_name || "Customer"},\n\nPlease find your invoice #${invoice.invoice_no} details:\nTotal Amount: ₹${invoice.total_amount}\nPayment Type: ${getPaymentMode(invoice)}\n\nThank you for your business!`
     );
     window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
   }, [invoice, company]);
@@ -3339,7 +3343,7 @@ export default function InvoicePreview() {
                   <span>Payment</span>
                 </span>
                 <span className="font-bold text-emerald-700 uppercase tracking-wide text-[11px]">
-                  {invoice.payment_type || invoice.payment_method || "Cash"}
+                  {getPaymentMode(invoice)}
                 </span>
               </div>
 
@@ -3509,4 +3513,3 @@ export const DESIGN_COMPONENTS = {
 
 export const DESIGNS = THEMES;
 export const COLORS = PALETTE_COLORS;
-

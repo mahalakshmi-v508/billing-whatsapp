@@ -192,7 +192,7 @@ export default function HeaderQuickMenu({
 
   const handleActionClick = (path) => {
     setIsOpen(false);
-    navigate(path, path === "/billing" ? { state: { startCashBill: true, entryKey: Date.now() } } : undefined);
+    navigate(path, path === "/billing" ? { state: { entryKey: Date.now() } } : undefined);
   };
 
   return (
@@ -203,7 +203,7 @@ export default function HeaderQuickMenu({
         {(role === "admin" || role === "cashier") && (
           <button
             type="button"
-            onClick={() => navigate("/billing", { state: { startCashBill: true, entryKey: Date.now() } })}
+            onClick={() => navigate("/billing", { state: { entryKey: Date.now() } })}
             title="Fast POS Counter (Alt + B)"
             className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer shadow-xs"
           >

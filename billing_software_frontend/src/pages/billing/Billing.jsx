@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
-import AddProductModal from "../products/AddProductModal";
+import QuickAddProductModal from "../products/QuickAddProductModal";
 import {
   Search,
   Plus,
@@ -199,14 +199,14 @@ function emptyRow() {
  * two can never disagree the way they used to - previously the totals charged
  * GST on the pre-discount amount while the row display discounted first.
  *
- * GST is only charged on a gst_bill, which preserves the existing behaviour of
- * a non-GST bill showing the entered price as-is.
+ * Product GST is included in both POS bill types; the GST bill additionally
+ * carries the customer's GST registration details.
  */
 function posLineAmount(r, billType) {
   return calculateLine({
     price: Number(r.price) || 0,
     quantity: Number(r.qty) || 0,
-    gstRate: billType === "gst_bill" ? Number(r.gst) || 0 : 0,
+    gstRate: Number(r.gst) || 0,
     priceType: r.price_type,
     discount: Number(r.discount) || 0,
   });
@@ -227,7 +227,7 @@ function createFreshBill(id) {
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════ */
-export default function Billing({ startCashBill = false }) {
+export default function Billing() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
   const navigate = useNavigate();
@@ -320,7 +320,7 @@ export default function Billing({ startCashBill = false }) {
   const handleGenerateRef = useRef(null);
 
   /* ── Derived Totals ── */
-  const subtotal = rows.reduce((s, r) => s + r.price * r.qty, 0);
+  const subtotal = rows.reduce((s, r) => s + posLineAmount(r, billType).taxable, 0);
   const totalDiscount = rows.reduce((s, r) => s + (Number(r.discount) || 0), 0);
   const gstTotal = rows.reduce((s, r) => s + posLineAmount(r, billType).gst, 0);
   // Summed from the authoritative per-line totals so the amount collected can
@@ -355,19 +355,9 @@ export default function Billing({ startCashBill = false }) {
     api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
       .then((res) => {
         if (!res.data.status) return;
-        const loadedCompanies = res.data.data || [];
-        setCompanies(loadedCompanies);
-
-        const company = loadedCompanies.find((c) => String(c.id) === String(selectedCompany));
-        if (company?.gst_type === "with_gst" && !startCashBill) {
-          setBills((prev) => prev.map((bill) => (
-            bill.rows.every((row) => !row.name && !row.product_id)
-              ? { ...bill, billType: "gst_bill" }
-              : bill
-          )));
-        }
+        setCompanies(res.data.data || []);
       });
-  }, [adminId, selectedCompany, startCashBill]);
+  }, [adminId]);
 
   useEffect(() => {
     if (!selectedCompany) return;
@@ -730,6 +720,19 @@ export default function Billing({ startCashBill = false }) {
     globalSearchRef.current?.focus();
   }, [productById, showToast, setRows]);
 
+  /* Quick Add (POS) - the limited popup saved the searched product to the
+     database, so make it searchable and put it straight onto the active bill.
+     Duplicate protection is the existing POS search itself: the Quick Add card
+     only appears when the name matched nothing in the loaded catalog.
+     Deliberately does NOT touch printing. */
+  const handleQuickAddProductCreated = (savedProduct) => {
+    if (!savedProduct?.id) return;
+
+    setProducts((prev) => (prev.some((p) => p.id === savedProduct.id) ? prev : [...prev, savedProduct]));
+    addOrMergeProduct(savedProduct);
+    showToast(`"${savedProduct.product_name}" saved & added to bill`, "success");
+  };
+
   const addMultipleProducts = useCallback((itemsList) => {
     if (!itemsList || itemsList.length === 0) return;
 
@@ -1028,6 +1031,7 @@ export default function Billing({ startCashBill = false }) {
     }
     if (!selectedCompany) { showToast("Please select billing company!", "error"); return; }
 
+    const billIdToReset = activeBillId;
     setGenerating(true);
     try {
       const u = JSON.parse(localStorage.getItem("user") || "{}");
@@ -1064,15 +1068,20 @@ export default function Billing({ startCashBill = false }) {
         source: "pos",
       });
       if (res.data.status) {
+        setBills((prev) => prev.map((bill) => (
+          bill.id === billIdToReset ? createFreshBill(bill.id) : bill
+        )));
         const parts = [];
         if (res.data.advance_used > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_used))} advance used`);
         if (res.data.balance_amount > 0) parts.push(`${formatCurrency(parseFloat(res.data.balance_amount))} pending`);
         if (balance > 0 && res.data.advance_delta > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_delta))} added to advance`);
         showToast(parts.length > 0 ? `Invoice generated! ${parts.join(" · ")}` : "Invoice generated successfully!", "success");
         setTimeout(() => {
-          if (action === "print") {
-            setPrintInvoiceUrl(`/invoice/${res.data.invoice_no}?autoPrint=1&posPrint=1`);
-          } else {
+          // "Save & Print" now only saves. It deliberately no longer spins up the
+          // hidden autoPrint iframe, so no browser print dialog / preview opens.
+          // The invoice screen reached via "Save & Preview" keeps its own
+          // explicit Print button.
+          if (action === "preview") {
             navigate(`/invoice/${res.data.invoice_no}`);
           }
         }, 900);
@@ -1582,10 +1591,12 @@ export default function Billing({ startCashBill = false }) {
           </div>
         )}
 
-        <AddProductModal
+        <QuickAddProductModal
           isOpen={showProductAddModal}
           onClose={() => setShowProductAddModal(false)}
           initialProductName={quickAddProductName}
+          companyId={selectedCompany}
+          onProductAdded={handleQuickAddProductCreated}
         />
         {printInvoiceUrl && (
           <iframe
