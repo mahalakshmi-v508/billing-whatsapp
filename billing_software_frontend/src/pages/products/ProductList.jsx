@@ -14,6 +14,16 @@ import {
 import AddProductModal from "./AddProductModal";
 import EditProductModal from "./EditProductModal";
 import StatusBadge from "../../components/ui/StatusBadge";
+import {
+  LOW_STOCK_THRESHOLD,
+  getStock,
+  isInStock,
+  isLowStock,
+  isOutOfStock,
+  matchesStockTab,
+  countLowStock,
+  countByStockStatus,
+} from "../../utils/stockAlerts";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 const money = (n) =>
@@ -439,17 +449,19 @@ export default function ProductList() {
     return products.reduce((s, p) => s + Number(p.stock || 0), 0);
   }, [products]);
 
-  const lowStockCount = useMemo(() => {
-    return products.filter((p) => p.status === "active" && Number(p.stock || 0) <= 5 && Number(p.stock || 0) > 0).length;
-  }, [products]);
+  /* Thresholds come from utils/stockAlerts so this page cannot drift from the
+     dashboard tables and the header notification bell. */
+  const lowStockCount = useMemo(() => countLowStock(products), [products]);
 
-  const outOfStockCount = useMemo(() => {
-    return products.filter((p) => Number(p.stock || 0) <= 0).length;
-  }, [products]);
+  const outOfStockCount = useMemo(
+    () => countByStockStatus(products, "out_of_stock"),
+    [products]
+  );
 
-  const inStockCount = useMemo(() => {
-    return products.filter((p) => Number(p.stock || 0) > 5).length;
-  }, [products]);
+  const inStockCount = useMemo(
+    () => countByStockStatus(products, "in_stock"),
+    [products]
+  );
 
   const totalInventoryValue = useMemo(() => {
     return products.reduce((s, p) => {
@@ -459,13 +471,7 @@ export default function ProductList() {
   }, [products]);
 
   const displayedProducts = useMemo(() => {
-    return filtered.filter((p) => {
-      const stock = Number(p.stock || 0);
-      if (productFilterTab === "in_stock") return stock > 5;
-      if (productFilterTab === "low_stock") return p.status === "active" && stock <= 5 && stock > 0;
-      if (productFilterTab === "out_of_stock") return stock <= 0;
-      return true;
-    });
+    return filtered.filter((p) => matchesStockTab(p, productFilterTab));
   }, [filtered, productFilterTab]);
 
   const openProductDrawer = (p) => {
@@ -1186,10 +1192,10 @@ export default function ProductList() {
                         </tr>
                       ) : (
                         displayedProducts.map((p) => {
-                          const stock = Number(p.stock || 0);
+                          const stock = getStock(p);
                           const isChecked = selectedProductRows.includes(p.id);
-                          const isLow = stock <= 5 && stock > 0;
                           const isOut = stock <= 0;
+                          const isLow = !isOut && stock < LOW_STOCK_THRESHOLD;
 
                           return (
                             <tr key={p.id} className={isChecked ? "bg-indigo-50/40" : ""}>
@@ -1605,7 +1611,7 @@ export default function ProductList() {
                           return s + Number(p.stock || 0) * price;
                         }, 0);
                         const subcatsCount = subcategories.filter((sc) => Number(sc.category_id) === Number(c.id)).length;
-                        const lowStockInCat = catItems.filter((p) => Number(p.stock || 0) <= Number(p.min_stock_alert || 5)).length;
+                        const lowStockInCat = catItems.filter((p) => isLowStock(p)).length;
 
                         // Monogram / Initials
                         const monogram = (c.name || "C")
@@ -1852,11 +1858,7 @@ export default function ProductList() {
                           p.barcode?.toLowerCase().includes(categoryItemsSearch.toLowerCase());
                         if (!matchesSearch) return false;
 
-                        const stock = Number(p.stock || 0);
-                        if (categoryItemFilter === "in_stock") return stock > 5;
-                        if (categoryItemFilter === "low_stock") return stock <= 5 && stock > 0;
-                        if (categoryItemFilter === "out_of_stock") return stock <= 0;
-                        return true;
+                        return matchesStockTab(p, categoryItemFilter);
                       });
 
                       const totalUnits = allCatItems.reduce((s, p) => s + Number(p.stock || 0), 0);
@@ -1864,7 +1866,7 @@ export default function ProductList() {
                         const price = Number(p.purchase_price || p.price || 0);
                         return s + Number(p.stock || 0) * price;
                       }, 0);
-                      const lowStockUnits = allCatItems.filter((p) => Number(p.stock || 0) <= 5 && Number(p.stock || 0) > 0).length;
+                      const lowStockUnits = allCatItems.filter((p) => isLowStock(p)).length;
 
                       return (
                         <>
@@ -1928,7 +1930,7 @@ export default function ProductList() {
                             <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl flex-wrap">
                               {[
                                 { id: "all", label: "All Items", count: allCatItems.length },
-                                { id: "in_stock", label: "In Stock", count: allCatItems.filter((p) => Number(p.stock || 0) > 5).length },
+                                { id: "in_stock", label: "In Stock", count: allCatItems.filter((p) => isInStock(p)).length },
                                 { id: "low_stock", label: "Low Stock", count: lowStockUnits },
                                 { id: "out_of_stock", label: "Out of Stock", count: allCatItems.filter((p) => Number(p.stock || 0) <= 0).length },
                               ].map((f) => (
@@ -2003,10 +2005,9 @@ export default function ProductList() {
                             ) : categoryItemsLayout === "grid" ? (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {filteredItems.map((p) => {
-                                  const stockNum = Number(p.stock || 0);
-                                  const minStock = Number(p.min_stock_alert || 5);
-                                  const isLow = stockNum <= minStock && stockNum > 0;
-                                  const isZero = stockNum <= 0;
+                                  const stockNum = getStock(p);
+                                  const isLow = isLowStock(p);
+                                  const isZero = isOutOfStock(p);
 
                                   return (
                                     <div
@@ -2093,10 +2094,9 @@ export default function ProductList() {
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
                                     {filteredItems.map((p) => {
-                                      const stockNum = Number(p.stock || 0);
-                                      const minStock = Number(p.min_stock_alert || 5);
-                                      const isLow = stockNum <= minStock && stockNum > 0;
-                                      const isZero = stockNum <= 0;
+                                      const stockNum = getStock(p);
+                                      const isLow = isLowStock(p);
+                                      const isZero = isOutOfStock(p);
 
                                       return (
                                         <tr key={p.id} className="hover:bg-slate-50/80 transition">
@@ -2437,7 +2437,7 @@ export default function ProductList() {
                           const price = Number(p.purchase_price || p.price || 0);
                           return s + Number(p.stock || 0) * price;
                         }, 0);
-                        const lowStockInBrand = brandItems.filter((p) => Number(p.stock || 0) <= Number(p.min_stock_alert || 5)).length;
+                        const lowStockInBrand = brandItems.filter((p) => isLowStock(p)).length;
 
                         // Monogram / Initials
                         const monogram = (b.name || "B")
@@ -2680,11 +2680,7 @@ export default function ProductList() {
                           p.barcode?.toLowerCase().includes(brandItemsSearch.toLowerCase());
                         if (!matchesSearch) return false;
 
-                        const stock = Number(p.stock || 0);
-                        if (brandItemFilter === "in_stock") return stock > 5;
-                        if (brandItemFilter === "low_stock") return stock <= 5 && stock > 0;
-                        if (brandItemFilter === "out_of_stock") return stock <= 0;
-                        return true;
+                        return matchesStockTab(p, brandItemFilter);
                       });
 
                       const totalUnits = allBrandItems.reduce((s, p) => s + Number(p.stock || 0), 0);
@@ -2692,7 +2688,7 @@ export default function ProductList() {
                         const price = Number(p.purchase_price || p.price || 0);
                         return s + Number(p.stock || 0) * price;
                       }, 0);
-                      const lowStockUnits = allBrandItems.filter((p) => Number(p.stock || 0) <= 5 && Number(p.stock || 0) > 0).length;
+                      const lowStockUnits = allBrandItems.filter((p) => isLowStock(p)).length;
 
                       return (
                         <>
@@ -2756,7 +2752,7 @@ export default function ProductList() {
                             <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl flex-wrap">
                               {[
                                 { id: "all", label: "All Items", count: allBrandItems.length },
-                                { id: "in_stock", label: "In Stock", count: allBrandItems.filter((p) => Number(p.stock || 0) > 5).length },
+                                { id: "in_stock", label: "In Stock", count: allBrandItems.filter((p) => isInStock(p)).length },
                                 { id: "low_stock", label: "Low Stock", count: lowStockUnits },
                                 { id: "out_of_stock", label: "Out of Stock", count: allBrandItems.filter((p) => Number(p.stock || 0) <= 0).length },
                               ].map((f) => (
@@ -2831,10 +2827,9 @@ export default function ProductList() {
                             ) : brandItemsLayout === "grid" ? (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {filteredItems.map((p) => {
-                                  const stockNum = Number(p.stock || 0);
-                                  const minStock = Number(p.min_stock_alert || 5);
-                                  const isLow = stockNum <= minStock && stockNum > 0;
-                                  const isZero = stockNum <= 0;
+                                  const stockNum = getStock(p);
+                                  const isLow = isLowStock(p);
+                                  const isZero = isOutOfStock(p);
 
                                   return (
                                     <div
@@ -2921,10 +2916,9 @@ export default function ProductList() {
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
                                     {filteredItems.map((p) => {
-                                      const stockNum = Number(p.stock || 0);
-                                      const minStock = Number(p.min_stock_alert || 5);
-                                      const isLow = stockNum <= minStock && stockNum > 0;
-                                      const isZero = stockNum <= 0;
+                                      const stockNum = getStock(p);
+                                      const isLow = isLowStock(p);
+                                      const isZero = isOutOfStock(p);
 
                                       return (
                                         <tr key={p.id} className="hover:bg-slate-50/80 transition">
@@ -3186,7 +3180,7 @@ export default function ProductList() {
                           return s + Number(p.stock || 0) * price;
                         }, 0);
                         const lowStockInUnit = unitItems.filter(
-                          (p) => Number(p.stock || 0) <= Number(p.min_stock_alert || 5) && Number(p.stock || 0) > 0
+                          (p) => isLowStock(p)
                         ).length;
 
                         const monogram = u.short.substring(0, 4).toUpperCase();
@@ -3411,12 +3405,7 @@ export default function ProductList() {
                       );
 
                       const filteredItems = allUnitItems.filter((p) => {
-                        const stockNum = Number(p.stock || 0);
-                        const minStock = Number(p.min_stock_alert || 5);
-                        if (unitItemFilter === "in_stock") return stockNum > minStock;
-                        if (unitItemFilter === "low_stock") return stockNum <= minStock && stockNum > 0;
-                        if (unitItemFilter === "out_of_stock") return stockNum <= 0;
-                        return true;
+                        return matchesStockTab(p, unitItemFilter);
                       }).filter((p) => {
                         if (!unitItemsSearch) return true;
                         const q = unitItemsSearch.toLowerCase();
@@ -3433,7 +3422,7 @@ export default function ProductList() {
                         return s + Number(p.stock || 0) * price;
                       }, 0);
                       const lowStockUnits = allUnitItems.filter(
-                        (p) => Number(p.stock || 0) <= Number(p.min_stock_alert || 5) && Number(p.stock || 0) > 0
+                        (p) => isLowStock(p)
                       ).length;
 
                       return (
@@ -3557,7 +3546,7 @@ export default function ProductList() {
                             <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl flex-wrap">
                               {[
                                 { id: "all", label: "All Items", count: allUnitItems.length },
-                                { id: "in_stock", label: "In Stock", count: allUnitItems.filter((p) => Number(p.stock || 0) > 5).length },
+                                { id: "in_stock", label: "In Stock", count: allUnitItems.filter((p) => isInStock(p)).length },
                                 { id: "low_stock", label: "Low Stock", count: lowStockUnits },
                                 { id: "out_of_stock", label: "Out of Stock", count: allUnitItems.filter((p) => Number(p.stock || 0) <= 0).length },
                               ].map((f) => (
@@ -3632,10 +3621,9 @@ export default function ProductList() {
                             ) : unitItemsLayout === "grid" ? (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {filteredItems.map((p) => {
-                                  const stockNum = Number(p.stock || 0);
-                                  const minStock = Number(p.min_stock_alert || 5);
-                                  const isLow = stockNum <= minStock && stockNum > 0;
-                                  const isZero = stockNum <= 0;
+                                  const stockNum = getStock(p);
+                                  const isLow = isLowStock(p);
+                                  const isZero = isOutOfStock(p);
 
                                   return (
                                     <div
@@ -3722,10 +3710,9 @@ export default function ProductList() {
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
                                     {filteredItems.map((p) => {
-                                      const stockNum = Number(p.stock || 0);
-                                      const minStock = Number(p.min_stock_alert || 5);
-                                      const isLow = stockNum <= minStock && stockNum > 0;
-                                      const isZero = stockNum <= 0;
+                                      const stockNum = getStock(p);
+                                      const isLow = isLowStock(p);
+                                      const isZero = isOutOfStock(p);
 
                                       return (
                                         <tr key={p.id} className="hover:bg-slate-50/80 transition">
@@ -4483,9 +4470,9 @@ export default function ProductList() {
       {/* ─── ENHANCED PRODUCT FULL DETAILS & STOCK MOVEMENT / SALES HISTORY MODAL DRAWER ─── */}
       {showProductDrawer && selectedProduct && (() => {
         const stockNum = Number(selectedProduct.stock || 0);
-        const minStock = Number(selectedProduct.min_stock_alert || 5);
-        const isOut = stockNum <= 0;
-        const isLow = !isOut && stockNum <= minStock;
+        const minStock = LOW_STOCK_THRESHOLD;
+        const isOut = isOutOfStock(selectedProduct);
+        const isLow = isLowStock(selectedProduct);
         const salePrice = Number(selectedProduct.sale_price || selectedProduct.price || 0);
         const purchasePrice = Number(selectedProduct.purchase_price || 0);
         const marginVal = salePrice - purchasePrice;

@@ -184,6 +184,96 @@ class DashboardController extends Controller
         ]);
     }
 
+    /**
+     * Stock alert notifications.
+     *
+     * Threshold (default 10) decides the "low stock" bucket, while anything at or
+     * below zero is escalated to "out of stock" - a product can legitimately hold a
+     * negative quantity when sales exceed the recorded stock, so `<= 0` is used
+     * instead of `= 0` to catch both.
+     *
+     * Accepts either company_id (single branch) or admin_id (all branches of an
+     * admin, matching the behaviour of the overdue notification endpoint).
+     */
+    public function getStockAlertNotifications(Request $request)
+    {
+        $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        $admin_id = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+        $threshold = intval($request->input('threshold') ?: $request->query('threshold', 10));
+
+        if ($threshold < 0) {
+            $threshold = 10;
+        }
+
+        if (!$company_id && !$admin_id) {
+            return response()->json([
+                "status" => false,
+                "message" => "Company ID or Admin ID required"
+            ]);
+        }
+
+        $query = DB::table('products as p')
+            ->leftJoin('companies as c', 'c.id', '=', 'p.company_id')
+            ->where('p.is_deleted', 0)
+            ->where('p.status', 'active')
+            ->whereNotNull('p.stock')
+            ->where('p.stock', '<', $threshold);
+
+        if ($company_id > 0) {
+            $query->where('p.company_id', $company_id);
+        } else {
+            $query->where('c.admin_id', $admin_id);
+        }
+
+        $rows = $query
+            ->select('p.id', 'p.product_name', 'p.product_code', 'p.stock', 'p.unit', 'p.price', 'p.sale_price', 'p.company_id', 'c.company_name')
+            // Out of stock first (worst offenders on top), then the lowest quantities.
+            ->orderBy('p.stock', 'asc')
+            ->orderBy('p.product_name', 'asc')
+            ->get();
+
+        $data = [];
+        $outOfStock = 0;
+        $lowStock = 0;
+
+        foreach ($rows as $row) {
+            $stock = intval($row->stock);
+            $isOutOfStock = $stock <= 0;
+
+            if ($isOutOfStock) {
+                $outOfStock++;
+            } else {
+                $lowStock++;
+            }
+
+            $data[] = [
+                "id"             => $row->id,
+                "product_name"   => $row->product_name,
+                "product_code"   => $row->product_code,
+                "stock"          => $stock,
+                "unit"           => $row->unit,
+                "price"          => floatval($row->price),
+                "sale_price"     => floatval($row->sale_price),
+                "company_id"     => $row->company_id,
+                "company_name"   => $row->company_name,
+                "alert_type"     => $isOutOfStock ? "out_of_stock" : "low_stock",
+                "alert_label"    => $isOutOfStock ? "Out of Stock" : "Low Stock",
+                "threshold"      => $threshold,
+            ];
+        }
+
+        return response()->json([
+            "status" => true,
+            "count" => count($data),
+            "threshold" => $threshold,
+            "summary" => [
+                "out_of_stock" => $outOfStock,
+                "low_stock"    => $lowStock,
+            ],
+            "data" => $data
+        ]);
+    }
+
     public function getUnsoldProductsNotification(Request $request)
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
