@@ -193,6 +193,10 @@ function emptyRow() {
   return { product_id: null, name: "", product_code: "", price: 0, qty: 0, discount: 0, freeQty: 0, gst: 0, price_type: "without_gst", unit: "", stock: 0, isUnlisted: false };
 }
 
+function isValidGstin(value) {
+  return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(value);
+}
+
 /**
  * The single POS line calculation. Both the row display (rowAmount) and the
  * bill totals (subtotal/gstTotal/total) go through this one function, so the
@@ -216,7 +220,7 @@ function createFreshBill(id) {
   return {
     id,
     rows: [emptyRow()],
-    customer: { id: null, name: "", phone: "", address: "", gst_no: "", credit_enabled: "0", credit_limit: 0, points: 0, advance_balance: 0, pending_amount: 0 },
+    customer: { id: null, name: "", phone: "", address: "", gst_no: "", gst_no_locked: false, credit_enabled: "0", credit_limit: 0, points: 0, advance_balance: 0, pending_amount: 0 },
     billType: "cash_bill",
     paymentMethod: "cash",
     payment: { received: 0 },
@@ -871,6 +875,7 @@ export default function Billing() {
       phone: c.phone,
       address: c.address || "",
       gst_no: c.gst_no || "",
+      gst_no_locked: Boolean(c.gst_no),
       credit_enabled: c.credit_enabled || "0",
       credit_limit: c.credit_limit || 0,
       points: c.loyalty_points || 0,
@@ -890,6 +895,7 @@ export default function Billing() {
         phone: fresh.phone,
         address: fresh.address || "",
         gst_no: fresh.gst_no || "",
+        gst_no_locked: Boolean(fresh.gst_no),
         credit_enabled: fresh.credit_enabled || "0",
         credit_limit: fresh.credit_limit || 0,
         points: pts,
@@ -1004,15 +1010,32 @@ export default function Billing() {
 
   /* ══ INVOICE GENERATION ══ */
   const saveOrGetCustomer = async () => {
+    const gstNo = billType === "gst_bill" ? customer.gst_no?.trim() || "" : "";
+    if (customer.id && gstNo) {
+      const res = await api.post("/customer/customer_save", {
+        admin_id: adminId,
+        customer_id: customer.id,
+        gst_no: gstNo,
+      });
+      if (res.data.status) {
+        setCustomer((current) => ({ ...current, gst_no_locked: true }));
+        return customer.id;
+      }
+      throw new Error(res.data.message || "Failed to update customer GSTIN");
+    }
     if (customer.id) return customer.id;
+
     const res = await api.post("/customer/customer_save", {
       company_id: selectedCompany,
       admin_id: adminId,
       name: customer.name || "Customer",
       phone: customer.phone,
-      gst_no: billType === "gst_bill" ? customer.gst_no : "",
+      gst_no: gstNo,
     });
-    if (res.data.status) return res.data.customer_id;
+    if (res.data.status) {
+      if (gstNo) setCustomer((current) => ({ ...current, gst_no_locked: true }));
+      return res.data.customer_id;
+    }
     throw new Error(res.data.message || "Failed to save customer");
   };
 
@@ -1020,6 +1043,10 @@ export default function Billing() {
     if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
     if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
     if (billType === "gst_bill" && !customer.gst_no.trim()) { showToast("GST Number is mandatory for GST Bill!", "error"); return; }
+    if (billType === "gst_bill" && !isValidGstin(customer.gst_no.trim().toUpperCase())) {
+      showToast("Enter a valid 15-character GSTIN (e.g. 22ABCDE1234F1Z5).", "error");
+      return;
+    }
     if (validRows.length === 0) { showToast("Add at least one product to the invoice!", "error"); return; }
     if (paymentMethod !== "credit" && received <= 0 && advanceUsed < total) { showToast("Enter received payment amount!", "error"); return; }
     if (paymentMethod === "credit" && Number(customer.credit_enabled) === 1) {
@@ -1068,26 +1095,31 @@ export default function Billing() {
         source: "pos",
       });
       if (res.data.status) {
-        setBills((prev) => prev.map((bill) => (
-          bill.id === billIdToReset ? createFreshBill(bill.id) : bill
-        )));
         const parts = [];
         if (res.data.advance_used > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_used))} advance used`);
         if (res.data.balance_amount > 0) parts.push(`${formatCurrency(parseFloat(res.data.balance_amount))} pending`);
         if (balance > 0 && res.data.advance_delta > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_delta))} added to advance`);
-        showToast(parts.length > 0 ? `Invoice generated! ${parts.join(" · ")}` : "Invoice generated successfully!", "success");
-        setTimeout(() => {
-          // "Save & Print" now only saves. It deliberately no longer spins up the
-          // hidden autoPrint iframe, so no browser print dialog / preview opens.
-          // The invoice screen reached via "Save & Preview" keeps its own
-          // explicit Print button.
-          if (action === "preview") {
-            navigate(`/invoice/${res.data.invoice_no}`);
+        const successMsg = parts.length > 0 ? `Invoice generated! ${parts.join(" · ")}` : "Invoice generated successfully!";
+        setGenerating(false);
+        if (action === "preview") {
+          const invoiceRef = res.data.invoice_no || res.data.invoice_id;
+          if (invoiceRef) {
+            navigate(`/invoice/${encodeURIComponent(String(invoiceRef))}`, {
+              state: { flash: successMsg, flashType: "success" },
+            });
+          } else {
+            showToast("Invoice saved, but no invoice number was returned!", "error");
           }
-        }, 900);
-      } else {
-        showToast(res.data.message || "Something went wrong", "error");
+          return;
+        }
+
+        setBills((prev) => prev.map((bill) => (
+          bill.id === billIdToReset ? createFreshBill(bill.id) : bill
+        )));
+        showToast(successMsg, "success");
+        return;
       }
+      showToast(res.data.message || "Something went wrong", "error");
     } catch (err) {
       showToast(err.message || "Server error. Please try again!", "error");
     }
@@ -2032,18 +2064,25 @@ export default function Billing() {
                     placeholder="22ABCDE1234F1Z5"
                     value={customer.gst_no ?? ""}
                     maxLength={15}
+                    disabled={customer.gst_no_locked}
                     onChange={(e) => setCustomer((c) => ({ ...c, gst_no: e.target.value.toUpperCase() }))}
-                    className={`w-full px-3 py-1.5 border rounded-xl text-xs font-bold font-mono uppercase tracking-wider focus:outline-none focus:bg-white ${
-                      customer.gst_no?.trim()
-                        ? "bg-emerald-50 border-emerald-300 text-emerald-900"
-                        : "bg-slate-50 border-amber-300 text-slate-900"
+                    className={`w-full px-3 py-1.5 border rounded-xl text-xs font-bold font-mono uppercase tracking-wider focus:outline-none focus:bg-white disabled:cursor-not-allowed disabled:opacity-75 ${
+                      customer.gst_no_locked
+                        ? "bg-slate-100 border-slate-300 text-slate-700"
+                        : customer.gst_no?.trim()
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                          : "bg-slate-50 border-amber-300 text-slate-900"
                     }`}
                   />
-                  {!customer.gst_no?.trim() && (
+                  {customer.gst_no_locked ? (
+                    <p className="mt-1 text-[10.5px] font-semibold text-slate-500">
+                      GSTIN on file cannot be changed.
+                    </p>
+                  ) : !customer.gst_no?.trim() ? (
                     <p className="mt-1 text-[10.5px] font-semibold text-amber-700">
                       No GSTIN on file — enter one to raise a GST Bill.
                     </p>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>

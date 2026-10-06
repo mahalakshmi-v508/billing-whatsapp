@@ -2366,6 +2366,18 @@ export default function InvoicePreview() {
     }, 3500);
   }, []);
 
+  /* Success flash handed over by the POS "Save & Preview" action, so the
+     confirmation still appears even though billing navigates here instantly. */
+  const flashConsumed = useRef(false);
+  useEffect(() => {
+    if (flashConsumed.current) return;
+    flashConsumed.current = true;
+    const flash = location.state?.flash;
+    if (!flash) return;
+    const t = setTimeout(() => showToast(flash, location.state?.flashType || "success"), 0);
+    return () => clearTimeout(t);
+  }, [location.state, showToast]);
+
   /* Insert Print CSS */
   useEffect(() => {
     const s = document.createElement("style");

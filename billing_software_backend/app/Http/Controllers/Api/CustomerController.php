@@ -14,6 +14,11 @@ use Illuminate\Support\Str;
 
 class CustomerController extends Controller
 {
+    private function isValidGstin(string $gstin): bool
+    {
+        return preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/', $gstin) === 1;
+    }
+
     public function createCustomer(Request $request)
     {
         $admin_id       = intval($request->input('admin_id', 0));
@@ -26,7 +31,7 @@ class CustomerController extends Controller
         $credit_enabled = intval($request->input('credit_enabled', 0));
         $credit_limit   = floatval($request->input('credit_limit', 0.00));
         $credit_days    = intval($request->input('credit_days', 0));
-        $gst_no         = trim($request->input('gst_no', ''));
+        $gst_no         = strtoupper(trim($request->input('gst_no', '')));
         $account_number = trim($request->input('account_number', ''));
         $pan_number     = trim($request->input('pan_number', ''));
         $date_of_birth  = $request->input('date_of_birth', null);
@@ -49,6 +54,13 @@ class CustomerController extends Controller
 
         if (!$admin_id || !$phone) {
             return response()->json(["status" => false, "message" => "Required fields missing"]);
+        }
+
+        if ($gst_no !== '' && !$this->isValidGstin($gst_no)) {
+            return response()->json([
+                "status" => false,
+                "message" => "Invalid GSTIN. Use the 15-character format, for example 22ABCDE1234F1Z5."
+            ], 422);
         }
 
         $check = Customer::where('phone', $phone)
@@ -100,14 +112,57 @@ class CustomerController extends Controller
     public function customerSave(Request $request)
     {
         $admin_id   = intval($request->input('admin_id', 0));
+        $customer_id = intval($request->input('customer_id', 0));
         $name       = trim($request->input('name', ''));
         $phone      = trim($request->input('phone', ''));
         $address    = trim($request->input('address', ''));
         $type       = trim($request->input('type', 'B2C'));
+        $gst_no     = strtoupper(trim($request->input('gst_no', '')));
 
         if ($name == "") { $name = "Customer"; }
 
-        if (!$admin_id || !preg_match('/^[0-9]{10}$/', $phone)) {
+        if (!$admin_id) {
+            return response()->json(["status" => false, "message" => "Invalid customer data"]);
+        }
+
+        if ($gst_no !== '' && !$this->isValidGstin($gst_no)) {
+            return response()->json([
+                "status" => false,
+                "message" => "Invalid GSTIN. Use the 15-character format, for example 22ABCDE1234F1Z5."
+            ], 422);
+        }
+
+        if ($customer_id > 0) {
+            $customer = Customer::where('id', $customer_id)
+                ->where('admin_id', $admin_id)
+                ->where('is_deleted', 0)
+                ->first();
+
+            if (!$customer) {
+                return response()->json(["status" => false, "message" => "Customer not found"]);
+            }
+
+            if ($gst_no !== '') {
+                $savedGstNo = strtoupper(trim((string) $customer->gst_no));
+                if ($savedGstNo !== '' && $savedGstNo !== $gst_no) {
+                    return response()->json([
+                        "status" => false,
+                        "message" => "This customer already has a GSTIN on file and it cannot be changed."
+                    ], 422);
+                }
+                if ($savedGstNo === '') {
+                    $customer->update(['gst_no' => $gst_no]);
+                }
+            }
+
+            return response()->json([
+                "status"      => true,
+                "customer_id" => $customer->id,
+                "is_new"      => false
+            ]);
+        }
+
+        if (!preg_match('/^[0-9]{10}$/', $phone)) {
             return response()->json(["status" => false, "message" => "Invalid customer data"]);
         }
 
@@ -117,11 +172,23 @@ class CustomerController extends Controller
             ->first();
 
         if ($customer) {
-            $customer->update([
+            $savedGstNo = strtoupper(trim((string) $customer->gst_no));
+            if ($gst_no !== '' && $savedGstNo !== '' && $savedGstNo !== $gst_no) {
+                return response()->json([
+                    "status" => false,
+                    "message" => "This customer already has a GSTIN on file and it cannot be changed."
+                ], 422);
+            }
+
+            $updates = [
                 'name' => $name,
                 'address' => $address,
                 'type' => $type
-            ]);
+            ];
+            if ($gst_no !== '' && $savedGstNo === '') {
+                $updates['gst_no'] = $gst_no;
+            }
+            $customer->update($updates);
 
             return response()->json([
                 "status"      => true,
@@ -138,6 +205,7 @@ class CustomerController extends Controller
                 'credit_enabled' => 0,
                 'credit_limit' => 0,
                 'credit_days' => 0,
+                'gst_no' => $gst_no ?: null,
                 'is_deleted' => 0,
                 'created_at' => now()
             ]);
@@ -281,7 +349,7 @@ class CustomerController extends Controller
         $credit_enabled = intval($request->input('credit_enabled', 0));
         $credit_limit   = floatval($request->input('credit_limit', 0.00));
         $credit_days    = intval($request->input('credit_days', 0));
-        $gst_no         = trim($request->input('gst_no', ''));
+        $gst_no         = strtoupper(trim($request->input('gst_no', '')));
         $account_number = trim($request->input('account_number', ''));
         $pan_number     = trim($request->input('pan_number', ''));
         $date_of_birth  = $request->input('date_of_birth', null);
@@ -308,6 +376,20 @@ class CustomerController extends Controller
         $existingCustomer = Customer::find($id);
         if (!$existingCustomer) {
             return response()->json(["status" => false, "message" => "Customer not found"]);
+        }
+
+        $savedGstNo = strtoupper(trim((string) $existingCustomer->gst_no));
+        if ($gst_no !== '' && $gst_no !== $savedGstNo && !$this->isValidGstin($gst_no)) {
+            return response()->json([
+                "status" => false,
+                "message" => "Invalid GSTIN. Use the 15-character format, for example 22ABCDE1234F1Z5."
+            ], 422);
+        }
+        if ($savedGstNo !== '' && $gst_no !== $savedGstNo) {
+            return response()->json([
+                "status" => false,
+                "message" => "This customer already has a GSTIN on file and it cannot be changed."
+            ], 422);
         }
 
         $duplicatePhone = Customer::where('phone', $phone)
@@ -341,7 +423,7 @@ class CustomerController extends Controller
             'credit_enabled' => $credit_enabled,
             'credit_limit' => $credit_limit,
             'credit_days' => $credit_days,
-            'gst_no' => $gst_no ?: null,
+            'gst_no' => $savedGstNo ?: ($gst_no ?: null),
             'account_number' => $account_number ?: null,
             'pan_number' => $pan_number ?: null,
             'date_of_birth' => $date_of_birth ?: null,
