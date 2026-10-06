@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Plus,
+  Calendar,
   Save,
 } from "lucide-react";
 
@@ -83,6 +84,8 @@ export default function AddProductModal({
   onProductUpdated,
   product = null,
   initialProductName = "",
+  initialName = "",
+  companyId = "",
 }) {
   const { toasts, show, remove } = useToast();
   const [loading, setLoading] = useState(false);
@@ -101,13 +104,14 @@ export default function AddProductModal({
   const [brands, setBrands] = useState([]);
   const [brandLoading, setBrandLoading] = useState(false);
 
-  const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
+  const getCompanyId = () => Number(companyId || localStorage.getItem("selected_company_id") || 0);
 
   const [form, setForm] = useState({
     name: "",
     product_code: "",
     price: "",
     stock: "",
+    expiry_date: "",
     gst: "",
     barcode: "",
     unit: "",
@@ -219,10 +223,11 @@ export default function AddProductModal({
     if (isOpen) {
       let cancelled = false;
       const emptyForm = {
-          name: initialProductName,
+          name: initialProductName || initialName || "",
           product_code: "",
           price: "",
           stock: "",
+          expiry_date: "",
           gst: "",
           barcode: "",
           unit: "",
@@ -300,7 +305,7 @@ export default function AddProductModal({
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, product?.id, initialProductName]);
+  }, [isOpen, product?.id, initialProductName, initialName]);
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);
@@ -353,6 +358,7 @@ export default function AddProductModal({
         purchase_price: form.purchase_price || 0,
         purchase_price_type: form.purchase_price_type || "without_gst",
         stock: form.stock,
+        expiry_date: form.expiry_date || null,
         gst_percentage: gstEnabled ? Number(form.gst) || 0 : 0,
         gst_enabled: gstEnabled,
         barcode: form.barcode.trim(),
@@ -394,11 +400,21 @@ export default function AddProductModal({
 
       if (res.data.status) {
         show("success", isEditing ? "Product Updated!" : "Product Added!", `"${form.name}" ${isEditing ? "has been updated" : "has been created"} successfully.`);
+        const createdProduct = res.data.data || {
+          product_name: form.name.trim(),
+          name: form.name.trim(),
+          price: Number(form.sale_price || 0),
+          sale_price: form.sale_price || 0,
+          stock: form.stock,
+          unit: form.unit.trim(),
+          gst_percentage: gstEnabled ? Number(form.gst) || 0 : 0,
+          product_code: form.product_code.trim(),
+        };
         setTimeout(() => {
-          if (isEditing) onProductUpdated && onProductUpdated(res.data.data);
-          else onProductAdded && onProductAdded(res.data.data);
+          if (isEditing) onProductUpdated && onProductUpdated(res.data.data || createdProduct);
+          else onProductAdded && onProductAdded(createdProduct);
           onClose();
-        }, 800);
+        }, 500);
       } else {
         show("error", "Failed", res.data.message || "Something went wrong.");
       }
@@ -572,7 +588,7 @@ export default function AddProductModal({
                 <div className="flex-1 h-px bg-slate-100 ml-2" />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Sale Price - "With/Without GST" mode is independent of the
                     Purchase Price mode below. */}
                 <PriceWithGstInput
@@ -606,6 +622,26 @@ export default function AddProductModal({
                     value={form.stock}
                     onChange={(e) => set("stock", e.target.value)}
                   />
+                </div>
+
+                {/* Expiry Date (Optional) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11.5px] font-semibold text-slate-700">
+                      Expiry Date
+                    </label>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                      Optional
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all cursor-pointer"
+                      value={form.expiry_date}
+                      onChange={(e) => set("expiry_date", e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

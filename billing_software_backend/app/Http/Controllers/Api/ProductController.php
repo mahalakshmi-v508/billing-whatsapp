@@ -29,6 +29,7 @@ class ProductController extends Controller
         $supplier_id    = intval($request->input('supplier_id', 0));
         $sale_price     = floatval($request->input('sale_price', 0));
         $purchase_price = floatval($request->input('purchase_price', 0));
+        $expiry_date    = !empty($request->input('expiry_date')) ? $request->input('expiry_date') : null;
         $gst_enabled    = $request->has('gst_enabled')
             ? $request->boolean('gst_enabled')
             : $gst_percentage > 0;
@@ -117,6 +118,7 @@ class ProductController extends Controller
             'sale_price_type' => $sale_price_type,
             'purchase_price_type' => $purchase_price_type,
             'stock' => $stock,
+            'expiry_date' => $expiry_date,
             'barcode' => $barcode ?: null,
             'unit' => $unit ?: null,
             'gst_percentage' => $gst_percentage,
@@ -274,6 +276,8 @@ class ProductController extends Controller
                 'p.purchase_price',
                 'p.sale_price_type',
                 'p.purchase_price_type',
+                'p.stock',
+                'p.expiry_date',
                 'p.unit',
                 'p.gst_percentage',
                 'p.category_id',
@@ -350,6 +354,10 @@ class ProductController extends Controller
         }
         if ($request->has('gst_enabled')) {
             $updateData['gst_enabled'] = $request->boolean('gst_enabled');
+        }
+
+        if ($request->has('expiry_date')) {
+            $updateData['expiry_date'] = !empty($request->input('expiry_date')) ? $request->input('expiry_date') : null;
         }
 
         if ($updateData) {

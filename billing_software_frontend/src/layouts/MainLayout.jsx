@@ -28,6 +28,7 @@ import {
   ClipboardList,
   Building,
   Headset,
+  History,
   MessageCircle,
   ChevronDown,
   ChevronLeft,
@@ -54,6 +55,7 @@ import {
   Wallet,
 } from "lucide-react";
 import HeaderQuickMenu from "../components/layout/HeaderQuickMenu";
+import AuditLogButton from "../components/audit/AuditLogButton";
 import HeaderNotifications from "../components/layout/HeaderNotifications";
 import HeaderUserDropdown from "../components/layout/HeaderUserDropdown";
 
@@ -102,6 +104,9 @@ function getHeaderBreadcrumbs(pathname) {
   }
   if (pathname.startsWith("/reports")) {
     return { section: "Compliance & Audit", title: "Financial Reports Hub", icon: BarChart3 };
+  }
+  if (pathname.startsWith("/audit-log")) {
+    return { section: "Compliance & Audit", title: "Audit Log", icon: History };
   }
   if (pathname.startsWith("/company")) {
     return { section: "Administration", title: "Company Settings", icon: Building2 };
@@ -370,7 +375,7 @@ export default function MainLayout() {
             { name: "Estimate / Quotation", path: "/sales/estimate-quotation", altPaths: ["/sales/estimate-quotation"] },
             { name: "Payment-In", path: "/sales/payment-in", altPaths: ["/payment-pending", "/sales/payment-in"] },
             { name: "Sale Return / Cr. Note", path: "/sales/credit-note", altPaths: ["/sales/credit-note", "/sales/credit-note/add", "/sales/credit-note/edit"] },
-            ...saleSubItemsFromSettings,
+            // ...saleSubItemsFromSettings,
           ],
         },
         {
@@ -430,7 +435,10 @@ export default function MainLayout() {
       ]
       : []),
 
-    // SUPPORT / HELPDESK (LAST ITEM COMMON FOR ALL ROLES)
+    // AUDIT LOG + SUPPORT (COMMON FOR ALL ROLES)
+    // Placed outside the role-specific blocks so every role that the route
+    // allows (admin, cashier, superadmin, developer) can reach it.
+    { name: "Audit Log", path: "/audit-log", icon: <History size={18} /> },
     { name: "Support", path: "/helpdesk", icon: <Headset size={18} /> },
   ];
 
@@ -496,6 +504,7 @@ export default function MainLayout() {
             {[
               { id: "general", label: "General Settings" },
               { id: "invoice-numbering", label: "Invoice Numbering" },
+              { id: "terms-conditions", label: "Terms & Conditions", icon: <FileText size={15} /> },
               { id: "print", label: "Print" },
               { id: "eway-bill", label: "E-Way Bill Integration", icon: <Truck size={15} /> },
               { id: "txn-messages", label: "WhatsApp & SMS Alerts" },
@@ -882,6 +891,9 @@ export default function MainLayout() {
 
             {/* Notification Bell with Badge & Dropdown */}
             <HeaderNotifications />
+
+            {/* Global Audit Log (every page). Hidden when disabled in Settings. */}
+            <AuditLogButton />
 
             {/* User Profile & Account Dropdown */}
             <HeaderUserDropdown />

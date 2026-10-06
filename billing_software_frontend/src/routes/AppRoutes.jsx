@@ -74,6 +74,7 @@ import SubcategoryForm from "../pages/subcategory/Subcategoryform ";
 import SubcategoryList from "../pages/subcategory/Subcategorylist";
 import EditSubcategory from "../pages/subcategory/Editsubcategory";
 import Profile from "../pages/profile/profile";
+import AuditLog from "../pages/audit/AuditLog";
 import ForgotPassword from "../pages/auth/ForgotPassword";
 import RegisterCompany from "../pages/auth/registercompany";
 import PaymentPending from "../pages/reports/PaymentPending";
@@ -245,6 +246,9 @@ export default function AppRoutes() {
             <Route path="/change-password" element={<ChangePassword />} />
             <Route path="/payment-pending" element={<PaymentPending />} />
             <Route path="/paymentpending-history" element={<PaymentPendingHistory />} />
+
+            {/* Global Audit Log */}
+            <Route path="/audit-log" element={<AuditLog />} />
             
             {/* Helpdesk */}
             <Route path="/helpdesk" element={<TicketList />} />

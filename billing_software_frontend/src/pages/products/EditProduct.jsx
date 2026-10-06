@@ -753,6 +753,7 @@ export default function EditProduct() {
     purchase_price: "",
     purchase_price_type: "without_gst",
     stock: "",
+    expiry_date: "",
     gst: "",
     barcode: "",
     category_id: "",
@@ -966,6 +967,7 @@ export default function EditProduct() {
           purchase_price: p.purchase_price ?? "",
           purchase_price_type: normalisePriceType(p.purchase_price_type),
           stock: p.stock,
+          expiry_date: p.expiry_date || "",
           gst: p.gst_percentage || "",
           barcode: p.barcode || "",
           category_id: p.category_id ? String(p.category_id) : "",
@@ -1052,6 +1054,7 @@ export default function EditProduct() {
         purchase_price: form.purchase_price || 0,
         purchase_price_type: form.purchase_price_type || "without_gst",
         stock: form.stock,
+        expiry_date: form.expiry_date || null,
         gst_percentage: gstEnabled ? form.gst : "",
         barcode: form.barcode,
         unit: form.unit
@@ -1567,6 +1570,22 @@ export default function EditProduct() {
                     </div>
                 }
               </div>
+            </div>
+
+            <div className="ep-field" style={{marginTop:"0.75rem"}}>
+              <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px"}}>
+                <label className="ep-label" style={{marginBottom:0}}>Expiry Date</label>
+                <span style={{fontSize:"10px", fontWeight:"700", color:"#64748b", background:"#f1f5f9", padding:"2px 6px", borderRadius:"4px"}}>Optional</span>
+              </div>
+              {fetching
+                ? <div className="ep-skel" />
+                : <div className="ep-input-wrap">
+                    <span className="ep-input-icon">📅</span>
+                    <input type="date" className="ep-input"
+                      value={form.expiry_date || ""}
+                      onChange={e => set("expiry_date", e.target.value)} />
+                  </div>
+              }
             </div>
 
             <div className="ep-field">

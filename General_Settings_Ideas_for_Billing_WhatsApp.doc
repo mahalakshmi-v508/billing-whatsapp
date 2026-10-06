@@ -1,0 +1,261 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset="utf-8">
+  <title>General Settings Feature Ideas - Billing & WhatsApp ERP</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    @page Section1 {
+      size: 8.27in 11.69in; /* A4 size */
+      margin: 1.0in 1.0in 1.0in 1.0in;
+      mso-header-margin: .5in;
+      mso-footer-margin: .5in;
+      mso-paper-source: 0;
+    }
+    div.Section1 { page: Section1; }
+    body {
+      font-family: 'Segoe UI', 'Calibri', 'Nirmala UI', 'Latha', Arial, sans-serif;
+      font-size: 11.5pt;
+      line-height: 1.6;
+      color: #1e293b;
+      background-color: #ffffff;
+    }
+    h1 {
+      font-size: 22pt;
+      color: #1e3a8a;
+      border-bottom: 2.5pt solid #2563eb;
+      padding-bottom: 6px;
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-weight: 800;
+    }
+    h2 {
+      font-size: 15pt;
+      color: #1d4ed8;
+      margin-top: 22px;
+      margin-bottom: 10px;
+      padding-bottom: 4px;
+      border-bottom: 1pt solid #e2e8f0;
+      font-weight: 700;
+    }
+    h3 {
+      font-size: 12.5pt;
+      color: #0f172a;
+      margin-top: 14px;
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+    p {
+      margin: 0 0 10px 0;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      font-size: 9pt;
+      font-weight: bold;
+      border-radius: 4px;
+      background-color: #dbeafe;
+      color: #1e40af;
+      margin-right: 6px;
+    }
+    .badge-critical {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+    .card {
+      border: 1pt solid #cbd5e1;
+      border-left: 4.5pt solid #2563eb;
+      background-color: #f8fafc;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      border-radius: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      margin-bottom: 20px;
+      font-size: 10.5pt;
+    }
+    th {
+      background-color: #1e40af;
+      color: #ffffff;
+      text-align: left;
+      padding: 10px 12px;
+      border: 1pt solid #1e3a8a;
+      font-weight: bold;
+    }
+    td {
+      padding: 9px 12px;
+      border: 1pt solid #cbd5e1;
+      vertical-align: top;
+    }
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .highlight {
+      font-weight: bold;
+      color: #0f172a;
+    }
+    .tagline {
+      font-size: 11pt;
+      color: #64748b;
+      margin-bottom: 20px;
+    }
+    .footer-note {
+      margin-top: 30px;
+      padding-top: 10px;
+      border-top: 1pt solid #e2e8f0;
+      font-size: 9.5pt;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="Section1">
+
+  <h1>General Settings - Feature Proposals</h1>
+  <p class="tagline"><strong>Project:</strong> Billing &amp; WhatsApp ERP (Cashio v2.0) | <strong>Focus:</strong> General Settings Screen</p>
+
+  <p>இந்த ஆவணத்தில் உங்கள் <strong>Billing + WhatsApp</strong> புராஜெக்ட்டின் அமைப்பிற்கு மிகவும் பொருத்தமான மற்றும் மிக முக்கியமான <strong>Top 6 General Settings</strong> அம்சங்கள் விவரிக்கப்பட்டுள்ளன.</p>
+
+  <h2>🌟 Top 6 Most Important Ideas (சுருக்க அட்டவணை)</h2>
+  
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 5%;">#</th>
+        <th style="width: 30%;">செட்டிங் பெயர் (Feature)</th>
+        <th style="width: 30%;">கட்டுப்பாட்டு ஆப்ஷன் (Control Type)</th>
+        <th style="width: 35%;">முக்கியத்துவம் (Why it matters)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align: center; font-weight: bold;">1</td>
+        <td><span class="highlight">Negative Stock Billing</span><br><small>கையிருப்பு குறைவு கட்டுப்பாடு</small></td>
+        <td>Dropdown: <strong>Block / Warn / Allow</strong></td>
+        <td>ஸ்டாக் 0-வாக இருக்கும் போது கேஷியர் தவறுதலாக பில் போடுவதை தடுக்கிறது.</td>
+      </tr>
+      <tr>
+        <td style="text-align: center; font-weight: bold;">2</td>
+        <td><span class="highlight">WhatsApp Auto-Send &amp; +91 Code</span><br><small>வாட்ஸ்அப் ஆட்டோ பில் அனுப்புதல்</small></td>
+        <td>Toggle (On/Off) + Country Code Input</td>
+        <td>பில் Save ஆனதும் கஸ்டமருக்கு ஆட்டோமேட்டிக்காக வாட்ஸ்அப் மெசேஜ் செல்ல உதவும்; +91 ஆட்டோ ஃபில் ஆகும்.</td>
+      </tr>
+      <tr>
+        <td style="text-align: center; font-weight: bold;">3</td>
+        <td><span class="highlight">Cashier Price Edit &amp; Discount Lock</span><br><small>விலை மாற்றம் &amp; தள்ளுபடி வரம்பு</small></td>
+        <td>Toggle + Max Discount Number (%)</td>
+        <td>கேஷியர் தன்னிச்சையாக விலையை மாற்றுவதையும், அதிக தள்ளுபடி தருவதையும் தடுக்கும்.</td>
+      </tr>
+      <tr>
+        <td style="text-align: center; font-weight: bold;">4</td>
+        <td><span class="highlight">Auto-Print on Invoice Save</span><br><small>பில் முடிந்ததும் உடனடி பிரிண்ட்</small></td>
+        <td>Toggle (On/Off)</td>
+        <td>ரொக்கக் கவுண்டரில் வாடிக்கையாளர் வரிசை நிற்கும் போது பில்லிங் வேகத்தை இரட்டிப்பாக்கும்.</td>
+      </tr>
+      <tr>
+        <td style="text-align: center; font-weight: bold;">5</td>
+        <td><span class="highlight">Mandatory Customer Mobile</span><br><small>வாடிக்கையாளர் போன் எண் கட்டாயம்</small></td>
+        <td>Toggle (On/Off)</td>
+        <td>வாட்ஸ்அப் பில் மற்றும் மார்க்கெட்டிங் செய்ய கஸ்டமர் போன் நம்பர் கட்டாயமாக சேகரிக்க உதவும்.</td>
+      </tr>
+      <tr>
+        <td style="text-align: center; font-weight: bold;">6</td>
+        <td><span class="highlight">POS Counter / Terminal ID</span><br><small>பில்லிங் கவுண்டர் எண் / பெயர்</small></td>
+        <td>Text Box (Local Storage per PC)</td>
+        <td>பல கேஷியர்கள் ஒரே நேரத்தில் பில் போடும் போது எந்த கவுண்டரில் என்ன பில் உருவானது என்பதை அறிய உதவும்.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <br>
+  <h2>📋 விரிவான விவரங்கள் (Detailed Description)</h2>
+
+  <!-- Item 1 -->
+  <div class="card">
+    <h3>1. 🚫 Negative Stock Billing Control (கையிருப்பு குறைவு கட்டுப்பாடு)</h3>
+    <p><span class="badge badge-critical">High Priority</span> <span class="badge">Inventory Safety</span></p>
+    <p><strong>விளக்கம்:</strong> கடையில் ஒரு பொருளின் ஸ்டாக் 0 அல்லது தீர்ந்துவிட்ட நிலையில், பில்லிங் ஸ்கிரீனில் கேஷியர் அதை பில்லில் சேர்க்கும்போது என்ன நடவடிக்கை எடுக்கப்பட வேண்டும் என்பதை தீர்மானிக்கும் செட்டிங்.</p>
+    <p><strong>ஆப்ஷன்கள்:</strong></p>
+    <ul>
+      <li><strong>Block Billing (Strict):</strong> ஸ்டாக் இல்லை என்றால் பில்லில் அந்த பொருளை சேர்க்கவே விடாது.</li>
+      <li><strong>Warning Only:</strong> <em>"Stock is zero, do you want to continue?"</em> என்ற எச்சரிக்கை பாப்-அப் மட்டும் காட்டும்.</li>
+      <li><strong>Allow Silently:</strong> எவ்வித எச்சரிக்கையும் இன்றி நெகட்டிவ் ஸ்டாக் (-1, -2) பில்லிங்கை அனுமதிக்கும்.</li>
+    </ul>
+  </div>
+
+  <!-- Item 2 -->
+  <div class="card">
+    <h3>2. 💬 WhatsApp Auto-Send &amp; Default Country Code (+91)</h3>
+    <p><span class="badge">WhatsApp Core</span> <span class="badge">Speed</span></p>
+    <p><strong>விளக்கம்:</strong> உங்கள் புராஜெக்ட்டின் முக்கிய அம்சமான WhatsApp Service-ஐ கவுண்டர் பில்லிங்குடன் எளிதாக இணைக்கும் அமைப்புகள்.</p>
+    <p><strong>ஆப்ஷன்கள்:</strong></p>
+    <ul>
+      <li><strong>Auto-Send WhatsApp Invoice on Save (Toggle):</strong> கேஷியர் பில்லை Save செய்த அடுத்த வினாடியே WhatsApp API மூலம் பில் PDF அல்லது சுருக்க உரை கஸ்டமருக்கு சென்றுவிடும்.</li>
+      <li><strong>Default Calling Country Code:</strong> இயல்பாக <code>+91</code> (India) என செட் செய்து வைப்பதால், கேஷியர் வெறும் 10 இலக்க போன் நம்பரை மட்டும் உள்ளிட்டால் போதுமானது.</li>
+    </ul>
+  </div>
+
+  <!-- Item 3 -->
+  <div class="card">
+    <h3>3. 🔒 Cashier Price Edit &amp; Max Discount Lock</h3>
+    <p><span class="badge badge-critical">Fraud Prevention</span> <span class="badge">Admin Control</span></p>
+    <p><strong>விளக்கம்:</strong> உங்கள் சாப்ட்வேரில் <em>Admin</em> மற்றும் <em>Cashier</em> ரோல்கள் உள்ளன. கேஷியர் செய்யும் தவறுகளைத் தடுக்கும் பாதுகாப்பு அமைப்புகள்.</p>
+    <p><strong>ஆப்ஷன்கள்:</strong></p>
+    <ul>
+      <li><strong>Lock Item Price Edit (Toggle):</strong> பில்லிங் டேபிளில் உள்ள விற்பனை விலையை (Sale Price) கேஷியர் எடிட் செய்ய முடியாதபடி முடக்குவது.</li>
+      <li><strong>Max Allowed Discount % for Cashier:</strong> கேஷியர் அதிகபட்சம் 5% அல்லது 10% மட்டுமே தள்ளுபடி தர முடியும். அதற்கு மேல் தள்ளுபடி தர Admin approval / PIN தேவைப்படும்.</li>
+    </ul>
+  </div>
+
+  <!-- Item 4 -->
+  <div class="card">
+    <h3>4. 🖨️ Auto-Print on Invoice Save (ஆட்டோ பிரிண்ட்)</h3>
+    <p><span class="badge">POS Speed</span></p>
+    <p><strong>விளக்கம்:</strong> கவுண்டரில் வாடிக்கையாளர்கள் அதிகமுள்ள நேரங்களில் பில்லிங் வேகத்தை அதிகரிக்க உதவும்.</p>
+    <p><strong>ஆப்ஷன்கள்:</strong></p>
+    <ul>
+      <li><strong>Auto-open Print Dialog on Save (Toggle):</strong> "Save Invoice" பட்டனை கிளிக் செய்தவுடன் பிரிண்ட் டயலாக் தானாகவே தோன்றும் (கேஷியர் தனியாக பிரிண்ட் பட்டனை தேடி கிளிக் செய்ய தேவையில்லை).</li>
+    </ul>
+  </div>
+
+  <!-- Item 5 -->
+  <div class="card">
+    <h3>5. 📱 Mandatory Customer Mobile (மொபைல் எண் கட்டாயம்)</h3>
+    <p><span class="badge">Customer CRM</span> <span class="badge">WhatsApp Marketing</span></p>
+    <p><strong>விளக்கம்:</strong> பில் போடும் போது வாடிக்கையாளரின் போன் நம்பர் கட்டாயமாக வாங்கப்பட வேண்டுமா என்பதை அமைப்பது.</p>
+    <p><strong>ஆப்ஷன்கள்:</strong></p>
+    <ul>
+      <li><strong>Require Customer Phone (Toggle ON):</strong> போன் நம்பர் தட்டச்சு செய்யாமல் பில் முடிக்க இயலாது (WhatsApp பில் அனுப்பவும், எதிர்கால ஆஃபர் மெசேஜ் அனுப்பவும் உதவும்).</li>
+      <li><strong>Toggle OFF:</strong> சாதாரண வாடிக்கையாளர்களுக்கு போன் நம்பர் இல்லாமலேயே Quick Cash Bill போடலாம்.</li>
+    </ul>
+  </div>
+
+  <!-- Item 6 -->
+  <div class="card">
+    <h3>6. 🖥️ POS Counter / Terminal ID (கவுண்டர் பெயர் / எண்)</h3>
+    <p><span class="badge">Multi-Counter</span> <span class="badge">Hardware Setup</span></p>
+    <p><strong>விளக்கம்:</strong> உங்கள் நிறுவனத்தில் ஒன்றுக்கும் மேற்பட்ட கேஷியர்கள் பில் போடும் போது, அந்தந்த கம்ப்யூட்டரை அடையாளம் காண உதவும்.</p>
+    <p><strong>ஆப்ஷன்கள்:</strong></p>
+    <ul>
+      <li><strong>Counter Name (Input Box):</strong> எ.கா: <em>"Counter 1"</em> அல்லது <em>"Express Counter"</em>. இது அந்தந்த பிரவுசரின் LocalStorage-ல் சேமிக்கப்பட்டு, இன்வாய்ஸில் பிரிண்ட் ஆகும். நாள் முடிவில் எந்த கவுண்டரில் எவ்வளவு கலெக்ஷன் என்று தனித்தனியாக அறிக்கை பார்க்க உதவும்.</li>
+    </ul>
+  </div>
+
+  <div class="footer-note">
+    <p>Prepared for <strong>Cashio v2.0 - Billing &amp; WhatsApp ERP</strong> | General Settings Page Enhancement</p>
+  </div>
+
+</div>
+</body>
+</html>

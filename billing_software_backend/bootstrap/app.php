@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\LogAuditTrail;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,7 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Global audit trail: records every POST/PUT/PATCH/DELETE API action.
+        $middleware->api(prepend: [
+            LogAuditTrail::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

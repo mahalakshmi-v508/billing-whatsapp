@@ -347,4 +347,65 @@ class DashboardController extends Controller
             "data" => $result
         ]);
     }
+
+    public function getExpiringProductsNotification(Request $request)
+    {
+        $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        $admin_id   = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+
+        if (!$company_id && !$admin_id) {
+            return response()->json([
+                "status" => false,
+                "message" => "Company ID or Admin ID required"
+            ]);
+        }
+
+        $today = now()->startOfDay();
+        $oneMonthLater = now()->addDays(30)->endOfDay();
+
+        $query = DB::table('products as p')
+            ->leftJoin('companies as c', 'c.id', '=', 'p.company_id')
+            ->where('p.is_deleted', 0)
+            ->where('p.status', 'active')
+            ->whereNotNull('p.expiry_date')
+            ->where('p.expiry_date', '!=', '')
+            ->whereDate('p.expiry_date', '>=', $today->toDateString())
+            ->whereDate('p.expiry_date', '<=', $oneMonthLater->toDateString());
+
+        if ($company_id > 0) {
+            $query->where('p.company_id', $company_id);
+        } elseif ($admin_id > 0) {
+            $query->where('c.admin_id', $admin_id);
+        }
+
+        $today = now()->startOfDay();
+
+        $list = $query->select(
+                'p.id',
+                'p.product_name',
+                'p.product_code',
+                'p.price',
+                'p.sale_price',
+                'p.stock',
+                'p.unit',
+                'p.expiry_date',
+                'c.company_name'
+            )
+            ->orderBy('p.expiry_date', 'asc')
+            ->get()
+            ->map(function ($p) use ($today) {
+                $exp = \Carbon\Carbon::parse($p->expiry_date)->startOfDay();
+                $diffDays = (int) $today->diffInDays($exp, false);
+                $p->days_left = $diffDays;
+                $p->is_expired = $diffDays < 0;
+                $p->expires_today = $diffDays === 0;
+                return $p;
+            });
+
+        return response()->json([
+            "status" => true,
+            "count" => count($list),
+            "data" => $list
+        ]);
+    }
 }

@@ -531,7 +531,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
           setActiveTab("gst");
           setIsDirty(false);
         } else if (onSuccess) {
-          onSuccess();
+          onSuccess(res.data?.customer || res.data?.data || payload);
         } else {
           setTimeout(() => navigate("/customer"), 1000);
         }

@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\TransactionMessageController;
 use App\Http\Controllers\Api\InvoiceSettingController;
 use App\Http\Controllers\Api\GstReportController;
 use App\Http\Controllers\Api\EwayBillController;
+use App\Http\Controllers\Api\AuditLogController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -164,6 +165,8 @@ Route::prefix('credit')->group(function () {
 Route::prefix('settings')->group(function () {
     Route::get('get', [SettingsController::class, 'get']);
     Route::post('save', [SettingsController::class, 'save']);
+    Route::get('terms', [SettingsController::class, 'getTerms']);
+    Route::post('terms', [SettingsController::class, 'saveTerms']);
 });
 
 // ── INVOICE SETTINGS ROUTES ──
@@ -207,6 +210,7 @@ Route::prefix('dashboard')->group(function () {
     Route::get('get_dashboard', [DashboardController::class, 'getDashboard']);
     Route::get('get_stats', [DashboardController::class, 'getStats']);
     Route::get('get_unsold_products_notification', [DashboardController::class, 'getUnsoldProductsNotification']);
+    Route::get('get_expiring_products_notification', [DashboardController::class, 'getExpiringProductsNotification']);
     Route::get('get_stock_alert_notifications', [DashboardController::class, 'getStockAlertNotifications']);
 });
 
@@ -399,5 +403,14 @@ Route::prefix('report')->group(function () {
     Route::get('sale-purchase-by-party', [PartyStatementController::class, 'getSalePurchaseByParty']);
     Route::get('sale-purchase-by-party-group', [PartyStatementController::class, 'getSalePurchaseByPartyGroup']);
     Route::get('gst-report', [GstReportController::class, 'index']);
+});
+
+// ── AUDIT LOG (GLOBAL ACTIVITY TRAIL) ROUTES ──
+Route::prefix('audit-log')->group(function () {
+    Route::match(['get', 'post'], 'list', [AuditLogController::class, 'index']);
+    Route::match(['get', 'post'], 'filters', [AuditLogController::class, 'filters']);
+    Route::match(['get', 'post'], 'summary', [AuditLogController::class, 'summary']);
+    Route::match(['get', 'post'], 'for-record', [AuditLogController::class, 'forRecord']);
+    Route::post('clear', [AuditLogController::class, 'clear']);
 });
 
