@@ -1295,58 +1295,38 @@ export default function EstimateForm() {
       <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
         {/* Left: Proposal Terms, Description & Attachments (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Terms & Conditions Card */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <AlignLeft size={15} className="text-blue-600" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Quotation Terms & Conditions</h4>
+          {/* Terms, Conditions & Remarks Card */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <FileText size={14} />
               </div>
-              <button
-                type="button"
-                onClick={() => updateActiveTab({ showTerms: !activeTab.showTerms })}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-              >
-                {activeTab.showTerms ? "Hide Terms" : "Show / Edit Terms"}
-              </button>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Terms, Conditions &amp; Remarks</h3>
             </div>
 
-            {activeTab.showTerms && (
-              <textarea
-                rows={3}
-                value={activeTab.termsText}
-                onChange={(e) => updateActiveTab({ termsText: e.target.value })}
-                placeholder="Enter quotation terms and clauses..."
-                className="w-full border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-blue-500 font-medium resize-none bg-slate-50/50"
-              />
-            )}
-          </div>
-
-          {/* Description / Proposal Remarks */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <FileText size={15} className="text-blue-600" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Executive Proposal Note / Remarks</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Invoice Remarks &amp; Note</label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter custom remarks for customer invoice..."
+                  value={activeTab.descriptionText || ""}
+                  onChange={(e) => updateActiveTab({ descriptionText: e.target.value })}
+                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+                />
               </div>
-              <button
-                type="button"
-                onClick={() => updateActiveTab({ showDescription: !activeTab.showDescription })}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-              >
-                {activeTab.showDescription ? "Hide Notes" : "Add Notes"}
-              </button>
-            </div>
 
-            {activeTab.showDescription && (
-              <textarea
-                rows={2}
-                value={activeTab.descriptionText}
-                onChange={(e) => updateActiveTab({ descriptionText: e.target.value })}
-                placeholder="Optional scope of work or project specifications..."
-                className="w-full border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-blue-500 font-medium resize-none bg-slate-50/50"
-              />
-            )}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Terms &amp; Conditions</label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Goods once sold will not be returned..."
+                  value={activeTab.termsText || ""}
+                  onChange={(e) => updateActiveTab({ termsText: e.target.value })}
+                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Attachments Section */}

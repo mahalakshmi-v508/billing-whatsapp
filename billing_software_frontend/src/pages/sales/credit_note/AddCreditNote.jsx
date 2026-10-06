@@ -101,6 +101,8 @@ function createNewCreditNoteTab(id, index, returnNoValue = null) {
     bottomDiscountAmt: 0,
     paidAmountEnabled: false,
     paidAmount: "",
+    descriptionText: "",
+    termsText: "",
     rows: [createInitialRow(1)],
   };
 }
@@ -299,6 +301,8 @@ export default function AddCreditNote() {
               bottomDiscountAmt: cn.discount_total || 0,
               paidAmountEnabled: parseFloat(cn.refund_amount || 0) > 0,
               paidAmount: parseFloat(cn.refund_amount || 0) > 0 ? String(cn.refund_amount) : "",
+              descriptionText: cn.description || "",
+              termsText: cn.terms_and_conditions || "",
               rows: prods.length > 0
                 ? prods.map((p, i) => ({
                     id: i + 1,
@@ -570,7 +574,8 @@ export default function AddCreditNote() {
         balance_amount: totals.balance,
         payment_type: activeTab.paymentType.toLowerCase(),
         state_of_supply: activeTab.stateOfSupply,
-        description: "",
+        description: activeTab.descriptionText || "",
+        terms_and_conditions: activeTab.termsText || "",
       };
 
       let res;
@@ -1461,6 +1466,40 @@ export default function AddCreditNote() {
                     className="w-28 text-right border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 outline-none disabled:bg-slate-50 disabled:text-slate-400"
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Terms, Conditions & Remarks Card */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <FileText size={14} />
+              </div>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Terms, Conditions &amp; Remarks</h3>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Invoice Remarks &amp; Note</label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter custom remarks for customer invoice..."
+                  value={activeTab.descriptionText || ""}
+                  onChange={(e) => updateActiveTab({ descriptionText: e.target.value })}
+                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Terms &amp; Conditions</label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Goods once sold will not be returned..."
+                  value={activeTab.termsText || ""}
+                  onChange={(e) => updateActiveTab({ termsText: e.target.value })}
+                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+                />
               </div>
             </div>
           </div>
