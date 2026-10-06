@@ -5,6 +5,7 @@ import api from "../../../services/api";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
+import TermsDropdown from "../../../components/common/TermsDropdown";
 import {
   X,
   Plus,
@@ -1493,12 +1494,12 @@ export default function AddCreditNote() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Terms &amp; Conditions</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Goods once sold will not be returned..."
+                <TermsDropdown
+                  companyId={companyId || 1}
+                  page="credit_note"
                   value={activeTab.termsText || ""}
-                  onChange={(e) => updateActiveTab({ termsText: e.target.value })}
-                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+                  onChange={(newVal) => updateActiveTab({ termsText: newVal })}
+                  placeholder="Select Terms &amp; Conditions..."
                 />
               </div>
             </div>

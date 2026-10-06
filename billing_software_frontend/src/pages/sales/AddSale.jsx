@@ -14,6 +14,7 @@ import CommonTableColumnSettings from "../../components/CommonTableColumnSetting
 import useTableColumns from "../../hooks/useTableColumns";
 import CustomerForm from "../customer/CustomerForm";
 import AddProductModal from "../products/AddProductModal";
+import TermsDropdown from "../../components/common/TermsDropdown";
 
 /* ── Item Table Columns List for customization drawer with rich icons & colors ─ */
 const DEFAULT_ITEM_COLUMNS = [
@@ -2093,12 +2094,12 @@ export default function AddSale() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Terms &amp; Conditions</label>
-              <textarea
-                rows={2}
-                placeholder="e.g. Goods once sold will not be returned..."
-                value={activeSale.termsText}
-                onChange={e => updateActiveSale({ termsText: e.target.value })}
-                className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+              <TermsDropdown
+                companyId={selectedCompany || user?.company_id || 1}
+                page="sale"
+                value={activeSale.termsText || ""}
+                onChange={(newVal) => updateActiveSale({ termsText: newVal })}
+                placeholder="Select Terms &amp; Conditions..."
               />
             </div>
           </div>

@@ -5,6 +5,7 @@ import api from "../../../services/api";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
+import TermsDropdown from "../../../components/common/TermsDropdown";
 import {
   X,
   Plus,
@@ -119,7 +120,7 @@ function createNewEstimateTab(id, index, nextRefNo, savedEstimate = null) {
     phoneNo: "",
     rows: [createInitialRow(1)],
     showTerms: false,
-    termsText: "1. Quotation valid for 15 days from date of issue.\n2. Goods once sold will not be taken back.\n3. Payment due within 7 days of confirmation.",
+    // termsText: "1. Quotation valid for 15 days from date of issue.\n2. Goods once sold will not be taken back.\n3. Payment due within 7 days of confirmation.",
     showDescription: false,
     descriptionText: "",
     attachedImage: null,
@@ -1318,12 +1319,12 @@ export default function EstimateForm() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Terms &amp; Conditions</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Goods once sold will not be returned..."
+                <TermsDropdown
+                  companyId={companyId || 1}
+                  page="estimate"
                   value={activeTab.termsText || ""}
-                  onChange={(e) => updateActiveTab({ termsText: e.target.value })}
-                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+                  onChange={(newVal) => updateActiveTab({ termsText: newVal })}
+                  placeholder="Select Terms &amp; Conditions..."
                 />
               </div>
             </div>

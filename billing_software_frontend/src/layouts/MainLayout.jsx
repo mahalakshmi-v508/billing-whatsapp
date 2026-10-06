@@ -496,6 +496,7 @@ export default function MainLayout() {
             {[
               { id: "general", label: "General Settings" },
               { id: "invoice-numbering", label: "Invoice Numbering" },
+              { id: "terms-conditions", label: "Terms & Conditions", icon: <FileText size={15} /> },
               { id: "print", label: "Print" },
               { id: "eway-bill", label: "E-Way Bill Integration", icon: <Truck size={15} /> },
               { id: "txn-messages", label: "WhatsApp & SMS Alerts" },
