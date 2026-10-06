@@ -31,6 +31,22 @@ class InvoiceController extends Controller
                 } catch (\Throwable $e) {}
             }
 
+            if (!Schema::hasColumn('invoices', 'terms_conditions')) {
+                try {
+                    Schema::table('invoices', function ($table) {
+                        $table->text('terms_conditions')->nullable();
+                    });
+                } catch (\Throwable $e) {}
+            }
+
+            if (!Schema::hasColumn('invoices', 'description')) {
+                try {
+                    Schema::table('invoices', function ($table) {
+                        $table->text('description')->nullable();
+                    });
+                } catch (\Throwable $e) {}
+            }
+
             try {
                 DB::statement("ALTER TABLE `invoices` MODIFY COLUMN `payment_type` VARCHAR(50) NOT NULL DEFAULT 'cash'");
             } catch (\Throwable $e) {
@@ -303,6 +319,9 @@ class InvoiceController extends Controller
             }
             $products = $processedProducts;
 
+            $terms_conditions = trim($request->input('terms_conditions') ?: $request->input('terms_and_conditions') ?: $request->input('terms') ?: '');
+            $description = trim($request->input('description') ?: $request->input('notes') ?: '');
+
             /* INSERT INVOICE */
             $invoiceData = [
                 'invoice_no' => $invoice_no,
@@ -323,6 +342,8 @@ class InvoiceController extends Controller
                 'source' => $source,
                 'gst_type' => $gst_type,
                 'gst_no' => $gst_no ?: null,
+                'terms_conditions' => $terms_conditions ?: null,
+                'description' => $description ?: null,
                 'payment_status' => $payment_status,
                 'company_id' => $company_id,
                 'due_date' => $due_date,
@@ -911,6 +932,35 @@ class InvoiceController extends Controller
                         $data['ifsc_code']   = $s['ifsc_code'] ?? $s['ifscCode'] ?? '';
                         $data['upi_id']      = $s['upi_id'] ?? $s['upiId'] ?? '';
                         $data['branch_name'] = $s['branch_name'] ?? $s['branchName'] ?? '';
+
+                        // Fallback to active Terms & Conditions from Company Settings if invoice has none
+                        if (empty($data['terms_conditions']) && empty($data['terms']) && empty($data['terms_and_conditions'])) {
+                            if (!empty($s['terms_conditions']) && is_array($s['terms_conditions'])) {
+                                $vType = strtolower($data['voucher_type'] ?? 'sale');
+                                $field = match($vType) {
+                                    'credit_note' => 'applies_to_credit_note',
+                                    'estimate', 'quotation' => 'applies_to_estimate',
+                                    default => 'applies_to_sale'
+                                };
+                                $activeTexts = [];
+                                foreach ($s['terms_conditions'] as $tcItem) {
+                                    if (is_array($tcItem)) {
+                                        $isEnabled = ($tcItem['is_enabled'] ?? true) && ($tcItem['status'] ?? 'active') !== 'inactive';
+                                        $applies = !empty($tcItem[$field]) || (!empty($tcItem['applicable_to']) && (in_array($vType, (array)$tcItem['applicable_to']) || in_array('sale', (array)$tcItem['applicable_to'])));
+                                        if ($isEnabled && $applies && !empty($tcItem['text'])) {
+                                            $activeTexts[] = trim($tcItem['text']);
+                                        }
+                                    } elseif (is_string($tcItem) && trim($tcItem) !== '') {
+                                        $activeTexts[] = trim($tcItem);
+                                    }
+                                }
+                                if (!empty($activeTexts)) {
+                                    $data['terms_conditions'] = implode("\n", $activeTexts);
+                                }
+                            } elseif (!empty($s['terms_conditions']) && is_string($s['terms_conditions'])) {
+                                $data['terms_conditions'] = trim($s['terms_conditions']);
+                            }
+                        }
                     }
                 } catch (\Exception $ex) {
                     // Ignore settings merge errors
@@ -1294,6 +1344,8 @@ class InvoiceController extends Controller
                 'paid_amount'      => floatval($cnData['refund_amount'] ?? 0),
                 'balance_amount'   => floatval($cnData['balance_amount'] ?? 0),
                 'notes'            => $cnData['description'] ?? '',
+                'terms_conditions' => $cnData['terms_and_conditions'] ?? $cnData['terms_conditions'] ?? '',
+                'terms_and_conditions' => $cnData['terms_and_conditions'] ?? $cnData['terms_conditions'] ?? '',
                 'created_at'       => $cnData['return_date'] ?? $cnData['created_at'] ?? now(),
                 'invoice_date'     => $cnData['return_date'] ?? substr($cnData['created_at'] ?? date('Y-m-d'), 0, 10),
                 'products'         => $items ?: []
@@ -1415,6 +1467,8 @@ class InvoiceController extends Controller
                 'paid_amount'      => floatval($dnData['refund_amount'] ?? 0),
                 'balance_amount'   => floatval($dnData['balance_amount'] ?? 0),
                 'notes'            => $dnData['description'] ?? '',
+                'terms_conditions' => $dnData['terms_and_conditions'] ?? $dnData['terms_conditions'] ?? '',
+                'terms_and_conditions' => $dnData['terms_and_conditions'] ?? $dnData['terms_conditions'] ?? '',
                 'created_at'       => $dnData['return_date'] ?? $dnData['created_at'] ?? now(),
                 'invoice_date'     => $dnData['return_date'] ?? substr($dnData['created_at'] ?? date('Y-m-d'), 0, 10),
                 'products'         => $items ?: []
@@ -1647,6 +1701,8 @@ class InvoiceController extends Controller
                 'paid_amount'      => floatval($pData['paid_amount'] ?? 0),
                 'balance_amount'   => floatval($pData['balance_amount'] ?? 0),
                 'notes'            => $pData['description'] ?? '',
+                'terms_conditions' => $pData['terms_conditions'] ?? $pData['terms_and_conditions'] ?? '',
+                'terms_and_conditions' => $pData['terms_conditions'] ?? $pData['terms_and_conditions'] ?? '',
                 'created_at'       => $pData['purchase_date'] ?? $pData['created_at'] ?? now(),
                 'invoice_date'     => $pData['purchase_date'] ?? substr($pData['created_at'] ?? date('Y-m-d'), 0, 10),
                 'products'         => $pItems
@@ -2371,6 +2427,8 @@ class InvoiceController extends Controller
         $payment_method = trim($request->input('payment_method', 'cash'));
         $payment_type   = trim($request->input('payment_type', 'cash'));
         $gst_type       = trim($request->input('gst_type', 'with_gst'));
+        $terms_conditions = trim($request->input('terms_conditions') ?: $request->input('terms_and_conditions') ?: $request->input('terms') ?: '');
+        $description    = trim($request->input('description') ?: $request->input('notes') ?: '');
 
         /* SOURCE — keep the original screen the bill was raised from. Editing a
            POS bill must not silently re-label it as a plain sale. */
@@ -2491,6 +2549,8 @@ class InvoiceController extends Controller
                 'payment_type'   => $payment_type,
                 'source'         => $source,
                 'gst_type'       => $gst_type,
+                'terms_conditions' => $terms_conditions ?: null,
+                'description'    => $description ?: null,
                 'payment_status' => $payment_status,
                 'company_id'     => $company_id,
             ];

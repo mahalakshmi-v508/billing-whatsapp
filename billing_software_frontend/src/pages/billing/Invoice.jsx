@@ -197,6 +197,31 @@ function renderItemExtras(p, printSettings = {}) {
   );
 }
 
+/* ─── TERMS & CONDITIONS TEXT EXTRACTOR ────────────────────────────────────── */
+function getTermsConditionsText(invoice) {
+  if (!invoice) return "";
+  let val = invoice.terms_conditions || invoice.terms_and_conditions || invoice.terms || invoice.termsText;
+  if (!val) return "";
+  if (typeof val === "string") {
+    val = val.trim();
+    if (val.startsWith("[") && val.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item) => (typeof item === "string" ? item : (item?.text || ""))).filter(Boolean).join("\n");
+        }
+      } catch {
+        // Fallback to raw string
+      }
+    }
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val.map((item) => (typeof item === "string" ? item : (item?.text || ""))).filter(Boolean).join("\n");
+  }
+  return String(val).trim();
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    1. THEME: TALLY THEME (MATCHING SCREENSHOT 1 & 2)
 ═══════════════════════════════════════════════════════════════════════════ */
@@ -222,7 +247,8 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
   const showTax = printSettings.taxDetails !== false && vType !== "expense";
   const showWords = printSettings.amountInWords !== false && printSettings.amountInWords !== "None";
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
-  const showTerms = printSettings.printTerms !== false && (invoice.terms_conditions || invoice.terms);
+  const termsText = getTermsConditionsText(invoice);
+  const showTerms = printSettings.printTerms !== false && Boolean(termsText);
   const showReceivedBy = printSettings.printReceivedBy;
   const showDeliveredBy = printSettings.printDeliveredBy;
   const showSignature = printSettings.printSignatureText !== false;
@@ -395,7 +421,7 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
                 {showRemarks && <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}><strong>Remarks:</strong> {invoice.notes}</div>}
                 {showTerms && (
                   <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 6, whiteSpace: "pre-line" }}>
-                    <strong>Terms & Conditions:</strong><br />{invoice.terms_conditions || invoice.terms}
+                    <strong style={{ color: "#334155" }}>Terms &amp; Conditions:</strong><br />{termsText}
                   </div>
                 )}
                 {showReceivedBy && <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 8 }}>Received By: ___________________</div>}
@@ -502,7 +528,8 @@ function ThemeGST1({ invoice, company, color, logoUrl, printSettings = {} }) {
   const showTax = printSettings.taxDetails !== false && vType !== "expense";
   const showWords = printSettings.amountInWords !== false && printSettings.amountInWords !== "None";
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
-  const showTerms = printSettings.printTerms !== false && (invoice.terms_conditions || invoice.terms);
+  const termsText = getTermsConditionsText(invoice);
+  const showTerms = printSettings.printTerms !== false && Boolean(termsText);
   const showReceivedBy = printSettings.printReceivedBy;
   const showDeliveredBy = printSettings.printDeliveredBy;
   const showSignature = printSettings.printSignatureText !== false;
@@ -660,7 +687,7 @@ function ThemeGST1({ invoice, company, color, logoUrl, printSettings = {} }) {
               {showRemarks && <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}><strong>Remarks:</strong> {invoice.notes}</div>}
               {showTerms && (
                 <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 6, whiteSpace: "pre-line" }}>
-                  <strong>Terms:</strong> {invoice.terms_conditions || invoice.terms}
+                  <strong style={{ color: "#334155" }}>Terms &amp; Conditions:</strong><br />{termsText}
                 </div>
               )}
               {showReceivedBy && <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 8 }}>Received By: ___________________</div>}
@@ -743,7 +770,8 @@ function ThemeGST3({ invoice, company, color, logoUrl, printSettings = {} }) {
   const showTax = printSettings.taxDetails !== false && vType !== "expense";
   const showWords = printSettings.amountInWords !== false && printSettings.amountInWords !== "None";
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
-  const showTerms = printSettings.printTerms !== false && (invoice.terms_conditions || invoice.terms);
+  const termsText = getTermsConditionsText(invoice);
+  const showTerms = printSettings.printTerms !== false && Boolean(termsText);
   const showReceivedBy = printSettings.printReceivedBy;
   const showDeliveredBy = printSettings.printDeliveredBy;
   const showSignature = printSettings.printSignatureText !== false;
@@ -810,6 +838,7 @@ function ThemeGST3({ invoice, company, color, logoUrl, printSettings = {} }) {
             </div>
           )}
           {showRemarks && <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 6 }}><strong>Remarks:</strong> {invoice.notes}</div>}
+          {showTerms && <div style={{ fontSize: 11, color: "#64748b", marginTop: 6, whiteSpace: "pre-line" }}><strong style={{ color: "#334155" }}>Terms &amp; Conditions:</strong><br />{termsText}</div>}
           {showSignature && (
             <div style={{ marginTop: 24, textAlign: "right", fontSize: 11.5 }}>
               <strong>For : {company?.company_name || "My Company"}</strong>
@@ -863,7 +892,7 @@ function ThemeGST3({ invoice, company, color, logoUrl, printSettings = {} }) {
                 </div>
               )}
               {showRemarks && <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}><strong>Remarks:</strong> {invoice.notes}</div>}
-              {showTerms && <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 4, whiteSpace: "pre-line" }}><strong>Terms:</strong> {invoice.terms_conditions || invoice.terms}</div>}
+              {showTerms && <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 4, whiteSpace: "pre-line" }}><strong style={{ color: "#334155" }}>Terms &amp; Conditions:</strong><br />{termsText}</div>}
             </div>
             <div style={{ width: 250, display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>Sub Total:</span><span>₹ {formatCurrency(subTotal, printSettings)}</span></div>
@@ -915,7 +944,8 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl, printSettings = {
   const showTax = printSettings.taxDetails !== false && vType !== "expense";
   const showWords = printSettings.amountInWords !== false && printSettings.amountInWords !== "None";
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
-  const showTerms = printSettings.printTerms !== false && (invoice.terms_conditions || invoice.terms);
+  const termsText = getTermsConditionsText(invoice);
+  const showTerms = printSettings.printTerms !== false && Boolean(termsText);
   const showReceivedBy = printSettings.printReceivedBy;
   const showDeliveredBy = printSettings.printDeliveredBy;
   const showSignature = printSettings.printSignatureText !== false;
@@ -1006,6 +1036,7 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl, printSettings = {
             </div>
           )}
           {showRemarks && <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 6 }}><strong>Remarks:</strong> {invoice.notes}</div>}
+          {showTerms && <div style={{ fontSize: 11, color: "#64748b", marginTop: 6, whiteSpace: "pre-line" }}><strong style={{ color: "#334155" }}>Terms &amp; Conditions:</strong><br />{termsText}</div>}
           {showSignature && (
             <div style={{ marginTop: 24, textAlign: "right" }}>
               <div style={{ fontWeight: 700 }}>For : {company?.company_name || "My Company"}</div>
@@ -1059,7 +1090,7 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl, printSettings = {
                 </div>
               )}
               {showRemarks && <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}><strong>Remarks:</strong> {invoice.notes}</div>}
-              {showTerms && <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 4, whiteSpace: "pre-line" }}><strong>Terms:</strong> {invoice.terms_conditions || invoice.terms}</div>}
+              {showTerms && <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 4, whiteSpace: "pre-line" }}><strong style={{ color: "#334155" }}>Terms &amp; Conditions:</strong><br />{termsText}</div>}
             </div>
             <div style={{ width: 250, display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>Sub Total:</span><span>₹ {formatCurrency(subTotal, printSettings)}</span></div>
@@ -1127,7 +1158,8 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
   const showTax = printSettings.taxDetails !== false;
   const showWords = printSettings.amountInWords !== false && printSettings.amountInWords !== "None";
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
-  const showTerms = printSettings.printTerms !== false && (invoice.terms_conditions || invoice.terms);
+  const termsText = getTermsConditionsText(invoice);
+  const showTerms = printSettings.printTerms !== false && Boolean(termsText);
   const showReceivedBy = printSettings.printReceivedBy;
   const showDeliveredBy = printSettings.printDeliveredBy;
   const showSignature = printSettings.printSignatureText !== false;
@@ -1237,6 +1269,7 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
             </div>
           )}
           {showRemarks && <div style={{ fontSize: 9.5, margin: "4px 0" }}><strong>Note:</strong> {invoice.notes}</div>}
+          {showTerms && <div style={{ fontSize: 9, margin: "4px 0", whiteSpace: "pre-line" }}><strong>Terms &amp; Conditions:</strong><br />{termsText}</div>}
           <div style={S.divider} />
           {showSignature && (
             <div style={{ textAlign: "right", marginTop: 12, fontSize: 10, fontWeight: "bold" }}>
@@ -1381,7 +1414,7 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
             </div>
           )}
           {showRemarks && <div style={{ fontSize: 9.5, margin: "4px 0" }}><strong>Note:</strong> {invoice.notes}</div>}
-          {showTerms && <div style={{ fontSize: 9, margin: "4px 0", whiteSpace: "pre-line" }}><strong>Terms:</strong> {invoice.terms_conditions || invoice.terms}</div>}
+          {showTerms && <div style={{ fontSize: 9, margin: "4px 0", whiteSpace: "pre-line" }}><strong>Terms &amp; Conditions:</strong><br />{termsText}</div>}
           {showReceivedBy && <div style={{ fontSize: 9.5, marginTop: 4 }}>Received By: ____________</div>}
           {showDeliveredBy && <div style={{ fontSize: 9.5, marginTop: 2 }}>Delivered By: ____________</div>}
           {showSignature && (
@@ -1428,7 +1461,8 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
   const showTax = printSettings.taxDetails !== false;
   const showWords = printSettings.amountInWords !== false && printSettings.amountInWords !== "None";
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
-  const showTerms = printSettings.printTerms !== false && (invoice.terms_conditions || invoice.terms);
+  const termsText = getTermsConditionsText(invoice);
+  const showTerms = printSettings.printTerms !== false && Boolean(termsText);
   const showReceivedBy = printSettings.printReceivedBy;
   const showDeliveredBy = printSettings.printDeliveredBy;
   const showSignature = printSettings.printSignatureText !== false;
@@ -1518,6 +1552,11 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#334155", background: "#f8fafc", padding: "4px 6px", borderRadius: 4, border: "1px solid #e2e8f0", marginTop: 6 }}>
               <span>Payment: <strong>{paymentMethod}</strong></span>
               <span>Status: <strong style={{ color: "#16a34a" }}>CONFIRMED</strong></span>
+            </div>
+          )}
+          {showTerms && (
+            <div style={{ fontSize: 9, color: "#475569", marginTop: 4, whiteSpace: "pre-line" }}>
+              <strong>Terms &amp; Conditions:</strong><br />{termsText}
             </div>
           )}
           {showSignature && (
@@ -1618,7 +1657,7 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
             </div>
           )}
           {showRemarks && <div style={{ fontSize: 9.5, color: "#475569", marginTop: 2 }}><strong>Note:</strong> {invoice.notes}</div>}
-          {showTerms && <div style={{ fontSize: 9, color: "#64748b", marginTop: 2, whiteSpace: "pre-line" }}><strong>Terms:</strong> {invoice.terms_conditions || invoice.terms}</div>}
+          {showTerms && <div style={{ fontSize: 9, color: "#64748b", marginTop: 2, whiteSpace: "pre-line" }}><strong>Terms &amp; Conditions:</strong><br />{termsText}</div>}
           {showSignature && (
             <div style={{ textAlign: "right", marginTop: 8, fontSize: 9.5, fontWeight: 700 }}>
               {printSettings.signatureText || "Authorized Signatory"}
@@ -1656,7 +1695,8 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
   const showTax = printSettings.taxDetails !== false;
   const showWords = printSettings.amountInWords !== false && printSettings.amountInWords !== "None";
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
-  const showTerms = printSettings.printTerms !== false && (invoice.terms_conditions || invoice.terms);
+  const termsText = getTermsConditionsText(invoice);
+  const showTerms = printSettings.printTerms !== false && Boolean(termsText);
   const showReceivedBy = printSettings.printReceivedBy;
   const showDeliveredBy = printSettings.printDeliveredBy;
   const showSignature = printSettings.printSignatureText !== false;
@@ -1746,6 +1786,11 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, marginTop: 4 }}>
               <span>Mode: {paymentMethod}</span>
               <span>Status: PAID</span>
+            </div>
+          )}
+          {showTerms && (
+            <div style={{ fontSize: 8.5, color: "#374151", marginTop: 4, whiteSpace: "pre-line" }}>
+              <strong>Terms &amp; Conditions:</strong><br />{termsText}
             </div>
           )}
           {showSignature && (
@@ -1869,7 +1914,7 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
             </div>
           )}
           {showRemarks && <div style={{ fontSize: 8.5, marginTop: 2, color: "#374151" }}><strong>Note:</strong> {invoice.notes}</div>}
-          {showTerms && <div style={{ fontSize: 8.5, marginTop: 2, color: "#64748b", whiteSpace: "pre-line" }}><strong>Terms:</strong> {invoice.terms_conditions || invoice.terms}</div>}
+          {showTerms && <div style={{ fontSize: 8.5, marginTop: 2, color: "#64748b", whiteSpace: "pre-line" }}><strong style={{ color: "#334155" }}>Terms &amp; Conditions:</strong><br />{termsText}</div>}
         </>
       )}
 
@@ -1901,6 +1946,8 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
   const showCompanyName = printSettings.companyName !== false && company?.company_name;
   const showPhone = printSettings.phone !== false && company?.phone;
   const showWords = printSettings.amountInWords !== false && printSettings.amountInWords !== "None";
+  const termsText = getTermsConditionsText(invoice);
+  const showTerms = printSettings.printTerms !== false && Boolean(termsText);
 
   return (
     <div style={{
@@ -1947,6 +1994,11 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
               <strong>In Words:</strong> {numberToWordsINR(paidAmount)}
             </div>
           )}
+          {showTerms && (
+            <div style={{ fontSize: 8.5, margin: "3px 0", whiteSpace: "pre-line" }}>
+              <strong>Terms:</strong> {termsText}
+            </div>
+          )}
           <div style={{ borderTop: "2px solid #000", borderBottom: "2px solid #000", padding: "3px 0", textAlign: "center", fontWeight: "bold", fontSize: 10, margin: "4px 0" }}>
             PAID BY {paymentMethod} • THANK YOU!
           </div>
@@ -1981,6 +2033,12 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
             <span style={{ fontSize: 16, fontWeight: 900 }}>TOTAL: ₹{formatCurrency(totalAmount, printSettings)}</span>
           </div>
 
+          {showTerms && (
+            <div style={{ fontSize: 8.5, margin: "4px 0", whiteSpace: "pre-line" }}>
+              <strong>Terms:</strong> {termsText}
+            </div>
+          )}
+
           <div style={{ borderTop: "2px solid #000", borderBottom: "2px solid #000", padding: "3px 0", textAlign: "center", fontWeight: "bold", fontSize: 10, margin: "4px 0" }}>
             PAID BY {paymentMethod} • THANK YOU!
           </div>
@@ -2011,7 +2069,8 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
   const showTax = printSettings.taxDetails !== false;
   const showWords = printSettings.amountInWords !== false && printSettings.amountInWords !== "None";
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
-  const showTerms = printSettings.printTerms !== false && (invoice.terms_conditions || invoice.terms);
+  const termsText = getTermsConditionsText(invoice);
+  const showTerms = printSettings.printTerms !== false && Boolean(termsText);
   const showReceivedBy = printSettings.printReceivedBy;
   const showDeliveredBy = printSettings.printDeliveredBy;
   const showSignature = printSettings.printSignatureText !== false;
@@ -2077,6 +2136,11 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
           {showPaymentMode && (
             <div style={{ fontSize: 9.5, marginTop: 4 }}>
               <span>Payment: <strong>{paymentMethod}</strong></span>
+            </div>
+          )}
+          {showTerms && (
+            <div style={{ fontSize: 9, marginTop: 4, whiteSpace: "pre-line" }}>
+              <strong>Terms:</strong> {termsText}
             </div>
           )}
           <div style={{ borderBottom: "1px solid #000", margin: "6px 0" }} />
@@ -2176,7 +2240,7 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
             </div>
           )}
           {showRemarks && <div style={{ fontSize: 9, marginTop: 2 }}><strong>Note:</strong> {invoice.notes}</div>}
-          {showTerms && <div style={{ fontSize: 8.5, marginTop: 2, whiteSpace: "pre-line" }}><strong>Terms:</strong> {invoice.terms_conditions || invoice.terms}</div>}
+          {showTerms && <div style={{ fontSize: 8.5, marginTop: 2, whiteSpace: "pre-line" }}><strong style={{ color: "#27272a" }}>Terms &amp; Conditions:</strong><br />{termsText}</div>}
         </>
       )}
 
@@ -2375,6 +2439,7 @@ export default function InvoicePreview() {
         if (posLayoutCandidate) setSelectedPosLayout(posLayoutCandidate);
 
         if (printSettings.pageSize) setPageSize(printSettings.pageSize);
+        setPrintSettings((prev) => ({ ...prev, ...printSettings }));
       })
       .catch(() => {});
   }, [invoice]);
@@ -3247,6 +3312,19 @@ export default function InvoicePreview() {
                 </span>
               </div>
             </div>
+
+            {/* Terms & Conditions Summary Card */}
+            {Boolean(getTermsConditionsText(invoice)) && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-1.5 text-slate-700">
+                <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
+                  <FileText className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Terms &amp; Conditions</span>
+                </div>
+                <div className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line bg-white p-2.5 rounded-xl border border-slate-200/80 max-h-36 overflow-y-auto custom-scrollbar font-medium">
+                  {getTermsConditionsText(invoice)}
+                </div>
+              </div>
+            )}
 
             {/* Multi-Channel Sharing Hub */}
             <div>
