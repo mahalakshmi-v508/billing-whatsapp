@@ -31,6 +31,7 @@ import Print from "./Print";
 import EwayBill from "./EwayBill";
 import ServiceReminders from "./ServiceReminders";
 import TransactionMessage from "./TransactionMessage";
+import TermsSettings from "./TermsSettings";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
 import { saveSettings, fetchSettings } from "./settingsApi";
@@ -714,6 +715,7 @@ export default function General() {
       {settingsTab === "invoice-numbering" && <InvoiceSettings />}
       {settingsTab === "invoice-design" && <InvoiceDesign />}
       {settingsTab === "print" && <Print />}
+      {settingsTab === "terms-conditions" && <TermsSettings />}
       {settingsTab === "eway-bill" && <EwayBill />}
       {settingsTab === "txn-messages" && <TransactionMessage />}
       {settingsTab === "service-reminders" && <ServiceReminders />}

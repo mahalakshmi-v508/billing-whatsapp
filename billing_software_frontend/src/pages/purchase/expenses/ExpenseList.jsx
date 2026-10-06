@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   TrendingDown,
   ChevronRight,
+  ChevronDown,
   TrendingUp,
   Receipt,
   ArrowUpRight,
@@ -33,7 +34,8 @@ import {
   CreditCard,
   ShieldAlert,
   Wallet,
-  LayoutGrid
+  LayoutGrid,
+  Calendar
 } from "lucide-react";
 import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
@@ -70,9 +72,78 @@ export default function ExpenseList() {
 
   // Companies state
   const [companies, setCompanies] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState(
-    user?.company_id || localStorage.getItem("selected_company_id") || ""
-  );
+  const [selectedCompany, setSelectedCompany] = useState("all");
+  const [firmOpen, setFirmOpen] = useState(false);
+  const firmRef = useRef(null);
+
+  // Date & Period Filter States
+  const [period, setPeriod] = useState("all_time");
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const periodRef = useRef(null);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const isDateMounted = useRef(false);
+
+  const PERIOD_LABELS = {
+    all_time: "All Time",
+    today: "Today",
+    this_week: "This Week",
+    this_month: "This Month",
+    this_quarter: "This Quarter",
+    this_year: "This Year",
+    custom: "Custom Range",
+  };
+
+  const setPresetDates = (type) => {
+    if (type === "custom") {
+      setPeriod("custom");
+      setPeriodOpen(false);
+      return;
+    }
+
+    if (type === "all_time" || type === "all") {
+      setFromDate("");
+      setToDate("");
+      setPeriod("all_time");
+      setPeriodOpen(false);
+      return;
+    }
+
+    const now = new Date();
+    let from = new Date();
+    let to = new Date();
+
+    if (type === "today") {
+      from = now;
+      to = now;
+    } else if (type === "this_week") {
+      const day = now.getDay() || 7;
+      from.setDate(now.getDate() - day + 1);
+      to = now;
+    } else if (type === "this_month") {
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else if (type === "this_quarter") {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      from = new Date(now.getFullYear(), qMonth, 1);
+      to = new Date(now.getFullYear(), qMonth + 3, 0);
+    } else if (type === "this_year") {
+      from = new Date(now.getFullYear(), 0, 1);
+      to = new Date(now.getFullYear(), 11, 31);
+    }
+
+    const fmtDate = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
+    setFromDate(fmtDate(from));
+    setToDate(fmtDate(to));
+    setPeriod(type);
+    setPeriodOpen(false);
+  };
 
   // View Mode: "all" (Primary: All Expense Vouchers) | "split" (Secondary: By Category / Item)
   const [viewMode, setViewMode] = useState("all");
@@ -137,32 +208,36 @@ export default function ExpenseList() {
       .then((res) => {
         if (res.data?.status && Array.isArray(res.data.data)) {
           setCompanies(res.data.data);
-          const savedId = localStorage.getItem("selected_company_id");
-          const activeId = savedId || (res.data.data.length > 0 ? res.data.data[0].id : "");
-          if (activeId) {
-            setSelectedCompany(activeId);
-            fetchData(activeId);
-          } else {
-            fetchData("");
-          }
+          setSelectedCompany("all");
+          fetchData("all", "", "");
         } else {
-          fetchData("");
+          fetchData("all", "", "");
         }
       })
-      .catch(() => fetchData(""));
+      .catch(() => fetchData("all", "", ""));
   }, [adminId]);
 
+  useEffect(() => {
+    if (isDateMounted.current) {
+      fetchData(selectedCompany, fromDate, toDate);
+    } else {
+      isDateMounted.current = true;
+    }
+  }, [fromDate, toDate]);
+
   // Load Categories, Items, and Expenses for the given company
-  const fetchData = async (cId = selectedCompany) => {
+  const fetchData = async (cId = selectedCompany, from = fromDate, to = toDate) => {
     setLoading(true);
     try {
-      const compParam = cId ? `&company_id=${cId}` : "";
-      const compParamQ = cId ? `?company_id=${cId}` : "";
+      const compParam = cId && cId !== "all" ? `&company_id=${cId}` : "";
+      let dateParam = "";
+      if (from) dateParam += `&from_date=${from}`;
+      if (to) dateParam += `&to_date=${to}`;
 
       const [catRes, itemRes, expRes] = await Promise.all([
-        api.get(`/expense/categories?admin_id=${adminId || 0}${compParam}`),
-        api.get(`/expense/items${compParamQ}`),
-        api.get(`/expense/list?admin_id=${adminId || 0}${compParam}`)
+        api.get(`/expense/categories?admin_id=${adminId || 0}${compParam}${dateParam}`),
+        api.get(`/expense/items?admin_id=${adminId || 0}${compParam}`),
+        api.get(`/expense/list?admin_id=${adminId || 0}${compParam}${dateParam}`)
       ]);
 
       let cats = [];
@@ -216,13 +291,21 @@ export default function ExpenseList() {
 
   const handleCompanyChange = (cId) => {
     setSelectedCompany(cId);
-    localStorage.setItem("selected_company_id", cId);
-    fetchData(cId);
+    if (cId !== "all") {
+      localStorage.setItem("selected_company_id", cId);
+    }
+    fetchData(cId, fromDate, toDate);
   };
 
   // Close menus on outside click safely
   useEffect(() => {
     const handleOutsideClick = (e) => {
+      if (firmRef.current && !firmRef.current.contains(e.target)) {
+        setFirmOpen(false);
+      }
+      if (periodRef.current && !periodRef.current.contains(e.target)) {
+        setPeriodOpen(false);
+      }
       if (e.target.closest("[data-menu-container]")) return;
       setActiveTxMenuId(null);
       setActiveCatMenuId(null);
@@ -319,8 +402,18 @@ export default function ExpenseList() {
       );
     }
 
+    if (fromDate || toDate) {
+      list = list.filter((e) => {
+        if (!e.expense_date) return true;
+        const eDate = e.expense_date.split("T")[0];
+        if (fromDate && eDate < fromDate) return false;
+        if (toDate && eDate > toDate) return false;
+        return true;
+      });
+    }
+
     return list;
-  }, [expenses, viewMode, activeTab, selectedCategory, selectedItem, statusFilter, search]);
+  }, [expenses, viewMode, activeTab, selectedCategory, selectedItem, statusFilter, search, fromDate, toDate]);
 
   // Save Category (Create / Edit)
   const handleSaveCategory = async (e) => {
@@ -347,7 +440,7 @@ export default function ExpenseList() {
         const res = await api.post("/expense/category/create", {
           name: catNameInput.trim(),
           type: catTypeInput,
-          company_id: selectedCompany || 0,
+          company_id: (selectedCompany !== "all" ? selectedCompany : (companies[0]?.id || 0)) || 0,
           admin_id: adminId
         });
         if (res.data.status) {
@@ -558,32 +651,113 @@ export default function ExpenseList() {
         </div>
       </div>
 
-      {/* ── 3. CONTROLS BAR: Firm Selection + View Mode Toggles (Matches Purchase Bills) ── */}
+      {/* ── 3. CONTROLS BAR: Filter by (Period + Date Range + Company) + View Mode Toggles ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-        {/* Company Pills */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Firm:</span>
-          {companies.length === 0 ? (
-            <span className="text-xs text-slate-500 font-semibold">Primary Firm</span>
-          ) : (
-            companies.map((c) => {
-              const isActive = String(selectedCompany) === String(c.id);
-              return (
+        {/* Filters Group */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
+
+          {/* Period Selector */}
+          <div className="relative" ref={periodRef}>
+            <button
+              onClick={() => {
+                setPeriodOpen(!periodOpen);
+                setFirmOpen(false);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            >
+              <span>{PERIOD_LABELS[period] || "All Time"}</span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {periodOpen && (
+              <div className="absolute left-0 mt-1.5 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                {Object.entries(PERIOD_LABELS).filter(([k]) => k !== "custom").map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => setPresetDates(k)}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                      period === k ? "text-amber-600 font-bold bg-amber-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Date Range Picker */}
+          <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
+            <Calendar size={13} className="text-slate-400" />
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPeriod(e.target.value || toDate ? "custom" : "all_time");
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
+            <span className="text-slate-400 font-bold">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPeriod(fromDate || e.target.value ? "custom" : "all_time");
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
+          </div>
+
+          {/* Company Dropdown */}
+          <div className="relative" ref={firmRef}>
+            <button
+              onClick={() => {
+                setFirmOpen(!firmOpen);
+                setPeriodOpen(false);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            >
+              <span>
+                {selectedCompany === "all" || !selectedCompany
+                  ? "All Store"
+                  : companies.find((c) => String(c.id) === String(selectedCompany))?.company_name || "Company"}
+              </span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {firmOpen && (
+              <div className="absolute left-0 mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 max-h-56 overflow-y-auto">
                 <button
-                  key={c.id}
-                  onClick={() => handleCompanyChange(c.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    isActive
-                      ? "bg-amber-600 text-white shadow-sm shadow-amber-200 ring-2 ring-amber-600/20"
-                      : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+                  onClick={() => {
+                    handleCompanyChange("all");
+                    setFirmOpen(false);
+                  }}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                    selectedCompany === "all" ? "text-amber-600 font-bold bg-amber-50/50" : "text-slate-700"
                   }`}
                 >
-                  <span>🏢</span>
-                  <span>{c.company_name}</span>
+                  🏢 All Store
                 </button>
-              );
-            })
-          )}
+                {companies.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      handleCompanyChange(c.id);
+                      setFirmOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition truncate cursor-pointer ${
+                      String(selectedCompany) === String(c.id) ? "text-amber-600 font-bold bg-amber-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    🏢 {c.company_name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* View Mode Segmented Control: All Bills (Primary) vs By Category View (Secondary) */}

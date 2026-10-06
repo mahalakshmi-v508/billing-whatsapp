@@ -78,7 +78,7 @@ export default function PaymentOut() {
   const [loading, setLoading] = useState(true);
 
   // Filter states
-  const [period, setPeriod] = useState("this_month");
+  const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [firmOpen, setFirmOpen] = useState(false);
@@ -88,7 +88,6 @@ export default function PaymentOut() {
   // Date range
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Search & view toggles
   const [searchQuery, setSearchQuery] = useState("");
@@ -130,6 +129,12 @@ export default function PaymentOut() {
 
   // Preset Date Helper
   const setPresetDates = (type) => {
+    if (type === "custom") {
+      setPeriod("custom");
+      setPeriodOpen(false);
+      return;
+    }
+
     const now = new Date();
     let from = new Date();
     let to = new Date();
@@ -176,7 +181,7 @@ export default function PaymentOut() {
 
   // Initial date calculation
   useEffect(() => {
-    setPresetDates("this_month");
+    setPresetDates("all_time");
   }, []);
 
   // Fetch Companies
@@ -246,7 +251,6 @@ export default function PaymentOut() {
         setPeriodOpen(false);
         setFirmOpen(false);
         setSupplierOpen(false);
-        setShowDatePicker(false);
       }
     };
     document.addEventListener("mousedown", handleOutside);
@@ -545,6 +549,32 @@ return (
               )}
             </div>
 
+            {/* Date Range Picker */}
+            <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
+              <Calendar size={13} className="text-slate-400" />
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setPeriod(e.target.value || toDate ? "custom" : "all_time");
+                  setCurrentPage(1);
+                }}
+                className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+              />
+              <span className="text-slate-400 font-bold">to</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setPeriod(fromDate || e.target.value ? "custom" : "all_time");
+                  setCurrentPage(1);
+                }}
+                className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+              />
+            </div>
+
             {/* Firm / Company Selector */}
             <div className="relative">
               <button
@@ -557,7 +587,7 @@ return (
               >
                 <span>
                   {selectedFirm === "all"
-                    ? "All Firms"
+                    ? "All Store"
                     : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
                 </span>
                 <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
@@ -573,7 +603,7 @@ return (
                     className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${selectedFirm === "all" ? "text-purple-600 font-bold bg-purple-50/50" : "text-slate-700"
                       }`}
                   >
-                    🏢 All Firms
+                    🏢 All Store
                   </button>
                   {companies.map((c) => (
                     <button
@@ -636,73 +666,6 @@ return (
                       {s.supplier_name || s.name}
                     </button>
                   ))}
-                </div>
-              )}
-            </div>
-
-            {/* Date Picker Range Button */}
-            <div className="relative">
-              <button
-                onClick={() => setShowDatePicker(!showDatePicker)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer ${fromDate && toDate
-                  ? "bg-purple-50 text-purple-700 border-purple-200"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                  }`}
-              >
-                <Calendar size={13} className="text-slate-500" />
-                <span>{fromDate && toDate ? `${formatDateDMY(fromDate)} - ${formatDateDMY(toDate)}` : "Date Range"}</span>
-              </button>
-
-              {showDatePicker && (
-                <div className="absolute left-0 mt-2 p-4 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 w-72 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <span className="text-xs font-bold text-slate-800">Select Custom Range</span>
-                    <button onClick={() => setShowDatePicker(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">From Date</label>
-                      <input
-                        type="date"
-                        value={fromDate}
-                        onChange={(e) => setFromDate(e.target.value)}
-                        className="w-full mt-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">To Date</label>
-                      <input
-                        type="date"
-                        value={toDate}
-                        onChange={(e) => setToDate(e.target.value)}
-                        className="w-full mt-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button
-                      onClick={() => {
-                        // Clearing the range must also clear the active period so the
-                        // period button does not keep showing a stale selection.
-                        setPresetDates("all_time");
-                        setShowDatePicker(false);
-                      }}
-                      className="px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-                    >
-                      Reset
-                    </button>
-                    <button
-                      onClick={() => {
-                        setPeriod("custom");
-                        setShowDatePicker(false);
-                      }}
-                      className="px-3 py-1 bg-purple-600 text-white text-xs font-bold rounded-lg shadow-sm cursor-pointer"
-                    >
-                      Apply
-                    </button>
-                  </div>
                 </div>
               )}
             </div>

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../../services/api";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
+import TermsDropdown from "../../../components/common/TermsDropdown";
 import {
   X,
   Plus,
@@ -28,17 +30,23 @@ import {
   Percent,
   Layers,
   Sparkles,
-  DollarSign
+  DollarSign,
+  Package,
+  Scale,
+  IndianRupee,
+  Tag,
+  ReceiptText,
+  Wallet
 } from "lucide-react";
 
 const DEFAULT_ITEM_COLUMNS = [
-  { key: "item", label: "Item", icon: Layers, color: "text-blue-600", bg: "bg-blue-50", desc: "Product & proposal description" },
-  { key: "qty", label: "Quantity", icon: Layers, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Item count / units" },
-  { key: "unit", label: "Unit", icon: Percent, color: "text-purple-600", bg: "bg-purple-50", desc: "Unit of measurement" },
-  { key: "price", label: "Price / Unit", icon: DollarSign, color: "text-teal-600", bg: "bg-teal-50", desc: "Unit price / estimated rate" },
-  { key: "discount", label: "Discount", icon: Percent, color: "text-amber-600", bg: "bg-amber-50", desc: "Discount percent & amount" },
-  { key: "tax", label: "Tax (GST)", icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "GST tax rate (%) & amount" },
-  { key: "amount", label: "Amount", icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50", desc: "Total line item estimate" },
+  { key: "item", label: "Item Name", icon: Package, color: "text-blue-600", bg: "bg-blue-50", desc: "Product & description" },
+  { key: "qty", label: "Quantity", icon: Layers, color: "text-emerald-600", bg: "bg-emerald-50", desc: "Item quantity count" },
+  { key: "unit", label: "Unit", icon: Scale, color: "text-purple-600", bg: "bg-purple-50", desc: "Unit of measurement (PCS, KG, BOX)" },
+  { key: "price", label: "Price / Unit", icon: IndianRupee, color: "text-teal-600", bg: "bg-teal-50", desc: "Unit price / rate" },
+  { key: "discount", label: "Discount", icon: Tag, color: "text-amber-600", bg: "bg-amber-50", desc: "Percentage (%) & discount amount" },
+  { key: "tax", label: "Tax (GST)", icon: ReceiptText, color: "text-indigo-600", bg: "bg-indigo-50", desc: "GST rate (%) & tax amount" },
+  { key: "amount", label: "Amount", icon: Wallet, color: "text-rose-600", bg: "bg-rose-50", desc: "Total calculated line amount" },
 ];
 
 /* ── Indian States List for State of Supply ──────────────────────────── */
@@ -52,15 +60,17 @@ const INDIAN_STATES = [
 ];
 
 /* ── Units List ──────────────────────────────────────────────────────── */
-const UNITS = ["NONE", "PCS", "BOX", "KG", "LTR", "MTR", "DOZEN", "GRAM", "SET", "BAG", "BUNDLE", "ROLL", "MTR", "SQFT"];
+const UNITS = ["NONE", "PCS", "BOX", "KG", "LTR", "MTR", "DOZEN", "GRAM", "SET", "BAG", "BUNDLE", "ROLL", "SQFT"];
 
 /* ── Tax Rates List ──────────────────────────────────────────────────── */
 const TAX_RATES = [
-  { label: "0% GST", value: 0 },
-  { label: "5% GST", value: 5 },
-  { label: "12% GST", value: 12 },
-  { label: "18% GST", value: 18 },
-  { label: "28% GST", value: 28 },
+  { label: "Select", value: 0 },
+  { label: "None (0%)", value: 0 },
+  { label: "GST @ 0%", value: 0 },
+  { label: "GST @ 5%", value: 5 },
+  { label: "GST @ 12%", value: 12 },
+  { label: "GST @ 18%", value: 18 },
+  { label: "GST @ 28%", value: 28 },
 ];
 
 /* ── LocalStorage key for persisted estimates ────────────────────────── */
@@ -73,11 +83,11 @@ function createInitialRow(id = null) {
     product_id: 0,
     item: "",
     qty: "",
-    unit: "PCS",
+    unit: "NONE",
     price: "",
     price_type: "without_tax",
     discount_pct: "",
-    discount_amt: 0,
+    discount_amt: "",
     tax_rate: 0,
     tax_amt: 0,
     amount: 0,
@@ -110,7 +120,7 @@ function createNewEstimateTab(id, index, nextRefNo, savedEstimate = null) {
     phoneNo: "",
     rows: [createInitialRow(1)],
     showTerms: false,
-    termsText: "1. Quotation valid for 15 days from date of issue.\n2. Goods once sold will not be taken back.\n3. Payment due within 7 days of confirmation.",
+    // termsText: "1. Quotation valid for 15 days from date of issue.\n2. Goods once sold will not be taken back.\n3. Payment due within 7 days of confirmation.",
     showDescription: false,
     descriptionText: "",
     attachedImage: null,
@@ -120,6 +130,40 @@ function createNewEstimateTab(id, index, nextRefNo, savedEstimate = null) {
   };
 }
 
+/* ── Close Estimate Confirmation Dialog Component ───────────────────────── */
+function CloseEstimateModal({ isOpen, onCancel, onConfirm }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <AlertCircle size={16} />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">Close Estimate Workspace</h3>
+          </div>
+          <button onClick={onCancel} className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-6 text-xs text-slate-600 leading-relaxed font-medium">
+          Current unsaved quotation changes will be discarded. Do you wish to continue and return to the estimates list?
+        </div>
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
+          <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer">
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition cursor-pointer">
+            OK, Discard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EstimateForm() {
   const navigate = useNavigate();
   const { id: editId } = useParams();
@@ -127,6 +171,9 @@ export default function EstimateForm() {
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
   const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
+
+  // Modals state
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // Read persisted estimates from localStorage & detect edit target
   const initialSaved = useMemo(() => {
@@ -193,7 +240,7 @@ export default function EstimateForm() {
   const handleCloseTab = (tabId, e) => {
     e.stopPropagation();
     if (tabs.length === 1) {
-      navigate("/sales/estimate-quotation");
+      setShowCloseConfirm(true);
       return;
     }
     const remaining = tabs.filter((t) => t.id !== tabId);
@@ -212,6 +259,28 @@ export default function EstimateForm() {
   // Products DB
   const [productsList, setProductsList] = useState([]);
   const [activeSearchRow, setActiveSearchRow] = useState(null);
+  const itemSuggestRef = useRef(null);
+  const activeInputRef = useRef(null);
+  const [suggestCoords, setSuggestCoords] = useState(null);
+
+  const updateSuggestPosition = (inputEl) => {
+    if (!inputEl) return;
+    const rect = inputEl.getBoundingClientRect();
+    const dropdownHeight = 224;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let top = rect.bottom + 4;
+    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+      top = Math.max(8, rect.top - dropdownHeight - 4);
+    }
+
+    setSuggestCoords({
+      top,
+      left: rect.left,
+      width: Math.max(rect.width, 320),
+    });
+  };
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -271,26 +340,67 @@ export default function EstimateForm() {
     setErrorMsg("");
   };
 
-  // Close party dropdown on click outside
+  // Close party dropdown and item suggest dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (partyRef.current && !partyRef.current.contains(e.target)) {
         setShowPartyDropdown(false);
+      }
+      if (
+        itemSuggestRef.current &&
+        !itemSuggestRef.current.contains(e.target) &&
+        activeInputRef.current &&
+        !activeInputRef.current.contains(e.target)
+      ) {
+        setActiveSearchRow(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Reposition Suggestion Dropdown on Scroll / Resize
+  useEffect(() => {
+    if (activeSearchRow === null || !activeInputRef.current) return;
+    const handleReposition = () => {
+      if (activeInputRef.current) {
+        const rect = activeInputRef.current.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) {
+          setActiveSearchRow(null);
+          return;
+        }
+        updateSuggestPosition(activeInputRef.current);
+      }
+    };
+    window.addEventListener("scroll", handleReposition, true);
+    window.addEventListener("resize", handleReposition);
+    return () => {
+      window.removeEventListener("scroll", handleReposition, true);
+      window.removeEventListener("resize", handleReposition);
+    };
+  }, [activeSearchRow]);
+
   // Row Calculation Helper
   const recalculateRow = (row) => {
-    const q = parseFloat(row.qty) || 0;
-    const p = parseFloat(row.price) || 0;
+    const q = parseFloat(row.qty);
+    const p = parseFloat(row.price);
+
+    if (isNaN(q) || q <= 0 || isNaN(p) || p <= 0) {
+      return {
+        ...row,
+        discount_amt: "",
+        tax_amt: 0,
+        amount: 0,
+      };
+    }
+
     const gross = q * p;
 
     let disc = 0;
     if (parseFloat(row.discount_pct) > 0) {
       disc = (gross * parseFloat(row.discount_pct)) / 100;
+    } else if (parseFloat(row.discount_amt) > 0) {
+      disc = parseFloat(row.discount_amt);
     }
     const taxable = Math.max(0, gross - disc);
 
@@ -302,52 +412,90 @@ export default function EstimateForm() {
     const amt = taxable + tax;
     return {
       ...row,
-      discount_amt: disc,
+      discount_amt: disc ? disc.toFixed(2) : "",
       tax_amt: tax,
       amount: amt,
     };
   };
 
-  // Update a Row
-  const updateRow = (idx, field, value) => {
-    const nextRows = [...(activeTab?.rows || [])];
-    nextRows[idx] = { ...nextRows[idx], [field]: value };
-    nextRows[idx] = recalculateRow(nextRows[idx]);
-    updateActiveTab({ rows: nextRows });
+  const updateRowFields = (idx, fields) => {
+    setTabs((prev) =>
+      prev.map((tab) => {
+        if (tab.id !== activeTabId) return tab;
+        const nextRows = [...(tab.rows || [])];
+        nextRows[idx] = recalculateRow({ ...nextRows[idx], ...fields });
+        return { ...tab, rows: nextRows };
+      })
+    );
   };
 
-  // Select Product for Row
+  const updateRow = (idx, field, value) => {
+    updateRowFields(idx, { [field]: value });
+  };
+
+  // Select Product for Row: sets initial qty to 1 (if was empty) & automatically appends next row
   const selectProductForRow = (idx, prod) => {
-    const nextRows = [...(activeTab?.rows || [])];
-    const price = parseFloat(prod.price || prod.sale_price || prod.mrp || 0);
-    const taxRate = parseFloat(prod.tax_rate || prod.gst_rate || 0);
-    const currentQty = nextRows[idx]?.qty;
-    const initialQty = currentQty && parseFloat(currentQty) > 0 ? currentQty : "1";
-    nextRows[idx] = recalculateRow({
-      ...nextRows[idx],
-      product_id: prod.id,
-      item: prod.product_name || prod.name,
-      qty: initialQty,
-      price: price,
-      tax_rate: taxRate,
-      unit: prod.unit || "PCS",
-    });
-    updateActiveTab({ rows: nextRows });
+    setTabs((prev) =>
+      prev.map((tab) => {
+        if (tab.id !== activeTabId) return tab;
+        const nextRows = [...(tab.rows || [])];
+        const price = parseFloat(prod.price || prod.sale_price || prod.mrp || 0);
+        const taxRate = parseFloat(prod.tax_rate || prod.gst_rate || prod.gst_percentage || 0);
+        const currentQty = nextRows[idx]?.qty;
+        const initialQty = currentQty && parseFloat(currentQty) > 0 ? currentQty : 1;
+        nextRows[idx] = recalculateRow({
+          ...nextRows[idx],
+          product_id: prod.id,
+          item: prod.product_name || prod.name,
+          qty: initialQty,
+          price: price,
+          tax_rate: taxRate,
+          unit: prod.unit || "NONE",
+        });
+
+        const isLastRow = idx === nextRows.length - 1;
+        const lastRow = nextRows[nextRows.length - 1];
+        const lastRowHasProduct = Boolean(
+          lastRow && (lastRow.product_id || (lastRow.item && lastRow.item.trim() !== ""))
+        );
+
+        if (isLastRow || lastRowHasProduct) {
+          return { ...tab, rows: [...nextRows, createInitialRow()] };
+        }
+
+        return { ...tab, rows: nextRows };
+      })
+    );
     setActiveSearchRow(null);
   };
 
   // Add Row
   const addRow = () => {
-    updateActiveTab({
-      rows: [...(activeTab?.rows || []), createInitialRow()],
-    });
+    setTabs((prev) =>
+      prev.map((tab) => {
+        if (tab.id !== activeTabId) return tab;
+        return {
+          ...tab,
+          rows: [...(tab.rows || []), createInitialRow()],
+        };
+      })
+    );
   };
 
-  // Remove Row (keep at least one)
+  // Remove Row (keep at least one empty row)
   const removeRow = (idx) => {
-    if ((activeTab?.rows || []).length === 1) return;
-    const nextRows = activeTab.rows.filter((_, i) => i !== idx);
-    updateActiveTab({ rows: nextRows });
+    setTabs((prev) =>
+      prev.map((tab) => {
+        if (tab.id !== activeTabId) return tab;
+        if ((tab.rows || []).length <= 1) {
+          return { ...tab, rows: [createInitialRow()] };
+        }
+        return {
+          ...tab,
+          rows: tab.rows.filter((_, i) => i !== idx),
+        };
+      })
+    );
   };
 
   // Summary Calculations for Active Tab
@@ -358,11 +506,16 @@ export default function EstimateForm() {
     let totalQty = 0;
 
     (activeTab?.rows || []).forEach((r) => {
-      const q = parseFloat(r.qty) || 0;
-      sub += q * (parseFloat(r.price) || 0);
-      disc += parseFloat(r.discount_amt) || 0;
-      tax += parseFloat(r.tax_amt) || 0;
-      totalQty += q;
+      const q = parseFloat(r.qty);
+      const p = parseFloat(r.price);
+      if (!isNaN(q) && q > 0) totalQty += q;
+      if (!isNaN(q) && q > 0 && !isNaN(p) && p > 0) {
+        sub += q * p;
+      }
+      const da = parseFloat(r.discount_amt);
+      if (!isNaN(da) && da > 0) disc += da;
+      const ta = parseFloat(r.tax_amt);
+      if (!isNaN(ta) && ta > 0) tax += ta;
     });
 
     const grandTotalBeforeRound = Math.max(0, sub - disc + tax);
@@ -543,7 +696,7 @@ export default function EstimateForm() {
             {/* Close Page */}
             <button
               type="button"
-              onClick={() => navigate("/sales/estimate-quotation")}
+              onClick={() => setShowCloseConfirm(true)}
               className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               title="Close Workspace"
             >
@@ -558,7 +711,7 @@ export default function EstimateForm() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/sales/estimate-quotation")}
+              onClick={() => setShowCloseConfirm(true)}
               className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-xs cursor-pointer"
               title="Back to Quotations"
             >
@@ -723,9 +876,14 @@ export default function EstimateForm() {
                 <Phone size={14} className="text-slate-400" />
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={activeTab?.phoneNo || ""}
-                  onChange={(e) => updateActiveTab({ phoneNo: e.target.value })}
-                  placeholder="e.g. +91 98765 43210"
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    updateActiveTab({ phoneNo: val });
+                  }}
+                  placeholder="10-digit mobile number"
                   className="w-full bg-transparent text-xs font-medium text-slate-800 outline-none"
                 />
               </div>
@@ -777,12 +935,9 @@ export default function EstimateForm() {
               <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
                 <FileText size={13} className="text-slate-400" /> Quotation Ref #
               </span>
-              <input
-                type="text"
-                value={activeTab?.refNo || ""}
-                onChange={(e) => updateActiveTab({ refNo: e.target.value })}
-                className="w-40 text-right font-mono font-bold text-xs text-blue-700 bg-blue-50/50 border border-blue-200 rounded-lg px-2.5 py-1 outline-none focus:border-blue-500"
-              />
+              <div className="w-40 px-2.5 py-1.5 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs font-black text-blue-700 font-mono tracking-wide text-right select-all">
+                {activeTab?.refNo || "EST-0001"}
+              </div>
             </div>
 
             {/* Estimate Date */}
@@ -817,137 +972,128 @@ export default function EstimateForm() {
         </div>
       </div>
 
-      {/* ── 4. DYNAMIC PROPOSAL LINE ITEMS MATRIX ── */}
+      {/* ── 4. LINE ITEMS MATRIX TABLE CARD ── */}
       <div className="px-6 md:px-8 mb-6">
-        <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
-          {/* Table Header Bar */}
-          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs">
+          
+          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 rounded-t-2xl flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Layers size={15} className="text-blue-600" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Proposal Items & Pricing Matrix</h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
-                {(activeTab?.rows || []).length} Items
+              <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Layers size={14} />
+              </div>
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Line Items &amp; Inventory Products
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                {(activeTab?.rows || []).length} {(activeTab?.rows || []).length === 1 ? "Row" : "Rows"}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={addRow}
-              className="app-btn-primary px-3 py-1.5 rounded-xl text-xs font-bold"
-            >
-              <Plus size={13} strokeWidth={2.5} />
-              <span>Add Item</span>
-            </button>
+            <span className="text-[11px] font-medium text-slate-400">
+              Type product name or scan barcode to add
+            </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto min-h-[160px]">
+            <table className="w-full text-left text-xs border-collapse min-w-[980px]">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-100/60 text-slate-600 font-bold uppercase text-[11px]">
-                  <th className="py-3 px-3.5 border-r border-slate-200 w-12 text-center">#</th>
-                  {visibleColumns.item && (
-                    <th className="py-3 px-4 border-r border-slate-200 min-w-[260px]">ITEM</th>
+                <tr className="bg-slate-50/60 border-b border-slate-200/80 text-slate-600 font-bold select-none text-[11px] uppercase tracking-wider">
+                  <th className="py-3 px-3 text-center border-r border-slate-200/60 w-12">#</th>
+                  {visibleColumns.item !== false && (
+                    <th className="py-3 px-4 border-r border-slate-200/60 min-w-[240px]">Item Name / Description</th>
                   )}
-                  {visibleColumns.qty && (
-                    <th className="py-3 px-3 border-r border-slate-200 w-24 text-right">QTY</th>
+                  {visibleColumns.qty !== false && (
+                    <th className="py-3 px-3 text-center border-r border-slate-200/60 w-24">Qty</th>
                   )}
-                  {visibleColumns.unit && (
-                    <th className="py-3 px-3 border-r border-slate-200 w-24">UNIT</th>
+                  {visibleColumns.unit !== false && (
+                    <th className="py-3 px-3 text-center border-r border-slate-200/60 w-24">Unit</th>
                   )}
-                  {visibleColumns.price && (
-                    <th className="py-3 px-3 border-r border-slate-200 w-36 text-right">PRICE/UNIT</th>
+                  {visibleColumns.price !== false && (
+                    <th className="py-3 px-3 text-center border-r border-slate-200/60 w-32">Price / Unit (₹)</th>
                   )}
-                  {visibleColumns.discount && (
-                    <th className="py-3 px-3 border-r border-slate-200 w-32 text-right">DISCOUNT</th>
+                  {visibleColumns.discount !== false && (
+                    <th className="py-3 px-0 text-center border-r border-slate-200/60 w-36">
+                      <div className="border-b border-slate-200/60 pb-1">Discount</div>
+                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-400">
+                        <span>%</span>
+                        <span>Amount (₹)</span>
+                      </div>
+                    </th>
                   )}
-                  {visibleColumns.tax && (
-                    <th className="py-3 px-3 border-r border-slate-200 w-32 text-right">TAX</th>
+                  {visibleColumns.tax !== false && (
+                    <th className="py-3 px-0 text-center border-r border-slate-200/60 w-36">
+                      <div className="border-b border-slate-200/60 pb-1">Tax (GST)</div>
+                      <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-400">
+                        <span>% Slab</span>
+                        <span>Tax (₹)</span>
+                      </div>
+                    </th>
                   )}
-                  {visibleColumns.amount && (
-                    <th className="py-3 px-4 border-r border-slate-200 w-36 text-right">AMOUNT</th>
+                  {visibleColumns.amount !== false && (
+                    <th className="py-3 px-4 text-right border-r border-slate-200/60 w-32">Amount (₹)</th>
                   )}
-                  <th className="py-3 px-3 w-16 text-center">ACTION</th>
+                  <th className="py-3 px-2 text-center w-12">Action</th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {(activeTab?.rows || []).map((row, idx) => (
-                  <tr key={row.id || idx} className="hover:bg-blue-50/25 transition-colors group">
-                    {/* Index */}
-                    <td className="py-2.5 px-3.5 border-r border-slate-200 text-center font-mono text-slate-400 text-xs">
+                  <tr key={row.id || idx} className="hover:bg-blue-50/30 transition-colors">
+                    
+                    {/* # Index */}
+                    <td className="py-2.5 px-3 text-center border-r border-slate-200/60 text-slate-400 font-bold">
                       {idx + 1}
                     </td>
 
-                    {/* Item Autocomplete Search */}
-                    {visibleColumns.item && (
-                      <td className="py-2 px-3 border-r border-slate-200 relative">
+                    {/* Item Name Autocomplete */}
+                    {visibleColumns.item !== false && (
+                      <td className="py-2 px-3 border-r border-slate-200/60 min-w-[240px]">
                         <input
                           type="text"
-                          placeholder="Type or search catalog product..."
+                          placeholder="Search product from inventory or type..."
                           value={row.item}
                           onChange={(e) => {
-                            updateRow(idx, "item", e.target.value);
+                            const val = e.target.value;
+                            activeInputRef.current = e.currentTarget;
+                            updateSuggestPosition(e.currentTarget);
+                            updateRow(idx, "item", val);
                             setActiveSearchRow(idx);
                           }}
-                          onFocus={() => setActiveSearchRow(idx)}
-                          className="w-full bg-transparent outline-none font-semibold text-slate-800 text-xs placeholder:font-normal placeholder:text-slate-400"
+                          onFocus={(e) => {
+                            activeInputRef.current = e.currentTarget;
+                            updateSuggestPosition(e.currentTarget);
+                            setActiveSearchRow(idx);
+                          }}
+                          onClick={(e) => {
+                            activeInputRef.current = e.currentTarget;
+                            updateSuggestPosition(e.currentTarget);
+                            setActiveSearchRow(idx);
+                          }}
+                          className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
-
-                        {/* Suggestions Popover */}
-                        {activeSearchRow === idx && (
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-48 overflow-y-auto z-50 py-1">
-                            {productsList
-                              .filter(
-                                (p) =>
-                                  !row.item ||
-                                  !p.product_name ||
-                                  p.product_name.toLowerCase().includes(row.item.toLowerCase()) ||
-                                  (p.product_code && p.product_code.toLowerCase().includes(row.item.toLowerCase()))
-                              )
-                              .slice(0, 8)
-                              .map((prod) => (
-                                <div
-                                  key={prod.id}
-                                  onClick={() => selectProductForRow(idx, prod)}
-                                  className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs border-b border-slate-50 last:border-none transition"
-                                >
-                                  <div>
-                                    <span className="font-bold text-slate-800">{prod.product_name}</span>
-                                    {prod.stock !== undefined && (
-                                      <span className="text-[10px] text-slate-400 ml-2">Stock: {prod.stock}</span>
-                                    )}
-                                  </div>
-                                  <span className="text-blue-600 font-mono font-bold">
-                                    ₹{parseFloat(prod.sale_price || prod.price || 0).toLocaleString()}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                        )}
                       </td>
                     )}
 
                     {/* Qty */}
-                    {visibleColumns.qty && (
-                      <td className="py-2 px-2 border-r border-slate-200">
+                    {visibleColumns.qty !== false && (
+                      <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                         <input
                           type="number"
-                          min="0"
-                          step="any"
-                          placeholder="0"
+                          min="1"
+                          placeholder="1"
                           value={row.qty}
                           onChange={(e) => updateRow(idx, "qty", e.target.value)}
-                          className="w-full text-right outline-none bg-transparent font-bold text-slate-800 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-1"
+                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
                       </td>
                     )}
 
                     {/* Unit */}
-                    {visibleColumns.unit && (
-                      <td className="py-2 px-2 border-r border-slate-200">
+                    {visibleColumns.unit !== false && (
+                      <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                         <select
-                          value={row.unit}
+                          value={row.unit || "NONE"}
                           onChange={(e) => updateRow(idx, "unit", e.target.value)}
-                          className="w-full bg-transparent outline-none text-slate-700 text-xs font-semibold cursor-pointer rounded px-1 py-1"
+                          className="w-full py-1.5 px-1 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none cursor-pointer"
                         >
                           {UNITS.map((u) => (
                             <option key={u} value={u}>{u}</option>
@@ -956,112 +1102,135 @@ export default function EstimateForm() {
                       </td>
                     )}
 
-                    {/* Price / Unit */}
-                    {visibleColumns.price && (
-                      <td className="py-2 px-2 border-r border-slate-200">
+                    {/* Price */}
+                    {visibleColumns.price !== false && (
+                      <td className="py-2 px-2 border-r border-slate-200/60 text-center">
                         <input
                           type="number"
                           min="0"
-                          step="any"
+                          step="0.01"
                           placeholder="0.00"
                           value={row.price}
                           onChange={(e) => updateRow(idx, "price", e.target.value)}
-                          className="w-full text-right outline-none bg-transparent font-bold text-slate-800 text-xs focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1.5 py-1"
+                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
                       </td>
                     )}
 
                     {/* Discount */}
-                    {visibleColumns.discount && (
-                      <td className="py-2 px-2 border-r border-slate-200">
-                        <div className="flex items-center justify-end gap-1">
+                    {visibleColumns.discount !== false && (
+                      <td className="py-2 px-0 border-r border-slate-200/60">
+                        <div className="grid grid-cols-2 divide-x divide-slate-200">
                           <input
                             type="number"
                             placeholder="%"
+                            min="0"
+                            max="100"
                             value={row.discount_pct || ""}
-                            onChange={(e) => updateRow(idx, "discount_pct", e.target.value)}
-                            className="w-11 text-right outline-none bg-transparent font-semibold text-slate-700 text-xs focus:bg-white rounded px-1 py-0.5"
+                            onChange={(e) => {
+                              updateRowFields(idx, {
+                                discount_pct: e.target.value,
+                                discount_amt: "",
+                              });
+                            }}
+                            className="w-full py-1 px-1 text-center font-bold text-slate-800 outline-none text-xs"
                           />
-                          <span className="text-slate-300">|</span>
-                          <span className="text-[11px] font-mono font-medium text-slate-500 w-12 text-right">
-                            {parseFloat(row.discount_amt || 0).toFixed(1)}
-                          </span>
+                          <input
+                            type="number"
+                            placeholder="₹"
+                            min="0"
+                            value={row.discount_amt || ""}
+                            onChange={(e) => {
+                              updateRowFields(idx, {
+                                discount_amt: e.target.value,
+                                discount_pct: "",
+                              });
+                            }}
+                            className="w-full py-1 px-1 text-center font-bold text-slate-800 outline-none text-xs"
+                          />
                         </div>
                       </td>
                     )}
 
                     {/* Tax */}
-                    {visibleColumns.tax && (
-                      <td className="py-2 px-2 border-r border-slate-200">
-                        <div className="flex items-center justify-end gap-1">
+                    {visibleColumns.tax !== false && (
+                      <td className="py-2 px-0 border-r border-slate-200/60">
+                        <div className="grid grid-cols-2 divide-x divide-slate-200 items-center">
                           <select
                             value={row.tax_rate}
                             onChange={(e) => updateRow(idx, "tax_rate", e.target.value)}
-                            className="bg-transparent outline-none text-xs font-semibold text-slate-700 cursor-pointer"
+                            className="w-full py-1 px-1 bg-transparent text-center font-bold text-slate-800 outline-none text-xs cursor-pointer"
                           >
-                            {TAX_RATES.map((t) => (
-                              <option key={t.label} value={t.value}>{t.label}</option>
+                            {TAX_RATES.map((tr, i) => (
+                              <option key={i} value={tr.value}>{tr.label}</option>
                             ))}
                           </select>
-                          <span className="text-slate-300">|</span>
-                          <span className="text-[11px] font-mono font-medium text-slate-500 w-12 text-right">
-                            {parseFloat(row.tax_amt || 0).toFixed(1)}
+                          <span className="text-[11px] font-bold text-slate-500 text-center truncate">
+                            {row.tax_amt ? `₹${parseFloat(row.tax_amt).toFixed(1)}` : "—"}
                           </span>
                         </div>
                       </td>
                     )}
 
                     {/* Amount */}
-                    {visibleColumns.amount && (
-                      <td className="py-2 px-4 border-r border-slate-200 text-right font-black text-slate-900 text-xs font-mono">
-                        ₹{(parseFloat(row.amount) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {visibleColumns.amount !== false && (
+                      <td className="py-2.5 px-4 text-right border-r border-slate-200/60 font-black text-slate-900 text-xs">
+                        ₹ {row.amount ? parseFloat(row.amount).toFixed(2) : "0.00"}
                       </td>
                     )}
 
-                    {/* Action */}
-                    <td className="py-2 px-2 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => removeRow(idx)}
-                          disabled={(activeTab?.rows || []).length === 1}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition disabled:opacity-30 cursor-pointer"
-                          title="Remove item"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
+                    {/* Action Delete */}
+                    <td className="py-2 px-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeRow(idx)}
+                        className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition cursor-pointer mx-auto"
+                        title="Delete row"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </td>
+
                   </tr>
                 ))}
               </tbody>
 
-              {/* Table Footer Totals */}
+              {/* Table Footer */}
               <tfoot>
-                <tr className="bg-slate-100/80 font-bold text-slate-800 border-t-2 border-slate-200 text-xs">
-                  <td colSpan={2} className="py-3 px-4 border-r border-slate-200">
+                <tr className="border-t-2 border-slate-200 bg-slate-50/80 font-bold text-slate-800 text-xs">
+                  <td colSpan={2} className="py-3 px-4 border-r border-slate-200/60">
                     <button
                       type="button"
                       onClick={addRow}
-                      className="px-3.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs hover:bg-blue-100 transition cursor-pointer flex items-center gap-1.5"
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-blue-600 bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition cursor-pointer"
                     >
-                      <Plus size={13} strokeWidth={2.5} />
-                      <span>ADD LINE ITEM</span>
+                      <Plus size={14} strokeWidth={3} />
+                      <span>Add Item Row</span>
                     </button>
                   </td>
-                  <td className="py-3 px-3 border-r border-slate-200 text-right font-mono font-black">{totals.totalQty}</td>
-                  <td className="py-3 px-3 border-r border-slate-200"></td>
-                  <td className="py-3 px-3 border-r border-slate-200 text-right font-bold text-slate-500">TOTALS</td>
-                  <td className="py-3 px-3 border-r border-slate-200 text-right font-mono font-bold text-slate-700">
-                    {formatCurrency(totals.discount)}
-                  </td>
-                  <td className="py-3 px-3 border-r border-slate-200 text-right font-mono font-bold text-slate-700">
-                    {formatCurrency(totals.tax)}
-                  </td>
-                  <td className="py-3 px-4 border-r border-slate-200 text-right text-sm text-blue-700 font-black font-mono">
-                    {formatCurrency(totals.grandTotalBeforeRound)}
-                  </td>
-                  <td></td>
+                  {visibleColumns.qty !== false && (
+                    <td className="py-3 px-2 text-center border-r border-slate-200/60 font-black text-slate-900">
+                      {totals.totalQty}
+                    </td>
+                  )}
+                  {visibleColumns.unit !== false && <td className="border-r border-slate-200/60" />}
+                  {visibleColumns.price !== false && <td className="border-r border-slate-200/60" />}
+                  {visibleColumns.discount !== false && (
+                    <td className="py-3 px-2 text-center border-r border-slate-200/60 text-amber-700">
+                      ₹ {totals.discount ? totals.discount.toFixed(2) : "0.00"}
+                    </td>
+                  )}
+                  {visibleColumns.tax !== false && (
+                    <td className="py-3 px-2 text-center border-r border-slate-200/60 text-emerald-700">
+                      ₹ {totals.tax ? totals.tax.toFixed(2) : "0.00"}
+                    </td>
+                  )}
+                  {visibleColumns.amount !== false && (
+                    <td className="py-3 px-4 text-right border-r border-slate-200/60 font-black text-slate-900">
+                      ₹ {totals.grandTotalBeforeRound ? totals.grandTotalBeforeRound.toFixed(2) : "0.00"}
+                    </td>
+                  )}
+                  <td />
                 </tr>
               </tfoot>
             </table>
@@ -1069,62 +1238,96 @@ export default function EstimateForm() {
         </div>
       </div>
 
+      {/* Product Suggestions Floating Dropdown (Rendered via Portal to eliminate clipping) */}
+      {activeSearchRow !== null && suggestCoords && createPortal(
+        <div
+          ref={itemSuggestRef}
+          style={{
+            position: "fixed",
+            top: `${suggestCoords.top}px`,
+            left: `${suggestCoords.left}px`,
+            width: `${suggestCoords.width}px`,
+            zIndex: 99999,
+          }}
+          className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 animate-in fade-in duration-100"
+        >
+          {(() => {
+            const currentRow = (activeTab?.rows || [])[activeSearchRow];
+            const q = (currentRow?.item || "").trim().toLowerCase();
+            const filtered = productsList.filter(
+              (p) =>
+                !q ||
+                (p.product_name && p.product_name.toLowerCase().includes(q)) ||
+                (p.name && p.name.toLowerCase().includes(q)) ||
+                (p.product_code && String(p.product_code).toLowerCase().includes(q)) ||
+                (p.barcode && String(p.barcode).toLowerCase().includes(q))
+            ).slice(0, 50);
+
+            if (filtered.length === 0) {
+              return (
+                <div className="px-4 py-3 text-center text-xs text-slate-400 select-none">
+                  No products found in catalog. Type custom item name.
+                </div>
+              );
+            }
+
+            return filtered.map((prod) => (
+              <div
+                key={prod.id}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectProductForRow(activeSearchRow, prod);
+                }}
+                className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+              >
+                <div className="min-w-0 pr-2">
+                  <div className="font-bold text-slate-900 truncate">{prod.product_name || prod.name}</div>
+                  <div className="text-[11px] text-slate-400">Stock: {prod.stock ?? 0} {prod.unit || ""}</div>
+                </div>
+                <div className="font-extrabold text-blue-600 shrink-0">₹{parseFloat(prod.sale_price || prod.price || 0).toLocaleString()}</div>
+              </div>
+            ));
+          })()}
+        </div>,
+        document.body
+      )}
+
       {/* ── 5. PROPOSAL TERMS, CLAUSES & FINANCIAL RECONCILIATION ── */}
       <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
         {/* Left: Proposal Terms, Description & Attachments (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Terms & Conditions Card */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <AlignLeft size={15} className="text-blue-600" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Quotation Terms & Conditions</h4>
+          {/* Terms, Conditions & Remarks Card */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <FileText size={14} />
               </div>
-              <button
-                type="button"
-                onClick={() => updateActiveTab({ showTerms: !activeTab.showTerms })}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-              >
-                {activeTab.showTerms ? "Hide Terms" : "Show / Edit Terms"}
-              </button>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Terms, Conditions &amp; Remarks</h3>
             </div>
 
-            {activeTab.showTerms && (
-              <textarea
-                rows={3}
-                value={activeTab.termsText}
-                onChange={(e) => updateActiveTab({ termsText: e.target.value })}
-                placeholder="Enter quotation terms and clauses..."
-                className="w-full border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-blue-500 font-medium resize-none bg-slate-50/50"
-              />
-            )}
-          </div>
-
-          {/* Description / Proposal Remarks */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <FileText size={15} className="text-blue-600" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Executive Proposal Note / Remarks</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Invoice Remarks &amp; Note</label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter custom remarks for customer invoice..."
+                  value={activeTab.descriptionText || ""}
+                  onChange={(e) => updateActiveTab({ descriptionText: e.target.value })}
+                  className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+                />
               </div>
-              <button
-                type="button"
-                onClick={() => updateActiveTab({ showDescription: !activeTab.showDescription })}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-              >
-                {activeTab.showDescription ? "Hide Notes" : "Add Notes"}
-              </button>
-            </div>
 
-            {activeTab.showDescription && (
-              <textarea
-                rows={2}
-                value={activeTab.descriptionText}
-                onChange={(e) => updateActiveTab({ descriptionText: e.target.value })}
-                placeholder="Optional scope of work or project specifications..."
-                className="w-full border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-blue-500 font-medium resize-none bg-slate-50/50"
-              />
-            )}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Terms &amp; Conditions</label>
+                <TermsDropdown
+                  companyId={companyId || 1}
+                  page="estimate"
+                  value={activeTab.termsText || ""}
+                  onChange={(newVal) => updateActiveTab({ termsText: newVal })}
+                  placeholder="Select Terms &amp; Conditions..."
+                />
+              </div>
+            </div>
           </div>
 
           {/* Attachments Section */}
@@ -1293,6 +1496,16 @@ export default function EstimateForm() {
         onReset={resetDefaultColumns}
         title="Customise Columns"
         subtitle="Show or hide table columns in line items"
+      />
+
+      {/* Close Confirm Modal */}
+      <CloseEstimateModal
+        isOpen={showCloseConfirm}
+        onCancel={() => setShowCloseConfirm(false)}
+        onConfirm={() => {
+          setShowCloseConfirm(false);
+          navigate("/sales/estimate-quotation");
+        }}
       />
     </div>
   );

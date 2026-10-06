@@ -83,6 +83,8 @@ export default function AddProductModal({
   onProductUpdated,
   product = null,
   initialProductName = "",
+  initialName = "",
+  companyId = "",
 }) {
   const { toasts, show, remove } = useToast();
   const [loading, setLoading] = useState(false);
@@ -101,7 +103,7 @@ export default function AddProductModal({
   const [brands, setBrands] = useState([]);
   const [brandLoading, setBrandLoading] = useState(false);
 
-  const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
+  const getCompanyId = () => Number(companyId || localStorage.getItem("selected_company_id") || 0);
 
   const [form, setForm] = useState({
     name: "",
@@ -219,7 +221,7 @@ export default function AddProductModal({
     if (isOpen) {
       let cancelled = false;
       const emptyForm = {
-          name: initialProductName,
+          name: initialProductName || initialName || "",
           product_code: "",
           price: "",
           stock: "",
@@ -300,7 +302,7 @@ export default function AddProductModal({
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, product?.id, initialProductName]);
+  }, [isOpen, product?.id, initialProductName, initialName]);
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);
@@ -394,11 +396,21 @@ export default function AddProductModal({
 
       if (res.data.status) {
         show("success", isEditing ? "Product Updated!" : "Product Added!", `"${form.name}" ${isEditing ? "has been updated" : "has been created"} successfully.`);
+        const createdProduct = res.data.data || {
+          product_name: form.name.trim(),
+          name: form.name.trim(),
+          price: Number(form.sale_price || 0),
+          sale_price: form.sale_price || 0,
+          stock: form.stock,
+          unit: form.unit.trim(),
+          gst_percentage: gstEnabled ? Number(form.gst) || 0 : 0,
+          product_code: form.product_code.trim(),
+        };
         setTimeout(() => {
-          if (isEditing) onProductUpdated && onProductUpdated(res.data.data);
-          else onProductAdded && onProductAdded(res.data.data);
+          if (isEditing) onProductUpdated && onProductUpdated(res.data.data || createdProduct);
+          else onProductAdded && onProductAdded(createdProduct);
           onClose();
-        }, 800);
+        }, 500);
       } else {
         show("error", "Failed", res.data.message || "Something went wrong.");
       }
