@@ -73,9 +73,19 @@ class SupplierController extends Controller
     {
         $this->ensureSchemaUpdated();
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        $admin_id = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
         $query = Supplier::where('is_deleted', 0);
         if ($company_id > 0) {
             $query->where('company_id', $company_id);
+        } elseif ($admin_id > 0) {
+            $adminCompanyIds = \Illuminate\Support\Facades\DB::table('companies')
+                ->where('admin_id', $admin_id)
+                ->where('is_deleted', 0)
+                ->pluck('id')
+                ->all();
+            if (!empty($adminCompanyIds)) {
+                $query->whereIn('company_id', $adminCompanyIds);
+            }
         }
 
         $suppliers = $query->select('suppliers.*')

@@ -117,8 +117,8 @@ class ExpenseController extends Controller
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
         $admin_id = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
-        $from_date = trim($request->input('from_date') ?: $request->query('from_date', ''));
-        $to_date = trim($request->input('to_date') ?: $request->query('to_date', ''));
+        $from_date = trim($request->input('from_date') ?: ($request->query('from_date') ?: ($request->input('start_date') ?: $request->query('start_date', ''))));
+        $to_date = trim($request->input('to_date') ?: ($request->query('to_date') ?: ($request->input('end_date') ?: $request->query('end_date', ''))));
 
         $query = DB::table('expense_categories as ec')
             ->where('ec.is_deleted', 0);
@@ -126,6 +126,12 @@ class ExpenseController extends Controller
         if ($company_id > 0) {
             $query->where(function ($q) use ($company_id) {
                 $q->where('ec.company_id', $company_id)->orWhereNull('ec.company_id');
+            });
+        } elseif ($admin_id > 0) {
+            $query->where(function ($q) use ($admin_id) {
+                $q->whereIn('ec.company_id', function ($sub) use ($admin_id) {
+                    $sub->select('id')->from('companies')->where('admin_id', $admin_id)->where('is_deleted', 0);
+                })->orWhereNull('ec.company_id');
             });
         }
 
@@ -231,6 +237,7 @@ class ExpenseController extends Controller
     public function getItems(Request $request)
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
+        $admin_id = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
 
         $query = DB::table('expense_items as ei')
             ->leftJoin('expense_categories as ec', 'ei.category_id', '=', 'ec.id')
@@ -240,6 +247,14 @@ class ExpenseController extends Controller
         if ($company_id > 0) {
             $query->where(function ($q) use ($company_id) {
                 $q->where('ei.company_id', $company_id)->orWhereNull('ei.company_id');
+            });
+        } elseif ($admin_id > 0) {
+            $query->where(function ($q) use ($admin_id) {
+                $q->where('ei.admin_id', $admin_id)
+                  ->orWhereIn('ei.company_id', function ($sub) use ($admin_id) {
+                      $sub->select('id')->from('companies')->where('admin_id', $admin_id)->where('is_deleted', 0);
+                  })
+                  ->orWhereNull('ei.company_id');
             });
         }
 
@@ -297,14 +312,21 @@ class ExpenseController extends Controller
         $category_id = intval($request->input('category_id') ?: $request->query('category_id', 0));
         $category_name = trim($request->input('category_name') ?: $request->query('category_name', ''));
         $payment_type = trim($request->input('payment_type') ?: $request->query('payment_type', ''));
-        $from_date = trim($request->input('from_date') ?: $request->query('from_date', ''));
-        $to_date = trim($request->input('to_date') ?: $request->query('to_date', ''));
+        $from_date = trim($request->input('from_date') ?: ($request->query('from_date') ?: ($request->input('start_date') ?: $request->query('start_date', ''))));
+        $to_date = trim($request->input('to_date') ?: ($request->query('to_date') ?: ($request->input('end_date') ?: $request->query('end_date', ''))));
         $search = trim($request->input('search') ?: $request->query('search', ''));
 
         $query = Expense::where('is_deleted', 0);
 
         if ($company_id > 0) {
             $query->where('company_id', $company_id);
+        } elseif ($admin_id > 0) {
+            $query->where(function ($q) use ($admin_id) {
+                $q->where('admin_id', $admin_id)
+                  ->orWhereIn('company_id', function ($sub) use ($admin_id) {
+                      $sub->select('id')->from('companies')->where('admin_id', $admin_id)->where('is_deleted', 0);
+                  });
+            });
         }
 
         if ($category_id > 0) {
