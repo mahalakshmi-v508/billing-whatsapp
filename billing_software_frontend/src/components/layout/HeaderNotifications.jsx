@@ -16,7 +16,7 @@ import { LOW_STOCK_THRESHOLD, isLowStock, isOutOfStock } from "../../utils/stock
 const TAB_EMPTY_COPY = {
   all: {
     title: "All clear!",
-    body: "No overdue payments or stock warnings currently.",
+    body: "No overdue payments, expiring items or stock warnings currently.",
   },
   overdue: {
     title: "No overdue payments",
@@ -30,15 +30,20 @@ const TAB_EMPTY_COPY = {
     title: "No low stock items",
     body: `Every active product has ${LOW_STOCK_THRESHOLD} units or more in stock.`,
   },
+  expire: {
+    title: "No expiring products",
+    body: "All products are safe. None expiring within the next 30 days.",
+  },
 };
 
 export default function HeaderNotifications() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'overdue' | 'out_of_stock' | 'low_stock'
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'overdue' | 'out_of_stock' | 'low_stock' | 'expire'
   const [overdueList, setOverdueList] = useState([]);
   const [unsoldList, setUnsoldList] = useState([]);
   const [stockAlerts, setStockAlerts] = useState([]);
+  const [expiringList, setExpiringList] = useState([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -78,15 +83,32 @@ export default function HeaderNotifications() {
             .then((res) => (res.data.status ? res.data.data || [] : []))
             .catch(() => [])
         );
+        promises.push(
+          api
+            .get(`/dashboard/get_expiring_products_notification?company_id=${selectedCompany}`)
+            .then((res) => (res.data.status ? res.data.data || [] : []))
+            .catch(() => [])
+        );
+      } else if (adminId) {
+        promises.push(Promise.resolve([]));
+        promises.push(Promise.resolve([]));
+        promises.push(
+          api
+            .get(`/dashboard/get_expiring_products_notification?admin_id=${adminId}`)
+            .then((res) => (res.data.status ? res.data.data || [] : []))
+            .catch(() => [])
+        );
       } else {
+        promises.push(Promise.resolve([]));
         promises.push(Promise.resolve([]));
         promises.push(Promise.resolve([]));
       }
 
-      const [overdueRes, unsoldRes, stockRes] = await Promise.all(promises);
-      setOverdueList(overdueRes);
-      setUnsoldList(unsoldRes);
-      setStockAlerts(stockRes);
+      const [overdueRes, unsoldRes, stockRes, expiringRes] = await Promise.all(promises);
+      setOverdueList(overdueRes || []);
+      setUnsoldList(unsoldRes || []);
+      setStockAlerts(stockRes || []);
+      setExpiringList(expiringRes || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -119,18 +141,37 @@ export default function HeaderNotifications() {
     [stockAlerts]
   );
 
-  const totalCount = overdueList.length + unsoldList.length + stockAlerts.length;
+  const totalCount =
+    overdueList.length +
+    unsoldList.length +
+    stockAlerts.length +
+    expiringList.length;
 
   /* Rows visible for the current tab - drives the empty state instead of totalCount,
-     so an empty filter shows its own message even when other tabs have alerts. */
-  const tabCount =
-    activeTab === "overdue"
-      ? overdueList.length
-      : activeTab === "out_of_stock"
-      ? outOfStockList.length
-      : activeTab === "low_stock"
-      ? lowStockList.length
-      : totalCount;
+     so clicking "Out of Stock" when 0 items exist says "Nothing out of stock" rather
+     than hiding the dropdown or claiming all 18 total alerts apply to it. */
+  const tabCount = useMemo(() => {
+    switch (activeTab) {
+      case "overdue":
+        return overdueList.length;
+      case "out_of_stock":
+        return outOfStockList.length;
+      case "low_stock":
+        return lowStockList.length;
+      case "expire":
+        return expiringList.length;
+      case "all":
+      default:
+        return totalCount;
+    }
+  }, [
+    activeTab,
+    overdueList.length,
+    outOfStockList.length,
+    lowStockList.length,
+    expiringList.length,
+    totalCount,
+  ]);
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -199,7 +240,7 @@ export default function HeaderNotifications() {
               <button
                 type="button"
                 onClick={() => setActiveTab("all")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                   activeTab === "all"
                     ? "bg-white text-indigo-600 shadow-xs font-bold"
                     : "text-slate-500 hover:text-slate-800"
@@ -210,7 +251,7 @@ export default function HeaderNotifications() {
               <button
                 type="button"
                 onClick={() => setActiveTab("overdue")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                   activeTab === "overdue"
                     ? "bg-white text-rose-600 shadow-xs font-bold"
                     : "text-slate-500 hover:text-slate-800"
@@ -221,7 +262,7 @@ export default function HeaderNotifications() {
               <button
                 type="button"
                 onClick={() => setActiveTab("out_of_stock")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                   activeTab === "out_of_stock"
                     ? "bg-white text-rose-600 shadow-xs font-bold"
                     : "text-slate-500 hover:text-slate-800"
@@ -232,13 +273,24 @@ export default function HeaderNotifications() {
               <button
                 type="button"
                 onClick={() => setActiveTab("low_stock")}
-                className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap ${
                   activeTab === "low_stock"
                     ? "bg-white text-amber-600 shadow-xs font-bold"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
                 Low Stock ({lowStockList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("expire")}
+                className={`px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
+                  activeTab === "expire"
+                    ? "bg-white text-rose-600 shadow-xs font-bold"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Expire ({expiringList.length})
               </button>
             </div>
 
@@ -259,7 +311,7 @@ export default function HeaderNotifications() {
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
                     {TAB_EMPTY_COPY[activeTab]?.body ||
-                      "No overdue payments or stock warnings currently."}
+                      "No overdue payments, expiring items or stock warnings currently."}
                   </p>
                 </div>
               ) : (
@@ -268,23 +320,23 @@ export default function HeaderNotifications() {
                   {(activeTab === "all" || activeTab === "overdue") &&
                     overdueList.map((item, idx) => (
                       <div
-                        key={`overdue-${idx}`}
+                        key={`due-${idx}`}
                         onClick={() => {
                           setIsOpen(false);
-                          navigate("/sales/payment-in");
+                          navigate(`/sales/invoices?search=${encodeURIComponent(item.customer || "")}`);
                         }}
-                        className="p-3 hover:bg-rose-50/40 transition cursor-pointer flex items-center justify-between gap-3 group"
+                        className="p-3 hover:bg-slate-50 transition cursor-pointer flex items-center justify-between gap-3 group"
                       >
                         <div className="flex items-start gap-2.5 min-w-0">
                           <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">
                             <AlertCircle size={14} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-900 truncate group-hover:text-rose-600 transition">
-                              {item.customer || item.customer_name || "Customer Account"}
+                            <p className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-600 transition">
+                              {item.customer || "Unknown Customer"}
                             </p>
-                            <p className="text-[10px] text-rose-600 font-medium">
-                              Due Date: {item.due_date || "Past Due"}
+                            <p className="text-[10px] text-slate-400 truncate">
+                              Inv #{item.invoice_no} • Due: {item.due_date || "N/A"}
                             </p>
                           </div>
                         </div>
@@ -298,6 +350,90 @@ export default function HeaderNotifications() {
                         </div>
                       </div>
                     ))}
+
+                  {/* Expiring Products */}
+                  {(activeTab === "all" || activeTab === "expire") &&
+                    expiringList.map((item, idx) => {
+                      const isExpired = item.is_expired;
+                      const isToday = item.expires_today;
+                      const daysLeft = item.days_left;
+
+                      let badgeText = "";
+                      let badgeClass = "";
+                      let dueText = "";
+
+                      if (isExpired) {
+                        badgeText = "Expired";
+                        badgeClass = "bg-rose-100 text-rose-700 border-rose-200";
+                        dueText = `Expired: ${item.expiry_date} (${Math.abs(daysLeft)}d ago)`;
+                      } else if (isToday) {
+                        badgeText = "Expires Today";
+                        badgeClass = "bg-rose-100 text-rose-700 border-rose-200 font-bold animate-pulse";
+                        dueText = `Expires: Today (${item.expiry_date})`;
+                      } else {
+                        badgeText = `${daysLeft}d left`;
+                        badgeClass =
+                          daysLeft <= 7
+                            ? "bg-amber-100 text-amber-800 border-amber-200"
+                            : "bg-orange-50 text-orange-700 border-orange-200";
+                        dueText = `Expires: ${item.expiry_date} (in ${daysLeft} days)`;
+                      }
+
+                      return (
+                        <div
+                          key={`expire-${idx}`}
+                          onClick={() => {
+                            setIsOpen(false);
+                            navigate("/products");
+                          }}
+                          className="p-3 hover:bg-rose-50/40 transition cursor-pointer flex items-center justify-between gap-3 group"
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 font-bold ${
+                                isExpired || isToday
+                                  ? "bg-rose-100 text-rose-600"
+                                  : "bg-amber-100 text-amber-600"
+                              }`}
+                            >
+                              <AlertCircle size={14} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-900 truncate group-hover:text-rose-600 transition">
+                                {item.product_name}
+                              </p>
+                              <p
+                                className={`text-[10px] font-semibold ${
+                                  isExpired
+                                    ? "text-rose-600"
+                                    : isToday
+                                    ? "text-rose-500"
+                                    : "text-amber-700"
+                                }`}
+                              >
+                                {dueText}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                Stock:{" "}
+                                <strong className="text-slate-600 font-semibold">
+                                  {item.stock ?? 0} {item.unit || "units"}
+                                </strong>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-full border font-bold block mb-1 ${badgeClass}`}
+                            >
+                              {badgeText}
+                            </span>
+                            <span className="text-[10px] text-indigo-600 font-bold group-hover:underline inline-flex items-center gap-0.5">
+                              View <ChevronRight size={10} />
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
 
                   {/* Out of Stock Alerts (stock <= 0) */}
                   {(activeTab === "all" || activeTab === "out_of_stock") &&

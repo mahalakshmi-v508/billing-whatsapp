@@ -210,6 +210,7 @@ Route::prefix('dashboard')->group(function () {
     Route::get('get_dashboard', [DashboardController::class, 'getDashboard']);
     Route::get('get_stats', [DashboardController::class, 'getStats']);
     Route::get('get_unsold_products_notification', [DashboardController::class, 'getUnsoldProductsNotification']);
+    Route::get('get_expiring_products_notification', [DashboardController::class, 'getExpiringProductsNotification']);
     Route::get('get_stock_alert_notifications', [DashboardController::class, 'getStockAlertNotifications']);
 });
 
