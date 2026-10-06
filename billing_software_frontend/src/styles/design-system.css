@@ -146,6 +146,30 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator {
 /* ─────────────────────────────────────────────────────────────────────────────
    ✨ CUSTOM DROPDOWN MENUS, POPOVERS & SELECT BOX CONTAINERS
 ───────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   ✨ AUDIT LOG DRAWER SLIDE-IN
+   Used by the global Audit Log history drawer so it animates consistently with
+   the rest of the app (no tailwindcss-animate plugin is installed here).
+───────────────────────────────────────────────────────────────────────────── */
+@keyframes auditDrawerIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: auditDrawerIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-right {
+    animation: none;
+  }
+}
+
 @keyframes dropdownFadeIn {
   from {
     opacity: 0;

@@ -34,8 +34,42 @@ const api = axios.create({
   timeout: 30000,
 });
 
+/**
+ * The backend API has no server-side session (auth is a client-side
+ * localStorage contract), so it cannot tell who performed a request on its own.
+ * These headers let the audit middleware attribute each action to the signed-in
+ * user without changing every call site. CORS allows all origins, so custom
+ * headers are accepted as-is.
+ */
+function currentUser() {
+  try {
+    const raw = localStorage.getItem("user");
+    if (!raw) return {};
+    const user = JSON.parse(raw);
+    return user && typeof user === "object" ? user : {};
+  } catch {
+    return {};
+  }
+}
+
+function activeCompanyId(user) {
+  if (user.company_id) return user.company_id;
+  const selected = localStorage.getItem("selected_company_id");
+  return selected && /^\d+$/.test(selected) ? Number(selected) : null;
+}
+
 // Interceptor to strip .php extension and adjust endpoints for the Laravel backend
 api.interceptors.request.use((config) => {
+  const user = currentUser();
+
+  const userId = user.id ?? user.admin_id ?? null;
+  if (userId) config.headers["X-User-Id"] = String(userId);
+  if (user.name) config.headers["X-User-Name"] = String(user.name).slice(0, 150);
+  if (user.role) config.headers["X-User-Role"] = String(user.role).slice(0, 50);
+
+  const companyId = activeCompanyId(user);
+  if (companyId) config.headers["X-Company-Id"] = String(companyId);
+
   if (config.url) {
     let url = config.url;
 

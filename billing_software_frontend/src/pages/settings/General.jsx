@@ -33,7 +33,8 @@ import ServiceReminders from "./ServiceReminders";
 import TransactionMessage from "./TransactionMessage";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
-import { saveSettings } from "./settingsApi";
+import { saveSettings, fetchSettings } from "./settingsApi";
+import { AUDIT_SETTINGS_KEY, DEFAULT_AUDIT_SETTINGS } from "../../components/audit/auditApi";
 
 const blue = "#2563eb";
 const gradient = "linear-gradient(135deg, #1f8cff 0%, #4338ca 100%)";
@@ -137,6 +138,37 @@ function GeneralSettings() {
   useEffect(() => {
     fetchCompanies();
   }, [adminId]);
+
+  /* Audit Log settings - persisted in the shared company_settings blob */
+  const [auditSettings, setAuditSettings] = useState({ ...DEFAULT_AUDIT_SETTINGS });
+
+  useEffect(() => {
+    fetchSettings()
+      .then((settings) => {
+        setAuditSettings({
+          ...DEFAULT_AUDIT_SETTINGS,
+          ...(settings?.[AUDIT_SETTINGS_KEY] || {}),
+        });
+      })
+      .catch(() => setAuditSettings({ ...DEFAULT_AUDIT_SETTINGS }));
+  }, [selectedCompany]);
+
+  const updateAuditSetting = (key, value) => {
+    setAuditSettings((prev) => {
+      const updated = { ...prev, [key]: value };
+      // saveSettings shallow-merges the patch and re-broadcasts, so the header
+      // button picks up the change immediately.
+      saveSettings({ [AUDIT_SETTINGS_KEY]: updated });
+      showToast(
+        key === "enabled"
+          ? value
+            ? "Audit Log enabled - all actions are now being recorded"
+            : "Audit Log disabled - no new actions will be recorded"
+          : "Audit Log preference updated"
+      );
+      return updated;
+    });
+  };
 
   // Sync preferences with backend & localStorage
   const updatePreference = (key, value) => {
@@ -553,6 +585,78 @@ function GeneralSettings() {
                 checked={preferences.showShortcutHints}
                 onChange={(v) => updatePreference("showShortcutHints", v)}
               />
+            </div>
+          </div>
+
+          {/* Card: Audit Log */}
+          <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                <Shield size={15} className="text-indigo-600" />
+                <span>Audit Log</span>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                  auditSettings.enabled
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-slate-200 text-slate-500"
+                }`}
+              >
+                {auditSettings.enabled ? "Recording" : "Off"}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Records every create, edit, delete and status change made by any user, on every
+              page. Entries can be reviewed from the <strong>Audit Log</strong> button in the top
+              header or from the full Audit Log page.
+            </p>
+
+            <div className="divide-y divide-slate-200/60">
+              <Toggle
+                label="Enable Audit Log"
+                info="Master switch. When off, no new activity is recorded and the Audit Log button is hidden everywhere."
+                checked={auditSettings.enabled}
+                onChange={(v) => updateAuditSetting("enabled", v)}
+              />
+
+              <Toggle
+                label="Show Audit Log Button in Header"
+                info="Display the Audit Log button on every page's top header bar"
+                checked={auditSettings.showHeaderButton}
+                onChange={(v) => updateAuditSetting("showHeaderButton", v)}
+              />
+
+              <Toggle
+                label="Show History on Individual Records"
+                info="Allow per-record history to be viewed for customers, invoices, products and more"
+                checked={auditSettings.showPerRecordHistory}
+                onChange={(v) => updateAuditSetting("showPerRecordHistory", v)}
+              />
+
+              <Toggle
+                label="Record Delete Actions"
+                info="Keep a before-snapshot of deleted records so nothing is lost from the trail"
+                checked={auditSettings.logDeletes}
+                onChange={(v) => updateAuditSetting("logDeletes", v)}
+              />
+            </div>
+
+            <div className="pt-1 border-t border-slate-200/60">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuditSettings((prev) => {
+                    const next = { ...DEFAULT_AUDIT_SETTINGS, ...prev, enabled: true };
+                    saveSettings({ [AUDIT_SETTINGS_KEY]: next });
+                    showToast("Audit Log restored to defaults");
+                    return next;
+                  });
+                }}
+                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+              >
+                Reset to Defaults
+              </button>
             </div>
           </div>
 

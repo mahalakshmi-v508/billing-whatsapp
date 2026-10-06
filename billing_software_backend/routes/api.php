@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\TransactionMessageController;
 use App\Http\Controllers\Api\InvoiceSettingController;
 use App\Http\Controllers\Api\GstReportController;
 use App\Http\Controllers\Api\EwayBillController;
+use App\Http\Controllers\Api\AuditLogController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -399,5 +400,14 @@ Route::prefix('report')->group(function () {
     Route::get('sale-purchase-by-party', [PartyStatementController::class, 'getSalePurchaseByParty']);
     Route::get('sale-purchase-by-party-group', [PartyStatementController::class, 'getSalePurchaseByPartyGroup']);
     Route::get('gst-report', [GstReportController::class, 'index']);
+});
+
+// ── AUDIT LOG (GLOBAL ACTIVITY TRAIL) ROUTES ──
+Route::prefix('audit-log')->group(function () {
+    Route::match(['get', 'post'], 'list', [AuditLogController::class, 'index']);
+    Route::match(['get', 'post'], 'filters', [AuditLogController::class, 'filters']);
+    Route::match(['get', 'post'], 'summary', [AuditLogController::class, 'summary']);
+    Route::match(['get', 'post'], 'for-record', [AuditLogController::class, 'forRecord']);
+    Route::post('clear', [AuditLogController::class, 'clear']);
 });
 
