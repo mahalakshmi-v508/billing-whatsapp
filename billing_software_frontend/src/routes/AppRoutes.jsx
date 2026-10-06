@@ -122,12 +122,10 @@ import WhatsAppChat from "../pages/whatsapp/WhatsAppChat";
 
 function BillingRoute() {
   const location = useLocation();
-  const startCashBill = location.state?.startCashBill === true;
 
   return (
     <Billing
       key={location.state?.entryKey ?? "billing"}
-      startCashBill={startCashBill}
     />
   );
 }

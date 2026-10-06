@@ -690,6 +690,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import PriceWithGstInput from "./components/PriceWithGstInput";
+import { normalisePriceType } from "../../utils/gst";
 import Barcode from "react-barcode";
 
 /* ─── Toast Hook ─────────────────────────────────────────── */
@@ -746,6 +748,10 @@ export default function EditProduct() {
     name: "",
     product_code: "",
     price: "",
+    sale_price: "",
+    sale_price_type: "without_gst",
+    purchase_price: "",
+    purchase_price_type: "without_gst",
     stock: "",
     expiry_date: "",
     gst: "",
@@ -952,6 +958,14 @@ export default function EditProduct() {
           name: p.product_name,
           product_code: p.product_code || "",
           price: p.price,
+          // Prefer the dedicated sale_price column; fall back to the legacy
+          // `price` so older rows still show the right number.
+          sale_price: p.sale_price ?? p.price,
+          // normalisePriceType turns a NULL (a product saved before these
+          // columns existed) into "without_gst", its historical behaviour.
+          sale_price_type: normalisePriceType(p.sale_price_type),
+          purchase_price: p.purchase_price ?? "",
+          purchase_price_type: normalisePriceType(p.purchase_price_type),
           stock: p.stock,
           expiry_date: p.expiry_date || "",
           gst: p.gst_percentage || "",
@@ -1035,6 +1049,10 @@ export default function EditProduct() {
          supplier_id: form.supplier_id,
         company_id: selectedCompany,
         price: form.price,
+        sale_price: form.sale_price || form.price,
+        sale_price_type: form.sale_price_type || "without_gst",
+        purchase_price: form.purchase_price || 0,
+        purchase_price_type: form.purchase_price_type || "without_gst",
         stock: form.stock,
         expiry_date: form.expiry_date || null,
         gst_percentage: gstEnabled ? form.gst : "",
@@ -1514,18 +1532,32 @@ export default function EditProduct() {
             <p className="ep-section" style={{marginTop:"1.25rem"}}>Pricing & Stock</p>
 
             <div className="ep-grid-2">
-              <div>
-                <label className="ep-label">Price (₹) <span style={{color:"#ef4444"}}>*</span></label>
-                {fetching
-                  ? <div className="ep-skel" />
-                  : <div className="ep-input-wrap">
-                      <span className="ep-prefix">₹</span>
-                      <input type="number" className="ep-input" placeholder="0.00"
-                        value={form.price}
-                        onChange={e => set("price", e.target.value)} />
-                    </div>
-                }
-              </div>
+              <PriceWithGstInput
+                label="Sale Price (₹)"
+                value={form.sale_price}
+                onChange={(v) => set("sale_price", v)}
+                priceType={form.sale_price_type}
+                onPriceTypeChange={(v) => set("sale_price_type", v)}
+                gstRate={gstEnabled ? Number(form.gst) || 0 : 0}
+                labelClassName="ep-label"
+                inputClassName="ep-input"
+                selectClassName="ep-input"
+                wrapClassName="ep-input-wrap"
+                prefixClassName="ep-prefix"
+              />
+              <PriceWithGstInput
+                label="Purchase Price (₹)"
+                value={form.purchase_price}
+                onChange={(v) => set("purchase_price", v)}
+                priceType={form.purchase_price_type}
+                onPriceTypeChange={(v) => set("purchase_price_type", v)}
+                gstRate={gstEnabled ? Number(form.gst) || 0 : 0}
+                labelClassName="ep-label"
+                inputClassName="ep-input"
+                selectClassName="ep-input"
+                wrapClassName="ep-input-wrap"
+                prefixClassName="ep-prefix"
+              />
               <div>
                 <label className="ep-label">Stock Qty <span style={{color:"#ef4444"}}>*</span></label>
                 {fetching

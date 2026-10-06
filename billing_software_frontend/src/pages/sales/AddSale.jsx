@@ -1,16 +1,21 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import {
   X, Plus, Calendar, ChevronDown, Check,
   Trash2, AlignLeft, BarChart2,
   Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap,
   Search, RotateCcw, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
-  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert
+  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert, ArrowRight
 } from "lucide-react";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
 import useTableColumns from "../../hooks/useTableColumns";
+import CustomerForm from "../customer/CustomerForm";
+import AddProductModal from "../products/AddProductModal";
+import TermsDropdown from "../../components/common/TermsDropdown";
 
 /* ── Item Table Columns List for customization drawer with rich icons & colors ─ */
 const DEFAULT_ITEM_COLUMNS = [
@@ -57,7 +62,7 @@ function createInitialRow() {
     free_qty: "",
     unit: "NONE",
     price: "",
-    price_type: "without_tax",
+    price_type: "without_gst",
     discount_percent: "",
     discount_amount: "",
     tax_percent: 0,
@@ -68,8 +73,24 @@ function createInitialRow() {
   };
 }
 
+/* ── Due Date Calculator based on Invoice Date and Customer Credit Days ──── */
+function calculateDueDate(invDateStr, days) {
+  if (!invDateStr) return new Date().toISOString().split("T")[0];
+  const parts = String(invDateStr).split("-").map(Number);
+  if (parts.length !== 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) {
+    return invDateStr;
+  }
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  d.setDate(d.getDate() + (Number(days) || 0));
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /* ── Factory to create a brand new independent Sale tab state ────────────── */
 function createNewSaleTab(id, index, defaultInvNo = "") {
+  const today = new Date().toISOString().split("T")[0];
   return {
     id,
     label: `Sale #${index}`,
@@ -78,16 +99,18 @@ function createNewSaleTab(id, index, defaultInvNo = "") {
     customerName: "",
     customerPhone: "",
     customerId: null,
+    gstNo: "",
     billingAddress: "",
     shippingAddress: "",
-    creditDays: 30,
+    creditDays: 0,
     customerPendingBalance: 0,
+    customerAdvanceBalance: 0,
     customerCreditLimit: 0,
     invoicePrefix: "INV-",
     invoiceNumber: defaultInvNo || "INV-0001",
     formattedInvoiceNo: defaultInvNo || "INV-0001",
-    invoiceDate: new Date().toISOString().split("T")[0],
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    invoiceDate: today,
+    dueDate: today,
     stateOfSupply: "Select",
     rows: [
       createInitialRow(),
@@ -154,6 +177,13 @@ export default function AddSale() {
   /* ── Modals State ── */
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [rowToDelete, setRowToDelete] = useState(null);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [productNotFoundDialog, setProductNotFoundDialog] = useState(null); // { rowId, query }
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [productInitialName, setProductInitialName] = useState("");
+  const [pendingProductRowId, setPendingProductRowId] = useState(null);
+  const searchDebounceTimerRef = useRef(null);
+  const blurTimerRef = useRef(null);
 
   /* ── Companies & Products ── */
   const [companies, setCompanies] = useState([]);
@@ -216,42 +246,123 @@ export default function AddSale() {
 
   const customerBoxRef = useRef(null);
   const itemSuggestRef = useRef(null);
+  const activeInputRef = useRef(null);
+  const [suggestCoords, setSuggestCoords] = useState(null);
 
-  /* ── Load Companies & Products ── */
+  const updateSuggestPosition = (inputEl) => {
+    if (!inputEl) return;
+    const rect = inputEl.getBoundingClientRect();
+    const dropdownHeight = 224;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let top = rect.bottom + 4;
+    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+      top = Math.max(8, rect.top - dropdownHeight - 4);
+    }
+
+    setSuggestCoords({
+      top,
+      left: rect.left,
+      width: Math.max(rect.width, 320),
+    });
+  };
+
+  /* ── Reposition and Dismiss Dropdown on Scroll / Resize / Outside Click ── */
   useEffect(() => {
-    const loadCompanies = async () => {
-      try {
-        const res = await api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role}`);
-        if (res.data.status) {
-          setCompanies(res.data.data || []);
-          if (!selectedCompany && res.data.data.length > 0) {
-            const firstId = String(res.data.data[0].id);
-            setSelectedCompany(firstId);
-            localStorage.setItem("selected_company_id", firstId);
-          }
-        }
-      } catch (err) {
-        console.error(err);
+    const handleDocumentClick = (e) => {
+      if (
+        itemSuggestRef.current &&
+        !itemSuggestRef.current.contains(e.target) &&
+        activeInputRef.current &&
+        !activeInputRef.current.contains(e.target)
+      ) {
+        setActiveRowSuggestId(null);
       }
     };
-    loadCompanies();
+    document.addEventListener("mousedown", handleDocumentClick);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+    };
   }, []);
 
   useEffect(() => {
-    const compId = selectedCompany || user?.company_id || (companies[0] ? companies[0].id : "");
-    if (!compId) return;
-    const loadProducts = async () => {
-      try {
-        const res = await api.get(`/product/get?company_id=${compId}`);
-        if (res.data.status) {
-          setProducts(res.data.data || []);
-        }
-      } catch (err) {
-        console.error(err);
+    if (!activeRowSuggestId || !activeInputRef.current) return;
+    const handleReposition = () => {
+      if (activeInputRef.current) {
+        updateSuggestPosition(activeInputRef.current);
       }
     };
-    loadProducts();
-  }, [selectedCompany, user?.company_id, companies]);
+    window.addEventListener("scroll", handleReposition, true);
+    window.addEventListener("resize", handleReposition);
+    return () => {
+      window.removeEventListener("scroll", handleReposition, true);
+      window.removeEventListener("resize", handleReposition);
+    };
+  }, [activeRowSuggestId]);
+
+  /* ── Fetch Products from Company / Admin / Catalog ── */
+  const fetchAllProducts = async (targetCompanyId) => {
+    try {
+      const compId = targetCompanyId || selectedCompany || localStorage.getItem("selected_company_id");
+      let prods = [];
+      if (compId) {
+        const res = await api.get(`/product/get?company_id=${compId}`);
+        if (res.data?.status && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          prods = res.data.data;
+        }
+      }
+      if (prods.length === 0 && adminId) {
+        const res = await api.get(`/product/get?admin_id=${adminId}`);
+        if (res.data?.status && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          prods = res.data.data;
+        }
+      }
+      if (prods.length === 0) {
+        const res = await api.get(`/product/get`);
+        if (res.data?.status && Array.isArray(res.data.data)) {
+          prods = res.data.data;
+        }
+      }
+      setProducts(prods);
+      return prods;
+    } catch (err) {
+      console.error("Error loading products in AddSale:", err);
+      return [];
+    }
+  };
+
+  /* ── Load Companies & Products on Mount ── */
+  useEffect(() => {
+    const loadCompaniesAndProducts = async () => {
+      let companyList = [];
+      try {
+        const res = await api.get(`/company/get_companies_by_admin?admin_id=${adminId || ""}&role=${user.role || ""}`);
+        if (res.data?.status && Array.isArray(res.data.data)) {
+          companyList = res.data.data;
+          setCompanies(companyList);
+        }
+      } catch (err) {
+        console.error("Error loading companies:", err);
+      }
+
+      let activeCid = selectedCompany || localStorage.getItem("selected_company_id");
+      const isValid = companyList.some(c => String(c.id) === String(activeCid));
+      if ((!activeCid || !isValid) && companyList.length > 0) {
+        activeCid = String(companyList[0].id);
+        setSelectedCompany(activeCid);
+        localStorage.setItem("selected_company_id", activeCid);
+      }
+
+      await fetchAllProducts(activeCid);
+    };
+    loadCompaniesAndProducts();
+  }, [adminId, user.role]);
+
+  useEffect(() => {
+    if (!selectedCompany) return;
+    fetchAllProducts(selectedCompany);
+  }, [selectedCompany]);
 
   /* ── Load Existing Invoice when in Edit Mode ── */
   useEffect(() => {
@@ -277,6 +388,10 @@ export default function AddSale() {
                 discount_amount: p.discount ? String(p.discount) : "",
                 tax_percent: parseFloat(p.gst ?? p.tax_percent ?? 0) || 0,
                 tax_amount: parseFloat(p.tax_amount) || 0,
+                // price_type is stored in the invoice's products JSON. Older
+                // invoices predate the column, so normalisePriceType falls back
+                // to "without_gst" and the line recalculates exactly as before.
+                price_type: normalisePriceType(p.price_type),
                 amount: parseFloat(p.amount) || 0,
                 stock: p.stock || null,
                 product_code: p.product_code || "",
@@ -287,7 +402,7 @@ export default function AddSale() {
             id: 1,
             tabIndex: 1,
             label: `Edit Sale #${inv.invoice_no}`,
-            paymentType: inv.payment_type || (String(inv.payment_method).toLowerCase() === "credit" ? "credit" : "cash"),
+            paymentType: inv.payment_type === "gst" || (inv.payment_type === "cash" && (inv.gst_no || (inv.customer && inv.customer.gst_no))) ? "gst" : (inv.payment_type || (String(inv.payment_method).toLowerCase() === "credit" ? "credit" : "cash")),
             invoiceNumber: inv.invoice_no,
             invoiceDate: inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0],
             stateOfSupply: inv.state_of_supply || "Tamil Nadu",
@@ -295,8 +410,10 @@ export default function AddSale() {
             customerName: inv.customer_name || "",
             customerPhone: inv.customer_phone || "",
             customerId: inv.customer_id || null,
+            gstNo: inv.gst_no || (inv.customer && inv.customer.gst_no) || "",
             billingAddress: inv.billing_address || "",
             shippingAddress: inv.shipping_address || "",
+            creditDays: Number(inv.customer?.credit_days || 0),
             rows: mappedRows,
             overallDiscountPercent: "",
             overallDiscountAmount: "",
@@ -367,10 +484,19 @@ export default function AddSale() {
   };
 
   /* ── Customer Search & Auto Fetch ── */
-  const handleCustomerSearch = async (val) => {
-    updateActiveSale({ customerName: val, customerId: null });
+  const handleCustomerSearch = async (val, forceCreditOnly) => {
+    const isCredit = forceCreditOnly !== undefined ? forceCreditOnly : (activeSale?.paymentType === "credit");
+    updateActiveSale({
+      customerName: val,
+      customerId: null,
+      creditDays: 0,
+      customerPendingBalance: 0,
+      customerAdvanceBalance: 0,
+      dueDate: isCredit ? (activeSale?.invoiceDate || new Date().toISOString().split("T")[0]) : (activeSale?.dueDate || "")
+    });
     try {
-      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${encodeURIComponent(val || "")}`);
+      const creditParam = isCredit ? "&credit_only=1" : "";
+      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${encodeURIComponent(val || "")}${creditParam}`);
       if (res.data.status) {
         setCustomerSuggestions(res.data.data || []);
         setShowCustomerDropdown(true);
@@ -380,9 +506,11 @@ export default function AddSale() {
     }
   };
 
-  const loadInitialCustomers = async () => {
+  const loadInitialCustomers = async (forceCreditOnly) => {
     try {
-      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=`);
+      const isCredit = forceCreditOnly !== undefined ? forceCreditOnly : (activeSale?.paymentType === "credit");
+      const creditParam = isCredit ? "&credit_only=1" : "";
+      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${creditParam}`);
       if (res.data.status) {
         setCustomerSuggestions(res.data.data || []);
       }
@@ -392,18 +520,18 @@ export default function AddSale() {
   };
 
   const selectCustomer = (c) => {
-    const cDays = c.credit_days !== undefined && c.credit_days !== null && c.credit_days !== "" ? Number(c.credit_days) : 30;
-    const baseDate = new Date(activeSale.invoiceDate || Date.now());
-    baseDate.setDate(baseDate.getDate() + cDays);
-    const calcDueDate = baseDate.toISOString().split("T")[0];
+    const cDays = c.credit_days !== undefined && c.credit_days !== null && c.credit_days !== "" ? Number(c.credit_days) : 0;
+    const calcDueDate = calculateDueDate(activeSale.invoiceDate, cDays);
 
     updateActiveSale({
       customerId: c.id,
       customerName: c.name || c.customer_name,
       customerPhone: c.phone || c.customer_phone || "",
+      gstNo: activeSale.paymentType === "gst" ? (c.gst_no || activeSale.gstNo || "") : "",
       billingAddress: c.address || c.billing_address || "",
       shippingAddress: c.shipping_address || c.address || "",
       customerPendingBalance: parseFloat(c.pending_amount) || 0,
+      customerAdvanceBalance: parseFloat(c.advance_balance) || 0,
       customerCreditLimit: parseFloat(c.credit_limit) || 0,
       creditDays: cDays,
       dueDate: calcDueDate,
@@ -412,7 +540,65 @@ export default function AddSale() {
     setShowCustomerDropdown(false);
   };
 
-  /* ── Row Calculation (Initial amount = 0 when quantity/price empty) ── */
+  const handleCustomerCreated = async (createdCustomer) => {
+    setShowAddCustomerModal(false);
+    showToast("Customer created successfully!", true);
+
+    const isCredit = activeSale?.paymentType === "credit";
+    try {
+      const searchParam = createdCustomer?.phone || createdCustomer?.name || "";
+      const creditParam = isCredit ? "&credit_only=1" : "";
+      const res = await api.get(`/customer/customer_search?admin_id=${adminId}&q=${encodeURIComponent(searchParam)}${creditParam}`);
+
+      let matched = null;
+      if (res.data?.status && Array.isArray(res.data.data) && res.data.data.length > 0) {
+        matched = res.data.data.find(c =>
+          (createdCustomer?.phone && String(c.phone) === String(createdCustomer.phone)) ||
+          (createdCustomer?.name && String(c.name).toLowerCase() === String(createdCustomer.name).toLowerCase())
+        ) || res.data.data[0];
+      }
+
+      await loadInitialCustomers(isCredit);
+
+      if (matched) {
+        setCustomerSuggestions(prev => {
+          const exists = prev.some(c => String(c.id) === String(matched.id));
+          return exists ? prev : [matched, ...prev];
+        });
+
+        if (isCredit) {
+          if (Number(matched.credit_enabled) === 1) {
+            selectCustomer(matched);
+          } else {
+            showToast("Customer created, but credit billing is not enabled for this customer.", false);
+          }
+        } else {
+          selectCustomer(matched);
+        }
+      } else if (createdCustomer) {
+        if (isCredit) {
+          if (Number(createdCustomer.credit_enabled) === 1) {
+            selectCustomer(createdCustomer);
+          } else {
+            showToast("Customer created, but credit billing is not enabled for this customer.", false);
+          }
+        } else {
+          selectCustomer(createdCustomer);
+        }
+      }
+    } catch (err) {
+      console.error("Error refreshing customer after creation:", err);
+      await loadInitialCustomers(isCredit);
+    }
+  };
+
+  /* ── Row Calculation (Initial amount = 0 when quantity/price empty) ──
+   *
+   * Delegates entirely to utils/gst.js, which is the single source of truth
+   * shared with POS, Purchase and the backend GstCalculator. This is what makes
+   * a product saved as "With GST" keep its entered price instead of having GST
+   * added on top.
+   */
   const recalculateRow = (row) => {
     const q = parseFloat(row.qty);
     const p = parseFloat(row.price);
@@ -426,26 +612,25 @@ export default function AddSale() {
       };
     }
 
-    let base = q * p;
-    let disc = 0;
-    if (parseFloat(row.discount_percent) > 0) {
-      disc = (base * parseFloat(row.discount_percent)) / 100;
-    } else if (parseFloat(row.discount_amount) > 0) {
-      disc = parseFloat(row.discount_amount);
-    }
+    // A discount_percent and a discount_amount are mutually exclusive in this
+    // form: the percentage wins, otherwise the flat amount is used.
+    const hasDiscPct = parseFloat(row.discount_percent) > 0;
+    const hasDiscAmt = parseFloat(row.discount_amount) > 0;
 
-    const afterDisc = Math.max(0, base - disc);
-    let tax = 0;
-    if (parseFloat(row.tax_percent) > 0) {
-      tax = (afterDisc * parseFloat(row.tax_percent)) / 100;
-    }
+    const line = calculateLine({
+      price: p,
+      quantity: q,
+      gstRate: parseFloat(row.tax_percent) || 0,
+      priceType: row.price_type,
+      discount: hasDiscPct ? 0 : hasDiscAmt ? parseFloat(row.discount_amount) : 0,
+      discountPercent: hasDiscPct ? parseFloat(row.discount_percent) : 0,
+    });
 
-    const totalAmt = afterDisc + tax;
     return {
       ...row,
-      discount_amount: disc ? disc.toFixed(2) : "",
-      tax_amount: tax,
-      amount: totalAmt,
+      discount_amount: line.discount ? line.discount.toFixed(2) : "",
+      tax_amount: line.gst,
+      amount: line.total,
     };
   };
 
@@ -460,28 +645,117 @@ export default function AddSale() {
     });
   };
 
-  /* ── Product Selection: Automatically sets Quantity = 1 (if was empty) ── */
+  /* ── Product Selection: Automatically sets Quantity = 1 (if was empty) & appends next row ── */
   const handleSelectProduct = (rowId, prod) => {
     updateActiveSale(sale => {
       const updatedRows = sale.rows.map(r => {
         if (r.id !== rowId) return r;
         const currentQty = (r.qty !== "" && r.qty !== null && parseFloat(r.qty) > 0) ? r.qty : 1;
+        // Pull the saved sale price + its GST mode straight from the API so a
+        // product saved "With GST" keeps its entered price, and one saved
+        // "Without GST" still gets GST added on top. sale_price falls back to
+        // the legacy `price` column for products that predate it.
+        const pricing = resolveProductPricing(prod, { use: "sale" });
         const updated = {
           ...r,
           product_id: prod.id,
           item_name: prod.product_name || prod.name,
-          price: parseFloat(prod.price) || 0,
+          price: pricing.price,
           qty: currentQty,
           unit: prod.unit || "NONE",
-          tax_percent: parseFloat(prod.gst_percentage || prod.gst) || 0,
+          tax_percent: pricing.gstRate,
+          price_type: pricing.priceType,
           stock: prod.stock,
           product_code: prod.product_code || "",
         };
         return recalculateRow(updated);
       });
+
+      // Automatically append next row if the current row was the last row or if the bottom row is filled
+      const isLastRow = updatedRows.length > 0 && updatedRows[updatedRows.length - 1].id === rowId;
+      const lastRow = updatedRows[updatedRows.length - 1];
+      const lastRowHasProduct = Boolean(
+        lastRow && (lastRow.product_id || (lastRow.item_name && lastRow.item_name.trim() !== ""))
+      );
+
+      if (isLastRow || lastRowHasProduct) {
+        return { ...sale, rows: [...updatedRows, createInitialRow()] };
+      }
+
       return { ...sale, rows: updatedRows };
     });
     setActiveRowSuggestId(null);
+  };
+
+  /* ── Product Not Found Dialog & Add Product Modal Handlers ── */
+  const triggerProductNotFound = (rowId, query) => {
+    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    setActiveRowSuggestId(null);
+    setPendingProductRowId(rowId);
+    setProductNotFoundDialog({
+      rowId,
+      query: (query || "").trim(),
+    });
+  };
+
+  const handleCancelProductNotFound = () => {
+    if (productNotFoundDialog?.rowId) {
+      const rId = productNotFoundDialog.rowId;
+      updateActiveSale(sale => {
+        const updatedRows = sale.rows.map(r => {
+          if (r.id !== rId) return r;
+          if (!r.product_id) {
+            return { ...r, item_name: "" };
+          }
+          return r;
+        });
+        return { ...sale, rows: updatedRows };
+      });
+    }
+    setProductNotFoundDialog(null);
+    setPendingProductRowId(null);
+  };
+
+  const handleProceedProductNotFound = () => {
+    const query = productNotFoundDialog?.query || "";
+    const rowId = productNotFoundDialog?.rowId || pendingProductRowId;
+    setPendingProductRowId(rowId);
+    setProductInitialName(query);
+    setProductNotFoundDialog(null);
+    setShowAddProductModal(true);
+  };
+
+  const handleProductCreated = async (createdProd) => {
+    setShowAddProductModal(false);
+    const targetRowId = pendingProductRowId;
+    setPendingProductRowId(null);
+    setProductInitialName("");
+
+    showToast("Product added successfully!", true);
+
+    const compId = selectedCompany || user?.company_id || (companies[0] ? companies[0].id : "");
+    const freshProducts = await fetchAllProducts(compId);
+
+    let matched = null;
+    if (createdProd?.id) {
+      matched = freshProducts.find(p => String(p.id) === String(createdProd.id));
+    }
+    if (!matched && (createdProd?.product_name || createdProd?.name)) {
+      const pName = (createdProd.product_name || createdProd.name || "").trim().toLowerCase();
+      matched = freshProducts.find(p => (p.product_name || p.name || "").trim().toLowerCase() === pName);
+    }
+    if (!matched && createdProd) {
+      matched = createdProd;
+      setProducts(prev => {
+        const exists = prev.some(p => String(p.id) === String(createdProd.id));
+        return exists ? prev : [createdProd, ...prev];
+      });
+    }
+
+    if (matched && targetRowId) {
+      handleSelectProduct(targetRowId, matched);
+    }
   };
 
   const addRow = () => {
@@ -552,13 +826,38 @@ export default function AddSale() {
     };
   }, [activeSale]);
 
+  /* ── Reposition Product Suggestion on Scroll / Resize ── */
+  useEffect(() => {
+    if (!activeRowSuggestId || !activeInputRef.current) return;
+    const handleReposition = () => {
+      if (activeInputRef.current) {
+        const rect = activeInputRef.current.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) {
+          setActiveRowSuggestId(null);
+          return;
+        }
+        updateSuggestPosition(activeInputRef.current);
+      }
+    };
+    window.addEventListener("scroll", handleReposition, true);
+    window.addEventListener("resize", handleReposition);
+    return () => {
+      window.removeEventListener("scroll", handleReposition, true);
+      window.removeEventListener("resize", handleReposition);
+    };
+  }, [activeRowSuggestId]);
+
   /* ── Click Outside Listeners ── */
   useEffect(() => {
     const handler = (e) => {
       if (customerBoxRef.current && !customerBoxRef.current.contains(e.target)) {
         setShowCustomerDropdown(false);
       }
-      if (itemSuggestRef.current && !itemSuggestRef.current.contains(e.target)) {
+      if (
+        itemSuggestRef.current &&
+        !itemSuggestRef.current.contains(e.target) &&
+        (!activeInputRef.current || !activeInputRef.current.contains(e.target))
+      ) {
         setActiveRowSuggestId(null);
       }
     };
@@ -611,6 +910,9 @@ export default function AddSale() {
       free_qty: parseFloat(r.free_qty) || 0,
       unit: r.unit,
       price: parseFloat(r.price) || 0,
+      // Persisted so reopening the invoice bills it the same way. The backend
+      // stores the products array as JSON, so this key round-trips as-is.
+      price_type: normalisePriceType(r.price_type),
       discount: parseFloat(r.discount_amount) || 0,
       gst: parseFloat(r.tax_percent) || 0,
       tax_amount: parseFloat(r.tax_amount) || 0,
@@ -625,32 +927,33 @@ export default function AddSale() {
       customer_id: activeSale.customerId || 0,
       customer_name: activeSale.customerName?.trim() || "Cash Customer",
       customer_phone: activeSale.customerPhone || "",
-      billing_address: activeSale.paymentType === "cash" ? activeSale.billingAddress : "",
-      shipping_address: activeSale.paymentType === "cash" ? activeSale.shippingAddress : "",
+      billing_address: activeSale.paymentType === "credit" ? "" : activeSale.billingAddress,
+      shipping_address: activeSale.paymentType === "credit" ? "" : activeSale.shippingAddress,
       cashier_id: user.id || 0,
       products: payloadProducts,
       sub_total: totals.subtotalAmount,
       gst_total: totals.totalTaxAmount,
       total_amount: totals.roundedGrandTotal,
-      paid_amount: activeSale.paymentType === "cash"
-        ? totals.roundedGrandTotal
-        : (activeSale.receivedEnabled !== false
+      paid_amount: activeSale.paymentType === "credit"
+        ? (activeSale.receivedEnabled !== false
             ? (activeSale.receivedAmount !== "" && activeSale.receivedAmount !== undefined
                 ? (parseFloat(activeSale.receivedAmount) || 0)
                 : totals.roundedGrandTotal)
-            : 0),
-      balance_amount: activeSale.paymentType === "cash"
-        ? 0
-        : Math.max(0, totals.roundedGrandTotal - (activeSale.receivedEnabled !== false
+            : 0)
+        : totals.roundedGrandTotal,
+      balance_amount: activeSale.paymentType === "credit"
+        ? Math.max(0, totals.roundedGrandTotal - (activeSale.receivedEnabled !== false
             ? (activeSale.receivedAmount !== "" && activeSale.receivedAmount !== undefined
                 ? (parseFloat(activeSale.receivedAmount) || 0)
                 : totals.roundedGrandTotal)
-            : 0)),
-      payment_method: activeSale.paymentType === "cash" ? "cash" : "credit",
+            : 0))
+        : 0,
+      payment_method: activeSale.paymentType === "credit" ? "credit" : "cash",
       payment_type: activeSale.paymentType,
       source: "sale",
       due_date: activeSale.paymentType === "credit" ? (activeSale.dueDate || activeSale.invoiceDate) : null,
       gst_type: totals.totalTaxAmount > 0 ? "with_gst" : "without_gst",
+      gst_no: activeSale.paymentType === "gst" ? (activeSale.gstNo?.trim() || "") : "",
       state_of_supply: activeSale.stateOfSupply,
       terms_conditions: activeSale.termsText,
       description: activeSale.descriptionText,
@@ -789,13 +1092,15 @@ export default function AddSale() {
         updateActiveSale(sale => {
           const updatedRows = sale.rows.map(r => {
             if (r.id === currentItem.id || (r.item_name && r.item_name.trim().toLowerCase() === currentItem.item_name.trim().toLowerCase())) {
+              const pricing = resolveProductPricing(newProduct, { use: "sale" });
               const updated = {
                 ...r,
                 product_id: newProduct.id,
                 item_name: newProduct.product_name,
-                price: parseFloat(newProduct.sale_price || newProduct.price) || 0,
+                price: pricing.price,
                 unit: (newProduct.unit && newProduct.unit !== "NONE") ? newProduct.unit : r.unit,
-                tax_percent: parseFloat(newProduct.gst_percentage || 0),
+                tax_percent: pricing.gstRate,
+                price_type: pricing.priceType,
                 stock: newProduct.stock,
                 product_code: newProduct.product_code || ""
               };
@@ -849,16 +1154,19 @@ export default function AddSale() {
   };
 
   const filteredProducts = useMemo(() => {
-    if (!itemSearchQuery) return products.slice(0, 8);
-    const q = itemSearchQuery.toLowerCase();
+    if (!itemSearchQuery || !itemSearchQuery.trim()) return products.slice(0, 50);
+    const q = itemSearchQuery.trim().toLowerCase();
     return products.filter(p =>
       (p.product_name && p.product_name.toLowerCase().includes(q)) ||
-      (p.product_code && String(p.product_code).toLowerCase().includes(q))
-    ).slice(0, 8);
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.product_code && String(p.product_code).toLowerCase().includes(q)) ||
+      (p.barcode && String(p.barcode).toLowerCase().includes(q))
+    ).slice(0, 50);
   }, [products, itemSearchQuery]);
 
   if (!activeSale) return null;
   const isCredit = activeSale.paymentType === "credit";
+  const isGst = activeSale.paymentType === "gst";
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 pb-24 antialiased">
@@ -964,13 +1272,16 @@ export default function AddSale() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Credit / Cash Mode Switcher */}
+            {/* Sale Type Mode Switcher: Cash Sale | Credit Sale | GST Sale */}
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
               <button
                 type="button"
-                onClick={() => updateActiveSale({ paymentType: "cash" })}
+                onClick={() => {
+                  updateActiveSale({ paymentType: "cash", gstNo: "" });
+                  loadInitialCustomers(false);
+                }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                  !isCredit ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  activeSale.paymentType === "cash" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <Wallet size={13} />
@@ -979,10 +1290,32 @@ export default function AddSale() {
               <button
                 type="button"
                 onClick={() => {
-                  const cDays = Number(activeSale.creditDays) || 30;
-                  const baseDate = new Date(activeSale.invoiceDate || Date.now());
-                  baseDate.setDate(baseDate.getDate() + cDays);
-                  updateActiveSale({ paymentType: "credit", dueDate: baseDate.toISOString().split("T")[0] });
+                  let cDays = 0;
+                  let retainCustomer = false;
+                  if (activeSale.customerId) {
+                    const currentCust = customerSuggestions.find(c => c.id === activeSale.customerId);
+                    if (currentCust && Number(currentCust.credit_enabled) === 1) {
+                      cDays = Number(currentCust.credit_days) || 0;
+                      retainCustomer = true;
+                    }
+                  }
+                  const newDueDate = calculateDueDate(activeSale.invoiceDate, cDays);
+                  updateActiveSale({
+                    paymentType: "credit",
+                    creditDays: cDays,
+                    dueDate: newDueDate,
+                    gstNo: "",
+                    ...(activeSale.customerId && !retainCustomer ? {
+                      customerId: null,
+                      customerName: "",
+                      customerPhone: "",
+                      billingAddress: "",
+                      shippingAddress: "",
+                      customerPendingBalance: 0,
+                      customerCreditLimit: 0,
+                    } : {})
+                  });
+                  loadInitialCustomers(true);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   isCredit ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
@@ -990,6 +1323,19 @@ export default function AddSale() {
               >
                 <CreditCard size={13} />
                 <span>Credit Sale</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  updateActiveSale({ paymentType: "gst" });
+                  loadInitialCustomers(false);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  isGst ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <ReceiptText size={13} />
+                <span>GST Sale</span>
               </button>
             </div>
 
@@ -1041,16 +1387,23 @@ export default function AddSale() {
                   <UserCheck size={16} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Customer &amp; Party Information</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Customer Information</h3>
                   <p className="text-[11px] text-slate-400">Search customer directory or enter walk-in party</p>
                 </div>
               </div>
 
-              {activeSale.customerPendingBalance > 0 && (
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-1">
-                  <AlertCircle size={11} /> Debt: ₹{activeSale.customerPendingBalance.toLocaleString()}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {activeSale.customerAdvanceBalance > 0 && (
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 size={11} /> Adv: ₹{activeSale.customerAdvanceBalance.toLocaleString("en-IN")}
+                  </span>
+                )}
+                {activeSale.customerPendingBalance > 0 && (
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-1">
+                    <AlertCircle size={11} /> Due: ₹{activeSale.customerPendingBalance.toLocaleString("en-IN")}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
@@ -1074,7 +1427,7 @@ export default function AddSale() {
                       onFocus={() => {
                         setIsCustomerFocused(true);
                         setShowCustomerDropdown(true);
-                        if (customerSuggestions.length === 0) loadInitialCustomers();
+                        if (customerSuggestions.length === 0) loadInitialCustomers(isCredit);
                       }}
                       onBlur={() => setIsCustomerFocused(false)}
                       className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
@@ -1085,7 +1438,7 @@ export default function AddSale() {
                     className="text-slate-400 cursor-pointer ml-1.5 flex-shrink-0"
                     onClick={() => {
                       setShowCustomerDropdown(v => !v);
-                      if (customerSuggestions.length === 0) loadInitialCustomers();
+                      if (customerSuggestions.length === 0) loadInitialCustomers(isCredit);
                     }}
                   />
                 </div>
@@ -1094,33 +1447,79 @@ export default function AddSale() {
                 {showCustomerDropdown && (
                   <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 divide-y divide-slate-100 animate-in fade-in duration-100">
                     <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                      <span onClick={() => navigate("/customers/add")} className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">
+                      <span
+                        onClick={() => {
+                          setShowCustomerDropdown(false);
+                          setShowAddCustomerModal(true);
+                        }}
+                        className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                      >
                         + Add New Customer
                       </span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Party Balance</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Due / Adv</span>
                     </div>
-                    {customerSuggestions.length === 0 ? (
-                      <div className="p-3 text-xs text-slate-400 text-center">No customers found</div>
-                    ) : (
-                      customerSuggestions.map((c) => {
-                        const bal = parseFloat(c.pending_amount || 0);
+                    {(() => {
+                      const list = isCredit
+                        ? customerSuggestions.filter(c => Number(c.credit_enabled) === 1)
+                        : customerSuggestions;
+                      if (list.length === 0) {
+                        return (
+                          <div className="p-3 text-xs text-slate-400 text-center">
+                            {isCredit ? "No credit customers found" : "No customers found"}
+                          </div>
+                        );
+                      }
+                      return list.map((c) => {
+                        const due = parseFloat(c.pending_amount || 0);
+                        const adv = parseFloat(c.advance_balance || 0);
+                        const cDays = Number(c.credit_days) || 0;
                         return (
                           <div
                             key={c.id}
                             onClick={() => selectCustomer(c)}
                             className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
                           >
-                            <div>
-                              <div className="font-bold text-slate-900">{c.name || c.customer_name}</div>
-                              <div className="text-[11px] text-slate-400">{c.phone || c.customer_phone || ""}</div>
+                            <div className="min-w-0 pr-2">
+                              <div className="font-bold text-slate-900 truncate">{c.name || c.customer_name}</div>
+                              <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                <span>{c.phone || c.customer_phone || ""}</span>
+                                {isCredit && (
+                                  <span className="font-bold text-amber-700 bg-amber-50 border border-amber-200/80 px-1.5 py-0.2 rounded text-[10px]">
+                                    {cDays} {cDays === 1 ? "Day" : "Days"} Credit
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className="font-bold text-slate-800">₹{bal.toLocaleString()}</span>
+                            <div className="text-right shrink-0 ml-auto pl-2">
+                              {due > 0 && adv > 0 ? (
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-xs font-bold text-rose-600 inline-flex items-center gap-1">
+                                    <span className="text-[10px] font-semibold text-slate-500">Due:</span>
+                                    <span>₹{due.toLocaleString("en-IN")}</span>
+                                  </span>
+                                  <span className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1">
+                                    <span className="text-[10px] font-semibold text-slate-500">Adv:</span>
+                                    <span>₹{adv.toLocaleString("en-IN")}</span>
+                                  </span>
+                                </div>
+                              ) : adv > 0 ? (
+                                <span className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1">
+                                  <span className="text-[10.5px] font-semibold text-slate-500">Adv:</span>
+                                  <span className="font-extrabold text-emerald-600">₹{adv.toLocaleString("en-IN")}</span>
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold text-slate-700 inline-flex items-center gap-1">
+                                  <span className="text-[10.5px] font-semibold text-slate-500">Due:</span>
+                                  <span className={due > 0 ? "text-rose-600 font-extrabold" : "text-slate-800 font-bold"}>
+                                    ₹{due.toLocaleString("en-IN")}
+                                  </span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         );
-                      })
-                    )}
+                      });
+                    })()}
                   </div>
                 )}
               </div>
@@ -1132,15 +1531,37 @@ export default function AddSale() {
                   <Phone size={13} className="text-slate-400 flex-shrink-0" />
                   <input
                     type="text"
-                    placeholder="Phone number"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="10-digit mobile number"
                     value={activeSale.customerPhone}
                     onFocus={() => setIsPhoneFocused(true)}
                     onBlur={() => setIsPhoneFocused(false)}
-                    onChange={(e) => updateActiveSale({ customerPhone: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      updateActiveSale({ customerPhone: val });
+                    }}
                     className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
                   />
                 </div>
               </div>
+
+              {/* GST No Field (Visible only when GST Sale is selected) */}
+              {isGst && (
+                <div className="sm:col-span-12">
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">GST No</label>
+                  <div className="relative border border-slate-300 rounded-xl px-3.5 py-2 bg-white flex items-center gap-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 transition">
+                    <ReceiptText size={13} className="text-slate-400 flex-shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Enter customer GSTIN (e.g. 33AAAAA0000A1Z5)"
+                      value={activeSale.gstNo || ""}
+                      onChange={(e) => updateActiveSale({ gstNo: e.target.value.toUpperCase() })}
+                      className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent uppercase"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Cash Billing & Shipping Address (Editable in Cash Mode) */}
@@ -1202,12 +1623,11 @@ export default function AddSale() {
                     value={activeSale.invoiceDate}
                     onChange={e => {
                       const newInvDate = e.target.value;
-                      const cDays = Number(activeSale.creditDays) || 30;
-                      const baseDate = new Date(newInvDate || Date.now());
-                      baseDate.setDate(baseDate.getDate() + cDays);
+                      const cDays = Number(activeSale.creditDays) || 0;
+                      const newDueDate = calculateDueDate(newInvDate, cDays);
                       updateActiveSale({
                         invoiceDate: newInvDate,
-                        dueDate: baseDate.toISOString().split("T")[0]
+                        dueDate: newDueDate
                       });
                     }}
                     className="w-full text-xs font-bold text-slate-800 outline-none bg-transparent cursor-pointer"
@@ -1243,7 +1663,7 @@ export default function AddSale() {
                 <div>
                   <label className="text-[11px] font-bold text-slate-600 mb-1 block">Credit Terms</label>
                   <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-600">
-                    Due in <strong className="text-slate-900">{activeSale.creditDays || 30} days</strong>
+                    Due in <strong className="text-slate-900">{Number(activeSale.creditDays) || 0} {Number(activeSale.creditDays) === 1 ? "Day" : "Days"}</strong>
                   </div>
                 </div>
               </div>
@@ -1255,9 +1675,9 @@ export default function AddSale() {
 
       {/* ── 4. LINE ITEMS MATRIX TABLE CARD ── */}
       <div className="px-6 md:px-8 mb-6">
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs">
           
-          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+          <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 rounded-t-2xl flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
                 <Layers size={14} />
@@ -1274,7 +1694,7 @@ export default function AddSale() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto min-h-[160px]">
             <table className="w-full text-left text-xs border-collapse min-w-[980px]">
               <thead>
                 <tr className="bg-slate-50/60 border-b border-slate-200/80 text-slate-600 font-bold select-none text-[11px] uppercase tracking-wider">
@@ -1327,41 +1747,98 @@ export default function AddSale() {
 
                     {/* Item Name Autocomplete */}
                     {visibleColumns.item_name !== false && (
-                      <td className="py-2 px-3 border-r border-slate-200/60 relative">
+                      <td className="py-2 px-3 border-r border-slate-200/60 min-w-[240px]">
                         <input
                           type="text"
                           placeholder="Search product from inventory or type..."
                           value={row.item_name}
                           onChange={(e) => {
-                            updateRowField(row.id, "item_name", e.target.value);
-                            setItemSearchQuery(e.target.value);
+                            const val = e.target.value;
+                            if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                            activeInputRef.current = e.currentTarget;
+                            updateSuggestPosition(e.currentTarget);
+                            updateRowField(row.id, "item_name", val);
+                            setItemSearchQuery(val);
                             setActiveRowSuggestId(row.id);
+
+                            const trimmed = val.trim();
+                            if (trimmed.length >= 2) {
+                              const q = trimmed.toLowerCase();
+                              const hasMatch = products.some(p =>
+                                (p.product_name && p.product_name.toLowerCase().includes(q)) ||
+                                (p.name && p.name.toLowerCase().includes(q)) ||
+                                (p.product_code && String(p.product_code).toLowerCase().includes(q)) ||
+                                (p.barcode && String(p.barcode).toLowerCase().includes(q))
+                              );
+                              if (!hasMatch) {
+                                searchDebounceTimerRef.current = setTimeout(() => {
+                                  triggerProductNotFound(row.id, trimmed);
+                                }, 750);
+                              }
+                            }
                           }}
-                          onFocus={() => {
-                            setItemSearchQuery(row.item_name);
+                          onFocus={(e) => {
+                            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                            activeInputRef.current = e.currentTarget;
+                            updateSuggestPosition(e.currentTarget);
+                            setItemSearchQuery(row.item_name || "");
                             setActiveRowSuggestId(row.id);
+                            if (products.length === 0) {
+                              fetchAllProducts();
+                            }
+                          }}
+                          onClick={(e) => {
+                            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                            activeInputRef.current = e.currentTarget;
+                            updateSuggestPosition(e.currentTarget);
+                            setItemSearchQuery(row.item_name || "");
+                            setActiveRowSuggestId(row.id);
+                            if (products.length === 0) {
+                              fetchAllProducts();
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                              const val = (row.item_name || "").trim();
+                              if (!val) return;
+                              const match = products.find(
+                                (p) =>
+                                  (p.product_name || p.name || "").trim().toLowerCase() === val.toLowerCase() ||
+                                  (p.product_code && String(p.product_code).trim().toLowerCase() === val.toLowerCase()) ||
+                                  (p.barcode && String(p.barcode).trim().toLowerCase() === val.toLowerCase())
+                              );
+                              if (match) {
+                                handleSelectProduct(row.id, match);
+                              } else {
+                                triggerProductNotFound(row.id, val);
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const val = (e.target.value || "").trim();
+                            if (!val) return;
+                            if (row.product_id) {
+                              const currentProd = products.find(p => String(p.id) === String(row.product_id));
+                              if (currentProd && (currentProd.product_name || currentProd.name || "").trim().toLowerCase() === val.toLowerCase()) {
+                                return;
+                              }
+                            }
+                            const match = products.find(
+                              (p) =>
+                                (p.product_name || p.name || "").trim().toLowerCase() === val.toLowerCase() ||
+                                (p.product_code && String(p.product_code).trim().toLowerCase() === val.toLowerCase()) ||
+                                (p.barcode && String(p.barcode).trim().toLowerCase() === val.toLowerCase())
+                            );
+                            if (match) {
+                              handleSelectProduct(row.id, match);
+                              return;
+                            }
                           }}
                           className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
-
-                        {/* Product Suggestions Dropdown */}
-                        {activeRowSuggestId === row.id && (
-                          <div ref={itemSuggestRef} className="absolute left-3 top-full mt-1 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto z-50 py-1 divide-y divide-slate-100 animate-in fade-in duration-100">
-                            {filteredProducts.map(p => (
-                              <div
-                                key={p.id}
-                                onClick={() => handleSelectProduct(row.id, p)}
-                                className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
-                              >
-                                <div>
-                                  <div className="font-bold text-slate-900">{p.product_name || p.name}</div>
-                                  <div className="text-[11px] text-slate-400">Stock: {p.stock} {p.unit || ""}</div>
-                                </div>
-                                <div className="font-extrabold text-blue-600">₹{parseFloat(p.price || 0).toLocaleString()}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                       </td>
                     )}
 
@@ -1524,6 +2001,94 @@ export default function AddSale() {
         </div>
       </div>
 
+      {/* Product Suggestions Floating Dropdown (Rendered via Portal to eliminate clipping) */}
+      {activeRowSuggestId && suggestCoords && createPortal(
+        <div
+          ref={itemSuggestRef}
+          style={{
+            position: "fixed",
+            top: `${suggestCoords.top}px`,
+            left: `${suggestCoords.left}px`,
+            width: `${suggestCoords.width}px`,
+            zIndex: 99999,
+          }}
+          className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 animate-in fade-in duration-100"
+        >
+          {filteredProducts.length === 0 ? (
+            itemSearchQuery.trim() ? (
+              <div
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                  triggerProductNotFound(activeRowSuggestId, itemSearchQuery);
+                }}
+                className="px-4 py-3 hover:bg-amber-50 cursor-pointer flex items-center justify-between transition group border border-amber-200/60 rounded-xl m-1.5 bg-amber-50/40"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold text-amber-900">Product Not Found</div>
+                    <div className="text-[11px] text-slate-500">
+                      "{itemSearchQuery}" is not available in product list
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+                >
+                  <span>Proceed</span>
+                  <ArrowRight size={12} />
+                </button>
+              </div>
+            ) : (
+              <div className="px-4 py-3 text-center text-xs text-slate-400 select-none">
+                No products found in catalog. Type product name to search or add.
+              </div>
+            )
+          ) : (
+            <>
+              {filteredProducts.map(p => (
+                <div
+                  key={p.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                    handleSelectProduct(activeRowSuggestId, p);
+                  }}
+                  className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+                >
+                  <div className="min-w-0 pr-2">
+                    <div className="font-bold text-slate-900 truncate">{p.product_name || p.name}</div>
+                    <div className="text-[11px] text-slate-400">Stock: {p.stock ?? 0} {p.unit || ""}</div>
+                  </div>
+                  <div className="font-extrabold text-blue-600 shrink-0">₹{parseFloat(p.price || 0).toLocaleString()}</div>
+                </div>
+              ))}
+              {itemSearchQuery && !filteredProducts.some(p => (p.product_name || p.name || "").toLowerCase() === itemSearchQuery.toLowerCase()) && (
+                <div
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                    triggerProductNotFound(activeRowSuggestId, itemSearchQuery);
+                  }}
+                  className="px-3.5 py-2 hover:bg-amber-50/70 bg-slate-50/50 cursor-pointer flex items-center justify-between text-xs text-amber-800 font-bold border-t border-slate-100 transition"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <AlertCircle size={13} className="text-amber-600" />
+                    <span>Not in list? Click to add "{itemSearchQuery}"</span>
+                  </div>
+                  <span className="text-[11px] text-blue-600 font-bold flex items-center gap-0.5">
+                    Proceed <ArrowRight size={11} />
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+        </div>,
+        document.body
+      )}
+
       {/* ── 5. FINANCIAL RECONCILIATION & TOTALS SUMMARY ── */}
       <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
@@ -1550,12 +2115,12 @@ export default function AddSale() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Terms &amp; Conditions</label>
-              <textarea
-                rows={2}
-                placeholder="e.g. Goods once sold will not be returned..."
-                value={activeSale.termsText}
-                onChange={e => updateActiveSale({ termsText: e.target.value })}
-                className="w-full p-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition resize-none"
+              <TermsDropdown
+                companyId={selectedCompany || user?.company_id || 1}
+                page="sale"
+                value={activeSale.termsText || ""}
+                onChange={(newVal) => updateActiveSale({ termsText: newVal })}
+                placeholder="Select Terms &amp; Conditions..."
               />
             </div>
           </div>
@@ -1607,7 +2172,7 @@ export default function AddSale() {
             </div>
             <div className="text-right">
               <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
-                {isCredit ? "Credit Mode" : "Cash Paid"}
+                {isCredit ? "Credit Mode" : isGst ? "GST Sale" : "Cash Paid"}
               </span>
             </div>
           </div>
@@ -1862,6 +2427,18 @@ export default function AddSale() {
         </div>
       )}
 
+      {/* Add Customer Modal */}
+      {showAddCustomerModal && (
+        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full">
+            <CustomerForm
+              onSuccess={handleCustomerCreated}
+              onCancel={() => setShowAddCustomerModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Column Customizer Drawer */}
       <CommonTableColumnSettings
         isOpen={showColumnDrawer}
@@ -1873,6 +2450,72 @@ export default function AddSale() {
         onReset={resetDefaultColumns}
         title="Customise Columns"
         subtitle="Show or hide table columns in line items"
+      />
+
+      {/* Product Not Found Dialog */}
+      {productNotFoundDialog && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={handleCancelProductNotFound}
+        >
+          <div
+            className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-amber-100 flex items-center gap-3 bg-amber-50">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 font-bold">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-amber-900">Product Not Found</h3>
+                <p className="text-[11px] text-amber-700">Item not available in product list</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-3">
+              <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                This product is not available in the product list. Would you like to add this product to the product list?
+              </p>
+              {productNotFoundDialog.query && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 flex items-center justify-between">
+                  <span className="text-slate-500">Product Name:</span>
+                  <span className="font-bold text-blue-600 font-mono">"{productNotFoundDialog.query}"</span>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={handleCancelProductNotFound}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleProceedProductNotFound}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-sm transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus size={14} />
+                <span>Proceed</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reused Existing Add Product Modal */}
+      <AddProductModal
+        isOpen={showAddProductModal}
+        onClose={() => {
+          setShowAddProductModal(false);
+          setPendingProductRowId(null);
+          setProductInitialName("");
+        }}
+        initialName={productInitialName}
+        companyId={selectedCompany || user?.company_id || (companies[0] ? companies[0].id : "")}
+        onProductAdded={handleProductCreated}
       />
 
     </div>

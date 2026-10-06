@@ -1,10 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import {
   Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search,
   Phone, Mail, MapPin, Wallet, Plus, Share2, Building2, CheckCircle2,
-  AlertCircle, ShieldAlert, ShoppingCart, ArrowUpRight, X, ChevronRight,
+  AlertCircle, ShieldAlert, ShoppingCart, ArrowUpRight, X, ChevronRight, ChevronDown,
   Filter, Check, UserCheck, Layers, LayoutGrid, Calendar, RefreshCw,
   Printer, FileText
 } from "lucide-react";
@@ -42,9 +42,18 @@ export default function PurchaseList() {
   // Core Data States
   const [purchases, setPurchases] = useState([]);
   const [companies, setCompanies] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState(
-    localStorage.getItem("selected_company_id") || ""
-  );
+  const [selectedCompany, setSelectedCompany] = useState("all");
+  const [firmOpen, setFirmOpen] = useState(false);
+  const firmRef = useRef(null);
+
+  // Date & Period Filter States
+  const [period, setPeriod] = useState("all_time");
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const periodRef = useRef(null);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const isDateMounted = useRef(false);
+
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -85,6 +94,67 @@ export default function PurchaseList() {
   // Currency Formatter
   const fmt = (n) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const PERIOD_LABELS = {
+    all_time: "All Time",
+    today: "Today",
+    this_week: "This Week",
+    this_month: "This Month",
+    this_quarter: "This Quarter",
+    this_year: "This Year",
+    custom: "Custom Range",
+  };
+
+  const setPresetDates = (type) => {
+    if (type === "custom") {
+      setPeriod("custom");
+      setPeriodOpen(false);
+      return;
+    }
+
+    if (type === "all_time" || type === "all") {
+      setFromDate("");
+      setToDate("");
+      setPeriod("all_time");
+      setPeriodOpen(false);
+      return;
+    }
+
+    const now = new Date();
+    let from = new Date();
+    let to = new Date();
+
+    if (type === "today") {
+      from = now;
+      to = now;
+    } else if (type === "this_week") {
+      const day = now.getDay() || 7;
+      from.setDate(now.getDate() - day + 1);
+      to = now;
+    } else if (type === "this_month") {
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else if (type === "this_quarter") {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      from = new Date(now.getFullYear(), qMonth, 1);
+      to = new Date(now.getFullYear(), qMonth + 3, 0);
+    } else if (type === "this_year") {
+      from = new Date(now.getFullYear(), 0, 1);
+      to = new Date(now.getFullYear(), 11, 31);
+    }
+
+    const fmtDate = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
+    setFromDate(fmtDate(from));
+    setToDate(fmtDate(to));
+    setPeriod(type);
+    setPeriodOpen(false);
+  };
+
   useEffect(() => {
     let user = {};
     try {
@@ -102,14 +172,8 @@ export default function PurchaseList() {
       .then(res => {
         if (res.data.status) {
           setCompanies(res.data.data);
-          const savedId = localStorage.getItem("selected_company_id");
-          const activeId = savedId || (res.data.data.length > 0 ? res.data.data[0].id : "");
-          if (activeId) {
-            setSelectedCompany(activeId);
-            fetchPurchasesAndSuppliers(activeId);
-          } else {
-            setLoading(false);
-          }
+          setSelectedCompany("all");
+          fetchPurchasesAndSuppliers("all", "", "");
         } else {
           setLoading(false);
         }
@@ -117,11 +181,45 @@ export default function PurchaseList() {
       .catch(() => setLoading(false));
   }, []);
 
-  const fetchPurchasesAndSuppliers = async (companyId) => {
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (firmRef.current && !firmRef.current.contains(e.target)) {
+        setFirmOpen(false);
+      }
+      if (periodRef.current && !periodRef.current.contains(e.target)) {
+        setPeriodOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  useEffect(() => {
+    if (isDateMounted.current) {
+      fetchPurchasesAndSuppliers(selectedCompany, fromDate, toDate);
+    } else {
+      isDateMounted.current = true;
+    }
+  }, [fromDate, toDate]);
+
+  const fetchPurchasesAndSuppliers = async (companyId = selectedCompany, from = fromDate, to = toDate) => {
     setLoading(true);
     try {
+      let user = {};
+      try {
+        user = JSON.parse(localStorage.getItem("user") || "{}");
+      } catch (e) {
+        user = {};
+      }
+      const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+
+      const compParam = companyId && companyId !== "all" ? `company_id=${companyId}` : `admin_id=${adminId || 0}`;
+      let dateParam = "";
+      if (from) dateParam += `&start_date=${from}`;
+      if (to) dateParam += `&end_date=${to}`;
+
       // Fetch Purchases
-      const pRes = await api.get(`/purchase/get_purchases?company_id=${companyId}`);
+      const pRes = await api.get(`/purchase/get_purchases?${compParam}${dateParam}`);
       let fetchedPurchases = [];
       if (pRes.data.status) {
         fetchedPurchases = pRes.data.data;
@@ -129,7 +227,8 @@ export default function PurchaseList() {
       }
 
       // Fetch Suppliers
-      const sRes = await api.get(`/supplier/get_all?company_id=${companyId}`);
+      const supParam = companyId && companyId !== "all" ? `?company_id=${companyId}` : (adminId ? `?admin_id=${adminId}` : "");
+      const sRes = await api.get(`/supplier/get_all${supParam}`);
       if (sRes.data.status) {
         const fetchedSuppliers = sRes.data.data;
         setSuppliers(fetchedSuppliers);
@@ -155,8 +254,7 @@ export default function PurchaseList() {
 
   const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);
-    localStorage.setItem("selected_company_id", companyId);
-    fetchPurchasesAndSuppliers(companyId);
+    fetchPurchasesAndSuppliers(companyId, fromDate, toDate);
   };
 
   const handleDelete = async (id) => {
@@ -380,6 +478,11 @@ export default function PurchaseList() {
   const filteredBills = useMemo(() => {
     const baseList = viewMode === "split" ? supplierBills : purchases;
     return baseList.filter((p) => {
+      if (p.purchase_date) {
+        const pDate = p.purchase_date.split("T")[0];
+        if (fromDate && pDate < fromDate) return false;
+        if (toDate && pDate > toDate) return false;
+      }
       const q = search.toLowerCase();
       const billNo = (p.purchase_no || "").toLowerCase();
       const suppName = (p.supplier_name || "").toLowerCase();
@@ -391,7 +494,7 @@ export default function PurchaseList() {
       if (billFilter === "draft") return p.status === "draft";
       return true;
     });
-  }, [viewMode, supplierBills, purchases, search, billFilter]);
+  }, [viewMode, supplierBills, purchases, search, billFilter, fromDate, toDate]);
 
   const selectedSupplierPendingTotal = selectedSupplier ? getSupplierPendingTotal(selectedSupplier.id) : 0;
 
@@ -529,27 +632,113 @@ export default function PurchaseList() {
         </div>
       </div>
 
-      {/* ── 3. CONTROLS BAR: Firm Selection + View Mode Toggles ── */}
+      {/* ── 3. CONTROLS BAR: Filter by (Period + Date Range + Company) + View Mode Toggles ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-        {/* Company Pills */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Firm:</span>
-          {companies.map((c) => {
-            const isActive = Number(selectedCompany) === Number(c.id);
-            return (
-              <button
-                key={c.id}
-                onClick={() => handleCompanyChange(c.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${isActive
-                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 ring-2 ring-indigo-600/20"
-                  : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+        {/* Filters Group */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
+
+          {/* Period Selector */}
+          <div className="relative" ref={periodRef}>
+            <button
+              onClick={() => {
+                setPeriodOpen(!periodOpen);
+                setFirmOpen(false);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            >
+              <span>{PERIOD_LABELS[period] || "All Time"}</span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {periodOpen && (
+              <div className="absolute left-0 mt-1.5 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                {Object.entries(PERIOD_LABELS).filter(([k]) => k !== "custom").map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => setPresetDates(k)}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                      period === k ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Date Range Picker */}
+          <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
+            <Calendar size={13} className="text-slate-400" />
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPeriod(e.target.value || toDate ? "custom" : "all_time");
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
+            <span className="text-slate-400 font-bold">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPeriod(fromDate || e.target.value ? "custom" : "all_time");
+              }}
+              className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
+            />
+          </div>
+
+          {/* Company Dropdown */}
+          <div className="relative" ref={firmRef}>
+            <button
+              onClick={() => {
+                setFirmOpen(!firmOpen);
+                setPeriodOpen(false);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            >
+              <span>
+                {selectedCompany === "all" || !selectedCompany
+                  ? "All Store"
+                  : companies.find((c) => String(c.id) === String(selectedCompany))?.company_name || "Company"}
+              </span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {firmOpen && (
+              <div className="absolute left-0 mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 max-h-56 overflow-y-auto">
+                <button
+                  onClick={() => {
+                    handleCompanyChange("all");
+                    setFirmOpen(false);
+                  }}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                    selectedCompany === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
-              >
-                <span>🏢</span>
-                <span>{c.company_name}</span>
-              </button>
-            );
-          })}
+                >
+                  🏢 All Store
+                </button>
+                {companies.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      handleCompanyChange(c.id);
+                      setFirmOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition truncate cursor-pointer ${
+                      String(selectedCompany) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                    }`}
+                  >
+                    🏢 {c.company_name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* View Mode Segmented Control */}
@@ -1546,7 +1735,7 @@ export default function PurchaseList() {
       <AddSupplierModal
         isOpen={showAddSupplierModal}
         onClose={() => setShowAddSupplierModal(false)}
-        companyId={selectedCompany}
+        companyId={selectedCompany !== "all" ? selectedCompany : (companies[0]?.id || "")}
         onSupplierAdded={(newSupplier) => {
           fetchPurchasesAndSuppliers(selectedCompany);
           if (newSupplier?.id) {

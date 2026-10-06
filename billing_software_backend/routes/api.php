@@ -164,6 +164,8 @@ Route::prefix('credit')->group(function () {
 Route::prefix('settings')->group(function () {
     Route::get('get', [SettingsController::class, 'get']);
     Route::post('save', [SettingsController::class, 'save']);
+    Route::get('terms', [SettingsController::class, 'getTerms']);
+    Route::post('terms', [SettingsController::class, 'saveTerms']);
 });
 
 // ── INVOICE SETTINGS ROUTES ──
@@ -208,6 +210,7 @@ Route::prefix('dashboard')->group(function () {
     Route::get('get_stats', [DashboardController::class, 'getStats']);
     Route::get('get_unsold_products_notification', [DashboardController::class, 'getUnsoldProductsNotification']);
     Route::get('get_expiring_products_notification', [DashboardController::class, 'getExpiringProductsNotification']);
+    Route::get('get_stock_alert_notifications', [DashboardController::class, 'getStockAlertNotifications']);
 });
 
 // ── INVOICE ROUTES ──

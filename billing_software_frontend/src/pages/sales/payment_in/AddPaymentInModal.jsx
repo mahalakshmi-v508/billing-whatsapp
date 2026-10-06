@@ -403,12 +403,9 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
                 {/* Receipt No */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Receipt #</label>
-                  <input
-                    type="text"
-                    value={receiptNo}
-                    onChange={(e) => setReceiptNo(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 text-xs outline-none focus:border-blue-600 transition"
-                  />
+                  <div className="w-full px-3 py-2 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs font-black text-blue-700 font-mono tracking-wide text-center select-all">
+                    {receiptNo || "REC-0001"}
+                  </div>
                 </div>
 
                 {/* Date */}

@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../../../services/api";
+import { calculateLine, resolveProductPricing } from "../../../utils/gst";
+
+/**
+ * The document-level tax mode a new debit note starts on. "without_tax" is the
+ * historical default, so unless the user picks the inclusive toggle the saved
+ * product's own mode is used.
+ */
+const DEFAULT_TAX_MODE = "without_tax";
 import {
   X,
   Plus,
@@ -79,12 +87,12 @@ function createNewDebitNoteTab(id, index, returnNoValue = null) {
     partyInput: "",
     selectedSupplier: null,
     supplierPhone: "",
-    returnNo: returnNoValue ? String(returnNoValue) : String(index),
+    returnNo: returnNoValue ? String(returnNoValue) : "",
     billNo: "",
     billDate: "",
     returnDate: new Date().toISOString().split("T")[0],
     stateOfSupply: "Tamil Nadu",
-    globalTaxMode: "without_tax",
+    globalTaxMode: DEFAULT_TAX_MODE,
     paymentType: "Cash",
     roundOffEnabled: true,
     showDescription: false,
@@ -308,58 +316,45 @@ export default function AddDebitNote() {
     }
   };
 
+  // Fetch next return number immediately on mount in parallel
+  useEffect(() => {
+    if (isEditMode) return;
+    const cid = companyId || localStorage.getItem("selected_company_id") || user?.company_id || 0;
+    let cancelled = false;
+    api.get(`/invoice-settings/next-number?company_id=${cid || 0}&type=debit_note`)
+      .then((numRes) => {
+        if (cancelled) return;
+        if (numRes.data?.status && numRes.data?.formatted_number) {
+          updateActiveTab({ returnNo: numRes.data.formatted_number });
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching next debit note number:", err);
+      });
+    return () => { cancelled = true; };
+  }, [companyId, isEditMode]);
+
   // Load Suppliers and Products Catalog (with bulletproof fallbacks)
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
         const cid = companyId || localStorage.getItem("selected_company_id") || user?.company_id || 0;
         
-        // 1. Fetch Suppliers
-        const supRes = await api.get(`/supplier/get_all?company_id=${cid || 0}`);
-        let supsList = [];
-        if (supRes.data?.status && Array.isArray(supRes.data.data) && supRes.data.data.length > 0) {
-          supsList = supRes.data.data;
-        } else {
-          // Fallback to fetch all suppliers
-          const fallbackSup = await api.get("/supplier/get_all");
-          if (fallbackSup.data?.status && Array.isArray(fallbackSup.data.data)) {
-            supsList = fallbackSup.data.data;
-          }
-        }
-        setSuppliers(supsList);
+        // Fetch suppliers and products concurrently
+        const [supRes, prodRes, countRes] = await Promise.allSettled([
+          api.get(`/supplier/get_all?company_id=${cid || 0}`).catch(() => api.get("/supplier/get_all")),
+          api.get(`/product/get?company_id=${cid || 0}&admin_id=${adminId || 0}`).catch(() => api.get("/product/get")),
+          api.get(`/debit_note/list?company_id=${cid || 0}`)
+        ]);
 
-        // 2. Fetch Products
-        const prodRes = await api.get(`/product/get?company_id=${cid || 0}&admin_id=${adminId || 0}`);
-        let prodsList = [];
-        if (prodRes.data?.status && Array.isArray(prodRes.data.data) && prodRes.data.data.length > 0) {
-          prodsList = prodRes.data.data;
-        } else {
-          const fallbackProd = await api.get(`/product/get`);
-          if (fallbackProd.data?.status && Array.isArray(fallbackProd.data.data)) {
-            prodsList = fallbackProd.data.data;
-          }
+        if (supRes.status === "fulfilled" && supRes.value?.data?.data) {
+          setSuppliers(supRes.value.data.data);
         }
-        setProductsCatalog(prodsList);
-
-        // 3. Count & formatted number for return no from settings
-        try {
-          const numRes = await api.get(`/invoice-settings/next-number?company_id=${cid || 0}&type=debit_note`);
-          if (numRes.data?.status && numRes.data?.formatted_number) {
-            if (!isEditMode) {
-              updateActiveTab({ returnNo: numRes.data.formatted_number });
-            }
-          } else {
-            const countRes = await api.get(`/debit_note/list?company_id=${cid || 0}`);
-            const cnt = countRes.data?.count || 0;
-            setExistingCount(cnt);
-            if (!isEditMode) {
-              updateActiveTab({ returnNo: `DN-${String(cnt + 1).padStart(4, "0")}` });
-            }
-          }
-        } catch {
-          if (!isEditMode) {
-            updateActiveTab({ returnNo: "DN-0001" });
-          }
+        if (prodRes.status === "fulfilled" && prodRes.value?.data?.data) {
+          setProductsCatalog(prodRes.value.data.data);
+        }
+        if (countRes.status === "fulfilled" && countRes.value?.data?.count !== undefined) {
+          setExistingCount(countRes.value.data.count);
         }
       } catch (err) {
         console.error("Error loading catalog for Debit Note:", err);
@@ -417,7 +412,7 @@ export default function AddDebitNote() {
                 billDate: d.bill_date || "",
                 returnDate: d.return_date || new Date().toISOString().split("T")[0],
                 stateOfSupply: d.state_of_supply || "Tamil Nadu",
-                globalTaxMode: "without_tax",
+                globalTaxMode: DEFAULT_TAX_MODE,
                 paymentType: d.payment_type || "Cash",
                 roundOffEnabled: true,
                 showDescription: Boolean(d.description),
@@ -543,37 +538,30 @@ export default function AddDebitNote() {
   }, [suppliers, activeTab.partyInput]);
 
   // Recalculate single item row
+  // Delegates to utils/gst.js, which is the same calculator the purchase bill
+  // and the backend use. The inline version here re-implemented the two
+  // branches without any rounding, so it could drift from the rest of the app
+  // by a paisa, and that drift was persisted.
   const calculateRow = (row, taxMode = activeTab.globalTaxMode) => {
-    const qty = parseFloat(row.quantity) || 0;
-    const price = parseFloat(row.price) || 0;
     const discPct = parseFloat(row.discount_percent) || 0;
-    const gstPct = parseFloat(row.gst_percentage) || 0;
+    const discAmtGiven = parseFloat(row.discount_amount) || 0;
 
-    const baseAmount = qty * price;
-    let discAmt = parseFloat(row.discount_amount) || 0;
-
-    if (discPct > 0) {
-      discAmt = (baseAmount * discPct) / 100;
-    }
-
-    const taxable = Math.max(0, baseAmount - discAmt);
-    let taxAmt = 0;
-    let finalAmt = taxable;
-
-    if (taxMode === "without_tax") {
-      taxAmt = (taxable * gstPct) / 100;
-      finalAmt = taxable + taxAmt;
-    } else {
-      // With Tax mode
-      taxAmt = taxable - taxable / (1 + gstPct / 100);
-      finalAmt = taxable;
-    }
+    const line = calculateLine({
+      price: parseFloat(row.price) || 0,
+      quantity: parseFloat(row.quantity) || 0,
+      gstRate: parseFloat(row.gst_percentage) || 0,
+      // The document-level toggle still wins, because that is how this form has
+      // always been used; it is just expressed in the canonical vocabulary.
+      priceType: taxMode,
+      discount: discPct > 0 ? 0 : discAmtGiven,
+      discountPercent: discPct > 0 ? discPct : 0,
+    });
 
     return {
       ...row,
-      discount_amount: discAmt > 0 ? discAmt : "",
-      tax_amount: taxAmt,
-      amount: finalAmt,
+      discount_amount: line.discount > 0 ? line.discount : "",
+      tax_amount: line.gst,
+      amount: line.total,
     };
   };
 
@@ -595,8 +583,16 @@ export default function AddDebitNote() {
   // Select Product from Autocomplete
   const handleSelectProduct = (index, prod) => {
     const updated = [...activeTab.items];
-    const unitPrice = parseFloat(prod.purchase_price || prod.price || prod.sale_price || 0);
-    const gstRate = parseFloat(prod.tax_rate || prod.gst_rate || 0);
+    // The old line read `prod.tax_rate || prod.gst_rate`, but the products table
+    // has neither - the column is `gst_percentage`. That silently produced 0 for
+    // every product, so purchase debit notes were raised at 0% GST.
+    const pricing = resolveProductPricing(prod, { use: "purchase" });
+    // A product saved as "With GST" should return at the same rate the purchase
+    // was billed at, unless the user has deliberately overridden the document
+    // toggle.
+    const savedMode = pricing.priceType;
+    const useSavedMode = activeTab.globalTaxMode === DEFAULT_TAX_MODE;
+    const nextTaxMode = useSavedMode ? savedMode : activeTab.globalTaxMode;
 
     let row = {
       ...updated[index],
@@ -606,11 +602,11 @@ export default function AddDebitNote() {
       barcode: prod.barcode || "",
       quantity: updated[index].quantity ? updated[index].quantity : 1,
       unit: prod.unit || "NONE",
-      price: unitPrice || "",
-      gst_percentage: gstRate,
+      price: pricing.price || "",
+      gst_percentage: pricing.gstRate,
     };
 
-    row = calculateRow(row, activeTab.globalTaxMode);
+    row = calculateRow(row, nextTaxMode);
     updated[index] = row;
 
     // If it was the Quick Add / Lightning Row (row 0), create a regular row below
@@ -691,10 +687,11 @@ export default function AddDebitNote() {
   };
 
   // Calculate Totals Summary (Rows 1 to N, ignoring row 0 if empty)
-  const { totalQty, totalDiscount, totalTax, calculatedTotal, roundOffVal, grandTotal } = useMemo(() => {
+  const { totalQty, totalDiscount, totalTax, totalSubTotal, calculatedTotal, roundOffVal, grandTotal } = useMemo(() => {
     let tQty = 0;
     let tDisc = 0;
     let tTax = 0;
+    let tSub = 0;
     let rawTotal = 0;
 
     activeTab.items.forEach((r, idx) => {
@@ -704,6 +701,10 @@ export default function AddDebitNote() {
       tDisc += parseFloat(r.discount_amount) || 0;
       tTax += parseFloat(r.tax_amount) || 0;
       rawTotal += parseFloat(r.amount) || 0;
+      // Taxable base comes from each line's own calculation, not from
+      // `total - tax`. The back-derivation only holds in inclusive mode, so on
+      // the default exclusive mode it understated sub_total by the whole tax.
+      tSub += (parseFloat(r.amount) || 0) - (parseFloat(r.tax_amount) || 0);
     });
 
     let rounded = rawTotal;
@@ -717,6 +718,7 @@ export default function AddDebitNote() {
       totalQty: tQty,
       totalDiscount: tDisc,
       totalTax: tTax,
+      totalSubTotal: tSub,
       calculatedTotal: rawTotal,
       roundOffVal: diff,
       grandTotal: rounded,
@@ -766,7 +768,7 @@ export default function AddDebitNote() {
           tax_amount: item.tax_amount,
           total_amount: item.amount,
         })),
-        sub_total: calculatedTotal - totalTax + totalDiscount,
+        sub_total: totalSubTotal,
         tax_total: totalTax,
         discount_total: totalDiscount,
         round_off: roundOffVal,
@@ -1673,8 +1675,8 @@ export default function AddDebitNote() {
                 <span className="font-bold text-slate-900">{totalQty}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span>Subtotal (Return Base)</span>
-                <span className="font-bold text-slate-900">₹ {fmtCurrency(calculatedTotal - totalTax + totalDiscount)}</span>
+                <span>Return Base Subtotal</span>
+                <span className="font-bold text-slate-900">₹ {fmtCurrency(totalSubTotal)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span>Total Tax (GST)</span>

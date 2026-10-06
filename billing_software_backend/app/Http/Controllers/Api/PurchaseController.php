@@ -745,12 +745,13 @@ class PurchaseController extends Controller
     public function getPurchases(Request $request)
     {
         $companyId = intval($request->input('company_id') ?: $request->query('company_id', 0));
-        $startDate = $request->query('start_date');
-        $endDate = $request->query('end_date');
+        $adminId = intval($request->input('admin_id') ?: $request->query('admin_id', 0));
+        $startDate = $request->query('start_date') ?: $request->query('from_date');
+        $endDate = $request->query('end_date') ?: $request->query('to_date');
         $supplierId = intval($request->query('supplier_id', 0));
         $status = $request->query('status');
 
-        if (!$companyId) {
+        if (!$companyId && !$adminId) {
             return response()->json([
                 'status' => true,
                 'data' => []
@@ -759,8 +760,21 @@ class PurchaseController extends Controller
 
         $query = DB::table('purchases as p')
             ->leftJoin('suppliers as s', 'p.supplier_id', '=', 's.id')
-            ->select('p.*', 's.supplier_name', 's.gst_number as supplier_gstin')
-            ->where('p.company_id', $companyId);
+            ->leftJoin('companies as c', 'p.company_id', '=', 'c.id')
+            ->select('p.*', 's.supplier_name', 's.gst_number as supplier_gstin', 'c.company_name');
+
+        if ($companyId > 0) {
+            $query->where('p.company_id', $companyId);
+        } elseif ($adminId > 0) {
+            $adminCompanyIds = DB::table('companies')
+                ->where('admin_id', $adminId)
+                ->where('is_deleted', 0)
+                ->pluck('id')
+                ->all();
+            if (!empty($adminCompanyIds)) {
+                $query->whereIn('p.company_id', $adminCompanyIds);
+            }
+        }
 
         if (!empty($startDate)) {
             $query->whereDate('p.purchase_date', '>=', $startDate);

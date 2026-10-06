@@ -30,6 +30,9 @@ class ProductController extends Controller
         $sale_price     = floatval($request->input('sale_price', 0));
         $purchase_price = floatval($request->input('purchase_price', 0));
         $expiry_date    = !empty($request->input('expiry_date')) ? $request->input('expiry_date') : null;
+        $gst_enabled    = $request->has('gst_enabled')
+            ? $request->boolean('gst_enabled')
+            : $gst_percentage > 0;
 
         // "with_gst" / "without_gst" for each price, independently. Anything
         // unrecognised (including a missing field) normalises to without_gst,
@@ -119,6 +122,7 @@ class ProductController extends Controller
             'barcode' => $barcode ?: null,
             'unit' => $unit ?: null,
             'gst_percentage' => $gst_percentage,
+            'gst_enabled' => $gst_enabled,
             'company_id' => $company_id,
             'supplier_id' => $supplier_id > 0 ? $supplier_id : null,
             'status' => 'active',
@@ -297,65 +301,68 @@ class ProductController extends Controller
 
     public function update(Request $request)
     {
-        $id             = intval($request->input('id', 0));
-        $product_name   = trim($request->input('product_name', ''));
-        $product_code   = trim($request->input('product_code', ''));
-        $category_id    = intval($request->input('category_id', 0));
-        $subcategory_id = intval($request->input('subcategory_id', 0));
-        $brand_id       = intval($request->input('brand_id', 0));
-        $price          = floatval($request->input('price', 0));
-        $stock          = intval($request->input('stock', 0));
-        $barcode        = trim($request->input('barcode', ''));
-        $unit           = trim($request->input('unit', ''));
-        $gst_percentage = floatval($request->input('gst_percentage', 0));
-        $supplier_id    = intval($request->input('supplier_id', 0));
-        $sale_price     = floatval($request->input('sale_price', 0));
-        $purchase_price = floatval($request->input('purchase_price', 0));
-
-        if (!$id || !$product_name) {
-            return response()->json(["status" => false, "message" => "ID and Product Name required"]);
+        $id = intval($request->input('id', 0));
+        if (!$id) {
+            return response()->json(["status" => false, "message" => "ID required"], 422);
         }
 
-        // This method is a destructive full-replace, so a client that never
-        // sends the pricing mode would silently reset it. Only overwrite when
-        // the field is actually present, otherwise keep what is already saved.
         $existing = Product::find($id);
+        if (!$existing) {
+            return response()->json(["status" => false, "message" => "Product not found"], 404);
+        }
 
+        $updateData = [];
+        if ($request->has('product_name')) {
+            $productName = trim($request->input('product_name'));
+            if ($productName === '') {
+                return response()->json(["status" => false, "message" => "Product Name required"], 422);
+            }
+            $updateData['product_name'] = $productName;
+        }
+        if ($request->has('product_code')) {
+            $updateData['product_code'] = trim((string) $request->input('product_code')) ?: null;
+        }
+        foreach (['category_id', 'subcategory_id', 'brand_id', 'stock'] as $field) {
+            if ($request->has($field)) {
+                $updateData[$field] = intval($request->input($field));
+            }
+        }
+        foreach (['price', 'gst_percentage'] as $field) {
+            if ($request->has($field)) {
+                $updateData[$field] = floatval($request->input($field));
+            }
+        }
+        foreach (['sale_price', 'purchase_price'] as $field) {
+            if ($request->has($field)) {
+                $updateData[$field] = floatval($request->input($field)) ?: null;
+            }
+        }
+        foreach (['barcode', 'unit'] as $field) {
+            if ($request->has($field)) {
+                $updateData[$field] = trim((string) $request->input($field)) ?: null;
+            }
+        }
+        if ($request->has('supplier_id')) {
+            $supplierId = intval($request->input('supplier_id'));
+            $updateData['supplier_id'] = $supplierId > 0 ? $supplierId : null;
+        }
         if ($request->has('sale_price_type')) {
-            $sale_price_type = GstCalculator::normaliseMode($request->input('sale_price_type'));
-        } else {
-            $sale_price_type = GstCalculator::normaliseMode($existing->sale_price_type ?? null);
+            $updateData['sale_price_type'] = GstCalculator::normaliseMode($request->input('sale_price_type'));
         }
-
         if ($request->has('purchase_price_type')) {
-            $purchase_price_type = GstCalculator::normaliseMode($request->input('purchase_price_type'));
-        } else {
-            $purchase_price_type = GstCalculator::normaliseMode($existing->purchase_price_type ?? null);
+            $updateData['purchase_price_type'] = GstCalculator::normaliseMode($request->input('purchase_price_type'));
         }
-
-        $updateData = [
-            'product_name' => $product_name,
-            'product_code' => $product_code ?: null,
-            'category_id' => $category_id,
-            'subcategory_id' => $subcategory_id,
-            'brand_id' => $brand_id,
-            'price' => $price,
-            'stock' => $stock,
-            'barcode' => $barcode ?: null,
-            'unit' => $unit ?: null,
-            'gst_percentage' => $gst_percentage,
-            'supplier_id' => $supplier_id > 0 ? $supplier_id : null,
-            'sale_price' => $sale_price ?: null,
-            'purchase_price' => $purchase_price ?: null,
-            'sale_price_type' => $sale_price_type,
-            'purchase_price_type' => $purchase_price_type,
-        ];
+        if ($request->has('gst_enabled')) {
+            $updateData['gst_enabled'] = $request->boolean('gst_enabled');
+        }
 
         if ($request->has('expiry_date')) {
             $updateData['expiry_date'] = !empty($request->input('expiry_date')) ? $request->input('expiry_date') : null;
         }
 
-        Product::where('id', $id)->update($updateData);
+        if ($updateData) {
+            Product::where('id', $id)->update($updateData);
+        }
 
         return response()->json([
             "status" => true,

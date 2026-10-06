@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import AddProductModal from "../products/AddProductModal";
+import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
+import QuickAddProductModal from "../products/QuickAddProductModal";
 import {
   Search,
   Plus,
@@ -189,7 +190,30 @@ function trackUsage(product) {
 }
 
 function emptyRow() {
-  return { product_id: null, name: "", product_code: "", price: 0, qty: 0, discount: 0, freeQty: 0, gst: 0, unit: "", stock: 0, isUnlisted: false };
+  return { product_id: null, name: "", product_code: "", price: 0, qty: 0, discount: 0, freeQty: 0, gst: 0, price_type: "without_gst", unit: "", stock: 0, isUnlisted: false };
+}
+
+function isValidGstin(value) {
+  return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(value);
+}
+
+/**
+ * The single POS line calculation. Both the row display (rowAmount) and the
+ * bill totals (subtotal/gstTotal/total) go through this one function, so the
+ * two can never disagree the way they used to - previously the totals charged
+ * GST on the pre-discount amount while the row display discounted first.
+ *
+ * Product GST is included in both POS bill types; the GST bill additionally
+ * carries the customer's GST registration details.
+ */
+function posLineAmount(r, billType) {
+  return calculateLine({
+    price: Number(r.price) || 0,
+    quantity: Number(r.qty) || 0,
+    gstRate: Number(r.gst) || 0,
+    priceType: r.price_type,
+    discount: Number(r.discount) || 0,
+  });
 }
 
 function createFreshBill(id) {
@@ -207,7 +231,7 @@ function createFreshBill(id) {
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════ */
-export default function Billing({ startCashBill = false }) {
+export default function Billing() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
   const navigate = useNavigate();
@@ -268,7 +292,7 @@ export default function Billing({ startCashBill = false }) {
   const justSelectedRef = useRef(false);
 
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [quickItem, setQuickItem] = useState({ name: "", price: "", qty: 1, unit: "" });
+  const [quickItem, setQuickItem] = useState({ name: "", price: "", qty: 1, unit: "", price_type: "without_gst" });
   const [showProductAddModal, setShowProductAddModal] = useState(false);
   const [quickAddProductName, setQuickAddProductName] = useState("");
 
@@ -287,6 +311,7 @@ export default function Billing({ startCashBill = false }) {
   const [addCustomerName, setAddCustomerName] = useState("");
   const [addCustomerPhone, setAddCustomerPhone] = useState("");
   const [addCustomerAddress, setAddCustomerAddress] = useState("");
+  const [addCustomerGstNo, setAddCustomerGstNo] = useState("");
 
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -300,10 +325,12 @@ export default function Billing({ startCashBill = false }) {
   const handleGenerateRef = useRef(null);
 
   /* ── Derived Totals ── */
-  const subtotal = rows.reduce((s, r) => s + r.price * r.qty, 0);
+  const subtotal = rows.reduce((s, r) => s + posLineAmount(r, billType).taxable, 0);
   const totalDiscount = rows.reduce((s, r) => s + (Number(r.discount) || 0), 0);
-  const gstTotal = rows.reduce((s, r) => s + (r.price * r.qty * r.gst) / 100, 0);
-  const total = subtotal + gstTotal - totalDiscount;
+  const gstTotal = rows.reduce((s, r) => s + posLineAmount(r, billType).gst, 0);
+  // Summed from the authoritative per-line totals so the amount collected can
+  // never drift from the lines printed above it.
+  const total = rows.reduce((s, r) => s + posLineAmount(r, billType).total, 0);
   const earnedPoints = Math.floor(total / 100);
   const received = parseFloat(payment.received) || 0;
   const advanceAvailable = parseFloat(customer.advance_balance) || 0;
@@ -333,19 +360,9 @@ export default function Billing({ startCashBill = false }) {
     api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
       .then((res) => {
         if (!res.data.status) return;
-        const loadedCompanies = res.data.data || [];
-        setCompanies(loadedCompanies);
-
-        const company = loadedCompanies.find((c) => String(c.id) === String(selectedCompany));
-        if (company?.gst_type === "with_gst" && !startCashBill) {
-          setBills((prev) => prev.map((bill) => (
-            bill.rows.every((row) => !row.name && !row.product_id)
-              ? { ...bill, billType: "gst_bill" }
-              : bill
-          )));
-        }
+        setCompanies(res.data.data || []);
       });
-  }, [adminId, selectedCompany, startCashBill]);
+  }, [adminId]);
 
   useEffect(() => {
     if (!selectedCompany) return;
@@ -658,6 +675,8 @@ export default function Billing({ startCashBill = false }) {
     const p = productById[product.id] || productById[product.product_id] || product;
     const pid = p.id || p.product_id;
     const qtyNum = Number(qtyToAdd) || 1;
+    // Saved sale price + its GST mode come straight from the API record.
+    const posPricing = resolveProductPricing(p, { use: "sale" });
 
     setRows((prevRows) => {
       const updated = [...prevRows];
@@ -676,8 +695,9 @@ export default function Billing({ startCashBill = false }) {
           product_id: pid,
           name: p.product_name || p.name,
           product_code: p.product_code || "",
-          price: Number(p.price),
-          gst: Number(p.gst_percentage ?? p.gst ?? p.tax_percent ?? 0),
+          price: posPricing.price,
+          gst: posPricing.gstRate,
+          price_type: posPricing.priceType,
           qty: qtyNum,
           discount: 0,
           freeQty: 0,
@@ -705,6 +725,19 @@ export default function Billing({ startCashBill = false }) {
     globalSearchRef.current?.focus();
   }, [productById, showToast, setRows]);
 
+  /* Quick Add (POS) - the limited popup saved the searched product to the
+     database, so make it searchable and put it straight onto the active bill.
+     Duplicate protection is the existing POS search itself: the Quick Add card
+     only appears when the name matched nothing in the loaded catalog.
+     Deliberately does NOT touch printing. */
+  const handleQuickAddProductCreated = (savedProduct) => {
+    if (!savedProduct?.id) return;
+
+    setProducts((prev) => (prev.some((p) => p.id === savedProduct.id) ? prev : [...prev, savedProduct]));
+    addOrMergeProduct(savedProduct);
+    showToast(`"${savedProduct.product_name}" saved & added to bill`, "success");
+  };
+
   const addMultipleProducts = useCallback((itemsList) => {
     if (!itemsList || itemsList.length === 0) return;
 
@@ -715,6 +748,7 @@ export default function Billing({ startCashBill = false }) {
         const qtyNum = Number(item.quantity || item.qty || 1);
         const p = productById[rawProduct.id] || productById[rawProduct.product_id] || rawProduct;
         const pid = p.id || p.product_id;
+        const posPricing = resolveProductPricing(p, { use: "sale" });
 
         const existingIdx = updated.findIndex((r) => String(r.product_id) === String(pid) && !r.isUnlisted);
 
@@ -726,8 +760,9 @@ export default function Billing({ startCashBill = false }) {
             product_id: pid,
             name: p.product_name || p.name,
             product_code: p.product_code || "",
-            price: Number(p.price),
-            gst: Number(p.gst_percentage ?? p.gst ?? p.tax_percent ?? 0),
+            price: posPricing.price,
+            gst: posPricing.gstRate,
+            price_type: posPricing.priceType,
             qty: qtyNum,
             discount: 0,
             freeQty: 0,
@@ -766,6 +801,9 @@ export default function Billing({ startCashBill = false }) {
       product_code: "",
       price: Number(quickItem.price),
       gst: 0,
+      // A free-typed quick item has no saved product config, so it follows the
+      // same historical default as a product that predates these columns.
+      price_type: normalisePriceType(quickItem.price_type),
       qty: Number(quickItem.qty) || 1,
       discount: 0,
       freeQty: 0,
@@ -781,7 +819,7 @@ export default function Billing({ startCashBill = false }) {
       if (updated[updated.length - 1].name) updated.push(emptyRow());
       return updated;
     });
-    setQuickItem({ name: "", price: "", qty: 1, unit: "" });
+    setQuickItem({ name: "", price: "", qty: 1, unit: "", price_type: "without_gst" });
     setShowQuickAdd(false);
     setGlobalSearch("");
     setShowNoResult(false);
@@ -819,12 +857,7 @@ export default function Billing({ startCashBill = false }) {
     });
   };
 
-  const rowAmount = (r) => {
-    const base = r.price * r.qty;
-    const disc = Number(r.discount) || 0;
-    const gstAmt = billType === "gst_bill" ? (base * r.gst) / 100 : 0;
-    return base + gstAmt - disc;
-  };
+  const rowAmount = (r) => posLineAmount(r, billType).total;
 
   /* ══ CUSTOMER SELECTION LOGIC ══ */
   const fetchCustomerById = async (id) => {
@@ -921,6 +954,7 @@ export default function Billing({ startCashBill = false }) {
         setAddCustomerPhone(digits);
         setAddCustomerName(customer.name || "");
         setAddCustomerAddress("");
+        setAddCustomerGstNo("");
         setShowAddCustomer(true);
       } catch { }
       setCustomerSearchLoading(false);
@@ -939,6 +973,7 @@ export default function Billing({ startCashBill = false }) {
         name: addCustomerName.trim(),
         phone: addCustomerPhone.trim(),
         address: addCustomerAddress.trim(),
+        gst_no: billType === "gst_bill" ? addCustomerGstNo.trim().toUpperCase() : "",
       });
       if (res.data.status) {
         const phoneRes = await api.get("/customer/get_by_phone", { params: { admin_id: adminId, phone: addCustomerPhone.trim() } });
@@ -952,6 +987,7 @@ export default function Billing({ startCashBill = false }) {
         setAddCustomerName("");
         setAddCustomerPhone("");
         setAddCustomerAddress("");
+        setAddCustomerGstNo("");
       } else {
         if (res.data.message && res.data.message.includes("already exists")) {
           const phoneRes = await api.get("/customer/get_by_phone", { params: { admin_id: adminId, phone: addCustomerPhone.trim() } });
@@ -962,6 +998,7 @@ export default function Billing({ startCashBill = false }) {
             setAddCustomerName("");
             setAddCustomerPhone("");
             setAddCustomerAddress("");
+            setAddCustomerGstNo("");
           } else {
             showToast(res.data.message, "error");
           }
@@ -970,21 +1007,26 @@ export default function Billing({ startCashBill = false }) {
         }
       }
     } catch (err) {
-      showToast(err.message || "Server error", "error");
+      showToast(err.response?.data?.message || err.message || "Server error", "error");
     }
   };
 
   /* ══ INVOICE GENERATION ══ */
   const saveOrGetCustomer = async () => {
+    if (billType === "gst_bill") return customer.id || 0;
+
     if (customer.id) return customer.id;
+
     const res = await api.post("/customer/customer_save", {
       company_id: selectedCompany,
       admin_id: adminId,
       name: customer.name || "Customer",
       phone: customer.phone,
-      gst_no: billType === "gst_bill" ? customer.gst_no : "",
+      gst_no: "",
     });
-    if (res.data.status) return res.data.customer_id;
+    if (res.data.status) {
+      return res.data.customer_id;
+    }
     throw new Error(res.data.message || "Failed to save customer");
   };
 
@@ -992,6 +1034,10 @@ export default function Billing({ startCashBill = false }) {
     if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
     if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
     if (billType === "gst_bill" && !customer.gst_no.trim()) { showToast("GST Number is mandatory for GST Bill!", "error"); return; }
+    if (billType === "gst_bill" && !isValidGstin(customer.gst_no.trim().toUpperCase())) {
+      showToast("Enter a valid 15-character GSTIN (e.g. 22ABCDE1234F1Z5).", "error");
+      return;
+    }
     if (validRows.length === 0) { showToast("Add at least one product to the invoice!", "error"); return; }
     if (paymentMethod !== "credit" && received <= 0 && advanceUsed < total) { showToast("Enter received payment amount!", "error"); return; }
     if (paymentMethod === "credit" && Number(customer.credit_enabled) === 1) {
@@ -1003,23 +1049,37 @@ export default function Billing({ startCashBill = false }) {
     }
     if (!selectedCompany) { showToast("Please select billing company!", "error"); return; }
 
+    const billIdToReset = activeBillId;
     setGenerating(true);
     try {
       const u = JSON.parse(localStorage.getItem("user") || "{}");
       const customer_id = await saveOrGetCustomer();
+      // Send the POS row keys (name/gst/discount) the backend already reads,
+      // plus the canonical tax_amount/amount so printed invoices and reports
+      // never have to re-derive a GST-inclusive line from qty*price.
+      const invoiceProducts = validRows.map((r) => {
+        const line = posLineAmount(r, billType);
+        return {
+          ...r,
+          product_name: r.name,
+          price_type: normalisePriceType(r.price_type),
+          tax_amount: line.gst,
+          amount: line.total,
+        };
+      });
       const res = await api.post("/invoice/create_invoice", {
         company_id: selectedCompany,
         customer_id,
         customer_name: customer.name,
         customer_phone: customer.phone,
         cashier_id: u.id,
-        products: validRows,
+        products: invoiceProducts,
         sub_total: subtotal,
         gst_total: gstTotal,
         total_amount: total,
         include_product_gst: billType === "cash_bill",
         gst_type: billType === "gst_bill" ? "with_gst" : "without_gst",
-        gst_no: billType === "gst_bill" ? customer.gst_no : "",
+        gst_no: billType === "gst_bill" ? customer.gst_no.trim().toUpperCase() : "",
         paid_amount: paymentMethod === "credit" ? 0 : received,
         payment_method: paymentMethod,
         payment_type: paymentMethod === "credit" ? "credit" : "cash",
@@ -1030,19 +1090,29 @@ export default function Billing({ startCashBill = false }) {
         if (res.data.advance_used > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_used))} advance used`);
         if (res.data.balance_amount > 0) parts.push(`${formatCurrency(parseFloat(res.data.balance_amount))} pending`);
         if (balance > 0 && res.data.advance_delta > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_delta))} added to advance`);
-        showToast(parts.length > 0 ? `Invoice generated! ${parts.join(" · ")}` : "Invoice generated successfully!", "success");
-        setTimeout(() => {
-          if (action === "print") {
-            setPrintInvoiceUrl(`/invoice/${res.data.invoice_no}?autoPrint=1&posPrint=1`);
+        const successMsg = parts.length > 0 ? `Invoice generated! ${parts.join(" · ")}` : "Invoice generated successfully!";
+        setGenerating(false);
+        if (action === "preview") {
+          const invoiceRef = res.data.invoice_no || res.data.invoice_id;
+          if (invoiceRef) {
+            navigate(`/invoice/${encodeURIComponent(String(invoiceRef))}`, {
+              state: { flash: successMsg, flashType: "success" },
+            });
           } else {
-            navigate(`/invoice/${res.data.invoice_no}`);
+            showToast("Invoice saved, but no invoice number was returned!", "error");
           }
-        }, 900);
-      } else {
-        showToast(res.data.message || "Something went wrong", "error");
+          return;
+        }
+
+        setBills((prev) => prev.map((bill) => (
+          bill.id === billIdToReset ? createFreshBill(bill.id) : bill
+        )));
+        showToast(successMsg, "success");
+        return;
       }
+      showToast(res.data.message || "Something went wrong", "error");
     } catch (err) {
-      showToast(err.message || "Server error. Please try again!", "error");
+      showToast(err.response?.data?.message || err.message || "Server error. Please try again!", "error");
     }
     setGenerating(false);
   };
@@ -1208,6 +1278,19 @@ export default function Billing({ startCashBill = false }) {
                   onChange={(e) => setAddCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                 />
               </div>
+
+              {billType === "gst_bill" && (
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">GSTIN (Optional)</label>
+                  <input
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold font-mono uppercase text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-3 focus:ring-indigo-100 transition-all"
+                    placeholder="22ABCDE1234F1Z5"
+                    value={addCustomerGstNo}
+                    maxLength={15}
+                    onChange={(e) => setAddCustomerGstNo(e.target.value.toUpperCase())}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">Address (Optional)</label>
@@ -1544,10 +1627,12 @@ export default function Billing({ startCashBill = false }) {
           </div>
         )}
 
-        <AddProductModal
+        <QuickAddProductModal
           isOpen={showProductAddModal}
           onClose={() => setShowProductAddModal(false)}
           initialProductName={quickAddProductName}
+          companyId={selectedCompany}
+          onProductAdded={handleQuickAddProductCreated}
         />
         {printInvoiceUrl && (
           <iframe
@@ -1990,11 +2075,11 @@ export default function Billing({ startCashBill = false }) {
                         : "bg-slate-50 border-amber-300 text-slate-900"
                     }`}
                   />
-                  {!customer.gst_no?.trim() && (
+                  {!customer.gst_no?.trim() ? (
                     <p className="mt-1 text-[10.5px] font-semibold text-amber-700">
                       No GSTIN on file — enter one to raise a GST Bill.
                     </p>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>

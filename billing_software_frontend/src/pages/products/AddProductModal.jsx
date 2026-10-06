@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../../services/api";
+import PriceWithGstInput from "./components/PriceWithGstInput";
 import Barcode from "react-barcode";
 import {
   PackagePlus,
@@ -21,6 +22,7 @@ import {
   AlertCircle,
   Plus,
   Calendar,
+  Save,
 } from "lucide-react";
 
 function useToast() {
@@ -75,9 +77,21 @@ function ToastPortal({ toasts, remove }) {
   );
 }
 
-export default function AddProductModal({ isOpen, onClose, onProductAdded, initialProductName = "" }) {
+export default function AddProductModal({
+  isOpen,
+  onClose,
+  onProductAdded,
+  onProductUpdated,
+  product = null,
+  initialProductName = "",
+  initialName = "",
+  companyId = "",
+}) {
   const { toasts, show, remove } = useToast();
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const isEditing = Boolean(product?.id);
+  const [dirtyFields, setDirtyFields] = useState(() => new Set());
   const [gstEnabled, setGstEnabled] = useState(false);
   const [gstLoading, setGstLoading] = useState(true);
   const [barcodeKey, setBarcodeKey] = useState(0);
@@ -90,7 +104,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
   const [brands, setBrands] = useState([]);
   const [brandLoading, setBrandLoading] = useState(false);
 
-  const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
+  const getCompanyId = () => Number(companyId || localStorage.getItem("selected_company_id") || 0);
 
   const [form, setForm] = useState({
     name: "",
@@ -102,20 +116,30 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
     barcode: "",
     unit: "",
     sale_price: "",
+    sale_price_type: "without_gst",
     purchase_price: "",
+    purchase_price_type: "without_gst",
     category_id: "",
     subcategory_id: "",
     brand_id: "",
+    supplier_id: "",
   });
 
-  const set = (field, val) => setForm((p) => ({ ...p, [field]: val }));
+  const set = (field, val) => {
+    setForm((p) => ({ ...p, [field]: val }));
+    if (isEditing) setDirtyFields((p) => new Set(p).add(field));
+  };
 
-  const fetchCompanyGST = async () => {
+  const setGstEnabledByUser = (enabled) => {
+    setGstEnabled(enabled);
+    if (isEditing) setDirtyFields((p) => new Set(p).add("gst_enabled"));
+  };
+
+  const fetchCompanyGST = async (companyId = getCompanyId()) => {
     setGstLoading(true);
     try {
-      const company_id = getCompanyId();
-      if (!company_id) return;
-      const res = await api.post("/company/get_company_by_id", { id: company_id });
+      if (!companyId) return;
+      const res = await api.post("/company/get_company_by_id", { id: companyId });
       if (res.data.status) {
         // Pre-fill toggle with company preference, but user can freely toggle enable/disable
         setGstEnabled(res.data.data.gst_type === "with_gst");
@@ -127,8 +151,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
     }
   };
 
-  const fetchCategories = async () => {
-    const company_id = getCompanyId();
+  const fetchCategories = async (company_id = getCompanyId()) => {
     if (!company_id) {
       setCategories([]);
       return;
@@ -173,8 +196,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
     }
   };
 
-  const fetchBrands = async () => {
-    const company_id = getCompanyId();
+  const fetchBrands = async (company_id = getCompanyId()) => {
     if (!company_id) {
       setBrands([]);
       return;
@@ -199,9 +221,9 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
     document.body.style.overflow = isOpen ? "hidden" : "";
 
     if (isOpen) {
-      const timer = setTimeout(() => {
-        setForm({
-          name: initialProductName,
+      let cancelled = false;
+      const emptyForm = {
+          name: initialProductName || initialName || "",
           product_code: "",
           price: "",
           stock: "",
@@ -210,28 +232,80 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
           barcode: "",
           unit: "",
           sale_price: "",
+          sale_price_type: "without_gst",
           purchase_price: "",
+          purchase_price_type: "without_gst",
           category_id: "",
           subcategory_id: "",
           brand_id: "",
-        });
-        setShowAdditional(false);
+          supplier_id: "",
+        };
+      const mapProductToForm = (savedProduct) => ({
+        name: savedProduct.product_name || "",
+        product_code: savedProduct.product_code || "",
+        price: savedProduct.sale_price ?? savedProduct.price ?? "",
+        sale_price: savedProduct.sale_price ?? savedProduct.price ?? "",
+        sale_price_type: savedProduct.sale_price_type || "without_gst",
+        purchase_price: savedProduct.purchase_price ?? "",
+        purchase_price_type: savedProduct.purchase_price_type || "without_gst",
+        stock: savedProduct.stock ?? "",
+        gst: savedProduct.gst_percentage ?? "",
+        barcode: savedProduct.barcode || "",
+        unit: savedProduct.unit || "",
+        category_id: savedProduct.category_id ? String(savedProduct.category_id) : "",
+        subcategory_id: savedProduct.subcategory_id ? String(savedProduct.subcategory_id) : "",
+        brand_id: savedProduct.brand_id ? String(savedProduct.brand_id) : "",
+        supplier_id: savedProduct.supplier_id ? String(savedProduct.supplier_id) : "",
+      });
+
+      const initialize = async () => {
+        const companyId = product?.company_id || getCompanyId();
+        setLoading(false);
+        setFetching(Boolean(product?.id));
+        setDirtyFields(new Set());
+        setGstLoading(!product);
+        setForm(product ? mapProductToForm(product) : emptyForm);
+        setGstEnabled(product
+          ? (product.gst_enabled == null ? Number(product.gst_percentage) > 0 : Boolean(product.gst_enabled))
+          : false);
+        setShowAdditional(Boolean(product?.id));
         setSubCategories([]);
-        fetchCompanyGST();
-        fetchCategories();
-        fetchBrands();
-      }, 0);
+
+        const requests = [fetchCategories(companyId), fetchBrands(companyId)];
+        if (!product) requests.push(fetchCompanyGST(companyId));
+        await Promise.all(requests);
+
+        if (product?.id) {
+          try {
+            const res = await api.get(`/product/get_by_id?id=${product.id}`);
+            if (!cancelled && res.data.status) {
+              const savedProduct = res.data.data;
+              setForm(mapProductToForm(savedProduct));
+              setGstEnabled(savedProduct.gst_enabled == null
+                ? Number(savedProduct.gst_percentage) > 0
+                : Boolean(savedProduct.gst_enabled));
+            }
+          } catch (err) {
+            console.error(err);
+            if (!cancelled) show("error", "Load Failed", "Unable to load the latest product details.");
+          }
+        }
+
+        if (!cancelled) setFetching(false);
+      };
+
+      initialize();
 
       return () => {
+        cancelled = true;
         document.body.style.overflow = "";
-        clearTimeout(timer);
       };
     }
 
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, initialProductName]);
+  }, [isOpen, product?.id, initialProductName, initialName]);
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);
@@ -271,36 +345,87 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
 
     setLoading(true);
     try {
-      const res = await api.post("/product/add", {
+      const payload = {
         product_name: form.name.trim(),
         product_code: form.product_code.trim(),
         category_id: Number(form.category_id) || 0,
         subcategory_id: Number(form.subcategory_id) || 0,
         brand_id: Number(form.brand_id) || 0,
-        company_id: getCompanyId(),
-        price: Number(form.price !== "" ? form.price : form.sale_price || 0),
-        sale_price: form.sale_price || 0,
+        company_id: product?.company_id || getCompanyId(),
+        price: Number(form.sale_price || 0),
+        sale_price: Number(form.sale_price || 0),
+        sale_price_type: form.sale_price_type || "without_gst",
         purchase_price: form.purchase_price || 0,
+        purchase_price_type: form.purchase_price_type || "without_gst",
         stock: form.stock,
         expiry_date: form.expiry_date || null,
         gst_percentage: gstEnabled ? Number(form.gst) || 0 : 0,
+        gst_enabled: gstEnabled,
         barcode: form.barcode.trim(),
         unit: form.unit.trim(),
-        supplier_id: 0,
-      });
+        supplier_id: Number(form.supplier_id) || Number(product?.supplier_id) || 0,
+      };
+      let res;
+      if (isEditing) {
+        const changes = {};
+        if (dirtyFields.has("name")) changes.product_name = payload.product_name;
+        if (dirtyFields.has("product_code")) changes.product_code = payload.product_code;
+        if (dirtyFields.has("category_id")) changes.category_id = payload.category_id;
+        if (dirtyFields.has("subcategory_id")) changes.subcategory_id = payload.subcategory_id;
+        if (dirtyFields.has("brand_id")) changes.brand_id = payload.brand_id;
+        if (dirtyFields.has("sale_price")) {
+          changes.price = payload.price;
+          changes.sale_price = payload.sale_price;
+        }
+        if (dirtyFields.has("sale_price_type")) changes.sale_price_type = payload.sale_price_type;
+        if (dirtyFields.has("purchase_price")) changes.purchase_price = payload.purchase_price;
+        if (dirtyFields.has("purchase_price_type")) changes.purchase_price_type = payload.purchase_price_type;
+        if (dirtyFields.has("stock")) changes.stock = payload.stock;
+        if (dirtyFields.has("gst") || dirtyFields.has("gst_enabled")) {
+          changes.gst_percentage = payload.gst_percentage;
+          changes.gst_enabled = payload.gst_enabled;
+        }
+        if (dirtyFields.has("barcode")) changes.barcode = payload.barcode;
+        if (dirtyFields.has("unit")) changes.unit = payload.unit;
+
+        if (Object.keys(changes).length === 0) {
+          show("warn", "No Changes", "Edit at least one field before updating.");
+          return;
+        }
+
+        res = await api.post("/product/update", { id: product.id, ...changes });
+      } else {
+        res = await api.post("/product/add", payload);
+      }
 
       if (res.data.status) {
-        show("success", "Product Added!", `"${form.name}" has been created successfully.`);
+        show("success", isEditing ? "Product Updated!" : "Product Added!", `"${form.name}" ${isEditing ? "has been updated" : "has been created"} successfully.`);
+        const createdProduct = res.data.data || {
+          product_name: form.name.trim(),
+          name: form.name.trim(),
+          price: Number(form.sale_price || 0),
+          sale_price: form.sale_price || 0,
+          stock: form.stock,
+          unit: form.unit.trim(),
+          gst_percentage: gstEnabled ? Number(form.gst) || 0 : 0,
+          product_code: form.product_code.trim(),
+        };
         setTimeout(() => {
-          onProductAdded && onProductAdded();
+          if (isEditing) onProductUpdated && onProductUpdated(res.data.data || createdProduct);
+          else onProductAdded && onProductAdded(createdProduct);
           onClose();
-        }, 800);
+        }, 500);
       } else {
         show("error", "Failed", res.data.message || "Something went wrong.");
       }
     } catch (err) {
       console.error(err);
-      show("error", "Server Error", "Unable to connect to server. Please try again.");
+      const message = err.response?.data?.message || err.response?.data?.error;
+      show(
+        "error",
+        err.response ? "Update Failed" : "Server Error",
+        message || "Unable to connect to server. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -350,10 +475,10 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-                  Add Product
+                  {isEditing ? "Edit Product" : "Add Product"}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Register new catalog item, pricing, taxation & inventory
+                  {isEditing ? "Update catalog item, pricing, taxation & inventory" : "Register new catalog item, pricing, taxation & inventory"}
                 </p>
               </div>
             </div>
@@ -368,6 +493,11 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
 
           {/* ── SCROLLABLE BODY ── */}
           <div className="px-6 sm:px-7 py-6 overflow-y-auto flex-1 space-y-6">
+            {fetching && (
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <RefreshCw size={14} className="animate-spin" /> Refreshing saved product details...
+              </div>
+            )}
             {/* SECTION 1: BASIC INFORMATION */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
@@ -412,7 +542,10 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
                       placeholder="e.g. PRD001 / 2202"
                       value={form.product_code}
                       onChange={(e) =>
-                        set("product_code", e.target.value.toUpperCase().replace(/\s/g, ""))
+                        set(
+                          "product_code",
+                          isEditing ? e.target.value : e.target.value.toUpperCase().replace(/\s/g, "")
+                        )
                       }
                     />
                   </div>
@@ -456,45 +589,26 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Sale Price */}
-                <div>
-                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
-                    Sale Price (₹)
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
-                      ₹
-                    </div>
-                    <input
-                      type="number"
-                      step="any"
-                      className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
-                      placeholder="0.00"
-                      value={form.sale_price}
-                      onChange={(e) => set("sale_price", e.target.value)}
-                    />
-                  </div>
-                </div>
+                {/* Sale Price - "With/Without GST" mode is independent of the
+                    Purchase Price mode below. */}
+                <PriceWithGstInput
+                  label="Sale Price (₹)"
+                  value={form.sale_price}
+                  onChange={(v) => set("sale_price", v)}
+                  priceType={form.sale_price_type}
+                  onPriceTypeChange={(v) => set("sale_price_type", v)}
+                  gstRate={gstEnabled ? Number(form.gst) || 0 : 0}
+                />
 
                 {/* Purchase Price */}
-                <div>
-                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
-                    Purchase Price (₹)
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
-                      ₹
-                    </div>
-                    <input
-                      type="number"
-                      step="any"
-                      className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
-                      placeholder="0.00"
-                      value={form.purchase_price}
-                      onChange={(e) => set("purchase_price", e.target.value)}
-                    />
-                  </div>
-                </div>
+                <PriceWithGstInput
+                  label="Purchase Price (₹)"
+                  value={form.purchase_price}
+                  onChange={(v) => set("purchase_price", v)}
+                  priceType={form.purchase_price_type}
+                  onPriceTypeChange={(v) => set("purchase_price_type", v)}
+                  gstRate={gstEnabled ? Number(form.gst) || 0 : 0}
+                />
 
                 {/* Stock Qty */}
                 <div>
@@ -550,7 +664,7 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
                   <button
                     type="button"
                     onClick={() => {
-                      setGstEnabled(false);
+                      setGstEnabledByUser(false);
                       set("gst", "");
                     }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -561,9 +675,9 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
                   >
                     Disabled
                   </button>
-                  <button
+                    <button
                     type="button"
-                    onClick={() => setGstEnabled(true)}
+                      onClick={() => setGstEnabledByUser(true)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       gstEnabled
                         ? "bg-indigo-600 text-white shadow-xs"
@@ -644,13 +758,15 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
                     onChange={(e) => set("barcode", e.target.value)}
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={generateBarcode}
-                  className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
-                >
-                  <Sparkles size={14} /> Auto Generate
-                </button>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={generateBarcode}
+                    className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                  >
+                    <Sparkles size={14} /> Auto Generate
+                  </button>
+                )}
               </div>
 
               {form.barcode && (
@@ -779,16 +895,17 @@ export default function AddProductModal({ isOpen, onClose, onProductAdded, initi
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={loading || gstLoading}
+              disabled={loading || fetching || gstLoading || (isEditing && dirtyFields.size === 0)}
               className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-200 flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
-                  <RefreshCw size={14} className="animate-spin" /> Saving Product...
+                  <RefreshCw size={14} className="animate-spin" /> {isEditing ? "Updating Product..." : "Saving Product..."}
                 </>
               ) : (
                 <>
-                  <Plus size={15} strokeWidth={2.5} /> Save Product
+                  {isEditing ? <Save size={15} /> : <Plus size={15} strokeWidth={2.5} />}
+                  {isEditing ? "Update Product" : "Save Product"}
                 </>
               )}
             </button>

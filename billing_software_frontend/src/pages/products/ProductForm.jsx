@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Barcode from "react-barcode";
 import api from "../../services/api";
+import PriceWithGstInput from "./components/PriceWithGstInput";
 import {
   PackagePlus,
   Package,
@@ -93,6 +94,9 @@ export default function ProductForm() {
     name: "",
     product_code: "",
     price: "",
+    sale_price_type: "without_gst",
+    purchase_price: "",
+    purchase_price_type: "without_gst",
     brand_id: "",
     subcategory_id: "",
     stock: "",
@@ -323,7 +327,9 @@ export default function ProductForm() {
         company_id: getCompanyId() || selectedCompany,
         price: form.price,
         sale_price: form.price,
-        purchase_price: 0,
+        sale_price_type: form.sale_price_type || "without_gst",
+        purchase_price: form.purchase_price || 0,
+        purchase_price_type: form.purchase_price_type || "without_gst",
         stock: form.stock,
         expiry_date: form.expiry_date || null,
         gst_percentage: gstEnabled ? Number(form.gst) || 0 : 0,
@@ -512,25 +518,27 @@ export default function ProductForm() {
                   <div className="flex-1 h-px bg-slate-100 ml-2" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
-                      Price (₹) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
-                        ₹
-                      </div>
-                      <input
-                        type="number"
-                        step="any"
-                        className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all"
-                        placeholder="0.00"
-                        value={form.price}
-                        onChange={(e) => set("price", e.target.value)}
-                      />
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* "Price" here is the product's sale price, so it carries
+                      the sale pricing mode. */}
+                  <PriceWithGstInput
+                    label="Sale Price (₹)"
+                    value={form.price}
+                    onChange={(v) => set("price", v)}
+                    priceType={form.sale_price_type}
+                    onPriceTypeChange={(v) => set("sale_price_type", v)}
+                    gstRate={gstEnabled ? Number(form.gst) || 0 : 0}
+                    required
+                  />
+
+                  <PriceWithGstInput
+                    label="Purchase Price (₹)"
+                    value={form.purchase_price}
+                    onChange={(v) => set("purchase_price", v)}
+                    priceType={form.purchase_price_type}
+                    onPriceTypeChange={(v) => set("purchase_price_type", v)}
+                    gstRate={gstEnabled ? Number(form.gst) || 0 : 0}
+                  />
 
                   <div>
                     <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">

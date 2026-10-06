@@ -26,6 +26,11 @@ export default function StatusBadge({ status, label, dot = true, size = "md" }) 
   else if (["pending", "partial", "partiallypaid", "partially_paid", "trial"].includes(norm)) key = "warning";
   else if (["unpaid", "failed", "overdue", "rejected", "danger"].includes(norm)) key = "danger";
   else if (["sent", "info", "open", "in_progress", "inprogress"].includes(norm)) key = "info";
+  // Fall back to the variant map itself so a caller can pass a variant key
+  // directly ("warning", "draft", "inactive", ...). Without this, a literal
+  // status of "warning" matched none of the domain lists above and silently
+  // rendered as neutral grey instead of amber.
+  else if (VARIANTS[norm]) key = norm;
 
   const styleClass = VARIANTS[key] || VARIANTS.neutral;
   const displayText = label || status || "Unknown";
