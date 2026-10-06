@@ -10,6 +10,7 @@ use App\Models\Payment;
 use App\Models\Customer;
 use App\Models\InvoiceSetting;
 use App\Support\GstCalculator;
+use App\Support\Gstin;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -72,34 +73,13 @@ class InvoiceController extends Controller
         $payment_method = trim($request->input('payment_method', 'cash'));
         $payment_type   = trim($request->input('payment_type', 'cash'));
         $gst_type       = trim($request->input('gst_type', 'without_gst'));
-        $gst_no         = trim($request->input('gst_no', ''));
+        $gst_no         = Gstin::normalize($request->input('gst_no'));
 
         /* SOURCE — which screen raised this bill (pos counter vs sale form) */
         $source = strtolower(trim($request->input('source', 'sale'))) === 'pos' ? 'pos' : 'sale';
         $include_product_gst = $source === 'pos'
             && $gst_type === 'without_gst'
             && $request->boolean('include_product_gst');
-
-        /* SEQUENTIAL INVOICE NUMBER GENERATION (VIA INVOICE_SETTINGS TABLE) */
-        $custom_invoice_no = trim($request->input('invoice_no', ''));
-        $invSetting = InvoiceSetting::getForCompany($company_id);
-        $prefix  = $invSetting->prefix;
-        $nextSeq = max(1, intval($invSetting->next_number));
-        $padding = max(1, intval($invSetting->padding));
-
-        if (!empty($custom_invoice_no) && !Invoice::where('company_id', $company_id)->where('invoice_no', $custom_invoice_no)->exists()) {
-            $invoice_no = $custom_invoice_no;
-        } else {
-            while (Invoice::where('company_id', $company_id)->where('invoice_no', InvoiceSetting::formatNumber($prefix, $nextSeq, $padding))->exists()) {
-                $nextSeq++;
-            }
-            $invoice_no = InvoiceSetting::formatNumber($prefix, $nextSeq, $padding);
-            $nextSeq++;
-        }
-
-        // Increment sequence in invoice_settings table
-        $invSetting->next_number = $nextSeq;
-        $invSetting->save();
 
         /* VALIDATION */
         if (empty($customer_name) && empty($customer_phone)) {
@@ -110,6 +90,15 @@ class InvoiceController extends Controller
         }
         if (count($products) == 0) {
             return response()->json(["status" => false, "message" => "No products"]);
+        }
+        if ($source === 'pos' && $gst_type === 'with_gst' && $gst_no === '') {
+            return response()->json(["status" => false, "message" => "GST Number is mandatory for GST Bill!"], 422);
+        }
+        if ($gst_no !== '' && !Gstin::isValid($gst_no)) {
+            return response()->json([
+                "status" => false,
+                "message" => "Invalid GSTIN. Use the 15-character format, for example 22ABCDE1234F1Z5."
+            ], 422);
         }
 
         /* GST CONTROL */
@@ -126,111 +115,152 @@ class InvoiceController extends Controller
             }
         }
 
-        /* AUTO-CREATE OR RESOLVE CUSTOMER (MANDATORY FOR CREDIT SALES) */
-        $isCashDefault = in_array(strtolower($customer_name), ['cash customer', 'customer', '']);
-        if ($customer_id <= 0 && (!$isCashDefault || $payment_type === 'credit')) {
-            $existingCust = null;
-            if (!empty($customer_phone)) {
-                $existingCust = Customer::where('phone', $customer_phone)
-                    ->where('is_deleted', 0)
-                    ->when($admin_id > 0, fn($q) => $q->where('admin_id', $admin_id))
-                    ->first();
-            }
-            if (!$existingCust && !empty($customer_name) && !$isCashDefault) {
-                $existingCust = Customer::where('name', $customer_name)
-                    ->where('is_deleted', 0)
-                    ->when($admin_id > 0, fn($q) => $q->where('admin_id', $admin_id))
-                    ->first();
-            }
-
-            if ($existingCust) {
-                $customer_id = $existingCust->id;
-            } else {
-                $cName = $isCashDefault ? "Credit Customer " . time() : $customer_name;
-                $newCust = Customer::create([
-                    'admin_id'        => $admin_id,
-                    'name'            => $cName,
-                    'phone'           => $customer_phone ?: '',
-                    'address'         => $request->input('billing_address', ''),
-                    'type'            => 'retail',
-                    'credit_enabled'  => 1,
-                    'credit_limit'    => 0,
-                    'credit_days'     => 0,
-                    'gst_no'          => $gst_no ?: null,
-                    'loyalty_points'  => 0,
-                    'advance_balance' => 0,
-                    'pending_amount'  => 0,
-                    'status'          => 'active',
-                    'is_deleted'      => 0,
-                    'created_at'      => now(),
-                ]);
-                $customer_id = $newCust->id;
-            }
-        }
-
-        /* CREDIT / CASH LOGIC */
-        $advance_balance = 0.0;
-        if ($customer_id > 0) {
-            $cust = Customer::find($customer_id);
-            if ($cust) {
-                $advance_balance = floatval($cust->advance_balance);
-            }
-        }
-        $advance_used    = min($advance_balance, $total_amount);
-        $effective_total = $total_amount - $advance_used;
-
-        if ($payment_type === "credit") {
-            $final_paid      = $advance_used;
-            $balance_amount  = $effective_total;
-            $payment_status  = $balance_amount <= 0 ? "paid" : ($advance_used > 0 ? "partial" : "not_paid");
-            $advance_delta   = -$advance_used;
-        } else {
-            $total_received  = $paid_amount + $advance_used;
-
-            if ($total_received >= $total_amount) {
-                $final_paid     = $total_amount;
-                $balance_amount = 0;
-                $payment_status = "paid";
-                $extra          = $total_received - $total_amount;
-                $advance_delta  = $extra - $advance_used;
-            } else {
-                $final_paid     = $total_received;
-                $balance_amount = $total_amount - $total_received;
-                $payment_status = "partial";
-                $advance_delta  = -$advance_used;
-            }
-        }
-
-        /* DUE DATE */
-        $due_date = null;
-        if ($payment_type === "credit") {
-            if ($request->filled('due_date')) {
-                $due_date = $request->input('due_date');
-            } else {
-                $credit_days = 0;
-                if ($customer_id > 0) {
-                    $cust = Customer::find($customer_id);
-                    if ($cust) {
-                        $credit_days = intval($cust->credit_days);
-                    }
-                }
-                $due_date = $credit_days > 0
-                    ? date('Y-m-d', strtotime("+$credit_days days"))
-                    : date('Y-m-d');
-            }
-        }
-
-        /* PREVIOUS BALANCE */
-        $previous_balance = 0;
-        if ($customer_id > 0) {
-            $previous_balance = floatval(Invoice::where('customer_id', $customer_id)
-                ->where('balance_amount', '>', 0)
-                ->sum('balance_amount'));
-        }
-        $current_balance = $previous_balance + $balance_amount;
-
         DB::beginTransaction();
         try {
+            /* SEQUENTIAL INVOICE NUMBER GENERATION (VIA INVOICE_SETTINGS TABLE) */
+            $custom_invoice_no = trim($request->input('invoice_no', ''));
+            $invSetting = InvoiceSetting::getForCompany($company_id);
+            $prefix  = $invSetting->prefix;
+            $nextSeq = max(1, intval($invSetting->next_number));
+            $padding = max(1, intval($invSetting->padding));
+
+            if (!empty($custom_invoice_no) && !Invoice::where('company_id', $company_id)->where('invoice_no', $custom_invoice_no)->exists()) {
+                $invoice_no = $custom_invoice_no;
+            } else {
+                while (Invoice::where('company_id', $company_id)->where('invoice_no', InvoiceSetting::formatNumber($prefix, $nextSeq, $padding))->exists()) {
+                    $nextSeq++;
+                }
+                $invoice_no = InvoiceSetting::formatNumber($prefix, $nextSeq, $padding);
+                $nextSeq++;
+            }
+
+            // Roll back the sequence along with the bill if validation or saving fails.
+            $invSetting->next_number = $nextSeq;
+            $invSetting->save();
+
+            /* AUTO-CREATE OR RESOLVE CUSTOMER (MANDATORY FOR CREDIT SALES) */
+            $isCashDefault = in_array(strtolower($customer_name), ['cash customer', 'customer', '']);
+            $gstPosBill = $source === 'pos' && $gst_type === 'with_gst';
+            $shouldResolveCustomer = !$isCashDefault || $payment_type === 'credit' || $gstPosBill;
+            if ($customer_id <= 0 && $shouldResolveCustomer) {
+                $existingCust = null;
+                if (!empty($customer_phone)) {
+                    $existingCust = Customer::where('phone', $customer_phone)
+                        ->where('is_deleted', 0)
+                        ->when($admin_id > 0, fn($q) => $q->where('admin_id', $admin_id))
+                        ->first();
+                }
+                if (!$existingCust && !empty($customer_name) && !$isCashDefault) {
+                    $existingCust = Customer::where('name', $customer_name)
+                        ->where('is_deleted', 0)
+                        ->when($admin_id > 0, fn($q) => $q->where('admin_id', $admin_id))
+                        ->first();
+                }
+
+                if ($existingCust) {
+                    $customer_id = $existingCust->id;
+                } else {
+                    $cName = $isCashDefault ? "Credit Customer " . time() : $customer_name;
+                    $newCust = Customer::create([
+                        'admin_id'        => $admin_id,
+                        'name'            => $cName,
+                        'phone'           => $customer_phone ?: '',
+                        'address'         => $request->input('billing_address', ''),
+                        'type'            => 'retail',
+                        'credit_enabled'  => 1,
+                        'credit_limit'    => 0,
+                        'credit_days'     => 0,
+                        'gst_no'          => null,
+                        'loyalty_points'  => 0,
+                        'advance_balance' => 0,
+                        'pending_amount'  => 0,
+                        'status'          => 'active',
+                        'is_deleted'      => 0,
+                        'created_at'      => now(),
+                    ]);
+                    $customer_id = $newCust->id;
+                }
+            }
+
+            if ($gstPosBill) {
+                $customer = $customer_id > 0 ? Customer::where('id', $customer_id)->lockForUpdate()->first() : null;
+                if (!$customer) {
+                    DB::rollBack();
+                    return response()->json(["status" => false, "message" => "Customer not found"], 404);
+                }
+                if (Gstin::belongsToAnotherCustomer($gst_no, $customer->id)) {
+                    DB::rollBack();
+                    return response()->json([
+                        "status" => false,
+                        "message" => "This GSTIN is already registered with another customer."
+                    ], 422);
+                }
+
+                $customer->gst_no = $gst_no;
+                $customer->save();
+            }
+
+            /* CREDIT / CASH LOGIC */
+            $advance_balance = 0.0;
+            if ($customer_id > 0) {
+                $cust = Customer::find($customer_id);
+                if ($cust) {
+                    $advance_balance = floatval($cust->advance_balance);
+                }
+            }
+            $advance_used    = min($advance_balance, $total_amount);
+            $effective_total = $total_amount - $advance_used;
+
+            if ($payment_type === "credit") {
+                $final_paid      = $advance_used;
+                $balance_amount  = $effective_total;
+                $payment_status  = $balance_amount <= 0 ? "paid" : ($advance_used > 0 ? "partial" : "not_paid");
+                $advance_delta   = -$advance_used;
+            } else {
+                $total_received  = $paid_amount + $advance_used;
+
+                if ($total_received >= $total_amount) {
+                    $final_paid     = $total_amount;
+                    $balance_amount = 0;
+                    $payment_status = "paid";
+                    $extra          = $total_received - $total_amount;
+                    $advance_delta  = $extra - $advance_used;
+                } else {
+                    $final_paid     = $total_received;
+                    $balance_amount = $total_amount - $total_received;
+                    $payment_status = "partial";
+                    $advance_delta  = -$advance_used;
+                }
+            }
+
+            /* DUE DATE */
+            $due_date = null;
+            if ($payment_type === "credit") {
+                if ($request->filled('due_date')) {
+                    $due_date = $request->input('due_date');
+                } else {
+                    $credit_days = 0;
+                    if ($customer_id > 0) {
+                        $cust = Customer::find($customer_id);
+                        if ($cust) {
+                            $credit_days = intval($cust->credit_days);
+                        }
+                    }
+                    $due_date = $credit_days > 0
+                        ? date('Y-m-d', strtotime("+$credit_days days"))
+                        : date('Y-m-d');
+                }
+            }
+
+            /* PREVIOUS BALANCE */
+            $previous_balance = 0;
+            if ($customer_id > 0) {
+                $previous_balance = floatval(Invoice::where('customer_id', $customer_id)
+                    ->where('balance_amount', '>', 0)
+                    ->sum('balance_amount'));
+            }
+            $current_balance = $previous_balance + $balance_amount;
+
             /* PROCESS PRODUCTS & AUTO-CREATE UNLISTED ITEMS WITH NEGATIVE STOCK */
             $processedProducts = [];
             foreach ($products as $item) {
@@ -397,6 +427,12 @@ class InvoiceController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            if ($gst_no !== '' && Gstin::belongsToAnotherCustomer($gst_no, $customer_id > 0 ? $customer_id : null)) {
+                return response()->json([
+                    "status" => false,
+                    "message" => "This GSTIN is already registered with another customer."
+                ], 422);
+            }
             return response()->json(["status" => false, "message" => $e->getMessage()]);
         }
     }

@@ -220,7 +220,7 @@ function createFreshBill(id) {
   return {
     id,
     rows: [emptyRow()],
-    customer: { id: null, name: "", phone: "", address: "", gst_no: "", gst_no_locked: false, credit_enabled: "0", credit_limit: 0, points: 0, advance_balance: 0, pending_amount: 0 },
+    customer: { id: null, name: "", phone: "", address: "", gst_no: "", credit_enabled: "0", credit_limit: 0, points: 0, advance_balance: 0, pending_amount: 0 },
     billType: "cash_bill",
     paymentMethod: "cash",
     payment: { received: 0 },
@@ -311,6 +311,7 @@ export default function Billing() {
   const [addCustomerName, setAddCustomerName] = useState("");
   const [addCustomerPhone, setAddCustomerPhone] = useState("");
   const [addCustomerAddress, setAddCustomerAddress] = useState("");
+  const [addCustomerGstNo, setAddCustomerGstNo] = useState("");
 
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -875,7 +876,6 @@ export default function Billing() {
       phone: c.phone,
       address: c.address || "",
       gst_no: c.gst_no || "",
-      gst_no_locked: Boolean(c.gst_no),
       credit_enabled: c.credit_enabled || "0",
       credit_limit: c.credit_limit || 0,
       points: c.loyalty_points || 0,
@@ -895,7 +895,6 @@ export default function Billing() {
         phone: fresh.phone,
         address: fresh.address || "",
         gst_no: fresh.gst_no || "",
-        gst_no_locked: Boolean(fresh.gst_no),
         credit_enabled: fresh.credit_enabled || "0",
         credit_limit: fresh.credit_limit || 0,
         points: pts,
@@ -955,6 +954,7 @@ export default function Billing() {
         setAddCustomerPhone(digits);
         setAddCustomerName(customer.name || "");
         setAddCustomerAddress("");
+        setAddCustomerGstNo("");
         setShowAddCustomer(true);
       } catch { }
       setCustomerSearchLoading(false);
@@ -973,6 +973,7 @@ export default function Billing() {
         name: addCustomerName.trim(),
         phone: addCustomerPhone.trim(),
         address: addCustomerAddress.trim(),
+        gst_no: billType === "gst_bill" ? addCustomerGstNo.trim().toUpperCase() : "",
       });
       if (res.data.status) {
         const phoneRes = await api.get("/customer/get_by_phone", { params: { admin_id: adminId, phone: addCustomerPhone.trim() } });
@@ -986,6 +987,7 @@ export default function Billing() {
         setAddCustomerName("");
         setAddCustomerPhone("");
         setAddCustomerAddress("");
+        setAddCustomerGstNo("");
       } else {
         if (res.data.message && res.data.message.includes("already exists")) {
           const phoneRes = await api.get("/customer/get_by_phone", { params: { admin_id: adminId, phone: addCustomerPhone.trim() } });
@@ -996,6 +998,7 @@ export default function Billing() {
             setAddCustomerName("");
             setAddCustomerPhone("");
             setAddCustomerAddress("");
+            setAddCustomerGstNo("");
           } else {
             showToast(res.data.message, "error");
           }
@@ -1004,25 +1007,14 @@ export default function Billing() {
         }
       }
     } catch (err) {
-      showToast(err.message || "Server error", "error");
+      showToast(err.response?.data?.message || err.message || "Server error", "error");
     }
   };
 
   /* ══ INVOICE GENERATION ══ */
   const saveOrGetCustomer = async () => {
-    const gstNo = billType === "gst_bill" ? customer.gst_no?.trim() || "" : "";
-    if (customer.id && gstNo) {
-      const res = await api.post("/customer/customer_save", {
-        admin_id: adminId,
-        customer_id: customer.id,
-        gst_no: gstNo,
-      });
-      if (res.data.status) {
-        setCustomer((current) => ({ ...current, gst_no_locked: true }));
-        return customer.id;
-      }
-      throw new Error(res.data.message || "Failed to update customer GSTIN");
-    }
+    if (billType === "gst_bill") return customer.id || 0;
+
     if (customer.id) return customer.id;
 
     const res = await api.post("/customer/customer_save", {
@@ -1030,10 +1022,9 @@ export default function Billing() {
       admin_id: adminId,
       name: customer.name || "Customer",
       phone: customer.phone,
-      gst_no: gstNo,
+      gst_no: "",
     });
     if (res.data.status) {
-      if (gstNo) setCustomer((current) => ({ ...current, gst_no_locked: true }));
       return res.data.customer_id;
     }
     throw new Error(res.data.message || "Failed to save customer");
@@ -1088,7 +1079,7 @@ export default function Billing() {
         total_amount: total,
         include_product_gst: billType === "cash_bill",
         gst_type: billType === "gst_bill" ? "with_gst" : "without_gst",
-        gst_no: billType === "gst_bill" ? customer.gst_no : "",
+        gst_no: billType === "gst_bill" ? customer.gst_no.trim().toUpperCase() : "",
         paid_amount: paymentMethod === "credit" ? 0 : received,
         payment_method: paymentMethod,
         payment_type: paymentMethod === "credit" ? "credit" : "cash",
@@ -1121,7 +1112,7 @@ export default function Billing() {
       }
       showToast(res.data.message || "Something went wrong", "error");
     } catch (err) {
-      showToast(err.message || "Server error. Please try again!", "error");
+      showToast(err.response?.data?.message || err.message || "Server error. Please try again!", "error");
     }
     setGenerating(false);
   };
@@ -1287,6 +1278,19 @@ export default function Billing() {
                   onChange={(e) => setAddCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                 />
               </div>
+
+              {billType === "gst_bill" && (
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">GSTIN (Optional)</label>
+                  <input
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold font-mono uppercase text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-3 focus:ring-indigo-100 transition-all"
+                    placeholder="22ABCDE1234F1Z5"
+                    value={addCustomerGstNo}
+                    maxLength={15}
+                    onChange={(e) => setAddCustomerGstNo(e.target.value.toUpperCase())}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">Address (Optional)</label>
@@ -2064,21 +2068,14 @@ export default function Billing() {
                     placeholder="22ABCDE1234F1Z5"
                     value={customer.gst_no ?? ""}
                     maxLength={15}
-                    disabled={customer.gst_no_locked}
                     onChange={(e) => setCustomer((c) => ({ ...c, gst_no: e.target.value.toUpperCase() }))}
-                    className={`w-full px-3 py-1.5 border rounded-xl text-xs font-bold font-mono uppercase tracking-wider focus:outline-none focus:bg-white disabled:cursor-not-allowed disabled:opacity-75 ${
-                      customer.gst_no_locked
-                        ? "bg-slate-100 border-slate-300 text-slate-700"
-                        : customer.gst_no?.trim()
-                          ? "bg-emerald-50 border-emerald-300 text-emerald-900"
-                          : "bg-slate-50 border-amber-300 text-slate-900"
+                    className={`w-full px-3 py-1.5 border rounded-xl text-xs font-bold font-mono uppercase tracking-wider focus:outline-none focus:bg-white ${
+                      customer.gst_no?.trim()
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                        : "bg-slate-50 border-amber-300 text-slate-900"
                     }`}
                   />
-                  {customer.gst_no_locked ? (
-                    <p className="mt-1 text-[10.5px] font-semibold text-slate-500">
-                      GSTIN on file cannot be changed.
-                    </p>
-                  ) : !customer.gst_no?.trim() ? (
+                  {!customer.gst_no?.trim() ? (
                     <p className="mt-1 text-[10.5px] font-semibold text-amber-700">
                       No GSTIN on file — enter one to raise a GST Bill.
                     </p>

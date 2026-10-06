@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Customer;
+use App\Support\Gstin;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Support\Facades\Cache;
@@ -14,9 +15,16 @@ use Illuminate\Support\Str;
 
 class CustomerController extends Controller
 {
-    private function isValidGstin(string $gstin): bool
+    private function duplicateGstinResponse(string $gstin, ?int $customerId = null)
     {
-        return preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/', $gstin) === 1;
+        if ($gstin !== '' && Gstin::belongsToAnotherCustomer($gstin, $customerId)) {
+            return response()->json([
+                "status" => false,
+                "message" => "This GSTIN is already registered with another customer."
+            ], 422);
+        }
+
+        return null;
     }
 
     public function createCustomer(Request $request)
@@ -31,7 +39,7 @@ class CustomerController extends Controller
         $credit_enabled = intval($request->input('credit_enabled', 0));
         $credit_limit   = floatval($request->input('credit_limit', 0.00));
         $credit_days    = intval($request->input('credit_days', 0));
-        $gst_no         = strtoupper(trim($request->input('gst_no', '')));
+        $gst_no         = Gstin::normalize($request->input('gst_no'));
         $account_number = trim($request->input('account_number', ''));
         $pan_number     = trim($request->input('pan_number', ''));
         $date_of_birth  = $request->input('date_of_birth', null);
@@ -56,13 +64,12 @@ class CustomerController extends Controller
             return response()->json(["status" => false, "message" => "Required fields missing"]);
         }
 
-        if ($gst_no !== '' && !$this->isValidGstin($gst_no)) {
+        if ($gst_no !== '' && !Gstin::isValid($gst_no)) {
             return response()->json([
                 "status" => false,
                 "message" => "Invalid GSTIN. Use the 15-character format, for example 22ABCDE1234F1Z5."
             ], 422);
         }
-
         $check = Customer::where('phone', $phone)
             ->where('admin_id', $admin_id)
             ->where('is_deleted', 0)
@@ -70,6 +77,10 @@ class CustomerController extends Controller
 
         if ($check) {
             return response()->json(["status" => false, "message" => "Customer with this phone already exists"]);
+        }
+
+        if ($duplicateGstin = $this->duplicateGstinResponse($gst_no)) {
+            return $duplicateGstin;
         }
 
         Customer::create([
@@ -117,7 +128,7 @@ class CustomerController extends Controller
         $phone      = trim($request->input('phone', ''));
         $address    = trim($request->input('address', ''));
         $type       = trim($request->input('type', 'B2C'));
-        $gst_no     = strtoupper(trim($request->input('gst_no', '')));
+        $gst_no     = Gstin::normalize($request->input('gst_no'));
 
         if ($name == "") { $name = "Customer"; }
 
@@ -125,7 +136,7 @@ class CustomerController extends Controller
             return response()->json(["status" => false, "message" => "Invalid customer data"]);
         }
 
-        if ($gst_no !== '' && !$this->isValidGstin($gst_no)) {
+        if ($gst_no !== '' && !Gstin::isValid($gst_no)) {
             return response()->json([
                 "status" => false,
                 "message" => "Invalid GSTIN. Use the 15-character format, for example 22ABCDE1234F1Z5."
@@ -143,14 +154,10 @@ class CustomerController extends Controller
             }
 
             if ($gst_no !== '') {
-                $savedGstNo = strtoupper(trim((string) $customer->gst_no));
-                if ($savedGstNo !== '' && $savedGstNo !== $gst_no) {
-                    return response()->json([
-                        "status" => false,
-                        "message" => "This customer already has a GSTIN on file and it cannot be changed."
-                    ], 422);
+                if ($duplicateGstin = $this->duplicateGstinResponse($gst_no, $customer->id)) {
+                    return $duplicateGstin;
                 }
-                if ($savedGstNo === '') {
+                if (Gstin::normalize($customer->gst_no) !== $gst_no) {
                     $customer->update(['gst_no' => $gst_no]);
                 }
             }
@@ -172,12 +179,8 @@ class CustomerController extends Controller
             ->first();
 
         if ($customer) {
-            $savedGstNo = strtoupper(trim((string) $customer->gst_no));
-            if ($gst_no !== '' && $savedGstNo !== '' && $savedGstNo !== $gst_no) {
-                return response()->json([
-                    "status" => false,
-                    "message" => "This customer already has a GSTIN on file and it cannot be changed."
-                ], 422);
+            if ($duplicateGstin = $this->duplicateGstinResponse($gst_no, $customer->id)) {
+                return $duplicateGstin;
             }
 
             $updates = [
@@ -185,7 +188,7 @@ class CustomerController extends Controller
                 'address' => $address,
                 'type' => $type
             ];
-            if ($gst_no !== '' && $savedGstNo === '') {
+            if ($gst_no !== '') {
                 $updates['gst_no'] = $gst_no;
             }
             $customer->update($updates);
@@ -349,7 +352,7 @@ class CustomerController extends Controller
         $credit_enabled = intval($request->input('credit_enabled', 0));
         $credit_limit   = floatval($request->input('credit_limit', 0.00));
         $credit_days    = intval($request->input('credit_days', 0));
-        $gst_no         = strtoupper(trim($request->input('gst_no', '')));
+        $gst_no         = Gstin::normalize($request->input('gst_no'));
         $account_number = trim($request->input('account_number', ''));
         $pan_number     = trim($request->input('pan_number', ''));
         $date_of_birth  = $request->input('date_of_birth', null);
@@ -378,18 +381,15 @@ class CustomerController extends Controller
             return response()->json(["status" => false, "message" => "Customer not found"]);
         }
 
-        $savedGstNo = strtoupper(trim((string) $existingCustomer->gst_no));
-        if ($gst_no !== '' && $gst_no !== $savedGstNo && !$this->isValidGstin($gst_no)) {
+        $savedGstNo = Gstin::normalize($existingCustomer->gst_no);
+        if ($gst_no !== '' && !Gstin::isValid($gst_no)) {
             return response()->json([
                 "status" => false,
                 "message" => "Invalid GSTIN. Use the 15-character format, for example 22ABCDE1234F1Z5."
             ], 422);
         }
-        if ($savedGstNo !== '' && $gst_no !== $savedGstNo) {
-            return response()->json([
-                "status" => false,
-                "message" => "This customer already has a GSTIN on file and it cannot be changed."
-            ], 422);
+        if ($duplicateGstin = $this->duplicateGstinResponse($gst_no, $id)) {
+            return $duplicateGstin;
         }
 
         $duplicatePhone = Customer::where('phone', $phone)
@@ -423,7 +423,7 @@ class CustomerController extends Controller
             'credit_enabled' => $credit_enabled,
             'credit_limit' => $credit_limit,
             'credit_days' => $credit_days,
-            'gst_no' => $savedGstNo ?: ($gst_no ?: null),
+            'gst_no' => $gst_no ?: ($savedGstNo ?: null),
             'account_number' => $account_number ?: null,
             'pan_number' => $pan_number ?: null,
             'date_of_birth' => $date_of_birth ?: null,
