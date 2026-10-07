@@ -24,7 +24,7 @@ import { calculateLine, splitGst } from "../../utils/gst";
 const PRINT_CSS = `
   @page {
     size: A4 portrait;
-    margin: 8mm;
+    margin: 0mm;
   }
 
   @media print {
@@ -40,13 +40,13 @@ const PRINT_CSS = `
     body * { visibility: hidden !important; }
     #invoice-print-area, #invoice-print-area * { visibility: visible !important; }
     #invoice-print-area {
-      position: static !important;
+      position: relative !important;
       display: block !important;
-      width: 794px !important;
-      max-width: 794px !important;
-      min-height: 1050px !important;
+      width: 210mm !important;
+      max-width: 210mm !important;
+      min-height: 297mm !important;
       margin: 0 auto !important;
-      padding: 8px !important;
+      padding: 8mm !important;
       box-sizing: border-box !important;
       box-shadow: none !important;
       border: none !important;
@@ -54,6 +54,7 @@ const PRINT_CSS = `
       transform: none !important;
       zoom: 1 !important;
       overflow: visible !important;
+      border-radius: 0 !important;
     }
     .no-print { display: none !important; }
   }
@@ -2478,11 +2479,11 @@ export default function InvoicePreview() {
           }
         }`
       : `@media print {
-          @page { size: A4 portrait; margin: 8mm; }
+          @page { size: A4 portrait; margin: 0; }
           #invoice-print-area {
-            width: 794px !important;
-            max-width: 794px !important;
-            min-height: 1050px !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+            min-height: 297mm !important;
           }
         }`;
     s.innerHTML = `${PRINT_CSS}${posPrintCss}`;
