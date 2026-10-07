@@ -46,6 +46,9 @@ class AuditLogger
     /** Request attribute holding the request-scoped enable/disable memo. */
     private const ENABLED_ATTR = '_audit_enabled';
 
+    /** Request attribute caching the hidden-modules list for this request. */
+    private const HIDDEN_ATTR = '_audit_hidden_modules';
+
     /**
      * URI prefix => [model class, label column, fallback lookup columns, human label].
      *
@@ -165,6 +168,74 @@ class AuditLogger
         $request->attributes->set(self::ENABLED_ATTR, $enabled);
 
         return $enabled;
+    }
+
+    /**
+     * Modules the company chose to hide from the audit log. Reads the
+     * `audit_log` slice of the same company_settings blob used by
+     * isEnabled(). A hidden module is (a) no longer recorded by the middleware
+     * and (b) excluded from every audit query so it never shows up on the page.
+     *
+     * Values are normalised (trimmed, lower-cased) so labels saved with any
+     * casing — e.g. the plural page names an older Settings build stored —
+     * still match the record rows.
+     */
+    public static function hiddenModules(?int $companyId): array
+    {
+        if (!$companyId) {
+            return [];
+        }
+
+        try {
+            $settings = CompanySetting::where('company_id', $companyId)->value('settings');
+            if (!is_array($settings)) {
+                return [];
+            }
+
+            $auditLog = $settings['audit_log'] ?? [];
+            if (!is_array($auditLog)) {
+                return [];
+            }
+
+            // The Settings UI saves camelCase `hiddenModules`; older builds
+            // stored snake_case `hidden_modules`. Merge both so no previously
+            // saved list is ever dropped.
+            $hidden = array_merge(
+                is_array($auditLog['hiddenModules'] ?? null) ? $auditLog['hiddenModules'] : [],
+                is_array($auditLog['hidden_modules'] ?? null) ? $auditLog['hidden_modules'] : []
+            );
+
+            $normalised = array_map(
+                fn ($m) => mb_strtolower(trim((string) $m)),
+                $hidden
+            );
+
+            return array_values(array_unique(array_filter($normalised, fn ($m) => $m !== '')));
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Whether the resolved URI module should be skipped, memoised per request so
+     * a single request never reads the settings table twice.
+     */
+    public static function isModuleHidden(Request $request, string $module, ?int $companyId = null): bool
+    {
+        if ($module === '') {
+            return false;
+        }
+
+        if (!$request->attributes->has(self::HIDDEN_ATTR)) {
+            $hidden = self::hiddenModules($companyId ?: self::companyId($request));
+            $request->attributes->set(self::HIDDEN_ATTR, $hidden);
+        }
+
+        return in_array(
+            mb_strtolower(trim($module)),
+            $request->attributes->get(self::HIDDEN_ATTR, []),
+            true
+        );
     }
 
     /** Case-insensitive lookup of a URI group in RECORD_MAP. */

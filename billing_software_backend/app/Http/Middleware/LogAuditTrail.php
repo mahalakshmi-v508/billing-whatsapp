@@ -96,8 +96,14 @@ class LogAuditTrail
             return;
         }
 
-        $snapshot = $request->attributes->get(AuditLogger::SNAPSHOT_ATTR) ?: [];
         $action = AuditLogger::resolveAction($request);
+
+        // Pages the company hid from the audit log are not recorded at all.
+        if (AuditLogger::isModuleHidden($request, $action['module'], $companyId)) {
+            return;
+        }
+
+        $snapshot = $request->attributes->get(AuditLogger::SNAPSHOT_ATTR) ?: [];
         $record = $snapshot['record'] ?? AuditLogger::resolveRecord($request, $action['group']);
 
         $actor = AuditLogger::actor($request);
