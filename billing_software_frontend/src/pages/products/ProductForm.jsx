@@ -18,6 +18,7 @@ import {
   Plus,
   RefreshCw,
   ChevronDown,
+  Calendar,
 } from "lucide-react";
 
 /* ─── Toast Hook ─────────────────────────────────────────── */
@@ -99,6 +100,7 @@ export default function ProductForm() {
     brand_id: "",
     subcategory_id: "",
     stock: "",
+    expiry_date: "",
     gst: "",
     barcode: "",
     category_id: "",
@@ -329,6 +331,7 @@ export default function ProductForm() {
         purchase_price: form.purchase_price || 0,
         purchase_price_type: form.purchase_price_type || "without_gst",
         stock: form.stock,
+        expiry_date: form.expiry_date || null,
         gst_percentage: gstEnabled ? Number(form.gst) || 0 : 0,
         barcode: form.barcode.trim(),
         unit: form.unit.trim(),
@@ -515,7 +518,7 @@ export default function ProductForm() {
                   <div className="flex-1 h-px bg-slate-100 ml-2" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* "Price" here is the product's sale price, so it carries
                       the sale pricing mode. */}
                   <PriceWithGstInput
@@ -548,6 +551,26 @@ export default function ProductForm() {
                       value={form.stock}
                       onChange={(e) => set("stock", e.target.value)}
                     />
+                  </div>
+
+                  {/* Expiry Date (Optional) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[11.5px] font-semibold text-slate-700">
+                        Expiry Date
+                      </label>
+                      <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                        Optional
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 transition-all cursor-pointer"
+                        value={form.expiry_date}
+                        onChange={(e) => set("expiry_date", e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

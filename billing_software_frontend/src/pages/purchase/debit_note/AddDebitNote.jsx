@@ -13,7 +13,6 @@ import {
   X,
   Plus,
   Trash2,
-  Calendar,
   ChevronDown,
   Calculator,
   Settings,
@@ -39,6 +38,7 @@ import {
   CornerUpLeft,
   Save,
   Clock,
+  Wallet,
   CheckCircle2
 } from "lucide-react";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
@@ -836,63 +836,41 @@ export default function AddDebitNote() {
     });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100 flex flex-col font-sans text-slate-800 antialiased pb-24">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 pb-24 antialiased">
       
-      {/* ── 1. EXECUTIVE COMMAND HEADER ── */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+      {/* ── 1. EXECUTIVE COMMAND BAR & DEBIT NOTE VOUCHER TAB ── */}
+      <div className="bg-white border-b border-slate-200/80 px-4 md:px-6 pt-3 pb-0 shadow-xs sticky top-0 z-30">
+        <div className="flex items-center justify-between gap-4">
           
-          {/* Left: Back & Badge Title */}
-          <div className="flex items-center gap-3.5">
-            <button
-              type="button"
-              onClick={() => setShowCloseModal(true)}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100/80 transition-all border border-slate-200/70 shadow-2xs cursor-pointer"
-              title="Back to Purchase Returns"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-red-500 text-white flex items-center justify-center shadow-md shadow-rose-500/20">
-                <CornerUpLeft size={20} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-black text-slate-900 tracking-tight">
-                    {isEditMode ? "Edit Debit Note" : "New Debit Note"}
-                  </h1>
-                  <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200/60 rounded-full">
-                    Purchase Return
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 font-medium">Record purchase returns, defective items & supplier credit notes</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Center: Multi-Tab Vouchers */}
-          <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60">
+          {/* Voucher Workspace Tab Strip */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             {tabs.map((tab) => {
               const isActive = tab.id === activeTabId;
               return (
                 <div
                   key={tab.id}
                   onClick={() => setActiveTabId(tab.id)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`group relative flex items-center px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer border-t-2 ${
                     isActive
-                      ? "bg-white text-rose-700 shadow-xs border border-slate-200/80"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                      ? "border-blue-600 bg-slate-50 text-blue-700 shadow-xs"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                   }`}
                 >
-                  <Receipt size={13} className={isActive ? "text-rose-600" : "text-slate-400"} />
-                  <span>{tab.title}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => handleCloseTab(tab.id, e)}
-                    className="p-0.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                  >
-                    <X size={12} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <Receipt size={13} className={isActive ? "text-blue-600" : "text-slate-400"} />
+                    <span>{tab.title}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 text-slate-600 font-mono">
+                      {tab.returnNo || "Draft"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleCloseTab(tab.id, e)}
+                      className="p-0.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                      title="Close Tab"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -901,39 +879,119 @@ export default function AddDebitNote() {
               <button
                 type="button"
                 onClick={handleAddTab}
-                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer"
-                title="Open another Return Tab"
+                className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center transition shadow-2xs cursor-pointer mb-1"
+                title="Open another Debit Note"
               >
                 <Plus size={14} />
               </button>
             )}
           </div>
 
-          {/* Right: Quick Tools */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowCalculator(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-xs font-bold shadow-2xs transition cursor-pointer"
-            >
-              <Calculator size={14} className="text-slate-500" />
-              <span>Calculator</span>
-            </button>
+          {/* Right Action Tools */}
+          <div className="flex items-center gap-2 pb-2 flex-shrink-0">
+            <HeaderSettingsButton
+              variant="voucher"
+              onClick={openSettings}
+              isActive={isSettingsOpen}
+              title="Customize Table Columns"
+            />
+
+            {/* Close Page */}
             <button
               type="button"
               onClick={() => setShowCloseModal(true)}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-              title="Close"
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              title="Close Workspace"
             >
               <X size={18} />
             </button>
           </div>
 
         </div>
-      </header>
+      </div>
 
-      {/* ── 2. MAIN FORM BODY ── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex-1 w-full space-y-6">
+      {/* ── 2. WORKSPACE HEADER BANNER ── */}
+      <div className="px-6 md:px-8 pt-6 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowCloseModal(true)}
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition shadow-xs cursor-pointer"
+              title="Back to Purchase Returns"
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-wide">
+                  Purchase Return Desk
+                </span>
+                <span className="text-xs text-slate-400 font-medium">• Stock Reversal &amp; Debit Note Voucher</span>
+              </div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                {isEditMode ? `Edit Debit Note #${activeTab.returnNo}` : "New Debit Note"}
+              </h1>
+            </div>
+          </div>
+
+          {/* Quick Voucher Tools */}
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setShowCalculator(true)}
+              className="px-3.5 py-2 rounded-xl bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+              title="Open calculator"
+            >
+              <Calculator size={14} className="text-emerald-600" />
+              <span>Calculator</span>
+            </button>
+
+            {/* Tax Mode Switcher */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <div
+                onClick={() => setShowTaxModeDropdown(!showTaxModeDropdown)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer shadow-blue-500/20"
+                title="Toggle tax inclusive / exclusive pricing"
+              >
+                <Percent size={15} />
+                <span>Prices: {activeTab.globalTaxMode === "with_tax" ? "Tax Inclusive" : "Tax Exclusive"}</span>
+                <ChevronDown size={13} className={`transition-transform ${showTaxModeDropdown ? "rotate-180" : ""}`} />
+              </div>
+
+              {showTaxModeDropdown && (
+                <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in duration-100">
+                  <div
+                    onClick={() => handleTaxModeChange("without_tax")}
+                    className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
+                      activeTab.globalTaxMode === "without_tax"
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>Tax Exclusive</span>
+                    {activeTab.globalTaxMode === "without_tax" && <Check size={14} />}
+                  </div>
+                  <div
+                    onClick={() => handleTaxModeChange("with_tax")}
+                    className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
+                      activeTab.globalTaxMode === "with_tax"
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>Tax Inclusive</span>
+                    {activeTab.globalTaxMode === "with_tax" && <Check size={14} />}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. MAIN FORM BODY ── */}
+      <main className="flex-1 w-full">
 
         {/* Success Toast & Error Alerts */}
         {toast && (
@@ -960,81 +1018,139 @@ export default function AddDebitNote() {
           </div>
         )}
 
-        {/* ── SECTION 1: SUPPLIER & RETURN DETAILS ── */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6">
-          <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
-                1
-              </div>
-              <h2 className="text-sm font-bold text-slate-900">Supplier & Voucher Reference</h2>
-            </div>
-            {activeTab.selectedSupplier && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200/60 rounded-xl text-xs">
-                <span className="text-amber-700 font-medium">Supplier Pending Balance:</span>
-                <span className="font-extrabold text-amber-900">₹ {fmtCurrency(activeTab.selectedSupplier.pending_balance || 0)}</span>
-              </div>
-            )}
-          </div>
+        {/* ── A. SUPPLIER INTELLIGENCE & RETURN PARAMETERS CARDS ── */}
+        <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-            
-            {/* Left: Supplier Search / Selection */}
-            <div className="md:col-span-6 space-y-4" ref={partyRef}>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Supplier / Vendor (Party) <span className="text-rose-500">*</span>
-                </label>
+          {/* Left 7 Columns: Supplier & Vendor Profile */}
+          <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between" ref={partyRef}>
+            <div>
+              <div className="flex items-center justify-between mb-3.5 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <Truck size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Supplier &amp; Vendor Information</h3>
+                    <p className="text-[11px] text-slate-400">Search vendor directory or select registered supplier</p>
+                  </div>
+                </div>
+
+                {activeTab.selectedSupplier &&
+                  (() => {
+                    const vendorDue = parseFloat(activeTab.selectedSupplier.pending_balance || 0);
+                    return (
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs border ${
+                          vendorDue > 0
+                            ? "bg-amber-50 border-amber-200 text-amber-800"
+                            : "bg-slate-100 border-slate-200 text-slate-700"
+                        }`}
+                      >
+                        {vendorDue > 0 ? (
+                          <AlertCircle size={11} className="text-amber-600" />
+                        ) : (
+                          <CheckCircle2 size={11} className="text-emerald-600" />
+                        )}
+                        <span>Due: ₹{fmtCurrency(vendorDue)}</span>
+                      </span>
+                    );
+                  })()}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Supplier Autocomplete Search Input */}
                 <div className="relative">
-                  <div className="relative flex items-center">
-                    <Truck size={16} className="absolute left-3.5 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Search supplier by name or phone..."
-                      value={activeTab.partyInput}
-                      onChange={(e) => {
-                        updateActiveTab({ partyInput: e.target.value, selectedSupplier: null });
-                        setShowPartyDropdown(true);
-                      }}
-                      onFocus={() => setShowPartyDropdown(true)}
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 placeholder:text-slate-400 transition-all outline-hidden"
-                    />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-slate-600">
+                      Supplier / Vendor Name <span className="text-rose-500">*</span>
+                    </label>
+                  </div>
+
+                  <div
+                    className={`relative border rounded-xl px-3.5 py-2 transition bg-white flex items-center justify-between ${
+                      showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/15" : "border-slate-300 hover:border-slate-400"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <Search size={14} className="text-slate-400 flex-shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Search supplier by name or phone..."
+                        value={activeTab.partyInput}
+                        onChange={(e) => {
+                          updateActiveTab({ partyInput: e.target.value, selectedSupplier: null });
+                          setShowPartyDropdown(true);
+                        }}
+                        onFocus={() => setShowPartyDropdown(true)}
+                        className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
+                      />
+                    </div>
                     <ChevronDown
-                      size={15}
-                      className={`absolute right-3.5 text-slate-400 transition-transform cursor-pointer ${
-                        showPartyDropdown ? "rotate-180 text-rose-600" : ""
+                      size={14}
+                      className={`text-slate-400 cursor-pointer ml-1.5 flex-shrink-0 transition-transform ${
+                        showPartyDropdown ? "rotate-180 text-blue-600" : ""
                       }`}
                       onClick={() => setShowPartyDropdown((prev) => !prev)}
                     />
                   </div>
 
+                  {/* Selected Supplier Info & Balance Chip */}
+                  {activeTab.selectedSupplier && (
+                    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 bg-slate-50 border border-slate-200/90 rounded-xl text-[11px] shadow-2xs animate-in fade-in duration-100">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-slate-800 truncate">
+                          {activeTab.selectedSupplier.supplier_name || activeTab.selectedSupplier.name}
+                        </span>
+                        {activeTab.supplierPhone && (
+                          <span className="text-slate-500 font-medium font-mono text-[10px] shrink-0">
+                            • 📱 {activeTab.supplierPhone}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          Due:{" "}
+                          <span
+                            className={`font-bold font-mono ${
+                              parseFloat(activeTab.selectedSupplier.pending_balance || 0) > 0
+                                ? "text-rose-600 font-black"
+                                : "text-slate-700"
+                            }`}
+                          >
+                            ₹ {fmtCurrency(activeTab.selectedSupplier.pending_balance || 0)}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Supplier Suggestions Dropdown */}
                   {showPartyDropdown && (
-                    <div className="absolute left-0 top-full mt-1.5 w-full bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2 z-50 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                    <div className="absolute left-0 right-0 top-full mt-1.5 w-full bg-white rounded-2xl shadow-xl border border-slate-200 py-1 divide-y divide-slate-100 z-50 max-h-64 overflow-y-auto animate-in fade-in duration-100">
                       {filteredSuppliers.length > 0 ? (
-                        filteredSuppliers.map((s) => (
-                          <div
-                            key={s.id}
-                            onClick={() => handleSelectParty(s)}
-                            className="px-4 py-2.5 hover:bg-rose-50/60 cursor-pointer flex items-center justify-between transition-colors border-b border-slate-50 last:border-0"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 font-bold text-xs flex items-center justify-center">
-                                {(s.supplier_name || s.name || "S")[0].toUpperCase()}
-                              </div>
+                        filteredSuppliers.map((s) => {
+                          const sDue = parseFloat(s.pending_balance || 0);
+                          return (
+                            <div
+                              key={s.id}
+                              onClick={() => handleSelectParty(s)}
+                              className="px-3.5 py-2.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+                            >
                               <div>
-                                <p className="text-xs font-bold text-slate-900">{s.supplier_name || s.name}</p>
-                                <p className="text-[11px] text-slate-500">{s.phone || s.mobile_number || "No phone"}</p>
+                                <div className="font-bold text-slate-900">{s.supplier_name || s.name}</div>
+                                <div className="text-[11px] text-slate-400 mt-0.5">
+                                  {s.phone || s.mobile_number || s.alt_mobile || "Registered Vendor"}
+                                </div>
+                              </div>
+                              <div className="text-right flex-shrink-0 ml-2">
+                                <span className="text-[9.5px] text-slate-400 font-semibold uppercase mr-1">Due:</span>
+                                <span className={`font-bold text-xs ${sDue > 0 ? "text-rose-600 font-black" : "text-slate-700"}`}>
+                                  ₹ {fmtCurrency(sDue)}
+                                </span>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <span className="text-[10px] text-slate-400 block font-medium">Balance</span>
-                              <span className="text-xs font-bold text-rose-600">
-                                ₹ {fmtCurrency(s.pending_balance || 0)}
-                              </span>
-                            </div>
-                          </div>
-                        ))
+                          );
+                        })
                       ) : (
                         <div className="p-4 text-center">
                           <p className="text-xs text-slate-500">No matching supplier found.</p>
@@ -1046,30 +1162,92 @@ export default function AddDebitNote() {
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Phone number field */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Phone number field */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Supplier Contact Phone</label>
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">Supplier Contact Phone</label>
                   <div className="relative">
-                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Phone size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Phone number"
                       value={activeTab.supplierPhone}
                       onChange={(e) => updateActiveTab({ supplierPhone: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 placeholder:text-slate-400 transition-all outline-hidden"
+                      className="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 transition"
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
 
+          {/* Right 5 Columns: Return Parameters */}
+          <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-3.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <FileText size={16} />
+                </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">State of Supply</label>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Return Parameters</h3>
+                  <p className="text-[11px] text-slate-400">Debit note reference &amp; original bill details</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Debit Note Return # */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">Debit Note Return #</label>
+                  <input
+                    type="text"
+                    placeholder="Return #"
+                    value={activeTab.returnNo}
+                    onChange={(e) => updateActiveTab({ returnNo: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold font-mono text-slate-900 outline-none focus:border-blue-500 transition"
+                  />
+                </div>
+
+                {/* Original Purchase Bill # */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">Original Purchase Bill #</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. PUR-0082"
+                    value={activeTab.billNo}
+                    onChange={(e) => updateActiveTab({ billNo: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold font-mono text-slate-900 outline-none focus:border-blue-500 transition"
+                  />
+                </div>
+
+                {/* Original Bill Date */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">Original Bill Date</label>
+                  <input
+                    type="date"
+                    value={activeTab.billDate}
+                    onChange={(e) => updateActiveTab({ billDate: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 cursor-pointer transition"
+                  />
+                </div>
+
+                {/* Return Date */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">Return Date</label>
+                  <input
+                    type="date"
+                    value={activeTab.returnDate}
+                    onChange={(e) => updateActiveTab({ returnDate: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 cursor-pointer transition"
+                  />
+                </div>
+
+                {/* State of Supply */}
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">State of Supply</label>
                   <select
                     value={activeTab.stateOfSupply}
                     onChange={(e) => updateActiveTab({ stateOfSupply: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 transition-all outline-hidden cursor-pointer"
+                    className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 cursor-pointer transition"
                   >
                     {indianStates.map((st) => (
                       <option key={st} value={st}>{st}</option>
@@ -1078,121 +1256,41 @@ export default function AddDebitNote() {
                 </div>
               </div>
             </div>
-
-            {/* Right: Return #, Original Bill Ref & Dates */}
-            <div className="md:col-span-6 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Debit Note Return #</label>
-                  <div className="px-3.5 py-2 bg-rose-50/80 border border-rose-200/80 rounded-xl text-xs font-black text-rose-700 font-mono tracking-wide text-center">
-                    {activeTab.returnNo || "Auto Generated"}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Original Purchase Bill #</label>
-                  <div className="relative">
-                    <FileText size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="e.g. PUR-0082"
-                      value={activeTab.billNo}
-                      onChange={(e) => updateActiveTab({ billNo: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 transition-all outline-hidden"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Original Bill Date</label>
-                  <div className="relative">
-                    <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="date"
-                      value={activeTab.billDate}
-                      onChange={(e) => updateActiveTab({ billDate: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-semibold text-slate-900 transition-all outline-hidden cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Return Date</label>
-                  <div className="relative">
-                    <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-rose-500" />
-                    <input
-                      type="date"
-                      value={activeTab.returnDate}
-                      onChange={(e) => updateActiveTab({ returnDate: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2 bg-white rounded-xl border border-rose-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-bold text-slate-900 transition-all outline-hidden cursor-pointer"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
           </div>
+
         </div>
 
-        {/* ── SECTION 2: RETURN ITEMS TABLE ── */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">
-                2
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Returned Line Items</h2>
-                <p className="text-[11px] text-slate-500">Add returned goods with quantity, rate, discount and GST slab</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <HeaderSettingsButton onClick={openSettings} variant="table" />
-              {/* Tax Mode Switcher */}
-              <div className="relative" onClick={(e) => e.stopPropagation()}>
-                <div
-                  onClick={() => setShowTaxModeDropdown(!showTaxModeDropdown)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition cursor-pointer"
-                >
-                  <Percent size={13} className="text-rose-600" />
-                  <span>Prices: {activeTab.globalTaxMode === "with_tax" ? "Tax Inclusive" : "Tax Exclusive"}</span>
-                  <ChevronDown size={13} className="text-slate-400" />
+        {/* ── 4. RETURNED ITEMS MATRIX TABLE ── */}
+        <div className="px-6 md:px-8 mb-6">
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+            <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <Layers size={14} />
                 </div>
-
-                {showTaxModeDropdown && (
-                  <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in duration-100">
-                    <div
-                      onClick={() => handleTaxModeChange("without_tax")}
-                      className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
-                        activeTab.globalTaxMode === "without_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>Tax Exclusive</span>
-                      {activeTab.globalTaxMode === "without_tax" && <Check size={14} />}
-                    </div>
-                    <div
-                      onClick={() => handleTaxModeChange("with_tax")}
-                      className={`px-3.5 py-2 text-xs font-bold cursor-pointer transition flex items-center justify-between ${
-                        activeTab.globalTaxMode === "with_tax" ? "bg-rose-50 text-rose-700" : "text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>Tax Inclusive</span>
-                      {activeTab.globalTaxMode === "with_tax" && <Check size={14} />}
-                    </div>
-                  </div>
-                )}
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Returned Items &amp; Stock Reversal
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                  {activeTab.items.length} {activeTab.items.length === 1 ? "Item" : "Items"}
+                </span>
               </div>
+
+              <button
+                type="button"
+                onClick={addRow}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 text-xs font-bold transition cursor-pointer shadow-2xs"
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Add Item Row</span>
+              </button>
             </div>
-          </div>
 
           {/* Line Items Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left text-xs border-collapse min-w-[1100px]">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                <tr className="bg-slate-50/60 border-b border-slate-200/80 text-slate-600 font-bold select-none text-[11px] uppercase tracking-wider">
                   <th className="w-12 py-3 px-3 text-center border-r border-slate-200/60">
                     <ScanBarcode size={15} className="mx-auto text-slate-400" />
                   </th>
@@ -1233,15 +1331,15 @@ export default function AddDebitNote() {
                       key={row.id || idx}
                       className={`transition-colors ${
                         isLightning
-                          ? "bg-rose-50/40 hover:bg-rose-50/70 border-b border-rose-200/60"
-                          : "hover:bg-slate-50/70"
+                          ? "bg-blue-50/40 hover:bg-blue-50/70 border-b border-blue-200/60"
+                          : "hover:bg-blue-50/30"
                       }`}
                     >
                       {/* Col 1: Lightning / Row # */}
                       <td className="py-2 px-3 text-center border-r border-slate-100">
                         {isLightning ? (
-                          <div className="w-7 h-7 rounded-lg bg-rose-500/15 text-rose-600 flex items-center justify-center mx-auto" title="Quick Add Lightning Row">
-                            <Zap size={14} className="fill-rose-500 text-rose-500" />
+                          <div className="w-7 h-7 rounded-lg bg-blue-500/15 text-blue-600 flex items-center justify-center mx-auto" title="Quick Add Lightning Row">
+                            <Zap size={14} className="fill-blue-500 text-blue-500" />
                           </div>
                         ) : (
                           <div className="flex items-center justify-center gap-1 text-slate-400 font-bold text-[11px]">
@@ -1261,7 +1359,7 @@ export default function AddDebitNote() {
                             setActiveProductSearchIndex(idx);
                           }}
                           onFocus={() => setActiveProductSearchIndex(idx)}
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-xs font-semibold text-slate-900 placeholder:text-slate-400 outline-hidden transition-all"
+                          className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
 
                         {/* Product Suggestions Dropdown */}
@@ -1310,7 +1408,7 @@ export default function AddDebitNote() {
                                     <div
                                       key={p.id}
                                       onClick={() => handleSelectProduct(idx, p)}
-                                      className="px-3.5 py-2 hover:bg-rose-50/70 cursor-pointer flex items-center justify-between transition text-xs border-b border-slate-50 last:border-0"
+                                      className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs border-b border-slate-50 last:border-0"
                                     >
                                       <div>
                                         <p className="font-bold text-slate-900">{p.product_name || p.name}</p>
@@ -1319,7 +1417,7 @@ export default function AddDebitNote() {
                                         </p>
                                       </div>
                                       <div className="text-right">
-                                        <span className="font-extrabold text-rose-600">
+                                        <span className="font-extrabold text-blue-600">
                                           ₹{parseFloat(p.purchase_price || p.price || 0).toLocaleString()}
                                         </span>
                                         <span className="text-[10px] text-slate-400 block">Unit Cost</span>
@@ -1343,7 +1441,7 @@ export default function AddDebitNote() {
                             placeholder="0"
                             value={row.quantity}
                             onChange={(e) => updateRow(idx, "quantity", e.target.value)}
-                            className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
+                            className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                           />
                         </td>
                       )}
@@ -1354,7 +1452,7 @@ export default function AddDebitNote() {
                           <select
                             value={row.unit}
                             onChange={(e) => updateRow(idx, "unit", e.target.value)}
-                            className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-semibold text-slate-700 outline-hidden transition-all text-xs cursor-pointer"
+                            className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition cursor-pointer"
                           >
                             {unitOptions.map((u) => (
                               <option key={u} value={u}>{u}</option>
@@ -1373,7 +1471,7 @@ export default function AddDebitNote() {
                             placeholder="0.00"
                             value={row.price}
                             onChange={(e) => updateRow(idx, "price", e.target.value)}
-                            className="w-full px-2 py-1.5 rounded-lg border border-transparent hover:border-slate-200 focus:border-rose-500 focus:bg-white text-center font-bold text-slate-900 outline-hidden transition-all text-xs"
+                            className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                           />
                         </td>
                       )}
@@ -1454,57 +1552,47 @@ export default function AddDebitNote() {
             </table>
           </div>
 
-          {/* Table Footer: Add Row & Live Totals */}
-          <div className="px-6 py-3.5 bg-slate-50/70 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={addRow}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 hover:border-rose-300 hover:bg-rose-50/30 text-rose-700 text-xs font-bold shadow-2xs transition cursor-pointer"
-            >
-              <Plus size={14} className="text-rose-600" />
-              <span>Add Another Item Row</span>
-            </button>
-
-            <div className="flex items-center gap-6 text-xs font-bold text-slate-600">
-              <div>
-                <span className="text-slate-400 font-medium">Total Qty:</span>{" "}
-                <span className="text-slate-900">{totalQty}</span>
+          {/* Table Footer: Live Totals */}
+            <div className="px-5 py-3.5 bg-slate-50/60 border-t border-slate-200/80 flex flex-wrap items-center justify-end gap-5">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                <span className="text-slate-500">Total Qty:</span>
+                <span className="text-slate-900 font-black">{totalQty}</span>
               </div>
               {totalDiscount > 0 && (
-                <div>
-                  <span className="text-slate-400 font-medium">Discount:</span>{" "}
-                  <span className="text-amber-600">-₹{fmtCurrency(totalDiscount)}</span>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                  <span className="text-slate-500">Discount:</span>
+                  <span className="text-rose-600 font-black">-₹{fmtCurrency(totalDiscount)}</span>
                 </div>
               )}
               {totalTax > 0 && (
-                <div>
-                  <span className="text-slate-400 font-medium">GST Tax:</span>{" "}
-                  <span className="text-rose-600">+₹{fmtCurrency(totalTax)}</span>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                  <span className="text-slate-500">GST Tax:</span>
+                  <span className="text-emerald-600 font-black">+₹{fmtCurrency(totalTax)}</span>
                 </div>
               )}
-              <div className="text-sm font-black text-slate-900">
-                <span className="text-slate-400 font-medium text-xs">Subtotal:</span>{" "}
-                ₹{fmtCurrency(calculatedTotal)}
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                <span className="text-slate-500">Subtotal:</span>
+                <span className="text-slate-900 font-black font-mono text-sm">₹{fmtCurrency(calculatedTotal)}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── SECTION 3: REFUND SETTLEMENT & HERO TOTAL ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* Left: Refund Mode & Reason / Notes (7 Cols) */}
-          <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
-                3
+{/* ── 5. FINANCIAL RECONCILIATION & SETTLEMENT SUMMARY ── */}
+        <div className="px-6 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+          {/* Left 7 Columns: Refund Settlement & Reason */}
+          <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Receipt size={14} />
               </div>
-              <h2 className="text-sm font-bold text-slate-900">Refund Settlement & Reason</h2>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Refund Settlement &amp; Return Reason</h3>
             </div>
 
             {/* Refund Type Selection Chips */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2">Refund Settlement Mode</label>
+            <div className="pt-1">
+              <label className="text-[11px] font-bold text-slate-600 mb-1.5 block">Refund Settlement Mode</label>
               <div className="flex flex-wrap gap-2">
                 {[
                   { label: "Cash", value: "Cash" },
@@ -1519,10 +1607,10 @@ export default function AddDebitNote() {
                       key={type.value}
                       type="button"
                       onClick={() => updateActiveTab({ paymentType: type.value })}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                         isSelected
                           ? "bg-blue-600 text-white border-blue-600 shadow-xs shadow-blue-600/20"
-                          : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80"
+                          : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
                       }`}
                     >
                       {type.label}
@@ -1533,14 +1621,14 @@ export default function AddDebitNote() {
             </div>
 
             {/* Return Reason / Description */}
-            <div>
+            <div className="pt-1">
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-700">Reason for Return / Remarks</label>
+                <label className="text-[11px] font-bold text-slate-600">Reason for Return / Remarks</label>
                 {!activeTab.showDescription && (
                   <button
                     type="button"
                     onClick={() => updateActiveTab({ showDescription: true })}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
                   >
                     + Add Reason
                   </button>
@@ -1553,12 +1641,12 @@ export default function AddDebitNote() {
                   placeholder="e.g. Defective batch received, wrong part number delivered, overcharged rate adjustment..."
                   value={activeTab.description}
                   onChange={(e) => updateActiveTab({ description: e.target.value })}
-                  className="w-full p-3 bg-slate-50/50 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs font-medium text-slate-900 transition-all outline-hidden resize-none"
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 resize-none transition"
                 />
               ) : (
                 <div
                   onClick={() => updateActiveTab({ showDescription: true })}
-                  className="p-3 border border-dashed border-slate-200 rounded-xl text-slate-400 text-xs cursor-pointer hover:bg-slate-50/50 transition"
+                  className="px-3.5 py-3 border border-dashed border-slate-300 rounded-xl text-slate-400 text-xs cursor-pointer hover:bg-slate-50 transition"
                 >
                   Click to add reason for debit note (e.g. Quality defect, Wrong shipment, Rate dispute)...
                 </div>
@@ -1566,38 +1654,65 @@ export default function AddDebitNote() {
             </div>
           </div>
 
-          {/* Right: Tax Breakdown & Hero Grand Total (5 Cols) */}
-          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-3.5">
+          {/* Right 5 Columns: Financial Breakdown & Settlement */}
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3.5">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Debit Note Summary</span>
-              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                INR Currency
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <Wallet size={14} />
+                </div>
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Debit Note Summary</span>
+              </div>
+              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                INR (₹)
               </span>
             </div>
 
+            {/* Breakdown */}
             <div className="space-y-2.5 text-xs font-semibold text-slate-600">
+              <div className="flex justify-between items-center">
+                <span>Total Returned Qty</span>
+                <span className="font-bold text-slate-900">{totalQty}</span>
+              </div>
               <div className="flex justify-between items-center">
                 <span>Return Base Subtotal</span>
                 <span className="font-bold text-slate-900">₹ {fmtCurrency(totalSubTotal)}</span>
               </div>
-
+              <div className="flex justify-between items-center">
+                <span>Total Tax (GST)</span>
+                <span className={`font-bold ${totalTax > 0 ? "text-emerald-700" : "text-slate-700"}`}>
+                  {totalTax > 0 ? `+ ₹ ${fmtCurrency(totalTax)}` : "₹ 0.00"}
+                </span>
+              </div>
               {totalDiscount > 0 && (
                 <div className="flex justify-between items-center">
                   <span>Total Discount</span>
                   <span className="font-bold text-rose-600">- ₹ {fmtCurrency(totalDiscount)}</span>
                 </div>
               )}
+            </div>
 
-              {totalTax > 0 && (
-                <div className="flex justify-between items-center">
-                  <span>Total GST Return Tax</span>
-                  <span className="font-bold text-emerald-700">+ ₹ {fmtCurrency(totalTax)}</span>
-                </div>
-              )}
+            {/* Grand Total Hero Box */}
+            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
+              <div>
+                <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">
+                  Total Debit Value
+                </span>
+                <span className="text-2xl font-black tracking-tight">
+                  ₹ {fmtCurrency(grandTotal)}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
+                  Debit Note
+                </span>
+              </div>
+            </div>
 
-              {/* Round Off Toggle */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
+            {/* Settlement: Round Off & Refund Mode */}
+            <div className="pt-2 space-y-2 border-t border-slate-100 text-xs">
+              <div className="flex justify-between items-center">
+                <label className="flex items-center gap-2 font-bold text-slate-700 uppercase text-[11px] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={activeTab.roundOffEnabled}
@@ -1610,22 +1725,13 @@ export default function AddDebitNote() {
                   {roundOffVal !== 0 ? (roundOffVal > 0 ? `+₹${roundOffVal.toFixed(2)}` : `-₹${Math.abs(roundOffVal).toFixed(2)}`) : "₹0.00"}
                 </span>
               </div>
-            </div>
-
-            {/* Hero Total Box */}
-            <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-md shadow-blue-500/20 flex justify-between items-center">
-              <div>
-                <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wider block">
-                  Total Debit Value
-                </span>
-                <div className="text-2xl font-black tracking-tight">
-                  ₹ {fmtCurrency(grandTotal)}
-                </div>
+              <div className="flex justify-between items-center font-bold">
+                <span className="text-slate-600">Settlement Mode</span>
+                <span className="text-xs font-black text-blue-600">{activeTab.paymentType}</span>
               </div>
-              <div className="text-right">
-                <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
-                  Debit Note
-                </span>
+              <div className="flex justify-between items-center font-bold">
+                <span className="text-slate-600">Return Reference</span>
+                <span className="text-xs font-black font-mono text-slate-900">{activeTab.billNo || "—"}</span>
               </div>
             </div>
           </div>
@@ -1634,36 +1740,39 @@ export default function AddDebitNote() {
 
       </main>
 
-      {/* ── 4. STICKY BOTTOM COMMAND BAR ── */}
-      <footer className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 py-3 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          
-          <button
-            type="button"
-            onClick={() => setShowCloseModal(true)}
-            className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition cursor-pointer"
-          >
-            Discard
-          </button>
+      {/* ── 6. STICKY ACTION FOOTER BAR ── */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-6 py-3.5 z-30 flex items-center justify-between shadow-lg">
+        <button
+          type="button"
+          onClick={() => setShowCloseModal(true)}
+          className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+        >
+          Discard / Back
+        </button>
 
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-slate-600 mr-2">
+            <span>Items: <strong className="text-slate-900">{totalQty}</strong></span>
+            <span>•</span>
+            <span>Total: <strong className="text-blue-600 font-mono font-black">₹{fmtCurrency(grandTotal)}</strong></span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setShowCalculator(true)}
+              className="px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold text-xs transition cursor-pointer"
+            >
+              Calculator
+            </button>
             <button
               type="button"
               onClick={handleSaveDebitNote}
               disabled={saving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 cursor-pointer disabled:opacity-50 flex items-center gap-2 transition"
             >
-              {saving ? (
-                <>
-                  <RefreshCw size={14} className="animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <Save size={16} />
-                  <span>Save Debit Note</span>
-                </>
-              )}
+              {saving ? <RefreshCw size={15} className="animate-spin" /> : <Check size={15} />}
+              <span>{saving ? "Processing..." : "Save Debit Note"}</span>
             </button>
           </div>
         </div>

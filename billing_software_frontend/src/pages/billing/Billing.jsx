@@ -2068,8 +2068,9 @@ export default function Billing() {
                     placeholder="22ABCDE1234F1Z5"
                     value={customer.gst_no ?? ""}
                     maxLength={15}
+                    disabled
                     onChange={(e) => setCustomer((c) => ({ ...c, gst_no: e.target.value.toUpperCase() }))}
-                    className={`w-full px-3 py-1.5 border rounded-xl text-xs font-bold font-mono uppercase tracking-wider focus:outline-none focus:bg-white ${
+                    className={`w-full px-3 py-1.5 border rounded-xl text-xs font-bold font-mono uppercase tracking-wider focus:outline-none focus:bg-white disabled:cursor-not-allowed disabled:opacity-70 ${
                       customer.gst_no?.trim()
                         ? "bg-emerald-50 border-emerald-300 text-emerald-900"
                         : "bg-slate-50 border-amber-300 text-slate-900"
@@ -2077,7 +2078,7 @@ export default function Billing() {
                   />
                   {!customer.gst_no?.trim() ? (
                     <p className="mt-1 text-[10.5px] font-semibold text-amber-700">
-                      No GSTIN on file — enter one to raise a GST Bill.
+                      No GSTIN on file — add the customer with a GSTIN to raise a GST Bill.
                     </p>
                   ) : null}
                 </div>
