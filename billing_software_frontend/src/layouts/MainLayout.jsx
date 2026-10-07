@@ -53,80 +53,68 @@ import {
   FileText,
   FileMinus,
   Wallet,
+  Sun,
+  Moon,
 } from "lucide-react";
 import HeaderQuickMenu from "../components/layout/HeaderQuickMenu";
 import AuditLogButton from "../components/audit/AuditLogButton";
 import HeaderNotifications from "../components/layout/HeaderNotifications";
 import HeaderUserDropdown from "../components/layout/HeaderUserDropdown";
+import { useLanguage, t, startAutoTranslation } from "../utils/i18n";
+import { useTheme } from "../utils/themeInitializer";
 
-function getHeaderBreadcrumbs(pathname) {
+function getHeaderBreadcrumbs(pathname, lang = "en") {
+  let res = { section: "Workspace", title: "Cashio", icon: Home };
   if (pathname === "/dashboard") {
-    return { section: "Executive", title: "Overview Dashboard", icon: Home };
+    res = { section: "Executive", title: "Overview Dashboard", icon: Home };
+  } else if (pathname.startsWith("/sales/invoices")) {
+    res = { section: "Sales & Invoicing", title: "Sale Invoices", icon: ReceiptText };
+  } else if (pathname.startsWith("/sales/add")) {
+    res = { section: "Sales & Invoicing", title: "New Sale Invoice", icon: Plus };
+  } else if (pathname.startsWith("/sales/estimate-quotation")) {
+    res = { section: "Sales & Invoicing", title: "Estimate & Quotation", icon: FileText };
+  } else if (pathname.startsWith("/sales/payment-in")) {
+    res = { section: "Sales & Invoicing", title: "Payment-In Collections", icon: IndianRupee };
+  } else if (pathname.startsWith("/sales/credit-note")) {
+    res = { section: "Sales & Invoicing", title: "Sale Return / Cr Note", icon: RotateCcw };
+  } else if (pathname.startsWith("/purchases/expenses")) {
+    res = { section: "Purchases & Expenses", title: "Expense Management", icon: Wallet };
+  } else if (pathname.startsWith("/purchases/payment-out")) {
+    res = { section: "Purchases & Expenses", title: "Payment-Out Disbursements", icon: IndianRupee };
+  } else if (pathname.startsWith("/purchases/return")) {
+    res = { section: "Purchases & Expenses", title: "Debit Note / Dr Note", icon: FileMinus };
+  } else if (pathname.startsWith("/purchases")) {
+    res = { section: "Purchases & Expenses", title: "Purchase Bills", icon: ShoppingCart };
+  } else if (pathname.startsWith("/customer")) {
+    res = { section: "Parties & CRM", title: "Customer Directory", icon: User };
+  } else if (pathname.startsWith("/whatsapp")) {
+    res = { section: "Marketing", title: "WhatsApp Connect", icon: MessageCircle };
+  } else if (pathname.startsWith("/products")) {
+    res = { section: "Inventory", title: "Products & Stock Catalog", icon: PackageSearch };
+  } else if (pathname.startsWith("/e-way")) {
+    res = { section: "Compliance", title: "E-Way Bills Portal", icon: Truck };
+  } else if (pathname.startsWith("/reports")) {
+    res = { section: "Compliance & Audit", title: "Financial Reports Hub", icon: BarChart3 };
+  } else if (pathname.startsWith("/audit-log")) {
+    res = { section: "Compliance & Audit", title: "Audit Log", icon: History };
+  } else if (pathname.startsWith("/company")) {
+    res = { section: "Administration", title: "Company Settings", icon: Building2 };
+  } else if (pathname.startsWith("/cashier")) {
+    res = { section: "Administration", title: "Cashier Accounts", icon: UserCog };
+  } else if (pathname.startsWith("/helpdesk")) {
+    res = { section: "Support Desk", title: "Helpdesk & Tickets", icon: Headset };
+  } else if (pathname.startsWith("/billing")) {
+    res = { section: "POS Terminal", title: "POS Counter Billing", icon: Store };
+  } else if (pathname.startsWith("/admin")) {
+    res = { section: "Administration", title: "Admin Management", icon: UserCog };
+  } else if (pathname.startsWith("/settings")) {
+    res = { section: "Settings", title: "Settings", icon: Settings };
   }
-  if (pathname.startsWith("/sales/invoices")) {
-    return { section: "Sales & Invoicing", title: "Sale Invoices", icon: ReceiptText };
-  }
-  if (pathname.startsWith("/sales/add")) {
-    return { section: "Sales & Invoicing", title: "New Sale Invoice", icon: Plus };
-  }
-  if (pathname.startsWith("/sales/estimate-quotation")) {
-    return { section: "Sales & Invoicing", title: "Estimate & Quotation", icon: FileText };
-  }
-  if (pathname.startsWith("/sales/payment-in")) {
-    return { section: "Sales & Invoicing", title: "Payment-In Collections", icon: IndianRupee };
-  }
-  if (pathname.startsWith("/sales/credit-note")) {
-    return { section: "Sales & Invoicing", title: "Sale Return / Cr Note", icon: RotateCcw };
-  }
-  if (pathname.startsWith("/purchases/expenses")) {
-    return { section: "Purchases & Expenses", title: "Expense Management", icon: Wallet };
-  }
-  if (pathname.startsWith("/purchases/payment-out")) {
-    return { section: "Purchases & Expenses", title: "Payment-Out Disbursements", icon: IndianRupee };
-  }
-  if (pathname.startsWith("/purchases/return")) {
-    return { section: "Purchases & Expenses", title: "Debit Note / Dr Note", icon: FileMinus };
-  }
-  if (pathname.startsWith("/purchases")) {
-    return { section: "Purchases & Expenses", title: "Purchase Bills", icon: ShoppingCart };
-  }
-  if (pathname.startsWith("/customer")) {
-    return { section: "Parties & CRM", title: "Customer Directory", icon: User };
-  }
-  if (pathname.startsWith("/whatsapp")) {
-    return { section: "Marketing", title: "WhatsApp Connect", icon: MessageCircle };
-  }
-  if (pathname.startsWith("/products")) {
-    return { section: "Inventory", title: "Products & Stock Catalog", icon: PackageSearch };
-  }
-  if (pathname.startsWith("/e-way")) {
-    return { section: "Compliance", title: "E-Way Bills Portal", icon: Truck };
-  }
-  if (pathname.startsWith("/reports")) {
-    return { section: "Compliance & Audit", title: "Financial Reports Hub", icon: BarChart3 };
-  }
-  if (pathname.startsWith("/audit-log")) {
-    return { section: "Compliance & Audit", title: "Audit Log", icon: History };
-  }
-  if (pathname.startsWith("/company")) {
-    return { section: "Administration", title: "Company Settings", icon: Building2 };
-  }
-  if (pathname.startsWith("/cashier")) {
-    return { section: "Administration", title: "Cashier Accounts", icon: UserCog };
-  }
-  if (pathname.startsWith("/helpdesk")) {
-    return { section: "Support Desk", title: "Helpdesk & Tickets", icon: Headset };
-  }
-  if (pathname.startsWith("/billing")) {
-    return { section: "POS Terminal", title: "POS Counter Billing", icon: Store };
-  }
-  if (pathname.startsWith("/admin")) {
-    return { section: "Administration", title: "Admin Management", icon: UserCog };
-  }
-  if (pathname.startsWith("/settings")) {
-    return { section: "Settings", title: "settings", icon: Settings };
-  }
-  return { section: "Workspace", title: "Cashio", icon: Home };
+  return {
+    ...res,
+    section: t(res.section, lang),
+    title: t(res.title, lang),
+  };
 }
 
 // 🎟️ Sale Ticket Icon
@@ -151,6 +139,8 @@ const SaleIcon = ({ size = 18 }) => (
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { lang, isTamil, t: translate, changeLanguage } = useLanguage();
+  const { isDark, toggleTheme } = useTheme();
   const [saleOpen, setSaleOpen] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(false);
@@ -305,6 +295,21 @@ export default function MainLayout() {
       setCustomerOpen(true);
     }
   }, [location.pathname]);
+
+  // 🔥 Trigger DOM Auto-Translation on route change and language change
+  useEffect(() => {
+    if (lang === "ta") {
+      startAutoTranslation("ta");
+      const t1 = setTimeout(() => startAutoTranslation("ta"), 120);
+      const t2 = setTimeout(() => startAutoTranslation("ta"), 350);
+      const t3 = setTimeout(() => startAutoTranslation("ta"), 800);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    }
+  }, [location.pathname, lang]);
 
   // 🔥 LOGOUT
   const handleLogout = async () => {
@@ -469,7 +474,7 @@ export default function MainLayout() {
   }, [menuItems, sidebarSearch]);
 
   return (
-    <div className="flex h-screen bg-[#f8faff] overflow-hidden font-sans">
+    <div className="flex h-screen bg-[#f8faff] text-slate-900 overflow-hidden font-sans">
       {/* ── SETTINGS SIDEBAR (when path is /settings) ── */}
       {location.pathname === "/settings" ? (
         <motion.div
@@ -485,14 +490,14 @@ export default function MainLayout() {
                 <Settings size={20} className="text-white" />
               </div>
               <div>
-                <h2 className="text-sm font-bold tracking-tight text-white font-display">System Settings</h2>
-                <p className="text-[11px] text-slate-400">Configurations & Rules</p>
+                <h2 className="text-sm font-bold tracking-tight text-white font-display">{translate("System Settings")}</h2>
+                <p className="text-[11px] text-slate-400">{translate("Configurations & Rules")}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => navigate("/dashboard")}
-              title="Close Settings"
+              title={translate("Close Settings")}
               className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
             >
               <X size={16} strokeWidth={2.5} />
@@ -518,7 +523,7 @@ export default function MainLayout() {
                   }`}
               >
                 {tab.icon && <span className="opacity-80">{tab.icon}</span>}
-                <span className="truncate">{tab.label}</span>
+                <span className="truncate">{translate(tab.label)}</span>
               </button>
             ))}
           </div>
@@ -549,7 +554,7 @@ export default function MainLayout() {
                     </span>
                   </div>
                   <span className="text-[11px] text-slate-400 truncate block">
-                    Enterprise Billing
+                    {translate("Enterprise Billing")}
                   </span>
                 </div>
               </div>
@@ -607,7 +612,7 @@ export default function MainLayout() {
                   type="text"
                   value={sidebarSearch}
                   onChange={(e) => setSidebarSearch(e.target.value)}
-                  placeholder="Quick Search Menus..."
+                  placeholder={translate("Quick Search Menus...")}
                   className="w-full h-9 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 focus:bg-white/10 rounded-xl pl-8 pr-12 text-xs text-white placeholder-slate-400 focus:outline-none transition shadow-inner"
                 />
                 {sidebarSearch ? (
@@ -632,10 +637,10 @@ export default function MainLayout() {
           <div className="flex-1 overflow-y-auto overflow-x-hidden paysplitx-scrollbar space-y-1 pr-1">
             {!isCollapsed && (
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-2 flex items-center justify-between">
-                <span>{sidebarSearch ? "SEARCH RESULTS" : "MAIN MENU"}</span>
+                <span>{sidebarSearch ? translate("SEARCH RESULTS") : translate("MAIN MENU")}</span>
                 {sidebarSearch && (
                   <span className="text-[10px] text-indigo-400 font-medium lowercase">
-                    {filteredMenuItems.length} found
+                    {filteredMenuItems.length} {translate("found")}
                   </span>
                 )}
               </div>
@@ -671,7 +676,7 @@ export default function MainLayout() {
                     <div
                       key={item.name}
                       onClick={() => navigate(item.subItems[0]?.path || "/dashboard")}
-                      title={item.name}
+                      title={translate(item.name)}
                       className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${isDropdownItemActive
                         ? "bg-indigo-600 text-white shadow-glow-brand"
                         : "text-slate-400 hover:text-white hover:bg-white/5"
@@ -696,7 +701,7 @@ export default function MainLayout() {
                         <span className={isDropdownItemActive ? "text-indigo-400" : "text-slate-400"}>
                           {item.icon}
                         </span>
-                        <span className="truncate">{item.name}</span>
+                        <span className="truncate">{translate(item.name)}</span>
                       </div>
                       <ChevronDown
                         size={14}
@@ -730,7 +735,7 @@ export default function MainLayout() {
                                   }`}
                               >
                                 {isSubActive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
-                                <span className="truncate">{sub.name}</span>
+                                <span className="truncate">{translate(sub.name)}</span>
                               </button>
                             );
                           })}
@@ -750,7 +755,7 @@ export default function MainLayout() {
                   <div
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    title={item.name}
+                    title={translate(item.name)}
                     className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl cursor-pointer transition mb-1 ${isActive
                       ? "bg-indigo-600 text-white shadow-glow-brand"
                       : "text-slate-400 hover:text-white hover:bg-white/5"
@@ -774,7 +779,7 @@ export default function MainLayout() {
                   <span className={isActive ? "text-white" : "text-slate-400"}>
                     {item.icon}
                   </span>
-                  <span className="truncate">{item.name}</span>
+                  <span className="truncate">{translate(item.name)}</span>
                 </button>
               );
             })}
@@ -782,13 +787,13 @@ export default function MainLayout() {
             {filteredMenuItems.length === 0 && (
               <div className="py-8 px-2 text-center text-slate-400">
                 <Search size={20} className="mx-auto text-slate-500 mb-2" />
-                <p className="text-xs font-semibold text-slate-300">No menus match "{sidebarSearch}"</p>
+                <p className="text-xs font-semibold text-slate-300">{translate("No menus match")} "{sidebarSearch}"</p>
                 <button
                   type="button"
                   onClick={() => setSidebarSearch("")}
                   className="mt-2 text-[11px] text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
                 >
-                  Clear search
+                  {translate("Clear search")}
                 </button>
               </div>
             )}
@@ -843,34 +848,36 @@ export default function MainLayout() {
         {/* PAYSPLITX ADVANCED TOP HEADER BAR */}
         <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between z-30 flex-shrink-0 shadow-2xs">
           {/* Left: Sidebar Toggle & Dynamic Breadcrumbs Navigation */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs"
-            >
-              {isCollapsed ? (
-                <PanelLeftOpen size={17} className="text-indigo-600" />
-              ) : (
-                <PanelLeftClose size={17} />
-              )}
-            </button>
+          <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2 sm:mr-4">
+            {location.pathname !== "/settings" && (
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs"
+              >
+                {isCollapsed ? (
+                  <PanelLeftOpen size={17} className="text-indigo-600" />
+                ) : (
+                  <PanelLeftClose size={17} />
+                )}
+              </button>
+            )}
 
             {(() => {
-              const crumb = getHeaderBreadcrumbs(location.pathname);
+              const crumb = getHeaderBreadcrumbs(location.pathname, lang);
               const CrumbIcon = crumb.icon;
               return (
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100/80 text-indigo-600 flex items-center justify-center flex-shrink-0 shadow-2xs">
-                    <CrumbIcon size={16} />
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100/80 text-indigo-600 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                    <CrumbIcon size={17} />
                   </div>
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs font-semibold text-slate-400 hidden sm:inline truncate">
+                    <span className="text-xs font-semibold text-slate-400 hidden lg:inline truncate max-w-[130px] xl:max-w-[180px]">
                       {crumb.section}
                     </span>
-                    <ChevronRight size={13} className="text-slate-300 flex-shrink-0 hidden sm:inline" />
-                    <h2 className="text-xs sm:text-sm font-bold text-slate-900 font-display tracking-tight truncate">
+                    <ChevronRight size={13} className="text-slate-300 flex-shrink-0 hidden lg:inline" />
+                    <h2 className="text-xs sm:text-sm font-bold text-slate-900 font-display tracking-tight truncate whitespace-nowrap">
                       {crumb.title}
                     </h2>
                   </div>
@@ -880,7 +887,7 @@ export default function MainLayout() {
           </div>
 
           {/* Right: Quick Actions Command Menu, Notifications & User Dropdown */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
             <HeaderQuickMenu
               isOpen={quickAddOpen}
               setIsOpen={setQuickAddOpen}
@@ -892,6 +899,35 @@ export default function MainLayout() {
             {/* Notification Bell with Badge & Dropdown */}
             <HeaderNotifications />
 
+            {/* Quick Dark/Light Mode Toggle */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title={isDark ? "Switch to Light Mode (வெளிச்ச பயன்முறை)" : "Switch to Dark Mode (இரவு பயன்முறை)"}
+              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs"
+            >
+              {isDark ? (
+                <Sun size={17} className="text-amber-400" />
+              ) : (
+                <Moon size={17} className="text-indigo-600" />
+              )}
+            </button>
+
+            {/* Quick Language Toggle (English / தமிழ்) */}
+            <button
+              type="button"
+              onClick={() => {
+                const nextLang = lang === "ta" ? "en" : "ta";
+                changeLanguage(nextLang);
+              }}
+              title={lang === "ta" ? "Switch to English" : "தமிழுக்கு மாற்றவும்"}
+              className="h-10 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs select-none"
+            >
+              <span className="text-xs font-bold tracking-wide">
+                {lang === "ta" ? "தமிழ்" : "EN"}
+              </span>
+            </button>
+
             {/* Global Audit Log (every page). Hidden when disabled in Settings. */}
             <AuditLogButton />
 
@@ -901,7 +937,7 @@ export default function MainLayout() {
         </header>
 
         {/* MAIN SCROLLABLE CONTENT */}
-        <main className="flex-1 p-6 overflow-auto paysplitx-scrollbar-light">
+        <main className={`flex-1 overflow-auto paysplitx-scrollbar-light ${location.pathname === "/settings" ? "p-0" : "p-4 sm:p-6"}`}>
           <SettingsContext.Provider value={{ settingsTab, setSettingsTab }}>
             <Outlet context={{ settingsTab, setSettingsTab }} />
           </SettingsContext.Provider>

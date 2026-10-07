@@ -13,9 +13,11 @@ import {
   KeyRound,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLanguage } from "../../utils/i18n";
 
 export default function HeaderUserDropdown() {
   const navigate = useNavigate();
+  const { t: translate } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -147,7 +149,7 @@ export default function HeaderUserDropdown() {
                 <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
                   <User size={14} />
                 </div>
-                <span>My Profile</span>
+                <span>{translate("My Profile")}</span>
               </button>
 
               <button
@@ -158,7 +160,7 @@ export default function HeaderUserDropdown() {
                 <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
                   <ShieldCheck size={14} />
                 </div>
-                <span>Change Password</span>
+                <span>{translate("Change Password")}</span>
               </button>
 
               {role === "admin" && (
@@ -171,7 +173,7 @@ export default function HeaderUserDropdown() {
                     <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
                       <Building2 size={14} />
                     </div>
-                    <span>Company Profile</span>
+                    <span>{translate("Company Profile")}</span>
                   </button>
 
                   <button
@@ -182,7 +184,7 @@ export default function HeaderUserDropdown() {
                     <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
                       <Settings size={14} />
                     </div>
-                    <span>System Settings</span>
+                    <span>{translate("System Settings")}</span>
                   </button>
                 </>
               )}
@@ -195,7 +197,7 @@ export default function HeaderUserDropdown() {
                 <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
                   <Headset size={14} />
                 </div>
-                <span>Support & Helpdesk</span>
+                <span>{translate("Support & Helpdesk")}</span>
               </button>
             </div>
 
@@ -209,7 +211,7 @@ export default function HeaderUserDropdown() {
                 <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
                   <LogOut size={14} />
                 </div>
-                <span>Sign Out</span>
+                <span>{translate("Sign Out")}</span>
               </button>
             </div>
           </motion.div>

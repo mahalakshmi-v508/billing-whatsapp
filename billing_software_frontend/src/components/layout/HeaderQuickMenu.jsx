@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ArrowRight
 } from "lucide-react";
+import { useLanguage } from "../../utils/i18n";
 
 export default function HeaderQuickMenu({
   isOpen,
@@ -28,6 +29,7 @@ export default function HeaderQuickMenu({
   role = "admin",
   containerRef
 }) {
+  const { t: translate } = useLanguage();
   const [search, setSearch] = useState("");
   const inputRef = useRef(null);
 
@@ -205,10 +207,10 @@ export default function HeaderQuickMenu({
             type="button"
             onClick={() => navigate("/billing", { state: { entryKey: Date.now() } })}
             title="Fast POS Counter (Alt + B)"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer shadow-xs"
+            className="hidden sm:inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition cursor-pointer shadow-xs whitespace-nowrap flex-shrink-0"
           >
-            <Store size={14} className="text-emerald-600" />
-            <span>POS Counter</span>
+            <Store size={15} className="text-emerald-600 flex-shrink-0" />
+            <span className="whitespace-nowrap">{translate("POS Counter")}</span>
           </button>
         )}
 
@@ -217,20 +219,20 @@ export default function HeaderQuickMenu({
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           title="Quick Actions Command Menu (Ctrl + Enter)"
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-sm select-none ${
+          className={`flex items-center gap-2 h-10 px-3.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-sm select-none whitespace-nowrap flex-shrink-0 ${
             isOpen
               ? "bg-indigo-600 text-white shadow-glow-brand ring-2 ring-indigo-500/30"
               : "bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white shadow-glow-brand"
           }`}
         >
-          <Plus size={15} strokeWidth={2.6} className={isOpen ? "rotate-45 transition-transform" : "transition-transform"} />
-          <span>Quick Actions</span>
-          <kbd className="hidden md:inline-block text-[10px] font-mono bg-white/20 text-white px-1.5 py-0.2 rounded font-semibold">
+          <Plus size={15} strokeWidth={2.6} className={`flex-shrink-0 ${isOpen ? "rotate-45 transition-transform" : "transition-transform"}`} />
+          <span className="whitespace-nowrap">{translate("Quick Actions")}</span>
+          <kbd className="hidden lg:inline-block text-[10px] font-mono bg-white/20 text-white px-1.5 py-0.2 rounded font-semibold flex-shrink-0">
             Ctrl+↵
           </kbd>
           <ChevronDown
             size={13}
-            className={`text-white/80 transition-transform duration-200 ${
+            className={`text-white/80 transition-transform duration-200 flex-shrink-0 ${
               isOpen ? "rotate-180" : ""
             }`}
           />
