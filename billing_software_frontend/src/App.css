@@ -1,17 +1,8 @@
 @media print {
-  body * {
-    visibility: hidden;
-  }
-
-  #invoice, #invoice * {
-    visibility: visible;
-  }
-
-  #invoice {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+  html, body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 }
 

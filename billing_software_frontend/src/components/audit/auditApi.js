@@ -10,6 +10,7 @@ export const DEFAULT_AUDIT_SETTINGS = {
   logDeletes: true,
   logReads: false,
   retentionDays: 0, // 0 = keep forever
+  hiddenModules: [], // page/module labels removed from the Audit Log
 };
 
 function getCompanyId() {

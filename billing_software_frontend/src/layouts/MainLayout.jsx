@@ -508,6 +508,7 @@ export default function MainLayout() {
           <div className="flex-1 overflow-y-auto paysplitx-scrollbar space-y-1 pr-1">
             {[
               { id: "general", label: "General Settings" },
+              { id: "audit-log", label: "Audit Log", icon: <History size={15} /> },
               { id: "invoice-numbering", label: "Invoice Numbering" },
               { id: "terms-conditions", label: "Terms & Conditions", icon: <FileText size={15} /> },
               { id: "print", label: "Print" },

@@ -35,6 +35,7 @@ import EwayBill from "./EwayBill";
 import ServiceReminders from "./ServiceReminders";
 import TransactionMessage from "./TransactionMessage";
 import TermsSettings from "./TermsSettings";
+import AuditLogSettings from "./AuditLogSettings";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
 import { saveSettings, fetchSettings } from "./settingsApi";
@@ -937,6 +938,7 @@ export default function General() {
   return (
     <div className="bg-transparent min-w-0 flex flex-col flex-1">
       {settingsTab === "general" && <GeneralSettings />}
+      {settingsTab === "audit-log" && <AuditLogSettings />}
       {settingsTab === "invoice-numbering" && <InvoiceSettings />}
       {settingsTab === "invoice-design" && <InvoiceDesign />}
       {settingsTab === "print" && <Print />}

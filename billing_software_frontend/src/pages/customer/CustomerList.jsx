@@ -8,14 +8,12 @@ import {
   CheckCircle, ChevronRight, IndianRupee, X, MessageCircle, History,
   MoreVertical, Eye, Users, UserCheck, AlertCircle, TrendingUp,
   FileText, ArrowUpRight, Filter, ChevronLeft, Building2, Check,
-  ShieldAlert, ShieldCheck, RefreshCw, Plus, CheckCircle2
+  ShieldAlert, RefreshCw, Plus, CheckCircle2
 } from "lucide-react";
 import CustomerForm from "./CustomerForm";
 import EditCustomer from "./EditCustomer";
 import CustomerDetailsModal from "./CustomerDetailsModal";
 import StatusBadge from "../../components/ui/StatusBadge";
-import AuditLogRecordDrawer from "../../components/audit/AuditLogRecordDrawer";
-import AuditLogDrawer from "../../components/audit/AuditLogDrawer";
 
 /* ─────────────────── helpers ─────────────────── */
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -58,17 +56,6 @@ export default function CustomerList() {
 
   /* Customer Detail Drawer */
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
-
-  /* Audit trail drawer for a single customer (populated by AuditLogRecordDrawer) */
-  const [auditRecord, setAuditRecord] = useState(null);
-
-  /* Global audit drawer, pre-filtered to Customer entries (header button) */
-  const [auditDrawerOpen, setAuditDrawerOpen] = useState(false);
-
-  const openAuditHistory = (cust) => {
-    setActiveMenuId(null);
-    setAuditRecord({ type: "Customer", id: cust.id, label: cust.name });
-  };
 
   /* collect popup */
   const [showCollect, setShowCollect] = useState(false);
@@ -417,15 +404,6 @@ export default function CustomerList() {
           >
             <Download size={14} className="text-emerald-600" />
             <span>{selectedRows.length > 0 ? `Export (${selectedRows.length})` : "Export Directory"}</span>
-          </button>
-
-          <button
-            onClick={() => setAuditDrawerOpen(true)}
-            className="psx-btn-secondary flex items-center gap-2 px-3.5 py-2 text-xs font-semibold cursor-pointer shadow-xs"
-            title="Audit History"
-          >
-            <History size={14} className="text-indigo-600" />
-            <span>Audit History</span>
           </button>
 
           <button
@@ -892,13 +870,6 @@ export default function CustomerList() {
                     <History size={14} />
                     <span>Records</span>
                   </button>
-                  <button
-                    onClick={() => openAuditHistory(selectedCustomer)}
-                    className="psx-btn-secondary px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <ShieldCheck size={14} />
-                    <span>Audit</span>
-                  </button>
                 </div>
               </div>
 
@@ -1269,21 +1240,6 @@ export default function CustomerList() {
         </div>
       )}
 
-      {/* ── AUDIT HISTORY DRAWER (per-customer trail from audit_logs) ── */}
-      <AuditLogRecordDrawer
-        open={Boolean(auditRecord)}
-        onClose={() => setAuditRecord(null)}
-        recordType={auditRecord?.type}
-        recordId={auditRecord?.id}
-        recordLabel={auditRecord?.label}
-      />
-
-      {/* ── GLOBAL AUDIT DRAWER pre-filtered to Customer entries (header button) ── */}
-      <AuditLogDrawer
-        open={auditDrawerOpen}
-        onClose={() => setAuditDrawerOpen(false)}
-        initialModule="Customer"
-      />
     </div>
   );
 }
