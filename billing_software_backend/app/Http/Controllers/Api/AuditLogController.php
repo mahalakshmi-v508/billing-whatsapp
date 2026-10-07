@@ -10,6 +10,24 @@ use Illuminate\Http\Request;
 class AuditLogController extends Controller
 {
     /**
+     * Exclude pages the company hid from the Audit Log, matching on the stored
+     * module label case-insensitively. Hidden modules are removed from the
+     * query entirely (NOT IN), so they never reach the list, filter options,
+     * search, pagination totals or the summary counters.
+     *
+     * COALESCE keeps legacy rows with a NULL module visible instead of letting
+     * SQL's three-valued logic silently drop them.
+     */
+    private function applyHiddenModules($query, array $hidden)
+    {
+        if ($hidden === []) {
+            return $query;
+        }
+        $placeholders = implode(',', array_fill(0, count($hidden), '?'));
+        return $query->whereRaw("COALESCE(LOWER(module), '') NOT IN ({$placeholders})", $hidden);
+    }
+
+    /**
      * Paginated, filterable audit trail for the History drawer and the
      * full-page report.
      *
@@ -25,6 +43,10 @@ class AuditLogController extends Controller
 
         try {
             $query = AuditLog::where('company_id', $company_id);
+
+            // Pages the company hid from the Audit Log never show up here.
+            $hidden = AuditLogger::hiddenModules($company_id);
+            $query = $this->applyHiddenModules($query, $hidden);
 
             $module = $request->query('module');
             if ($module && $module !== 'all') {
@@ -108,7 +130,13 @@ class AuditLogController extends Controller
         }
 
         try {
-            $base = fn () => AuditLog::where('company_id', $company_id);
+            $hidden = AuditLogger::hiddenModules($company_id);
+            $base = function () use ($company_id, $hidden) {
+                return $this->applyHiddenModules(
+                    AuditLog::where('company_id', $company_id),
+                    $hidden
+                );
+            };
 
             return response()->json([
                 'status' => true,
@@ -139,16 +167,33 @@ class AuditLogController extends Controller
         }
 
         try {
+            $hidden = AuditLogger::hiddenModules($company_id);
+            $base = fn () => $this->applyHiddenModules(
+                AuditLog::where('company_id', $company_id),
+                $hidden
+            );
+
             $today = now()->startOfDay();
             $week = now()->subDays(7);
+
+            $total = $this->applyHiddenModules(AuditLog::where('company_id', $company_id), $hidden);
+            $todayQ = $this->applyHiddenModules(
+                AuditLog::where('company_id', $company_id)->where('created_at', '>=', $today),
+                $hidden
+            );
+            $weekQ = $this->applyHiddenModules(
+                AuditLog::where('company_id', $company_id)->where('created_at', '>=', $week),
+                $hidden
+            );
+            $byAction = $this->applyHiddenModules(AuditLog::where('company_id', $company_id), $hidden);
 
             return response()->json([
                 'status' => true,
                 'data' => [
-                    'total' => AuditLog::where('company_id', $company_id)->count(),
-                    'today' => AuditLog::where('company_id', $company_id)->where('created_at', '>=', $today)->count(),
-                    'week' => AuditLog::where('company_id', $company_id)->where('created_at', '>=', $week)->count(),
-                    'by_action' => AuditLog::where('company_id', $company_id)
+                    'total' => $total->count(),
+                    'today' => $todayQ->count(),
+                    'week' => $weekQ->count(),
+                    'by_action' => $byAction
                         ->select('action')
                         ->selectRaw('COUNT(*) as total')
                         ->groupBy('action')
@@ -180,8 +225,12 @@ class AuditLogController extends Controller
         try {
             $logs = AuditLog::where('company_id', $company_id)
                 ->where('record_type', $record_type)
-                ->where('record_id', (int) $record_id)
-                ->orderBy('id', 'desc')
+                ->where('record_id', (int) $record_id);
+
+            $hidden = AuditLogger::hiddenModules($company_id);
+            $logs = $this->applyHiddenModules($logs, $hidden);
+
+            $logs = $logs->orderBy('id', 'desc')
                 ->limit((int) $request->query('limit', 100))
                 ->get();
 

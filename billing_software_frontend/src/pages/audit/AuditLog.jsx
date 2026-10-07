@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   History,
   Search,
@@ -15,7 +15,7 @@ import {
   Inbox,
   Trash2,
 } from "lucide-react";
-import { fetchAuditLogs, fetchAuditFilters, fetchAuditSummary, clearAuditLogs, logsToCsv, isAuditEnabled } from "../../components/audit/auditApi";
+import { fetchAuditLogs, fetchAuditFilters, fetchAuditSummary, clearAuditLogs, logsToCsv, isAuditEnabled, getAuditSettings } from "../../components/audit/auditApi";
 import { actionStyle, describeChanges, formatTime, groupByDay, roleLabel } from "../../components/audit/auditUi";
 
 /**
@@ -25,8 +25,17 @@ import { actionStyle, describeChanges, formatTime, groupByDay, roleLabel } from 
  * timeline cards) so both surfaces read as the same design. Adds the page-only
  * extras: retention Cleanup, a wider layout and more rows per page.
  */
+
+/** Lower-cased page names switched off in Settings → Audit Log. */
+function readHiddenModules() {
+  return (getAuditSettings().hiddenModules || []).map((m) =>
+    String(m).trim().toLowerCase()
+  );
+}
+
 export default function AuditLog() {
   const [enabled, setEnabled] = useState(() => isAuditEnabled());
+  const [hiddenModules, setHiddenModules] = useState(readHiddenModules);
   const [rows, setRows] = useState([]);
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0, from: 0, to: 0 });
   const [filters, setFilters] = useState({ modules: [], actions: [], users: [] });
@@ -44,8 +53,27 @@ export default function AuditLog() {
   const [showFilters, setShowFilters] = useState(false);
   const [expanded, setExpanded] = useState(null);
 
+  // Latest page selection for the settings-sync callback below (the listener
+  // is registered once, so it must not close over the first render's value).
+  const moduleRef = useRef(module);
   useEffect(() => {
-    const sync = () => setEnabled(isAuditEnabled());
+    moduleRef.current = module;
+  }, [module]);
+
+  useEffect(() => {
+    const sync = () => {
+      const hidden = readHiddenModules();
+      setEnabled(isAuditEnabled());
+      setHiddenModules(hidden);
+
+      // A page switched off while it was the active filter would pin the list
+      // to a module the server now excludes - fall back to "All Pages".
+      const current = moduleRef.current;
+      if (current !== "all" && hidden.includes(current.trim().toLowerCase())) {
+        setModule("all");
+        setPage(1);
+      }
+    };
     window.addEventListener("company-settings-updated", sync);
     return () => window.removeEventListener("company-settings-updated", sync);
   }, []);
@@ -79,14 +107,30 @@ export default function AuditLog() {
     }
   }, [query]);
 
+  // Re-fetch whenever the query changes *or* the Page Coverage config changes,
+  // so toggling a page in Settings updates this list without a manual reload.
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, hiddenModules]);
 
+  // Filter options and counters come from the same hidden-modules query on the
+  // server, so refresh them together with the list.
   useEffect(() => {
     fetchAuditFilters().then(setFilters).catch(() => {});
     fetchAuditSummary().then(setSummary).catch(() => {});
-  }, []);
+  }, [hiddenModules]);
+
+  /**
+   * Pages turned off in Settings → Audit Log never show up as Page-wise filter
+   * chips, so the filter only offers pages that are actually recorded.
+   */
+  const visibleModules = useMemo(
+    () =>
+      filters.modules.filter(
+        (item) => !hiddenModules.includes(String(item).trim().toLowerCase())
+      ),
+    [filters.modules, hiddenModules]
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => setPage(1), 350);
@@ -211,6 +255,39 @@ export default function AuditLog() {
           </div>
         )}
       </div>
+
+      {/* ── Page-wise filter: click a page to see only that page's entries ── */}
+      {filters.modules.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm px-4 py-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+              Filter by Page
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {["all", ...visibleModules].map((value) => {
+                const active = module === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setModule(value);
+                      setPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition cursor-pointer ${
+                      active
+                        ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white border-transparent shadow-sm"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-indigo-200 hover:text-indigo-600"
+                    }`}
+                  >
+                    {value === "all" ? "All Pages" : value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Search + Filters ── */}
       <div className="bg-slate-50/60 rounded-2xl border border-slate-200/80 p-4 space-y-2.5">
@@ -426,17 +503,17 @@ export default function AuditLog() {
                           )}
                         </span>
                       )}
-                      {log.ip_address && (
+                      {/* {log.ip_address && (
                         <span className="inline-flex items-center gap-1">
                           <Globe size={11} className="text-slate-400" />
                           {log.ip_address}
                         </span>
-                      )}
+                      )} */}
                     </div>
 
-                    {log.endpoint && (
+                    {/* {log.endpoint && (
                       <p className="font-mono text-[10px] text-slate-400 truncate">{log.endpoint}</p>
-                    )}
+                    )} */}
 
                     {/* Before/after snapshot */}
                     {(log.old_values || log.new_values) && (
