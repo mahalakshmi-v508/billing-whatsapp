@@ -64,6 +64,7 @@ export default function Dashboard() {
   const [invoices, setInvoices] = useState([]);
   const [unsoldProducts, setUnsoldProducts] = useState([]);
   const [overdueList, setOverdueList] = useState([]);
+  const [expiringProducts, setExpiringProducts] = useState([]);
 
   /* ── UI & Interactivity State ── */
   const [loading, setLoading] = useState(false);
@@ -109,6 +110,7 @@ export default function Dashboard() {
       fetchLowStockProducts(companyId),
       fetchCreditDashboard(companyId),
       fetchRecentInvoices(companyId),
+      fetchExpiringProducts(companyId),
     ]);
     setLoading(false);
   };
@@ -120,6 +122,7 @@ export default function Dashboard() {
       fetchAllData(selectedCompany),
       fetchUnsoldProducts(),
       fetchNotifications(),
+      fetchExpiringProducts(selectedCompany),
     ]);
     setTimeout(() => setIsRefreshing(false), 450);
   };
@@ -175,9 +178,25 @@ export default function Dashboard() {
     }
   };
 
+  const fetchExpiringProducts = async (companyId) => {
+    try {
+      const cId = companyId || selectedCompany;
+      if (!cId) return;
+      const res = await api.get(
+        `/dashboard/get_expiring_products_notification?company_id=${cId}`
+      );
+      if (res.data.status) {
+        setExpiringProducts(res.data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     if (selectedCompany) {
       fetchUnsoldProducts();
+      fetchExpiringProducts(selectedCompany);
     }
   }, [selectedCompany]);
 
@@ -250,7 +269,7 @@ export default function Dashboard() {
   /* ── Derived Analytics & Performance Metrics ── */
   const activeCompany = companies.find((c) => String(c.id) === String(selectedCompany));
 
-  const totalAlerts = overdueList.length + unsoldProducts.length;
+  const totalAlerts = overdueList.length + unsoldProducts.length + expiringProducts.length;
 
   const outOfStockProducts = useMemo(
     () => lowStockProducts.filter((p) => isOutOfStock(p)),
@@ -341,12 +360,23 @@ export default function Dashboard() {
     return unsoldProducts.filter((p) => p.product_name?.toLowerCase().includes(q));
   }, [unsoldProducts, tableSearch]);
 
+  const filteredExpiring = useMemo(() => {
+    if (!tableSearch.trim()) return expiringProducts;
+    const q = tableSearch.toLowerCase();
+    return expiringProducts.filter(
+      (p) =>
+        p.product_name?.toLowerCase().includes(q) ||
+        p.product_code?.toLowerCase().includes(q)
+    );
+  }, [expiringProducts, tableSearch]);
+
   const TAB_DEFS = [
     { key: "invoices", label: "Live Invoices Feed", icon: ReceiptText, count: invoices.length },
     { key: "sales", label: "Monthly Analytics", icon: BarChart2 },
     { key: "outstanding", label: "Receivables & Dues", icon: Wallet, count: creditList.length },
     { key: "lowstock", label: "Stock Alerts", icon: AlertTriangle, count: lowStockProducts.length },
     { key: "unsold", label: "Dormant Inventory", icon: Package, count: unsoldProducts.length },
+    { key: "expire", label: "Expire", icon: Clock, count: expiringProducts.length },
   ];
 
   return (
@@ -997,7 +1027,7 @@ export default function Dashboard() {
                       <span>{t.label}</span>
                       {t.count !== undefined && t.count > 0 && (
                         <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                          t.key === "lowstock" || t.key === "unsold"
+                          t.key === "lowstock" || t.key === "unsold" || t.key === "expire"
                             ? "bg-rose-100 text-rose-700"
                             : "bg-indigo-100 text-indigo-700"
                         }`}>
@@ -1455,6 +1485,135 @@ export default function Dashboard() {
                             <td colSpan={4} className="py-12 text-center text-slate-400 text-xs">
                               <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-2" />
                               Healthy turnover! No dormant inventory detected.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 6: EXPIRING PRODUCTS */}
+              {chartTab === "expire" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 font-display">
+                        Expiring Products Alert
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Products expiring within 30 days requiring urgent clearance or return
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/products")}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                    >
+                      <span>Manage Products</span>
+                      <ArrowRight size={13} />
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse psx-table">
+                      <thead>
+                        <tr>
+                          <th className="w-12">#</th>
+                          <th>Product Name</th>
+                          <th>Current Stock</th>
+                          <th>Price</th>
+                          <th>Expiry Date</th>
+                          <th>Days Left</th>
+                          <th>Urgency</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredExpiring.length > 0 ? (
+                          filteredExpiring.map((p, i) => {
+                            const days = p.days_left ?? 0;
+                            const isCritical = days <= 7;
+                            return (
+                              <tr key={p.id || i} className="hover:bg-slate-50/80 transition">
+                                <td className="font-mono text-slate-400 text-xs">
+                                  {String(i + 1).padStart(2, "0")}
+                                </td>
+                                <td>
+                                  <div className="flex items-center gap-2.5">
+                                    <div
+                                      className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
+                                        isCritical
+                                          ? "bg-rose-100 text-rose-600"
+                                          : "bg-amber-100 text-amber-700"
+                                      }`}
+                                    >
+                                      <Clock size={15} />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="font-bold text-slate-800 text-xs block truncate">
+                                        {p.product_name}
+                                      </span>
+                                      {p.product_code && (
+                                        <span className="font-mono text-[10px] text-slate-400">
+                                          {p.product_code}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black border bg-slate-50 text-slate-700 border-slate-200">
+                                    {p.stock} {p.unit || "units"}
+                                  </span>
+                                </td>
+                                <td className="font-bold text-slate-700 text-xs">
+                                  ₹{Number(p.sale_price || p.price || 0).toLocaleString("en-IN")}
+                                </td>
+                                <td className="text-slate-600 text-xs font-semibold">
+                                  <span className="inline-flex items-center gap-1">
+                                    <Calendar size={12} className="text-slate-400" />
+                                    {p.expiry_date}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                                      days <= 0
+                                        ? "bg-red-50 text-red-700 border-red-200"
+                                        : days <= 7
+                                        ? "bg-rose-50 text-rose-700 border-rose-200"
+                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                    }`}
+                                  >
+                                    {days <= 0 ? "Expires Today" : `${days} ${days === 1 ? "day" : "days"} left`}
+                                  </span>
+                                </td>
+                                <td>
+                                  <StatusBadge
+                                    status={days <= 7 ? "danger" : "warning"}
+                                    label={days <= 0 ? "Expires Today" : days <= 7 ? "Critical Expiry" : "Expiring Soon"}
+                                    size="sm"
+                                  />
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate("/products")}
+                                    className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+                                  >
+                                    View / Edit
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
+                              <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-2" />
+                              All clear! No products expiring within the next 30 days.
                             </td>
                           </tr>
                         )}
