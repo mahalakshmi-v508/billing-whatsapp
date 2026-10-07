@@ -22,19 +22,38 @@ import { calculateLine, splitGst } from "../../utils/gst";
 
 /* ─── PRINT CSS STYLES ─────────────────────────────────────────────────────── */
 const PRINT_CSS = `
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
   @media print {
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+      overflow: visible !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
     body * { visibility: hidden !important; }
     #invoice-print-area, #invoice-print-area * { visibility: visible !important; }
     #invoice-print-area {
-      position: absolute !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 100% !important;
-      margin: 0 !important;
-      padding: 10mm !important;
+      position: static !important;
+      display: block !important;
+      width: 794px !important;
+      max-width: 794px !important;
+      min-height: 1050px !important;
+      margin: 0 auto !important;
+      padding: 8px !important;
+      box-sizing: border-box !important;
       box-shadow: none !important;
       border: none !important;
       background: #ffffff !important;
+      transform: none !important;
+      zoom: 1 !important;
+      overflow: visible !important;
     }
     .no-print { display: none !important; }
   }
@@ -2453,11 +2472,19 @@ export default function InvoicePreview() {
             box-sizing: border-box !important;
             width: ${rollWidth} !important;
             max-width: ${rollWidth} !important;
+            min-height: auto !important;
             padding: 2mm !important;
-            margin: 0 !important;
+            margin: 0 auto !important;
           }
         }`
-      : "";
+      : `@media print {
+          @page { size: A4 portrait; margin: 8mm; }
+          #invoice-print-area {
+            width: 794px !important;
+            max-width: 794px !important;
+            min-height: 1050px !important;
+          }
+        }`;
     s.innerHTML = `${PRINT_CSS}${posPrintCss}`;
     document.head.appendChild(s);
     return () => document.head.removeChild(s);
