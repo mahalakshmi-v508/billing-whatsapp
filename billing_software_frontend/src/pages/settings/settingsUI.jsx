@@ -137,7 +137,7 @@ export function SettingsCard({ title, crown, badge, children, className = "" }) 
 /** Page header shell */
 export function SettingsHeader({ title, subtitle, icon, onClose, actions }) {
   return (
-    <div className="settings-header bg-white/80 backdrop-blur border-b border-slate-200/70 px-8 py-5 flex items-center justify-between gap-4 rounded-t-2xl">
+    <div className="settings-header bg-white/95 backdrop-blur border-b border-slate-200/80 px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between gap-4">
       <div className="flex items-center gap-4 min-w-0">
         <div
           className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20 flex-shrink-0"
