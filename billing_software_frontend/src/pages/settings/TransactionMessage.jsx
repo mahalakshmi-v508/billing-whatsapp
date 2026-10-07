@@ -14,7 +14,6 @@ import {
   FileText,
   Receipt,
   CreditCard,
-  Truck,
   Phone,
   Wifi,
   WifiOff,
@@ -43,12 +42,8 @@ const TYPES = [
   { key: "payment_in", label: "Payment In", category: "Accounts", icon: IndianRupee, desc: "Sent upon receipt of party funds or settlement" },
   { key: "estimate", label: "Estimate / Quotation", category: "Sales", icon: FileText, desc: "Price quote or proforma estimate for prospective buyers" },
   { key: "sales_return", label: "Sales Return (Credit Note)", category: "Sales", icon: RotateCcw, desc: "Sent when party returns goods or claims a credit note" },
-  { key: "sale_order", label: "Sale Order", category: "Sales", icon: Receipt, desc: "Booking order confirmation sent to customer" },
-  { key: "delivery_challan", label: "Delivery Challan", category: "Logistics", icon: Truck, desc: "Transport and consignment dispatch note" },
-  { key: "proforma_invoice", label: "Proforma Invoice", category: "Sales", icon: FileText, desc: "Preliminary commercial bill prior to delivery" },
   { key: "purchase", label: "Purchase Bill", category: "Purchase", icon: Receipt, desc: "Sent to supplier upon receiving raw goods/stock" },
   { key: "payment_out", label: "Payment Out", category: "Accounts", icon: CreditCard, desc: "Disbursement voucher confirmation to vendors" },
-  { key: "purchase_order", label: "Purchase Order", category: "Purchase", icon: FileText, desc: "Official purchase order issued to vendors" },
   { key: "purchase_return", label: "Purchase Return (Dr Note)", category: "Purchase", icon: RotateCcw, desc: "Debit note sent when returning stock to vendor" },
   { key: "cancelled_invoice", label: "Cancelled Invoice", category: "Compliance", icon: ShieldAlert, desc: "Notification when an existing invoice is voided" },
   { key: "expense", label: "Expense Voucher", category: "Accounts", icon: IndianRupee, desc: "Operational expense and payout receipt" },
@@ -60,7 +55,7 @@ const TYPES = [
 
 const TYPES_MAP = Object.fromEntries(TYPES.map((t) => [t.key, t.label]));
 
-const CATEGORIES = ["All", "Sales", "Purchase", "Accounts", "Logistics", "Rewards & Due"];
+const CATEGORIES = ["All", "Sales", "Purchase", "Accounts", "Rewards & Due"];
 
 const VARIABLE_GROUPS = [
   {
