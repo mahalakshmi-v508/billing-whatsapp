@@ -160,6 +160,8 @@ export default function MainLayout() {
     }
   });
 
+  const isSettingsPage = location.pathname.startsWith("/settings");
+
   // Keep settingsTab in sync with URL if on /settings/:tab
   useEffect(() => {
     if (location.pathname.startsWith("/settings/")) {
@@ -167,6 +169,8 @@ export default function MainLayout() {
       if (tab && tab !== "service-reminders") {
         setSettingsTab(tab);
       }
+    } else if (location.pathname === "/settings") {
+      setSettingsTab("general");
     }
   }, [location.pathname]);
 
@@ -502,8 +506,8 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-screen bg-[#f8faff] text-slate-900 overflow-hidden font-sans">
-      {/* ── SETTINGS SIDEBAR (when path is /settings) ── */}
-      {location.pathname === "/settings" ? (
+      {/* ── SETTINGS SIDEBAR (when on /settings or /settings/:tab) ── */}
+      {isSettingsPage ? (
         <motion.div
           initial={false}
           animate={{ width: 270 }}
@@ -536,6 +540,7 @@ export default function MainLayout() {
             {[
               { id: "general", label: "General Settings" },
               { id: "pos-controls", label: "POS & Counter Controls", icon: <Store size={15} /> },
+              { id: "stock-safety", label: "Stock & Inventory Safety", icon: <Boxes size={15} /> },
               { id: "audit-log", label: "Audit Log", icon: <History size={15} /> },
               { id: "invoice-numbering", label: "Invoice Numbering" },
               { id: "terms-conditions", label: "Terms & Conditions", icon: <FileText size={15} /> },
@@ -881,7 +886,7 @@ export default function MainLayout() {
         <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between z-30 flex-shrink-0 shadow-2xs">
           {/* Left: Sidebar Toggle & Dynamic Breadcrumbs Navigation */}
           <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2 sm:mr-4">
-            {location.pathname !== "/settings" && (
+            {!isSettingsPage && (
               <button
                 type="button"
                 onClick={toggleSidebar}
@@ -969,7 +974,7 @@ export default function MainLayout() {
         </header>
 
         {/* MAIN SCROLLABLE CONTENT */}
-        <main className={`flex-1 overflow-auto paysplitx-scrollbar-light ${location.pathname === "/settings" ? "p-0" : "p-4 sm:p-6"}`}>
+        <main className={`flex-1 overflow-auto paysplitx-scrollbar-light ${isSettingsPage ? "p-0" : "p-4 sm:p-6"}`}>
           <SettingsContext.Provider value={{ settingsTab, setSettingsTab }}>
             <Outlet context={{ settingsTab, setSettingsTab }} />
           </SettingsContext.Provider>
