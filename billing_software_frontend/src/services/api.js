@@ -1,4 +1,5 @@
 import axios from "axios";
+import { useApiCacheStore } from "../stores/useApiCacheStore";
 
 const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
@@ -87,5 +88,85 @@ api.interceptors.request.use((config) => {
 }, (error) => {
   return Promise.reject(error);
 });
+
+// Endpoints that require real-time polling / live status and should bypass cache
+const NO_CACHE_PATTERNS = [
+  "/whatsapp/connect_status",
+  "/whatsapp/qr",
+  "/whatsapp/status",
+  "/notifications",
+];
+
+// Response interceptor: automatically invalidate relevant cache entries on mutations (POST, PUT, DELETE, PATCH)
+api.interceptors.response.use(
+  (response) => {
+    const method = response.config?.method?.toLowerCase();
+    if (["post", "put", "delete", "patch"].includes(method)) {
+      const rawUrl = response.config?.url || "";
+      const cleanPath = String(rawUrl).replace(/^\/?api\//, "").replace(/^\/+/, "");
+      const segments = cleanPath.split("/").filter(Boolean);
+      const mainResource = segments[0] ? segments[0].replace(/\.php$/, "") : "";
+
+      if (mainResource) {
+        useApiCacheStore.getState().clearKey(mainResource);
+      }
+    }
+    return response;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Wrap api.get with transparent Zustand in-memory caching
+const originalGet = api.get.bind(api);
+
+api.get = async (url, config = {}) => {
+  const shouldSkip =
+    Boolean(config.skipCache) ||
+    NO_CACHE_PATTERNS.some((pattern) => String(url).includes(pattern));
+
+  if (shouldSkip) {
+    return originalGet(url, config);
+  }
+
+  const user = currentUser();
+  const companyId = activeCompanyId(user) || "default";
+  const paramsKey = config.params ? JSON.stringify(config.params) : "";
+  const cacheKey = `[co:${companyId}] ${url}::${paramsKey}`;
+
+  const cachedData = useApiCacheStore.getState().getCache(cacheKey);
+  if (cachedData !== null) {
+    return {
+      data: cachedData,
+      status: 200,
+      statusText: "OK (Zustand Cache)",
+      headers: {},
+      config,
+      fromCache: true,
+    };
+  }
+
+  const response = await originalGet(url, config);
+
+  if (response && response.status >= 200 && response.status < 300 && response.data) {
+    const ttlMinutes = typeof config.cacheTtlMinutes === "number" ? config.cacheTtlMinutes : 5;
+    useApiCacheStore.getState().setCache(cacheKey, response.data, ttlMinutes);
+  }
+
+  return response;
+};
+
+/**
+ * Manually invalidate specific cache patterns or clear all cache.
+ * e.g., invalidateApiCache("products") or invalidateApiCache() for full reset.
+ */
+export const invalidateApiCache = (pattern) => {
+  if (pattern) {
+    useApiCacheStore.getState().clearKey(pattern);
+  } else {
+    useApiCacheStore.getState().clearAll();
+  }
+};
 
 export default api;

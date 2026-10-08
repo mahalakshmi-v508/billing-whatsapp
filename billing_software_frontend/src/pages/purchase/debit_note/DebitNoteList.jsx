@@ -67,6 +67,7 @@ export default function DebitNoteList() {
   const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState("all");
+  const [firmOpen, setFirmOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState("all");
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState("all");
