@@ -123,7 +123,6 @@ import WhatsAppChat from "../pages/whatsapp/WhatsAppChat";
 
 function BillingRoute() {
   const location = useLocation();
-
   return (
     <Billing
       key={location.state?.entryKey ?? "billing"}
@@ -273,6 +272,7 @@ export default function AppRoutes() {
             {/* Settings & Configuration */}
             <Route path="/settings" element={<General />} />
             <Route path="/settings/service-reminders/select-items" element={<SelectItemsForReminder />} />
+            <Route path="/settings/:tab" element={<General />} />
             
             {/* Company & Customer */}
             <Route path="/company" element={<CompanyList />} />
