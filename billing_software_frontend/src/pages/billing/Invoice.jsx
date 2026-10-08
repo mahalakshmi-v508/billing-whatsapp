@@ -13,6 +13,7 @@ import {
   FileCheck, ShieldCheck, ChevronRight, CornerDownLeft
 } from "lucide-react";
 import {
+  generateInvoicePdf,
   generateInvoicePdfBase64,
   sendInvoiceViaWhatsAppApi,
   getInvoiceLogoUrl,
@@ -2530,11 +2531,12 @@ export default function InvoicePreview() {
           }
         }`
       : `@media print {
-          @page { size: A4 portrait; margin: 0; }
+          @page { size: A4 portrait; margin: 8mm; }
           #invoice-print-area {
-            width: 210mm !important;
-            max-width: 210mm !important;
-            min-height: 297mm !important;
+            width: 194mm !important;
+            max-width: 194mm !important;
+            min-height: 281mm !important;
+            padding: 0 !important;
           }
         }`;
     s.innerHTML = `${PRINT_CSS}${posPrintCss}`;
@@ -2740,21 +2742,13 @@ export default function InvoicePreview() {
           showToast("Failed to download PDF.", "error");
         });
     } else {
-      const opt = {
-        margin: [8, 8, 8, 8],
-        filename: `invoice-${invoice.invoice_no}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      };
-      html2pdf()
-        .set(opt)
-        .from(element)
-        .save()
-        .then(() => {
+      generateInvoicePdf({ element, invoiceNo: invoice.invoice_no, isPOS: false })
+        .then((pdf) => {
+          pdf.save(`invoice-${invoice.invoice_no}.pdf`);
           showToast("PDF downloaded successfully!", "success");
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error("[INVOICE PDF] A4 export failed:", error);
           showToast("Failed to download PDF.", "error");
         });
     }
@@ -2844,9 +2838,11 @@ export default function InvoicePreview() {
   /* Save & Close Navigation */
   const handleSaveAndClose = useCallback(() => {
     localStorage.setItem("skip_invoice_preview", doNotShowAgain ? "true" : "false");
-    const targetRoute = getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
+    const targetRoute = forcePosPrint
+      ? "/billing"
+      : getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
     navigate(targetRoute);
-  }, [doNotShowAgain, invoice, invoiceNo, navigate]);
+  }, [doNotShowAgain, forcePosPrint, invoice, invoiceNo, navigate]);
 
   /* Keyboard Shortcuts */
   useEffect(() => {
@@ -3050,31 +3046,6 @@ export default function InvoicePreview() {
 
         {/* Right Cluster: Quick Actions & Close */}
         <div className="flex items-center gap-2.5">
-          {/* Quick toggle check */}
-          <label className="hidden xl:flex items-center gap-2 cursor-pointer text-xs text-slate-600 hover:text-slate-900">
-            <input
-              type="checkbox"
-              checked={doNotShowAgain}
-              onChange={(e) => {
-                setDoNotShowAgain(e.target.checked);
-                localStorage.setItem("skip_invoice_preview", e.target.checked ? "true" : "false");
-              }}
-              className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-blue-600"
-            />
-            <span>Skip preview next time</span>
-          </label>
-
-          {/* Quick Print Primary Button */}
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all"
-            title="Print document (Ctrl+P)"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Print</span>
-            <kbd className="hidden lg:inline px-1 py-0.2 rounded bg-white/20 text-[9px] font-normal">^P</kbd>
-          </button>
-
           {/* Save & Close Button */}
           <button
             onClick={handleSaveAndClose}

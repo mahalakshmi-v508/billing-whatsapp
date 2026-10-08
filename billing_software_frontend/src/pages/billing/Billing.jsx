@@ -228,6 +228,64 @@ function createFreshBill(id) {
   };
 }
 
+function getInitialBillingSession(storageKey) {
+  const freshSession = {
+    bills: [createFreshBill("SS3")],
+    activeBillId: "SS3",
+    nextBillNumber: 4,
+  };
+
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(storageKey) || "null");
+    if (!stored || !Array.isArray(stored.bills)) return freshSession;
+
+    const seenIds = new Set();
+    const bills = stored.bills.reduce((restoredBills, bill) => {
+      if (
+        !bill ||
+        typeof bill.id !== "string" ||
+        !Array.isArray(bill.rows) ||
+        !bill.customer ||
+        typeof bill.customer !== "object" ||
+        !bill.payment ||
+        typeof bill.payment !== "object" ||
+        seenIds.has(bill.id)
+      ) {
+        return restoredBills;
+      }
+
+      seenIds.add(bill.id);
+      const freshBill = createFreshBill(bill.id);
+      restoredBills.push({
+        ...freshBill,
+        ...bill,
+        rows: bill.rows.filter((row) => row && typeof row === "object"),
+        customer: { ...freshBill.customer, ...bill.customer },
+        payment: { ...freshBill.payment, ...bill.payment },
+      });
+      return restoredBills;
+    }, []);
+
+    if (bills.length === 0) return freshSession;
+
+    const highestBillNumber = bills.reduce((highest, bill) => {
+      const match = bill.id.match(/^SS(\d+)$/);
+      return match ? Math.max(highest, Number(match[1])) : highest;
+    }, 3);
+
+    return {
+      bills,
+      activeBillId: bills.some((bill) => bill.id === stored.activeBillId)
+        ? stored.activeBillId
+        : bills[0].id,
+      nextBillNumber: Math.max(Number(stored.nextBillNumber) || 4, highestBillNumber + 1),
+    };
+  } catch (error) {
+    console.warn("[POS BILLING] Could not restore the saved billing session:", error);
+    return freshSession;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════ */
@@ -235,11 +293,13 @@ export default function Billing() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
   const navigate = useNavigate();
+  const billingSessionKey = `pos_billing_session_${user.id || adminId || "guest"}`;
+  const [initialBillingSession] = useState(() => getInitialBillingSession(billingSessionKey));
 
   /* ══ MULTI-BILL TAB STATE ══ */
-  const [bills, setBills] = useState(() => [createFreshBill("SS3")]);
-  const [activeBillId, setActiveBillId] = useState("SS3");
-  const billCounterRef = useRef(4);
+  const [bills, setBills] = useState(initialBillingSession.bills);
+  const [activeBillId, setActiveBillId] = useState(initialBillingSession.activeBillId);
+  const billCounterRef = useRef(initialBillingSession.nextBillNumber);
 
   const activeBill = bills.find((b) => b.id === activeBillId) || bills[0];
 
@@ -356,6 +416,18 @@ export default function Billing() {
   }, [products]);
 
   /* ══ EFFECTS ══ */
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(billingSessionKey, JSON.stringify({
+        bills,
+        activeBillId,
+        nextBillNumber: billCounterRef.current,
+      }));
+    } catch (error) {
+      console.error("[POS BILLING] Could not save the billing session:", error);
+    }
+  }, [activeBillId, billingSessionKey, bills]);
+
   useEffect(() => {
     api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
       .then((res) => {
@@ -538,21 +610,21 @@ export default function Billing() {
   }, []);
 
   const closeBill = useCallback((billId) => {
-    setBills((prev) => {
-      const remaining = prev.filter((b) => b.id !== billId);
-      if (remaining.length === 0) {
-        const fresh = createFreshBill("SS3");
-        billCounterRef.current = 4;
-        return [fresh];
-      }
-      if (activeBillId === billId) {
-        const idx = prev.findIndex((b) => b.id === billId);
-        const nextIdx = idx > 0 ? idx - 1 : 0;
-        setActiveBillId(remaining[nextIdx].id);
-      }
-      return remaining;
-    });
-  }, [activeBillId]);
+    const remaining = bills.filter((bill) => bill.id !== billId);
+    if (remaining.length === 0) {
+      const fresh = createFreshBill("SS3");
+      billCounterRef.current = 4;
+      setActiveBillId(fresh.id);
+      setBills([fresh]);
+      return;
+    }
+    if (activeBillId === billId) {
+      const index = bills.findIndex((bill) => bill.id === billId);
+      const nextIndex = index > 0 ? index - 1 : 0;
+      setActiveBillId(remaining[nextIndex].id);
+    }
+    setBills(remaining);
+  }, [activeBillId, bills]);
 
   const switchBill = useCallback((billId) => {
     setActiveBillId(billId);
@@ -1095,7 +1167,7 @@ export default function Billing() {
         if (action === "preview") {
           const invoiceRef = res.data.invoice_no || res.data.invoice_id;
           if (invoiceRef) {
-            navigate(`/invoice/${encodeURIComponent(String(invoiceRef))}`, {
+            navigate(`/invoice/${encodeURIComponent(String(invoiceRef))}?posPrint=1`, {
               state: { flash: successMsg, flashType: "success" },
             });
           } else {
