@@ -414,25 +414,45 @@ html.dark .bg-\[\#f1f5f9\] {
 
 html.dark .bg-slate-50,
 html.dark .bg-gray-50,
-html.dark .bg-zinc-50 {
+html.dark .bg-zinc-50,
+html.dark .bg-slate-50\/95,
+html.dark .bg-slate-50\/90,
+html.dark .bg-slate-50\/80,
+html.dark .bg-slate-50\/70,
+html.dark .bg-slate-50\/60,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-50\/40,
+html.dark .bg-gray-50\/90,
+html.dark .bg-gray-50\/80,
+html.dark .bg-gray-50\/70,
+html.dark .bg-gray-50\/60,
+html.dark .bg-gray-50\/50 {
   background-color: #141d2e !important;
 }
 
 html.dark .bg-slate-100,
 html.dark .bg-gray-100,
-html.dark .bg-zinc-100 {
-  background-color: #1e293b !important;
-}
-
+html.dark .bg-zinc-100,
+html.dark .bg-slate-100\/95,
+html.dark .bg-slate-100\/90,
 html.dark .bg-slate-100\/80,
-html.dark .bg-slate-50\/60,
-html.dark .bg-slate-100\/50 {
+html.dark .bg-slate-100\/70,
+html.dark .bg-slate-100\/60,
+html.dark .bg-slate-100\/50,
+html.dark .bg-gray-100\/90,
+html.dark .bg-gray-100\/80,
+html.dark .bg-gray-100\/70,
+html.dark .bg-gray-100\/60,
+html.dark .bg-gray-100\/50 {
   background-color: #1e293b !important;
 }
 
 html.dark .bg-slate-200,
 html.dark .bg-gray-200,
-html.dark .bg-zinc-200 {
+html.dark .bg-zinc-200,
+html.dark .bg-slate-200\/80,
+html.dark .bg-slate-200\/60,
+html.dark .bg-slate-200\/50 {
   background-color: #334155 !important;
 }
 
@@ -579,8 +599,11 @@ html.dark .text-gray-400 {
 /* 6. Border Adaptations */
 html.dark .border-slate-100,
 html.dark .border-slate-200,
-html.dark .border-slate-200\/80,
 html.dark .border-slate-200\/90,
+html.dark .border-slate-200\/80,
+html.dark .border-slate-200\/70,
+html.dark .border-slate-200\/60,
+html.dark .border-slate-200\/50,
 html.dark .border-slate-300,
 html.dark .border-gray-100,
 html.dark .border-gray-200,
@@ -593,6 +616,14 @@ html.dark .border-\[\#e2e8f0\] {
 html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
 html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
   border-color: #334155 !important;
+}
+
+/* Recharts Dark Theme Global Enhancements */
+html.dark .recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.08) !important;
+}
+html.dark .recharts-cartesian-axis-tick text {
+  fill: #94a3b8 !important;
 }
 
 /* 7. Form Inputs & Controls */
