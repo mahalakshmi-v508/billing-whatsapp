@@ -2,7 +2,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import api from "../../services/api";
-import html2pdf from "html2pdf.js";
 import {
   Download, Printer, FileText, ChevronDown, ChevronUp,
   X, Maximize2, Minimize2, Check, Share2, MessageCircle, Mail,
@@ -1384,7 +1383,7 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
         </div>
       </div>
 
-      <div style={S.divider} />
+      <div className="thermal-pos-details-divider" style={S.divider} />
 
       {isPaymentVoucher ? (
         <div style={{ padding: "4px 0" }}>
@@ -1417,7 +1416,7 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
       ) : (
         <>
           {/* Item Table */}
-          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
+          <table className="thermal-pos-items-table" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
             <thead>
               <tr style={{ borderBottom: "1px dashed #000000" }}>
                 {printSettings.showSNo !== false && <th style={{ textAlign: "left", width: "12%", paddingBottom: 3, fontWeight: "bold" }}>#</th>}
@@ -1766,7 +1765,7 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
           </div>
 
           {/* Prominent High Contrast Total Banner */}
-          <div style={{
+          <div className="thermal-pos-modern-total-banner" style={{
             background: "#0f172a",
             color: "#ffffff",
             borderRadius: 6,
@@ -1781,7 +1780,7 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
           </div>
 
           {/* Payment Status Bar */}
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#334155", background: "#f8fafc", padding: "4px 6px", borderRadius: 4, border: "1px solid #e2e8f0" }}>
+          <div className="thermal-pos-modern-status-bar" style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#334155", background: "#f8fafc", padding: "4px 6px", borderRadius: 4, border: "1px solid #e2e8f0" }}>
             {showPaymentMode && <span>Payment: <strong>{paymentMethod}</strong></span>}
             {showBalance && <span>Status: <strong style={{ color: balanceAmount > 0 ? "#dc2626" : "#16a34a" }}>{balanceAmount > 0 ? `Due ₹${formatCurrency(balanceAmount, printSettings)}` : "PAID FULL"}</strong></span>}
           </div>
@@ -1909,7 +1908,7 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
         </tbody>
       </table>
 
-      <div style={{ borderBottom: "1px dashed #000", margin: "3px 0" }} />
+      <div className="thermal-pos-details-divider" style={{ borderBottom: "1px dashed #000", margin: "3px 0" }} />
 
       {isPaymentVoucher ? (
         <div style={{ padding: "4px 0" }}>
@@ -2092,7 +2091,7 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
   const showTerms = printSettings.printTerms !== false && Boolean(termsText);
 
   return (
-    <div style={{
+    <div className="thermal-pos-minimal-receipt" style={{
       fontFamily: "'Courier New', Courier, monospace",
       fontSize: 11,
       color: "#000000",
@@ -2262,7 +2261,7 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
         <div>{partyLabel} {invoice.customer_name || invoice.party_name || "Valued Patron"}</div>
       </div>
 
-      <div style={{ borderBottom: "1px solid #000", margin: "4px 0" }} />
+      <div style={{ borderBottom: "1px solid #000", margin: "10px 0 4px" }} />
 
       {isPaymentVoucher ? (
         <div style={{ padding: "4px 0" }}>
@@ -2299,11 +2298,11 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
             <thead>
               <tr style={{ borderBottom: "1px dashed #71717a" }}>
-                {printSettings.showSNo !== false && <th style={{ textAlign: "left", paddingBottom: 2, fontWeight: "bold", width: 16 }}>#</th>}
-                <th style={{ textAlign: "left", paddingBottom: 2, fontWeight: "bold" }}>ITEM DESCRIPTION</th>
-                <th style={{ textAlign: "center", paddingBottom: 2, fontWeight: "bold" }}>QTY</th>
-                <th style={{ textAlign: "right", paddingBottom: 2, fontWeight: "bold" }}>PRICE</th>
-                <th style={{ textAlign: "right", paddingBottom: 2, fontWeight: "bold" }}>TOTAL</th>
+                {printSettings.showSNo !== false && <th style={{ textAlign: "left", paddingBottom: 6, fontWeight: "bold", width: 16 }}>#</th>}
+                <th style={{ textAlign: "left", paddingBottom: 6, fontWeight: "bold" }}>ITEM DESCRIPTION</th>
+                <th style={{ textAlign: "center", paddingBottom: 6, fontWeight: "bold" }}>QTY</th>
+                <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: "bold" }}>PRICE</th>
+                <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: "bold" }}>TOTAL</th>
               </tr>
             </thead>
             <tbody>
@@ -2680,6 +2679,7 @@ export default function InvoicePreview() {
           element,
           invoiceNo: invoice.invoice_no,
           isPOS,
+          pageSize,
         });
 
         return api.post("/transaction-messages/attach-pdf", {
@@ -2700,7 +2700,7 @@ export default function InvoicePreview() {
       });
 
     return () => { cancelled = true; };
-  }, [invoice, isPOS]);
+  }, [invoice, isPOS, pageSize]);
 
   /* PDF Download */
   const downloadPDF = useCallback(() => {
@@ -2709,36 +2709,21 @@ export default function InvoicePreview() {
 
     showToast("Generating PDF download...", "info");
     if (isPOS) {
-      const elementHeight = element.scrollHeight || element.offsetHeight || 550;
-      const heightInMm = Math.max(140, Math.ceil((elementHeight * 25.4) / 96) + 8);
-
-      const opt = {
-        margin: [2, 2, 2, 2],
-        filename: `invoice-${invoice.invoice_no}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 3,
-          useCORS: true,
-          logging: false,
-          width: 275,
-          windowWidth: 275,
-          scrollX: 0,
-          scrollY: 0,
-        },
-        jsPDF: {
-          unit: "mm",
-          format: [80, heightInMm],
-          orientation: "portrait",
-        },
-      };
-      html2pdf()
-        .set(opt)
-        .from(element)
-        .save()
-        .then(() => {
+      generateInvoicePdf({
+        element,
+        invoiceNo: invoice.invoice_no,
+        isPOS: true,
+        pageSize,
+        lowerPosDetailsDivider: true,
+        centerModernPosSummary: selectedPosLayout === "pos_modern",
+        fixMinimalPosPdf: selectedPosLayout === "pos_minimal",
+      })
+        .then((pdf) => {
+          pdf.save(`invoice-${invoice.invoice_no}.pdf`);
           showToast("PDF downloaded successfully!", "success");
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error("[THERMAL PDF] Failed to export receipt:", error);
           showToast("Failed to download PDF.", "error");
         });
     } else {
@@ -2752,7 +2737,7 @@ export default function InvoicePreview() {
           showToast("Failed to download PDF.", "error");
         });
     }
-  }, [invoice, isPOS, showToast]);
+  }, [invoice, isPOS, pageSize, selectedPosLayout, showToast]);
 
   /* Print */
   const handlePrint = useCallback(() => {
@@ -2766,7 +2751,7 @@ export default function InvoicePreview() {
 
     setWaSending(true);
     showToast("Preparing & sending PDF via WhatsApp...", "info");
-    generateInvoicePdfBase64({ element, invoiceNo: invoice.invoice_no, isPOS })
+    generateInvoicePdfBase64({ element, invoiceNo: invoice.invoice_no, isPOS, pageSize })
       .then((pdf_base64) =>
         sendInvoiceViaWhatsAppApi({
           company_id: invoice.company_id,
@@ -2782,7 +2767,7 @@ export default function InvoicePreview() {
         showToast(err.response?.data?.message || "Failed to send invoice via WhatsApp.", "error");
       })
       .finally(() => setWaSending(false));
-  }, [invoice, isPOS, waSending, showToast]);
+  }, [invoice, isPOS, pageSize, waSending, showToast]);
 
   /* Transaction Message via WhatsApp */
   const sendTransactionMessage = useCallback(() => {
