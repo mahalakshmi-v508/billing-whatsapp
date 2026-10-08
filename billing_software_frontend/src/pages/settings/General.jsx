@@ -23,6 +23,9 @@ import {
   Zap,
   ArrowRight,
   Hash,
+  Languages,
+  Sun,
+  Moon,
 } from "lucide-react";
 import api from "../../services/api";
 import InvoiceSettings from "./InvoiceSettings";
@@ -37,6 +40,8 @@ import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
 import { saveSettings, fetchSettings } from "./settingsApi";
 import { AUDIT_SETTINGS_KEY, DEFAULT_AUDIT_SETTINGS } from "../../components/audit/auditApi";
+import { applyTheme, applyLanguage } from "../../utils/themeInitializer";
+import { t, useLanguage } from "../../utils/i18n";
 
 const blue = "#2563eb";
 const gradient = "linear-gradient(135deg, #1f8cff 0%, #4338ca 100%)";
@@ -52,6 +57,8 @@ const DEFAULT_PREFERENCES = {
   audioChimeOnSuccess: true,
   autoFocusBarcodeSearch: true,
   showShortcutHints: true,
+  appLanguage: "en",
+  themeMode: "light",
 };
 
 const CURRENCIES = [
@@ -94,12 +101,43 @@ function GeneralSettings() {
   const [preferences, setPreferences] = useState(() => {
     try {
       const saved = localStorage.getItem("general_settings");
-      if (saved) return { ...DEFAULT_PREFERENCES, ...JSON.parse(saved) };
+      const parsed = saved ? JSON.parse(saved) : {};
+      const rawTheme = localStorage.getItem("app_theme");
+      const savedTheme = rawTheme === "dark" ? "light" : (rawTheme || parsed.themeMode || "light");
+      const savedLang = localStorage.getItem("app_language") || parsed.appLanguage || DEFAULT_PREFERENCES.appLanguage;
+      return {
+        ...DEFAULT_PREFERENCES,
+        ...parsed,
+        themeMode: savedTheme,
+        appLanguage: savedLang,
+      };
     } catch (e) {
       /* ignore */
     }
     return DEFAULT_PREFERENCES;
   });
+
+  // Keep DOM synchronized on component mount & listen for external changes
+  useEffect(() => {
+    if (preferences.themeMode) applyTheme(preferences.themeMode);
+    if (preferences.appLanguage) applyLanguage(preferences.appLanguage);
+
+    const handleTheme = (e) => {
+      const theme = e?.detail || localStorage.getItem("app_theme") || "light";
+      setPreferences((prev) => (prev.themeMode === theme ? prev : { ...prev, themeMode: theme }));
+    };
+    const handleLang = (e) => {
+      const lang = e?.detail || localStorage.getItem("app_language") || "en";
+      setPreferences((prev) => (prev.appLanguage === lang ? prev : { ...prev, appLanguage: lang }));
+    };
+
+    window.addEventListener("app_theme_changed", handleTheme);
+    window.addEventListener("app_language_changed", handleLang);
+    return () => {
+      window.removeEventListener("app_theme_changed", handleTheme);
+      window.removeEventListener("app_language_changed", handleLang);
+    };
+  }, []);
 
   let user = {};
   try {
@@ -176,6 +214,14 @@ function GeneralSettings() {
   const updatePreference = (key, value) => {
     setPreferences((prev) => {
       const updated = { ...prev, [key]: value };
+
+      // Apply live effects immediately
+      if (key === "themeMode") {
+        applyTheme(value);
+      } else if (key === "appLanguage") {
+        applyLanguage(value);
+      }
+
       try {
         localStorage.setItem("general_settings", JSON.stringify(updated));
         window.dispatchEvent(new Event("storage"));
@@ -185,7 +231,14 @@ function GeneralSettings() {
       saveSettings({ general: updated });
       return updated;
     });
-    showToast("Preference updated successfully");
+
+    if (key === "themeMode") {
+      showToast(value === "dark" ? "Dark Theme activated (இரவு பயன்முறை)" : "Light Mode activated (வெளிச்ச பயன்முறை)");
+    } else if (key === "appLanguage") {
+      showToast(value === "ta" ? "முழுமையான தமிழ் மொழி மாற்றப்பட்டது (Tamil UI active)" : "Language switched to English (முழுமையாக ஆங்கிலம் மாற்றப்பட்டது)");
+    } else {
+      showToast("Preference updated successfully");
+    }
   };
 
   const showToast = (message) => {
@@ -220,10 +273,16 @@ function GeneralSettings() {
     return companies.find((c) => String(c.id) === String(selectedCompany)) || companies[0] || null;
   }, [companies, selectedCompany]);
 
+  const isTamil = preferences.appLanguage === "ta";
+
   return (
     <SettingsShell
-      title="General Settings"
-      subtitle="FIRM WORKSPACE, REGIONAL STANDARDS & SYSTEM PREFERENCES"
+      title={isTamil ? "பொது அமைப்புகள் (General Settings)" : "General Settings"}
+      subtitle={
+        isTamil
+          ? "நிறுவன பணியிடம், பிராந்திய அமைப்புகள் & விருப்பங்கள்"
+          : "FIRM WORKSPACE, REGIONAL STANDARDS & SYSTEM PREFERENCES"
+      }
       icon={<Settings size={22} strokeWidth={2.2} />}
       contentClassName="p-2 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans"
     >
@@ -248,17 +307,19 @@ function GeneralSettings() {
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-lg md:text-xl font-black tracking-tight text-white">
-                  {activeCompanyObj ? activeCompanyObj.company_name : "Workspace Setup"}
+                  {activeCompanyObj ? activeCompanyObj.company_name : isTamil ? "பணியிட அமைப்பு" : "Workspace Setup"}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-[11px] font-bold flex items-center gap-1">
-                  <Crown size={11} className="text-amber-400" /> Default Workspace
+                  <Crown size={11} className="text-amber-400" /> {isTamil ? "முதன்மை பணியிடம்" : "Default Workspace"}
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold flex items-center gap-1">
-                  <CheckCircle2 size={11} /> Ready & Active
+                  <CheckCircle2 size={11} /> {isTamil ? "செயலில் உள்ளது" : "Ready & Active"}
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1">
-                Configure primary billing identity, regional currencies, number formatting, and POS workflow options.
+                {isTamil
+                  ? "முதன்மை பில்லிங் அடையாளம், பிராந்திய நாணயங்கள், காட்சி தீம்கள் மற்றும் விற்பனை விருப்பங்களை நிர்வகிக்கவும்."
+                  : "Configure primary billing identity, regional currencies, number formatting, and POS workflow options."}
               </p>
             </div>
           </div>
@@ -271,7 +332,7 @@ function GeneralSettings() {
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 text-white border border-white/15 text-xs font-bold transition shadow-xs cursor-pointer"
             >
               <RefreshCw size={13} className={loading ? "animate-spin text-blue-400" : ""} />
-              <span>Refresh Firms</span>
+              <span>{isTamil ? "நிறுவனங்களைப் புதுப்பி" : "Refresh Firms"}</span>
             </button>
           </div>
         </div>
@@ -441,11 +502,175 @@ function GeneralSettings() {
             RIGHT COLUMN (5 COLS): REGIONAL, CURRENCY & SYSTEM DEFAULTS
         ══════════════════════════════════════════════════════════════ */}
         <div className="lg:col-span-5 space-y-6">
+          {/* ══════════════════════════════════════════════════════════════
+              CARD: 7. 🎨 காட்சி & மொழி (DISPLAY & THEME)
+              CONTAINS ONLY: App Language & Dark Mode (per user request)
+          ══════════════════════════════════════════════════════════════ */}
+          <div className="bg-white rounded-2xl border-2 border-indigo-200/90 dark:border-indigo-900/60 shadow-xs p-5 space-y-5 relative overflow-hidden">
+            {/* Top gradient decorative glow */}
+            <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-indigo-500/10 via-violet-500/5 to-transparent rounded-bl-full pointer-events-none" />
+
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 relative z-10">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-5 rounded-full bg-gradient-to-b from-indigo-600 via-violet-600 to-purple-600" />
+                <div>
+                  <h2 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>{isTamil ? "7. 🎨 காட்சி & தோற்றம்" : "7. 🎨 Display & Theme"}</span>
+                  </h2>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {isTamil
+                      ? "பயன்பாட்டு மொழி மற்றும் இரவு நேர தோற்ற அமைப்புகள்"
+                      : "Application language & dark mode theme controls"}
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800">
+                {isTamil ? "விருப்பங்கள்" : "Preferences"}
+              </span>
+            </div>
+
+            {/* 1. App Language (தமிழ் / ஆங்கிலம்) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Languages size={15} className="text-indigo-600 dark:text-indigo-400" />
+                  <span>{isTamil ? "பயன்பாட்டு மொழி" : "App Language"}</span>
+                </label>
+                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md">
+                  {preferences.appLanguage === "ta" ? "தமிழ் செயலில் உள்ளது" : "English Active"}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                • <strong>{isTamil ? "பயன்பாட்டு மொழி" : "App Language"}</strong> – {isTamil ? "தமிழ் அல்லது ஆங்கில மொழியைத் தேர்ந்தெடுக்கவும்." : "Switch between English and Tamil."}
+              </p>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* English option */}
+                <button
+                  type="button"
+                  onClick={() => updatePreference("appLanguage", "en")}
+                  className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer relative flex flex-col justify-between gap-2 ${
+                    preferences.appLanguage === "en"
+                      ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 shadow-xs ring-2 ring-indigo-500/10"
+                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-bold">🇬🇧</span>
+                    {preferences.appLanguage === "en" && (
+                      <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-xs">
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">{isTamil ? "ஆங்கிலம்" : "English"}</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{isTamil ? "முழுமையான ஆங்கில இடைமுகம்" : "English UI mode"}</span>
+                  </div>
+                </button>
+
+                {/* Tamil option */}
+                <button
+                  type="button"
+                  onClick={() => updatePreference("appLanguage", "ta")}
+                  className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer relative flex flex-col justify-between gap-2 ${
+                    preferences.appLanguage === "ta"
+                      ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 shadow-xs ring-2 ring-indigo-500/10"
+                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-bold">🇮🇳</span>
+                    {preferences.appLanguage === "ta" && (
+                      <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-xs">
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">{isTamil ? "தமிழ்" : "Tamil (தமிழ்)"}</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{isTamil ? "முழுமையான தமிழ் இடைமுகம்" : "Full Tamil UI mode"}</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Dark Mode */}
+            <div className="space-y-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Moon size={15} className="text-indigo-600 dark:text-indigo-400" />
+                  <span>{isTamil ? "இரவு பயன்முறை" : "Dark Mode"}</span>
+                </label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={preferences.themeMode === "dark"}
+                  onClick={() => updatePreference("themeMode", preferences.themeMode === "dark" ? "light" : "dark")}
+                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${
+                    preferences.themeMode === "dark" ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                      preferences.themeMode === "dark" ? "left-[22px]" : "left-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                • <strong>{isTamil ? "இரவு பயன்முறை" : "Dark Mode"}</strong> – {isTamil ? "இரவு நேரம் மற்றும் கண் சோர்வை குறைக்க கருப்பு நிற தோற்றம்." : "Dark theme for eye comfort."}
+              </p>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Light Mode */}
+                <button
+                  type="button"
+                  onClick={() => updatePreference("themeMode", "light")}
+                  className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
+                    preferences.themeMode !== "dark"
+                      ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 shadow-xs ring-2 ring-indigo-500/10"
+                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900/40"
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
+                    <Sun size={17} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">{isTamil ? "பகல் பயன்முறை" : "Light Mode"}</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">{isTamil ? "வெளிச்சமான தோற்றம்" : "Daylight mode"}</span>
+                  </div>
+                </button>
+
+                {/* Dark Mode */}
+                <button
+                  type="button"
+                  onClick={() => updatePreference("themeMode", "dark")}
+                  className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center gap-3 ${
+                    preferences.themeMode === "dark"
+                      ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/50 shadow-xs ring-2 ring-indigo-500/10"
+                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900/40"
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-indigo-950 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-800/60">
+                    <Moon size={17} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">{isTamil ? "இரவு பயன்முறை" : "Dark Mode"}</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">{isTamil ? "இருண்ட தோற்றம்" : "Night theme"}</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Card: Regional & Currency Preferences */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
             <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
               <span className="w-1.5 h-4 rounded-full bg-indigo-600" />
-              <h2 className="text-sm font-bold text-slate-900">Regional & Currency Standards</h2>
+              <h2 className="text-sm font-bold text-slate-900">
+                {isTamil ? "பிராந்திய & நாணய அமைப்புகள் (Regional & Currency)" : "Regional & Currency Standards"}
+              </h2>
             </div>
 
             {/* Currency Selector */}

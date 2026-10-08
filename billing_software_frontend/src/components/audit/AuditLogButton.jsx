@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { History } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getAuditSettings } from "./auditApi";
+import { useLanguage } from "../../utils/i18n";
 
 /**
  * The single Audit Log trigger mounted in the app shell header.
@@ -13,6 +14,7 @@ import { getAuditSettings } from "./auditApi";
  */
 export default function AuditLogButton({ className = "" }) {
   const navigate = useNavigate();
+  const { t: translate } = useLanguage();
 
   // Master switch plus the separate "show button in header" preference.
   const isAuditSettingsOn = () => {
@@ -40,11 +42,11 @@ export default function AuditLogButton({ className = "" }) {
     <button
       type="button"
       onClick={() => navigate("/audit-log")}
-      title="Audit Log"
-      className={`h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-xs flex items-center gap-2 text-xs font-bold transition cursor-pointer flex-shrink-0 ${className}`}
+      title={translate("Audit Log")}
+      className={`h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-xs flex items-center gap-2 text-xs font-bold transition cursor-pointer flex-shrink-0 whitespace-nowrap ${className}`}
     >
-      <History size={15} className="text-indigo-600" />
-      <span className="hidden sm:inline">Audit Log</span>
+      <History size={15} className="text-indigo-600 flex-shrink-0" />
+      <span className="hidden sm:inline whitespace-nowrap">{translate("Audit Log")}</span>
     </button>
   );
 }

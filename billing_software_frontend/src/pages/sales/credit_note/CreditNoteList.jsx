@@ -34,6 +34,7 @@ import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
+import { useLanguage } from "../../../utils/i18n";
 
 const DEFAULT_COLUMNS = [
   { key: "index", label: "#", icon: Hash, color: "text-slate-600", bg: "bg-slate-100", desc: "Index sequence number" },
@@ -49,6 +50,7 @@ const DEFAULT_COLUMNS = [
 ];
 
 export default function CreditNoteList() {
+  const { t: translate } = useLanguage();
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
@@ -324,10 +326,10 @@ export default function CreditNoteList() {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Sale Return / Credit Notes
+              {translate("Sale Return / Credit Notes")}
             </h1>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Manage merchandise returns, credit adjustments, and refund vouchers
+              {translate("Manage merchandise returns, credit adjustments, and refund vouchers")}
             </p>
           </div>
         </div>
@@ -343,7 +345,7 @@ export default function CreditNoteList() {
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.8} />
-            <span>Create Credit Note</span>
+            <span>{translate("Create Credit Note")}</span>
           </button>
         </div>
       </div>
@@ -355,7 +357,7 @@ export default function CreditNoteList() {
           <div className="absolute top-0 left-0 right-0 h-1 bg-rose-500" />
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Return Value</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{translate("Total Return Value")}</p>
               <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
                 ₹ {totals.totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
@@ -365,9 +367,9 @@ export default function CreditNoteList() {
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>{filteredNotes.length} Total Credit Notes</span>
+            <span>{filteredNotes.length} {translate("Total Credit Notes")}</span>
             <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-              Merchandise Returns
+              {translate("Merchandise Returns")}
             </span>
           </div>
         </div>
@@ -377,7 +379,7 @@ export default function CreditNoteList() {
           <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Refunded / Settled</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{translate("Refunded / Settled")}</p>
               <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
                 ₹ {(totals.totalAmt - totals.balanceAmt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
@@ -387,9 +389,9 @@ export default function CreditNoteList() {
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>Cash / Ledger Settle</span>
+            <span>{translate("Cash / Ledger Settle")}</span>
             <span className="text-[11px] font-semibold text-emerald-600">
-              {totals.totalAmt > 0 ? `${Math.round(((totals.totalAmt - totals.balanceAmt) / totals.totalAmt) * 100)}%` : "0%"} settled
+              {totals.totalAmt > 0 ? `${Math.round(((totals.totalAmt - totals.balanceAmt) / totals.totalAmt) * 100)}%` : "0%"} {translate("Paid / Settled")}
             </span>
           </div>
         </div>
@@ -399,7 +401,7 @@ export default function CreditNoteList() {
           <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Unadjusted Credit</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{translate("Unadjusted Credit")}</p>
               <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight">
                 ₹ {totals.balanceAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
@@ -409,9 +411,9 @@ export default function CreditNoteList() {
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>Available customer credit</span>
+            <span>{translate("Available customer credit")}</span>
             <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-              Pending offset
+              {translate("Pending offset")}
             </span>
           </div>
         </div>
@@ -421,7 +423,7 @@ export default function CreditNoteList() {
           <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Average Return</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{translate("Average Return")}</p>
               <h3 className="text-2xl font-black text-indigo-600 mt-1 tracking-tight">
                 ₹ {filteredNotes.length > 0 ? (totals.totalAmt / filteredNotes.length).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
               </h3>
@@ -431,8 +433,8 @@ export default function CreditNoteList() {
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>Per return transaction</span>
-            <span className="text-[11px] font-semibold text-slate-600">Active period</span>
+            <span>{translate("Per return transaction")}</span>
+            <span className="text-[11px] font-semibold text-slate-600">{translate("Active period")}</span>
           </div>
         </div>
       </div>
@@ -440,7 +442,7 @@ export default function CreditNoteList() {
       {/* ── 3. FILTER TOOLBAR ── */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">{translate("Filter by:")}</span>
 
           {/* Period Selector */}
           <div className="relative">
@@ -448,7 +450,7 @@ export default function CreditNoteList() {
               onClick={() => setPeriodOpen(!periodOpen)}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <span>{period === "all_time" ? "All Time" : period === "this_month" ? "This Month" : period.replace("_", " ")}</span>
+              <span>{period === "all_time" ? translate("All Time") : period === "this_month" ? translate("This Month") : translate(period.replace("_", " "))}</span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -469,7 +471,7 @@ export default function CreditNoteList() {
                       period === p.val ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                     }`}
                   >
-                    {p.label}
+                    {translate(p.label)}
                   </button>
                 ))}
               </div>
@@ -502,8 +504,8 @@ export default function CreditNoteList() {
             >
               <span>
                 {selectedFirm === "all"
-                  ? "All Store"
-                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Company"}
+                  ? translate("All Store")
+                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || translate("Company")}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
             </button>
@@ -519,7 +521,7 @@ export default function CreditNoteList() {
                     selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
-                  All Store
+                  {translate("All Store")}
                 </button>
                 {companies.map((c) => (
                   <button
@@ -546,11 +548,11 @@ export default function CreditNoteList() {
               onChange={(e) => setPaymentFilter(e.target.value)}
               className="bg-transparent outline-none cursor-pointer text-xs font-semibold text-slate-700"
             >
-              <option value="all">All Payment</option>
-              <option value="unpaid">Unpaid / Unused</option>
-              <option value="partial">Partial</option>
-              <option value="paid">Paid / Settled</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="all">{translate("All Payment")}</option>
+              <option value="unpaid">{translate("Unpaid / Unused")}</option>
+              <option value="partial">{translate("Partial")}</option>
+              <option value="paid">{translate("Paid / Settled")}</option>
+              <option value="cancelled">{translate("Cancelled")}</option>
             </select>
           </div>
         </div>
@@ -563,7 +565,7 @@ export default function CreditNoteList() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search credit notes..."
+              placeholder={translate("Search credit notes...")}
               className="bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 outline-none w-44 font-medium"
             />
           </div>
@@ -600,16 +602,16 @@ export default function CreditNoteList() {
           <table className="w-full text-left text-xs min-w-max">
             <thead>
               <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                {visibleColumns.index && <th className="py-3.5 px-4 text-center w-12">#</th>}
-                {visibleColumns.date && <th className="py-3.5 px-4">Date</th>}
-                {visibleColumns.return_no && <th className="py-3.5 px-4 text-right">Return No.</th>}
-                {visibleColumns.party_name && <th className="py-3.5 px-4">Party Name</th>}
-                {visibleColumns.type && <th className="py-3.5 px-4">Type</th>}
-                {visibleColumns.total && <th className="py-3.5 px-4 text-right">Total</th>}
-                {visibleColumns.refunded && <th className="py-3.5 px-4 text-right">Refunded</th>}
-                {visibleColumns.balance && <th className="py-3.5 px-4 text-right">Balance</th>}
-                {visibleColumns.status && <th className="py-3.5 px-4 text-center">Status</th>}
-                <th className="py-3.5 px-4 text-right">Actions</th>
+                {visibleColumns.index && <th className="py-3.5 px-4 text-center w-12">{translate("#")}</th>}
+                {visibleColumns.date && <th className="py-3.5 px-4">{translate("Date")}</th>}
+                {visibleColumns.return_no && <th className="py-3.5 px-4 text-right">{translate("Return No.")}</th>}
+                {visibleColumns.party_name && <th className="py-3.5 px-4">{translate("Party Name")}</th>}
+                {visibleColumns.type && <th className="py-3.5 px-4">{translate("Type")}</th>}
+                {visibleColumns.total && <th className="py-3.5 px-4 text-right">{translate("Total")}</th>}
+                {visibleColumns.refunded && <th className="py-3.5 px-4 text-right">{translate("Refunded")}</th>}
+                {visibleColumns.balance && <th className="py-3.5 px-4 text-right">{translate("Balance")}</th>}
+                {visibleColumns.status && <th className="py-3.5 px-4 text-center">{translate("Status")}</th>}
+                <th className="py-3.5 px-4 text-right">{translate("Actions")}</th>
               </tr>
             </thead>
 
@@ -618,7 +620,7 @@ export default function CreditNoteList() {
                 <tr>
                   <td colSpan={visibleColumnCount || 10} className="py-14 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-rose-500 mx-auto mb-2" />
-                    <span>Loading Credit Notes...</span>
+                    <span>{translate("Loading Credit Notes...")}</span>
                   </td>
                 </tr>
               ) : filteredNotes.length === 0 ? (
@@ -628,8 +630,8 @@ export default function CreditNoteList() {
                       <div className="w-16 h-16 mb-4 flex items-center justify-center rounded-2xl bg-rose-50 text-rose-400">
                         <FileText size={32} strokeWidth={1.5} />
                       </div>
-                      <p className="text-sm font-bold text-slate-700">No credit notes found.</p>
-                      <p className="text-xs text-slate-400 mt-1">Create a new credit note to record customer returns.</p>
+                      <p className="text-sm font-bold text-slate-700">{translate("No credit notes found.")}</p>
+                      <p className="text-xs text-slate-400 mt-1">{translate("Create a new credit note to record customer returns.")}</p>
                     </div>
                   </td>
                 </tr>
