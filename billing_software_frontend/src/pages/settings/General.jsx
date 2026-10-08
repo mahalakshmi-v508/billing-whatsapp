@@ -27,6 +27,7 @@ import {
   Sun,
   Moon,
 } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import InvoiceSettings from "./InvoiceSettings";
 import InvoiceDesign from "./InvoiceDesign";
@@ -36,6 +37,7 @@ import ServiceReminders from "./ServiceReminders";
 import TransactionMessage from "./TransactionMessage";
 import TermsSettings from "./TermsSettings";
 import AuditLogSettings from "./AuditLogSettings";
+import PosSettings from "./PosSettings";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
 import { saveSettings, fetchSettings } from "./settingsApi";
@@ -89,6 +91,8 @@ const PAYMENT_MODES = [
 ];
 
 function GeneralSettings() {
+  const navigate = useNavigate();
+  const { setSettingsTab } = useSettings();
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -815,6 +819,35 @@ function GeneralSettings() {
             </div>
           </div>
 
+          {/* Card: POS & Counter Controls Quick Access */}
+          <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/50 rounded-2xl border border-indigo-200/80 p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Zap size={15} className="text-amber-500" />
+                <span>{isTamil ? "பில்லிங் & கவுண்டர் அமைப்புகள்" : "POS & Counter Controls"}</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">
+                Fast POS
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              {isTamil
+                ? "ஆட்டோ பிரிண்ட், பார்கோடு ஸ்பீட் மோட், மொபைல் எண் கட்டாயம் & ஸ்கிரீன் ரீசெட் அமைப்புகளை எளிதாக மாற்றவும்."
+                : "Manage Auto-Print on Save, Barcode Scanner Speed Mode, Mandatory Mobile, and Auto-Clear Cart settings."}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsTab("pos-controls");
+                navigate("/settings/pos-controls");
+              }}
+              className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-indigo-600/20"
+            >
+              <span>{isTamil ? "கவுண்டர் அமைப்புகளைத் திற (POS Controls)" : "Open POS Controls"}</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
           {/* Card: Audit Log */}
           <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -933,19 +966,22 @@ function GeneralSettings() {
 }
 
 export default function General() {
+  const { tab } = useParams();
   const { settingsTab = "general" } = useSettings();
+  const activeTab = tab || settingsTab;
 
   return (
     <div className="bg-transparent min-w-0 flex flex-col flex-1">
-      {settingsTab === "general" && <GeneralSettings />}
-      {settingsTab === "audit-log" && <AuditLogSettings />}
-      {settingsTab === "invoice-numbering" && <InvoiceSettings />}
-      {settingsTab === "invoice-design" && <InvoiceDesign />}
-      {settingsTab === "print" && <Print />}
-      {settingsTab === "terms-conditions" && <TermsSettings />}
-      {settingsTab === "eway-bill" && <EwayBill />}
-      {settingsTab === "txn-messages" && <TransactionMessage />}
-      {settingsTab === "service-reminders" && <ServiceReminders />}
+      {activeTab === "general" && <GeneralSettings />}
+      {activeTab === "pos-controls" && <PosSettings />}
+      {activeTab === "audit-log" && <AuditLogSettings />}
+      {activeTab === "invoice-numbering" && <InvoiceSettings />}
+      {activeTab === "invoice-design" && <InvoiceDesign />}
+      {activeTab === "print" && <Print />}
+      {activeTab === "terms-conditions" && <TermsSettings />}
+      {activeTab === "eway-bill" && <EwayBill />}
+      {activeTab === "txn-messages" && <TransactionMessage />}
+      {activeTab === "service-reminders" && <ServiceReminders />}
     </div>
   );
 }

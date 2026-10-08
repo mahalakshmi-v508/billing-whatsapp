@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import QuickAddProductModal from "../products/QuickAddProductModal";
+import { fetchSettings } from "../settings/settingsApi";
+import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings";
 import {
   Search,
   Plus,
@@ -384,6 +386,32 @@ export default function Billing() {
   const [toasts, setToasts] = useState([]);
   const handleGenerateRef = useRef(null);
 
+  /* ── POS Controls & Speed Settings ── */
+  const [posSettings, setPosSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${POS_SETTINGS_KEY}`);
+      return saved ? { ...DEFAULT_POS_SETTINGS, ...JSON.parse(saved) } : { ...DEFAULT_POS_SETTINGS };
+    } catch {
+      return { ...DEFAULT_POS_SETTINGS };
+    }
+  });
+
+  useEffect(() => {
+    fetchSettings().then((res) => {
+      if (res && res[POS_SETTINGS_KEY]) {
+        setPosSettings((prev) => ({ ...prev, ...res[POS_SETTINGS_KEY] }));
+      }
+    });
+
+    const handleSettingsUpdate = (e) => {
+      if (e?.detail && e.detail[POS_SETTINGS_KEY]) {
+        setPosSettings((prev) => ({ ...prev, ...e.detail[POS_SETTINGS_KEY] }));
+      }
+    };
+    window.addEventListener("company-settings-updated", handleSettingsUpdate);
+    return () => window.removeEventListener("company-settings-updated", handleSettingsUpdate);
+  }, []);
+
   /* ── Derived Totals ── */
   const subtotal = rows.reduce((s, r) => s + posLineAmount(r, billType).taxable, 0);
   const totalDiscount = rows.reduce((s, r) => s + (Number(r.discount) || 0), 0);
@@ -407,11 +435,14 @@ export default function Billing() {
   const totalQty = validRows.reduce((s, r) => s + r.qty + (Number(r.freeQty) || 0), 0);
   const changeToReturn = extraAmount;
 
-  /* Performance: product maps */
+  /* Performance: product maps (includes both product_code and barcode) */
   const productById = useMemo(() => Object.fromEntries(products.map((p) => [String(p.id), p])), [products]);
   const productByCode = useMemo(() => {
     const m = {};
-    products.forEach((p) => { if (p.product_code) m[String(p.product_code).toLowerCase()] = p; });
+    products.forEach((p) => {
+      if (p.product_code) m[String(p.product_code).trim().toLowerCase()] = p;
+      if (p.barcode) m[String(p.barcode).trim().toLowerCase()] = p;
+    });
     return m;
   }, [products]);
 
@@ -679,69 +710,7 @@ export default function Billing() {
     return () => document.removeEventListener("keydown", handler);
   }, [customer, createNewBill, setPaymentMethod]);
 
-  /* ══ PRODUCT SEARCH ══ */
-  const handleGlobalSearch = useCallback((value) => {
-    setGlobalSearch(value);
-    setShowNoResult(false);
-    setShowQuickAdd(false);
-    setSuggestIndex(-1);
-    clearTimeout(searchTimer.current);
-
-    if (!value.trim()) {
-      const recent = getRecent().filter((p) => productById[p.id] && productById[p.id].status === "active");
-      const list = recent.length > 0 ? recent : products.filter((p) => p.status === "active" && p.stock > 0).slice(0, 12);
-      setGlobalSuggestions(list);
-      setShowSuggest(list.length > 0);
-      return;
-    }
-
-    searchTimer.current = setTimeout(() => {
-      const q = value.toLowerCase();
-      const filtered = products.filter((p) =>
-        p.status === "active" &&
-        (p.product_name.toLowerCase().includes(q) || String(p.product_code || "").toLowerCase().includes(q))
-      );
-      setGlobalSuggestions(filtered.slice(0, 20));
-      setShowSuggest(filtered.length > 0);
-      if (filtered.length === 0) setShowNoResult(true);
-    }, 200);
-  }, [products, productById]);
-
-  const handleSearchKeyDown = (e) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSuggestIndex((i) => Math.min(i + 1, globalSuggestions.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSuggestIndex((i) => Math.max(i - 1, -1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (suggestIndex >= 0 && globalSuggestions[suggestIndex]) {
-        addOrMergeProduct(globalSuggestions[suggestIndex]);
-        return;
-      }
-      const code = globalSearch.trim().toLowerCase();
-      if (productByCode[code]) {
-        addOrMergeProduct(productByCode[code]);
-        return;
-      }
-      if (globalSuggestions.length === 1) {
-        addOrMergeProduct(globalSuggestions[0]);
-        return;
-      }
-      if (globalSuggestions.length === 0 && globalSearch.trim()) {
-        handleAiCopilotSubmit(globalSearch);
-        return;
-      }
-      if (globalSuggestions.length > 0) {
-        addOrMergeProduct(globalSuggestions[0]);
-      }
-    } else if (e.key === "Escape") {
-      setShowSuggest(false);
-      setSuggestIndex(-1);
-    }
-  };
-
+  /* ══ PRODUCT SEARCH & BARCODE SCANNER ENGINE ══ */
   const addOrMergeProduct = useCallback((product, qtyToAdd = 1) => {
     if (!product) return;
     const p = productById[product.id] || productById[product.product_id] || product;
@@ -796,6 +765,78 @@ export default function Billing() {
     justSelectedRef.current = true;
     globalSearchRef.current?.focus();
   }, [productById, showToast, setRows]);
+
+  const handleGlobalSearch = useCallback((value) => {
+    setGlobalSearch(value);
+    setShowNoResult(false);
+    setShowQuickAdd(false);
+    setSuggestIndex(-1);
+    clearTimeout(searchTimer.current);
+
+    if (!value.trim()) {
+      const recent = getRecent().filter((p) => productById[p.id] && productById[p.id].status === "active");
+      const list = recent.length > 0 ? recent : products.filter((p) => p.status === "active" && p.stock > 0).slice(0, 12);
+      setGlobalSuggestions(list);
+      setShowSuggest(list.length > 0);
+      return;
+    }
+
+    const trimmed = value.trim().toLowerCase();
+
+    // ⚡ Barcode Scanner Speed Mode: Instant item recognition & auto-enter (0ms delay)
+    if (posSettings.barcode_scanner_speed_mode && trimmed && productByCode[trimmed]) {
+      addOrMergeProduct(productByCode[trimmed], 1);
+      return;
+    }
+
+    searchTimer.current = setTimeout(() => {
+      const q = value.toLowerCase();
+      const filtered = products.filter((p) =>
+        p.status === "active" &&
+        (p.product_name.toLowerCase().includes(q) ||
+         String(p.product_code || "").toLowerCase().includes(q) ||
+         String(p.barcode || "").toLowerCase().includes(q))
+      );
+      setGlobalSuggestions(filtered.slice(0, 20));
+      setShowSuggest(filtered.length > 0);
+      if (filtered.length === 0) setShowNoResult(true);
+    }, 200);
+  }, [products, productById, productByCode, posSettings.barcode_scanner_speed_mode, addOrMergeProduct]);
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSuggestIndex((i) => Math.min(i + 1, globalSuggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSuggestIndex((i) => Math.max(i - 1, -1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (suggestIndex >= 0 && globalSuggestions[suggestIndex]) {
+        addOrMergeProduct(globalSuggestions[suggestIndex]);
+        return;
+      }
+      const code = globalSearch.trim().toLowerCase();
+      if (productByCode[code]) {
+        addOrMergeProduct(productByCode[code], 1);
+        return;
+      }
+      if (globalSuggestions.length === 1) {
+        addOrMergeProduct(globalSuggestions[0]);
+        return;
+      }
+      if (globalSuggestions.length === 0 && globalSearch.trim()) {
+        handleAiCopilotSubmit(globalSearch);
+        return;
+      }
+      if (globalSuggestions.length > 0) {
+        addOrMergeProduct(globalSuggestions[0]);
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggest(false);
+      setSuggestIndex(-1);
+    }
+  };
 
   /* Quick Add (POS) - the limited popup saved the searched product to the
      database, so make it searchable and put it straight onto the active bill.
@@ -1103,8 +1144,21 @@ export default function Billing() {
   };
 
   const handleGenerate = async (action = "print") => {
-    if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
-    if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
+    if (posSettings.mandatory_customer_mobile) {
+      if (!customer.phone || !customer.phone.trim()) {
+        showToast("Customer mobile number is mandatory!", "error");
+        phoneSuggestRef.current?.querySelector("input")?.focus();
+        return;
+      }
+      if (!/^[0-9]{10}$/.test(customer.phone.trim())) {
+        showToast("Enter a valid 10-digit mobile number!", "error");
+        phoneSuggestRef.current?.querySelector("input")?.focus();
+        return;
+      }
+    } else {
+      if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
+      if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
+    }
     if (billType === "gst_bill" && !customer.gst_no.trim()) { showToast("GST Number is mandatory for GST Bill!", "error"); return; }
     if (billType === "gst_bill" && !isValidGstin(customer.gst_no.trim().toUpperCase())) {
       showToast("Enter a valid 15-character GSTIN (e.g. 22ABCDE1234F1Z5).", "error");
@@ -1164,8 +1218,10 @@ export default function Billing() {
         if (balance > 0 && res.data.advance_delta > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_delta))} added to advance`);
         const successMsg = parts.length > 0 ? `Invoice generated! ${parts.join(" · ")}` : "Invoice generated successfully!";
         setGenerating(false);
+
+        const invoiceRef = res.data.invoice_no || res.data.invoice_id;
+
         if (action === "preview") {
-          const invoiceRef = res.data.invoice_no || res.data.invoice_id;
           if (invoiceRef) {
             navigate(`/invoice/${encodeURIComponent(String(invoiceRef))}?posPrint=1`, {
               state: { flash: successMsg, flashType: "success" },
@@ -1176,9 +1232,21 @@ export default function Billing() {
           return;
         }
 
-        setBills((prev) => prev.map((bill) => (
-          bill.id === billIdToReset ? createFreshBill(bill.id) : bill
-        )));
+        // Auto-Print on Save
+        if (posSettings.auto_print_on_save || action === "print") {
+          if (invoiceRef) {
+            setPrintInvoiceUrl(`/invoice/${encodeURIComponent(String(invoiceRef))}?posPrint=1&autoPrint=1`);
+          }
+        }
+
+        // Auto-Clear Cart after Save
+        if (posSettings.auto_clear_cart_after_save) {
+          setBills((prev) => prev.map((bill) => (
+            bill.id === billIdToReset ? createFreshBill(bill.id) : bill
+          )));
+          globalSearchRef.current?.focus();
+        }
+
         showToast(successMsg, "success");
         return;
       }
@@ -2079,12 +2147,21 @@ export default function Billing() {
                   </div>
                   <input
                     type="tel"
-                    placeholder="10-digit mobile number"
+                    placeholder={posSettings.mandatory_customer_mobile ? "10-digit mobile (Required *)" : "10-digit mobile number"}
                     value={customer.phone}
                     maxLength={10}
                     onChange={(e) => handlePhoneSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
+                    className={`w-full pl-8 pr-16 py-2 bg-slate-50 border rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors ${
+                      posSettings.mandatory_customer_mobile && !customer.phone
+                        ? "border-amber-400 bg-amber-50/20"
+                        : "border-slate-200"
+                    }`}
                   />
+                  {posSettings.mandatory_customer_mobile && !customer.phone && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-amber-700 bg-amber-100/80 border border-amber-200 px-1.5 py-0.5 rounded pointer-events-none">
+                      Required *
+                    </span>
+                  )}
                   {phoneSuggestions.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 max-h-48 overflow-y-auto p-1">
                       {phoneSuggestions.map((c) => (
