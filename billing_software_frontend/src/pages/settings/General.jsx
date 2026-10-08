@@ -109,7 +109,7 @@ function GeneralSettings() {
       const saved = localStorage.getItem("general_settings");
       const parsed = saved ? JSON.parse(saved) : {};
       const rawTheme = localStorage.getItem("app_theme");
-      const savedTheme = rawTheme === "dark" ? "light" : (rawTheme || parsed.themeMode || "light");
+      const savedTheme = rawTheme || parsed.themeMode || "light";
       const savedLang = localStorage.getItem("app_language") || parsed.appLanguage || DEFAULT_PREFERENCES.appLanguage;
       return {
         ...DEFAULT_PREFERENCES,

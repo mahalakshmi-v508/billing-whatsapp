@@ -20,7 +20,7 @@ export function InfoIcon({ title }) {
 export function CheckRow({ label, checked, onChange, info, extra, sub, size = "sm" }) {
   return (
     <div className="py-1.5">
-      <label className="check-row group flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer select-none transition-colors hover:bg-slate-50">
+      <label className="check-row group flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer select-none transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60">
         <span className="flex items-center gap-2.5 min-w-0">
           <span
             className={`relative inline-flex items-center justify-center rounded-[5px] border-2 transition-all cursor-pointer shrink-0 ${
@@ -28,7 +28,7 @@ export function CheckRow({ label, checked, onChange, info, extra, sub, size = "s
             } ${
               checked
                 ? "bg-blue-600 border-blue-600 shadow-sm shadow-blue-600/30"
-                : "bg-white border-slate-300 group-hover:border-blue-400"
+                : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 group-hover:border-blue-400"
             }`}
             onClick={(e) => {
               if (sub || extra) e.preventDefault();
@@ -56,7 +56,7 @@ export function CheckRow({ label, checked, onChange, info, extra, sub, size = "s
               </svg>
             )}
           </span>
-          <span className="text-[13.5px] text-slate-700 group-hover:text-slate-900 transition-colors">
+          <span className="text-[13.5px] text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
             {label}
           </span>
         </span>
@@ -76,7 +76,7 @@ export function Toggle({ checked, onChange, label, info }) {
     <label className="flex items-center justify-between gap-3 py-1.5 cursor-pointer select-none group">
       <span className="flex items-center gap-2.5 min-w-0">
         {label && (
-          <span className="text-[13.5px] text-slate-700 group-hover:text-slate-900 transition-colors">
+          <span className="text-[13.5px] text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
             {label}
           </span>
         )}
@@ -88,7 +88,7 @@ export function Toggle({ checked, onChange, label, info }) {
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
-          checked ? "bg-blue-600" : "bg-slate-300"
+          checked ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-700"
         }`}
       >
         <span
@@ -105,7 +105,7 @@ export function Toggle({ checked, onChange, label, info }) {
 export function SectionTitle({ title, crown, children }) {
   return (
     <div className="flex items-center justify-between mb-1">
-      <h4 className="section-title flex items-center gap-2 text-[16px] font-bold text-slate-800">
+      <h4 className="section-title flex items-center gap-2 text-[16px] font-bold text-slate-800 dark:text-slate-100">
         <span className="w-1 h-4 rounded-full" style={{ background: gradient }} />
         {title}
         {crown}
@@ -118,10 +118,10 @@ export function SectionTitle({ title, crown, children }) {
 /** Wrapper for a group of settings in a white card */
 export function SettingsCard({ title, crown, badge, children, className = "" }) {
   return (
-    <div className={`settings-card bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 ${className}`}>
+    <div className={`settings-card bg-white dark:bg-[#1e293b] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-5 ${className}`}>
       {(title || badge) && (
         <div className="flex items-center justify-between mb-1">
-          <h4 className="section-title flex items-center gap-2 text-[15px] font-bold text-slate-800">
+          <h4 className="section-title flex items-center gap-2 text-[15px] font-bold text-slate-800 dark:text-slate-100">
             <span className="w-1 h-4 rounded-full" style={{ background: gradient }} />
             {title}
             {crown}
@@ -137,7 +137,7 @@ export function SettingsCard({ title, crown, badge, children, className = "" }) 
 /** Page header shell */
 export function SettingsHeader({ title, subtitle, icon, onClose, actions }) {
   return (
-    <div className="settings-header bg-white/95 backdrop-blur border-b border-slate-200/80 px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between gap-4">
+    <div className="settings-header bg-white/95 dark:bg-[#1e293b]/95 backdrop-blur border-b border-slate-200/80 dark:border-slate-800 px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between gap-4">
       <div className="flex items-center gap-4 min-w-0">
         <div
           className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20 flex-shrink-0"
@@ -146,11 +146,11 @@ export function SettingsHeader({ title, subtitle, icon, onClose, actions }) {
           {icon}
         </div>
         <div className="min-w-0">
-          <h2 className="text-[22px] font-extrabold text-slate-900 tracking-tight leading-tight">
+          <h2 className="text-[22px] font-extrabold text-slate-900 dark:text-slate-100 tracking-tight leading-tight">
             {title}
           </h2>
           {subtitle && (
-            <p className="text-[12.5px] text-slate-500 font-medium tracking-wide mt-0.5">
+            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 font-medium tracking-wide mt-0.5">
               {subtitle}
             </p>
           )}
@@ -162,7 +162,7 @@ export function SettingsHeader({ title, subtitle, icon, onClose, actions }) {
           type="button"
           onClick={onClose}
           title="Close"
-          className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors flex-shrink-0"
+          className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
         >
           <X size={18} strokeWidth={2.4} />
         </button>
@@ -174,7 +174,7 @@ export function SettingsHeader({ title, subtitle, icon, onClose, actions }) {
 /** Full page layout: header + scrollable content area */
 export function SettingsShell({ title, subtitle, icon, onClose, children, contentClassName = "", actions }) {
   return (
-    <div className="overflow-hidden flex flex-col flex-1 bg-slate-50">
+    <div className="overflow-hidden flex flex-col flex-1 bg-slate-50 dark:bg-[#0f172a]">
       <SettingsHeader title={title} subtitle={subtitle} icon={icon} onClose={onClose} actions={actions} />
       <div className={`flex-1 overflow-y-auto px-5 sm:px-7 md:px-8 py-5 sm:py-6 ${contentClassName}`}>{children}</div>
     </div>

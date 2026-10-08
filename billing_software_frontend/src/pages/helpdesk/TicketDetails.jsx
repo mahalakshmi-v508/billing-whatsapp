@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import api, { API_BASE_URL_IMAGE } from "../../services/api";
 import EditTicketModal from "./EditTicketModal";
+import { useLanguage } from "../../utils/i18n";
 
 const getAttachmentUrl = (path) => {
   if (!path) return "";
@@ -36,6 +37,7 @@ const getAttachmentUrl = (path) => {
 export default function TicketDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isTamil } = useLanguage();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isSupportOrAdmin = ["admin", "superadmin", "support", "developer"].includes(user?.role?.toLowerCase());
   const isDeveloper = user?.role?.toLowerCase() === "developer";
@@ -223,45 +225,60 @@ export default function TicketDetails() {
     closed: "bg-slate-100 text-slate-700 border-slate-200",
   };
 
+  const statusTamilMap = {
+    open: "திறந்தவை",
+    in_progress: "பரிசீலனையில்",
+    waiting_for_customer: "வாடிக்கையாளர் காத்திருப்பு",
+    resolved: "தீர்க்கப்பட்டது",
+    closed: "மூடப்பட்டது",
+  };
+
+  const priorityTamilMap = {
+    low: "குறைந்த முன்னுரிமை",
+    medium: "நடுத்தர முன்னுரிமை",
+    high: "உயர் முன்னுரிமை",
+    critical: "அவசர முன்னுரிமை",
+  };
+
   const commentsList = (ticket.comments || []).filter((c) => (activeTab === "internal_notes" ? c.is_internal : !c.is_internal));
 
   return (
     <div className="space-y-6 pb-16 max-w-7xl mx-auto">
       {/* STICKY TOP HEADER */}
-      <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md p-4 sm:p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="sticky top-0 z-30 bg-white/90 dark:bg-[#1e293b]/90 backdrop-blur-md p-4 sm:p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/helpdesk")}
-            className="p-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
+            className="p-2.5 rounded-2xl bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 transition cursor-pointer"
           >
             <ArrowLeft size={18} />
           </button>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-xs font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+              <span className="font-mono text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-100 dark:border-indigo-800/60">
                 #{ticket.ticket_no}
               </span>
               <span className={`text-xs font-bold px-3 py-1 rounded-full border capitalize ${statusBadges[ticket.status]}`}>
-                {ticket.status.replace(/_/g, " ")}
+                {isTamil ? (statusTamilMap[ticket.status] || ticket.status) : ticket.status.replace(/_/g, " ")}
               </span>
               <span className={`text-xs font-bold px-3 py-1 rounded-full border capitalize ${priorityBadges[ticket.priority]}`}>
-                {ticket.priority} priority
+                {isTamil ? (priorityTamilMap[ticket.priority] || `${ticket.priority} முன்னுரிமை`) : `${ticket.priority} priority`}
               </span>
             </div>
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900 mt-1">{ticket.subject}</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-1">{ticket.subject}</h1>
           </div>
         </div>
 
         {/* QUICK STATUS UPDATE BUTTONS IN HEADER (DEVELOPER ONLY) */}
         <div className="flex items-center gap-2 flex-wrap">
           {isDeveloper && (
-            <div className="hidden lg:flex items-center gap-1 bg-gray-100 p-1 rounded-2xl border border-gray-200">
+            <div className="hidden lg:flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-2xl border border-gray-200 dark:border-slate-700">
               {[
-                { val: "open", label: "Open", activeBg: "bg-blue-600 text-white" },
-                { val: "in_progress", label: "In Progress", activeBg: "bg-purple-600 text-white" },
-                { val: "waiting_for_customer", label: "Waiting Customer", activeBg: "bg-amber-600 text-white" },
-                { val: "resolved", label: "Resolved", activeBg: "bg-emerald-600 text-white" },
-                { val: "closed", label: "Closed", activeBg: "bg-slate-700 text-white" },
+                { val: "open", label: isTamil ? "திறந்தவை" : "Open", activeBg: "bg-blue-600 text-white" },
+                { val: "in_progress", label: isTamil ? "பரிசீலனையில்" : "In Progress", activeBg: "bg-purple-600 text-white" },
+                { val: "waiting_for_customer", label: isTamil ? "காத்திருப்பு" : "Waiting Customer", activeBg: "bg-amber-600 text-white" },
+                { val: "resolved", label: isTamil ? "தீர்க்கப்பட்டது" : "Resolved", activeBg: "bg-emerald-600 text-white" },
+                { val: "closed", label: isTamil ? "மூடப்பட்டது" : "Closed", activeBg: "bg-slate-700 text-white" },
               ].map((st) => {
                 const active = ticket.status === st.val;
                 return (
@@ -272,7 +289,7 @@ export default function TicketDetails() {
                     className={`px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition ${
                       active
                         ? `${st.activeBg} shadow-sm`
-                        : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                        : "text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50"
                     }`}
                   >
                     {st.label}
@@ -285,20 +302,20 @@ export default function TicketDetails() {
           {(isSupportOrAdmin || ticket.status !== "closed") && (
             <button
               onClick={() => setIsEditOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs transition flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer"
             >
               <Edit size={14} />
-              Edit Ticket
+              {isTamil ? "டிக்கெட் திருத்து" : "Edit Ticket"}
             </button>
           )}
 
           {isSupportOrAdmin && (
             <button
               onClick={handleDeleteTicket}
-              className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl bg-red-50 dark:bg-rose-950/50 hover:bg-red-100 dark:hover:bg-rose-900/50 text-red-600 dark:text-rose-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer"
             >
               <Trash2 size={14} />
-              Delete
+              {isTamil ? "நீக்கு" : "Delete"}
             </button>
           )}
         </div>
@@ -309,22 +326,22 @@ export default function TicketDetails() {
         {/* LEFT COLUMN: Ticket Content, Attachments & Timeline */}
         <div className="lg:col-span-2 space-y-6">
           {/* TICKET DESCRIPTION */}
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="bg-white dark:bg-[#1e293b] p-6 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-sm shadow-sm">
                   {ticket.user?.name?.charAt(0)?.toUpperCase() || "U"}
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-gray-900">{ticket.user?.name || "Customer User"}</h4>
-                  <span className="text-[11px] text-gray-400">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">{ticket.user?.name || "Customer User"}</h4>
+                  <span className="text-[11px] text-gray-400 dark:text-slate-400">
                     Created {new Date(ticket.created_at).toLocaleString()}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="text-sm text-gray-800 leading-relaxed whitespace-pre-line">
+            <div className="text-sm text-gray-800 dark:text-slate-200 leading-relaxed whitespace-pre-line">
               {ticket.description}
             </div>
 
@@ -388,7 +405,7 @@ export default function TicketDetails() {
                 }`}
               >
                 <MessageSquare size={16} />
-                Public Discussion ({(ticket.comments || []).filter((c) => !c.is_internal).length})
+                {isTamil ? "பொது விவாதம்" : "Public Discussion"} ({(ticket.comments || []).filter((c) => !c.is_internal).length})
               </button>
 
               {isSupportOrAdmin && (
@@ -401,7 +418,7 @@ export default function TicketDetails() {
                   }`}
                 >
                   <Lock size={16} />
-                  Internal Notes ({(ticket.comments || []).filter((c) => c.is_internal).length})
+                  {isTamil ? "உள் குறிப்புகள்" : "Internal Notes"} ({(ticket.comments || []).filter((c) => c.is_internal).length})
                 </button>
               )}
 
@@ -414,7 +431,7 @@ export default function TicketDetails() {
                 }`}
               >
                 <History size={16} />
-                Audit History ({(ticket.logs || []).length})
+                {isTamil ? "தணிக்கை வரலாறு" : "Audit History"} ({(ticket.logs || []).length})
               </button>
             </div>
 

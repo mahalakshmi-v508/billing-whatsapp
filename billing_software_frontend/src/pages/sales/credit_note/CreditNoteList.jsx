@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   Wallet,
   SlidersHorizontal,
+  RotateCcw,
 } from "lucide-react";
 import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
@@ -49,11 +50,48 @@ const DEFAULT_COLUMNS = [
   { key: "actions", label: "Actions", icon: SlidersHorizontal, color: "text-slate-600", bg: "bg-slate-100", desc: "Print, Share & More" },
 ];
 
+const PERIOD_LABELS = {
+  all_time: "All Time",
+  today: "Today",
+  this_week: "This Week",
+  this_month: "This Month",
+  this_quarter: "This Quarter",
+  this_year: "This Year",
+};
+
+const PERIOD_LABELS_TA = {
+  all_time: "அனைத்து காலம்",
+  today: "இன்று",
+  this_week: "இந்த வாரம்",
+  this_month: "இந்த மாதம்",
+  this_quarter: "இந்த காலாண்டு",
+  this_year: "இந்த வருடம்",
+};
+
 export default function CreditNoteList() {
-  const { t: translate } = useLanguage();
+  const { isTamil, t: translate } = useLanguage();
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
+
+  const columnsWithLabels = useMemo(() => {
+    return DEFAULT_COLUMNS.map((col) => {
+      let label = col.label;
+      if (isTamil) {
+        if (col.key === "index") label = "#";
+        else if (col.key === "date") label = "தேதி";
+        else if (col.key === "return_no") label = "வரவு எண்";
+        else if (col.key === "party_name") label = "வாடிக்கையாளர் பெயர்";
+        else if (col.key === "type") label = "வகை";
+        else if (col.key === "total") label = "மொத்தம்";
+        else if (col.key === "refunded") label = "திருப்பி செலுத்தியது";
+        else if (col.key === "balance") label = "மீதி";
+        else if (col.key === "status") label = "நிலை";
+        else if (col.key === "actions") label = "செயல்கள்";
+      }
+      return { ...col, label };
+    });
+  }, [isTamil]);
 
   // Table Column Customization Hook
   const {
@@ -300,16 +338,25 @@ export default function CreditNoteList() {
       const res = await api.post("/credit_note/delete", { id: deleteTarget.id });
       if (res.data.status) {
         setCreditNotes((prev) => prev.filter((n) => n.id !== deleteTarget.id));
-        setActionToast({ msg: "Credit note deleted and inventory stock restored.", ok: true });
+        setActionToast({
+          msg: isTamil ? "வரவு குறிப்பு நீக்கப்பட்டது மற்றும் சரக்கு மீட்டமைக்கப்பட்டது." : "Credit note deleted and inventory stock restored.",
+          ok: true,
+        });
         setDeleteTarget(null);
         setTimeout(() => setActionToast(null), 3500);
       } else {
-        setActionToast({ msg: res.data.message || "Failed to delete credit note.", ok: false });
+        setActionToast({
+          msg: res.data.message || (isTamil ? "வரவு குறிப்பை நீக்க முடியவில்லை." : "Failed to delete credit note."),
+          ok: false,
+        });
         setTimeout(() => setActionToast(null), 3500);
       }
     } catch (err) {
       console.error(err);
-      setActionToast({ msg: err.response?.data?.message || "Error deleting credit note.", ok: false });
+      setActionToast({
+        msg: err.response?.data?.message || (isTamil ? "வரவு குறிப்பை நீக்குவதில் பிழை ஏற்பட்டது." : "Error deleting credit note."),
+        ok: false,
+      });
       setTimeout(() => setActionToast(null), 3500);
     } finally {
       setDeleting(false);
@@ -326,10 +373,12 @@ export default function CreditNoteList() {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              {translate("Sale Return / Credit Notes")}
+              {isTamil ? "விற்பனை வரவு குறிப்புகள்" : "Sale Return / Credit Notes"}
             </h1>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              {translate("Manage merchandise returns, credit adjustments, and refund vouchers")}
+              {isTamil
+                ? "பொருட்கள் திரும்புதல், வரவு சரிசெய்தல் மற்றும் பணத்தைத் திருப்பித் தரும் வவுச்சர்களை நிர்வகிக்கவும்"
+                : "Manage merchandise returns, credit adjustments, and refund vouchers"}
             </p>
           </div>
         </div>
@@ -345,96 +394,106 @@ export default function CreditNoteList() {
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.8} />
-            <span>{translate("Create Credit Note")}</span>
+            <span>{isTamil ? "வரவு குறிப்பு உருவாக்கு" : "Create Credit Note"}</span>
           </button>
         </div>
       </div>
 
       {/* ── 2. METRIC KPI CARDS (PaySplitX 4-Card Strip) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
         {/* Card 1: Total Return Value */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-rose-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{translate("Total Return Value")}</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "மொத்த திருப்புதல்" : "Total Return Value"}
+              </p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight truncate">
                 ₹ {totals.totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-black">
+            <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-black shrink-0">
               ₹
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>{filteredNotes.length} {translate("Total Credit Notes")}</span>
-            <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-              {translate("Merchandise Returns")}
+          <div className="mt-3 flex items-center justify-between gap-1 text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span className="truncate">{filteredNotes.length} {isTamil ? "வரவு குறிப்புகள்" : "Total Credit Notes"}</span>
+            <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+              {isTamil ? "பொருட்கள் திரும்புதல்" : "Merchandise Returns"}
             </span>
           </div>
         </div>
 
         {/* Card 2: Refund / Paid */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{translate("Refunded / Settled")}</p>
-              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "திருப்பி செலுத்தியது" : "Refunded / Settled"}
+              </p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight truncate">
                 ₹ {(totals.totalAmt - totals.balanceAmt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              Paid
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <CheckCircle2 size={20} />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>{translate("Cash / Ledger Settle")}</span>
-            <span className="text-[11px] font-semibold text-emerald-600">
-              {totals.totalAmt > 0 ? `${Math.round(((totals.totalAmt - totals.balanceAmt) / totals.totalAmt) * 100)}%` : "0%"} {translate("Paid / Settled")}
+          <div className="mt-3 flex items-center justify-between gap-1 text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span className="truncate">{isTamil ? "லெட்ஜர் தீர்வு" : "Cash / Ledger Settle"}</span>
+            <span className="text-[11px] font-semibold text-emerald-600 shrink-0 whitespace-nowrap">
+              {totals.totalAmt > 0 ? `${Math.round(((totals.totalAmt - totals.balanceAmt) / totals.totalAmt) * 100)}%` : "0%"} {isTamil ? "தீர்வு" : "Settled"}
             </span>
           </div>
         </div>
 
         {/* Card 3: Unadjusted Balance */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{translate("Unadjusted Credit")}</p>
-              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "சரிசெய்யா வரவு" : "Unadjusted Credit"}
+              </p>
+              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight truncate">
                 ₹ {totals.balanceAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-              Bal
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <Wallet size={20} />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>{translate("Available customer credit")}</span>
-            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-              {translate("Pending offset")}
+          <div className="mt-3 flex items-center justify-between gap-1 text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span className="truncate">{isTamil ? "வாடிக்கையாளர் இருப்பு" : "Available customer credit"}</span>
+            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+              {isTamil ? "நிலுவை வரவு" : "Pending offset"}
             </span>
           </div>
         </div>
 
         {/* Card 4: Average Return Size */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{translate("Average Return")}</p>
-              <h3 className="text-2xl font-black text-indigo-600 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "சராசரி திருப்புதல்" : "Average Return"}
+              </p>
+              <h3 className="text-2xl font-black text-indigo-600 mt-1 tracking-tight truncate">
                 ₹ {filteredNotes.length > 0 ? (totals.totalAmt / filteredNotes.length).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-              Avg
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+              <RotateCcw size={20} />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>{translate("Per return transaction")}</span>
-            <span className="text-[11px] font-semibold text-slate-600">{translate("Active period")}</span>
+          <div className="mt-3 flex items-center justify-between gap-1 text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span className="truncate">{isTamil ? "ஒரு பரிவர்த்தனை" : "Per return transaction"}</span>
+            <span className="text-[11px] font-semibold text-slate-600 shrink-0 whitespace-nowrap">
+              {isTamil ? "நடப்பு காலம்" : "Active period"}
+            </span>
           </div>
         </div>
       </div>
@@ -442,7 +501,9 @@ export default function CreditNoteList() {
       {/* ── 3. FILTER TOOLBAR ── */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">{translate("Filter by:")}</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
+            {isTamil ? "வடிகட்டுதல்:" : "Filter by:"}
+          </span>
 
           {/* Period Selector */}
           <div className="relative">
@@ -450,28 +511,31 @@ export default function CreditNoteList() {
               onClick={() => setPeriodOpen(!periodOpen)}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              <span>{period === "all_time" ? translate("All Time") : period === "this_month" ? translate("This Month") : translate(period.replace("_", " "))}</span>
+              <span>{isTamil ? (PERIOD_LABELS_TA[period] || period) : (PERIOD_LABELS[period] || period)}</span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
             {periodOpen && (
               <div className="absolute left-0 mt-1.5 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
                 {[
-                  { label: "All Time", val: "all_time" },
-                  { label: "Today", val: "today" },
-                  { label: "This Week", val: "this_week" },
-                  { label: "This Month", val: "this_month" },
-                  { label: "This Quarter", val: "this_quarter" },
-                  { label: "This Year", val: "this_year" },
+                  { label: "All Time", labelTa: "அனைத்து காலம்", val: "all_time" },
+                  { label: "Today", labelTa: "இன்று", val: "today" },
+                  { label: "This Week", labelTa: "இந்த வாரம்", val: "this_week" },
+                  { label: "This Month", labelTa: "இந்த மாதம்", val: "this_month" },
+                  { label: "This Quarter", labelTa: "இந்த காலாண்டு", val: "this_quarter" },
+                  { label: "This Year", labelTa: "இந்த வருடம்", val: "this_year" },
                 ].map((p) => (
                   <button
                     key={p.val}
-                    onClick={() => setPresetDates(p.val)}
+                    onClick={() => {
+                      setPresetDates(p.val);
+                      setPeriodOpen(false);
+                    }}
                     className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
                       period === p.val ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                     }`}
                   >
-                    {translate(p.label)}
+                    {isTamil ? p.labelTa : p.label}
                   </button>
                 ))}
               </div>
@@ -480,14 +544,14 @@ export default function CreditNoteList() {
 
           {/* Date Range Picker */}
           <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
-            <Calendar size={13} className="text-slate-400" />
+            <Calendar size={13} className="text-slate-400 shrink-0" />
             <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
               className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
             />
-            <span className="text-slate-400 font-bold">to</span>
+            <span className="text-slate-400 font-bold shrink-0">{isTamil ? "வரை" : "to"}</span>
             <input
               type="date"
               value={toDate}
@@ -504,8 +568,8 @@ export default function CreditNoteList() {
             >
               <span>
                 {selectedFirm === "all"
-                  ? translate("All Store")
-                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || translate("Company")}
+                  ? (isTamil ? "அனைத்து கடைகள்" : "All Stores")
+                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || (isTamil ? "நிறுவனம்" : "Company")}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
             </button>
@@ -521,7 +585,7 @@ export default function CreditNoteList() {
                     selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
-                  {translate("All Store")}
+                  {isTamil ? "அனைத்து கடைகள்" : "All Stores"}
                 </button>
                 {companies.map((c) => (
                   <button
@@ -548,11 +612,11 @@ export default function CreditNoteList() {
               onChange={(e) => setPaymentFilter(e.target.value)}
               className="bg-transparent outline-none cursor-pointer text-xs font-semibold text-slate-700"
             >
-              <option value="all">{translate("All Payment")}</option>
-              <option value="unpaid">{translate("Unpaid / Unused")}</option>
-              <option value="partial">{translate("Partial")}</option>
-              <option value="paid">{translate("Paid / Settled")}</option>
-              <option value="cancelled">{translate("Cancelled")}</option>
+              <option value="all">{isTamil ? "அனைத்து நிலைகள்" : "All Payment"}</option>
+              <option value="unpaid">{isTamil ? "செலுத்தப்படாதது" : "Unpaid / Unused"}</option>
+              <option value="partial">{isTamil ? "பகுதி தொகை" : "Partial"}</option>
+              <option value="paid">{isTamil ? "முழுதும் தீர்க்கப்பட்டது" : "Paid / Settled"}</option>
+              <option value="cancelled">{isTamil ? "ரத்து செய்யப்பட்டது" : "Cancelled"}</option>
             </select>
           </div>
         </div>
@@ -565,7 +629,7 @@ export default function CreditNoteList() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={translate("Search credit notes...")}
+              placeholder={isTamil ? "வரவு குறிப்புகளைத் தேடுக..." : "Search credit notes..."}
               className="bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 outline-none w-44 font-medium"
             />
           </div>
@@ -573,7 +637,7 @@ export default function CreditNoteList() {
           <button
             onClick={handleExportExcel}
             className="px-3 h-8 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center gap-1.5 text-emerald-700 hover:bg-emerald-100 font-bold text-xs transition cursor-pointer"
-            title="Export to Excel"
+            title={isTamil ? "எக்செல் ஏற்றுமதி" : "Export to Excel"}
           >
             <FileSpreadsheet size={14} className="text-emerald-600" />
             <span>Excel</span>
@@ -582,7 +646,7 @@ export default function CreditNoteList() {
           <button
             onClick={() => window.print()}
             className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
-            title="Print List"
+            title={isTamil ? "பட்டியலை அச்சிடு" : "Print List"}
           >
             <Printer size={14} />
           </button>
@@ -602,16 +666,16 @@ export default function CreditNoteList() {
           <table className="w-full text-left text-xs min-w-max">
             <thead>
               <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                {visibleColumns.index && <th className="py-3.5 px-4 text-center w-12">{translate("#")}</th>}
-                {visibleColumns.date && <th className="py-3.5 px-4">{translate("Date")}</th>}
-                {visibleColumns.return_no && <th className="py-3.5 px-4 text-right">{translate("Return No.")}</th>}
-                {visibleColumns.party_name && <th className="py-3.5 px-4">{translate("Party Name")}</th>}
-                {visibleColumns.type && <th className="py-3.5 px-4">{translate("Type")}</th>}
-                {visibleColumns.total && <th className="py-3.5 px-4 text-right">{translate("Total")}</th>}
-                {visibleColumns.refunded && <th className="py-3.5 px-4 text-right">{translate("Refunded")}</th>}
-                {visibleColumns.balance && <th className="py-3.5 px-4 text-right">{translate("Balance")}</th>}
-                {visibleColumns.status && <th className="py-3.5 px-4 text-center">{translate("Status")}</th>}
-                <th className="py-3.5 px-4 text-right">{translate("Actions")}</th>
+                {visibleColumns.index && <th className="py-3.5 px-4 text-center w-12 whitespace-nowrap">#</th>}
+                {visibleColumns.date && <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "தேதி" : "Date"}</th>}
+                {visibleColumns.return_no && <th className="py-3.5 px-4 text-right whitespace-nowrap">{isTamil ? "வரவு எண்" : "Return No."}</th>}
+                {visibleColumns.party_name && <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "வாடிக்கையாளர் பெயர்" : "Party Name"}</th>}
+                {visibleColumns.type && <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "வகை" : "Type"}</th>}
+                {visibleColumns.total && <th className="py-3.5 px-4 text-right whitespace-nowrap">{isTamil ? "மொத்தம்" : "Total"}</th>}
+                {visibleColumns.refunded && <th className="py-3.5 px-4 text-right whitespace-nowrap">{isTamil ? "திருப்பி செலுத்தியது" : "Refunded"}</th>}
+                {visibleColumns.balance && <th className="py-3.5 px-4 text-right whitespace-nowrap">{isTamil ? "மீதி" : "Balance"}</th>}
+                {visibleColumns.status && <th className="py-3.5 px-4 text-center whitespace-nowrap">{isTamil ? "நிலை" : "Status"}</th>}
+                <th className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 bg-[#fbfcfd] z-10 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)]">{isTamil ? "செயல்கள்" : "Actions"}</th>
               </tr>
             </thead>
 
@@ -620,7 +684,7 @@ export default function CreditNoteList() {
                 <tr>
                   <td colSpan={visibleColumnCount || 10} className="py-14 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-rose-500 mx-auto mb-2" />
-                    <span>{translate("Loading Credit Notes...")}</span>
+                    <span>{isTamil ? "வரவு குறிப்புகள் ஏற்றப்படுகின்றன..." : "Loading Credit Notes..."}</span>
                   </td>
                 </tr>
               ) : filteredNotes.length === 0 ? (
@@ -630,8 +694,14 @@ export default function CreditNoteList() {
                       <div className="w-16 h-16 mb-4 flex items-center justify-center rounded-2xl bg-rose-50 text-rose-400">
                         <FileText size={32} strokeWidth={1.5} />
                       </div>
-                      <p className="text-sm font-bold text-slate-700">{translate("No credit notes found.")}</p>
-                      <p className="text-xs text-slate-400 mt-1">{translate("Create a new credit note to record customer returns.")}</p>
+                      <p className="text-sm font-bold text-slate-700">
+                        {isTamil ? "வரவு குறிப்புகள் எதுவும் காணப்படவில்லை." : "No credit notes found."}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {isTamil
+                          ? "வாடிக்கையாளர் வருவாயைப் பதிவு செய்ய புதிய வரவு குறிப்பை உருவாக்கவும்."
+                          : "Create a new credit note to record customer returns."}
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -645,10 +715,10 @@ export default function CreditNoteList() {
                   return (
                     <tr
                       key={n.id || idx}
-                      className="hover:bg-rose-50/20 transition-colors text-slate-700"
+                      className="group hover:bg-rose-50/20 transition-colors text-slate-700"
                     >
                       {visibleColumns.index && (
-                        <td className="py-3.5 px-4 text-center font-semibold text-slate-400">
+                        <td className="py-3.5 px-4 text-center font-semibold text-slate-400 whitespace-nowrap">
                           {seqNo}
                         </td>
                       )}
@@ -667,7 +737,7 @@ export default function CreditNoteList() {
 
                       {visibleColumns.party_name && (
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="font-bold text-slate-900">{n.customer_name || "Cash Customer"}</div>
+                          <div className="font-bold text-slate-900">{n.customer_name || (isTamil ? "ரொக்க வாடிக்கையாளர்" : "Cash Customer")}</div>
                           {n.customer_phone && <div className="text-[10px] text-slate-400 font-normal">{n.customer_phone}</div>}
                         </td>
                       )}
@@ -675,7 +745,7 @@ export default function CreditNoteList() {
                       {visibleColumns.type && (
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-                            Credit Note
+                            {isTamil ? "வரவு குறிப்பு" : "Credit Note"}
                           </span>
                         </td>
                       )}
@@ -699,7 +769,7 @@ export default function CreditNoteList() {
                       )}
 
                       {visibleColumns.status && (
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap min-w-[120px]">
                           <span
                             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                               balance <= 0
@@ -714,33 +784,33 @@ export default function CreditNoteList() {
                                 balance <= 0 ? "bg-emerald-600" : refund > 0 ? "bg-amber-600" : "bg-rose-600"
                               }`}
                             />
-                            {balance <= 0 ? "Paid" : refund > 0 ? "Partial" : "Unpaid"}
+                            {balance <= 0 ? (isTamil ? "செலுத்தப்பட்டது" : "Paid") : refund > 0 ? (isTamil ? "பகுதி தொகை" : "Partial") : (isTamil ? "செலுத்தப்படாதது" : "Unpaid")}
                           </span>
                         </td>
                       )}
 
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 bg-white group-hover:bg-[#fdf2f2] z-10 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)]" onClick={(e) => e.stopPropagation()}>
                         <TableActions
                           onPrint={() => navigate(`/invoice/${n.return_no || n.id}`)}
-                          printTitle="Print"
+                          printTitle={isTamil ? "அச்சிடு" : "Print"}
                           shareTransaction={n}
-                          shareType="Credit Note"
+                          shareType={isTamil ? "வரவு குறிப்பு" : "Credit Note"}
                           onViewInvoice={() => navigate(`/invoice/${n.return_no || n.id}`)}
-                          viewInvoiceLabel="View Invoice"
+                          viewInvoiceLabel={isTamil ? "விலைப்பட்டியலைக் காண்க" : "View Invoice"}
                           menuItems={[
                             {
-                              label: "Edit Details",
+                              label: isTamil ? "விவரங்களைத் திருத்து" : "Edit Details",
                               icon: Edit,
                               onClick: () => navigate(`/sales/credit-note/edit/${n.id}`),
                             },
                             {
-                              label: "View Invoice",
+                              label: isTamil ? "விலைப்பட்டியலைக் காண்க" : "View Invoice",
                               icon: Eye,
                               onClick: () => navigate(`/invoice/${n.return_no || n.id}`),
                             },
                             { isDivider: true },
                             {
-                              label: "Delete Voucher",
+                              label: isTamil ? "வரவை நீக்கு" : "Delete Voucher",
                               icon: Trash2,
                               isDanger: true,
                               onClick: () => setDeleteTarget(n),
@@ -761,19 +831,29 @@ export default function CreditNoteList() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200 text-xs text-slate-600 bg-white">
               <div className="flex items-center gap-4">
                 <span>
-                  Showing <strong>{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
-                  <strong>{Math.min(safePage * rowsPerPage, filteredNotes.length)}</strong> of{" "}
-                  <strong>{filteredNotes.length}</strong> entries
+                  {isTamil ? (
+                    <>
+                      <strong>{filteredNotes.length}</strong> பதிவுகளில்{" "}
+                      <strong>{(safePage - 1) * rowsPerPage + 1}</strong> முதல்{" "}
+                      <strong>{Math.min(safePage * rowsPerPage, filteredNotes.length)}</strong> வரை காட்டப்படுகிறது
+                    </>
+                  ) : (
+                    <>
+                      Showing <strong>{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
+                      <strong>{Math.min(safePage * rowsPerPage, filteredNotes.length)}</strong> of{" "}
+                      <strong>{filteredNotes.length}</strong> entries
+                    </>
+                  )}
                 </span>
                 <div className="flex items-center gap-1.5">
-                  <span>Rows:</span>
+                  <span>{isTamil ? "வரிசைகள்:" : "Rows:"}</span>
                   <select
                     value={rowsPerPage}
                     onChange={(e) => {
                       setRowsPerPage(Number(e.target.value));
                       setCurrentPage(1);
                     }}
-                    className="border border-slate-300 rounded px-1.5 py-0.5 text-xs"
+                    className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white cursor-pointer"
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
@@ -786,19 +866,19 @@ export default function CreditNoteList() {
                 <button
                   disabled={safePage === 1}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 cursor-pointer"
                 >
                   <ChevronLeft size={15} />
                 </button>
 
-                <span className="px-3 py-1 bg-blue-600 text-white font-bold rounded-lg text-xs">
+                <span className="px-3 py-1 bg-indigo-600 text-white font-bold rounded-lg text-xs">
                   {safePage}
                 </span>
 
                 <button
                   disabled={safePage === totalPages}
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 cursor-pointer"
                 >
                   <ChevronRight size={15} />
                 </button>
@@ -807,17 +887,17 @@ export default function CreditNoteList() {
           )}
         </div>
 
-      {/* ── 4. BOTTOM SUMMARY BAR (Matching media_1787845504680.png) ── */}
+      {/* ── 4. BOTTOM SUMMARY BAR ── */}
       <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between text-xs font-bold">
         <div className="text-slate-700">
-          Total Amount:{" "}
+          {isTamil ? "மொத்த தொகை:" : "Total Amount:"}{" "}
           <span className="text-teal-600 font-extrabold text-sm ml-1">
             ₹ {totals.totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
 
         <div className="text-slate-700">
-          Balance:{" "}
+          {isTamil ? "மீதி இருப்பு:" : "Balance:"}{" "}
           <span className="text-slate-900 font-extrabold text-sm ml-1">
             ₹ {totals.balanceAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
@@ -839,30 +919,36 @@ export default function CreditNoteList() {
                 <AlertTriangle size={22} className="text-red-600" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900">Delete Credit Note?</h3>
-                <p className="text-xs text-slate-500 font-mono">Return #{deleteTarget.return_no || deleteTarget.id}</p>
+                <h3 className="text-base font-bold text-slate-900">
+                  {isTamil ? "வரவு குறிப்பை நீக்கவா?" : "Delete Credit Note?"}
+                </h3>
+                <p className="text-xs text-slate-500 font-mono">
+                  {isTamil ? "வரவு எண்" : "Return"} #{deleteTarget.return_no || deleteTarget.id}
+                </p>
               </div>
             </div>
 
             <p className="text-sm text-slate-600 mb-4">
-              Deleting this credit note will revert the inventory stock and re-adjust customer debt balance.
+              {isTamil
+                ? "இந்த வரவு குறிப்பை நீக்குவது இருப்பு சரக்குகளை பழைய நிலைக்கு மாற்றும் மற்றும் வாடிக்கையாளர் நிலுவைத் தொகையை சரிசெய்யும்."
+                : "Deleting this credit note will revert the inventory stock and re-adjust customer debt balance."}
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 disabled={deleting}
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 rounded-xl"
+                className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 rounded-xl cursor-pointer"
               >
-                Cancel
+                {isTamil ? "ரத்து செய்" : "Cancel"}
               </button>
               <button
                 disabled={deleting}
                 onClick={handleDelete}
-                className="px-5 py-2 text-sm font-bold text-white bg-red-600 rounded-xl disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2 text-sm font-bold text-white bg-red-600 rounded-xl disabled:opacity-50 flex items-center gap-2 cursor-pointer"
               >
                 {deleting && <RefreshCw size={14} className="animate-spin" />}
-                <span>Yes, Delete</span>
+                <span>{isTamil ? "ஆம், நீக்கு" : "Yes, Delete"}</span>
               </button>
             </div>
           </div>
@@ -890,7 +976,7 @@ export default function CreditNoteList() {
           }}
         >
           <span style={{ fontSize: 13, fontWeight: 500 }}>{actionToast.msg}</span>
-          <button onClick={() => setActionToast(null)} className="text-white">
+          <button onClick={() => setActionToast(null)} className="text-white cursor-pointer">
             <X size={15} />
           </button>
         </div>
@@ -900,7 +986,7 @@ export default function CreditNoteList() {
       <CommonTableColumnSettings
         isOpen={showColumnDrawer}
         onClose={() => setShowColumnDrawer(false)}
-        columns={DEFAULT_COLUMNS}
+        columns={columnsWithLabels}
         visibleColumns={visibleColumns}
         onToggleColumn={toggleColumn}
         onSelectAll={selectAllColumns}

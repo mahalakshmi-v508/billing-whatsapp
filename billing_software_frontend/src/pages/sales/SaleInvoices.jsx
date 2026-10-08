@@ -641,8 +641,8 @@ export default function SaleInvoices() {
                 ₹ {invoiceCount > 0 ? Math.round(summary.total_amount / invoiceCount).toLocaleString("en-IN") : 0}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
-              Avg
+            <div className="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold shrink-0">
+              <Receipt size={20} />
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">

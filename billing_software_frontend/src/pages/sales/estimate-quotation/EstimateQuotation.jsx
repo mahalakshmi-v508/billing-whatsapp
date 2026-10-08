@@ -25,6 +25,7 @@ import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
+import { useLanguage } from "../../../utils/i18n";
 import {
   fetchWhatsAppConnection,
   isValidWaPhone,
@@ -56,7 +57,19 @@ const PERIOD_LABELS = {
   custom: "Custom",
 };
 
+const PERIOD_LABELS_TA = {
+  today: "இன்று",
+  yesterday: "நேற்று",
+  this_week: "இந்த வாரம்",
+  this_month: "இந்த மாதம்",
+  last_month: "கடந்த மாதம்",
+  this_year: "இந்த வருடம்",
+  all_time: "எல்லா நேரமும்",
+  custom: "தனிப்பயன்",
+};
+
 export default function EstimateQuotation() {
+  const { isTamil, t: translate } = useLanguage();
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
@@ -393,18 +406,19 @@ export default function EstimateQuotation() {
       {/* ── 1. TOP HEADER: Title + Actions ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 select-none">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-lg shadow-indigo-100 ring-4 ring-indigo-50/50">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-lg shadow-indigo-100 ring-4 ring-indigo-50/50 shrink-0">
             <FileText size={24} />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                {docType}s &amp; Quotations
+                {isTamil ? "மதிப்பீடுகள் & கொட்டேஷன்கள்" : `${docType}s & Quotations`}
               </h1>
-             
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Manage, print, and track all sales estimates and quotation proposals
+              {isTamil
+                ? "அனைத்து விற்பனை மதிப்பீடுகள் மற்றும் கொட்டேஷன்களை நிர்வகிக்கவும், அச்சிடவும்"
+                : "Manage, print, and track all sales estimates and quotation proposals"}
             </p>
           </div>
         </div>
@@ -417,99 +431,117 @@ export default function EstimateQuotation() {
 
           <button
             onClick={handleAddEstimate}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer whitespace-nowrap"
           >
             <Plus size={16} strokeWidth={2.8} />
-            <span>Create {docType}</span>
+            <span>{isTamil ? "+ புதிய மதிப்பீடு" : `Create ${docType}`}</span>
           </button>
         </div>
       </div>
 
       {/* ── 2. METRIC KPI CARDS (PaySplitX 4-Card Strip) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
         {/* Card 1: Total Value */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Value</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "மொத்த மதிப்பு" : "Total Value"}
+              </p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight truncate">
                 {formatCurrency(summaryTotals.total)}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black shrink-0">
               ₹
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>{summaryTotals.count} Total quotes</span>
-            <span className={`inline-flex items-center gap-1 font-bold ${pctChange >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
+            <span className="truncate">
+              {summaryTotals.count} {isTamil ? "மொத்த மதிப்பீடுகள்" : "Total quotes"}
+            </span>
+            <span className={`inline-flex items-center gap-1 font-bold shrink-0 whitespace-nowrap ${pctChange >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
               {pctChange.toFixed(0)}% <TrendingUp size={13} />
             </span>
           </div>
         </div>
 
         {/* Card 2: Converted Quotes */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Converted to Sale</p>
-              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "விற்பனையானவை" : "Converted to Sale"}
+              </p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight truncate">
                 {formatCurrency(summaryTotals.converted)}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
               <Eye size={20} />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>Fulfilled proposals</span>
-            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-              {summaryTotals.total > 0 ? `${Math.round((summaryTotals.converted / summaryTotals.total) * 100)}%` : "0%"} rate
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
+            <span className="truncate">
+              {isTamil ? "நிறைவேற்றப்பட்டவை" : "Fulfilled proposals"}
+            </span>
+            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+              {summaryTotals.total > 0 ? `${Math.round((summaryTotals.converted / summaryTotals.total) * 100)}%` : "0%"} {isTamil ? "விகிதம்" : "rate"}
             </span>
           </div>
         </div>
 
         {/* Card 3: Open / Pending */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Open / Pending</p>
-              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "நிலுவையில் உள்ளவை" : "Open / Pending"}
+              </p>
+              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight truncate">
                 {formatCurrency(summaryTotals.open)}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
               <FileText size={20} />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>Awaiting confirmation</span>
-            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-              Follow-up ready
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
+            <span className="truncate">
+              {isTamil ? "உறுதிப்படுத்தல் நிலுவை" : "Awaiting confirmation"}
+            </span>
+            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+              {isTamil ? "பின்தொடரவும்" : "Follow-up ready"}
             </span>
           </div>
         </div>
 
         {/* Card 4: Average Quote Size */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-violet-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Average Quote</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "சராசரி மதிப்பு" : "Average Quote"}
+              </p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight truncate">
                 {formatCurrency(summaryTotals.count > 0 ? summaryTotals.total / summaryTotals.count : 0)}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
-              Avg
+            <div className="w-11 h-11 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
+              <Layers size={20} />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>Per document size</span>
-            <span className="text-[11px] font-semibold text-slate-600">Active period</span>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
+            <span className="truncate">
+              {isTamil ? "சராசரி அளவு" : "Per document size"}
+            </span>
+            <span className="text-[11px] font-semibold text-slate-600 shrink-0 whitespace-nowrap">
+              {isTamil ? "நடப்பு காலம்" : "Active period"}
+            </span>
           </div>
         </div>
       </div>
@@ -517,16 +549,18 @@ export default function EstimateQuotation() {
       {/* ── 3. FILTER TOOLBAR & DATE SELECTORS ── */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
+            {isTamil ? "வடிகட்டுதல்:" : "Filter by:"}
+          </span>
 
           {/* Period Pill Dropdown */}
           <div className="relative">
             <button
               onClick={() => setPeriodOpen((v) => !v)}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer whitespace-nowrap"
             >
-              <span>{PERIOD_LABELS[period] || "All Time"}</span>
-              <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
+              <span>{isTamil ? (PERIOD_LABELS_TA[period] || "எல்லா நேரமும்") : (PERIOD_LABELS[period] || "All Time")}</span>
+              <ChevronDown size={13} className={`text-slate-400 transition-transform shrink-0 ${periodOpen ? "rotate-180" : ""}`} />
             </button>
             {periodOpen && (
               <div className="absolute left-0 top-9 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
@@ -540,7 +574,7 @@ export default function EstimateQuotation() {
                       period === key ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    {label}
+                    {isTamil ? (PERIOD_LABELS_TA[key] || label) : label}
                   </div>
                 ))}
               </div>
@@ -549,7 +583,7 @@ export default function EstimateQuotation() {
 
           {/* Date Range Picker */}
           <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
-            <Calendar size={13} className="text-slate-400" />
+            <Calendar size={13} className="text-slate-400 shrink-0" />
             <input
               type="date"
               value={fromDate}
@@ -559,7 +593,7 @@ export default function EstimateQuotation() {
               }}
               className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
             />
-            <span className="text-slate-400 font-bold">to</span>
+            <span className="text-slate-400 font-bold shrink-0">{isTamil ? "க்கு" : "to"}</span>
             <input
               type="date"
               value={toDate}
@@ -575,14 +609,14 @@ export default function EstimateQuotation() {
           <div className="relative">
             <button
               onClick={() => setFirmOpen((v) => !v)}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer whitespace-nowrap"
             >
               <span>
                 {selectedFirm === "all"
-                  ? "All Store"
-                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
+                  ? (isTamil ? "அனைத்து கடைகளும்" : "All Stores")
+                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || (isTamil ? "நிறுவனம்" : "Firm")}
               </span>
-              <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
+              <ChevronDown size={13} className={`text-slate-400 transition-transform shrink-0 ${firmOpen ? "rotate-180" : ""}`} />
             </button>
             {firmOpen && (
               <div className="absolute left-0 top-9 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
@@ -592,7 +626,7 @@ export default function EstimateQuotation() {
                     selectedFirm === "all" ? "bg-indigo-50 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  All Store
+                  {isTamil ? "அனைத்து கடைகளும்" : "All Stores"}
                 </div>
                 {companies.map((c) => (
                   <div
@@ -611,8 +645,8 @@ export default function EstimateQuotation() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">
-            {filteredEstimates.length} records
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl whitespace-nowrap">
+            {filteredEstimates.length} {isTamil ? "பதிவுகள்" : "records"}
           </span>
         </div>
       </div>
@@ -624,16 +658,20 @@ export default function EstimateQuotation() {
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
               <FileText size={32} />
             </div>
-            <h3 className="text-base font-bold text-slate-800">No {docType.toLowerCase()}s found</h3>
+            <h3 className="text-base font-bold text-slate-800">
+              {isTamil ? "மதிப்பீடுகள் எதுவும் இல்லை" : `No ${docType.toLowerCase()}s found`}
+            </h3>
             <p className="text-xs text-slate-400 mt-1 max-w-sm mb-6">
-              There are no {docType.toLowerCase()}s matching the selected filters or date range.
+              {isTamil
+                ? "தேர்ந்தெடுக்கப்பட்ட வடிகட்டிகளுக்கு பொருந்தும் மதிப்பீடுகள் எதுவும் கிடைக்கவில்லை."
+                : `There are no ${docType.toLowerCase()}s matching the selected filters or date range.`}
             </p>
             <button
               onClick={handleAddEstimate}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-100 transition hover:from-indigo-700 hover:to-indigo-800 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-100 transition hover:from-indigo-700 hover:to-indigo-800 cursor-pointer whitespace-nowrap"
             >
               <Plus size={16} strokeWidth={2.8} />
-              <span>Create New {docType}</span>
+              <span>{isTamil ? "+ புதிய மதிப்பீடு" : `Create New ${docType}`}</span>
             </button>
           </div>
         ) : (
@@ -641,14 +679,14 @@ export default function EstimateQuotation() {
             <table className="w-full text-left text-xs min-w-max">
               <thead>
                 <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                  {visibleColumns.ref_no && <th className="py-3.5 px-4">Ref&nbsp;No</th>}
-                  {visibleColumns.date && <th className="py-3.5 px-4">Date</th>}
-                  {visibleColumns.customer && <th className="py-3.5 px-4">Customer</th>}
-                  {visibleColumns.state && <th className="py-3.5 px-4">State</th>}
-                  {visibleColumns.items && <th className="py-3.5 px-4 text-center">Items</th>}
-                  {visibleColumns.amount && <th className="py-3.5 px-4 text-right">Amount</th>}
-                  {visibleColumns.status && <th className="py-3.5 px-4 text-center">Status</th>}
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                  {visibleColumns.ref_no && <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "குறிப்பு எண்" : "Ref No"}</th>}
+                  {visibleColumns.date && <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "தேதி" : "Date"}</th>}
+                  {visibleColumns.customer && <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "வாடிக்கையாளர்" : "Customer"}</th>}
+                  {visibleColumns.state && <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "மாநிலம்" : "State"}</th>}
+                  {visibleColumns.items && <th className="py-3.5 px-4 text-center whitespace-nowrap">{isTamil ? "பொருட்கள்" : "Items"}</th>}
+                  {visibleColumns.amount && <th className="py-3.5 px-4 text-right whitespace-nowrap">{isTamil ? "தொகை" : "Amount"}</th>}
+                  {visibleColumns.status && <th className="py-3.5 px-4 text-center whitespace-nowrap">{isTamil ? "நிலை" : "Status"}</th>}
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap">{isTamil ? "செயல்கள்" : "Actions"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -684,16 +722,16 @@ export default function EstimateQuotation() {
                       </td>
                     )}
                     {visibleColumns.status && (
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${
                             est.status === "converted"
                               ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
                               : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
                           }`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${est.status === "converted" ? "bg-emerald-600" : "bg-indigo-600"}`} />
-                          {est.status || "open"}
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${est.status === "converted" ? "bg-emerald-600" : "bg-indigo-600"}`} />
+                          <span>{est.status === "converted" ? (isTamil ? "மாற்றப்பட்டது" : "Converted") : (isTamil ? "நிலுவை" : "Open")}</span>
                         </span>
                       </td>
                     )}

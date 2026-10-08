@@ -37,6 +37,27 @@ import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
+import { useLanguage } from "../../../utils/i18n";
+
+const PERIOD_LABELS = {
+  all_time: "All Time",
+  today: "Today",
+  this_week: "This Week",
+  this_month: "This Month",
+  this_quarter: "This Quarter",
+  this_year: "This Year",
+  custom: "Custom",
+};
+
+const PERIOD_LABELS_TA = {
+  all_time: "எல்லா நேரமும்",
+  today: "இன்று",
+  this_week: "இந்த வாரம்",
+  this_month: "இந்த மாதம்",
+  this_quarter: "இந்த காலாண்டு",
+  this_year: "இந்த வருடம்",
+  custom: "தனிப்பயன்",
+};
 
 const DEFAULT_COLUMNS = [
   { key: "date", label: "Date", icon: Calendar, color: "text-indigo-600", bg: "bg-indigo-50", desc: "Payment inward date" },
@@ -52,6 +73,7 @@ const DEFAULT_COLUMNS = [
 ];
 
 export default function PaymentIn() {
+  const { isTamil } = useLanguage();
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
@@ -66,6 +88,37 @@ export default function PaymentIn() {
     resetDefaultColumns,
     visibleColumnCount,
   } = useTableColumns("payment_in_columns", DEFAULT_COLUMNS);
+
+  const columnsWithLabels = useMemo(() => {
+    if (!isTamil) return DEFAULT_COLUMNS;
+    return DEFAULT_COLUMNS.map((c) => ({
+      ...c,
+      label: {
+        date: "தேதி",
+        ref_no: "குறிப்பு எண்",
+        party_name: "வாடிக்கையாளர் பெயர்",
+        total_amount: "மொத்த தொகை",
+        received: "பெறப்பட்டது",
+        discount: "தள்ளுபடி",
+        balance: "மீதி",
+        payment_type: "கட்டண முறை",
+        status: "நிலை",
+        actions: "செயல்கள்",
+      }[c.key] || c.label,
+      desc: {
+        date: "பணம் வரவு தேதி",
+        ref_no: "ரசீது குறிப்பு எண்",
+        party_name: "வாடிக்கையாளர் பெயர்",
+        total_amount: "மொத்த பில் தொகை",
+        received: "பெறப்பட்ட தொகை",
+        discount: "அளிக்கப்பட்ட தள்ளுபடி",
+        balance: "மீதமுள்ள நிலுவைத் தொகை",
+        payment_type: "ரொக்கம், வங்கி, யுபிஐ போன்றவை",
+        status: "செலுத்தப்பட்டது அல்லது பகுதி",
+        actions: "அச்சிடு, பகிர் & கூடுதல்",
+      }[c.key] || c.desc,
+    }));
+  }, [isTamil]);
 
   // Data states
   const [payments, setPayments] = useState([]);
@@ -366,13 +419,17 @@ export default function PaymentIn() {
       {/* ── 1. TOP HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 select-none">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-lg shadow-emerald-100 ring-4 ring-emerald-50/50">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-lg shadow-emerald-100 ring-4 ring-emerald-50/50 shrink-0">
             <TrendingUp size={24} />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">Payment In</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
+              {isTamil ? "பணம் வரவு" : "Payment In"}
+            </h1>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Record customer inward payments, settle party ledger balances &amp; track inflows
+              {isTamil
+                ? "வாடிக்கையாளர் வரவு கட்டணங்களை பதிவு செய்து, பேரேடு நிலுவைகளை கண்காணிக்கவும்"
+                : "Record customer inward payments, settle party ledger balances & track inflows"}
             </p>
           </div>
         </div>
@@ -388,95 +445,113 @@ export default function PaymentIn() {
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 cursor-pointer"
           >
             <Plus size={16} strokeWidth={2.8} />
-            <span>Add Payment-In</span>
+            <span>{isTamil ? "புதிய வரவு" : "Add Payment-In"}</span>
           </button>
         </div>
       </div>
 
       {/* ── 2. METRIC KPI CARDS (PaySplitX 4-Card Strip) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
         {/* Card 1: Total Received */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Received</p>
-              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "பெறப்பட்ட தொகை" : "Total Received"}
+              </p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1 tracking-tight truncate">
                 ₹ {metrics.received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black">
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black shrink-0">
               ₹
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>{filteredPayments.length} Total records</span>
-            <span className="inline-flex items-center gap-1 font-bold text-emerald-600">
-              Inflow Active
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
+            <span className="truncate">
+              {filteredPayments.length} {isTamil ? "பதிவுகள்" : "Total records"}
+            </span>
+            <span className="inline-flex items-center gap-1 font-bold text-emerald-600 text-[11px] bg-emerald-50 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+              {isTamil ? "செயலில் உள்ளது" : "Inflow Active"}
             </span>
           </div>
         </div>
 
         {/* Card 2: Total Voucher Value */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Value</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "மொத்த மதிப்பு" : "Total Value"}
+              </p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight truncate">
                 ₹ {metrics.total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-              Tot
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+              <CreditCard size={20} />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>Invoice allocations</span>
-            <span className="text-[11px] font-semibold text-slate-600">Aggregate</span>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
+            <span className="truncate">
+              {isTamil ? "பில் ஒதுக்கீடுகள்" : "Invoice allocations"}
+            </span>
+            <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+              {isTamil ? "கூட்டு மொத்தம்" : "Aggregate"}
+            </span>
           </div>
         </div>
 
         {/* Card 3: Discount Given */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Discounts Given</p>
-              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "வழங்கிய தள்ளுபடி" : "Discounts Given"}
+              </p>
+              <h3 className="text-2xl font-black text-amber-600 mt-1 tracking-tight truncate">
                 ₹ {metrics.discount.toLocaleString(undefined, { minimumFractionDigits: 0 })}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold shrink-0">
               %
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>Settlement waivers</span>
-            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-              Cash discounts
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
+            <span className="truncate">
+              {isTamil ? "தள்ளுபடி தீர்வு" : "Settlement waivers"}
+            </span>
+            <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+              {isTamil ? "ரொக்க தள்ளுபடி" : "Cash discounts"}
             </span>
           </div>
         </div>
 
         {/* Card 4: Remaining Balance */}
-        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+        <div className="relative overflow-hidden bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-rose-500" />
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Balance Pending</p>
-              <h3 className="text-2xl font-black text-rose-600 mt-1 tracking-tight">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
+                {isTamil ? "மீதி நிலுவை" : "Balance Pending"}
+              </p>
+              <h3 className="text-2xl font-black text-rose-600 mt-1 tracking-tight truncate">
                 ₹ {metrics.balance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
               </h3>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
-              Bal
+            <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold shrink-0">
+              <Wallet size={20} />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>Unsettled invoice credit</span>
-            <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
-              Due to collect
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 gap-2">
+            <span className="truncate">
+              {isTamil ? "வரவு நிலுவை" : "Unsettled invoice credit"}
+            </span>
+            <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+              {isTamil ? "வசூல் நிலுவை" : "Due to collect"}
             </span>
           </div>
         </div>
@@ -485,7 +560,9 @@ export default function PaymentIn() {
       {/* ── 3. FILTER TOOLBAR ── */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
+            {isTamil ? "வடிகட்டுதல்:" : "Filter by:"}
+          </span>
 
           {/* Period Selector */}
           <div className="relative">
@@ -495,30 +572,35 @@ export default function PaymentIn() {
                 setFirmOpen(false);
                 setUserOpen(false);
               }}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer whitespace-nowrap"
             >
-              <span className="capitalize">{period === "all_time" ? "All Time" : period.replace("_", " ")}</span>
+              <span className="capitalize">
+                {isTamil ? (PERIOD_LABELS_TA[period] || "எல்லா நேரமும்") : (period === "all_time" ? "All Time" : period.replace("_", " "))}
+              </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${periodOpen ? "rotate-180" : ""}`} />
             </button>
 
             {periodOpen && (
               <div className="absolute left-0 mt-1.5 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
                 {[
-                  { label: "All Time", val: "all_time" },
-                  { label: "Today", val: "today" },
-                  { label: "This Week", val: "this_week" },
-                  { label: "This Month", val: "this_month" },
-                  { label: "This Quarter", val: "this_quarter" },
-                  { label: "This Year", val: "this_year" },
+                  { label: "All Time", val: "all_time", labelTa: "எல்லா நேரமும்" },
+                  { label: "Today", val: "today", labelTa: "இன்று" },
+                  { label: "This Week", val: "this_week", labelTa: "இந்த வாரம்" },
+                  { label: "This Month", val: "this_month", labelTa: "இந்த மாதம்" },
+                  { label: "This Quarter", val: "this_quarter", labelTa: "இந்த காலாண்டு" },
+                  { label: "This Year", val: "this_year", labelTa: "இந்த வருடம்" },
                 ].map((p) => (
                   <button
                     key={p.val}
-                    onClick={() => setPresetDates(p.val)}
+                    onClick={() => {
+                      setPresetDates(p.val);
+                      setPeriodOpen(false);
+                    }}
                     className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
                       period === p.val ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                     }`}
                   >
-                    {p.label}
+                    {isTamil ? p.labelTa : p.label}
                   </button>
                 ))}
               </div>
@@ -527,7 +609,7 @@ export default function PaymentIn() {
 
           {/* Date Range Picker */}
           <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 bg-slate-50 text-xs">
-            <Calendar size={13} className="text-slate-400" />
+            <Calendar size={13} className="text-slate-400 shrink-0" />
             <input
               type="date"
               value={fromDate}
@@ -538,7 +620,7 @@ export default function PaymentIn() {
               }}
               className="outline-none text-xs bg-transparent cursor-pointer font-semibold text-slate-700"
             />
-            <span className="text-slate-400 font-bold">to</span>
+            <span className="text-slate-400 font-bold whitespace-nowrap">{isTamil ? "வரை" : "to"}</span>
             <input
               type="date"
               value={toDate}
@@ -559,10 +641,12 @@ export default function PaymentIn() {
                 setPeriodOpen(false);
                 setUserOpen(false);
               }}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer whitespace-nowrap"
             >
               <span>
-                {selectedFirm === "all" ? "All store" : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || "Firm"}
+                {selectedFirm === "all"
+                  ? (isTamil ? "அனைத்து கடைகள்" : "All Stores")
+                  : companies.find((c) => String(c.id) === String(selectedFirm))?.company_name || (isTamil ? "நிறுவனம்" : "Firm")}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${firmOpen ? "rotate-180" : ""}`} />
             </button>
@@ -578,7 +662,7 @@ export default function PaymentIn() {
                     selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
-                  All Store
+                  {isTamil ? "அனைத்து கடைகள்" : "All Stores"}
                 </button>
                 {companies.map((c) => (
                   <button
@@ -606,14 +690,14 @@ export default function PaymentIn() {
                 setPeriodOpen(false);
                 setFirmOpen(false);
               }}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer whitespace-nowrap"
             >
               <span>
                 {selectedUser === "all"
-                  ? "All Users"
+                  ? (isTamil ? "அனைத்து பயனர்கள்" : "All Users")
                   : customers.find((c) => String(c.id) === String(selectedUser))?.name ||
                     customers.find((c) => String(c.id) === String(selectedUser))?.phone ||
-                    "Customer"}
+                    (isTamil ? "வாடிக்கையாளர்" : "Customer")}
               </span>
               <ChevronDown size={13} className={`text-slate-400 transition-transform ${userOpen ? "rotate-180" : ""}`} />
             </button>
@@ -629,7 +713,7 @@ export default function PaymentIn() {
                     selectedUser === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
-                  All Users
+                  {isTamil ? "அனைத்து பயனர்கள்" : "All Users"}
                 </button>
                 {customers.map((u) => (
                   <button
@@ -642,7 +726,7 @@ export default function PaymentIn() {
                       String(selectedUser) === String(u.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                     }`}
                   >
-                    <div className="font-semibold truncate">{u.name || u.customer_name || "Customer"}</div>
+                    <div className="font-semibold truncate">{u.name || u.customer_name || (isTamil ? "வாடிக்கையாளர்" : "Customer")}</div>
                     {u.phone && <div className="text-[11px] text-slate-400 truncate">{u.phone}</div>}
                   </button>
                 ))}
@@ -661,7 +745,7 @@ export default function PaymentIn() {
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search party, ref..."
+                placeholder={isTamil ? "தேடவும்..." : "Search party, ref..."}
                 className="bg-transparent text-xs outline-none text-slate-800 w-36"
               />
               <button
@@ -678,7 +762,7 @@ export default function PaymentIn() {
             <button
               onClick={() => setShowSearchInput(true)}
               className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
-              title="Search"
+              title={isTamil ? "தேடு" : "Search"}
             >
               <Search size={14} />
             </button>
@@ -689,27 +773,27 @@ export default function PaymentIn() {
             type="button"
             onClick={() => setViewMode("analytics")}
             disabled={!filteredPayments.length}
-            title="Open Analytics"
+            title={isTamil ? "பகுப்பாய்வு திற" : "Open Analytics"}
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <BarChart3 size={16} />
-            <span>Analytics</span>
+            <span>{isTamil ? "பகுப்பாய்வு" : "Analytics"}</span>
           </button>
 
           {/* Excel Export */}
           <button
             onClick={handleExportExcel}
             className="px-3 h-8 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center gap-1.5 text-emerald-700 hover:bg-emerald-100 font-bold text-xs transition cursor-pointer"
-            title="Export to Excel"
+            title={isTamil ? "எக்செல் ஏற்றுமதி" : "Export to Excel"}
           >
-            <span>Excel</span>
+            <span>{isTamil ? "எக்செல்" : "Excel"}</span>
           </button>
 
           {/* Print Table */}
           <button
             onClick={() => window.print()}
             className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition cursor-pointer"
-            title="Print Transactions"
+            title={isTamil ? "பரிவர்த்தனைகளை அச்சிடுக" : "Print Transactions"}
           >
             <Printer size={14} />
           </button>
@@ -729,16 +813,16 @@ export default function PaymentIn() {
           <table className="w-full text-left text-xs min-w-max">
             <thead>
               <tr className="border-b border-slate-200/80 bg-[#fbfcfd] text-slate-500 uppercase text-[11px] font-bold tracking-wider">
-                {visibleColumns.date && <th className="py-3.5 px-4">Date</th>}
-                {visibleColumns.ref_no && <th className="py-3.5 px-4 text-right">Ref. No.</th>}
-                {visibleColumns.party_name && <th className="py-3.5 px-4">Party Name</th>}
-                {visibleColumns.total_amount && <th className="py-3.5 px-4 text-right">Total Amount</th>}
-                {visibleColumns.received && <th className="py-3.5 px-4 text-right">Received</th>}
-                {visibleColumns.discount && <th className="py-3.5 px-4 text-right">Discount</th>}
-                {visibleColumns.balance && <th className="py-3.5 px-4 text-right">Balance</th>}
-                {visibleColumns.payment_type && <th className="py-3.5 px-4">Payment Type</th>}
-                {visibleColumns.status && <th className="py-3.5 px-4 text-center">Status</th>}
-                <th className="py-3.5 px-4 text-right">Actions</th>
+                {visibleColumns.date && <th className="py-3 px-3.5 whitespace-nowrap">{isTamil ? "தேதி" : "Date"}</th>}
+                {visibleColumns.ref_no && <th className="py-3 px-3.5 text-right whitespace-nowrap">{isTamil ? "குறிப்பு எண்" : "Ref. No."}</th>}
+                {visibleColumns.party_name && <th className="py-3 px-3.5 whitespace-nowrap">{isTamil ? "வாடிக்கையாளர் பெயர்" : "Party Name"}</th>}
+                {visibleColumns.total_amount && <th className="py-3 px-3.5 text-right whitespace-nowrap">{isTamil ? "மொத்த தொகை" : "Total Amount"}</th>}
+                {visibleColumns.received && <th className="py-3 px-3.5 text-right whitespace-nowrap">{isTamil ? "பெறப்பட்டது" : "Received"}</th>}
+                {visibleColumns.discount && <th className="py-3 px-3.5 text-right whitespace-nowrap">{isTamil ? "தள்ளுபடி" : "Discount"}</th>}
+                {visibleColumns.balance && <th className="py-3 px-3.5 text-right whitespace-nowrap">{isTamil ? "மீதி" : "Balance"}</th>}
+                {visibleColumns.payment_type && <th className="py-3 px-3.5 whitespace-nowrap">{isTamil ? "கட்டண முறை" : "Payment Type"}</th>}
+                {visibleColumns.status && <th className="py-3 px-3.5 text-center whitespace-nowrap min-w-[130px]">{isTamil ? "நிலை" : "Status"}</th>}
+                <th className="py-3 px-4 text-right whitespace-nowrap sticky right-0 bg-[#fbfcfd] z-10 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)]">{isTamil ? "செயல்கள்" : "Actions"}</th>
               </tr>
             </thead>
 
@@ -747,14 +831,20 @@ export default function PaymentIn() {
                 <tr>
                   <td colSpan={visibleColumnCount || 10} className="py-14 text-center text-slate-400">
                     <RefreshCw size={24} className="animate-spin text-indigo-500 mx-auto mb-2" />
-                    <span>Loading Payment-In Records...</span>
+                    <span>{isTamil ? "பணம் வரவு பதிவுகள் ஏற்றப்படுகின்றன..." : "Loading Payment-In Records..."}</span>
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
                   <td colSpan={visibleColumnCount || 10} className="py-14 text-center text-slate-400">
-                    <p className="font-bold text-slate-700 text-sm">No payment-in transactions found.</p>
-                    <p className="text-xs text-slate-400 mt-1">Click &quot;+ Add Payment-In&quot; to record customer payment.</p>
+                    <p className="font-bold text-slate-700 text-sm">
+                      {isTamil ? "பணம் வரவு பதிவுகள் எதுவும் இல்லை." : "No payment-in transactions found."}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {isTamil
+                        ? "வாடிக்கையாளர் பணம் வரவை பதிவு செய்ய \"+ புதிய வரவு\" என்பதை கிளிக் செய்யவும்."
+                        : "Click \"+ Add Payment-In\" to record customer payment."}
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -769,106 +859,106 @@ export default function PaymentIn() {
                   return (
                     <tr
                       key={p.id || idx}
-                      className="hover:bg-indigo-50/20 transition-colors duration-150 text-slate-700"
+                      className="group hover:bg-indigo-50/20 transition-colors duration-150 text-slate-700"
                     >
                       {/* Date */}
                       {visibleColumns.date && (
-                        <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">
+                        <td className="py-3 px-3.5 text-slate-600 font-medium whitespace-nowrap">
                           {formatDateDMY(p.payment_date || p.created_at)}
                         </td>
                       )}
 
                       {/* Ref. no. */}
                       {visibleColumns.ref_no && (
-                        <td className="py-3.5 px-4 font-bold text-indigo-600 text-right whitespace-nowrap">
+                        <td className="py-3 px-3.5 font-bold text-indigo-600 text-right whitespace-nowrap">
                           #{refNo}
                         </td>
                       )}
 
                       {/* Party Name */}
                       {visibleColumns.party_name && (
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="font-bold text-slate-900">{p.customer_name || p.name || "Customer"}</div>
+                        <td className="py-3 px-3.5 whitespace-nowrap">
+                          <div className="font-bold text-slate-900">{p.customer_name || p.name || (isTamil ? "வாடிக்கையாளர்" : "Customer")}</div>
                           {p.phone && <div className="text-[10px] text-slate-400 font-normal">{p.phone}</div>}
                         </td>
                       )}
 
                       {/* Total Amount */}
                       {visibleColumns.total_amount && (
-                        <td className="py-3.5 px-4 font-black text-slate-900 text-right whitespace-nowrap">
+                        <td className="py-3 px-3.5 font-black text-slate-900 text-right whitespace-nowrap">
                           ₹ {total.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                         </td>
                       )}
 
                       {/* Received */}
                       {visibleColumns.received && (
-                        <td className="py-3.5 px-4 font-black text-emerald-600 text-right whitespace-nowrap">
+                        <td className="py-3 px-3.5 font-black text-emerald-600 text-right whitespace-nowrap">
                           ₹ {received.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                         </td>
                       )}
 
                       {/* Discount */}
                       {visibleColumns.discount && (
-                        <td className="py-3.5 px-4 font-bold text-amber-600 text-right whitespace-nowrap">
+                        <td className="py-3 px-3.5 font-bold text-amber-600 text-right whitespace-nowrap">
                           ₹ {discountAmt.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                         </td>
                       )}
 
                       {/* Balance */}
                       {visibleColumns.balance && (
-                        <td className="py-3.5 px-4 font-bold text-rose-600 text-right whitespace-nowrap">
+                        <td className="py-3 px-3.5 font-bold text-rose-600 text-right whitespace-nowrap">
                           ₹ {balance.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                         </td>
                       )}
 
                       {/* Payment Type */}
                       {visibleColumns.payment_type && (
-                        <td className="py-3.5 px-4 capitalize whitespace-nowrap">
+                        <td className="py-3 px-3.5 capitalize whitespace-nowrap">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-                            {p.payment_method || "Cash"}
+                            {p.payment_method === "Cash" && isTamil ? "ரொக்கம்" : (p.payment_method || "Cash")}
                           </span>
                         </td>
                       )}
 
                       {/* Status */}
                       {visibleColumns.status && (
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <td className="py-3 px-3.5 text-center whitespace-nowrap min-w-[130px]">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 whitespace-nowrap ${
                               status === "paid"
                                 ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
                                 : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
                             }`}
                           >
-                            <span className={`w-1.5 h-1.5 rounded-full ${status === "paid" ? "bg-emerald-600" : "bg-amber-600"}`} />
-                            {status}
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status === "paid" ? "bg-emerald-600" : "bg-amber-600"}`} />
+                            <span>{status === "paid" ? (isTamil ? "செலுத்தப்பட்டது" : "Paid") : (isTamil ? "பகுதி தொகை" : "Partial")}</span>
                           </span>
                         </td>
                       )}
 
-                      {/* Actions Column */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      {/* Actions Column (Sticky to right so it never hides or clips) */}
+                      <td className="py-3 px-4 text-right whitespace-nowrap sticky right-0 bg-white group-hover:bg-[#f5f7ff] z-10 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)]" onClick={(e) => e.stopPropagation()}>
                         <TableActions
                           onPrint={() => navigate(`/invoice/${p.invoice_no}`)}
-                          printTitle="Print"
+                          printTitle={isTamil ? "அச்சிடு" : "Print"}
                           shareTransaction={p}
                           shareType="Payment-In"
                           onViewInvoice={() => navigate(`/invoice/${p.invoice_no}`)}
-                          viewInvoiceLabel="View Invoice"
+                          viewInvoiceLabel={isTamil ? "பில் பார்க்க" : "View Invoice"}
                           menuItems={[
                             {
-                              label: "Edit Invoice",
+                              label: isTamil ? "பில் திருத்து" : "Edit Invoice",
                               icon: Edit,
                               onClick: () => navigate(`/sales/edit/${p.invoice_no}`),
                             },
                             {
-                              label: "View Invoice",
+                              label: isTamil ? "பில் பார்" : "View Invoice",
                               icon: Eye,
                               onClick: () => navigate(`/invoice/${p.invoice_no}`),
                             },
                             { isDivider: true },
                             {
-                              label: "Delete Voucher",
+                              label: isTamil ? "ரசீது நீக்கு" : "Delete Voucher",
                               icon: Trash2,
                               isDanger: true,
                               onClick: () => setDeleteTarget(p),
@@ -888,22 +978,33 @@ export default function PaymentIn() {
         {filteredPayments.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-200/80 text-xs text-slate-600 bg-white">
             <div className="flex items-center gap-4">
-              <span>
-                Showing <strong className="font-bold text-slate-900">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
-                <strong className="font-bold text-slate-900">
-                  {Math.min(safePage * rowsPerPage, filteredPayments.length)}
-                </strong>{" "}
-                of <strong className="font-bold text-slate-900">{filteredPayments.length}</strong> entries
-              </span>
+              {isTamil ? (
+                <span>
+                  மொத்தம் <strong className="font-bold text-slate-900">{filteredPayments.length}</strong> பதிவுகளில்{" "}
+                  <strong className="font-bold text-slate-900">{(safePage - 1) * rowsPerPage + 1}</strong> -{" "}
+                  <strong className="font-bold text-slate-900">
+                    {Math.min(safePage * rowsPerPage, filteredPayments.length)}
+                  </strong>{" "}
+                  காட்டப்படுகிறது
+                </span>
+              ) : (
+                <span>
+                  Showing <strong className="font-bold text-slate-900">{(safePage - 1) * rowsPerPage + 1}</strong> to{" "}
+                  <strong className="font-bold text-slate-900">
+                    {Math.min(safePage * rowsPerPage, filteredPayments.length)}
+                  </strong>{" "}
+                  of <strong className="font-bold text-slate-900">{filteredPayments.length}</strong> entries
+                </span>
+              )}
               <div className="flex items-center gap-1.5">
-                <span className="text-slate-400">Rows:</span>
+                <span className="text-slate-400">{isTamil ? "வரிகள்:" : "Rows:"}</span>
                 <select
                   value={rowsPerPage}
                   onChange={(e) => {
                     setRowsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none"
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none cursor-pointer"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>
@@ -918,6 +1019,7 @@ export default function PaymentIn() {
                 disabled={safePage === 1}
                 onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                 className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                title={isTamil ? "முந்தைய பக்கம்" : "Previous page"}
               >
                 <ChevronLeft size={15} />
               </button>
@@ -928,6 +1030,7 @@ export default function PaymentIn() {
                 disabled={safePage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                 className="w-8 h-8 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                title={isTamil ? "அடுத்த பக்கம்" : "Next page"}
               >
                 <ChevronRight size={15} />
               </button>
@@ -942,7 +1045,7 @@ export default function PaymentIn() {
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={() => {
           fetchPayments();
-          setActionToast({ msg: "Payment-In recorded successfully.", ok: true });
+          setActionToast({ msg: isTamil ? "பணம் வரவு வெற்றிகரமாக சேமிக்கப்பட்டது." : "Payment-In recorded successfully.", ok: true });
           setTimeout(() => setActionToast(null), 3500);
         }}
       />
@@ -962,13 +1065,17 @@ export default function PaymentIn() {
                 <AlertTriangle size={22} className="text-red-600" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900">Delete Payment Record?</h3>
+                <h3 className="text-base font-bold text-slate-900">
+                  {isTamil ? "வரவு ரசீதை நீக்கவா?" : "Delete Payment Record?"}
+                </h3>
                 <p className="text-xs text-slate-500 font-mono">Invoice #{deleteTarget.invoice_no}</p>
               </div>
             </div>
 
             <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-              Are you sure you want to permanently delete this payment transaction?
+              {isTamil
+                ? "இந்த கட்டண பரிவர்த்தனையை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?"
+                : "Are you sure you want to permanently delete this payment transaction?"}
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -978,7 +1085,7 @@ export default function PaymentIn() {
                 onClick={() => setDeleteTarget(null)}
                 className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
               >
-                Cancel
+                {isTamil ? "ரத்து" : "Cancel"}
               </button>
               <button
                 type="button"
@@ -987,7 +1094,7 @@ export default function PaymentIn() {
                 className="px-5 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md shadow-red-500/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
                 {deleting && <RefreshCw size={14} className="animate-spin" />}
-                <span>{deleting ? "Deleting..." : "Yes, Delete"}</span>
+                <span>{deleting ? (isTamil ? "நீக்கப்படுகிறது..." : "Deleting...") : (isTamil ? "ஆம், நீக்கு" : "Yes, Delete")}</span>
               </button>
             </div>
           </div>
@@ -1044,11 +1151,13 @@ export default function PaymentIn() {
       <CommonTableColumnSettings
         isOpen={showColumnDrawer}
         onClose={() => setShowColumnDrawer(false)}
-        columns={DEFAULT_COLUMNS}
+        columns={columnsWithLabels}
         visibleColumns={visibleColumns}
         onToggleColumn={toggleColumn}
         onSelectAll={selectAllColumns}
         onReset={resetDefaultColumns}
+        title={isTamil ? "நெடுவரிசைகளை மாற்று" : "Customise Columns"}
+        subtitle={isTamil ? "காட்ட வேண்டிய புலங்களைத் தேர்வு செய்க" : "Choose visible table fields"}
       />
         </>
       )}

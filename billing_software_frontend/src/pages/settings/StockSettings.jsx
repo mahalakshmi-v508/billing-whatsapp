@@ -154,7 +154,7 @@ export default function StockSettings() {
               <Ban size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-[15px] font-bold text-slate-900">
                   {isTamil ? "1. நெகட்டிவ் ஸ்டாக் கட்டுப்பாடு (Negative Stock Control)" : "1. Negative Stock Control"}
                 </h3>
@@ -189,11 +189,11 @@ export default function StockSettings() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 items-stretch">
           {/* Option A: Block Billing (Strict) */}
           <div
             onClick={() => handleNegativeStockChange("block")}
-            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 ${
+            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.negative_stock_mode === "block"
                 ? "border-rose-600 bg-rose-50/40 shadow-sm"
                 : "border-slate-200 hover:border-slate-300 bg-white"
@@ -228,7 +228,7 @@ export default function StockSettings() {
           {/* Option B: Warning Only */}
           <div
             onClick={() => handleNegativeStockChange("warning")}
-            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 ${
+            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.negative_stock_mode === "warning"
                 ? "border-amber-600 bg-amber-50/40 shadow-sm"
                 : "border-slate-200 hover:border-slate-300 bg-white"
@@ -258,7 +258,7 @@ export default function StockSettings() {
           {/* Option C: Allow Silently */}
           <div
             onClick={() => handleNegativeStockChange("allow")}
-            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 ${
+            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.negative_stock_mode === "allow"
                 ? "border-slate-600 bg-slate-50/70 shadow-sm"
                 : "border-slate-200 hover:border-slate-300 bg-white"
@@ -295,7 +295,7 @@ export default function StockSettings() {
               <AlertTriangle size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-[15px] font-bold text-slate-900">
                   {isTamil ? "2. பில்லிங்கில் குறைந்த இருப்பு எச்சரிக்கை (Low Stock Alert at POS)" : "2. Low Stock Alert at POS"}
                 </h3>
@@ -380,7 +380,7 @@ export default function StockSettings() {
               <CalendarX2 size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-[15px] font-bold text-slate-900">
                   {isTamil ? "3. காலாவதியான பொருட்கள் கட்டுப்பாடு (Batch / Expiry Warning)" : "3. Batch / Expiry Warning Control"}
                 </h3>
@@ -415,11 +415,11 @@ export default function StockSettings() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 items-stretch">
           {/* Option A: Strict Block Expired */}
           <div
             onClick={() => handleExpiryModeChange("block")}
-            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 ${
+            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.expiry_control_mode === "block"
                 ? "border-purple-600 bg-purple-50/40 shadow-sm"
                 : "border-slate-200 hover:border-slate-300 bg-white"
@@ -454,7 +454,7 @@ export default function StockSettings() {
           {/* Option B: Warning Only */}
           <div
             onClick={() => handleExpiryModeChange("warning")}
-            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 ${
+            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.expiry_control_mode === "warning"
                 ? "border-amber-600 bg-amber-50/40 shadow-sm"
                 : "border-slate-200 hover:border-slate-300 bg-white"
@@ -484,7 +484,7 @@ export default function StockSettings() {
           {/* Option C: Disabled */}
           <div
             onClick={() => handleExpiryModeChange("disabled")}
-            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 ${
+            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.expiry_control_mode === "disabled"
                 ? "border-slate-600 bg-slate-50/70 shadow-sm"
                 : "border-slate-200 hover:border-slate-300 bg-white"
