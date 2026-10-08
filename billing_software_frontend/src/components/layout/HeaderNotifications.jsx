@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LOW_STOCK_THRESHOLD, isLowStock, isOutOfStock } from "../../utils/stockAlerts";
+import { useLanguage } from "../../utils/i18n";
 
 /* Per-tab empty states so each filter explains itself instead of showing a generic blank list. */
 const TAB_EMPTY_COPY = {
@@ -38,6 +39,7 @@ const TAB_EMPTY_COPY = {
 
 export default function HeaderNotifications() {
   const navigate = useNavigate();
+  const { t: translate } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all"); // 'all' | 'overdue' | 'out_of_stock' | 'low_stock' | 'expire'
   const [overdueList, setOverdueList] = useState([]);
@@ -215,9 +217,9 @@ export default function HeaderNotifications() {
                 </div>
                 <div>
                   <h3 className="text-xs font-bold font-display uppercase tracking-wider">
-                    Notifications
+                    {translate("Notifications")}
                   </h3>
-                  <p className="text-[10px] text-slate-300">Business alerts & critical dues</p>
+                  <p className="text-[10px] text-slate-300">{translate("Business alerts & critical dues")}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -246,7 +248,7 @@ export default function HeaderNotifications() {
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                All ({totalCount})
+                {translate("All")} ({totalCount})
               </button>
               <button
                 type="button"
@@ -257,7 +259,7 @@ export default function HeaderNotifications() {
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                Overdue ({overdueList.length})
+                {translate("Overdue")} ({overdueList.length})
               </button>
               <button
                 type="button"
@@ -268,7 +270,7 @@ export default function HeaderNotifications() {
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                Out of Stock ({outOfStockList.length})
+                {translate("Out of Stock")} ({outOfStockList.length})
               </button>
               <button
                 type="button"
@@ -279,7 +281,7 @@ export default function HeaderNotifications() {
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                Low Stock ({lowStockList.length})
+                {translate("Low Stock")} ({lowStockList.length})
               </button>
               <button
                 type="button"
@@ -290,7 +292,7 @@ export default function HeaderNotifications() {
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
-                Expire ({expiringList.length})
+                {translate("Expire")} ({expiringList.length})
               </button>
             </div>
 

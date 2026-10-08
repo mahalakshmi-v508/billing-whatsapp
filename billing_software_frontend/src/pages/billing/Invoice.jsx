@@ -13,6 +13,7 @@ import {
   FileCheck, ShieldCheck, ChevronRight, CornerDownLeft
 } from "lucide-react";
 import {
+  generateInvoicePdf,
   generateInvoicePdfBase64,
   sendInvoiceViaWhatsAppApi,
   getInvoiceLogoUrl,
@@ -55,6 +56,52 @@ const PRINT_CSS = `
       zoom: 1 !important;
       overflow: visible !important;
       border-radius: 0 !important;
+    }
+    #invoice-print-area .invoice-items-table {
+      border-collapse: collapse !important;
+    }
+    #invoice-print-area .invoice-items-table thead th {
+      border-bottom: 1px solid #94a3b8 !important;
+    }
+    #invoice-print-area .invoice-items-table .invoice-last-product-row td {
+      border-bottom: 1px solid #94a3b8 !important;
+    }
+    #invoice-print-area .invoice-items-table .invoice-total-row td {
+      border-top: 1px solid #64748b !important;
+      border-bottom: 1.5px solid #64748b !important;
+    }
+    #invoice-print-area .invoice-total-print-rule {
+      display: block !important;
+    }
+    #invoice-print-area .invoice-company-header {
+      border: 1px solid #64748b !important;
+    }
+    #invoice-print-area .invoice-party-details {
+      position: relative !important;
+      border-right: 1px solid #64748b !important;
+      border-bottom: 1px solid #64748b !important;
+      border-left: 1px solid #64748b !important;
+    }
+    #invoice-print-area .invoice-party-details::after {
+      content: "" !important;
+      position: absolute !important;
+      top: 0 !important;
+      bottom: 0 !important;
+      left: 50% !important;
+      border-left: 1px solid #64748b !important;
+      pointer-events: none !important;
+    }
+    #invoice-print-area .invoice-party-details::before {
+      content: "" !important;
+      position: absolute !important;
+      top: 0 !important;
+      right: 0 !important;
+      left: 0 !important;
+      border-top: 1px solid #64748b !important;
+      pointer-events: none !important;
+    }
+    #invoice-print-area .invoice-party-details > .invoice-party-column {
+      border-right: 0 !important;
     }
     .no-print { display: none !important; }
   }
@@ -356,7 +403,7 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
       </h2>
 
       {/* Top Box: Company Header */}
-      <div style={{ border: "1px solid #94a3b8", display: "flex", alignItems: "center", padding: "14px 16px", gap: 16, background: "#ffffff" }}>
+      <div className="invoice-company-header" style={{ border: "1px solid #94a3b8", display: "flex", alignItems: "center", padding: "14px 16px", gap: 16, background: "#ffffff" }}>
         {showLogo && (
           <div style={{
             width: 76, height: 76, background: "#64748b", display: "flex", alignItems: "center",
@@ -377,8 +424,8 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
       </div>
 
       {/* Bill To & Invoice Details Box */}
-      <div style={{ border: "1px solid #94a3b8", borderTop: "none", display: "grid", gridTemplateColumns: "1fr 1fr", background: "#ffffff" }}>
-        <div style={{ padding: "10px 14px", borderRight: "1px solid #94a3b8" }}>
+      <div className="invoice-party-details" style={{ border: "1px solid #94a3b8", borderTop: "none", display: "grid", gridTemplateColumns: "1fr 1fr", background: "#ffffff" }}>
+        <div className="invoice-party-column" style={{ padding: "10px 14px", borderRight: "1px solid #94a3b8" }}>
           <div style={{ fontWeight: 700, fontSize: 12, color: "#334155" }}>{partyLabel}</div>
           <div style={{ fontWeight: 800, fontSize: 13, color: "#0f172a", marginTop: 2 }}>{invoice.customer_name || invoice.party_name || "Cash Customer"}</div>
           {invoice.customer_phone && <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>Contact No: {invoice.customer_phone}</div>}
@@ -432,7 +479,7 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
       ) : (
         /* ── Itemized Table for Sale, Purchase, Returns, Expenses ── */
         <>
-          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #94a3b8", borderTop: "none", fontSize: 11.5 }}>
+          <table className="invoice-items-table" style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #94a3b8", borderTop: "none", fontSize: 11.5 }}>
             <thead>
               <tr style={{ background: "#ffffff", borderBottom: "1px solid #94a3b8", height: 32 }}>
                 {showSNo && <th style={{ width: 32, padding: "6px 4px", borderRight: "1px solid #94a3b8", textAlign: "center" }}>#</th>}
@@ -453,7 +500,7 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
                 const gstAmt = printLineTax(p, lineAmt);
 
                 return (
-                  <tr key={idx} style={{ height: 28, borderBottom: idx === products.length - 1 ? "1px solid #94a3b8" : "none" }}>
+                  <tr key={idx} className={idx === products.length - 1 ? "invoice-last-product-row" : undefined} style={{ height: 28, borderBottom: idx === products.length - 1 ? "1px solid #94a3b8" : "none" }}>
                     {showSNo && <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "4px" }}>{idx + 1}</td>}
                     <td style={{ padding: "4px 10px", borderRight: "1px solid #94a3b8", fontWeight: 600 }}>
                       <div>{getItemName(p)}</div>
@@ -478,17 +525,22 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
               })}
 
               {/* Table Total Row */}
-              <tr style={{ background: "#ffffff", fontWeight: 700, height: 30, borderTop: "1px solid #94a3b8", borderBottom: "1px solid #94a3b8" }}>
-                <td colSpan={(showSNo ? 1 : 0) + 1 + (showHSN ? 1 : 0)} style={{ padding: "6px 10px", borderRight: "1px solid #94a3b8", fontWeight: 800 }}>Total</td>
-                <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", padding: "6px 4px", fontWeight: 800 }}>
+              <tr className="invoice-total-row" style={{ background: "#ffffff", fontWeight: 700, height: 30, borderTop: "1px solid #94a3b8", borderBottom: "1px solid #94a3b8" }}>
+                <td colSpan={(showSNo ? 1 : 0) + 1 + (showHSN ? 1 : 0)} style={{ padding: "6px 10px", borderRight: "1px solid #94a3b8", borderBottom: "1px solid #64748b", fontWeight: 800 }}>Total</td>
+                <td style={{ textAlign: "center", borderRight: "1px solid #94a3b8", borderBottom: "1px solid #64748b", padding: "6px 4px", fontWeight: 800 }}>
                   {printSettings.totalItemQty !== false ? totalQty : ""}
                 </td>
-                <td style={{ borderRight: "1px solid #94a3b8" }}></td>
-                {showTax && <td style={{ textAlign: "right", borderRight: "1px solid #94a3b8", padding: "6px 6px", fontWeight: 800 }}>₹ {formatCurrency(totalGst, printSettings)}</td>}
-                <td style={{ textAlign: "right", padding: "6px 10px", fontWeight: 800 }}>₹ {formatCurrency(totalAmount, printSettings)}</td>
+                <td style={{ borderRight: "1px solid #94a3b8", borderBottom: "1px solid #64748b" }}></td>
+                {showTax && <td style={{ textAlign: "right", borderRight: "1px solid #94a3b8", borderBottom: "1px solid #64748b", padding: "6px 6px", fontWeight: 800 }}>₹ {formatCurrency(totalGst, printSettings)}</td>}
+                <td style={{ textAlign: "right", borderBottom: "1px solid #64748b", padding: "6px 10px", fontWeight: 800 }}>₹ {formatCurrency(totalAmount, printSettings)}</td>
               </tr>
             </tbody>
           </table>
+          <div
+            className="invoice-total-print-rule"
+            aria-hidden="true"
+            style={{ display: "none", height: 0, borderTop: "1px solid #64748b", marginTop: -1, position: "relative" }}
+          />
 
           {/* Totals Breakdown Box */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 270px", border: "1px solid #94a3b8", borderTop: "none", background: "#ffffff" }}>
@@ -2479,11 +2531,12 @@ export default function InvoicePreview() {
           }
         }`
       : `@media print {
-          @page { size: A4 portrait; margin: 0; }
+          @page { size: A4 portrait; margin: 8mm; }
           #invoice-print-area {
-            width: 210mm !important;
-            max-width: 210mm !important;
-            min-height: 297mm !important;
+            width: 194mm !important;
+            max-width: 194mm !important;
+            min-height: 281mm !important;
+            padding: 0 !important;
           }
         }`;
     s.innerHTML = `${PRINT_CSS}${posPrintCss}`;
@@ -2689,21 +2742,13 @@ export default function InvoicePreview() {
           showToast("Failed to download PDF.", "error");
         });
     } else {
-      const opt = {
-        margin: [8, 8, 8, 8],
-        filename: `invoice-${invoice.invoice_no}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      };
-      html2pdf()
-        .set(opt)
-        .from(element)
-        .save()
-        .then(() => {
+      generateInvoicePdf({ element, invoiceNo: invoice.invoice_no, isPOS: false })
+        .then((pdf) => {
+          pdf.save(`invoice-${invoice.invoice_no}.pdf`);
           showToast("PDF downloaded successfully!", "success");
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error("[INVOICE PDF] A4 export failed:", error);
           showToast("Failed to download PDF.", "error");
         });
     }
@@ -2793,9 +2838,11 @@ export default function InvoicePreview() {
   /* Save & Close Navigation */
   const handleSaveAndClose = useCallback(() => {
     localStorage.setItem("skip_invoice_preview", doNotShowAgain ? "true" : "false");
-    const targetRoute = getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
+    const targetRoute = forcePosPrint
+      ? "/billing"
+      : getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
     navigate(targetRoute);
-  }, [doNotShowAgain, invoice, invoiceNo, navigate]);
+  }, [doNotShowAgain, forcePosPrint, invoice, invoiceNo, navigate]);
 
   /* Keyboard Shortcuts */
   useEffect(() => {
@@ -2999,31 +3046,6 @@ export default function InvoicePreview() {
 
         {/* Right Cluster: Quick Actions & Close */}
         <div className="flex items-center gap-2.5">
-          {/* Quick toggle check */}
-          <label className="hidden xl:flex items-center gap-2 cursor-pointer text-xs text-slate-600 hover:text-slate-900">
-            <input
-              type="checkbox"
-              checked={doNotShowAgain}
-              onChange={(e) => {
-                setDoNotShowAgain(e.target.checked);
-                localStorage.setItem("skip_invoice_preview", e.target.checked ? "true" : "false");
-              }}
-              className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-blue-600"
-            />
-            <span>Skip preview next time</span>
-          </label>
-
-          {/* Quick Print Primary Button */}
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all"
-            title="Print document (Ctrl+P)"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Print</span>
-            <kbd className="hidden lg:inline px-1 py-0.2 rounded bg-white/20 text-[9px] font-normal">^P</kbd>
-          </button>
-
           {/* Save & Close Button */}
           <button
             onClick={handleSaveAndClose}
