@@ -248,6 +248,9 @@ const DYNAMIC_PATTERNS = [
   { re: /^(\d+)\s+units?$/i, replace: (_, n) => `${n} அலகுகள்` },
   { re: /^(\d+)\s+pcs$/i, replace: (_, n) => `${n} எண்ணிக்கை` },
   { re: /^(\d+)\s+pts$/i, replace: (_, n) => `${n} புள்ளிகள்` },
+  { re: /^(\d+)\s+Total quotes$/i, replace: (_, n) => `${n} மொத்த மதிப்பீடுகள்` },
+  { re: /^(\d+)\s+quotes$/i, replace: (_, n) => `${n} மதிப்பீடுகள்` },
+  { re: /^Total quotes$/i, replace: () => `மொத்த மதிப்பீடுகள்` },
 ];
 
 /**
@@ -265,6 +268,11 @@ export function translateTextString(text) {
 
   // Do not translate if it's strictly numbers, currency, dates, symbols
   if (/^[₹$€£\d\s.,:;/%+*#\-–—\(\)]+$/.test(trimmed)) {
+    return text;
+  }
+
+  // Do not translate keyboard shortcuts (e.g. Ctrl+↵, Ctrl+F, Ctrl+Enter, Alt+B)
+  if (/^(Ctrl|Alt|Shift|Cmd|Meta)(\+[a-zA-Z0-9↵]+)+$/i.test(trimmed)) {
     return text;
   }
 
@@ -354,8 +362,10 @@ function shouldSkipElement(elem) {
     tag === "pre" ||
     tag === "svg" ||
     tag === "path" ||
+    tag === "kbd" ||
     elem.isContentEditable ||
-    elem.classList?.contains("no-translate")
+    elem.classList?.contains("no-translate") ||
+    elem.hasAttribute?.("data-no-translate")
   );
 }
 

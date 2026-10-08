@@ -102,7 +102,7 @@ function getHeaderBreadcrumbs(pathname, lang = "en") {
   } else if (pathname.startsWith("/cashier")) {
     res = { section: "Administration", title: "Cashier Accounts", icon: UserCog };
   } else if (pathname.startsWith("/helpdesk")) {
-    res = { section: "Support Desk", title: "Helpdesk & Tickets", icon: Headset };
+    res = { section: "Support Desk", title: "Ticket Management", icon: Headset };
   } else if (pathname.startsWith("/billing")) {
     res = { section: "POS Terminal", title: "POS Counter Billing", icon: Store };
   } else if (pathname.startsWith("/admin")) {
@@ -160,6 +160,8 @@ export default function MainLayout() {
     }
   });
 
+  const isSettingsPage = location.pathname.startsWith("/settings");
+
   // Keep settingsTab in sync with URL if on /settings/:tab
   useEffect(() => {
     if (location.pathname.startsWith("/settings/")) {
@@ -167,6 +169,8 @@ export default function MainLayout() {
       if (tab && tab !== "service-reminders") {
         setSettingsTab(tab);
       }
+    } else if (location.pathname === "/settings") {
+      setSettingsTab("general");
     }
   }, [location.pathname]);
 
@@ -501,9 +505,9 @@ export default function MainLayout() {
   }, [menuItems, sidebarSearch]);
 
   return (
-    <div className="flex h-screen bg-[#f8faff] text-slate-900 overflow-hidden font-sans">
-      {/* ── SETTINGS SIDEBAR (when path is /settings) ── */}
-      {location.pathname === "/settings" ? (
+    <div className="flex h-screen bg-[#f8faff] dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
+      {/* ── SETTINGS SIDEBAR (when on /settings or /settings/:tab) ── */}
+      {isSettingsPage ? (
         <motion.div
           initial={false}
           animate={{ width: 270 }}
@@ -536,6 +540,7 @@ export default function MainLayout() {
             {[
               { id: "general", label: "General Settings" },
               { id: "pos-controls", label: "POS & Counter Controls", icon: <Store size={15} /> },
+              { id: "stock-safety", label: "Stock & Inventory Safety", icon: <Boxes size={15} /> },
               { id: "audit-log", label: "Audit Log", icon: <History size={15} /> },
               { id: "invoice-numbering", label: "Invoice Numbering" },
               { id: "terms-conditions", label: "Terms & Conditions", icon: <FileText size={15} /> },
@@ -554,7 +559,7 @@ export default function MainLayout() {
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
                   }`}
               >
-                {tab.icon && <span className="opacity-80">{tab.icon}</span>}
+                {tab.icon && <span className="opacity-80 flex-shrink-0">{tab.icon}</span>}
                 <span className="truncate">{translate(tab.label)}</span>
               </button>
             ))}
@@ -564,7 +569,7 @@ export default function MainLayout() {
         /* ── MAIN PAYSPLITX SIDEBAR ── */
         <motion.div
           initial={false}
-          animate={{ width: isCollapsed ? 76 : 270 }}
+          animate={{ width: isCollapsed ? 76 : 280 }}
           transition={{ duration: 0.22, ease: "easeInOut" }}
           className={`bg-[#0b0f19] text-white flex flex-col flex-shrink-0 h-screen border-r border-white/5 relative select-none ${isCollapsed ? "px-2.5 py-5" : "px-4 py-5"
             }`}
@@ -645,7 +650,7 @@ export default function MainLayout() {
                   value={sidebarSearch}
                   onChange={(e) => setSidebarSearch(e.target.value)}
                   placeholder={translate("Quick Search Menus...")}
-                  className="w-full h-9 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 focus:bg-white/10 rounded-xl pl-8 pr-12 text-xs text-white placeholder-slate-400 focus:outline-none transition shadow-inner"
+                  className="w-full h-9 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 focus:bg-white/10 rounded-xl pl-8 pr-16 text-xs text-white placeholder-slate-400 focus:outline-none transition shadow-inner"
                 />
                 {sidebarSearch ? (
                   <button
@@ -657,7 +662,7 @@ export default function MainLayout() {
                     ✕
                   </button>
                 ) : (
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold bg-white/10 text-slate-400 px-1.5 py-0.5 rounded pointer-events-none">
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold font-mono bg-white/10 text-slate-400 px-1.5 py-0.5 rounded pointer-events-none no-translate" data-no-translate="true">
                     Ctrl+F
                   </span>
                 )}
@@ -730,7 +735,7 @@ export default function MainLayout() {
                         }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className={isDropdownItemActive ? "text-indigo-400" : "text-slate-400"}>
+                        <span className={`flex-shrink-0 ${isDropdownItemActive ? "text-indigo-400" : "text-slate-400"}`}>
                           {item.icon}
                         </span>
                         <span className="truncate">{translate(item.name)}</span>
@@ -766,7 +771,7 @@ export default function MainLayout() {
                                   : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                                   }`}
                               >
-                                {isSubActive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+                                {isSubActive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse flex-shrink-0" />}
                                 <span className="truncate">{translate(sub.name)}</span>
                               </button>
                             );
@@ -808,7 +813,7 @@ export default function MainLayout() {
                     : "text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium"
                     }`}
                 >
-                  <span className={isActive ? "text-white" : "text-slate-400"}>
+                  <span className={`flex-shrink-0 ${isActive ? "text-white" : "text-slate-400"}`}>
                     {item.icon}
                   </span>
                   <span className="truncate">{translate(item.name)}</span>
@@ -876,20 +881,20 @@ export default function MainLayout() {
       )}
 
       {/* ── RIGHT CONTENT AREA ── */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f8faff]">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f8faff] dark:bg-[#0f172a]">
         {/* PAYSPLITX ADVANCED TOP HEADER BAR */}
-        <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between z-30 flex-shrink-0 shadow-2xs">
+        <header className="h-16 bg-white/95 dark:bg-[#1e293b]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-4 sm:px-6 flex items-center justify-between z-30 flex-shrink-0 shadow-2xs">
           {/* Left: Sidebar Toggle & Dynamic Breadcrumbs Navigation */}
           <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2 sm:mr-4">
-            {location.pathname !== "/settings" && (
+            {!isSettingsPage && (
               <button
                 type="button"
                 onClick={toggleSidebar}
                 title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs"
+                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs"
               >
                 {isCollapsed ? (
-                  <PanelLeftOpen size={17} className="text-indigo-600" />
+                  <PanelLeftOpen size={17} className="text-indigo-600 dark:text-indigo-400" />
                 ) : (
                   <PanelLeftClose size={17} />
                 )}
@@ -901,15 +906,15 @@ export default function MainLayout() {
               const CrumbIcon = crumb.icon;
               return (
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100/80 text-indigo-600 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100/80 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0 shadow-2xs">
                     <CrumbIcon size={17} />
                   </div>
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs font-semibold text-slate-400 hidden lg:inline truncate max-w-[130px] xl:max-w-[180px]">
+                    <span className="text-xs font-semibold text-slate-400 dark:text-slate-400 hidden 2xl:inline truncate max-w-[130px] xl:max-w-[180px]">
                       {crumb.section}
                     </span>
-                    <ChevronRight size={13} className="text-slate-300 flex-shrink-0 hidden lg:inline" />
-                    <h2 className="text-xs sm:text-sm font-bold text-slate-900 font-display tracking-tight truncate whitespace-nowrap">
+                    <ChevronRight size={13} className="text-slate-300 dark:text-slate-600 flex-shrink-0 hidden 2xl:inline" />
+                    <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 font-display tracking-tight truncate whitespace-nowrap min-w-0">
                       {crumb.title}
                     </h2>
                   </div>
@@ -936,7 +941,7 @@ export default function MainLayout() {
               type="button"
               onClick={toggleTheme}
               title={isDark ? "Switch to Light Mode (வெளிச்ச பயன்முறை)" : "Switch to Dark Mode (இரவு பயன்முறை)"}
-              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs"
+              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs"
             >
               {isDark ? (
                 <Sun size={17} className="text-amber-400" />
@@ -953,7 +958,7 @@ export default function MainLayout() {
                 changeLanguage(nextLang);
               }}
               title={lang === "ta" ? "Switch to English" : "தமிழுக்கு மாற்றவும்"}
-              className="h-10 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs select-none"
+              className="h-10 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 shadow-2xs select-none"
             >
               <span className="text-xs font-bold tracking-wide">
                 {lang === "ta" ? "தமிழ்" : "EN"}
@@ -969,7 +974,7 @@ export default function MainLayout() {
         </header>
 
         {/* MAIN SCROLLABLE CONTENT */}
-        <main className={`flex-1 overflow-auto paysplitx-scrollbar-light ${location.pathname === "/settings" ? "p-0" : "p-4 sm:p-6"}`}>
+        <main className={`flex-1 overflow-auto paysplitx-scrollbar-light ${isSettingsPage ? "p-0" : "p-4 sm:p-6"}`}>
           <SettingsContext.Provider value={{ settingsTab, setSettingsTab }}>
             <Outlet context={{ settingsTab, setSettingsTab }} />
           </SettingsContext.Provider>

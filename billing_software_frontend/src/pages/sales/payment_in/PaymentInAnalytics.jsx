@@ -21,6 +21,7 @@ import {
   FileText,
   Wallet,
 } from "lucide-react";
+import { useLanguage } from "../../../utils/i18n";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#7c3aed", "#0891b2", "#f43f5e", "#eab308"];
 
@@ -74,19 +75,20 @@ function CustomDonutTooltip({ active, payload }) {
 }
 
 export default function PaymentInAnalytics({ rows = [], period = "", onClose }) {
+  const { isTamil } = useLanguage();
   const data = useMemo(
     () =>
       rows.map((p, i) => ({
         date: p.payment_date || p.created_at || "",
         receipt: p.receipt_no || p.invoice_no || `#${i + 1}`,
-        party: p.customer_name || p.name || "Customer",
+        party: p.customer_name || p.name || (isTamil ? "வாடிக்கையாளர்" : "Customer"),
         method: p.payment_method || "Cash",
         received: Number(p.paid_amount || 0),
         billed: Number(p.total_amount || p.paid_amount || 0),
         discount: Number(p.discount_amount || 0),
         balance: Number(p.balance_amount || 0),
       })),
-    [rows]
+    [rows, isTamil]
   );
 
   const totals = useMemo(() => {
@@ -132,34 +134,34 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
     const rest = methodData.slice(TOP);
     const arr = top.map((m, i) => ({ name: m.name, value: m.value, color: COLORS[i % COLORS.length] }));
     if (rest.length) {
-      arr.push({ name: "Others", value: rest.reduce((a, m) => a + m.value, 0), color: "#cbd5e1", isOther: true });
+      arr.push({ name: isTamil ? "மற்றவை" : "Others", value: rest.reduce((a, m) => a + m.value, 0), color: "#cbd5e1", isOther: true });
     }
     const total = arr.reduce((a, s) => a + s.value, 0) || 1;
     return arr.map((d) => ({ ...d, percent: ((d.value / total) * 100).toFixed(0) }));
-  }, [methodData]);
+  }, [methodData, isTamil]);
 
   const maxRow = Math.max(...data.map((r) => r.received), 1);
 
   return (
-    <div className="space-y-6 transition-all">
+    <div className="space-y-6 transition-all font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 uppercase tracking-wider">
-            <span>Sales</span>
+            <span>{isTamil ? "விற்பனை" : "Sales"}</span>
             <span>•</span>
-            <span>Payment-In Analytics</span>
+            <span>{isTamil ? "பணம் வரவு பகுப்பாய்வு" : "Payment-In Analytics"}</span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <Sparkles className="w-3 h-3 text-emerald-500" />
-              Live Filtered
+              {isTamil ? "வடிகட்டப்பட்டது" : "Live Filtered"}
             </span>
           </div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 mt-1 tracking-tight">
-            Payment-In Analytics
+            {isTamil ? "பணம் வரவு பகுப்பாய்வு" : "Payment-In Analytics"}
           </h1>
           <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-            <span className="font-semibold text-emerald-600">{period}</span> • Customer inward payments •{" "}
-            {totals.count} voucher{totals.count === 1 ? "" : "s"}
+            <span className="font-semibold text-emerald-600">{period}</span> • {isTamil ? "வாடிக்கையாளர் உள் வரவுகள்" : "Customer inward payments"} •{" "}
+            {totals.count} {isTamil ? "ரசீதுகள்" : (totals.count === 1 ? "voucher" : "vouchers")}
           </p>
         </div>
 
@@ -168,31 +170,31 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
             type="button"
             onClick={onClose}
             className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-xs cursor-pointer"
-            title="Return to Payment-In"
+            title={isTamil ? "பணம் வரவுக்குத் திரும்பு" : "Return to Payment-In"}
           >
             <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span>Close</span>
+            <span>{isTamil ? "மூடு" : "Close"}</span>
           </button>
         )}
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-blue-600" />
           <div>
             <div className="flex items-center gap-2 text-[11px] font-bold tracking-wider uppercase text-slate-500">
-              <span className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <span className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                 <IndianRupee className="w-3.5 h-3.5" />
               </span>
-              Total Received
+              <span className="truncate">{isTamil ? "பெறப்பட்ட தொகை" : "Total Received"}</span>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-indigo-600 mt-2 tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-indigo-600 mt-2 tracking-tight truncate">
               {fmtINR(totals.received)}
             </div>
           </div>
-          <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">
-            Money collected from customers
+          <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100 truncate">
+            {isTamil ? "வாடிக்கையாளர்களிடமிருந்து பெறப்பட்ட தொகை" : "Money collected from customers"}
           </div>
         </div>
 
@@ -200,17 +202,17 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
           <div>
             <div className="flex items-center gap-2 text-[11px] font-bold tracking-wider uppercase text-slate-500">
-              <span className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <span className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                 <Users className="w-3.5 h-3.5" />
               </span>
-              Customers
+              <span className="truncate">{isTamil ? "வாடிக்கையாளர்கள்" : "Customers"}</span>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-600 mt-2 tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-emerald-600 mt-2 tracking-tight truncate">
               {totals.parties}
             </div>
           </div>
-          <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">
-            Unique customers in this period
+          <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100 truncate">
+            {isTamil ? "இக்காலகட்டத்தில் உள்ள வாடிக்கையாளர்கள்" : "Unique customers in this period"}
           </div>
         </div>
 
@@ -218,17 +220,17 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-500 to-purple-500" />
           <div>
             <div className="flex items-center gap-2 text-[11px] font-bold tracking-wider uppercase text-slate-500">
-              <span className="w-6 h-6 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center">
+              <span className="w-6 h-6 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
                 <ReceiptText className="w-3.5 h-3.5" />
               </span>
-              Vouchers
+              <span className="truncate">{isTamil ? "ரசீதுகள்" : "Vouchers"}</span>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-800 mt-2 tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-slate-800 mt-2 tracking-tight truncate">
               {totals.count}
             </div>
           </div>
-          <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">
-            Payment-in records received
+          <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100 truncate">
+            {isTamil ? "பெறப்பட்ட வரவு பதிவுகள்" : "Payment-in records received"}
           </div>
         </div>
 
@@ -236,17 +238,17 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
           <div>
             <div className="flex items-center gap-2 text-[11px] font-bold tracking-wider uppercase text-slate-500">
-              <span className="w-6 h-6 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+              <span className="w-6 h-6 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                 <TrendingUp className="w-3.5 h-3.5" />
               </span>
-              Avg / Voucher
+              <span className="truncate">{isTamil ? "சராசரி / ரசீது" : "Avg / Voucher"}</span>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-amber-600 mt-2 tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-amber-600 mt-2 tracking-tight truncate">
               {fmtINR(totals.avg)}
             </div>
           </div>
-          <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">
-            Total received ÷ vouchers
+          <div className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100 truncate">
+            {isTamil ? "மொத்த வரவு ÷ ரசீதுகள்" : "Total received ÷ vouchers"}
           </div>
         </div>
       </div>
@@ -254,15 +256,15 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
       {/* Summary Chips */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="bg-white rounded-xl px-4 py-3 border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Billed</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{isTamil ? "மொத்த பில் தொகை" : "Total Billed"}</span>
           <span className="text-sm font-black text-slate-800">{fmtINR(totals.billed)}</span>
         </div>
         <div className="bg-white rounded-xl px-4 py-3 border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Discounts Given</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{isTamil ? "வழங்கிய தள்ளுபடி" : "Discounts Given"}</span>
           <span className="text-sm font-black text-amber-600">{fmtINR(totals.discount)}</span>
         </div>
         <div className="bg-white rounded-xl px-4 py-3 border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Outstanding</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{isTamil ? "மீதி நிலுவை" : "Outstanding"}</span>
           <span className="text-sm font-black text-rose-500">{fmtINR(totals.balance)}</span>
         </div>
       </div>
@@ -274,15 +276,15 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
           <div>
             <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <Wallet className="w-4 h-4 text-indigo-600" />
-              <span>Top Payment Methods</span>
+              <span>{isTamil ? "முக்கிய கட்டண முறைகள்" : "Top Payment Methods"}</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5 mb-4">
-              Highest total received by payment method
+              {isTamil ? "கட்டண முறை வாரியாக பெறப்பட்ட அதிகபட்ச வரவு" : "Highest total received by payment method"}
             </p>
 
             {methodData.length === 0 ? (
               <div className="h-64 flex items-center justify-center text-slate-400 text-xs">
-                No data available for the selected period.
+                {isTamil ? "தேர்ந்தெடுக்கப்பட்ட காலத்திற்கு தரவு எதுவும் இல்லை." : "No data available for the selected period."}
               </div>
             ) : (
               <div className="h-64 sm:h-72 w-full">
@@ -305,7 +307,7 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
                       tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v)}
                     />
                     <Tooltip content={<CustomBarTooltip />} cursor={{ fill: "#f1f5f9" }} />
-                    <Bar dataKey="value" name="Received" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                    <Bar dataKey="value" name={isTamil ? "பெறப்பட்டது" : "Received"} fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={36} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -317,14 +319,20 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
         <div className="bg-white rounded-2xl p-5 md:p-6 border border-slate-200/80 shadow-xs flex flex-col">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight">Received by Method</h3>
-              <span className="text-xs font-bold text-slate-400">{totals.methods} methods</span>
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                {isTamil ? "கட்டண முறை விவரம்" : "Received by Method"}
+              </h3>
+              <span className="text-xs font-bold text-slate-400">
+                {totals.methods} {isTamil ? "முறைகள்" : "methods"}
+              </span>
             </div>
-            <p className="text-xs text-slate-500 mb-4">Where your collections come from</p>
+            <p className="text-xs text-slate-500 mb-4">
+              {isTamil ? "பணம் வரவு எங்கிருந்து வந்துள்ளது" : "Where your collections come from"}
+            </p>
 
             <div className="relative h-44 w-full flex items-center justify-center">
               {donut.length === 0 ? (
-                <div className="text-slate-400 text-xs">No data to display</div>
+                <div className="text-slate-400 text-xs">{isTamil ? "காட்டுவதற்கு தரவு இல்லை" : "No data to display"}</div>
               ) : (
                 <>
                   <ResponsiveContainer width="100%" height="100%">
@@ -352,7 +360,7 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
                       {fmtINR(totals.received)}
                     </span>
                     <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Received
+                      {isTamil ? "பெறப்பட்டது" : "Received"}
                     </span>
                   </div>
                 </>
@@ -366,7 +374,7 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: item.color }} />
                       <span className="font-semibold text-slate-700 truncate">
-                        {item.isOther ? "Other Methods" : <Capitalized text={item.name} />}
+                        {item.isOther ? (isTamil ? "மற்ற முறைகள்" : "Other Methods") : <Capitalized text={item.name} />}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -390,31 +398,31 @@ export default function PaymentInAnalytics({ rows = [], period = "", onClose }) 
           <div>
             <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-600" />
-              <span>Top Payment-In Vouchers by Received</span>
+              <span>{isTamil ? "அதிக தொகை பெறப்பட்ட வரவு ரசீதுகள்" : "Top Payment-In Vouchers by Received"}</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Highest inward payment records in this period
+              {isTamil ? "இக்காலகட்டத்தில் அதிக தொகை பெறப்பட்ட வரவு பதிவுகள்" : "Highest inward payment records in this period"}
             </p>
           </div>
           <span className="text-xs font-semibold text-slate-500">
-            {totals.count} record{totals.count === 1 ? "" : "s"}
+            {totals.count} {isTamil ? "பதிவுகள்" : (totals.count === 1 ? "record" : "records")}
           </span>
         </div>
 
         {data.length === 0 ? (
-          <div className="text-center py-6 text-slate-400 text-xs">No data available.</div>
+          <div className="text-center py-6 text-slate-400 text-xs">{isTamil ? "தரவு எதுவும் இல்லை." : "No data available."}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
                   <th className="py-2.5 pr-3 font-bold">#</th>
-                  <th className="py-2.5 px-3 font-bold">Date</th>
-                  <th className="py-2.5 px-3 font-bold">Receipt No</th>
-                  <th className="py-2.5 px-3 font-bold">Customer</th>
-                  <th className="py-2.5 px-3 font-bold">Method</th>
-                  <th className="py-2.5 px-3 font-bold text-right">Received</th>
-                  <th className="py-2.5 pl-3 font-bold">Share</th>
+                  <th className="py-2.5 px-3 font-bold">{isTamil ? "தேதி" : "Date"}</th>
+                  <th className="py-2.5 px-3 font-bold">{isTamil ? "ரசீது எண்" : "Receipt No"}</th>
+                  <th className="py-2.5 px-3 font-bold">{isTamil ? "வாடிக்கையாளர்" : "Customer"}</th>
+                  <th className="py-2.5 px-3 font-bold">{isTamil ? "முறை" : "Method"}</th>
+                  <th className="py-2.5 px-3 font-bold text-right">{isTamil ? "பெறப்பட்டது" : "Received"}</th>
+                  <th className="py-2.5 pl-3 font-bold">{isTamil ? "பங்கு" : "Share"}</th>
                 </tr>
               </thead>
               <tbody>

@@ -30,8 +30,10 @@ import {
 import api from "../../services/api";
 import CreateTicketModal from "./CreateTicketModal";
 import HelpdeskDashboard from "./HelpdeskDashboard";
+import { useLanguage } from "../../utils/i18n";
 
 export default function TicketList() {
+  const { isTamil, t: translate } = useLanguage();
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isSupportOrAdmin = ["admin", "superadmin", "support", "developer"].includes(user?.role?.toLowerCase());
@@ -187,7 +189,7 @@ export default function TicketList() {
   }
 
   return (
-    <div className="p-2 space-y-6 max-w-[1600px] mx-auto text-slate-800 font-sans pb-16">
+    <div className="p-2 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 font-sans pb-16">
       {/* ── TOP HEADER HERO CARD ── */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-sm relative overflow-hidden">
         <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -198,20 +200,22 @@ export default function TicketList() {
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">Ticket Management</h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 text-[11px] font-bold flex items-center gap-1">
-                  <ShieldCheck size={12} /> Support Desk Active
+                <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
+                  {isTamil ? "டிக்கெட் மேலாண்மை" : "Ticket Management"}
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 text-[11px] font-bold flex items-center gap-1 shrink-0 whitespace-nowrap">
+                  <ShieldCheck size={12} /> {isTamil ? "உதவி மையம் செயலில் உள்ளது" : "Support Desk Active"}
                 </span>
                 {isSupportOrAdmin && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold flex items-center gap-1">
-                    <Zap size={11} /> Admin & SLA Console
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold flex items-center gap-1 shrink-0 whitespace-nowrap">
+                    <Zap size={11} /> {isTamil ? "நிர்வாகி & சேவை மேலாண்மை" : "Admin & SLA Console"}
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-300 mt-1">
                 {isSupportOrAdmin
-                  ? "Manage customer support requests, service tickets, status transitions & staff assignments."
-                  : "Track your active support requests, create new issue tickets, and communicate directly with staff."}
+                  ? (isTamil ? "வாடிக்கையாளர் உதவி கோரிக்கைகள், சேவை டிக்கெட்டுகள், நிலை மாற்றங்கள் மற்றும் பணியாளர் ஒதுக்கீடுகளை நிர்வகிக்கவும்." : "Manage customer support requests, service tickets, status transitions & staff assignments.")
+                  : (isTamil ? "உங்கள் உதவி கோரிக்கைகளைக் கண்காணிக்கவும், புதிய டிக்கெட்டுகளை உருவாக்கவும், பணியாளர்களுடன் தொடர்பு கொள்ளவும்." : "Track your active support requests, create new issue tickets, and communicate directly with staff.")}
               </p>
             </div>
           </div>
@@ -220,33 +224,87 @@ export default function TicketList() {
             <button
               type="button"
               onClick={() => setViewMode("analytics")}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 text-white border border-white/15 text-xs font-bold transition shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 text-white border border-white/15 text-xs font-bold transition shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
             >
               <BarChart3 size={15} className="text-indigo-300" />
-              <span>Analytics Dashboard</span>
+              <span>{isTamil ? "பகுப்பாய்வு" : "Analytics Dashboard"}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsCreateOpen(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-bold transition shadow-lg shadow-blue-600/30 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4.5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-bold transition shadow-md shadow-blue-500/25 cursor-pointer shrink-0 whitespace-nowrap"
             >
-              <Plus size={16} strokeWidth={2.5} />
-              <span>Create Ticket</span>
+              <Plus size={16} strokeWidth={2.8} />
+              <span>{isTamil ? "+ புதிய டிக்கெட்" : "+ Create Ticket"}</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* ── KPI METRIC SUMMARY CARDS ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 items-stretch">
         {[
-          { label: "Total Tickets", count: stats.total, key: "all", icon: Layers, bg: "bg-white border-slate-200/80 text-slate-800", countColor: "text-slate-900" },
-          { label: "Open", count: stats.open, key: "open", icon: Clock, bg: "bg-white border-blue-200/80 text-blue-900 bg-gradient-to-b from-white to-blue-50/40", countColor: "text-blue-700" },
-          { label: "In Progress", count: stats.in_progress, key: "in_progress", icon: RefreshCw, bg: "bg-white border-purple-200/80 text-purple-900 bg-gradient-to-b from-white to-purple-50/40", countColor: "text-purple-700" },
-          { label: "Waiting Customer", count: stats.waiting_for_customer, key: "waiting_for_customer", icon: AlertCircle, bg: "bg-white border-amber-200/80 text-amber-900 bg-gradient-to-b from-white to-amber-50/40", countColor: "text-amber-700" },
-          { label: "Resolved", count: stats.resolved, key: "resolved", icon: CheckCircle2, bg: "bg-white border-emerald-200/80 text-emerald-900 bg-gradient-to-b from-white to-emerald-50/40", countColor: "text-emerald-700" },
-          { label: "Closed", count: stats.closed, key: "closed", icon: ShieldCheck, bg: "bg-white border-slate-200/80 text-slate-700 bg-gradient-to-b from-white to-slate-50/70", countColor: "text-slate-700" },
+          {
+            label: isTamil ? "மொத்த டிக்கெட்டுகள்" : "Total Tickets",
+            count: stats.total,
+            key: "all",
+            icon: Layers,
+            bg: "bg-white dark:bg-[#1e293b] border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-100",
+            countColor: "text-slate-900 dark:text-white",
+            iconBg: "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-100/60 dark:border-indigo-800/40",
+            badgeColor: "bg-indigo-600 text-white",
+          },
+          {
+            label: isTamil ? "திறந்தவை" : "Open",
+            count: stats.open,
+            key: "open",
+            icon: Clock,
+            bg: "bg-white dark:bg-[#1e293b] border-blue-200/80 dark:border-blue-900/50 text-blue-900 dark:text-blue-200",
+            countColor: "text-blue-600 dark:text-blue-400",
+            iconBg: "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-100/60 dark:border-blue-800/40",
+            badgeColor: "bg-blue-600 text-white",
+          },
+          {
+            label: isTamil ? "பரிசீலனையில்" : "In Progress",
+            count: stats.in_progress,
+            key: "in_progress",
+            icon: RefreshCw,
+            bg: "bg-white dark:bg-[#1e293b] border-purple-200/80 dark:border-purple-900/50 text-purple-900 dark:text-purple-200",
+            countColor: "text-purple-600 dark:text-purple-400",
+            iconBg: "bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-100/60 dark:border-purple-800/40",
+            badgeColor: "bg-purple-600 text-white",
+          },
+          {
+            label: isTamil ? "காத்திருப்பு" : "Waiting Customer",
+            count: stats.waiting_for_customer,
+            key: "waiting_for_customer",
+            icon: AlertCircle,
+            bg: "bg-white dark:bg-[#1e293b] border-amber-200/80 dark:border-amber-900/50 text-amber-900 dark:text-amber-200",
+            countColor: "text-amber-600 dark:text-amber-400",
+            iconBg: "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-100/60 dark:border-amber-800/40",
+            badgeColor: "bg-amber-600 text-white",
+          },
+          {
+            label: isTamil ? "தீர்க்கப்பட்டது" : "Resolved",
+            count: stats.resolved,
+            key: "resolved",
+            icon: CheckCircle2,
+            bg: "bg-white dark:bg-[#1e293b] border-emerald-200/80 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-200",
+            countColor: "text-emerald-600 dark:text-emerald-400",
+            iconBg: "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-100/60 dark:border-emerald-800/40",
+            badgeColor: "bg-emerald-600 text-white",
+          },
+          {
+            label: isTamil ? "மூடப்பட்டது" : "Closed",
+            count: stats.closed,
+            key: "closed",
+            icon: ShieldCheck,
+            bg: "bg-white dark:bg-[#1e293b] border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300",
+            countColor: "text-slate-600 dark:text-slate-400",
+            iconBg: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/40",
+            badgeColor: "bg-slate-600 text-white",
+          },
         ].map((item) => {
           const isSelected = filters.status === item.key;
           const Icon = item.icon;
@@ -256,25 +314,25 @@ export default function TicketList() {
               key={item.key}
               type="button"
               onClick={() => setFilters({ ...filters, status: item.key, page: 1 })}
-              className={`p-4 rounded-2xl border text-left transition select-none shadow-2xs cursor-pointer ${item.bg} ${isSelected
-                ? "ring-2 ring-indigo-600 shadow-md scale-[1.02] border-indigo-500"
-                : "hover:border-indigo-300 hover:shadow-xs"
+              className={`p-3.5 sm:p-4 rounded-2xl border text-left transition select-none shadow-2xs cursor-pointer flex flex-col justify-between ${item.bg} ${isSelected
+                ? "ring-2 ring-indigo-500 shadow-md scale-[1.02] border-indigo-500 dark:border-indigo-400"
+                : "hover:border-indigo-300 dark:hover:border-slate-700 hover:shadow-xs"
                 }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider block opacity-70">
+              <div className="flex items-start justify-between gap-1.5 min-w-0">
+                <span className="text-[11px] font-bold uppercase tracking-wider block text-slate-500 dark:text-slate-400 truncate min-w-0 flex-1">
                   {item.label}
                 </span>
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? "bg-indigo-600 text-white" : item.iconBg}`}>
                   <Icon size={14} />
                 </div>
               </div>
 
-              <div className="flex items-baseline justify-between mt-3">
+              <div className="flex items-baseline justify-between mt-2.5 min-w-0">
                 <span className={`text-2xl font-black tracking-tight ${item.countColor}`}>{item.count || 0}</span>
                 {isSelected && (
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-indigo-600 text-white shadow-2xs">
-                    Active
+                  <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-md bg-indigo-600 text-white shadow-2xs shrink-0 whitespace-nowrap">
+                    {isTamil ? "தேர்வு" : "Active"}
                   </span>
                 )}
               </div>
@@ -284,23 +342,23 @@ export default function TicketList() {
       </div>
 
       {/* ── FILTER & SEARCH CONSOLE ── */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3.5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+      <div className="bg-white dark:bg-[#1e293b] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
           {/* Search Box */}
           <div className="relative lg:col-span-4">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
-              placeholder="Search by ticket #, subject, customer..."
+              placeholder={isTamil ? "டிக்கெட் #, தலைப்பு, வாடிக்கையாளர் தேடுக..." : "Search by ticket #, subject, customer..."}
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
-              className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition shadow-2xs"
+              className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition shadow-2xs"
             />
             {filters.search && (
               <button
                 type="button"
                 onClick={() => setFilters({ ...filters, search: "", page: 1 })}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-0.5 cursor-pointer"
               >
                 <X size={13} />
               </button>
@@ -312,13 +370,13 @@ export default function TicketList() {
             <select
               value={filters.priority}
               onChange={(e) => setFilters({ ...filters, priority: e.target.value, page: 1 })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition cursor-pointer"
             >
-              <option value="all">All Priorities</option>
-              <option value="low">Low Priority</option>
-              <option value="medium">Medium Priority</option>
-              <option value="high">High Priority</option>
-              <option value="critical">Critical Priority</option>
+              <option value="all">{isTamil ? "அனைத்து முன்னுரிமைகள்" : "All Priorities"}</option>
+              <option value="low">{isTamil ? "குறைந்த முன்னுரிமை" : "Low Priority"}</option>
+              <option value="medium">{isTamil ? "நடுத்தர முன்னுரிமை" : "Medium Priority"}</option>
+              <option value="high">{isTamil ? "உயர் முன்னுரிமை" : "High Priority"}</option>
+              <option value="critical">{isTamil ? "அவசர முன்னுரிமை" : "Critical Priority"}</option>
             </select>
           </div>
 
@@ -327,9 +385,9 @@ export default function TicketList() {
             <select
               value={filters.category_id}
               onChange={(e) => setFilters({ ...filters, category_id: e.target.value, page: 1 })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition cursor-pointer"
             >
-              <option value="all">All Categories</option>
+              <option value="all">{isTamil ? "அனைத்து பிரிவுகள்" : "All Categories"}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -344,64 +402,68 @@ export default function TicketList() {
               type="button"
               onClick={resetFilters}
               disabled={!hasActiveFilters}
-              className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${hasActiveFilters
-                ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-2xs"
-                : "bg-slate-100 text-slate-400 border border-slate-200 opacity-60 cursor-not-allowed"
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${hasActiveFilters
+                ? "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 shadow-2xs"
+                : "bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/60 opacity-60 cursor-not-allowed"
                 }`}
             >
-              <RefreshCw size={13} className={hasActiveFilters ? "text-rose-600" : ""} />
-              <span>Reset Filters</span>
+              <RefreshCw size={13} className={hasActiveFilters ? "text-rose-600 dark:text-rose-400 shrink-0" : "shrink-0"} />
+              <span className="truncate">{isTamil ? "மீட்டமை" : "Reset Filters"}</span>
             </button>
           </div>
         </div>
 
         {/* Date Range Sub-Bar */}
-        <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-slate-100 text-xs">
-          <span className="font-bold text-slate-500 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-            <Calendar size={13} className="text-indigo-600" /> Date Filter:
+        <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs">
+          <span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px] flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+            <Calendar size={13} className="text-indigo-600 dark:text-indigo-400 shrink-0" /> {isTamil ? "தேதி வடிகட்டி:" : "Date Filter:"}
           </span>
           <div className="flex items-center gap-2">
             <input
               type="date"
               value={filters.start_date}
               onChange={(e) => setFilters({ ...filters, start_date: e.target.value, page: 1 })}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
+              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/70 text-xs font-medium text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             />
-            <span className="text-slate-400 font-medium">to</span>
+            <span className="text-slate-400 font-medium shrink-0">{isTamil ? "வரை" : "to"}</span>
             <input
               type="date"
               value={filters.end_date}
               onChange={(e) => setFilters({ ...filters, end_date: e.target.value, page: 1 })}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
+              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/70 text-xs font-medium text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             />
           </div>
         </div>
       </div>
 
       {/* ── TICKET DATA TABLE ── */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-[#1e293b] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-14 text-center flex flex-col items-center justify-center gap-3">
             <div className="w-9 h-9 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs font-bold text-slate-500">Fetching Support Tickets...</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{isTamil ? "டிக்கெட்டுகள் ஏற்றப்படுகின்றன..." : "Fetching Support Tickets..."}</p>
           </div>
         ) : tickets.length === 0 ? (
           <div className="p-12 md:p-16 text-center space-y-3.5 max-w-md mx-auto">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center border border-indigo-100 shadow-2xs">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center border border-indigo-100 dark:border-indigo-800 shadow-2xs">
               <HelpCircle size={28} />
             </div>
-            <h4 className="text-base font-bold text-slate-900">No Support Tickets Found</h4>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              There are no tickets matching your active search, category, or status filter presets.
+            <h4 className="text-base font-bold text-slate-900 dark:text-white">
+              {isTamil ? "டிக்கெட்டுகள் எதுவும் காணப்படவில்லை" : "No Support Tickets Found"}
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              {isTamil
+                ? "உங்கள் தேடல் அல்லது வடிகட்டலுக்கு ஏற்ற ஆதரவு டிக்கெட்டுகள் எதுவும் இல்லை."
+                : "There are no tickets matching your active search, category, or status filter presets."}
             </p>
             <div className="pt-2 flex items-center justify-center gap-2.5">
               {hasActiveFilters && (
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
                 >
-                  Clear Filters
+                  {isTamil ? "வடிகட்டல்களை நீக்கு" : "Clear Filters"}
                 </button>
               )}
               <button
@@ -410,124 +472,140 @@ export default function TicketList() {
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition shadow-sm shadow-indigo-500/20 cursor-pointer inline-flex items-center gap-1.5"
               >
                 <Plus size={14} strokeWidth={2.5} />
-                <span>Create New Ticket</span>
+                <span>{isTamil ? "+ புதிய டிக்கெட்" : "Create New Ticket"}</span>
               </button>
             </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-xs min-w-max">
               <thead>
-                <tr className="bg-slate-50 text-[11px] font-extrabold uppercase text-slate-500 border-b border-slate-200/80">
-                  <th className="py-3.5 px-4 pl-5">Ticket #</th>
-                  <th className="py-3.5 px-4">Subject & Requester</th>
-                  <th className="py-3.5 px-4">Category</th>
-                  <th className="py-3.5 px-4">Priority</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4">Created Date</th>
-                  <th className="py-3.5 px-4 pr-5 text-right">Action</th>
+                <tr className="bg-slate-50 dark:bg-slate-900/80 text-[11px] font-extrabold uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-800">
+                  <th className="py-3.5 px-4 pl-5 whitespace-nowrap">{isTamil ? "டிக்கெட் எண்" : "Ticket #"}</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "தலைப்பு & கோரிக்கையாளர்" : "Subject & Requester"}</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "பிரிவு" : "Category"}</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "முன்னுரிமை" : "Priority"}</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "நிலை" : "Status"}</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">{isTamil ? "உருவாக்கிய தேதி" : "Created Date"}</th>
+                  <th className="py-3.5 px-4 pr-5 text-right whitespace-nowrap sticky right-0 bg-slate-50 dark:bg-slate-900 z-10">{isTamil ? "செயல்" : "Action"}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {tickets.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/70 transition group">
-                    {/* Ticket # */}
-                    <td className="py-4 px-4 pl-5 font-mono font-bold text-indigo-600">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/helpdesk/ticket/${t.id}`)}
-                        className="hover:underline cursor-pointer text-left inline-flex items-center gap-1"
-                      >
-                        #{t.ticket_no}
-                      </button>
-                    </td>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                {tickets.map((t) => {
+                  const statusMapTa = {
+                    open: "திறந்தது",
+                    in_progress: "பரிசீலனையில்",
+                    waiting_for_customer: "காத்திருப்பு",
+                    resolved: "தீர்க்கப்பட்டது",
+                    closed: "மூடப்பட்டது",
+                  };
+                  const priorityMapTa = {
+                    low: "குறைந்த",
+                    medium: "நடுத்தர",
+                    high: "உயர்",
+                    critical: "அவசரம்",
+                  };
 
-                    {/* Subject & Requester */}
-                    <td className="py-4 px-4 max-w-xs sm:max-w-sm">
-                      <div
-                        onClick={() => navigate(`/helpdesk/ticket/${t.id}`)}
-                        className="font-bold text-slate-900 group-hover:text-indigo-600 transition truncate cursor-pointer"
-                      >
-                        {t.subject}
-                      </div>
-                      <div className="text-[11px] text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
-                        <span>By {t.user?.name || "Customer"}</span>
-                        {t.company && (
-                          <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold border border-slate-200/60">
-                            {t.company.company_name}
+                  return (
+                    <tr key={t.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition group">
+                      {/* Ticket # */}
+                      <td className="py-4 px-4 pl-5 font-mono font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/helpdesk/ticket/${t.id}`)}
+                          className="hover:underline cursor-pointer text-left inline-flex items-center gap-1"
+                        >
+                          #{t.ticket_no}
+                        </button>
+                      </td>
+
+                      {/* Subject & Requester */}
+                      <td className="py-4 px-4 max-w-xs sm:max-w-sm">
+                        <div
+                          onClick={() => navigate(`/helpdesk/ticket/${t.id}`)}
+                          className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition truncate cursor-pointer"
+                        >
+                          {t.subject}
+                        </div>
+                        <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+                          <span>{isTamil ? `கோரியவர்: ${t.user?.name || "வாடிக்கையாளர்"}` : `By ${t.user?.name || "Customer"}`}</span>
+                          {t.company && (
+                            <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-semibold border border-slate-200/60 dark:border-slate-700/60 shrink-0">
+                              {t.company.company_name}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Category */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <span
+                          className="px-2.5 py-1 rounded-full text-[11px] font-bold border shadow-2xs inline-flex items-center gap-1"
+                          style={{
+                            backgroundColor: `${t.category?.color}15` || "#eef2ff",
+                            color: t.category?.color || "#4f46e5",
+                            borderColor: `${t.category?.color}40` || "#c7d2fe",
+                          }}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: t.category?.color || "#4f46e5" }}
+                          />
+                          {t.category?.name || (isTamil ? "பொதுவானது" : "General")}
+                        </span>
+                      </td>
+
+                      {/* Priority */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border capitalize shadow-2xs ${priorityBadges[t.priority]}`}>
+                          {isTamil ? (priorityMapTa[t.priority] || t.priority) : t.priority}
+                        </span>
+                      </td>
+
+                      {/* Status / Quick Switch */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        {isDeveloper ? (
+                          <select
+                            value={t.status}
+                            onChange={(e) => handleQuickStatusChange(t.id, e.target.value)}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold border capitalize outline-none cursor-pointer ${statusBadges[t.status]}`}
+                          >
+                            <option value="open">{isTamil ? "திறந்தது" : "Open"}</option>
+                            <option value="in_progress">{isTamil ? "பரிசீலனையில்" : "In Progress"}</option>
+                            <option value="waiting_for_customer">{isTamil ? "காத்திருப்பு" : "Waiting for Customer"}</option>
+                            <option value="resolved">{isTamil ? "தீர்க்கப்பட்டது" : "Resolved"}</option>
+                            <option value="closed">{isTamil ? "மூடப்பட்டது" : "Closed"}</option>
+                          </select>
+                        ) : (
+                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border capitalize shadow-2xs inline-flex items-center gap-1 ${statusBadges[t.status]}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
+                            {isTamil ? (statusMapTa[t.status] || t.status) : (t.status ? t.status.replace(/_/g, " ") : "Open")}
                           </span>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Category */}
-                    <td className="py-4 px-4">
-                      <span
-                        className="px-2.5 py-1 rounded-full text-[11px] font-bold border shadow-2xs inline-flex items-center gap-1"
-                        style={{
-                          backgroundColor: `${t.category?.color}15` || "#eef2ff",
-                          color: t.category?.color || "#4f46e5",
-                          borderColor: `${t.category?.color}40` || "#c7d2fe",
-                        }}
-                      >
-                        <span
-                          className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: t.category?.color || "#4f46e5" }}
-                        />
-                        {t.category?.name || "General"}
-                      </span>
-                    </td>
+                      {/* Created Date */}
+                      <td className="py-4 px-4 text-slate-600 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                        <div className="font-semibold text-slate-800 dark:text-slate-200">{new Date(t.created_at).toLocaleDateString()}</div>
+                        <div className="text-slate-400 dark:text-slate-500 text-[10px]">
+                          {new Date(t.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      </td>
 
-                    {/* Priority */}
-                    <td className="py-4 px-4">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border capitalize shadow-2xs ${priorityBadges[t.priority]}`}>
-                        {t.priority}
-                      </span>
-                    </td>
-
-                    {/* Status / Quick Switch */}
-                    <td className="py-4 px-4">
-                      {isDeveloper ? (
-                        <select
-                          value={t.status}
-                          onChange={(e) => handleQuickStatusChange(t.id, e.target.value)}
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold border capitalize outline-none cursor-pointer ${statusBadges[t.status]}`}
+                      {/* Action */}
+                      <td className="py-4 px-4 pr-5 text-right whitespace-nowrap sticky right-0 bg-white dark:bg-[#1e293b] group-hover:bg-slate-50 dark:group-hover:bg-slate-800/80 transition z-10">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/helpdesk/ticket/${t.id}`)}
+                          className="px-3.5 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-100/80 dark:border-indigo-800/60 font-bold text-xs transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
                         >
-                          <option value="open">Open</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="waiting_for_customer">Waiting for Customer</option>
-                          <option value="resolved">Resolved</option>
-                          <option value="closed">Closed</option>
-                        </select>
-                      ) : (
-                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border capitalize shadow-2xs inline-flex items-center gap-1 ${statusBadges[t.status]}`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
-                          {t.status ? t.status.replace(/_/g, " ") : "Open"}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Created Date */}
-                    <td className="py-4 px-4 text-slate-600 text-[11px]">
-                      <div className="font-semibold text-slate-800">{new Date(t.created_at).toLocaleDateString()}</div>
-                      <div className="text-slate-400 text-[10px]">
-                        {new Date(t.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </div>
-                    </td>
-
-                    {/* Action */}
-                    <td className="py-4 px-4 pr-5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/helpdesk/ticket/${t.id}`)}
-                        className="px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                      >
-                        <Eye size={13} />
-                        <span>View</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                          <Eye size={13} />
+                          <span>{isTamil ? "பார்வை" : "View"}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -535,10 +613,19 @@ export default function TicketList() {
 
         {/* ── PAGINATION CONTROLS ── */}
         {pagination.last_page > 1 && (
-          <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
             <span>
-              Showing page <strong className="text-slate-900 font-bold">{pagination.current_page}</strong> of{" "}
-              <strong className="text-slate-900 font-bold">{pagination.last_page}</strong> ({pagination.total} total tickets)
+              {isTamil ? (
+                <>
+                  பக்கம் <strong className="text-slate-900 dark:text-white font-bold">{pagination.current_page}</strong> /{" "}
+                  <strong className="text-slate-900 dark:text-white font-bold">{pagination.last_page}</strong> ({pagination.total} மொத்த டிக்கெட்டுகள்)
+                </>
+              ) : (
+                <>
+                  Showing page <strong className="text-slate-900 dark:text-white font-bold">{pagination.current_page}</strong> of{" "}
+                  <strong className="text-slate-900 dark:text-white font-bold">{pagination.last_page}</strong> ({pagination.total} total tickets)
+                </>
+              )}
             </span>
 
             <div className="flex items-center gap-2">
@@ -546,18 +633,18 @@ export default function TicketList() {
                 type="button"
                 disabled={pagination.current_page <= 1}
                 onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold disabled:opacity-40 transition flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold disabled:opacity-40 transition flex items-center gap-1 cursor-pointer"
               >
-                <ChevronLeft size={14} /> <span>Prev</span>
+                <ChevronLeft size={14} /> <span>{isTamil ? "முந்தைய" : "Prev"}</span>
               </button>
 
               <button
                 type="button"
                 disabled={pagination.current_page >= pagination.last_page}
                 onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold disabled:opacity-40 transition flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold disabled:opacity-40 transition flex items-center gap-1 cursor-pointer"
               >
-                <span>Next</span> <ChevronRight size={14} />
+                <span>{isTamil ? "அடுத்த" : "Next"}</span> <ChevronRight size={14} />
               </button>
             </div>
           </div>

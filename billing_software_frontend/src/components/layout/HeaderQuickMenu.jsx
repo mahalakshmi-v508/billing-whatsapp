@@ -227,7 +227,7 @@ export default function HeaderQuickMenu({
         >
           <Plus size={15} strokeWidth={2.6} className={`flex-shrink-0 ${isOpen ? "rotate-45 transition-transform" : "transition-transform"}`} />
           <span className="whitespace-nowrap">{translate("Quick Actions")}</span>
-          <kbd className="hidden lg:inline-block text-[10px] font-mono bg-white/20 text-white px-1.5 py-0.2 rounded font-semibold flex-shrink-0">
+          <kbd className="hidden lg:inline-block text-[10px] font-mono bg-white/20 text-white px-1.5 py-0.5 rounded font-semibold flex-shrink-0 no-translate" data-no-translate="true">
             Ctrl+↵
           </kbd>
           <ChevronDown

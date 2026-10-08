@@ -309,11 +309,11 @@ export default function PosSettings() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 items-stretch">
           {/* Option A: Quick POS Bill */}
           <div
             onClick={() => handleScreenChange("quick")}
-            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 ${
+            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.default_billing_screen === "quick"
                 ? "border-blue-600 bg-blue-50/40 shadow-sm"
                 : "border-slate-200 hover:border-slate-300 bg-white"
@@ -329,8 +329,8 @@ export default function PosSettings() {
               {settings.default_billing_screen === "quick" && <Check size={12} strokeWidth={3} />}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <Receipt size={16} className="text-blue-600" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <Receipt size={16} className="text-blue-600 shrink-0" />
                 <span className="text-sm font-bold text-slate-900">
                   {isTamil ? "விரைவு பில்லிங் (Quick POS Bill)" : "Quick POS Bill (/billing)"}
                 </span>
@@ -349,7 +349,7 @@ export default function PosSettings() {
           {/* Option B: Detailed Sale Invoice */}
           <div
             onClick={() => handleScreenChange("detailed")}
-            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 ${
+            className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.default_billing_screen === "detailed"
                 ? "border-blue-600 bg-blue-50/40 shadow-sm"
                 : "border-slate-200 hover:border-slate-300 bg-white"
@@ -365,8 +365,8 @@ export default function PosSettings() {
               {settings.default_billing_screen === "detailed" && <Check size={12} strokeWidth={3} />}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet size={16} className="text-indigo-600" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <FileSpreadsheet size={16} className="text-indigo-600 shrink-0" />
                 <span className="text-sm font-bold text-slate-900">
                   {isTamil ? "விரிவான விற்பனை பில் (Detailed GST Invoice)" : "Detailed GST Invoice (/sales/add)"}
                 </span>
