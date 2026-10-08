@@ -151,18 +151,43 @@ export default function MainLayout() {
   const [sidebarSearch, setSidebarSearch] = useState("");
   const searchInputRef = useRef(null);
   const [generalSettings, setGeneralSettings] = useState({});
+  const [posControls, setPosControls] = useState(() => {
+    try {
+      const saved = localStorage.getItem("settings_pos_controls");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
-  // Fetch general settings
+  // Keep settingsTab in sync with URL if on /settings/:tab
+  useEffect(() => {
+    if (location.pathname.startsWith("/settings/")) {
+      const tab = location.pathname.replace("/settings/", "").split("/")[0];
+      if (tab && tab !== "service-reminders") {
+        setSettingsTab(tab);
+      }
+    }
+  }, [location.pathname]);
+
+  // Fetch general and POS settings
   useEffect(() => {
     let mounted = true;
     fetchSettings().then((settings) => {
       if (!mounted) return;
       setGeneralSettings((settings && settings.general) || {});
+      if (settings?.pos_controls) {
+        setPosControls(settings.pos_controls);
+      }
     });
     const handleUpdate = (e) => {
       if (!mounted) return;
       const general = (e.detail && e.detail.general) || {};
+      const pos = (e.detail && e.detail.pos_controls) || {};
       setGeneralSettings(general);
+      if (e.detail?.pos_controls) {
+        setPosControls(pos);
+      }
     };
     window.addEventListener("company-settings-updated", handleUpdate);
     return () => {
@@ -355,6 +380,8 @@ export default function MainLayout() {
     (item) => generalSettings[item.settingsKey] !== false && item.settingsKey !== "quotation"
   ).map((item) => ({ name: item.label, path: item.path }));
 
+  const posBillingPath = posControls?.default_billing_screen === "detailed" ? "/sales/add" : "/billing";
+
   const menuItems = [
     // ADMIN ONLY
     ...(role === "admin"
@@ -396,7 +423,7 @@ export default function MainLayout() {
           ],
         },
         { name: "Inventory Products", path: "/products", icon: <PackageSearch size={18} /> },
-        { name: "Point of Sale (POS)", path: "/billing", icon: <Store size={18} /> },
+        { name: "Point of Sale (POS)", path: posBillingPath, icon: <Store size={18} /> },
         { name: "E-Way Bills", path: "/e-way", icon: <Truck size={18} /> },
         {
           name: "Companies & Staff",
@@ -426,7 +453,7 @@ export default function MainLayout() {
     ...(role === "cashier"
       ? [
         { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
-        { name: "Point of Sale (POS)", path: "/billing", icon: <ReceiptText size={18} /> },
+        { name: "Point of Sale (POS)", path: posBillingPath, icon: <ReceiptText size={18} /> },
         { name: "Reports", path: "/reports", icon: <BarChart3 size={18} /> },
         { name: "Pending Invoices", path: "/payment-pending", icon: <AlertCircle size={18} /> },
       ]
@@ -508,6 +535,7 @@ export default function MainLayout() {
           <div className="flex-1 overflow-y-auto paysplitx-scrollbar space-y-1 pr-1">
             {[
               { id: "general", label: "General Settings" },
+              { id: "pos-controls", label: "POS & Counter Controls", icon: <Store size={15} /> },
               { id: "audit-log", label: "Audit Log", icon: <History size={15} /> },
               { id: "invoice-numbering", label: "Invoice Numbering" },
               { id: "terms-conditions", label: "Terms & Conditions", icon: <FileText size={15} /> },
@@ -517,7 +545,10 @@ export default function MainLayout() {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setSettingsTab(tab.id)}
+                onClick={() => {
+                  setSettingsTab(tab.id);
+                  navigate(`/settings/${tab.id}`);
+                }}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition cursor-pointer flex items-center gap-2.5 ${settingsTab === tab.id
                   ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-semibold"
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
