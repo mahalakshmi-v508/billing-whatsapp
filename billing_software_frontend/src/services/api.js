@@ -95,6 +95,9 @@ const NO_CACHE_PATTERNS = [
   "/whatsapp/qr",
   "/whatsapp/status",
   "/notifications",
+  "/invoice-settings/next-number",
+  "next-number",
+  "next_number",
 ];
 
 // Response interceptor: automatically invalidate relevant cache entries on mutations (POST, PUT, DELETE, PATCH)

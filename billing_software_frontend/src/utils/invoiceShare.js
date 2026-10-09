@@ -44,30 +44,6 @@ export function createPosInvoicePdf({ element, paperWidthMm, isMinimalPos = fals
   const paperWidth = paperWidthMm || (sourceWidth <= 290 ? 58 : 80);
   const margin = 2;
   const printableWidth = paperWidth - margin * 2;
-  let captureElement = element;
-
-  if (isMinimalPos) {
-    captureElement = element.cloneNode(true);
-    captureElement.style.cssText += `
-      box-sizing: border-box !important;
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: ${captureWidth}px !important;
-      max-width: none !important;
-      margin: 0 !important;
-      opacity: 0 !important;
-      pointer-events: none !important;
-      background: #ffffff !important;
-    `;
-    const receipt = captureElement.querySelector(".pos-minimal-receipt");
-    if (receipt) {
-      receipt.style.setProperty("width", "420px", "important");
-      receipt.style.setProperty("max-width", "420px", "important");
-      receipt.style.setProperty("margin", "0 auto", "important");
-    }
-    document.body.appendChild(captureElement);
-  }
 
   return html2pdf()
     .set({
@@ -86,15 +62,15 @@ export function createPosInvoicePdf({ element, paperWidthMm, isMinimalPos = fals
           clonedElement.style.setProperty("max-width", "none", "important");
           clonedElement.style.setProperty("margin", "0", "important");
           if (isMinimalPos) {
-            clonedElement.style.setProperty("position", "relative", "important");
-            clonedElement.style.setProperty("top", "0", "important");
-            clonedElement.style.setProperty("left", "0", "important");
-            clonedElement.style.setProperty("opacity", "1", "important");
+            const receipt = clonedElement.querySelector(".pos-minimal-receipt");
+            receipt?.style.setProperty("width", "420px", "important");
+            receipt?.style.setProperty("max-width", "420px", "important");
+            receipt?.style.setProperty("margin", "0 auto", "important");
           }
         },
       },
     })
-    .from(captureElement)
+    .from(element)
     .toCanvas()
     .get("canvas")
     .then((canvas) => {
@@ -106,7 +82,7 @@ export function createPosInvoicePdf({ element, paperWidthMm, isMinimalPos = fals
       const pdf = new jsPDF({
         unit: "mm",
         format: [paperWidth, pageHeight],
-        orientation: "portrait",
+        orientation: paperWidth > pageHeight ? "landscape" : "portrait",
       });
       pdf.addImage(
         canvas.toDataURL("image/jpeg", 0.98),
@@ -116,12 +92,7 @@ export function createPosInvoicePdf({ element, paperWidthMm, isMinimalPos = fals
         printableWidth,
         imageHeight,
       );
-      if (captureElement !== element) captureElement.remove();
       return pdf;
-    })
-    .catch((error) => {
-      if (captureElement !== element) captureElement.remove();
-      throw error;
     });
 }
 
