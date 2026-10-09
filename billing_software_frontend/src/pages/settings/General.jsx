@@ -27,6 +27,7 @@ import {
   Languages,
   Sun,
   Moon,
+  Lock,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
@@ -40,6 +41,7 @@ import TermsSettings from "./TermsSettings";
 import AuditLogSettings from "./AuditLogSettings";
 import PosSettings from "./PosSettings";
 import StockSettings from "./StockSettings";
+import CashierSecuritySettings from "./CashierSecuritySettings";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
 import { saveSettings, fetchSettings } from "./settingsApi";
@@ -879,6 +881,35 @@ function GeneralSettings() {
             </button>
           </div>
 
+          {/* Card: Cashier & Security Controls Quick Access */}
+          <div className="bg-gradient-to-br from-purple-50/70 to-indigo-50/50 rounded-2xl border border-purple-200/80 p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Lock size={15} className="text-purple-600" />
+                <span>{isTamil ? "3. 🔒 கேஷியர் & செக்யூரிட்டி" : "3. Cashier & Security Controls"}</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-700">
+                Staff Restrictions
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              {isTamil
+                ? "பொருளின் விலை மாற்றம் லாக், அதிகபட்ச தள்ளுபடி வரம்பு (Max 10%), அடக்க விலைக்கு கீழ் விற்க தடை, பில் டெலீட் PIN & ஆட்டோ ஸ்கிரீன் லாக்."
+                : "Lock item price edit, enforce maximum discount limits, restrict selling below cost, supervisor/admin PIN for bill deletion, and auto-screen lock."}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsTab("cashier-security");
+                navigate("/settings/cashier-security");
+              }}
+              className="w-full py-2 px-3 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-purple-600/20"
+            >
+              <span>{isTamil ? "கேஷியர் பாதுகாப்பு அமைப்புகளைத் திற" : "Open Cashier & Security Settings"}</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
           {/* Card: Audit Log */}
           <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -1006,6 +1037,8 @@ export default function General() {
       {activeTab === "general" && <GeneralSettings />}
       {activeTab === "pos-controls" && <PosSettings />}
       {activeTab === "stock-safety" && <StockSettings />}
+      {activeTab === "cashier-security" && <CashierSecuritySettings />}
+      {activeTab === "staff-security" && <CashierSecuritySettings />}
       {activeTab === "audit-log" && <AuditLogSettings />}
       {activeTab === "invoice-numbering" && <InvoiceSettings />}
       {activeTab === "invoice-design" && <InvoiceDesign />}

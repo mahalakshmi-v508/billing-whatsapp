@@ -17,6 +17,7 @@ import CustomerForm from "../customer/CustomerForm";
 import AddProductModal from "../products/AddProductModal";
 import TermsDropdown from "../../components/common/TermsDropdown";
 import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
+import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
 
 const isProductExpired = (expiryDate) => {
   if (!expiryDate) return false;
@@ -186,6 +187,7 @@ export default function AddSale() {
   const { invoiceNo } = useParams();
   const isEditMode = Boolean(invoiceNo);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isCashier = user.role === "cashier";
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
 
   /* ── Modals State ── */
@@ -258,14 +260,29 @@ export default function AddSale() {
     }
   });
 
+  /* ── Cashier & Staff Security Restrictions ── */
+  const [cashierSecurity, setCashierSecurity] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
+      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
+    } catch {
+      return { ...DEFAULT_CASHIER_SECURITY };
+    }
+  });
+
   useEffect(() => {
-    const handleStockUpdate = (e) => {
-      if (e?.detail && e.detail[STOCK_SETTINGS_KEY]) {
-        setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
+    const handleSettingsUpdate = (e) => {
+      if (e?.detail) {
+        if (e.detail[STOCK_SETTINGS_KEY]) {
+          setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
+        }
+        if (e.detail[CASHIER_SECURITY_KEY]) {
+          setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
+        }
       }
     };
-    window.addEventListener("company-settings-updated", handleStockUpdate);
-    return () => window.removeEventListener("company-settings-updated", handleStockUpdate);
+    window.addEventListener("company-settings-updated", handleSettingsUpdate);
+    return () => window.removeEventListener("company-settings-updated", handleSettingsUpdate);
   }, []);
 
   /* ── Table Column Customization Drawer state & persistence ── */
@@ -673,6 +690,43 @@ export default function AddSale() {
       const updatedRows = sale.rows.map(r => {
         if (r.id !== rowId) return r;
         let finalVal = val;
+
+        // Cashier Security: Lock Item Price Edit
+        if (field === "price" && isCashier && cashierSecurity.lock_item_price_edit) {
+          showToast("🔒 Price editing is locked for cashiers by Administrator", false);
+          return r;
+        }
+
+        // Cashier Security: Restrict Selling Below Cost
+        if (field === "price" && cashierSecurity.restrict_selling_below_cost && r.product_id) {
+          const prod = products.find((p) => String(p.id) === String(r.product_id));
+          const purchasePrice = Number(prod?.purchase_price ?? prod?.cost_price ?? 0);
+          if (purchasePrice > 0 && Number(val) < purchasePrice) {
+            showToast(`❌ Restrict Selling Below Cost: Cannot sell below purchase cost (₹${purchasePrice})!`, false);
+            return r;
+          }
+        }
+
+        // Cashier Security: Maximum Discount Limit
+        if (field === "discount_percent" && isCashier && cashierSecurity.max_discount_enabled) {
+          const maxPct = Number(cashierSecurity.max_discount_limit) || 10;
+          if (Number(val) > maxPct) {
+            showToast(`⚠️ Maximum discount limit for Cashier is ${maxPct}%`, false);
+            finalVal = maxPct;
+          }
+        }
+        if (field === "discount_amount" && isCashier && cashierSecurity.max_discount_enabled) {
+          const lineSub = (Number(r.price) || 0) * (Number(r.qty) || 1);
+          if (lineSub > 0) {
+            const maxPct = Number(cashierSecurity.max_discount_limit) || 10;
+            const maxAmt = (lineSub * maxPct) / 100;
+            if (Number(val) > maxAmt) {
+              showToast(`⚠️ Max discount for Cashier is ${maxPct}% (₹${maxAmt.toFixed(2)})`, false);
+              finalVal = maxAmt.toFixed(2);
+            }
+          }
+        }
+
         if (field === "qty" && r.product_id && r.stock !== undefined && r.stock !== null) {
           const num = Number(val);
           const rowStock = Number(r.stock || 0);
@@ -724,6 +778,17 @@ export default function AddSale() {
       }
     } else if (stockSafety.low_stock_alert && currentStock <= (stockSafety.low_stock_threshold || 5)) {
       showToast(`⚠️ Low Stock Alert: Only ${currentStock} left for "${prod.product_name || prod.name}"!`, false);
+    }
+
+    // 3. Restrict Selling Below Cost
+    if (cashierSecurity.restrict_selling_below_cost) {
+      const purchasePrice = Number(prod.purchase_price ?? prod.cost_price ?? 0);
+      const pricing = resolveProductPricing(prod, { use: "sale" });
+      if (purchasePrice > 0 && pricing.price < purchasePrice) {
+        showToast(`❌ Restrict Selling Below Cost: Sale price (₹${pricing.price}) is below Purchase Cost (₹${purchasePrice})!`, false);
+        setActiveRowSuggestId(null);
+        return;
+      }
     }
     updateActiveSale(sale => {
       const updatedRows = sale.rows.map(r => {
@@ -1982,10 +2047,16 @@ export default function AddSale() {
                           type="number"
                           min="0"
                           step="0.01"
+                          readOnly={isCashier && cashierSecurity.lock_item_price_edit}
                           placeholder="0.00"
                           value={row.price}
                           onChange={e => updateRowField(row.id, "price", e.target.value)}
-                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
+                          title={isCashier && cashierSecurity.lock_item_price_edit ? "Price editing locked for cashiers" : ""}
+                          className={`w-full py-1.5 px-2 rounded-lg text-xs font-extrabold text-center outline-none transition ${
+                            isCashier && cashierSecurity.lock_item_price_edit
+                              ? "bg-slate-100 text-slate-500 cursor-not-allowed border border-slate-300"
+                              : "bg-slate-50/70 focus:bg-white border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 text-slate-900"
+                          }`}
                         />
                       </td>
                     )}

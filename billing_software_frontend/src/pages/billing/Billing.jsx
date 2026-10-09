@@ -6,6 +6,7 @@ import QuickAddProductModal from "../products/QuickAddProductModal";
 import { fetchSettings } from "../settings/settingsApi";
 import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings";
 import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
+import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
 import {
   Search,
   Plus,
@@ -264,6 +265,7 @@ function createFreshBill(id) {
 ══════════════════════════════════════════════════════════════════════════ */
 export default function Billing() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isCashier = user.role === "cashier";
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
   const navigate = useNavigate();
 
@@ -375,6 +377,16 @@ export default function Billing() {
     }
   });
 
+  /* ── Cashier & Staff Security Restrictions ── */
+  const [cashierSecurity, setCashierSecurity] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
+      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
+    } catch {
+      return { ...DEFAULT_CASHIER_SECURITY };
+    }
+  });
+
   useEffect(() => {
     fetchSettings().then((res) => {
       if (res) {
@@ -383,6 +395,9 @@ export default function Billing() {
         }
         if (res[STOCK_SETTINGS_KEY]) {
           setStockSafety((prev) => ({ ...prev, ...res[STOCK_SETTINGS_KEY] }));
+        }
+        if (res[CASHIER_SECURITY_KEY]) {
+          setCashierSecurity((prev) => ({ ...prev, ...res[CASHIER_SECURITY_KEY] }));
         }
       }
     });
@@ -394,6 +409,9 @@ export default function Billing() {
         }
         if (e.detail[STOCK_SETTINGS_KEY]) {
           setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
+        }
+        if (e.detail[CASHIER_SECURITY_KEY]) {
+          setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
         }
       }
     };
@@ -788,6 +806,18 @@ export default function Billing() {
       }
     }
 
+    // 3. Check Restrict Selling Below Cost
+    if (cashierSecurity.restrict_selling_below_cost) {
+      const purchasePrice = Number(p.purchase_price ?? p.cost_price ?? p.buying_price ?? 0);
+      if (purchasePrice > 0 && posPricing.price < purchasePrice) {
+        showToast(
+          `❌ Restrict Selling Below Cost: Sale price (${formatCurrency(posPricing.price)}) is below Purchase Cost (${formatCurrency(purchasePrice)}) for "${p.product_name || p.name}"!`,
+          "error"
+        );
+        return;
+      }
+    }
+
     setRows((prevRows) => {
       const updated = [...prevRows];
       const existingIdx = updated.findIndex((r) => String(r.product_id) === String(pid) && !r.isUnlisted);
@@ -853,7 +883,7 @@ export default function Billing() {
     setShowNoResult(false);
     justSelectedRef.current = true;
     globalSearchRef.current?.focus();
-  }, [productById, showToast, setRows, stockSafety]);
+  }, [productById, showToast, setRows, stockSafety, cashierSecurity]);
 
   /* Quick Add (POS) - the limited popup saved the searched product to the
      database, so make it searchable and put it straight onto the active bill.
@@ -961,10 +991,43 @@ export default function Billing() {
   const updateRow = useCallback((i, field, value) => {
     setRows((prev) => {
       const updated = [...prev];
+      const row = updated[i];
+      if (!row) return prev;
+
+      // 1. Lock Item Price Edit for Cashiers
+      if (field === "price" && isCashier && cashierSecurity.lock_item_price_edit) {
+        showToast("🔒 Price editing is restricted for cashiers by Administrator", "error");
+        return prev;
+      }
+
+      // 2. Restrict Selling Below Cost
+      if (field === "price" && cashierSecurity.restrict_selling_below_cost && row.product_id) {
+        const prod = productById[row.product_id];
+        const purchasePrice = Number(prod?.purchase_price ?? prod?.cost_price ?? 0);
+        if (purchasePrice > 0 && Number(value) < purchasePrice) {
+          showToast(`❌ Restrict Selling Below Cost: Cannot sell below purchase cost (${formatCurrency(purchasePrice)})!`, "error");
+          return prev;
+        }
+      }
+
+      // 3. Maximum Discount Limit for Cashiers
+      if (field === "discount") {
+        const discVal = Number(value) || 0;
+        const lineTotal = (Number(row.price) || 0) * (Number(row.qty) || 1);
+        if (isCashier && cashierSecurity.max_discount_enabled && lineTotal > 0) {
+          const maxLimitPct = Number(cashierSecurity.max_discount_limit) || 10;
+          const maxAllowedDisc = (lineTotal * maxLimitPct) / 100;
+          if (discVal > maxAllowedDisc) {
+            showToast(`⚠️ Maximum discount limit for Cashier is ${maxLimitPct}% (${formatCurrency(maxAllowedDisc)})`, "warning");
+            value = maxAllowedDisc;
+          }
+        }
+      }
+
       updated[i] = { ...updated[i], [field]: value };
       return updated;
     });
-  }, [setRows]);
+  }, [setRows, isCashier, cashierSecurity, productById, showToast]);
 
   const updateQty = useCallback((i, value) => {
     const num = Number(value);
@@ -2095,10 +2158,16 @@ export default function Billing() {
                         <input
                           type="number"
                           min="0"
+                          readOnly={isCashier && cashierSecurity.lock_item_price_edit}
                           value={r.price}
                           onChange={(e) => updateRow(i, "price", Number(e.target.value) || 0)}
                           onWheel={(e) => e.target.blur()}
-                          className="w-20 px-2 py-1 bg-white border border-slate-200 focus:border-indigo-500 rounded-lg text-right font-bold text-xs focus:outline-none"
+                          title={isCashier && cashierSecurity.lock_item_price_edit ? "Price editing is locked for cashiers" : ""}
+                          className={`w-20 px-2 py-1 border rounded-lg text-right font-bold text-xs focus:outline-none ${
+                            isCashier && cashierSecurity.lock_item_price_edit
+                              ? "bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300"
+                              : "bg-white border-slate-200 focus:border-indigo-500"
+                          }`}
                         />
                       ) : (
                         <span className="font-bold text-slate-900">{r.price > 0 ? formatCurrency(r.price) : "—"}</span>
@@ -2112,6 +2181,11 @@ export default function Billing() {
                         value={r.discount || 0}
                         onChange={(e) => updateRow(i, "discount", Number(e.target.value) || 0)}
                         onWheel={(e) => e.target.blur()}
+                        title={
+                          isCashier && cashierSecurity.max_discount_enabled
+                            ? `Max cashier discount allowed: ${cashierSecurity.max_discount_limit}%`
+                            : ""
+                        }
                         className={`w-16 px-2 py-1 bg-white border rounded-lg text-right font-semibold text-xs focus:outline-none ${disc > 0 ? "border-red-300 text-red-600" : "border-slate-200 text-slate-800"
                           }`}
                       />

@@ -3551,7 +3551,18 @@ export const TAMIL_PHRASES = {
   "Send photo": "அனுப்பு புகைப்படம்",
   "Send document": "அனுப்பு ஆவணம்",
   "Contact name": "தொடர்பு பெயர்",
-  "Image preview": "படம் முன்னோட்டம்",
   "Other Income": "மற்றவை வருமானம்",
-  "Fixed Assets": "நிலையான சொத்துக்கள்"
+  "Fixed Assets": "நிலையான சொத்துக்கள்",
+  "Cashier & Staff Security": "கேஷியர் & செக்யூரிட்டி",
+  "Staff Restrictions": "பணியாளர் கட்டுப்பாடுகள்",
+  "Lock Item Price Edit": "விலை மாற்றம் லாக்",
+  "Maximum Discount Limit": "அதிகபட்ச தள்ளுபடி வரம்பு",
+  "Restrict Selling Below Cost": "அடக்க விலைக்கு கீழ் விற்க தடை",
+  "Supervisor / Admin PIN": "மேற்பார்வையாளர் / அட்மின் PIN",
+  "Auto-Screen Lock": "தானியங்கி திரை பூட்டு",
+  "Screen Locked": "திரை பூட்டப்பட்டுள்ளது",
+  "Unlock Screen": "திரையை திறக்கவும்",
+  "Price Locked": "விலை லாக் செய்யப்பட்டுள்ளது",
+  "Cost Protection": "அடக்க விலை பாதுகாப்பு",
+  "Supervisor PIN": "மேற்பார்வையாளர் PIN"
 };
