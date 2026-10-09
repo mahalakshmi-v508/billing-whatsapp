@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import QuickAddProductModal from "../products/QuickAddProductModal";
+import { fetchSettings } from "../settings/settingsApi";
+import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings";
+import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
 import {
   Search,
   Plus,
@@ -45,6 +48,34 @@ import {
 /* ── Currency Helper ─────────────────────────────────────────────────── */
 const INR = "\u20B9";
 const formatCurrency = (amount) => `${INR}${Number(amount || 0).toFixed(2)}`;
+
+/* ── Expiry Helpers ───────────────────────────────────────────────────── */
+const isProductExpired = (expiryDate) => {
+  if (!expiryDate) return false;
+  try {
+    const exp = new Date(expiryDate);
+    if (isNaN(exp.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return exp < today;
+  } catch {
+    return false;
+  }
+};
+
+const getDaysUntilExpiry = (expiryDate) => {
+  if (!expiryDate) return null;
+  try {
+    const exp = new Date(expiryDate);
+    if (isNaN(exp.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffMs = exp.getTime() - today.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
+  }
+};
 
 /* ── Toast Component ─────────────────────────────────────────────────── */
 function ToastPortal({ toasts }) {
@@ -323,6 +354,52 @@ export default function Billing() {
   const [printInvoiceUrl, setPrintInvoiceUrl] = useState("");
   const [toasts, setToasts] = useState([]);
   const handleGenerateRef = useRef(null);
+
+  /* ── POS Controls & Speed Settings ── */
+  const [posSettings, setPosSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${POS_SETTINGS_KEY}`);
+      return saved ? { ...DEFAULT_POS_SETTINGS, ...JSON.parse(saved) } : { ...DEFAULT_POS_SETTINGS };
+    } catch {
+      return { ...DEFAULT_POS_SETTINGS };
+    }
+  });
+
+  /* ── Stock & Inventory Safety Settings ── */
+  const [stockSafety, setStockSafety] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${STOCK_SETTINGS_KEY}`);
+      return saved ? { ...DEFAULT_STOCK_SETTINGS, ...JSON.parse(saved) } : { ...DEFAULT_STOCK_SETTINGS };
+    } catch {
+      return { ...DEFAULT_STOCK_SETTINGS };
+    }
+  });
+
+  useEffect(() => {
+    fetchSettings().then((res) => {
+      if (res) {
+        if (res[POS_SETTINGS_KEY]) {
+          setPosSettings((prev) => ({ ...prev, ...res[POS_SETTINGS_KEY] }));
+        }
+        if (res[STOCK_SETTINGS_KEY]) {
+          setStockSafety((prev) => ({ ...prev, ...res[STOCK_SETTINGS_KEY] }));
+        }
+      }
+    });
+
+    const handleSettingsUpdate = (e) => {
+      if (e?.detail) {
+        if (e.detail[POS_SETTINGS_KEY]) {
+          setPosSettings((prev) => ({ ...prev, ...e.detail[POS_SETTINGS_KEY] }));
+        }
+        if (e.detail[STOCK_SETTINGS_KEY]) {
+          setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
+        }
+      }
+    };
+    window.addEventListener("company-settings-updated", handleSettingsUpdate);
+    return () => window.removeEventListener("company-settings-updated", handleSettingsUpdate);
+  }, []);
 
   /* ── Derived Totals ── */
   const subtotal = rows.reduce((s, r) => s + posLineAmount(r, billType).taxable, 0);
@@ -678,19 +755,71 @@ export default function Billing() {
     // Saved sale price + its GST mode come straight from the API record.
     const posPricing = resolveProductPricing(p, { use: "sale" });
 
+    // 1. Check Expiry
+    if (stockSafety.expiry_control_mode !== "disabled" && isProductExpired(p.expiry_date)) {
+      if (stockSafety.expiry_control_mode === "block") {
+        showToast(
+          `❌ Product Expired: "${p.product_name || p.name}" expired on ${p.expiry_date}! Adding to bill is blocked.`,
+          "error"
+        );
+        return;
+      } else if (stockSafety.expiry_control_mode === "warning") {
+        showToast(
+          `⚠️ Expired Item Warning: "${p.product_name || p.name}" expired on ${p.expiry_date}!`,
+          "warning"
+        );
+      }
+    }
+
+    // 2. Check Negative Stock (0 stock)
+    const currentStock = Number(p.stock ?? 0);
+    if (currentStock <= 0) {
+      if (stockSafety.negative_stock_mode === "block") {
+        showToast(
+          `❌ Out of Stock! "${p.product_name || p.name}" has 0 stock. Negative stock billing is blocked.`,
+          "error"
+        );
+        return;
+      } else if (stockSafety.negative_stock_mode === "warning") {
+        showToast(
+          `⚠️ Negative Stock Warning: "${p.product_name || p.name}" has 0 stock!`,
+          "warning"
+        );
+      }
+    }
+
     setRows((prevRows) => {
       const updated = [...prevRows];
       const existingIdx = updated.findIndex((r) => String(r.product_id) === String(pid) && !r.isUnlisted);
 
       if (existingIdx !== -1) {
         const newQty = updated[existingIdx].qty + qtyNum;
-        if (p.stock && newQty > Number(p.stock)) {
-          showToast(`Only ${p.stock} in stock!`, "warning");
-          return prevRows;
+        if (currentStock > 0 && newQty > currentStock) {
+          if (stockSafety.negative_stock_mode === "block") {
+            showToast(`❌ Only ${currentStock} in stock for "${p.product_name || p.name}"! Quantity capped at available stock.`, "error");
+            updated[existingIdx] = { ...updated[existingIdx], qty: currentStock };
+            return updated;
+          } else if (stockSafety.negative_stock_mode === "warning") {
+            showToast(`⚠️ Overselling Warning: Only ${currentStock} in stock for "${p.product_name || p.name}"!`, "warning");
+          }
         }
         updated[existingIdx] = { ...updated[existingIdx], qty: newQty };
         showToast(`${p.product_name || p.name} qty -> ${newQty}`, "success");
       } else {
+        if (currentStock > 0 && qtyNum > currentStock) {
+          if (stockSafety.negative_stock_mode === "block") {
+            showToast(`❌ Only ${currentStock} in stock! Cannot add ${qtyNum} units.`, "error");
+            return prevRows;
+          } else if (stockSafety.negative_stock_mode === "warning") {
+            showToast(`⚠️ Overselling Warning: Only ${currentStock} in stock!`, "warning");
+          }
+        }
+
+        // Low stock alert on add
+        if (stockSafety.low_stock_alert && currentStock > 0 && currentStock <= (stockSafety.low_stock_threshold || 5)) {
+          showToast(`⚠️ Low Stock Alert: Only ${currentStock} units left for "${p.product_name || p.name}"!`, "warning");
+        }
+
         const newRow = {
           product_id: pid,
           name: p.product_name || p.name,
@@ -702,7 +831,8 @@ export default function Billing() {
           discount: 0,
           freeQty: 0,
           unit: p.unit || "",
-          stock: Number(p.stock || 0),
+          stock: currentStock,
+          expiry_date: p.expiry_date || null,
           isUnlisted: false,
         };
         const lastEmptyIdx = updated.findLastIndex
@@ -723,7 +853,7 @@ export default function Billing() {
     setShowNoResult(false);
     justSelectedRef.current = true;
     globalSearchRef.current?.focus();
-  }, [productById, showToast, setRows]);
+  }, [productById, showToast, setRows, stockSafety]);
 
   /* Quick Add (POS) - the limited popup saved the searched product to the
      database, so make it searchable and put it straight onto the active bill.
@@ -840,15 +970,36 @@ export default function Billing() {
     const num = Number(value);
     setRows((prev) => {
       const updated = [...prev];
-      if (updated[i].stock && !updated[i].isUnlisted && num > updated[i].stock) {
-        showToast(`Only ${updated[i].stock} in stock!`, "warning");
-        updated[i] = { ...updated[i], qty: updated[i].stock };
+      const row = updated[i];
+      if (!row) return prev;
+      const rowStock = Number(row.stock || 0);
+
+      if (!row.isUnlisted && rowStock > 0 && num > rowStock) {
+        if (stockSafety.negative_stock_mode === "block") {
+          showToast(`❌ Only ${rowStock} in stock for "${row.name}"! Capped at available stock.`, "error");
+          updated[i] = { ...row, qty: rowStock };
+        } else if (stockSafety.negative_stock_mode === "warning") {
+          showToast(`⚠️ Overselling Warning: Only ${rowStock} in stock for "${row.name}"!`, "warning");
+          updated[i] = { ...row, qty: num < 0 ? 0 : num };
+        } else {
+          updated[i] = { ...row, qty: num < 0 ? 0 : num };
+        }
+      } else if (!row.isUnlisted && rowStock <= 0 && num > 0) {
+        if (stockSafety.negative_stock_mode === "block") {
+          showToast(`❌ Out of Stock! "${row.name}" has 0 stock.`, "error");
+          updated[i] = { ...row, qty: 0 };
+        } else if (stockSafety.negative_stock_mode === "warning") {
+          showToast(`⚠️ Negative Stock Warning: "${row.name}" has 0 stock!`, "warning");
+          updated[i] = { ...row, qty: num < 0 ? 0 : num };
+        } else {
+          updated[i] = { ...row, qty: num < 0 ? 0 : num };
+        }
       } else {
-        updated[i] = { ...updated[i], qty: num < 0 ? 0 : num };
+        updated[i] = { ...row, qty: num < 0 ? 0 : num };
       }
       return [...updated];
     });
-  }, [showToast, setRows]);
+  }, [showToast, setRows, stockSafety]);
 
   const deleteRow = (i) => {
     setRows((prev) => {
@@ -1039,6 +1190,31 @@ export default function Billing() {
       return;
     }
     if (validRows.length === 0) { showToast("Add at least one product to the invoice!", "error"); return; }
+
+    // ── Stock Safety Validation before saving ──
+    if (stockSafety.negative_stock_mode === "block") {
+      const negativeStockItem = validRows.find(
+        (r) => !r.isUnlisted && (Number(r.stock || 0) <= 0 || Number(r.qty || 0) > Number(r.stock || 0))
+      );
+      if (negativeStockItem) {
+        showToast(
+          `❌ Cannot save bill! "${negativeStockItem.name}" has insufficient stock (${negativeStockItem.stock} in stock, ${negativeStockItem.qty} in bill). Negative stock is blocked.`,
+          "error"
+        );
+        return;
+      }
+    }
+
+    if (stockSafety.expiry_control_mode === "block") {
+      const expiredItem = validRows.find((r) => !r.isUnlisted && isProductExpired(r.expiry_date));
+      if (expiredItem) {
+        showToast(
+          `❌ Cannot save bill! "${expiredItem.name}" is expired (${expiredItem.expiry_date}). Selling expired items is blocked.`,
+          "error"
+        );
+        return;
+      }
+    }
     if (paymentMethod !== "credit" && received <= 0 && advanceUsed < total) { showToast("Enter received payment amount!", "error"); return; }
     if (paymentMethod === "credit" && Number(customer.credit_enabled) === 1) {
       const limit = parseFloat(customer.credit_limit) || 0;
@@ -1578,10 +1754,32 @@ export default function Billing() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0 pl-3">
+                    <div className="text-right flex-shrink-0 pl-3 flex flex-col items-end gap-1">
                       <div className="text-xs font-extrabold text-slate-900">{formatCurrency(s.price)}</div>
-                      <div className={`text-[10px] font-bold ${s.stock < 5 ? "text-red-500" : "text-emerald-600"}`}>
-                        Stock: {s.stock}
+                      <div className="flex items-center gap-1.5 justify-end flex-wrap">
+                        {isProductExpired(s.expiry_date) ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
+                            Expired: {s.expiry_date}
+                          </span>
+                        ) : stockSafety.near_expiry_alert && getDaysUntilExpiry(s.expiry_date) !== null && getDaysUntilExpiry(s.expiry_date) <= (stockSafety.near_expiry_days || 30) ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-purple-100 text-purple-700">
+                            Exp in {getDaysUntilExpiry(s.expiry_date)}d
+                          </span>
+                        ) : null}
+
+                        {Number(s.stock ?? 0) <= 0 ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
+                            Out of Stock (0)
+                          </span>
+                        ) : stockSafety.low_stock_alert && Number(s.stock ?? 0) <= (stockSafety.low_stock_threshold || 5) ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            ⚠️ Low: {s.stock}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-emerald-600">
+                            Stock: {s.stock}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1832,7 +2030,29 @@ export default function Billing() {
                     </span>
 
                     <div className="min-w-0 pr-2">
-                      <div className="font-bold text-slate-900 truncate leading-snug">{r.name}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-slate-900 truncate leading-snug">{r.name}</span>
+                        {!r.isUnlisted && isProductExpired(r.expiry_date) && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-red-100 text-red-700 border border-red-200">
+                            ⚠️ Expired
+                          </span>
+                        )}
+                        {!r.isUnlisted && Number(r.stock || 0) <= 0 && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-red-100 text-red-700 border border-red-200">
+                            Zero Stock
+                          </span>
+                        )}
+                        {!r.isUnlisted && Number(r.stock || 0) > 0 && Number(r.qty || 0) > Number(r.stock || 0) && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200">
+                            ⚠️ Oversell ({r.stock})
+                          </span>
+                        )}
+                        {!r.isUnlisted && stockSafety.low_stock_alert && Number(r.stock || 0) > 0 && Number(r.stock || 0) <= (stockSafety.low_stock_threshold || 5) && Number(r.qty || 0) <= Number(r.stock || 0) && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            Low: {r.stock} left
+                          </span>
+                        )}
+                      </div>
                       {r.unit && <span className="text-[10px] text-slate-400">{r.unit}</span>}
                     </div>
 
@@ -1843,7 +2063,11 @@ export default function Billing() {
                         value={r.qty}
                         onChange={(e) => updateQty(i, e.target.value)}
                         onWheel={(e) => e.target.blur()}
-                        className="w-14 px-2 py-1 bg-white border border-slate-200 focus:border-indigo-500 rounded-lg text-center font-bold text-xs focus:outline-none"
+                        className={`w-14 px-2 py-1 bg-white border rounded-lg text-center font-bold text-xs focus:outline-none ${
+                          !r.isUnlisted && (Number(r.stock || 0) <= 0 || Number(r.qty || 0) > Number(r.stock || 0))
+                            ? "border-red-400 bg-red-50/50 text-red-900 focus:border-red-500"
+                            : "border-slate-200 focus:border-indigo-500"
+                        }`}
                       />
                     </div>
 

@@ -16,6 +16,20 @@ import useTableColumns from "../../hooks/useTableColumns";
 import CustomerForm from "../customer/CustomerForm";
 import AddProductModal from "../products/AddProductModal";
 import TermsDropdown from "../../components/common/TermsDropdown";
+import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
+
+const isProductExpired = (expiryDate) => {
+  if (!expiryDate) return false;
+  try {
+    const exp = new Date(expiryDate);
+    if (isNaN(exp.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return exp < today;
+  } catch {
+    return false;
+  }
+};
 
 /* ── Item Table Columns List for customization drawer with rich icons & colors ─ */
 const DEFAULT_ITEM_COLUMNS = [
@@ -233,6 +247,26 @@ export default function AddSale() {
       setToast(null);
     }, 4500);
   };
+
+  /* ── Stock & Inventory Safety Settings ── */
+  const [stockSafety, setStockSafety] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${STOCK_SETTINGS_KEY}`);
+      return saved ? { ...DEFAULT_STOCK_SETTINGS, ...JSON.parse(saved) } : { ...DEFAULT_STOCK_SETTINGS };
+    } catch {
+      return { ...DEFAULT_STOCK_SETTINGS };
+    }
+  });
+
+  useEffect(() => {
+    const handleStockUpdate = (e) => {
+      if (e?.detail && e.detail[STOCK_SETTINGS_KEY]) {
+        setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
+      }
+    };
+    window.addEventListener("company-settings-updated", handleStockUpdate);
+    return () => window.removeEventListener("company-settings-updated", handleStockUpdate);
+  }, []);
 
   /* ── Table Column Customization Drawer state & persistence ── */
   const {
@@ -638,7 +672,27 @@ export default function AddSale() {
     updateActiveSale(sale => {
       const updatedRows = sale.rows.map(r => {
         if (r.id !== rowId) return r;
-        const updated = { ...r, [field]: val };
+        let finalVal = val;
+        if (field === "qty" && r.product_id && r.stock !== undefined && r.stock !== null) {
+          const num = Number(val);
+          const rowStock = Number(r.stock || 0);
+          if (rowStock > 0 && num > rowStock) {
+            if (stockSafety.negative_stock_mode === "block") {
+              showToast(`❌ Only ${rowStock} in stock for "${r.item_name}"! Capped at stock.`, false);
+              finalVal = rowStock;
+            } else if (stockSafety.negative_stock_mode === "warning") {
+              showToast(`⚠️ Overselling Warning: Only ${rowStock} in stock for "${r.item_name}"!`, false);
+            }
+          } else if (rowStock <= 0 && num > 0) {
+            if (stockSafety.negative_stock_mode === "block") {
+              showToast(`❌ Out of Stock! "${r.item_name}" has 0 stock.`, false);
+              finalVal = 0;
+            } else if (stockSafety.negative_stock_mode === "warning") {
+              showToast(`⚠️ Negative Stock Warning: "${r.item_name}" has 0 stock!`, false);
+            }
+          }
+        }
+        const updated = { ...r, [field]: finalVal };
         return recalculateRow(updated);
       });
       return { ...sale, rows: updatedRows };
@@ -647,6 +701,30 @@ export default function AddSale() {
 
   /* ── Product Selection: Automatically sets Quantity = 1 (if was empty) & appends next row ── */
   const handleSelectProduct = (rowId, prod) => {
+    // 1. Expiry check
+    if (stockSafety.expiry_control_mode !== "disabled" && isProductExpired(prod.expiry_date)) {
+      if (stockSafety.expiry_control_mode === "block") {
+        showToast(`❌ Product Expired: "${prod.product_name || prod.name}" expired on ${prod.expiry_date}! Adding is blocked.`, false);
+        setActiveRowSuggestId(null);
+        return;
+      } else if (stockSafety.expiry_control_mode === "warning") {
+        showToast(`⚠️ Expired Item Warning: "${prod.product_name || prod.name}" expired on ${prod.expiry_date}!`, false);
+      }
+    }
+
+    // 2. Negative stock check
+    const currentStock = Number(prod.stock ?? 0);
+    if (currentStock <= 0) {
+      if (stockSafety.negative_stock_mode === "block") {
+        showToast(`❌ Out of Stock! "${prod.product_name || prod.name}" has 0 stock. Negative stock is blocked.`, false);
+        setActiveRowSuggestId(null);
+        return;
+      } else if (stockSafety.negative_stock_mode === "warning") {
+        showToast(`⚠️ Negative Stock Warning: "${prod.product_name || prod.name}" has 0 stock!`, false);
+      }
+    } else if (stockSafety.low_stock_alert && currentStock <= (stockSafety.low_stock_threshold || 5)) {
+      showToast(`⚠️ Low Stock Alert: Only ${currentStock} left for "${prod.product_name || prod.name}"!`, false);
+    }
     updateActiveSale(sale => {
       const updatedRows = sale.rows.map(r => {
         if (r.id !== rowId) return r;
@@ -878,6 +956,34 @@ export default function AddSale() {
     if (validItems.length === 0) {
       showToast("Please add at least one item to the sale.", false);
       return;
+    }
+
+    if (stockSafety.negative_stock_mode === "block") {
+      const negativeStockItem = validItems.find(
+        (r) => r.product_id && (Number(r.stock || 0) <= 0 || Number(r.qty || 0) > Number(r.stock || 0))
+      );
+      if (negativeStockItem) {
+        showToast(
+          `❌ Cannot save invoice! "${negativeStockItem.item_name}" has insufficient stock (${negativeStockItem.stock} in stock, ${negativeStockItem.qty} in invoice). Negative stock is blocked.`,
+          false
+        );
+        return;
+      }
+    }
+
+    if (stockSafety.expiry_control_mode === "block") {
+      const expiredItem = validItems.find(r => {
+        if (!r.product_id) return false;
+        const p = products.find(prod => String(prod.id) === String(r.product_id));
+        return p && isProductExpired(p.expiry_date);
+      });
+      if (expiredItem) {
+        showToast(
+          `❌ Cannot save invoice! "${expiredItem.item_name}" is expired. Selling expired products is blocked.`,
+          false
+        );
+        return;
+      }
     }
 
     const isBypass = bypassUnlistedCheck === true;
@@ -2060,7 +2166,24 @@ export default function AddSale() {
                 >
                   <div className="min-w-0 pr-2">
                     <div className="font-bold text-slate-900 truncate">{p.product_name || p.name}</div>
-                    <div className="text-[11px] text-slate-400">Stock: {p.stock ?? 0} {p.unit || ""}</div>
+                    <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500 mt-0.5">
+                      {isProductExpired(p.expiry_date) ? (
+                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
+                          Expired: {p.expiry_date}
+                        </span>
+                      ) : null}
+                      {Number(p.stock ?? 0) <= 0 ? (
+                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
+                          Out of Stock (0)
+                        </span>
+                      ) : stockSafety.low_stock_alert && Number(p.stock ?? 0) <= (stockSafety.low_stock_threshold || 5) ? (
+                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                          ⚠️ Low: {p.stock} {p.unit || ""}
+                        </span>
+                      ) : (
+                        <span>Stock: {p.stock ?? 0} {p.unit || ""}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="font-extrabold text-blue-600 shrink-0">₹{parseFloat(p.price || 0).toLocaleString()}</div>
                 </div>

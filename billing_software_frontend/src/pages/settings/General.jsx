@@ -17,6 +17,7 @@ import {
   Sliders,
   Check,
   Layers,
+  Boxes,
   Database,
   Info,
   Clock,
@@ -38,6 +39,7 @@ import TransactionMessage from "./TransactionMessage";
 import TermsSettings from "./TermsSettings";
 import AuditLogSettings from "./AuditLogSettings";
 import PosSettings from "./PosSettings";
+import StockSettings from "./StockSettings";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
 import { saveSettings, fetchSettings } from "./settingsApi";
@@ -107,7 +109,7 @@ function GeneralSettings() {
       const saved = localStorage.getItem("general_settings");
       const parsed = saved ? JSON.parse(saved) : {};
       const rawTheme = localStorage.getItem("app_theme");
-      const savedTheme = rawTheme === "dark" ? "light" : (rawTheme || parsed.themeMode || "light");
+      const savedTheme = rawTheme || parsed.themeMode || "light";
       const savedLang = localStorage.getItem("app_language") || parsed.appLanguage || DEFAULT_PREFERENCES.appLanguage;
       return {
         ...DEFAULT_PREFERENCES,
@@ -848,6 +850,35 @@ function GeneralSettings() {
             </button>
           </div>
 
+          {/* Card: Stock & Inventory Safety Quick Access */}
+          <div className="bg-gradient-to-br from-rose-50/70 to-amber-50/50 rounded-2xl border border-rose-200/80 p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Boxes size={15} className="text-rose-600" />
+                <span>{isTamil ? "ஸ்டாக் & இன்வென்டரி பாதுகாப்பு" : "Stock & Inventory Safety"}</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-700">
+                Safety Shield
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              {isTamil
+                ? "நெகட்டிவ் ஸ்டாக் தடுப்பு (Block / Warning), பில்லிங்கில் குறைந்த இருப்பு வண்ண எச்சரிக்கை & காலாவதியான பொருட்கள் கட்டுப்பாடு."
+                : "Manage Negative Stock Control (Block / Warn), POS Low Stock Alert color badges, and Expired Batch sales restrictions."}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsTab("stock-safety");
+                navigate("/settings/stock-safety");
+              }}
+              className="w-full py-2 px-3 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-rose-600/20"
+            >
+              <span>{isTamil ? "இருப்பு பாதுகாப்பு அமைப்புகளைத் திற" : "Open Stock Safety Controls"}</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
           {/* Card: Audit Log */}
           <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -974,6 +1005,7 @@ export default function General() {
     <div className="bg-transparent min-w-0 flex flex-col flex-1">
       {activeTab === "general" && <GeneralSettings />}
       {activeTab === "pos-controls" && <PosSettings />}
+      {activeTab === "stock-safety" && <StockSettings />}
       {activeTab === "audit-log" && <AuditLogSettings />}
       {activeTab === "invoice-numbering" && <InvoiceSettings />}
       {activeTab === "invoice-design" && <InvoiceDesign />}

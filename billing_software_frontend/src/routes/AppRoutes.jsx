@@ -338,12 +338,12 @@ export default function AppRoutes() {
 
             {/* 🛒 Purchase & Expense Routes (Inside MainLayout with Sidebar) */}
             <Route path="/purchases" element={<PurchaseList />} />
-            <Route path="/purchases/bills" element={<PurchaseList />} />
+           <Route path="/purchases/debit-note" element={<DebitNoteList />} />
+            <Route path="/purchases/reports" element={<PurchaseGSTReport />} /> <Route path="/purchases/bills" element={<PurchaseList />} />
             <Route path="/purchases/payment-out" element={<PaymentOut />} />
             <Route path="/purchases/expenses" element={<ExpenseList />} />
             <Route path="/purchases/return" element={<DebitNoteList />} />
-            <Route path="/purchases/debit-note" element={<DebitNoteList />} />
-            <Route path="/purchases/reports" element={<PurchaseGSTReport />} />
+            
 
             {/* Tax & WhatsApp */}
             <Route path="/tax" element={<TaxList />} />
