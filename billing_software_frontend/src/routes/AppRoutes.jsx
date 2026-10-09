@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
@@ -121,6 +122,34 @@ import TicketDetails from "../pages/helpdesk/TicketDetails";
 import HelpdeskDashboard from "../pages/helpdesk/HelpdeskDashboard";
 import WhatsAppChat from "../pages/whatsapp/WhatsAppChat";
 
+const POS_BILLING_RETURN_PATH_KEY = "pos_billing_return_path";
+
+function BillingReturnPathTracker() {
+  const location = useLocation();
+  const previousPath = useRef(null);
+
+  useEffect(() => {
+    const currentPath = `${location.pathname}${location.search}${location.hash}`;
+    const previous = previousPath.current;
+
+    if (location.pathname === "/billing") {
+      if (
+        previous &&
+        !previous.startsWith("/billing") &&
+        !previous.startsWith("/invoice")
+      ) {
+        sessionStorage.setItem(POS_BILLING_RETURN_PATH_KEY, previous);
+      } else if (!previous && !sessionStorage.getItem(POS_BILLING_RETURN_PATH_KEY)) {
+        sessionStorage.setItem(POS_BILLING_RETURN_PATH_KEY, "/dashboard");
+      }
+    }
+
+    previousPath.current = currentPath;
+  }, [location.hash, location.pathname, location.search]);
+
+  return null;
+}
+
 function BillingRoute() {
   const location = useLocation();
   return (
@@ -133,6 +162,7 @@ function BillingRoute() {
 export default function AppRoutes() {
   return (
     <BrowserRouter>
+      <BillingReturnPathTracker />
       <Routes>
 
         {/* 🔓 Public Routes */}
