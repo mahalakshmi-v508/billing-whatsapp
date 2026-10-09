@@ -8,8 +8,12 @@ import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings"
 import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
 import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
 import { WHATSAPP_DEFAULTS_KEY, DEFAULT_WHATSAPP_DEFAULTS } from "../settings/WhatsAppDefaultSettings";
+import { STORE_SETUP_KEY, DEFAULT_STORE_SETUP } from "../settings/StoreSetupSettings";
+import { TAX_BACKUP_KEY, DEFAULT_TAX_BACKUP } from "../settings/TaxBackupSettings";
 import { COUNTRY_LIST, getCountryByCode, detectCountryFromPhone } from "../../utils/phoneCountryHelper";
+import { useLanguage } from "../../utils/i18n";
 import {
+  Coins,
   Search,
   Plus,
   X,
@@ -312,6 +316,7 @@ export default function Billing() {
   }, [activeBillId]);
 
   /* ══ SHARED STATE ══ */
+  const { isTamil } = useLanguage();
   const [products, setProducts] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(localStorage.getItem("selected_company_id") || "");
@@ -390,6 +395,45 @@ export default function Billing() {
     }
   });
 
+  /* ── Store Setup & Counter ── */
+  const [storeSetup, setStoreSetup] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${STORE_SETUP_KEY}`);
+      return saved ? { ...DEFAULT_STORE_SETUP, ...JSON.parse(saved) } : { ...DEFAULT_STORE_SETUP };
+    } catch {
+      return { ...DEFAULT_STORE_SETUP };
+    }
+  });
+
+  /* ── Tax & Backup Settings ── */
+  const [taxBackup, setTaxBackup] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${TAX_BACKUP_KEY}`);
+      return saved ? { ...DEFAULT_TAX_BACKUP, ...JSON.parse(saved) } : { ...DEFAULT_TAX_BACKUP };
+    } catch {
+      return { ...DEFAULT_TAX_BACKUP };
+    }
+  });
+
+  const [activeTaxMode, setActiveTaxMode] = useState(
+    () => (taxBackup.default_tax_mode || "inclusive")
+  );
+
+  const toggleTaxMode = () => {
+    if (!taxBackup.allow_cashier_tax_toggle) {
+      showToast("Tax mode toggle is disabled in settings.", "warning");
+      return;
+    }
+    const next = activeTaxMode === "inclusive" ? "exclusive" : "inclusive";
+    setActiveTaxMode(next);
+    showToast(
+      next === "inclusive"
+        ? (isTamil ? "வரி முறை: வரி உட்பட (Tax Inclusive) மாற்றப்பட்டது!" : "Tax Mode: Switched to Tax Inclusive!")
+        : (isTamil ? "வரி முறை: வரி தனியாக (Tax Exclusive) மாற்றப்பட்டது!" : "Tax Mode: Switched to Tax Exclusive!"),
+      "success"
+    );
+  };
+
   /* ── WhatsApp Defaults & Dynamic Country Code ── */
   const [whatsappDefaults, setWhatsappDefaults] = useState(() => {
     try {
@@ -424,6 +468,15 @@ export default function Billing() {
             setSelectedCountryCode((prev) => (prev === "+91" ? res[WHATSAPP_DEFAULTS_KEY].default_country_code : prev));
           }
         }
+        if (res[STORE_SETUP_KEY]) {
+          setStoreSetup((prev) => ({ ...prev, ...res[STORE_SETUP_KEY] }));
+        }
+        if (res[TAX_BACKUP_KEY]) {
+          setTaxBackup((prev) => ({ ...prev, ...res[TAX_BACKUP_KEY] }));
+          if (res[TAX_BACKUP_KEY].default_tax_mode) {
+            setActiveTaxMode(res[TAX_BACKUP_KEY].default_tax_mode);
+          }
+        }
       }
     });
 
@@ -440,6 +493,15 @@ export default function Billing() {
         }
         if (e.detail[WHATSAPP_DEFAULTS_KEY]) {
           setWhatsappDefaults((prev) => ({ ...prev, ...e.detail[WHATSAPP_DEFAULTS_KEY] }));
+        }
+        if (e.detail[STORE_SETUP_KEY]) {
+          setStoreSetup((prev) => ({ ...prev, ...e.detail[STORE_SETUP_KEY] }));
+        }
+        if (e.detail[TAX_BACKUP_KEY]) {
+          setTaxBackup((prev) => ({ ...prev, ...e.detail[TAX_BACKUP_KEY] }));
+          if (e.detail[TAX_BACKUP_KEY].default_tax_mode) {
+            setActiveTaxMode(e.detail[TAX_BACKUP_KEY].default_tax_mode);
+          }
         }
       }
     };
@@ -813,6 +875,10 @@ export default function Billing() {
     const qtyNum = Number(qtyToAdd) || 1;
     // Saved sale price + its GST mode come straight from the API record.
     const posPricing = resolveProductPricing(p, { use: "sale" });
+    if (!p.sale_price_type && taxBackup?.apply_to_unlisted_items) {
+      posPricing.priceType = activeTaxMode === "inclusive" ? "with_gst" : "without_gst";
+      posPricing.mode = posPricing.priceType;
+    }
 
     // 1. Check Expiry
     if (stockSafety.expiry_control_mode !== "disabled" && isProductExpired(p.expiry_date)) {
@@ -1003,8 +1069,10 @@ export default function Billing() {
       price: Number(quickItem.price),
       gst: 0,
       // A free-typed quick item has no saved product config, so it follows the
-      // same historical default as a product that predates these columns.
-      price_type: normalisePriceType(quickItem.price_type),
+      // activeTaxMode or cashier's choice.
+      price_type: quickItem.price_type
+        ? normalisePriceType(quickItem.price_type)
+        : (activeTaxMode === "inclusive" ? "with_gst" : "without_gst"),
       qty: Number(quickItem.qty) || 1,
       discount: 0,
       freeQty: 0,
@@ -1020,7 +1088,7 @@ export default function Billing() {
       if (updated[updated.length - 1].name) updated.push(emptyRow());
       return updated;
     });
-    setQuickItem({ name: "", price: "", qty: 1, unit: "", price_type: "without_gst" });
+    setQuickItem({ name: "", price: "", qty: 1, unit: "", price_type: activeTaxMode === "inclusive" ? "with_gst" : "without_gst" });
     setShowQuickAdd(false);
     setGlobalSearch("");
     setShowNoResult(false);
@@ -1647,7 +1715,7 @@ export default function Billing() {
             </div>
             <div>
               <span className="font-display font-bold text-xs tracking-tight text-white block leading-tight">PaySplit POS</span>
-              <span className="text-[10px] text-indigo-400 font-medium tracking-wide block leading-none">Cashio Terminal</span>
+              <span className="text-[10px] text-indigo-400 font-medium tracking-wide block leading-none">{storeSetup.counter_name || "Counter-1"}</span>
             </div>
           </div>
 
@@ -1723,6 +1791,36 @@ export default function Billing() {
               GST Bill
             </button>
           </div>
+
+          {/* Tax Mode: Inclusive vs Exclusive */}
+          <button
+            type="button"
+            onClick={toggleTaxMode}
+            title={
+              taxBackup.allow_cashier_tax_toggle
+                ? (isTamil ? "வரி முறையை மாற்ற கிளிக் செய்யவும் (Inclusive / Exclusive)" : "Click to toggle Tax Mode (Inclusive / Exclusive)")
+                : (isTamil ? "வரி முறை பூட்டப்பட்டுள்ளது" : "Tax mode is locked by settings")
+            }
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border ${
+              activeTaxMode === "inclusive"
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                : "bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30"
+            } ${taxBackup.allow_cashier_tax_toggle ? "cursor-pointer" : "cursor-default"}`}
+          >
+            <Coins size={13} />
+            <span>{activeTaxMode === "inclusive" ? (isTamil ? "வரி உட்பட" : "Tax Incl.") : (isTamil ? "வரி தனியாக" : "Tax Excl.")}</span>
+          </button>
+
+          {/* Day Closing / Z-Report Shortcut */}
+          <button
+            type="button"
+            onClick={() => navigate("/settings/tax-backup")}
+            title={isTamil ? "கல்லா கணக்கு முடித்தல் & Z-Report" : "Day-End Cash Drawer Closing & Z-Report"}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all cursor-pointer"
+          >
+            <Receipt size={13} />
+            <span className="hidden xl:inline">{isTamil ? "கல்லா கணக்கு" : "Z-Report"}</span>
+          </button>
 
           <div className="w-px h-5 bg-white/10" />
 
