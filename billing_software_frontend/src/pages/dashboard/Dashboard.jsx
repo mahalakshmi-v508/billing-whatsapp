@@ -444,7 +444,7 @@ export default function Dashboard() {
                     </span>
                   )}
                 </div>
-                <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate max-w-[150px] sm:max-w-[200px] leading-snug mt-0.5">
+                <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate max-w-[200px] sm:max-w-[260px] leading-snug mt-0.5">
                   {activeCompany?.company_name || "Select Branch..."}
                 </div>
               </div>
@@ -727,7 +727,7 @@ export default function Dashboard() {
             <StatCard
               title="Active Inventory"
               value={stats.total_products || 0}
-              suffix=" SKUs"
+              suffix=" SKU"
               icon={Package}
               accent="cyan"
               badge={

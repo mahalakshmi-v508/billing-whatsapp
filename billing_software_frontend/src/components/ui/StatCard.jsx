@@ -54,15 +54,21 @@ export default function StatCard({
       {/* Top accent strip */}
       <div className={`absolute top-0 left-0 right-0 h-1 ${style.topBar}`} />
 
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+      <div className="flex items-start justify-between gap-3 mb-2 min-w-0">
+        <div className="min-w-0 flex-1">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block min-h-[2.25rem] flex items-center leading-snug">
             {title}
           </span>
-          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight mt-1 font-display">
-            {prefix}
-            {typeof value === "number" ? value.toLocaleString("en-IN") : value}
-            {suffix}
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight mt-1 font-display flex items-baseline flex-nowrap min-h-[2rem]">
+            {prefix && <span className="mr-0.5">{prefix}</span>}
+            <span className="tabular-nums">
+              {typeof value === "number" ? value.toLocaleString("en-IN") : value}
+            </span>
+            {suffix && (
+              <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 ml-1.5 font-sans whitespace-nowrap self-baseline tracking-normal">
+                {suffix}
+              </span>
+            )}
           </div>
         </div>
 
@@ -76,10 +82,10 @@ export default function StatCard({
       </div>
 
       {(subtitle || change !== undefined || badge) && (
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-2 min-h-[1.75rem] overflow-hidden flex-nowrap">
           {change !== undefined && (
             <span
-              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full font-semibold ${
+              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full font-semibold text-[11px] whitespace-nowrap flex-shrink-0 ${
                 trend === "up"
                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800"
                   : trend === "down"
@@ -95,12 +101,19 @@ export default function StatCard({
           )}
 
           {badge && (
-            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-medium">
+            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-medium text-[11px] whitespace-nowrap flex-shrink-0">
               {badge}
             </span>
           )}
 
-          {subtitle && <span className="text-slate-500 dark:text-slate-400 truncate">{subtitle}</span>}
+          {subtitle && (
+            <span
+              className="text-slate-500 dark:text-slate-400 text-[11px] truncate min-w-0"
+              title={typeof subtitle === "string" ? subtitle : undefined}
+            >
+              {subtitle}
+            </span>
+          )}
         </div>
       )}
     </div>

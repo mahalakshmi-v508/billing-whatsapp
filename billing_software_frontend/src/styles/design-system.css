@@ -864,4 +864,16 @@ kbd,
   min-width: 0;
 }
 
+/* 11. Tamil typography and layout alignment stability */
+html[lang="ta"] body {
+  font-feature-settings: "kern" 1;
+  text-rendering: optimizeLegibility;
+}
+
+html[lang="ta"] .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 
