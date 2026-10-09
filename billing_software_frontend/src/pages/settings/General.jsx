@@ -46,6 +46,7 @@ import StockSettings from "./StockSettings";
 import CashierSecuritySettings from "./CashierSecuritySettings";
 import WhatsAppDefaultSettings from "./WhatsAppDefaultSettings";
 import StoreSetupSettings from "./StoreSetupSettings";
+import TaxBackupSettings from "./TaxBackupSettings";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
 import { saveSettings, fetchSettings } from "./settingsApi";
@@ -972,6 +973,35 @@ function GeneralSettings() {
             </button>
           </div>
 
+          {/* Card: Tax & Backup Quick Access */}
+          <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/50 rounded-2xl border border-emerald-200/80 p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Coins size={15} className="text-emerald-600" />
+                <span>{isTamil ? "6. 💰 வரி & பேக்கப்" : "6. Tax & Backup"}</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                Tax & Backup
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              {isTamil
+                ? "பில்லிங் வரி முறை (வரி உட்பட / வரி தனியாக), மொத்த டேட்டாவையும் ஒரே கிளிக்கில் டவுன்லோட் செய்யும் பேக்கப் மற்றும் நாள் முடிவில் கல்லா கணக்கு (Z-Report)."
+                : "Default Tax Mode (Inclusive / Exclusive), one-click system data backup, and Day-End cash drawer tally (Z-Report)."}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsTab("tax-backup");
+                navigate("/settings/tax-backup");
+              }}
+              className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-emerald-600/20"
+            >
+              <span>{isTamil ? "வரி & பேக்கப் அமைப்புகளைத் திற" : "Open Tax & Backup Settings"}</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
           {/* Card: Audit Log */}
           <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -1103,6 +1133,7 @@ export default function General() {
       {activeTab === "staff-security" && <CashierSecuritySettings />}
       {activeTab === "whatsapp-defaults" && <WhatsAppDefaultSettings />}
       {activeTab === "store-setup" && <StoreSetupSettings />}
+      {activeTab === "tax-backup" && <TaxBackupSettings />}
       {activeTab === "audit-log" && <AuditLogSettings />}
       {activeTab === "invoice-numbering" && <InvoiceSettings />}
       {activeTab === "invoice-design" && <InvoiceDesign />}
