@@ -1,0 +1,577 @@
+﻿import { useState } from "react";
+import {
+  Lock,
+  Unlock,
+  ShieldAlert,
+  ShieldCheck,
+  Percent,
+  TrendingDown,
+  KeyRound,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Check,
+  Ban,
+  Sliders,
+  Sparkles,
+} from "lucide-react";
+import { SettingsShell, Toggle, Badge } from "./settingsUI";
+import { useCompanySetting } from "./useCompanySetting";
+import { useLanguage } from "../../utils/i18n";
+
+export const CASHIER_SECURITY_KEY = "cashier_security";
+
+export const DEFAULT_CASHIER_SECURITY = {
+  lock_item_price_edit: false, // Lock unit price edit in billing for cashiers
+  max_discount_enabled: true, // Cap maximum discount cashier can give
+  max_discount_limit: 10, // Max discount percentage (e.g. 10%)
+  restrict_selling_below_cost: true, // Prevent selling below cost/purchase price
+  supervisor_pin_enabled: true, // Require 4-digit PIN for bill delete/cancel
+  supervisor_admin_pin: "1234", // 4-digit Supervisor/Admin PIN
+  auto_screen_lock_minutes: 0, // 0 = Off, 5 = 5m, 10 = 10m, 15 = 15m
+};
+
+export default function CashierSecuritySettings() {
+  const { isTamil } = useLanguage();
+  const [settings, setSetting] = useCompanySetting(
+    CASHIER_SECURITY_KEY,
+    DEFAULT_CASHIER_SECURITY
+  );
+  const [toast, setToast] = useState(null);
+  const [showPin, setShowPin] = useState(false);
+  const [tempPin, setTempPin] = useState(settings.supervisor_admin_pin || "1234");
+
+  const showToast = (message) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleToggle = (key, label) => {
+    const nextVal = !settings[key];
+    setSetting(key)(nextVal);
+    showToast(
+      `${label}: ${
+        nextVal
+          ? isTamil
+            ? "செயல்படுத்தப்பட்டது (ON)"
+            : "Enabled (ON)"
+          : isTamil
+          ? "முடக்கப்பட்டது (OFF)"
+          : "Disabled (OFF)"
+      }`
+    );
+  };
+
+  const handleDiscountLimitChange = (val) => {
+    const num = Math.min(100, Math.max(1, parseInt(val, 10) || 1));
+    setSetting("max_discount_limit")(num);
+  };
+
+  const handlePinSave = () => {
+    const cleaned = String(tempPin || "").replace(/\D/g, "").slice(0, 4);
+    if (cleaned.length !== 4) {
+      showToast(
+        isTamil
+          ? "PIN சரியாக 4 இலக்கங்களாக இருக்க வேண்டும்"
+          : "PIN must be exactly 4 digits"
+      );
+      return;
+    }
+    setSetting("supervisor_admin_pin")(cleaned);
+    setTempPin(cleaned);
+    showToast(
+      isTamil
+        ? "மேற்பார்வையாளர் PIN வெற்றிகரமாக சேமிக்கப்பட்டது!"
+        : "Supervisor PIN saved successfully!"
+    );
+  };
+
+  const handleAutoLockChange = (mins) => {
+    setSetting("auto_screen_lock_minutes")(mins);
+    showToast(
+      mins === 0
+        ? isTamil
+          ? "ஆட்டோ ஸ்கிரீன் லாக் முடக்கப்பட்டது"
+          : "Auto Screen Lock Disabled"
+        : isTamil
+        ? `ஆட்டோ ஸ்கிரீன் லாக்: ${mins} நிமிடங்களில் பூட்டப்படும்`
+        : `Auto Screen Lock set to ${mins} minutes`
+    );
+  };
+
+  return (
+    <SettingsShell
+      title={
+        isTamil
+          ? "கேஷியர் & செக்யூரிட்டி (Staff Restrictions)"
+          : "Cashier & Staff Security"
+      }
+      subtitle={
+        isTamil
+          ? "விலை மாற்றம் லாக், தள்ளுபடி வரம்பு, அடக்க விலை பாதுகாப்பு, அட்மின் PIN & ஆட்டோ லாக்"
+          : "PREVENT PRICE TAMPERING, SET MAX DISCOUNT CEILINGS, ENFORCE COST SAFETY & ADMIN PIN"
+      }
+      icon={<Lock size={22} strokeWidth={2.2} />}
+      contentClassName="p-3 sm:p-6 space-y-6 max-w-[1200px] mx-auto text-slate-800 font-sans"
+    >
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3 duration-200">
+          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[11px]">
+            ✓
+          </div>
+          <span>{toast}</span>
+        </div>
+      )}
+
+      {/* Hero Header Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-sm relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 shrink-0">
+              <ShieldCheck size={24} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-lg md:text-xl font-black tracking-tight text-white">
+                  {isTamil
+                    ? "3. கேஷியர் & செக்யூரிட்டி கட்டுப்பாடுகள்"
+                    : "3. Cashier & Security Staff Restrictions"}
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold flex items-center gap-1">
+                  <CheckCircle2 size={11} />{" "}
+                  {isTamil ? "செயலில் உள்ளது" : "Security Active"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1">
+                {isTamil
+                  ? "கேஷியர் பில்லில் விலையை மாற்றுவதை தடுத்தல், அதிகபட்ச தள்ளுபடி வரம்பு, அடக்க விலைக்கு கீழ் விற்க தடை, பில் டெலீட் PIN & தானியங்கி திரை பூட்டு."
+                  : "Restrict cashier price alterations, enforce maximum discount caps, prevent selling below cost, protect deletions with PIN & auto-lock screen."}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 1. LOCK ITEM PRICE EDIT ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center shrink-0">
+              {settings.lock_item_price_edit ? <Lock size={20} /> : <Unlock size={20} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-[15px] font-bold text-slate-900">
+                  {isTamil
+                    ? "1. பொருளின் விலையை மாற்ற தடை (Lock Item Price Edit)"
+                    : "1. Lock Item Price Edit"}
+                </h3>
+                <Badge tone={settings.lock_item_price_edit ? "blue" : "gray"}>
+                  {settings.lock_item_price_edit
+                    ? isTamil
+                      ? "விலை லாக் செயலில் உள்ளது"
+                      : "Price Locked"
+                    : isTamil
+                    ? "மாற்ற அனுமதிக்கப்பட்டது"
+                    : "Unlocked"}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isTamil
+                  ? "கேஷியர் பில் போடும்போது பொருட்களின் நிர்ணயிக்கப்பட்ட விற்பனை விலையை (Unit Price) தன்னிச்சையாக மாற்ற முடியாதபடி லாக் செய்யும்."
+                  : "Locks the item unit sale price in POS billing so cashiers cannot modify prices. Only administrators can alter item rates."}
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={Boolean(settings.lock_item_price_edit)}
+            onChange={() =>
+              handleToggle(
+                "lock_item_price_edit",
+                isTamil ? "விலை மாற்றம் லாக்" : "Lock Item Price Edit"
+              )
+            }
+          />
+        </div>
+
+        <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div
+            className={`p-3.5 rounded-xl border flex items-center gap-3 ${
+              settings.lock_item_price_edit
+                ? "bg-indigo-50/60 border-indigo-200 text-indigo-900"
+                : "bg-slate-50 border-slate-200 text-slate-600"
+            }`}
+          >
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+              🔒
+            </div>
+            <div className="text-xs">
+              <span className="font-bold block">
+                {isTamil ? "கேஷியர் பயன்முறை:" : "Cashier Mode:"}
+              </span>
+              <span>
+                {settings.lock_item_price_edit
+                  ? isTamil
+                    ? "விலை உள்ளீட்டுப் புலம் முடக்கப்படும் (Read-Only)."
+                    : "Item rate input is disabled & read-only for cashiers."
+                  : isTamil
+                  ? "கேஷியர் விலையை விருப்பப்படி மாற்றலாம்."
+                  : "Cashiers are currently free to change sale prices."}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+              👑
+            </div>
+            <div className="text-xs">
+              <span className="font-bold block text-slate-800">
+                {isTamil ? "அட்மின் உரிமை:" : "Admin Override:"}
+              </span>
+              <span>
+                {isTamil
+                  ? "நிர்வாகி (Admin) உள்நுழைந்திருந்தால் எப்போது வேண்டுமானாலும் விலையை மாற்றலாம்."
+                  : "Admin users always retain full permission to edit rates regardless of this setting."}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. MAXIMUM DISCOUNT LIMIT ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0">
+              <Percent size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-[15px] font-bold text-slate-900">
+                  {isTamil
+                    ? "2. அதிகபட்ச தள்ளுபடி வரம்பு (Maximum Discount Limit)"
+                    : "2. Maximum Discount Limit"}
+                </h3>
+                <Badge tone={settings.max_discount_enabled ? "amber" : "gray"}>
+                  {settings.max_discount_enabled
+                    ? `${settings.max_discount_limit || 10}% Max`
+                    : isTamil
+                    ? "வரம்பற்றது"
+                    : "No Limit"}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isTamil
+                  ? "கேஷியர் வாடிக்கையாளருக்கு வழங்கக்கூடிய அதிகபட்ச தள்ளுபடி சதவீதத்தை நிர்ணயிக்கவும் (எ.கா: Max 10%)."
+                  : "Cap the maximum discount percentage cashiers are allowed to apply on item lines or invoices."}
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={Boolean(settings.max_discount_enabled)}
+            onChange={() =>
+              handleToggle(
+                "max_discount_enabled",
+                isTamil ? "தள்ளுபடி வரம்பு" : "Discount Limit"
+              )
+            }
+          />
+        </div>
+
+        {settings.max_discount_enabled && (
+          <div className="pt-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">
+                  {isTamil
+                    ? "அதிகபட்ச தள்ளுபடி சதவீதம் (Max Discount %):"
+                    : "Maximum Allowed Discount Percentage (%):"}
+                </label>
+                <p className="text-[11px] text-slate-400">
+                  {isTamil
+                    ? `கேஷியர் ${settings.max_discount_limit || 10}%-க்கு மேல் தள்ளுபடி வழங்கினால் சிஸ்டம் தடுக்கும்.`
+                    : `Disallows discounts exceeding ${settings.max_discount_limit || 10}% without administrator approval.`}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={settings.max_discount_limit || 10}
+                    onChange={(e) => handleDiscountLimitChange(e.target.value)}
+                    className="w-24 px-3 py-2 pr-8 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-amber-500 focus:bg-white transition"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    %
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+                {isTamil ? "விரைவு தேர்வுகள்:" : "Quick Presets:"}
+              </span>
+              {[5, 10, 15, 20, 25].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setSetting("max_discount_limit")(preset)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    (settings.max_discount_limit || 10) === preset
+                      ? "bg-amber-500 text-white shadow-sm"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {preset}%
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── 3. RESTRICT SELLING BELOW COST ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+              <TrendingDown size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-[15px] font-bold text-slate-900">
+                  {isTamil
+                    ? "3. அடக்க விலைக்கு கீழ் விற்க தடை (Restrict Selling Below Cost)"
+                    : "3. Restrict Selling Below Cost"}
+                </h3>
+                <Badge tone={settings.restrict_selling_below_cost ? "red" : "gray"}>
+                  {settings.restrict_selling_below_cost
+                    ? isTamil
+                      ? "நஷ்ட தடுப்பு ஆன்"
+                      : "Cost Protection ON"
+                    : isTamil
+                    ? "முடக்கப்பட்டது"
+                    : "Disabled"}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isTamil
+                  ? "பொருளின் வாங்கிய விலையை (Purchase Price) விட குறைந்த விலைக்கு அல்லது அதிக தள்ளுபடி தந்து நஷ்டத்தில் விற்கப்படுவதைத் தடுக்கும்."
+                  : "Prevents loss by blocking sales when effective selling price drops below recorded product purchase cost."}
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={Boolean(settings.restrict_selling_below_cost)}
+            onChange={() =>
+              handleToggle(
+                "restrict_selling_below_cost",
+                isTamil ? "அடக்க விலை பாதுகாப்பு" : "Cost Protection"
+              )
+            }
+          />
+        </div>
+
+        <div className="pt-4 text-xs text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+          <p className="font-semibold text-slate-800 mb-1">
+            {isTamil ? "🛡️ இந்த பாதுகாப்பு எவ்வாறு இயங்குகிறது?" : "🛡️ How Cost Protection Works:"}
+          </p>
+          <p>
+            {isTamil
+              ? "ஒரு பொருளின் கொள்முதல் விலை ₹100 எனில், தள்ளுபடி அல்லது தவறான உள்ளீடு காரணமாக அதன் பில்லிங் விலை ₹99-க்கு கீழ் சென்றால், பில்லிங் திரையில் சிவப்பு நிற எச்சரிக்கை தோன்றி பில் உருவாக்குவது தடுக்கப்படும்."
+              : "If an item was purchased at ₹100, the billing system prevents the net selling price from falling under ₹100, safeguarding profitability."}
+          </p>
+        </div>
+      </div>
+
+      {/* ── 4. SUPERVISOR / ADMIN PIN ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center shrink-0">
+              <KeyRound size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-[15px] font-bold text-slate-900">
+                  {isTamil
+                    ? "4. மேற்பார்வையாளர் / அட்மின் PIN (Supervisor / Admin PIN)"
+                    : "4. Supervisor / Admin Security PIN"}
+                </h3>
+                <Badge tone={settings.supervisor_pin_enabled ? "purple" : "gray"}>
+                  {settings.supervisor_pin_enabled
+                    ? isTamil
+                      ? "PIN பாதுகாப்பு ஆன்"
+                      : "PIN Active"
+                    : isTamil
+                    ? "முடக்கப்பட்டது"
+                    : "Disabled"}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isTamil
+                  ? "பழைய பில்லை நீக்க (Delete), ரத்து செய்ய (Cancel) அல்லது விதிவிலக்கு அளிக்க 4-இலக்க ரகசிய PIN கட்டாயம்."
+                  : "Require a 4-digit supervisor secret PIN before deleting invoices, canceling bills, or overriding restrictions."}
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={Boolean(settings.supervisor_pin_enabled)}
+            onChange={() =>
+              handleToggle(
+                "supervisor_pin_enabled",
+                isTamil ? "மேற்பார்வையாளர் PIN" : "Supervisor PIN"
+              )
+            }
+          />
+        </div>
+
+        {settings.supervisor_pin_enabled && (
+          <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 block">
+                {isTamil
+                  ? "4-இலக்க மேற்பார்வையாளர் PIN (4-Digit PIN):"
+                  : "4-Digit Supervisor PIN:"}
+              </label>
+              <div className="flex items-center gap-2.5">
+                <div className="relative">
+                  <input
+                    type={showPin ? "text" : "password"}
+                    maxLength={4}
+                    value={tempPin}
+                    onChange={(e) =>
+                      setTempPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                    }
+                    placeholder="1234"
+                    className="w-32 tracking-[0.3em] font-mono text-center px-3 py-2 text-base font-black text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 focus:bg-white transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    title={showPin ? "Hide PIN" : "Show PIN"}
+                  >
+                    {showPin ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePinSave}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm shadow-purple-600/20"
+                >
+                  {isTamil ? "சேமி" : "Save PIN"}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {isTamil
+                  ? "இயல்புநிலை PIN: 1234. இதனை உங்களுக்குப் பிடித்தவாறு மாற்றிக்கொள்ளலாம்."
+                  : "Default PIN is 1234. Update to your private store PIN."}
+              </p>
+            </div>
+
+            <div className="bg-purple-50/60 border border-purple-200/80 rounded-xl p-3.5 text-xs text-purple-900 space-y-1">
+              <span className="font-bold block">
+                {isTamil ? "பாதுகாக்கப்படும் செயல்கள்:" : "Protected Operations:"}
+              </span>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] text-purple-800">
+                <li>{isTamil ? "விற்பனை பில் நீக்கம் (Delete Sale Invoice)" : "Permanent Invoice Deletion"}</li>
+                <li>{isTamil ? "பில் ரத்து மற்றும் ஸ்டாக் ரீசெட்" : "Invoice Cancellation & Stock Restoration"}</li>
+                <li>{isTamil ? "கல்லா தொகை திருத்தம்" : "Cashier Cash Reconciliation Override"}</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── 5. AUTO-SCREEN LOCK ── */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 border border-teal-200 flex items-center justify-center shrink-0">
+              <Clock size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-[15px] font-bold text-slate-900">
+                  {isTamil
+                    ? "5. தானியங்கி திரை பூட்டு (Auto-Screen Lock)"
+                    : "5. Auto-Screen Inactivity Lock"}
+                </h3>
+                <Badge
+                  tone={
+                    (settings.auto_screen_lock_minutes || 0) > 0 ? "teal" : "gray"
+                  }
+                >
+                  {(settings.auto_screen_lock_minutes || 0) > 0
+                    ? `${settings.auto_screen_lock_minutes} Mins`
+                    : isTamil
+                    ? "முடக்கப்பட்டது"
+                    : "Disabled"}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isTamil
+                  ? "கேஷியர் அல்லது ஆப்பரேட்டர் சிஸ்டத்தை விட்டுச் சென்றால் குறிப்பிட்ட நிமிடங்களில் ஸ்கிரீனை தானாக லாக் செய்யும்."
+                  : "Automatically lock the screen after idle timeout to prevent unauthorized transactions when POS is unattended."}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+          {[
+            { mins: 0, label: isTamil ? "முடக்கப்பட்டது (Off)" : "Disabled (Off)" },
+            { mins: 5, label: isTamil ? "5 நிமிடங்கள்" : "5 Minutes" },
+            { mins: 10, label: isTamil ? "10 நிமிடங்கள்" : "10 Minutes" },
+            { mins: 15, label: isTamil ? "15 நிமிடங்கள்" : "15 Minutes" },
+          ].map((item) => {
+            const isSelected = (settings.auto_screen_lock_minutes || 0) === item.mins;
+            return (
+              <button
+                key={item.mins}
+                type="button"
+                onClick={() => handleAutoLockChange(item.mins)}
+                className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between cursor-pointer ${
+                  isSelected
+                    ? "border-teal-600 bg-teal-50/60 shadow-sm"
+                    : "border-slate-200 hover:border-slate-300 bg-white"
+                }`}
+              >
+                <div className="text-left">
+                  <span className="text-xs font-bold text-slate-900 block">
+                    {item.label}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {item.mins === 0
+                      ? isTamil
+                        ? "பூட்டு இல்லை"
+                        : "Never lock"
+                      : isTamil
+                      ? "செயலற்ற நேரம்"
+                      : "Idle timer"}
+                  </span>
+                </div>
+                {isSelected && (
+                  <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0">
+                    <Check size={12} strokeWidth={3} />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </SettingsShell>
+  );
+}
