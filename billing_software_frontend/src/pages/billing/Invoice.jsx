@@ -13,7 +13,9 @@ import {
   FileCheck, ShieldCheck, ChevronRight, CornerDownLeft
 } from "lucide-react";
 import {
+  createPosInvoicePdf,
   generateInvoicePdfBase64,
+  getA4InvoicePdfOptions,
   sendInvoiceViaWhatsAppApi,
   getInvoiceLogoUrl,
 } from "../../utils/invoiceShare";
@@ -1419,11 +1421,11 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
             <thead>
               <tr style={{ borderBottom: "1px dashed #000000" }}>
-                {printSettings.showSNo !== false && <th style={{ textAlign: "left", width: "12%", paddingBottom: 3, fontWeight: "bold" }}>#</th>}
-                <th style={{ textAlign: "left", width: printSettings.showSNo !== false ? "40%" : "45%", paddingBottom: 3, fontWeight: "bold" }}>Item</th>
-                <th style={{ textAlign: "right", width: "18%", paddingBottom: 3, fontWeight: "bold" }}>Rate</th>
-                <th style={{ textAlign: "center", width: "15%", paddingBottom: 3, fontWeight: "bold" }}>Qty</th>
-                <th style={{ textAlign: "right", width: "20%", paddingBottom: 3, fontWeight: "bold" }}>Amt</th>
+                {printSettings.showSNo !== false && <th style={{ textAlign: "left", width: "12%", padding: "0 0 6px", fontWeight: "bold" }}>#</th>}
+                <th style={{ textAlign: "left", width: printSettings.showSNo !== false ? "40%" : "45%", padding: "0 0 6px", fontWeight: "bold" }}>Item</th>
+                <th style={{ textAlign: "right", width: "18%", padding: "0 0 6px", fontWeight: "bold" }}>Rate</th>
+                <th style={{ textAlign: "center", width: "15%", padding: "0 0 6px", fontWeight: "bold" }}>Qty</th>
+                <th style={{ textAlign: "right", width: "20%", padding: "0 0 6px", fontWeight: "bold" }}>Amt</th>
               </tr>
             </thead>
             <tbody>
@@ -1945,12 +1947,12 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9.5 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #000000" }}>
-                {printSettings.showSNo !== false && <th style={{ textAlign: "left", padding: "2px 0", fontWeight: "bold", width: 18 }}>#</th>}
-                <th style={{ textAlign: "left", padding: "2px 0", fontWeight: "bold" }}>Item</th>
-                {showHSN && vType !== "expense" && <th style={{ textAlign: "center", padding: "2px 0", fontWeight: "bold" }}>HSN</th>}
-                <th style={{ textAlign: "center", padding: "2px 0", fontWeight: "bold" }}>Qty</th>
-                <th style={{ textAlign: "right", padding: "2px 0", fontWeight: "bold" }}>Rate</th>
-                <th style={{ textAlign: "right", padding: "2px 0", fontWeight: "bold" }}>Amt</th>
+                {printSettings.showSNo !== false && <th style={{ textAlign: "left", padding: "2px 0 5px", fontWeight: "bold", width: 18 }}>#</th>}
+                <th style={{ textAlign: "left", padding: "2px 0 5px", fontWeight: "bold" }}>Item</th>
+                {showHSN && vType !== "expense" && <th style={{ textAlign: "center", padding: "2px 0 5px", fontWeight: "bold" }}>HSN</th>}
+                <th style={{ textAlign: "center", padding: "2px 0 5px", fontWeight: "bold" }}>Qty</th>
+                <th style={{ textAlign: "right", padding: "2px 0 5px", fontWeight: "bold" }}>Rate</th>
+                <th style={{ textAlign: "right", padding: "2px 0 5px", fontWeight: "bold" }}>Amt</th>
               </tr>
             </thead>
             <tbody>
@@ -2024,8 +2026,8 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
               </tr>
               {showTax && totalGst > 0 && (
                 <tr>
-                  <td style={{ padding: "1px 0" }}>Total Tax</td>
-                  <td style={{ textAlign: "right", padding: "1px 0" }}>₹{formatCurrency(totalGst, printSettings)}</td>
+                  <td style={{ padding: "3px 0" }}>Total Tax</td>
+                  <td style={{ textAlign: "right", padding: "3px 0" }}>₹{formatCurrency(totalGst, printSettings)}</td>
                 </tr>
               )}
               {showYouSaved && (invoice.savings_amount || invoice.discount_amount) && (
@@ -2035,8 +2037,8 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
                 </tr>
               )}
               <tr style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", fontWeight: "bold", fontSize: 12 }}>
-                <td style={{ padding: "3px 0" }}>NET AMOUNT</td>
-                <td style={{ textAlign: "right", padding: "3px 0" }}>₹{formatCurrency(totalAmount, printSettings)}</td>
+                <td style={{ padding: "5px 0" }}>NET AMOUNT</td>
+                <td style={{ textAlign: "right", padding: "5px 0" }}>₹{formatCurrency(totalAmount, printSettings)}</td>
               </tr>
               {(showReceived || showBalance) && (
                 <tr>
@@ -2091,7 +2093,9 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
   const showTerms = printSettings.printTerms !== false && Boolean(termsText);
 
   return (
-    <div style={{
+    <div
+      className="pos-minimal-receipt"
+      style={{
       fontFamily: "'Courier New', Courier, monospace",
       fontSize: 11,
       color: "#000000",
@@ -2101,7 +2105,8 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
       lineHeight: 1.3,
       background: "#ffffff",
       boxSizing: "border-box"
-    }}>
+      }}
+    >
       {/* Big Token Number Header Box */}
       <div style={{ border: "2px solid #000000", padding: "6px 4px", textAlign: "center", marginBottom: 6 }}>
         {showLogo && logoUrl && (
@@ -2491,6 +2496,9 @@ export default function InvoicePreview() {
   const [toasts, setToasts] = useState([]);
 
   const isPOS = printerType === "thermal" || selectedTheme === "pos";
+  const posPaperWidthMm = isPOS && selectedPosLayout === "pos_minimal"
+    ? 120
+    : pageSize?.includes("80mm") ? 80 : 58;
   const logoUrl = getInvoiceLogoUrl(company?.logo);
 
   const showToast = useCallback((msg, type = "info") => {
@@ -2678,6 +2686,8 @@ export default function InvoicePreview() {
           element,
           invoiceNo: invoice.invoice_no,
           isPOS,
+          paperWidthMm: isPOS ? posPaperWidthMm : undefined,
+          isMinimalPos: isPOS && selectedPosLayout === "pos_minimal",
         });
 
         return api.post("/transaction-messages/attach-pdf", {
@@ -2698,7 +2708,7 @@ export default function InvoicePreview() {
       });
 
     return () => { cancelled = true; };
-  }, [invoice, isPOS]);
+  }, [invoice, isPOS, posPaperWidthMm, selectedPosLayout]);
 
   /* PDF Download */
   const downloadPDF = useCallback(() => {
@@ -2707,32 +2717,14 @@ export default function InvoicePreview() {
 
     showToast("Generating PDF download...", "info");
     if (isPOS) {
-      const elementHeight = element.scrollHeight || element.offsetHeight || 550;
-      const heightInMm = Math.max(140, Math.ceil((elementHeight * 25.4) / 96) + 8);
-
-      const opt = {
-        margin: [2, 2, 2, 2],
-        filename: `invoice-${invoice.invoice_no}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 3,
-          useCORS: true,
-          logging: false,
-          width: 275,
-          windowWidth: 275,
-          scrollX: 0,
-          scrollY: 0,
-        },
-        jsPDF: {
-          unit: "mm",
-          format: [80, heightInMm],
-          orientation: "portrait",
-        },
-      };
-      html2pdf()
-        .set(opt)
-        .from(element)
-        .save()
+      createPosInvoicePdf({
+        element,
+        paperWidthMm: posPaperWidthMm,
+        isMinimalPos: selectedPosLayout === "pos_minimal",
+      })
+        .then((pdf) => {
+          pdf.save(`invoice-${invoice.invoice_no}.pdf`);
+        })
         .then(() => {
           showToast("PDF downloaded successfully!", "success");
         })
@@ -2740,13 +2732,7 @@ export default function InvoicePreview() {
           showToast("Failed to download PDF.", "error");
         });
     } else {
-      const opt = {
-        margin: [8, 8, 8, 8],
-        filename: `invoice-${invoice.invoice_no}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      };
+      const opt = getA4InvoicePdfOptions({ element, invoiceNo: invoice.invoice_no });
       html2pdf()
         .set(opt)
         .from(element)
@@ -2758,7 +2744,7 @@ export default function InvoicePreview() {
           showToast("Failed to download PDF.", "error");
         });
     }
-  }, [invoice, isPOS, showToast]);
+  }, [invoice, isPOS, posPaperWidthMm, selectedPosLayout, showToast]);
 
   /* Print */
   const handlePrint = useCallback(() => {
@@ -2772,7 +2758,13 @@ export default function InvoicePreview() {
 
     setWaSending(true);
     showToast("Preparing & sending PDF via WhatsApp...", "info");
-    generateInvoicePdfBase64({ element, invoiceNo: invoice.invoice_no, isPOS })
+    generateInvoicePdfBase64({
+      element,
+      invoiceNo: invoice.invoice_no,
+      isPOS,
+      paperWidthMm: isPOS ? posPaperWidthMm : undefined,
+      isMinimalPos: isPOS && selectedPosLayout === "pos_minimal",
+    })
       .then((pdf_base64) =>
         sendInvoiceViaWhatsAppApi({
           company_id: invoice.company_id,
@@ -2788,7 +2780,7 @@ export default function InvoicePreview() {
         showToast(err.response?.data?.message || "Failed to send invoice via WhatsApp.", "error");
       })
       .finally(() => setWaSending(false));
-  }, [invoice, isPOS, waSending, showToast]);
+  }, [invoice, isPOS, posPaperWidthMm, selectedPosLayout, waSending, showToast]);
 
   /* Transaction Message via WhatsApp */
   const sendTransactionMessage = useCallback(() => {
@@ -3335,7 +3327,11 @@ export default function InvoicePreview() {
               id="invoice-print-area"
               className={`bg-white text-slate-900 shadow-xl rounded-sm ring-1 ring-slate-300/80 relative ${
                 isPOS
-                  ? pageSize && pageSize.includes("58mm")
+                  ? selectedPosLayout === "pos_minimal"
+                    ? pageSize && pageSize.includes("58mm")
+                      ? "w-[270px] p-3"
+                      : "w-[310px] p-4"
+                    : pageSize && pageSize.includes("58mm")
                     ? "w-[270px] p-3"
                     : "w-[310px] p-4"
                   : "w-[794px] min-h-[1050px] p-8"
