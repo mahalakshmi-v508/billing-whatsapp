@@ -29,6 +29,7 @@ import {
   Moon,
   Lock,
   MessageCircle,
+  Store,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
@@ -44,6 +45,7 @@ import PosSettings from "./PosSettings";
 import StockSettings from "./StockSettings";
 import CashierSecuritySettings from "./CashierSecuritySettings";
 import WhatsAppDefaultSettings from "./WhatsAppDefaultSettings";
+import StoreSetupSettings from "./StoreSetupSettings";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
 import { saveSettings, fetchSettings } from "./settingsApi";
@@ -941,6 +943,35 @@ function GeneralSettings() {
             </button>
           </div>
 
+          {/* Card: Store & Counter Setup Quick Access */}
+          <div className="bg-gradient-to-br from-blue-50/70 to-indigo-50/50 rounded-2xl border border-blue-200/80 p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Store size={15} className="text-blue-600" />
+                <span>{isTamil ? "5. 🏢 கடை & கவுண்டர் விவரங்கள்" : "5. Store & Counter Setup"}</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-700">
+                Store Setup
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              {isTamil
+                ? "POS கவுண்டர் பெயர் (Counter-1, Express Counter), பில்லில் வர வேண்டிய Logo & டிஜிட்டல் கையொப்பம் மற்றும் கடையின் நேரம் & வாசகம் (Slogan)."
+                : "POS terminal & counter name, store logo & digital signature uploader, operating schedule, and invoice tagline/slogan."}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsTab("store-setup");
+                navigate("/settings/store-setup");
+              }}
+              className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-blue-600/20"
+            >
+              <span>{isTamil ? "கடை அமைப்புகளைத் திற" : "Open Store & Counter Settings"}</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
           {/* Card: Audit Log */}
           <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -1071,6 +1102,7 @@ export default function General() {
       {activeTab === "cashier-security" && <CashierSecuritySettings />}
       {activeTab === "staff-security" && <CashierSecuritySettings />}
       {activeTab === "whatsapp-defaults" && <WhatsAppDefaultSettings />}
+      {activeTab === "store-setup" && <StoreSetupSettings />}
       {activeTab === "audit-log" && <AuditLogSettings />}
       {activeTab === "invoice-numbering" && <InvoiceSettings />}
       {activeTab === "invoice-design" && <InvoiceDesign />}

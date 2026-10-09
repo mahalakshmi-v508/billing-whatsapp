@@ -5,7 +5,7 @@ import api, { API_BASE_URL } from "../services/api";
 /* ── logo URL resolver (shared by Invoice view + Reports row actions) ── */
 export const getInvoiceLogoUrl = (logo) => {
   if (!logo) return null;
-  if (logo.startsWith("http://") || logo.startsWith("https://")) {
+  if (logo.startsWith("http://") || logo.startsWith("https://") || logo.startsWith("data:")) {
     return logo;
   }
   const baseUrl = API_BASE_URL.replace("/api/", "/");

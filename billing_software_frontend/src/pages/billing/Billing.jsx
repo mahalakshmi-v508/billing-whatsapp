@@ -8,6 +8,7 @@ import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings"
 import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
 import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
 import { WHATSAPP_DEFAULTS_KEY, DEFAULT_WHATSAPP_DEFAULTS } from "../settings/WhatsAppDefaultSettings";
+import { STORE_SETUP_KEY, DEFAULT_STORE_SETUP } from "../settings/StoreSetupSettings";
 import { COUNTRY_LIST, getCountryByCode, detectCountryFromPhone } from "../../utils/phoneCountryHelper";
 import {
   Search,
@@ -390,6 +391,16 @@ export default function Billing() {
     }
   });
 
+  /* ── Store Setup & Counter ── */
+  const [storeSetup, setStoreSetup] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${STORE_SETUP_KEY}`);
+      return saved ? { ...DEFAULT_STORE_SETUP, ...JSON.parse(saved) } : { ...DEFAULT_STORE_SETUP };
+    } catch {
+      return { ...DEFAULT_STORE_SETUP };
+    }
+  });
+
   /* ── WhatsApp Defaults & Dynamic Country Code ── */
   const [whatsappDefaults, setWhatsappDefaults] = useState(() => {
     try {
@@ -424,6 +435,9 @@ export default function Billing() {
             setSelectedCountryCode((prev) => (prev === "+91" ? res[WHATSAPP_DEFAULTS_KEY].default_country_code : prev));
           }
         }
+        if (res[STORE_SETUP_KEY]) {
+          setStoreSetup((prev) => ({ ...prev, ...res[STORE_SETUP_KEY] }));
+        }
       }
     });
 
@@ -440,6 +454,9 @@ export default function Billing() {
         }
         if (e.detail[WHATSAPP_DEFAULTS_KEY]) {
           setWhatsappDefaults((prev) => ({ ...prev, ...e.detail[WHATSAPP_DEFAULTS_KEY] }));
+        }
+        if (e.detail[STORE_SETUP_KEY]) {
+          setStoreSetup((prev) => ({ ...prev, ...e.detail[STORE_SETUP_KEY] }));
         }
       }
     };
@@ -1647,7 +1664,7 @@ export default function Billing() {
             </div>
             <div>
               <span className="font-display font-bold text-xs tracking-tight text-white block leading-tight">PaySplit POS</span>
-              <span className="text-[10px] text-indigo-400 font-medium tracking-wide block leading-none">Cashio Terminal</span>
+              <span className="text-[10px] text-indigo-400 font-medium tracking-wide block leading-none">{storeSetup.counter_name || "Counter-1"}</span>
             </div>
           </div>
 
