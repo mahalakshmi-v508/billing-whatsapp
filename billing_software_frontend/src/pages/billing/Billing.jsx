@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import QuickAddProductModal from "../products/QuickAddProductModal";
-import { fetchSettings } from "../settings/settingsApi";
-import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings";
 import {
   Search,
   Plus,
@@ -230,64 +228,6 @@ function createFreshBill(id) {
   };
 }
 
-function getInitialBillingSession(storageKey) {
-  const freshSession = {
-    bills: [createFreshBill("SS3")],
-    activeBillId: "SS3",
-    nextBillNumber: 4,
-  };
-
-  try {
-    const stored = JSON.parse(sessionStorage.getItem(storageKey) || "null");
-    if (!stored || !Array.isArray(stored.bills)) return freshSession;
-
-    const seenIds = new Set();
-    const bills = stored.bills.reduce((restoredBills, bill) => {
-      if (
-        !bill ||
-        typeof bill.id !== "string" ||
-        !Array.isArray(bill.rows) ||
-        !bill.customer ||
-        typeof bill.customer !== "object" ||
-        !bill.payment ||
-        typeof bill.payment !== "object" ||
-        seenIds.has(bill.id)
-      ) {
-        return restoredBills;
-      }
-
-      seenIds.add(bill.id);
-      const freshBill = createFreshBill(bill.id);
-      restoredBills.push({
-        ...freshBill,
-        ...bill,
-        rows: bill.rows.filter((row) => row && typeof row === "object"),
-        customer: { ...freshBill.customer, ...bill.customer },
-        payment: { ...freshBill.payment, ...bill.payment },
-      });
-      return restoredBills;
-    }, []);
-
-    if (bills.length === 0) return freshSession;
-
-    const highestBillNumber = bills.reduce((highest, bill) => {
-      const match = bill.id.match(/^SS(\d+)$/);
-      return match ? Math.max(highest, Number(match[1])) : highest;
-    }, 3);
-
-    return {
-      bills,
-      activeBillId: bills.some((bill) => bill.id === stored.activeBillId)
-        ? stored.activeBillId
-        : bills[0].id,
-      nextBillNumber: Math.max(Number(stored.nextBillNumber) || 4, highestBillNumber + 1),
-    };
-  } catch (error) {
-    console.warn("[POS BILLING] Could not restore the saved billing session:", error);
-    return freshSession;
-  }
-}
-
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════ */
@@ -295,13 +235,11 @@ export default function Billing() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
   const navigate = useNavigate();
-  const billingSessionKey = `pos_billing_session_${user.id || adminId || "guest"}`;
-  const [initialBillingSession] = useState(() => getInitialBillingSession(billingSessionKey));
 
   /* ══ MULTI-BILL TAB STATE ══ */
-  const [bills, setBills] = useState(initialBillingSession.bills);
-  const [activeBillId, setActiveBillId] = useState(initialBillingSession.activeBillId);
-  const billCounterRef = useRef(initialBillingSession.nextBillNumber);
+  const [bills, setBills] = useState(() => [createFreshBill("SS3")]);
+  const [activeBillId, setActiveBillId] = useState("SS3");
+  const billCounterRef = useRef(4);
 
   const activeBill = bills.find((b) => b.id === activeBillId) || bills[0];
 
@@ -386,32 +324,6 @@ export default function Billing() {
   const [toasts, setToasts] = useState([]);
   const handleGenerateRef = useRef(null);
 
-  /* ── POS Controls & Speed Settings ── */
-  const [posSettings, setPosSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${POS_SETTINGS_KEY}`);
-      return saved ? { ...DEFAULT_POS_SETTINGS, ...JSON.parse(saved) } : { ...DEFAULT_POS_SETTINGS };
-    } catch {
-      return { ...DEFAULT_POS_SETTINGS };
-    }
-  });
-
-  useEffect(() => {
-    fetchSettings().then((res) => {
-      if (res && res[POS_SETTINGS_KEY]) {
-        setPosSettings((prev) => ({ ...prev, ...res[POS_SETTINGS_KEY] }));
-      }
-    });
-
-    const handleSettingsUpdate = (e) => {
-      if (e?.detail && e.detail[POS_SETTINGS_KEY]) {
-        setPosSettings((prev) => ({ ...prev, ...e.detail[POS_SETTINGS_KEY] }));
-      }
-    };
-    window.addEventListener("company-settings-updated", handleSettingsUpdate);
-    return () => window.removeEventListener("company-settings-updated", handleSettingsUpdate);
-  }, []);
-
   /* ── Derived Totals ── */
   const subtotal = rows.reduce((s, r) => s + posLineAmount(r, billType).taxable, 0);
   const totalDiscount = rows.reduce((s, r) => s + (Number(r.discount) || 0), 0);
@@ -435,30 +347,15 @@ export default function Billing() {
   const totalQty = validRows.reduce((s, r) => s + r.qty + (Number(r.freeQty) || 0), 0);
   const changeToReturn = extraAmount;
 
-  /* Performance: product maps (includes both product_code and barcode) */
+  /* Performance: product maps */
   const productById = useMemo(() => Object.fromEntries(products.map((p) => [String(p.id), p])), [products]);
   const productByCode = useMemo(() => {
     const m = {};
-    products.forEach((p) => {
-      if (p.product_code) m[String(p.product_code).trim().toLowerCase()] = p;
-      if (p.barcode) m[String(p.barcode).trim().toLowerCase()] = p;
-    });
+    products.forEach((p) => { if (p.product_code) m[String(p.product_code).toLowerCase()] = p; });
     return m;
   }, [products]);
 
   /* ══ EFFECTS ══ */
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(billingSessionKey, JSON.stringify({
-        bills,
-        activeBillId,
-        nextBillNumber: billCounterRef.current,
-      }));
-    } catch (error) {
-      console.error("[POS BILLING] Could not save the billing session:", error);
-    }
-  }, [activeBillId, billingSessionKey, bills]);
-
   useEffect(() => {
     api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
       .then((res) => {
@@ -641,21 +538,21 @@ export default function Billing() {
   }, []);
 
   const closeBill = useCallback((billId) => {
-    const remaining = bills.filter((bill) => bill.id !== billId);
-    if (remaining.length === 0) {
-      const fresh = createFreshBill("SS3");
-      billCounterRef.current = 4;
-      setActiveBillId(fresh.id);
-      setBills([fresh]);
-      return;
-    }
-    if (activeBillId === billId) {
-      const index = bills.findIndex((bill) => bill.id === billId);
-      const nextIndex = index > 0 ? index - 1 : 0;
-      setActiveBillId(remaining[nextIndex].id);
-    }
-    setBills(remaining);
-  }, [activeBillId, bills]);
+    setBills((prev) => {
+      const remaining = prev.filter((b) => b.id !== billId);
+      if (remaining.length === 0) {
+        const fresh = createFreshBill("SS3");
+        billCounterRef.current = 4;
+        return [fresh];
+      }
+      if (activeBillId === billId) {
+        const idx = prev.findIndex((b) => b.id === billId);
+        const nextIdx = idx > 0 ? idx - 1 : 0;
+        setActiveBillId(remaining[nextIdx].id);
+      }
+      return remaining;
+    });
+  }, [activeBillId]);
 
   const switchBill = useCallback((billId) => {
     setActiveBillId(billId);
@@ -710,7 +607,69 @@ export default function Billing() {
     return () => document.removeEventListener("keydown", handler);
   }, [customer, createNewBill, setPaymentMethod]);
 
-  /* ══ PRODUCT SEARCH & BARCODE SCANNER ENGINE ══ */
+  /* ══ PRODUCT SEARCH ══ */
+  const handleGlobalSearch = useCallback((value) => {
+    setGlobalSearch(value);
+    setShowNoResult(false);
+    setShowQuickAdd(false);
+    setSuggestIndex(-1);
+    clearTimeout(searchTimer.current);
+
+    if (!value.trim()) {
+      const recent = getRecent().filter((p) => productById[p.id] && productById[p.id].status === "active");
+      const list = recent.length > 0 ? recent : products.filter((p) => p.status === "active" && p.stock > 0).slice(0, 12);
+      setGlobalSuggestions(list);
+      setShowSuggest(list.length > 0);
+      return;
+    }
+
+    searchTimer.current = setTimeout(() => {
+      const q = value.toLowerCase();
+      const filtered = products.filter((p) =>
+        p.status === "active" &&
+        (p.product_name.toLowerCase().includes(q) || String(p.product_code || "").toLowerCase().includes(q))
+      );
+      setGlobalSuggestions(filtered.slice(0, 20));
+      setShowSuggest(filtered.length > 0);
+      if (filtered.length === 0) setShowNoResult(true);
+    }, 200);
+  }, [products, productById]);
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSuggestIndex((i) => Math.min(i + 1, globalSuggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSuggestIndex((i) => Math.max(i - 1, -1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (suggestIndex >= 0 && globalSuggestions[suggestIndex]) {
+        addOrMergeProduct(globalSuggestions[suggestIndex]);
+        return;
+      }
+      const code = globalSearch.trim().toLowerCase();
+      if (productByCode[code]) {
+        addOrMergeProduct(productByCode[code]);
+        return;
+      }
+      if (globalSuggestions.length === 1) {
+        addOrMergeProduct(globalSuggestions[0]);
+        return;
+      }
+      if (globalSuggestions.length === 0 && globalSearch.trim()) {
+        handleAiCopilotSubmit(globalSearch);
+        return;
+      }
+      if (globalSuggestions.length > 0) {
+        addOrMergeProduct(globalSuggestions[0]);
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggest(false);
+      setSuggestIndex(-1);
+    }
+  };
+
   const addOrMergeProduct = useCallback((product, qtyToAdd = 1) => {
     if (!product) return;
     const p = productById[product.id] || productById[product.product_id] || product;
@@ -765,78 +724,6 @@ export default function Billing() {
     justSelectedRef.current = true;
     globalSearchRef.current?.focus();
   }, [productById, showToast, setRows]);
-
-  const handleGlobalSearch = useCallback((value) => {
-    setGlobalSearch(value);
-    setShowNoResult(false);
-    setShowQuickAdd(false);
-    setSuggestIndex(-1);
-    clearTimeout(searchTimer.current);
-
-    if (!value.trim()) {
-      const recent = getRecent().filter((p) => productById[p.id] && productById[p.id].status === "active");
-      const list = recent.length > 0 ? recent : products.filter((p) => p.status === "active" && p.stock > 0).slice(0, 12);
-      setGlobalSuggestions(list);
-      setShowSuggest(list.length > 0);
-      return;
-    }
-
-    const trimmed = value.trim().toLowerCase();
-
-    // ⚡ Barcode Scanner Speed Mode: Instant item recognition & auto-enter (0ms delay)
-    if (posSettings.barcode_scanner_speed_mode && trimmed && productByCode[trimmed]) {
-      addOrMergeProduct(productByCode[trimmed], 1);
-      return;
-    }
-
-    searchTimer.current = setTimeout(() => {
-      const q = value.toLowerCase();
-      const filtered = products.filter((p) =>
-        p.status === "active" &&
-        (p.product_name.toLowerCase().includes(q) ||
-         String(p.product_code || "").toLowerCase().includes(q) ||
-         String(p.barcode || "").toLowerCase().includes(q))
-      );
-      setGlobalSuggestions(filtered.slice(0, 20));
-      setShowSuggest(filtered.length > 0);
-      if (filtered.length === 0) setShowNoResult(true);
-    }, 200);
-  }, [products, productById, productByCode, posSettings.barcode_scanner_speed_mode, addOrMergeProduct]);
-
-  const handleSearchKeyDown = (e) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSuggestIndex((i) => Math.min(i + 1, globalSuggestions.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSuggestIndex((i) => Math.max(i - 1, -1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (suggestIndex >= 0 && globalSuggestions[suggestIndex]) {
-        addOrMergeProduct(globalSuggestions[suggestIndex]);
-        return;
-      }
-      const code = globalSearch.trim().toLowerCase();
-      if (productByCode[code]) {
-        addOrMergeProduct(productByCode[code], 1);
-        return;
-      }
-      if (globalSuggestions.length === 1) {
-        addOrMergeProduct(globalSuggestions[0]);
-        return;
-      }
-      if (globalSuggestions.length === 0 && globalSearch.trim()) {
-        handleAiCopilotSubmit(globalSearch);
-        return;
-      }
-      if (globalSuggestions.length > 0) {
-        addOrMergeProduct(globalSuggestions[0]);
-      }
-    } else if (e.key === "Escape") {
-      setShowSuggest(false);
-      setSuggestIndex(-1);
-    }
-  };
 
   /* Quick Add (POS) - the limited popup saved the searched product to the
      database, so make it searchable and put it straight onto the active bill.
@@ -1144,21 +1031,8 @@ export default function Billing() {
   };
 
   const handleGenerate = async (action = "print") => {
-    if (posSettings.mandatory_customer_mobile) {
-      if (!customer.phone || !customer.phone.trim()) {
-        showToast("Customer mobile number is mandatory!", "error");
-        phoneSuggestRef.current?.querySelector("input")?.focus();
-        return;
-      }
-      if (!/^[0-9]{10}$/.test(customer.phone.trim())) {
-        showToast("Enter a valid 10-digit mobile number!", "error");
-        phoneSuggestRef.current?.querySelector("input")?.focus();
-        return;
-      }
-    } else {
-      if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
-      if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
-    }
+    if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
+    if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
     if (billType === "gst_bill" && !customer.gst_no.trim()) { showToast("GST Number is mandatory for GST Bill!", "error"); return; }
     if (billType === "gst_bill" && !isValidGstin(customer.gst_no.trim().toUpperCase())) {
       showToast("Enter a valid 15-character GSTIN (e.g. 22ABCDE1234F1Z5).", "error");
@@ -1218,12 +1092,10 @@ export default function Billing() {
         if (balance > 0 && res.data.advance_delta > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_delta))} added to advance`);
         const successMsg = parts.length > 0 ? `Invoice generated! ${parts.join(" · ")}` : "Invoice generated successfully!";
         setGenerating(false);
-
-        const invoiceRef = res.data.invoice_no || res.data.invoice_id;
-
         if (action === "preview") {
+          const invoiceRef = res.data.invoice_no || res.data.invoice_id;
           if (invoiceRef) {
-            navigate(`/invoice/${encodeURIComponent(String(invoiceRef))}?posPrint=1`, {
+            navigate(`/invoice/${encodeURIComponent(String(invoiceRef))}`, {
               state: { flash: successMsg, flashType: "success" },
             });
           } else {
@@ -1232,21 +1104,9 @@ export default function Billing() {
           return;
         }
 
-        // Auto-Print on Save
-        if (posSettings.auto_print_on_save || action === "print") {
-          if (invoiceRef) {
-            setPrintInvoiceUrl(`/invoice/${encodeURIComponent(String(invoiceRef))}?posPrint=1&autoPrint=1`);
-          }
-        }
-
-        // Auto-Clear Cart after Save
-        if (posSettings.auto_clear_cart_after_save) {
-          setBills((prev) => prev.map((bill) => (
-            bill.id === billIdToReset ? createFreshBill(bill.id) : bill
-          )));
-          globalSearchRef.current?.focus();
-        }
-
+        setBills((prev) => prev.map((bill) => (
+          bill.id === billIdToReset ? createFreshBill(bill.id) : bill
+        )));
         showToast(successMsg, "success");
         return;
       }
@@ -2147,21 +2007,12 @@ export default function Billing() {
                   </div>
                   <input
                     type="tel"
-                    placeholder={posSettings.mandatory_customer_mobile ? "10-digit mobile (Required *)" : "10-digit mobile number"}
+                    placeholder="10-digit mobile number"
                     value={customer.phone}
                     maxLength={10}
                     onChange={(e) => handlePhoneSearch(e.target.value)}
-                    className={`w-full pl-8 pr-16 py-2 bg-slate-50 border rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors ${
-                      posSettings.mandatory_customer_mobile && !customer.phone
-                        ? "border-amber-400 bg-amber-50/20"
-                        : "border-slate-200"
-                    }`}
+                    className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
                   />
-                  {posSettings.mandatory_customer_mobile && !customer.phone && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-amber-700 bg-amber-100/80 border border-amber-200 px-1.5 py-0.5 rounded pointer-events-none">
-                      Required *
-                    </span>
-                  )}
                   {phoneSuggestions.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 max-h-48 overflow-y-auto p-1">
                       {phoneSuggestions.map((c) => (
