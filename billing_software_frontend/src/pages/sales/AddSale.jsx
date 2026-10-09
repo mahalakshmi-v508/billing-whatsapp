@@ -88,6 +88,60 @@ function calculateDueDate(invDateStr, days) {
   return `${year}-${month}-${day}`;
 }
 
+/* ── Helpers to parse, format & calculate sequential invoice numbers ─────── */
+function parseInvoiceNumber(invNo) {
+  if (!invNo) return { prefix: "INV-", num: 1, padding: 4 };
+  const str = String(invNo).trim();
+  const match = str.match(/^(.*?)(\d+)$/);
+  if (match) {
+    const prefix = match[1];
+    const numStr = match[2];
+    const num = parseInt(numStr, 10);
+    const padding = numStr.length;
+    return { prefix, num, padding };
+  }
+  return { prefix: str + "-", num: 1, padding: 4 };
+}
+
+function formatInvoiceNumber(prefix, num, padding) {
+  return `${prefix}${String(num).padStart(padding, "0")}`;
+}
+
+function getNextInvoiceNumberForNewTab(existingSales = [], fallbackInvNo = "INV-0001") {
+  if (!existingSales || existingSales.length === 0) {
+    return fallbackInvNo;
+  }
+
+  // Find max sequence number among existing sales tabs
+  let maxPrefix = null;
+  let maxNum = -1;
+  let maxPadding = 4;
+
+  for (const s of existingSales) {
+    const inv = s.formattedInvoiceNo || s.invoiceNumber;
+    if (inv) {
+      const parsed = parseInvoiceNumber(inv);
+      if (maxPrefix === null) {
+        maxPrefix = parsed.prefix;
+        maxPadding = parsed.padding;
+      }
+      if (parsed.prefix === maxPrefix && !isNaN(parsed.num)) {
+        if (parsed.num > maxNum) {
+          maxNum = parsed.num;
+          maxPadding = Math.max(maxPadding, parsed.padding);
+        }
+      }
+    }
+  }
+
+  if (maxPrefix !== null && maxNum >= 0) {
+    return formatInvoiceNumber(maxPrefix, maxNum + 1, maxPadding);
+  }
+
+  const parsed = parseInvoiceNumber(fallbackInvNo);
+  return formatInvoiceNumber(parsed.prefix, parsed.num + 1, parsed.padding);
+}
+
 /* ── Factory to create a brand new independent Sale tab state ────────────── */
 function createNewSaleTab(id, index, defaultInvNo = "") {
   const today = new Date().toISOString().split("T")[0];
@@ -404,6 +458,7 @@ export default function AddSale() {
             label: `Edit Sale #${inv.invoice_no}`,
             paymentType: inv.payment_type === "gst" || (inv.payment_type === "cash" && (inv.gst_no || (inv.customer && inv.customer.gst_no))) ? "gst" : (inv.payment_type || (String(inv.payment_method).toLowerCase() === "credit" ? "credit" : "cash")),
             invoiceNumber: inv.invoice_no,
+            formattedInvoiceNo: inv.invoice_no,
             invoiceDate: inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0],
             stateOfSupply: inv.state_of_supply || "Tamil Nadu",
             dueDate: inv.due_date ? inv.due_date.split("T")[0].split(" ")[0] : (inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0]),
@@ -447,12 +502,16 @@ export default function AddSale() {
       .then((res) => {
         if (res.data && res.data.status && res.data.invoice_no) {
           const nextInvNo = res.data.invoice_no;
+          const { prefix, num, padding } = parseInvoiceNumber(nextInvNo);
           setSales((prev) =>
-            prev.map((tab) => ({
-              ...tab,
-              invoiceNumber: nextInvNo,
-              formattedInvoiceNo: nextInvNo,
-            }))
+            prev.map((tab, idx) => {
+              const tabInvNo = formatInvoiceNumber(prefix, num + idx, padding);
+              return {
+                ...tab,
+                invoiceNumber: tabInvNo,
+                formattedInvoiceNo: tabInvNo,
+              };
+            })
           );
         }
       })
@@ -463,8 +522,11 @@ export default function AddSale() {
   const handleAddNewTab = () => {
     const nextNum = tabCounter + 1;
     const newId = Date.now();
-    const currentInvNo = activeSale?.formattedInvoiceNo || "INV-0001";
-    const newTab = createNewSaleTab(newId, nextNum, currentInvNo);
+    const nextTabInvNo = getNextInvoiceNumberForNewTab(
+      sales,
+      activeSale?.formattedInvoiceNo || "INV-0001"
+    );
+    const newTab = createNewSaleTab(newId, nextNum, nextTabInvNo);
     setSales(prev => [...prev, newTab]);
     setActiveTabId(newId);
     setTabCounter(nextNum);
@@ -961,7 +1023,10 @@ export default function AddSale() {
 
     try {
       const endpoint = isEditMode ? "/invoice/update_invoice" : "/invoice/create_invoice";
-      const submitPayload = isEditMode ? { ...payload, invoice_no: invoiceNo } : payload;
+      const currentTabInvNo = activeSale.formattedInvoiceNo || activeSale.invoiceNumber || "";
+      const submitPayload = isEditMode
+        ? { ...payload, invoice_no: invoiceNo }
+        : { ...payload, ...(currentTabInvNo ? { invoice_no: currentTabInvNo } : {}) };
       const res = await api.post(endpoint, submitPayload);
       if (res.data.status) {
         const savedInvNo = res.data.invoice_no || invoiceNo || "Invoice";
@@ -984,12 +1049,19 @@ export default function AddSale() {
               console.error("Error fetching next invoice no:", e);
             }
 
-            setSales(prev => prev.map(s => {
-              if (s.id === activeTabId) {
-                return createNewSaleTab(s.id, 1, nextInvNo);
-              }
-              return s;
-            }));
+            setSales(prev => {
+              const remainingTabs = prev.filter(s => s.id !== activeTabId);
+              const freshNextNo = getNextInvoiceNumberForNewTab(
+                remainingTabs,
+                nextInvNo || "INV-0001"
+              );
+              return prev.map(s => {
+                if (s.id === activeTabId) {
+                  return createNewSaleTab(s.id, 1, freshNextNo);
+                }
+                return s;
+              });
+            });
           } else {
             navigate(`/invoice/${savedInvNo}`);
           }
