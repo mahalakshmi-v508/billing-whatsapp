@@ -382,26 +382,26 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-12">
       {/* ── 1. EXECUTIVE HEADER & BRANCH TELEMETRY ── */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+      <div className="bg-white dark:bg-[#1e293b] rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
         <div className="flex items-start sm:items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
             <Activity size={24} />
           </div>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight font-display">
                 Executive Overview
               </h1>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 Live Business Telemetry
               </span>
-              <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-slate-500 bg-slate-100">
+              <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400">
                 <Calendar size={12} />
                 {formattedDate}
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
               Real-time revenue monitoring, billing feeds, collection health, and stock alerts.
             </p>
           </div>
@@ -416,8 +416,8 @@ export default function Dashboard() {
               onClick={() => setShowCompanyDropdown((prev) => !prev)}
               className={`h-11 px-3.5 rounded-2xl border transition-all flex items-center gap-3 cursor-pointer shadow-xs group ${
                 showCompanyDropdown
-                  ? "bg-indigo-50/90 border-indigo-300 ring-2 ring-indigo-500/20 shadow-md"
-                  : "bg-white hover:bg-slate-50/90 border-slate-200/90 hover:border-slate-300"
+                  ? "bg-indigo-50/90 border-indigo-300 ring-2 ring-indigo-500/20 shadow-md dark:bg-slate-800 dark:border-indigo-500"
+                  : "bg-white hover:bg-slate-50/90 border-slate-200/90 hover:border-slate-300 dark:bg-slate-800/90 dark:border-slate-700 dark:hover:bg-slate-700"
               }`}
             >
               <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center font-black text-[11px] shadow-xs flex-shrink-0">
@@ -439,12 +439,12 @@ export default function Dashboard() {
                     Active Branch
                   </span>
                   {activeCompany?.company_code && (
-                    <span className="font-mono text-[9px] font-extrabold px-1 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                    <span className="font-mono text-[9px] font-extrabold px-1 rounded bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600">
                       {activeCompany.company_code}
                     </span>
                   )}
                 </div>
-                <div className="text-xs sm:text-sm font-extrabold text-slate-900 truncate max-w-[150px] sm:max-w-[200px] leading-snug mt-0.5">
+                <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate max-w-[200px] sm:max-w-[260px] leading-snug mt-0.5">
                   {activeCompany?.company_name || "Select Branch..."}
                 </div>
               </div>
@@ -459,17 +459,17 @@ export default function Dashboard() {
 
             {/* Floating Company Selection Menu */}
             {showCompanyDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-3xl border border-slate-200/90 shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-xl">
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/90 dark:border-slate-700 shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-xl">
                 {/* Header with Search */}
-                <div className="p-2 border-b border-slate-100 mb-2">
+                <div className="p-2 border-b border-slate-100 dark:border-slate-700 mb-2">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
-                      <Building2 size={15} className="text-indigo-600" />
-                      <span className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                      <Building2 size={15} className="text-indigo-600 dark:text-indigo-400" />
+                      <span className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">
                         Switch Company Branch
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/60">
                       {companies.length} {companies.length === 1 ? "Entity" : "Entities"}
                     </span>
                   </div>
@@ -482,7 +482,7 @@ export default function Dashboard() {
                         value={companySearch}
                         onChange={(e) => setCompanySearch(e.target.value)}
                         placeholder="Search by company name or code..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
                       />
                     </div>
                   )}
@@ -512,8 +512,8 @@ export default function Dashboard() {
                           onClick={() => handleSelectCompany(comp.id)}
                           className={`w-full text-left p-2.5 rounded-2xl transition flex items-center justify-between gap-3 cursor-pointer group ${
                             isSelected
-                              ? "bg-indigo-50/80 border border-indigo-200/90 text-indigo-950"
-                              : "hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-transparent"
+                              ? "bg-indigo-50/80 border border-indigo-200/90 text-indigo-950 dark:bg-indigo-950/60 dark:border-indigo-800 dark:text-indigo-200"
+                              : "hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white border border-transparent"
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -521,7 +521,7 @@ export default function Dashboard() {
                               className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0 transition shadow-xs ${
                                 isSelected
                                   ? "bg-indigo-600 text-white"
-                                  : "bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600"
+                                  : "bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600 dark:bg-slate-700 dark:text-slate-300 dark:group-hover:bg-indigo-900 dark:group-hover:text-indigo-300"
                               }`}
                             >
                               {initials}
@@ -532,7 +532,7 @@ export default function Dashboard() {
                                   {comp.company_name}
                                 </span>
                                 {comp.company_code && (
-                                  <span className="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded bg-white text-slate-600 border border-slate-200">
+                                  <span className="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded bg-white text-slate-600 border border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700">
                                     {comp.company_code}
                                   </span>
                                 )}
@@ -561,7 +561,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Footer Quick Action */}
-                <div className="p-2 border-t border-slate-100 mt-2 flex items-center justify-between">
+                <div className="p-2 border-t border-slate-100 dark:border-slate-700 mt-2 flex items-center justify-between">
                   <span className="text-[11px] text-slate-400 font-medium">Manage entities</span>
                   <button
                     type="button"
@@ -569,7 +569,7 @@ export default function Dashboard() {
                       setShowCompanyDropdown(false);
                       navigate("/company");
                     }}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>View All Companies</span>
                     <ArrowRight size={12} />
@@ -585,7 +585,7 @@ export default function Dashboard() {
             onClick={handleRefresh}
             disabled={isRefreshing || !selectedCompany}
             title="Synchronize Live Telemetry"
-            className="h-11 px-4 rounded-2xl bg-white border border-slate-200/90 hover:border-indigo-200 hover:bg-indigo-50/50 text-slate-700 hover:text-indigo-600 transition flex items-center gap-2 font-bold text-xs cursor-pointer shadow-xs disabled:opacity-50"
+            className="h-11 px-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition flex items-center gap-2 font-bold text-xs cursor-pointer shadow-xs disabled:opacity-50"
           >
             <RotateCw size={15} className={isRefreshing ? "animate-spin text-indigo-600" : ""} />
             <span>{isRefreshing ? "Syncing..." : "Sync Live Data"}</span>
@@ -594,17 +594,17 @@ export default function Dashboard() {
       </div>
 
       {!selectedCompany ? (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-16 text-center shadow-sm">
-          <div className="w-16 h-16 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4">
+        <div className="bg-white dark:bg-[#1e293b] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-16 text-center shadow-sm">
+          <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-4">
             <Building2 size={32} />
           </div>
-          <h2 className="text-lg font-bold text-slate-800 font-display">Select a Company Branch</h2>
+          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 font-display">Select a Company Branch</h2>
           <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
             Choose a business entity from the branch selector above to activate real-time financial tracking and charts.
           </p>
         </div>
       ) : loading ? (
-        <div className="flex flex-col items-center justify-center h-80 gap-3 text-sm font-bold text-indigo-600 bg-white rounded-3xl border border-slate-200/80 shadow-sm">
+        <div className="flex flex-col items-center justify-center h-80 gap-3 text-sm font-bold text-indigo-600 dark:text-indigo-400 bg-white dark:bg-[#1e293b] rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
           <span className="w-7 h-7 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
           <span>Synchronizing executive telemetry & ledger balances...</span>
         </div>
@@ -615,9 +615,9 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate(isCashier ? "/billing" : "/sales/invoices")}
-              className="flex items-center gap-3 p-3.5 rounded-2xl bg-white hover:bg-indigo-50/70 border border-slate-200/80 hover:border-indigo-200 text-slate-700 hover:text-indigo-700 transition shadow-sm group cursor-pointer"
+              className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#1e293b] hover:bg-indigo-50/70 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900/60 text-slate-700 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-400 transition shadow-sm group cursor-pointer"
             >
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center transition">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center transition">
                 <ReceiptText size={18} />
               </div>
               <div className="text-left min-w-0">
@@ -631,9 +631,9 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate("/customer")}
-              className="flex items-center gap-3 p-3.5 rounded-2xl bg-white hover:bg-emerald-50/70 border border-slate-200/80 hover:border-emerald-200 text-slate-700 hover:text-emerald-700 transition shadow-sm group cursor-pointer"
+              className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#1e293b] hover:bg-emerald-50/70 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 hover:border-emerald-200 dark:hover:border-emerald-900/60 text-slate-700 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-400 transition shadow-sm group cursor-pointer"
             >
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white flex items-center justify-center transition">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white flex items-center justify-center transition">
                 <UserPlus size={18} />
               </div>
               <div className="text-left min-w-0">
@@ -645,9 +645,9 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate("/products")}
-              className="flex items-center gap-3 p-3.5 rounded-2xl bg-white hover:bg-amber-50/70 border border-slate-200/80 hover:border-amber-200 text-slate-700 hover:text-amber-700 transition shadow-sm group cursor-pointer"
+              className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#1e293b] hover:bg-amber-50/70 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 hover:border-amber-200 dark:hover:border-amber-900/60 text-slate-700 dark:text-slate-200 hover:text-amber-700 dark:hover:text-amber-400 transition shadow-sm group cursor-pointer"
             >
-              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white flex items-center justify-center transition">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white flex items-center justify-center transition">
                 <PackagePlus size={18} />
               </div>
               <div className="text-left min-w-0">
@@ -659,9 +659,9 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate("/sales/payment-in")}
-              className="flex items-center gap-3 p-3.5 rounded-2xl bg-white hover:bg-violet-50/70 border border-slate-200/80 hover:border-violet-200 text-slate-700 hover:text-violet-700 transition shadow-sm group cursor-pointer"
+              className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#1e293b] hover:bg-violet-50/70 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 hover:border-violet-200 dark:hover:border-violet-900/60 text-slate-700 dark:text-slate-200 hover:text-violet-700 dark:hover:text-violet-400 transition shadow-sm group cursor-pointer"
             >
-              <div className="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center transition">
+              <div className="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-400 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center transition">
                 <IndianRupee size={18} />
               </div>
               <div className="text-left min-w-0">
@@ -673,9 +673,9 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate("/reports")}
-              className="col-span-2 sm:col-span-1 flex items-center gap-3 p-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/80 hover:border-slate-300 text-slate-700 hover:text-indigo-600 transition shadow-sm group cursor-pointer"
+              className="col-span-2 sm:col-span-1 flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#1e293b] hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition shadow-sm group cursor-pointer"
             >
-              <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 group-hover:bg-slate-900 group-hover:text-white flex items-center justify-center transition">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 group-hover:bg-slate-900 group-hover:text-white dark:group-hover:bg-indigo-600 flex items-center justify-center transition">
                 <BarChart3 size={18} />
               </div>
               <div className="text-left min-w-0">
@@ -727,7 +727,7 @@ export default function Dashboard() {
             <StatCard
               title="Active Inventory"
               value={stats.total_products || 0}
-              suffix=" SKUs"
+              suffix=" SKU"
               icon={Package}
               accent="cyan"
               badge={
@@ -742,15 +742,15 @@ export default function Dashboard() {
           {/* ── 4. DUAL ANALYTICS & CASHFLOW INTELLIGENCE ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Financial Visualization (2 Cols) */}
-            <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200/80 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
+            <div className="lg:col-span-2 bg-white dark:bg-[#1e293b] rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-base font-black text-slate-900 font-display tracking-tight">
+                      <h3 className="text-base font-black text-slate-900 dark:text-slate-100 font-display tracking-tight">
                         Revenue Dynamics & Billings
                       </h3>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-400 dark:border-indigo-900/60">
                         FY 2026
                       </span>
                     </div>
@@ -760,14 +760,14 @@ export default function Dashboard() {
                   </div>
 
                   {/* Chart Style Switcher (Area vs Bar) */}
-                  <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl border border-slate-200/80 self-start sm:self-auto">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 dark:bg-slate-900/80 rounded-xl border border-slate-200/80 dark:border-slate-800 self-start sm:self-auto">
                     <button
                       type="button"
                       onClick={() => setChartType("area")}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                         chartType === "area"
-                          ? "bg-white text-indigo-600 shadow-sm"
-                          : "text-slate-500 hover:text-slate-800"
+                          ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                       }`}
                     >
                       Area Curve
@@ -777,8 +777,8 @@ export default function Dashboard() {
                       onClick={() => setChartType("bar")}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                         chartType === "bar"
-                          ? "bg-white text-indigo-600 shadow-sm"
-                          : "text-slate-500 hover:text-slate-800"
+                          ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                       }`}
                     >
                       Bar Columns
@@ -787,12 +787,12 @@ export default function Dashboard() {
                 </div>
 
                 {/* Performance Summary Pill Header */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/60">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 p-3.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-2xl border border-slate-200/60 dark:border-slate-800">
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Peak Month
                     </span>
-                    <span className="text-xs font-extrabold text-slate-800">
+                    <span className="text-xs font-extrabold text-slate-800 dark:text-slate-100">
                       {peakMonth.month} (₹{peakMonth.total.toLocaleString("en-IN")})
                     </span>
                   </div>
@@ -800,7 +800,7 @@ export default function Dashboard() {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Monthly Average
                     </span>
-                    <span className="text-xs font-extrabold text-indigo-600">
+                    <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
                       ₹{avgMonthlyBilling.toLocaleString("en-IN")}
                     </span>
                   </div>
@@ -808,7 +808,7 @@ export default function Dashboard() {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Billing Velocity
                     </span>
-                    <span className="text-xs font-extrabold text-emerald-600">
+                    <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
                       {activeMonths.length} Active Periods
                     </span>
                   </div>
@@ -909,33 +909,33 @@ export default function Dashboard() {
             </div>
 
             {/* Financial Health & Cashflow Breakdown Card */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
+            <div className="bg-white dark:bg-[#1e293b] rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-base font-black text-slate-900 font-display tracking-tight">
+                    <h3 className="text-base font-black text-slate-900 dark:text-slate-100 font-display tracking-tight">
                       Ledger Health & Flow
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">Realization & recovery ratio</p>
                   </div>
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                     <ShieldCheck size={18} />
                   </div>
                 </div>
 
                 {/* Circular Efficiency Progress */}
-                <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/60 mb-5 text-center">
+                <div className="p-4 bg-slate-50/80 dark:bg-slate-900/60 rounded-2xl border border-slate-200/60 dark:border-slate-800 mb-5 text-center">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                     Realization Efficiency
                   </span>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-3xl font-black text-slate-900 font-display">
+                    <span className="text-3xl font-black text-slate-900 dark:text-slate-100 font-display">
                       {collectionRate}%
                     </span>
-                    <span className="text-xs font-bold text-emerald-600">Collected</span>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Collected</span>
                   </div>
                   {/* Visual Progress Bar */}
-                  <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden mt-3">
+                  <div className="w-full bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mt-3">
                     <div
                       className="bg-gradient-to-r from-emerald-500 to-indigo-600 h-full rounded-full transition-all duration-500"
                       style={{ width: `${collectionRate}%` }}
@@ -945,55 +945,55 @@ export default function Dashboard() {
 
                 {/* Breakdown Details */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/80 shadow-sm">
                     <div className="flex items-center gap-2.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                       <div>
-                        <span className="text-xs font-bold text-slate-700 block">Today's Inflow</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">Today's Inflow</span>
                         <span className="text-[10px] text-slate-400">Cash & instant pay</span>
                       </div>
                     </div>
-                    <span className="text-xs font-black text-slate-800">
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-100">
                       ₹{Number(creditStats.today_collection || 0).toLocaleString("en-IN")}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/80 shadow-sm">
                     <div className="flex items-center gap-2.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
                       <div>
-                        <span className="text-xs font-bold text-slate-700 block">Credit Billings</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">Credit Billings</span>
                         <span className="text-[10px] text-slate-400">Billed on credit</span>
                       </div>
                     </div>
-                    <span className="text-xs font-black text-slate-800">
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-100">
                       ₹{Number(creditStats.total_credit_sales || 0).toLocaleString("en-IN")}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/80 shadow-sm">
                     <div className="flex items-center gap-2.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                       <div>
-                        <span className="text-xs font-bold text-slate-700 block">Uncollected Balance</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">Uncollected Balance</span>
                         <span className="text-[10px] text-slate-400">Pending recovery</span>
                       </div>
                     </div>
-                    <span className="text-xs font-black text-rose-600">
+                    <span className="text-xs font-black text-rose-600 dark:text-rose-400">
                       ₹{Number(creditStats.total_outstanding || 0).toLocaleString("en-IN")}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500 font-medium">
+              <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                   {overdueList.length} accounts overdue
                 </span>
                 <button
                   type="button"
                   onClick={() => navigate("/sales/payment-in")}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
                 >
                   <span>Record Inward</span>
                   <ArrowRight size={13} />
@@ -1003,9 +1003,9 @@ export default function Dashboard() {
           </div>
 
           {/* ── 5. COMMAND CENTER TABBED DATA TABLES ── */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-[#1e293b] rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
             {/* Header Tabs & Quick Filter */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between p-4 bg-slate-50/70 border-b border-slate-200/80 gap-3">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between p-4 bg-slate-50/70 dark:bg-slate-900/70 border-b border-slate-200/80 dark:border-slate-800 gap-3">
               <div className="flex items-center gap-2 overflow-x-auto paysplitx-scrollbar-light pb-1 md:pb-0">
                 {TAB_DEFS.map((t) => {
                   const active = chartTab === t.key;
@@ -1019,8 +1019,8 @@ export default function Dashboard() {
                       }}
                       className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer select-none ${
                         active
-                          ? "bg-white text-indigo-600 shadow-sm border border-slate-200/80"
-                          : "text-slate-500 hover:text-slate-800 hover:bg-white/60"
+                          ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/80 dark:border-slate-700"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/60"
                       }`}
                     >
                       <t.icon size={15} />
@@ -1028,8 +1028,8 @@ export default function Dashboard() {
                       {t.count !== undefined && t.count > 0 && (
                         <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
                           t.key === "lowstock" || t.key === "unsold" || t.key === "expire"
-                            ? "bg-rose-100 text-rose-700"
-                            : "bg-indigo-100 text-indigo-700"
+                            ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
+                            : "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
                         }`}>
                           {t.count}
                         </span>
@@ -1048,7 +1048,7 @@ export default function Dashboard() {
                     value={tableSearch}
                     onChange={(e) => setTableSearch(e.target.value)}
                     placeholder="Quick search entries..."
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-inner"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 shadow-inner"
                   />
                   {tableSearch && (
                     <button
@@ -1070,7 +1070,7 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 font-display">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 font-display">
                         Recent Billing Transactions
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -1080,7 +1080,7 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => navigate("/sales/invoices")}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
                     >
                       <span>View All Invoices</span>
                       <ArrowRight size={13} />
@@ -1106,30 +1106,30 @@ export default function Dashboard() {
                             const balance = Number(inv.balance_amount) || 0;
                             const isPaid = balance <= 0;
                             return (
-                              <tr key={inv.id} className="hover:bg-slate-50/80 transition">
-                                <td className="font-mono text-xs font-bold text-indigo-600">
+                              <tr key={inv.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
+                                <td className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
                                   {inv.invoice_no || `INV-${inv.id}`}
                                 </td>
                                 <td>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-bold text-slate-800 text-xs">
+                                    <span className="font-bold text-slate-800 dark:text-slate-100 text-xs">
                                       {inv.customer_name || "Cash Customer"}
                                     </span>
                                   </div>
                                 </td>
-                                <td className="text-slate-500 text-xs">
+                                <td className="text-slate-500 dark:text-slate-400 text-xs">
                                   {inv.created_at ? new Date(inv.created_at).toLocaleDateString("en-IN") : "-"}
                                 </td>
                                 <td>
-                                  <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700">
+                                  <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                                     {inv.payment_method || inv.payment_type || "Cash"}
                                   </span>
                                 </td>
-                                <td className="text-slate-600 text-xs font-medium">
+                                <td className="text-slate-600 dark:text-slate-300 text-xs font-medium">
                                   {inv.cashier_name || "Admin"}
                                 </td>
                                 <td>
-                                  <span className="font-black text-slate-900 text-xs">
+                                  <span className="font-black text-slate-900 dark:text-slate-100 text-xs">
                                     ₹{Number(inv.total_amount || 0).toLocaleString("en-IN")}
                                   </span>
                                 </td>
@@ -1146,7 +1146,7 @@ export default function Dashboard() {
                         ) : (
                           <tr>
                             <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
-                              <ReceiptText size={32} className="mx-auto text-slate-300 mb-2" />
+                              <ReceiptText size={32} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
                               No billing transactions recorded yet.
                             </td>
                           </tr>
@@ -1162,7 +1162,7 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 font-display">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 font-display">
                         Calendar Year Turnover Log
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -1177,18 +1177,18 @@ export default function Dashboard() {
                         key={idx}
                         className={`p-3.5 rounded-2xl border transition ${
                           m.total > 0
-                            ? "bg-indigo-50/40 border-indigo-100"
-                            : "bg-slate-50/50 border-slate-200/60"
+                            ? "bg-indigo-50/40 border-indigo-100 dark:bg-indigo-950/40 dark:border-indigo-900/60"
+                            : "bg-slate-50/50 border-slate-200/60 dark:bg-slate-900/50 dark:border-slate-800"
                         }`}
                       >
                         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                           {m.month}
                         </span>
-                        <span className="text-sm font-black text-slate-800 block mt-1">
+                        <span className="text-sm font-black text-slate-800 dark:text-slate-100 block mt-1">
                           ₹{Number(m.total).toLocaleString("en-IN")}
                         </span>
                         <span className={`text-[10px] font-bold block mt-0.5 ${
-                          m.total > 0 ? "text-emerald-600" : "text-slate-400"
+                          m.total > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"
                         }`}>
                           {m.total > 0 ? "Recorded" : "Zero"}
                         </span>
@@ -1203,7 +1203,7 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 font-display">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 font-display">
                         Customer Ledger Balances
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -1213,7 +1213,7 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => navigate("/sales/payment-in")}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
                     >
                       <span>Collect Dues</span>
                       <ArrowRight size={13} />
@@ -1234,12 +1234,12 @@ export default function Dashboard() {
                       <tbody>
                         {filteredCreditList.length > 0 ? (
                           filteredCreditList.map((c, i) => (
-                            <tr key={i} className="hover:bg-slate-50/80 transition">
-                              <td className="font-bold text-slate-800 text-xs">{c.customer}</td>
-                              <td className="font-black text-rose-600 text-xs">
+                            <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
+                              <td className="font-bold text-slate-800 dark:text-slate-100 text-xs">{c.customer}</td>
+                              <td className="font-black text-rose-600 dark:text-rose-400 text-xs">
                                 ₹{Number(c.outstanding).toLocaleString("en-IN")}
                               </td>
-                              <td className="text-slate-500 text-xs">{c.due_date || "-"}</td>
+                              <td className="text-slate-500 dark:text-slate-400 text-xs">{c.due_date || "-"}</td>
                               <td>
                                 <StatusBadge
                                   status={c.status === "Overdue" ? "overdue" : "pending"}
@@ -1251,7 +1251,7 @@ export default function Dashboard() {
                                 <button
                                   type="button"
                                   onClick={() => navigate("/sales/payment-in")}
-                                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition cursor-pointer"
+                                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition cursor-pointer"
                                 >
                                   Collect
                                 </button>
@@ -1277,7 +1277,7 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 font-display">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 font-display">
                         Critical Inventory Replenishment Alert
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -1287,7 +1287,7 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => navigate("/products")}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
                     >
                       <span>Inventory Manager</span>
                       <ArrowRight size={13} />
@@ -1297,39 +1297,39 @@ export default function Dashboard() {
                   {/* Alert Split Summary */}
                   {lowStockProducts.length > 0 && (
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center justify-between p-3 rounded-2xl bg-rose-50/70 border border-rose-200/80">
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/60">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center">
                             <PackageX size={16} />
                           </div>
                           <div>
                             <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">
                               Out of Stock
                             </span>
-                            <span className="text-xs font-extrabold text-rose-700">
+                            <span className="text-xs font-extrabold text-rose-700 dark:text-rose-300">
                               Immediate restock
                             </span>
                           </div>
                         </div>
-                        <span className="text-lg font-black text-rose-600">
+                        <span className="text-lg font-black text-rose-600 dark:text-rose-400">
                           {outOfStockProducts.length}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80">
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                             <AlertTriangle size={16} />
                           </div>
                           <div>
                             <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block">
                               Low Stock
                             </span>
-                            <span className="text-xs font-extrabold text-amber-700">
+                            <span className="text-xs font-extrabold text-amber-700 dark:text-amber-300">
                               Under {LOW_STOCK_THRESHOLD} units
                             </span>
                           </div>
                         </div>
-                        <span className="text-lg font-black text-amber-600">
+                        <span className="text-lg font-black text-amber-600 dark:text-amber-400">
                           {lowStockOnly.length}
                         </span>
                       </div>
@@ -1354,7 +1354,7 @@ export default function Dashboard() {
                               const stock = Number(item.stock) || 0;
                               const isOut = isOutOfStock(item);
                               return (
-                            <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                            <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
                               <td className="font-mono text-slate-400 text-xs">
                                 {String(i + 1).padStart(2, "0")}
                               </td>
@@ -1363,14 +1363,14 @@ export default function Dashboard() {
                                   <div
                                     className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
                                       isOut
-                                        ? "bg-rose-100 text-rose-600"
-                                        : "bg-amber-50 text-amber-600"
+                                        ? "bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400"
+                                        : "bg-amber-50 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400"
                                     }`}
                                   >
                                     {isOut ? <PackageX size={15} /> : <Package size={15} />}
                                   </div>
                                   <div className="min-w-0">
-                                    <span className="font-bold text-slate-800 text-xs block truncate">
+                                    <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block truncate">
                                       {item.product_name}
                                     </span>
                                     {item.product_code && (
@@ -1381,15 +1381,15 @@ export default function Dashboard() {
                                   </div>
                                 </div>
                               </td>
-                              <td className="font-bold text-slate-700 text-xs">
+                              <td className="font-bold text-slate-700 dark:text-slate-200 text-xs">
                                 ₹{Number(item.price || 0).toLocaleString("en-IN")}
                               </td>
                               <td>
                                 <span
                                   className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
                                     isOut
-                                      ? "bg-rose-50 text-rose-700 border-rose-200"
-                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                      ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900/60"
+                                      : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900/60"
                                   }`}
                                 >
                                   {stock} {item.unit || "units"}
@@ -1406,7 +1406,7 @@ export default function Dashboard() {
                                 <button
                                   type="button"
                                   onClick={() => navigate("/products")}
-                                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+                                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                                 >
                                   Update Stock
                                 </button>
@@ -1433,7 +1433,7 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 font-display">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 font-display">
                         Dormant & Non-Moving Inventory
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -1443,7 +1443,7 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => navigate("/products")}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
                     >
                       <span>Manage Products</span>
                       <ArrowRight size={13} />
@@ -1463,9 +1463,9 @@ export default function Dashboard() {
                       <tbody>
                         {filteredUnsold.length > 0 ? (
                           filteredUnsold.map((p, i) => (
-                            <tr key={i} className="hover:bg-slate-50/80 transition">
-                              <td className="font-bold text-slate-800 text-xs">{p.product_name}</td>
-                              <td className="text-slate-600 text-xs font-medium">
+                            <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
+                              <td className="font-bold text-slate-800 dark:text-slate-100 text-xs">{p.product_name}</td>
+                              <td className="text-slate-600 dark:text-slate-300 text-xs font-medium">
                                 {p.last_sale === "Never Billed" ? "Never billed" : `No billing for ${p.days} days`}
                               </td>
                               <td>
@@ -1475,7 +1475,7 @@ export default function Dashboard() {
                                   size="sm"
                                 />
                               </td>
-                              <td className="text-slate-500 text-xs">
+                              <td className="text-slate-500 dark:text-slate-400 text-xs">
                                 Consider bundle pricing or promotion
                               </td>
                             </tr>
@@ -1499,7 +1499,7 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 font-display">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 font-display">
                         Expiring Products Alert
                       </h4>
                       <p className="text-[11px] text-slate-400">
@@ -1509,7 +1509,7 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => navigate("/products")}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
                     >
                       <span>Manage Products</span>
                       <ArrowRight size={13} />
@@ -1536,7 +1536,7 @@ export default function Dashboard() {
                             const days = p.days_left ?? 0;
                             const isCritical = days <= 7;
                             return (
-                              <tr key={p.id || i} className="hover:bg-slate-50/80 transition">
+                              <tr key={p.id || i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
                                 <td className="font-mono text-slate-400 text-xs">
                                   {String(i + 1).padStart(2, "0")}
                                 </td>
@@ -1545,14 +1545,14 @@ export default function Dashboard() {
                                     <div
                                       className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
                                         isCritical
-                                          ? "bg-rose-100 text-rose-600"
-                                          : "bg-amber-100 text-amber-700"
+                                          ? "bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400"
+                                          : "bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400"
                                       }`}
                                     >
                                       <Clock size={15} />
                                     </div>
                                     <div className="min-w-0">
-                                      <span className="font-bold text-slate-800 text-xs block truncate">
+                                      <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block truncate">
                                         {p.product_name}
                                       </span>
                                       {p.product_code && (
@@ -1564,14 +1564,14 @@ export default function Dashboard() {
                                   </div>
                                 </td>
                                 <td>
-                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black border bg-slate-50 text-slate-700 border-slate-200">
+                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black border bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
                                     {p.stock} {p.unit || "units"}
                                   </span>
                                 </td>
-                                <td className="font-bold text-slate-700 text-xs">
+                                <td className="font-bold text-slate-700 dark:text-slate-200 text-xs">
                                   ₹{Number(p.sale_price || p.price || 0).toLocaleString("en-IN")}
                                 </td>
-                                <td className="text-slate-600 text-xs font-semibold">
+                                <td className="text-slate-600 dark:text-slate-300 text-xs font-semibold">
                                   <span className="inline-flex items-center gap-1">
                                     <Calendar size={12} className="text-slate-400" />
                                     {p.expiry_date}
@@ -1581,10 +1581,10 @@ export default function Dashboard() {
                                   <span
                                     className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
                                       days <= 0
-                                        ? "bg-red-50 text-red-700 border-red-200"
+                                        ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-900/60"
                                         : days <= 7
-                                        ? "bg-rose-50 text-rose-700 border-rose-200"
-                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                        ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900/60"
+                                        : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900/60"
                                     }`}
                                   >
                                     {days <= 0 ? "Expires Today" : `${days} ${days === 1 ? "day" : "days"} left`}
@@ -1601,7 +1601,7 @@ export default function Dashboard() {
                                   <button
                                     type="button"
                                     onClick={() => navigate("/products")}
-                                    className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+                                    className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                                   >
                                     View / Edit
                                   </button>
