@@ -255,7 +255,7 @@ function createFreshBill(id) {
   return {
     id,
     rows: [emptyRow()],
-    customer: { id: null, name: "", phone: "", address: "", gst_no: "", credit_enabled: "0", credit_limit: 0, points: 0, advance_balance: 0, pending_amount: 0 },
+    customer: { id: null, name: "", phone: "", address: "", gst_no: "", gst_no_locked: false, credit_enabled: "0", credit_limit: 0, points: 0, advance_balance: 0, pending_amount: 0 },
     billType: "cash_bill",
     paymentMethod: "cash",
     payment: { received: 0 },
@@ -578,6 +578,7 @@ export default function Billing() {
               name: act.customer.name,
               phone: act.customer.phone,
               gst_no: act.customer.gst_no || "",
+              gst_no_locked: Boolean(act.customer.gst_no?.trim()),
               credit_enabled: String(act.customer.credit_enabled || "0"),
               credit_limit: act.customer.credit_limit || 0,
               points: act.customer.points || 0,
@@ -1131,6 +1132,7 @@ export default function Billing() {
       phone: c.phone,
       address: c.address || "",
       gst_no: c.gst_no || "",
+      gst_no_locked: Boolean(c.gst_no?.trim()),
       credit_enabled: c.credit_enabled || "0",
       credit_limit: c.credit_limit || 0,
       points: c.loyalty_points || 0,
@@ -1150,6 +1152,7 @@ export default function Billing() {
         phone: fresh.phone,
         address: fresh.address || "",
         gst_no: fresh.gst_no || "",
+        gst_no_locked: Boolean(fresh.gst_no?.trim()),
         credit_enabled: fresh.credit_enabled || "0",
         credit_limit: fresh.credit_limit || 0,
         points: pts,
@@ -1169,7 +1172,7 @@ export default function Billing() {
   const handleNameSearch = (value) => {
     // A new name means a new customer — the previous customer's GSTIN must not
     // linger, otherwise it gets saved against whoever is selected next.
-    setCustomer((c) => ({ ...c, name: value, id: null, gst_no: "", credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
+    setCustomer((c) => ({ ...c, name: value, id: null, gst_no: "", gst_no_locked: false, credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
     clearTimeout(nameSearchTimer.current);
     if (!value || value.length < 2) {
       setNameSuggestions([]);
@@ -1198,7 +1201,7 @@ export default function Billing() {
     const activeCountry = detected.country;
 
     // Same as above: switching phone switches customer, so drop the old GSTIN.
-    setCustomer((c) => ({ ...c, phone: digits, id: null, name: c.id ? "" : c.name, gst_no: "", credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
+    setCustomer((c) => ({ ...c, phone: digits, id: null, name: c.id ? "" : c.name, gst_no: "", gst_no_locked: false, credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
     setPhoneSuggestions([]);
     clearTimeout(phoneSearchTimer.current);
 
@@ -2489,7 +2492,7 @@ export default function Billing() {
                     placeholder="22ABCDE1234F1Z5"
                     value={customer.gst_no ?? ""}
                     maxLength={15}
-                    disabled
+                    disabled={customer.gst_no_locked}
                     onChange={(e) => setCustomer((c) => ({ ...c, gst_no: e.target.value.toUpperCase() }))}
                     className={`w-full px-3 py-1.5 border rounded-xl text-xs font-bold font-mono uppercase tracking-wider focus:outline-none focus:bg-white disabled:cursor-not-allowed disabled:opacity-70 ${
                       customer.gst_no?.trim()
@@ -2497,11 +2500,6 @@ export default function Billing() {
                         : "bg-slate-50 border-amber-300 text-slate-900"
                     }`}
                   />
-                  {!customer.gst_no?.trim() ? (
-                    <p className="mt-1 text-[10.5px] font-semibold text-amber-700">
-                      No GSTIN on file — add the customer with a GSTIN to raise a GST Bill.
-                    </p>
-                  ) : null}
                 </div>
               )}
             </div>
