@@ -2728,8 +2728,9 @@ export default function InvoicePreview() {
         .then(() => {
           showToast("PDF downloaded successfully!", "success");
         })
-        .catch(() => {
-          showToast("Failed to download PDF.", "error");
+        .catch((error) => {
+          console.error("Failed to download POS PDF:", error);
+          showToast(error?.message || "Failed to download PDF.", "error");
         });
     } else {
       const opt = getA4InvoicePdfOptions({ element, invoiceNo: invoice.invoice_no });
