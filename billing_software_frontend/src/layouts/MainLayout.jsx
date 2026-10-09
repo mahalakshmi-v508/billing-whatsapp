@@ -569,13 +569,13 @@ export default function MainLayout() {
         /* ── MAIN PAYSPLITX SIDEBAR ── */
         <motion.div
           initial={false}
-          animate={{ width: isCollapsed ? 76 : 280 }}
+          animate={{ width: isCollapsed ? 76 : 292 }}
           transition={{ duration: 0.22, ease: "easeInOut" }}
-          className={`bg-[#0b0f19] text-white flex flex-col flex-shrink-0 h-screen border-r border-white/5 relative select-none ${isCollapsed ? "px-2.5 py-5" : "px-4 py-5"
+          className={`bg-[#0b0f19] text-white flex flex-col flex-shrink-0 h-screen border-r border-white/5 relative select-none ${isCollapsed ? "px-2.5 py-4" : "px-3.5 py-4"
             }`}
         >
           {/* BRAND LOGO AREA */}
-          <div className="flex items-center justify-between mb-5 pb-4 border-b border-white/5">
+          <div className="flex items-center justify-between mb-3.5 pb-3 border-b border-white/5">
             {!isCollapsed ? (
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center shadow-glow-brand flex-shrink-0">
@@ -641,7 +641,7 @@ export default function MainLayout() {
               </button>
             </div>
           ) : (
-            <div className="mb-4">
+            <div className="mb-3">
               <div className="relative w-full">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
@@ -671,9 +671,9 @@ export default function MainLayout() {
           )}
 
           {/* NAVIGATION LIST */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden paysplitx-scrollbar space-y-1 pr-1">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden paysplitx-scrollbar space-y-0.5 pr-1 pb-6">
             {!isCollapsed && (
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-2 flex items-center justify-between">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5 flex items-center justify-between">
                 <span>{sidebarSearch ? translate("SEARCH RESULTS") : translate("MAIN MENU")}</span>
                 {sidebarSearch && (
                   <span className="text-[10px] text-indigo-400 font-medium lowercase">
@@ -725,16 +725,16 @@ export default function MainLayout() {
                 }
 
                 return (
-                  <div key={item.name} className="flex flex-col mb-1">
+                  <div key={item.name} className="flex flex-col mb-0.5">
                     <button
                       type="button"
                       onClick={toggleDropdown}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition cursor-pointer select-none ${isDropdownItemActive
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-medium transition cursor-pointer select-none ${isDropdownItemActive
                         ? "text-white bg-white/5 font-semibold"
                         : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                         }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <span className={`flex-shrink-0 ${isDropdownItemActive ? "text-indigo-400" : "text-slate-400"}`}>
                           {item.icon}
                         </span>
@@ -808,7 +808,7 @@ export default function MainLayout() {
                   key={item.path}
                   type="button"
                   onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] cursor-pointer transition select-none ${isActive
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] cursor-pointer transition select-none ${isActive
                     ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-semibold shadow-glow-brand"
                     : "text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium"
                     }`}

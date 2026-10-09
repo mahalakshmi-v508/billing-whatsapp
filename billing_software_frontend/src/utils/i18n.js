@@ -147,8 +147,8 @@ const DYNAMIC_PATTERNS = [
   // Accounts / Parties / SKUs / Entities / Items / Invoices counts
   { re: /^(\d+)\s+Accounts$/i, replace: (_, n) => `${n} கணக்குகள்` },
   { re: /^(\d+)\s+Parties$/i, replace: (_, n) => `${n} நபர்கள்` },
-  { re: /^(\d+)\s+SKUs$/i, replace: (_, n) => `${n} பொருட்கள்` },
-  { re: /^(\d+)\s+SKU$/i, replace: (_, n) => `${n} பொருள்` },
+  { re: /^(\d+)\s+SKUs?$/i, replace: (_, n) => `${n} SKU` },
+  { re: /^(\d+)\s+Out\s*[·•]\s*(\d+)\s+Low$/i, replace: (_, a, b) => `${a} காலி · ${b} குறைவு` },
   { re: /^(\d+)\s+Bills$/i, replace: (_, n) => `${n} பில்கள்` },
   { re: /^(\d+)\s+Bill$/i, replace: (_, n) => `${n} பில்` },
   { re: /^(\d+)\s+Invoices$/i, replace: (_, n) => `${n} விற்பனை பில்கள்` },
