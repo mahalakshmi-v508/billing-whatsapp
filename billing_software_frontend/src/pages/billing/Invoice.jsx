@@ -2480,7 +2480,6 @@ export default function InvoicePreview() {
       return {};
     }
   });
-  const [doNotShowAgain, setDoNotShowAgain] = useState(() => localStorage.getItem("skip_invoice_preview") === "true");
   const [waSending, setWaSending] = useState(false);
   const [tmSending, setTmSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -2836,10 +2835,9 @@ export default function InvoicePreview() {
 
   /* Save & Close Navigation */
   const handleSaveAndClose = useCallback(() => {
-    localStorage.setItem("skip_invoice_preview", doNotShowAgain ? "true" : "false");
     const targetRoute = getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
     navigate(targetRoute);
-  }, [doNotShowAgain, invoice, invoiceNo, navigate]);
+  }, [invoice, invoiceNo, navigate]);
 
   /* Keyboard Shortcuts */
   useEffect(() => {
@@ -3043,31 +3041,6 @@ export default function InvoicePreview() {
 
         {/* Right Cluster: Quick Actions & Close */}
         <div className="flex items-center gap-2.5">
-          {/* Quick toggle check */}
-          <label className="hidden xl:flex items-center gap-2 cursor-pointer text-xs text-slate-600 hover:text-slate-900">
-            <input
-              type="checkbox"
-              checked={doNotShowAgain}
-              onChange={(e) => {
-                setDoNotShowAgain(e.target.checked);
-                localStorage.setItem("skip_invoice_preview", e.target.checked ? "true" : "false");
-              }}
-              className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-blue-600"
-            />
-            <span>Skip preview next time</span>
-          </label>
-
-          {/* Quick Print Primary Button */}
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all"
-            title="Print document (Ctrl+P)"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Print</span>
-            <kbd className="hidden lg:inline px-1 py-0.2 rounded bg-white/20 text-[9px] font-normal">^P</kbd>
-          </button>
-
           {/* Save & Close Button */}
           <button
             onClick={handleSaveAndClose}
