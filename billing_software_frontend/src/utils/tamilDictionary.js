@@ -3564,5 +3564,16 @@ export const TAMIL_PHRASES = {
   "Unlock Screen": "திரையை திறக்கவும்",
   "Price Locked": "விலை லாக் செய்யப்பட்டுள்ளது",
   "Cost Protection": "அடக்க விலை பாதுகாப்பு",
-  "Supervisor PIN": "மேற்பார்வையாளர் PIN"
+  "Supervisor PIN": "மேற்பார்வையாளர் PIN",
+  "WhatsApp Defaults": "வாட்ஸ்அப் அமைப்புகள்",
+  "Default Country Code": "இயல்புநிலை நாட்டின் குறியீடு",
+  "Send Daily Summary to Owner": "முதலாளிக்கு தினசரி சேல்ஸ் கணக்கு",
+  "Owner WhatsApp Number": "முதலாளியின் வாட்ஸ்அப் எண்",
+  "Daily Summary Time": "தினசரி அனுப்பும் நேரம்",
+  "Payment Breakdown": "கட்டண வசூல் விவரங்கள்",
+  "Top Selling Items": "அதிகம் விற்பனையான பொருட்கள்",
+  "Send Today's Summary Now": "இன்றைய கணக்கை உடனே அனுப்பு",
+  "Auto-Prefix": "தானியங்கு முன்னொட்டு",
+  "WhatsApp Connected": "வாட்ஸ்அப் இணைக்கப்பட்டுள்ளது",
+  "WhatsApp Not Connected": "வாட்ஸ்அப் இணைக்கப்படவில்லை"
 };

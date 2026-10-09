@@ -300,6 +300,7 @@ Route::prefix('whatsapp')->group(function () {
     Route::post('update_message', [WhatsappConnectController::class, 'updateMessage']);
     Route::post('delete_message', [WhatsappConnectController::class, 'deleteMessage']);
     Route::post('send_invoice', [WhatsappConnectController::class, 'sendInvoice']);
+    Route::post('send_daily_summary', [WhatsappConnectController::class, 'sendDailySummary']);
     Route::post('send_file', [WhatsappConnectController::class, 'sendFile']);
     Route::get('chats', [WhatsappConnectController::class, 'getChats']);
     Route::get('messages', [WhatsappConnectController::class, 'getMessages']);

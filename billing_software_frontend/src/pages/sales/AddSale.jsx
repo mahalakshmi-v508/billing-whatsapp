@@ -8,7 +8,8 @@ import {
   Trash2, AlignLeft, BarChart2,
   Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap,
   Search, RotateCcw, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
-  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert, ArrowRight
+  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert, ArrowRight,
+  Globe
 } from "lucide-react";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
@@ -18,6 +19,8 @@ import AddProductModal from "../products/AddProductModal";
 import TermsDropdown from "../../components/common/TermsDropdown";
 import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
 import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
+import { WHATSAPP_DEFAULTS_KEY, DEFAULT_WHATSAPP_DEFAULTS } from "../settings/WhatsAppDefaultSettings";
+import { COUNTRY_LIST, getCountryByCode, detectCountryFromPhone } from "../../utils/phoneCountryHelper";
 
 const isProductExpired = (expiryDate) => {
   if (!expiryDate) return false;
@@ -270,6 +273,34 @@ export default function AddSale() {
     }
   });
 
+  /* ── WhatsApp Defaults ── */
+  const [whatsappDefaults, setWhatsappDefaults] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${WHATSAPP_DEFAULTS_KEY}`);
+      return saved ? { ...DEFAULT_WHATSAPP_DEFAULTS, ...JSON.parse(saved) } : { ...DEFAULT_WHATSAPP_DEFAULTS };
+    } catch {
+      return { ...DEFAULT_WHATSAPP_DEFAULTS };
+    }
+  });
+
+  const [selectedCountryCode, setSelectedCountryCode] = useState(
+    () => whatsappDefaults.default_country_code || "+91"
+  );
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const countryPickerRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (countryPickerRef.current && !countryPickerRef.current.contains(e.target)) {
+        setShowCountryPicker(false);
+      }
+    };
+    if (showCountryPicker) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showCountryPicker]);
+
   useEffect(() => {
     const handleSettingsUpdate = (e) => {
       if (e?.detail) {
@@ -278,6 +309,12 @@ export default function AddSale() {
         }
         if (e.detail[CASHIER_SECURITY_KEY]) {
           setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
+        }
+        if (e.detail[WHATSAPP_DEFAULTS_KEY]) {
+          setWhatsappDefaults((prev) => ({ ...prev, ...e.detail[WHATSAPP_DEFAULTS_KEY] }));
+          if (e.detail[WHATSAPP_DEFAULTS_KEY]?.default_country_code) {
+            setSelectedCountryCode((prev) => (prev === "+91" ? e.detail[WHATSAPP_DEFAULTS_KEY].default_country_code : prev));
+          }
         }
       }
     };
@@ -573,11 +610,16 @@ export default function AddSale() {
   const selectCustomer = (c) => {
     const cDays = c.credit_days !== undefined && c.credit_days !== null && c.credit_days !== "" ? Number(c.credit_days) : 0;
     const calcDueDate = calculateDueDate(activeSale.invoiceDate, cDays);
+    const rawPh = c.phone || c.customer_phone || "";
+    const detected = detectCountryFromPhone(rawPh, selectedCountryCode);
+    if (detected.countryCode && detected.countryCode !== selectedCountryCode) {
+      setSelectedCountryCode(detected.countryCode);
+    }
 
     updateActiveSale({
       customerId: c.id,
       customerName: c.name || c.customer_name,
-      customerPhone: c.phone || c.customer_phone || "",
+      customerPhone: detected.cleanDigits || rawPh,
       gstNo: activeSale.paymentType === "gst" ? (c.gst_no || activeSale.gstNo || "") : "",
       billingAddress: c.address || c.billing_address || "",
       shippingAddress: c.shipping_address || c.address || "",
@@ -1698,21 +1740,74 @@ export default function AddSale() {
               {/* Customer Phone */}
               <div className="sm:col-span-5">
                 <label className="text-[11px] font-bold text-slate-600 mb-1 block">Contact Phone</label>
-                <div className="relative border border-slate-300 rounded-xl px-3.5 py-2 bg-white flex items-center gap-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 transition">
-                  <Phone size={13} className="text-slate-400 flex-shrink-0" />
+                <div className="relative border border-slate-300 rounded-xl px-2 py-1.5 bg-white flex items-center gap-1.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 transition relative">
+                  {/* Country Selector Dropdown */}
+                  <div ref={countryPickerRef} className="relative flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCountryPicker((v) => !v);
+                      }}
+                      title="Click to select country"
+                      className="text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 px-2 py-1 rounded-lg border border-emerald-200/90 flex items-center gap-1 font-mono transition cursor-pointer select-none"
+                    >
+                      <span>{getCountryByCode(selectedCountryCode).flag}</span>
+                      <span>{selectedCountryCode}</span>
+                      <ChevronDown size={11} className={`text-emerald-700 transition-transform ${showCountryPicker ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {showCountryPicker && (
+                      <div className="absolute top-full left-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 max-h-60 overflow-y-auto animate-in fade-in duration-100">
+                        <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                          <span>Select Country</span>
+                          <Globe size={11} />
+                        </div>
+                        {COUNTRY_LIST.map((item) => (
+                          <button
+                            key={item.code}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCountryCode(item.code);
+                              setShowCountryPicker(false);
+                            }}
+                            className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-emerald-50/70 transition cursor-pointer ${
+                              selectedCountryCode === item.code ? "bg-emerald-50 font-bold text-emerald-950" : "text-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{item.flag}</span>
+                              <div>
+                                <div className="font-semibold">{item.name}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">{item.code} ({item.length} digits)</div>
+                              </div>
+                            </div>
+                            {selectedCountryCode === item.code && (
+                              <Check size={14} className="text-emerald-600 flex-shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <input
                     type="text"
                     inputMode="numeric"
-                    maxLength={10}
-                    placeholder="10-digit mobile number"
+                    maxLength={getCountryByCode(selectedCountryCode).length || 15}
+                    placeholder={getCountryByCode(selectedCountryCode).placeholder || "Mobile number"}
                     value={activeSale.customerPhone}
                     onFocus={() => setIsPhoneFocused(true)}
                     onBlur={() => setIsPhoneFocused(false)}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                      updateActiveSale({ customerPhone: val });
+                      const detected = detectCountryFromPhone(e.target.value, selectedCountryCode);
+                      if (detected.countryCode && detected.countryCode !== selectedCountryCode) {
+                        setSelectedCountryCode(detected.countryCode);
+                      }
+                      updateActiveSale({ customerPhone: detected.cleanDigits });
                     }}
-                    className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
+                    className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent font-mono tracking-wide"
                   />
                 </div>
               </div>

@@ -544,6 +544,7 @@ export default function MainLayout() {
               { id: "pos-controls", label: "POS & Counter Controls", icon: <Store size={15} /> },
               { id: "stock-safety", label: "Stock & Inventory Safety", icon: <Boxes size={15} /> },
               { id: "cashier-security", label: "Cashier & Staff Security", icon: <Lock size={15} /> },
+              { id: "whatsapp-defaults", label: "WhatsApp Defaults", icon: <MessageCircle size={15} /> },
               { id: "audit-log", label: "Audit Log", icon: <History size={15} /> },
               { id: "invoice-numbering", label: "Invoice Numbering" },
               { id: "terms-conditions", label: "Terms & Conditions", icon: <FileText size={15} /> },
