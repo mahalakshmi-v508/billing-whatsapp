@@ -496,42 +496,11 @@ export default function DebitNoteList() {
         </div>
       </div>
 
-      {/* ── 3. CONTROLS BAR: Firm Selection + Date / Supplier Filters ── */}
+      {/* ── 3. CONTROLS BAR: Date / Store / Supplier Filters ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-        {/* Company Pills */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Firm:</span>
-          <button
-            onClick={() => setSelectedFirm("all")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              selectedFirm === "all"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 ring-2 ring-indigo-600/20"
-                : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900"
-            }`}
-          >
-            <span>🏢</span>
-            <span>All Companies</span>
-          </button>
-          {companies.map((c) => {
-            const isActive = String(selectedFirm) === String(c.id);
-            return (
-              <button
-                key={c.id}
-                onClick={() => setSelectedFirm(String(c.id))}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${isActive
-                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 ring-2 ring-indigo-600/20"
-                  : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
-              >
-                <span>🏢</span>
-                <span>{c.company_name}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Period, Date Range, Supplier, Payment Mode */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Period, Date Range, Store, Supplier, Payment Mode */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter by:</span>
           {/* Period Selector */}
           <div className="relative">
             <button
@@ -615,17 +584,17 @@ export default function DebitNoteList() {
             </button>
 
             {firmOpen && (
-              <div className="absolute left-0 mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
+              <div className="absolute left-0 mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 max-h-56 overflow-y-auto">
                 <button
                   onClick={() => {
                     setSelectedFirm("all");
                     setFirmOpen(false);
                   }}
                   className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
-                    selectedFirm === "all" ? "text-purple-600 font-bold bg-purple-50/50" : "text-slate-700"
+                    selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
-                  All Store
+                  🏢 All Store
                 </button>
                 {companies.map((c) => (
                   <button
@@ -634,11 +603,11 @@ export default function DebitNoteList() {
                       setSelectedFirm(String(c.id));
                       setFirmOpen(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition cursor-pointer ${
-                      String(selectedFirm) === String(c.id) ? "text-purple-600 font-bold bg-purple-50/50" : "text-slate-700"
+                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition cursor-pointer truncate ${
+                      String(selectedFirm) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                     }`}
                   >
-                    {c.company_name}
+                    🏢 {c.company_name}
                   </button>
                 ))}
               </div>

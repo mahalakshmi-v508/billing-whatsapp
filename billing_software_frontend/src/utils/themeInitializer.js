@@ -16,6 +16,8 @@ export function applyTheme(theme = "light") {
       body.classList.add("dark");
       body.classList.remove("light");
       body.setAttribute("data-theme", "dark");
+      body.style.backgroundColor = "#0f172a";
+      body.style.color = "#f8fafc";
     }
   } else {
     root.classList.remove("dark");
@@ -27,6 +29,7 @@ export function applyTheme(theme = "light") {
       body.classList.add("light");
       body.setAttribute("data-theme", "light");
       body.style.backgroundColor = "#f8faff";
+      body.style.color = "#0f172a";
     }
   }
   try {
@@ -87,13 +90,8 @@ export function applyLanguage(lang = "en") {
 export function initThemeAndDensity() {
   if (typeof window === "undefined") return;
   try {
-    const savedTheme = localStorage.getItem("app_theme");
-    // Ensure default is light theme so all pages have normal clean background
-    if (!savedTheme || savedTheme === "dark") {
-      applyTheme("light");
-    } else {
-      applyTheme(savedTheme);
-    }
+    const savedTheme = localStorage.getItem("app_theme") || "light";
+    applyTheme(savedTheme);
 
     const savedLang = localStorage.getItem("app_language") || "en";
     applyLanguage(savedLang);

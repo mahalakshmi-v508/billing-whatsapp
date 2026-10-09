@@ -5,6 +5,7 @@ import { calculateLine, resolveProductPricing, normalisePriceType } from "../../
 import QuickAddProductModal from "../products/QuickAddProductModal";
 import { fetchSettings } from "../settings/settingsApi";
 import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings";
+import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
 import {
   Search,
   Plus,
@@ -47,6 +48,34 @@ import {
 /* ── Currency Helper ─────────────────────────────────────────────────── */
 const INR = "\u20B9";
 const formatCurrency = (amount) => `${INR}${Number(amount || 0).toFixed(2)}`;
+
+/* ── Expiry Helpers ───────────────────────────────────────────────────── */
+const isProductExpired = (expiryDate) => {
+  if (!expiryDate) return false;
+  try {
+    const exp = new Date(expiryDate);
+    if (isNaN(exp.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return exp < today;
+  } catch {
+    return false;
+  }
+};
+
+const getDaysUntilExpiry = (expiryDate) => {
+  if (!expiryDate) return null;
+  try {
+    const exp = new Date(expiryDate);
+    if (isNaN(exp.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffMs = exp.getTime() - today.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
+  }
+};
 
 /* ── Toast Component ─────────────────────────────────────────────────── */
 function ToastPortal({ toasts }) {
@@ -230,64 +259,6 @@ function createFreshBill(id) {
   };
 }
 
-function getInitialBillingSession(storageKey) {
-  const freshSession = {
-    bills: [createFreshBill("SS3")],
-    activeBillId: "SS3",
-    nextBillNumber: 4,
-  };
-
-  try {
-    const stored = JSON.parse(sessionStorage.getItem(storageKey) || "null");
-    if (!stored || !Array.isArray(stored.bills)) return freshSession;
-
-    const seenIds = new Set();
-    const bills = stored.bills.reduce((restoredBills, bill) => {
-      if (
-        !bill ||
-        typeof bill.id !== "string" ||
-        !Array.isArray(bill.rows) ||
-        !bill.customer ||
-        typeof bill.customer !== "object" ||
-        !bill.payment ||
-        typeof bill.payment !== "object" ||
-        seenIds.has(bill.id)
-      ) {
-        return restoredBills;
-      }
-
-      seenIds.add(bill.id);
-      const freshBill = createFreshBill(bill.id);
-      restoredBills.push({
-        ...freshBill,
-        ...bill,
-        rows: bill.rows.filter((row) => row && typeof row === "object"),
-        customer: { ...freshBill.customer, ...bill.customer },
-        payment: { ...freshBill.payment, ...bill.payment },
-      });
-      return restoredBills;
-    }, []);
-
-    if (bills.length === 0) return freshSession;
-
-    const highestBillNumber = bills.reduce((highest, bill) => {
-      const match = bill.id.match(/^SS(\d+)$/);
-      return match ? Math.max(highest, Number(match[1])) : highest;
-    }, 3);
-
-    return {
-      bills,
-      activeBillId: bills.some((bill) => bill.id === stored.activeBillId)
-        ? stored.activeBillId
-        : bills[0].id,
-      nextBillNumber: Math.max(Number(stored.nextBillNumber) || 4, highestBillNumber + 1),
-    };
-  } catch (error) {
-    console.warn("[POS BILLING] Could not restore the saved billing session:", error);
-    return freshSession;
-  }
-}
-
 /* ══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════════════ */
@@ -295,13 +266,11 @@ export default function Billing() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
   const navigate = useNavigate();
-  const billingSessionKey = `pos_billing_session_${user.id || adminId || "guest"}`;
-  const [initialBillingSession] = useState(() => getInitialBillingSession(billingSessionKey));
 
   /* ══ MULTI-BILL TAB STATE ══ */
-  const [bills, setBills] = useState(initialBillingSession.bills);
-  const [activeBillId, setActiveBillId] = useState(initialBillingSession.activeBillId);
-  const billCounterRef = useRef(initialBillingSession.nextBillNumber);
+  const [bills, setBills] = useState(() => [createFreshBill("SS3")]);
+  const [activeBillId, setActiveBillId] = useState("SS3");
+  const billCounterRef = useRef(4);
 
   const activeBill = bills.find((b) => b.id === activeBillId) || bills[0];
 
@@ -396,16 +365,36 @@ export default function Billing() {
     }
   });
 
+  /* ── Stock & Inventory Safety Settings ── */
+  const [stockSafety, setStockSafety] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${STOCK_SETTINGS_KEY}`);
+      return saved ? { ...DEFAULT_STOCK_SETTINGS, ...JSON.parse(saved) } : { ...DEFAULT_STOCK_SETTINGS };
+    } catch {
+      return { ...DEFAULT_STOCK_SETTINGS };
+    }
+  });
+
   useEffect(() => {
     fetchSettings().then((res) => {
-      if (res && res[POS_SETTINGS_KEY]) {
-        setPosSettings((prev) => ({ ...prev, ...res[POS_SETTINGS_KEY] }));
+      if (res) {
+        if (res[POS_SETTINGS_KEY]) {
+          setPosSettings((prev) => ({ ...prev, ...res[POS_SETTINGS_KEY] }));
+        }
+        if (res[STOCK_SETTINGS_KEY]) {
+          setStockSafety((prev) => ({ ...prev, ...res[STOCK_SETTINGS_KEY] }));
+        }
       }
     });
 
     const handleSettingsUpdate = (e) => {
-      if (e?.detail && e.detail[POS_SETTINGS_KEY]) {
-        setPosSettings((prev) => ({ ...prev, ...e.detail[POS_SETTINGS_KEY] }));
+      if (e?.detail) {
+        if (e.detail[POS_SETTINGS_KEY]) {
+          setPosSettings((prev) => ({ ...prev, ...e.detail[POS_SETTINGS_KEY] }));
+        }
+        if (e.detail[STOCK_SETTINGS_KEY]) {
+          setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
+        }
       }
     };
     window.addEventListener("company-settings-updated", handleSettingsUpdate);
@@ -435,30 +424,15 @@ export default function Billing() {
   const totalQty = validRows.reduce((s, r) => s + r.qty + (Number(r.freeQty) || 0), 0);
   const changeToReturn = extraAmount;
 
-  /* Performance: product maps (includes both product_code and barcode) */
+  /* Performance: product maps */
   const productById = useMemo(() => Object.fromEntries(products.map((p) => [String(p.id), p])), [products]);
   const productByCode = useMemo(() => {
     const m = {};
-    products.forEach((p) => {
-      if (p.product_code) m[String(p.product_code).trim().toLowerCase()] = p;
-      if (p.barcode) m[String(p.barcode).trim().toLowerCase()] = p;
-    });
+    products.forEach((p) => { if (p.product_code) m[String(p.product_code).toLowerCase()] = p; });
     return m;
   }, [products]);
 
   /* ══ EFFECTS ══ */
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(billingSessionKey, JSON.stringify({
-        bills,
-        activeBillId,
-        nextBillNumber: billCounterRef.current,
-      }));
-    } catch (error) {
-      console.error("[POS BILLING] Could not save the billing session:", error);
-    }
-  }, [activeBillId, billingSessionKey, bills]);
-
   useEffect(() => {
     api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
       .then((res) => {
@@ -641,21 +615,21 @@ export default function Billing() {
   }, []);
 
   const closeBill = useCallback((billId) => {
-    const remaining = bills.filter((bill) => bill.id !== billId);
-    if (remaining.length === 0) {
-      const fresh = createFreshBill("SS3");
-      billCounterRef.current = 4;
-      setActiveBillId(fresh.id);
-      setBills([fresh]);
-      return;
-    }
-    if (activeBillId === billId) {
-      const index = bills.findIndex((bill) => bill.id === billId);
-      const nextIndex = index > 0 ? index - 1 : 0;
-      setActiveBillId(remaining[nextIndex].id);
-    }
-    setBills(remaining);
-  }, [activeBillId, bills]);
+    setBills((prev) => {
+      const remaining = prev.filter((b) => b.id !== billId);
+      if (remaining.length === 0) {
+        const fresh = createFreshBill("SS3");
+        billCounterRef.current = 4;
+        return [fresh];
+      }
+      if (activeBillId === billId) {
+        const idx = prev.findIndex((b) => b.id === billId);
+        const nextIdx = idx > 0 ? idx - 1 : 0;
+        setActiveBillId(remaining[nextIdx].id);
+      }
+      return remaining;
+    });
+  }, [activeBillId]);
 
   const switchBill = useCallback((billId) => {
     setActiveBillId(billId);
@@ -710,7 +684,69 @@ export default function Billing() {
     return () => document.removeEventListener("keydown", handler);
   }, [customer, createNewBill, setPaymentMethod]);
 
-  /* ══ PRODUCT SEARCH & BARCODE SCANNER ENGINE ══ */
+  /* ══ PRODUCT SEARCH ══ */
+  const handleGlobalSearch = useCallback((value) => {
+    setGlobalSearch(value);
+    setShowNoResult(false);
+    setShowQuickAdd(false);
+    setSuggestIndex(-1);
+    clearTimeout(searchTimer.current);
+
+    if (!value.trim()) {
+      const recent = getRecent().filter((p) => productById[p.id] && productById[p.id].status === "active");
+      const list = recent.length > 0 ? recent : products.filter((p) => p.status === "active" && p.stock > 0).slice(0, 12);
+      setGlobalSuggestions(list);
+      setShowSuggest(list.length > 0);
+      return;
+    }
+
+    searchTimer.current = setTimeout(() => {
+      const q = value.toLowerCase();
+      const filtered = products.filter((p) =>
+        p.status === "active" &&
+        (p.product_name.toLowerCase().includes(q) || String(p.product_code || "").toLowerCase().includes(q))
+      );
+      setGlobalSuggestions(filtered.slice(0, 20));
+      setShowSuggest(filtered.length > 0);
+      if (filtered.length === 0) setShowNoResult(true);
+    }, 200);
+  }, [products, productById]);
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSuggestIndex((i) => Math.min(i + 1, globalSuggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSuggestIndex((i) => Math.max(i - 1, -1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (suggestIndex >= 0 && globalSuggestions[suggestIndex]) {
+        addOrMergeProduct(globalSuggestions[suggestIndex]);
+        return;
+      }
+      const code = globalSearch.trim().toLowerCase();
+      if (productByCode[code]) {
+        addOrMergeProduct(productByCode[code]);
+        return;
+      }
+      if (globalSuggestions.length === 1) {
+        addOrMergeProduct(globalSuggestions[0]);
+        return;
+      }
+      if (globalSuggestions.length === 0 && globalSearch.trim()) {
+        handleAiCopilotSubmit(globalSearch);
+        return;
+      }
+      if (globalSuggestions.length > 0) {
+        addOrMergeProduct(globalSuggestions[0]);
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggest(false);
+      setSuggestIndex(-1);
+    }
+  };
+
   const addOrMergeProduct = useCallback((product, qtyToAdd = 1) => {
     if (!product) return;
     const p = productById[product.id] || productById[product.product_id] || product;
@@ -719,19 +755,71 @@ export default function Billing() {
     // Saved sale price + its GST mode come straight from the API record.
     const posPricing = resolveProductPricing(p, { use: "sale" });
 
+    // 1. Check Expiry
+    if (stockSafety.expiry_control_mode !== "disabled" && isProductExpired(p.expiry_date)) {
+      if (stockSafety.expiry_control_mode === "block") {
+        showToast(
+          `❌ Product Expired: "${p.product_name || p.name}" expired on ${p.expiry_date}! Adding to bill is blocked.`,
+          "error"
+        );
+        return;
+      } else if (stockSafety.expiry_control_mode === "warning") {
+        showToast(
+          `⚠️ Expired Item Warning: "${p.product_name || p.name}" expired on ${p.expiry_date}!`,
+          "warning"
+        );
+      }
+    }
+
+    // 2. Check Negative Stock (0 stock)
+    const currentStock = Number(p.stock ?? 0);
+    if (currentStock <= 0) {
+      if (stockSafety.negative_stock_mode === "block") {
+        showToast(
+          `❌ Out of Stock! "${p.product_name || p.name}" has 0 stock. Negative stock billing is blocked.`,
+          "error"
+        );
+        return;
+      } else if (stockSafety.negative_stock_mode === "warning") {
+        showToast(
+          `⚠️ Negative Stock Warning: "${p.product_name || p.name}" has 0 stock!`,
+          "warning"
+        );
+      }
+    }
+
     setRows((prevRows) => {
       const updated = [...prevRows];
       const existingIdx = updated.findIndex((r) => String(r.product_id) === String(pid) && !r.isUnlisted);
 
       if (existingIdx !== -1) {
         const newQty = updated[existingIdx].qty + qtyNum;
-        if (p.stock && newQty > Number(p.stock)) {
-          showToast(`Only ${p.stock} in stock!`, "warning");
-          return prevRows;
+        if (currentStock > 0 && newQty > currentStock) {
+          if (stockSafety.negative_stock_mode === "block") {
+            showToast(`❌ Only ${currentStock} in stock for "${p.product_name || p.name}"! Quantity capped at available stock.`, "error");
+            updated[existingIdx] = { ...updated[existingIdx], qty: currentStock };
+            return updated;
+          } else if (stockSafety.negative_stock_mode === "warning") {
+            showToast(`⚠️ Overselling Warning: Only ${currentStock} in stock for "${p.product_name || p.name}"!`, "warning");
+          }
         }
         updated[existingIdx] = { ...updated[existingIdx], qty: newQty };
         showToast(`${p.product_name || p.name} qty -> ${newQty}`, "success");
       } else {
+        if (currentStock > 0 && qtyNum > currentStock) {
+          if (stockSafety.negative_stock_mode === "block") {
+            showToast(`❌ Only ${currentStock} in stock! Cannot add ${qtyNum} units.`, "error");
+            return prevRows;
+          } else if (stockSafety.negative_stock_mode === "warning") {
+            showToast(`⚠️ Overselling Warning: Only ${currentStock} in stock!`, "warning");
+          }
+        }
+
+        // Low stock alert on add
+        if (stockSafety.low_stock_alert && currentStock > 0 && currentStock <= (stockSafety.low_stock_threshold || 5)) {
+          showToast(`⚠️ Low Stock Alert: Only ${currentStock} units left for "${p.product_name || p.name}"!`, "warning");
+        }
+
         const newRow = {
           product_id: pid,
           name: p.product_name || p.name,
@@ -743,7 +831,8 @@ export default function Billing() {
           discount: 0,
           freeQty: 0,
           unit: p.unit || "",
-          stock: Number(p.stock || 0),
+          stock: currentStock,
+          expiry_date: p.expiry_date || null,
           isUnlisted: false,
         };
         const lastEmptyIdx = updated.findLastIndex
@@ -764,79 +853,7 @@ export default function Billing() {
     setShowNoResult(false);
     justSelectedRef.current = true;
     globalSearchRef.current?.focus();
-  }, [productById, showToast, setRows]);
-
-  const handleGlobalSearch = useCallback((value) => {
-    setGlobalSearch(value);
-    setShowNoResult(false);
-    setShowQuickAdd(false);
-    setSuggestIndex(-1);
-    clearTimeout(searchTimer.current);
-
-    if (!value.trim()) {
-      const recent = getRecent().filter((p) => productById[p.id] && productById[p.id].status === "active");
-      const list = recent.length > 0 ? recent : products.filter((p) => p.status === "active" && p.stock > 0).slice(0, 12);
-      setGlobalSuggestions(list);
-      setShowSuggest(list.length > 0);
-      return;
-    }
-
-    const trimmed = value.trim().toLowerCase();
-
-    // ⚡ Barcode Scanner Speed Mode: Instant item recognition & auto-enter (0ms delay)
-    if (posSettings.barcode_scanner_speed_mode && trimmed && productByCode[trimmed]) {
-      addOrMergeProduct(productByCode[trimmed], 1);
-      return;
-    }
-
-    searchTimer.current = setTimeout(() => {
-      const q = value.toLowerCase();
-      const filtered = products.filter((p) =>
-        p.status === "active" &&
-        (p.product_name.toLowerCase().includes(q) ||
-         String(p.product_code || "").toLowerCase().includes(q) ||
-         String(p.barcode || "").toLowerCase().includes(q))
-      );
-      setGlobalSuggestions(filtered.slice(0, 20));
-      setShowSuggest(filtered.length > 0);
-      if (filtered.length === 0) setShowNoResult(true);
-    }, 200);
-  }, [products, productById, productByCode, posSettings.barcode_scanner_speed_mode, addOrMergeProduct]);
-
-  const handleSearchKeyDown = (e) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSuggestIndex((i) => Math.min(i + 1, globalSuggestions.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSuggestIndex((i) => Math.max(i - 1, -1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (suggestIndex >= 0 && globalSuggestions[suggestIndex]) {
-        addOrMergeProduct(globalSuggestions[suggestIndex]);
-        return;
-      }
-      const code = globalSearch.trim().toLowerCase();
-      if (productByCode[code]) {
-        addOrMergeProduct(productByCode[code], 1);
-        return;
-      }
-      if (globalSuggestions.length === 1) {
-        addOrMergeProduct(globalSuggestions[0]);
-        return;
-      }
-      if (globalSuggestions.length === 0 && globalSearch.trim()) {
-        handleAiCopilotSubmit(globalSearch);
-        return;
-      }
-      if (globalSuggestions.length > 0) {
-        addOrMergeProduct(globalSuggestions[0]);
-      }
-    } else if (e.key === "Escape") {
-      setShowSuggest(false);
-      setSuggestIndex(-1);
-    }
-  };
+  }, [productById, showToast, setRows, stockSafety]);
 
   /* Quick Add (POS) - the limited popup saved the searched product to the
      database, so make it searchable and put it straight onto the active bill.
@@ -953,15 +970,36 @@ export default function Billing() {
     const num = Number(value);
     setRows((prev) => {
       const updated = [...prev];
-      if (updated[i].stock && !updated[i].isUnlisted && num > updated[i].stock) {
-        showToast(`Only ${updated[i].stock} in stock!`, "warning");
-        updated[i] = { ...updated[i], qty: updated[i].stock };
+      const row = updated[i];
+      if (!row) return prev;
+      const rowStock = Number(row.stock || 0);
+
+      if (!row.isUnlisted && rowStock > 0 && num > rowStock) {
+        if (stockSafety.negative_stock_mode === "block") {
+          showToast(`❌ Only ${rowStock} in stock for "${row.name}"! Capped at available stock.`, "error");
+          updated[i] = { ...row, qty: rowStock };
+        } else if (stockSafety.negative_stock_mode === "warning") {
+          showToast(`⚠️ Overselling Warning: Only ${rowStock} in stock for "${row.name}"!`, "warning");
+          updated[i] = { ...row, qty: num < 0 ? 0 : num };
+        } else {
+          updated[i] = { ...row, qty: num < 0 ? 0 : num };
+        }
+      } else if (!row.isUnlisted && rowStock <= 0 && num > 0) {
+        if (stockSafety.negative_stock_mode === "block") {
+          showToast(`❌ Out of Stock! "${row.name}" has 0 stock.`, "error");
+          updated[i] = { ...row, qty: 0 };
+        } else if (stockSafety.negative_stock_mode === "warning") {
+          showToast(`⚠️ Negative Stock Warning: "${row.name}" has 0 stock!`, "warning");
+          updated[i] = { ...row, qty: num < 0 ? 0 : num };
+        } else {
+          updated[i] = { ...row, qty: num < 0 ? 0 : num };
+        }
       } else {
-        updated[i] = { ...updated[i], qty: num < 0 ? 0 : num };
+        updated[i] = { ...row, qty: num < 0 ? 0 : num };
       }
       return [...updated];
     });
-  }, [showToast, setRows]);
+  }, [showToast, setRows, stockSafety]);
 
   const deleteRow = (i) => {
     setRows((prev) => {
@@ -1144,27 +1182,39 @@ export default function Billing() {
   };
 
   const handleGenerate = async (action = "print") => {
-    if (posSettings.mandatory_customer_mobile) {
-      if (!customer.phone || !customer.phone.trim()) {
-        showToast("Customer mobile number is mandatory!", "error");
-        phoneSuggestRef.current?.querySelector("input")?.focus();
-        return;
-      }
-      if (!/^[0-9]{10}$/.test(customer.phone.trim())) {
-        showToast("Enter a valid 10-digit mobile number!", "error");
-        phoneSuggestRef.current?.querySelector("input")?.focus();
-        return;
-      }
-    } else {
-      if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
-      if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
-    }
+    if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
+    if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
     if (billType === "gst_bill" && !customer.gst_no.trim()) { showToast("GST Number is mandatory for GST Bill!", "error"); return; }
     if (billType === "gst_bill" && !isValidGstin(customer.gst_no.trim().toUpperCase())) {
       showToast("Enter a valid 15-character GSTIN (e.g. 22ABCDE1234F1Z5).", "error");
       return;
     }
     if (validRows.length === 0) { showToast("Add at least one product to the invoice!", "error"); return; }
+
+    // ── Stock Safety Validation before saving ──
+    if (stockSafety.negative_stock_mode === "block") {
+      const negativeStockItem = validRows.find(
+        (r) => !r.isUnlisted && (Number(r.stock || 0) <= 0 || Number(r.qty || 0) > Number(r.stock || 0))
+      );
+      if (negativeStockItem) {
+        showToast(
+          `❌ Cannot save bill! "${negativeStockItem.name}" has insufficient stock (${negativeStockItem.stock} in stock, ${negativeStockItem.qty} in bill). Negative stock is blocked.`,
+          "error"
+        );
+        return;
+      }
+    }
+
+    if (stockSafety.expiry_control_mode === "block") {
+      const expiredItem = validRows.find((r) => !r.isUnlisted && isProductExpired(r.expiry_date));
+      if (expiredItem) {
+        showToast(
+          `❌ Cannot save bill! "${expiredItem.name}" is expired (${expiredItem.expiry_date}). Selling expired items is blocked.`,
+          "error"
+        );
+        return;
+      }
+    }
     if (paymentMethod !== "credit" && received <= 0 && advanceUsed < total) { showToast("Enter received payment amount!", "error"); return; }
     if (paymentMethod === "credit" && Number(customer.credit_enabled) === 1) {
       const limit = parseFloat(customer.credit_limit) || 0;
@@ -1218,12 +1268,10 @@ export default function Billing() {
         if (balance > 0 && res.data.advance_delta > 0) parts.push(`${formatCurrency(parseFloat(res.data.advance_delta))} added to advance`);
         const successMsg = parts.length > 0 ? `Invoice generated! ${parts.join(" · ")}` : "Invoice generated successfully!";
         setGenerating(false);
-
-        const invoiceRef = res.data.invoice_no || res.data.invoice_id;
-
         if (action === "preview") {
+          const invoiceRef = res.data.invoice_no || res.data.invoice_id;
           if (invoiceRef) {
-            navigate(`/invoice/${encodeURIComponent(String(invoiceRef))}?posPrint=1`, {
+            navigate(`/invoice/${encodeURIComponent(String(invoiceRef))}`, {
               state: { flash: successMsg, flashType: "success" },
             });
           } else {
@@ -1232,21 +1280,9 @@ export default function Billing() {
           return;
         }
 
-        // Auto-Print on Save
-        if (posSettings.auto_print_on_save || action === "print") {
-          if (invoiceRef) {
-            setPrintInvoiceUrl(`/invoice/${encodeURIComponent(String(invoiceRef))}?posPrint=1&autoPrint=1`);
-          }
-        }
-
-        // Auto-Clear Cart after Save
-        if (posSettings.auto_clear_cart_after_save) {
-          setBills((prev) => prev.map((bill) => (
-            bill.id === billIdToReset ? createFreshBill(bill.id) : bill
-          )));
-          globalSearchRef.current?.focus();
-        }
-
+        setBills((prev) => prev.map((bill) => (
+          bill.id === billIdToReset ? createFreshBill(bill.id) : bill
+        )));
         showToast(successMsg, "success");
         return;
       }
@@ -1718,10 +1754,32 @@ export default function Billing() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0 pl-3">
+                    <div className="text-right flex-shrink-0 pl-3 flex flex-col items-end gap-1">
                       <div className="text-xs font-extrabold text-slate-900">{formatCurrency(s.price)}</div>
-                      <div className={`text-[10px] font-bold ${s.stock < 5 ? "text-red-500" : "text-emerald-600"}`}>
-                        Stock: {s.stock}
+                      <div className="flex items-center gap-1.5 justify-end flex-wrap">
+                        {isProductExpired(s.expiry_date) ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
+                            Expired: {s.expiry_date}
+                          </span>
+                        ) : stockSafety.near_expiry_alert && getDaysUntilExpiry(s.expiry_date) !== null && getDaysUntilExpiry(s.expiry_date) <= (stockSafety.near_expiry_days || 30) ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-purple-100 text-purple-700">
+                            Exp in {getDaysUntilExpiry(s.expiry_date)}d
+                          </span>
+                        ) : null}
+
+                        {Number(s.stock ?? 0) <= 0 ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
+                            Out of Stock (0)
+                          </span>
+                        ) : stockSafety.low_stock_alert && Number(s.stock ?? 0) <= (stockSafety.low_stock_threshold || 5) ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            ⚠️ Low: {s.stock}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-emerald-600">
+                            Stock: {s.stock}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1972,7 +2030,29 @@ export default function Billing() {
                     </span>
 
                     <div className="min-w-0 pr-2">
-                      <div className="font-bold text-slate-900 truncate leading-snug">{r.name}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-slate-900 truncate leading-snug">{r.name}</span>
+                        {!r.isUnlisted && isProductExpired(r.expiry_date) && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-red-100 text-red-700 border border-red-200">
+                            ⚠️ Expired
+                          </span>
+                        )}
+                        {!r.isUnlisted && Number(r.stock || 0) <= 0 && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-red-100 text-red-700 border border-red-200">
+                            Zero Stock
+                          </span>
+                        )}
+                        {!r.isUnlisted && Number(r.stock || 0) > 0 && Number(r.qty || 0) > Number(r.stock || 0) && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200">
+                            ⚠️ Oversell ({r.stock})
+                          </span>
+                        )}
+                        {!r.isUnlisted && stockSafety.low_stock_alert && Number(r.stock || 0) > 0 && Number(r.stock || 0) <= (stockSafety.low_stock_threshold || 5) && Number(r.qty || 0) <= Number(r.stock || 0) && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            Low: {r.stock} left
+                          </span>
+                        )}
+                      </div>
                       {r.unit && <span className="text-[10px] text-slate-400">{r.unit}</span>}
                     </div>
 
@@ -1983,7 +2063,11 @@ export default function Billing() {
                         value={r.qty}
                         onChange={(e) => updateQty(i, e.target.value)}
                         onWheel={(e) => e.target.blur()}
-                        className="w-14 px-2 py-1 bg-white border border-slate-200 focus:border-indigo-500 rounded-lg text-center font-bold text-xs focus:outline-none"
+                        className={`w-14 px-2 py-1 bg-white border rounded-lg text-center font-bold text-xs focus:outline-none ${
+                          !r.isUnlisted && (Number(r.stock || 0) <= 0 || Number(r.qty || 0) > Number(r.stock || 0))
+                            ? "border-red-400 bg-red-50/50 text-red-900 focus:border-red-500"
+                            : "border-slate-200 focus:border-indigo-500"
+                        }`}
                       />
                     </div>
 
@@ -2147,21 +2231,12 @@ export default function Billing() {
                   </div>
                   <input
                     type="tel"
-                    placeholder={posSettings.mandatory_customer_mobile ? "10-digit mobile (Required *)" : "10-digit mobile number"}
+                    placeholder="10-digit mobile number"
                     value={customer.phone}
                     maxLength={10}
                     onChange={(e) => handlePhoneSearch(e.target.value)}
-                    className={`w-full pl-8 pr-16 py-2 bg-slate-50 border rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-colors ${
-                      posSettings.mandatory_customer_mobile && !customer.phone
-                        ? "border-amber-400 bg-amber-50/20"
-                        : "border-slate-200"
-                    }`}
+                    className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
                   />
-                  {posSettings.mandatory_customer_mobile && !customer.phone && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-amber-700 bg-amber-100/80 border border-amber-200 px-1.5 py-0.5 rounded pointer-events-none">
-                      Required *
-                    </span>
-                  )}
                   {phoneSuggestions.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 max-h-48 overflow-y-auto p-1">
                       {phoneSuggestions.map((c) => (

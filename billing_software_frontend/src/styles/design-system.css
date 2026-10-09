@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
 /* PaySplitX Design System Variables */
 :root {
@@ -15,10 +15,31 @@
   --card-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
   --card-shadow-hover: 0 12px 28px -6px rgba(15, 23, 42, 0.09), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
   --dropdown-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+
+  /* Semantic Theme Tokens - Light Mode Default */
+  --color-bg: #f8faff;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8faff;
+  --color-border: #e8edf5;
+  --color-text: #0f172a;
+  --color-text-soft: #334155;
+  --color-text-muted: #64748b;
+}
+
+html.dark {
+  /* Semantic Theme Tokens - Mild Dark Mode */
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-alt: #141d2e;
+  --color-border: #334155;
+  --color-text: #f8fafc;
+  --color-text-soft: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  color-scheme: dark;
 }
 
 body {
-  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans Tamil', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: #f8faff;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
@@ -366,54 +387,154 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   🌙 PAYSPLITX COMPREHENSIVE DARK MODE THEME SYSTEM
+   🌙 PAYSPLITX COMPREHENSIVE MILD DARK MODE THEME SYSTEM
+   Comfortable, eye-pleasing Slate/Zinc mild dark palette (No pure black #000)
+   - App Canvas: #0f172a (Slate 900)
+   - Cards, Tables, Panels, Headers: #1e293b (Slate 800)
+   - Elevated, Hover, Secondary: #334155 (Slate 700) or #141d2e
+   - Primary text: #f8fafc (Slate 50)
+   - Muted text: #94a3b8 (Slate 400)
+   - Borders: #334155 (Slate 700)
 ───────────────────────────────────────────────────────────────────────────── */
-body {
-  background-color: #f8faff;
-  color: #0f172a;
+
+html.dark body {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
 }
 
-html.dark {
-  color-scheme: dark;
+/* 1. Universal Page & Container Backgrounds */
+html.dark [class*="bg-[#f8faff]"],
+html.dark [class*="bg-[#f8fafc]"],
+html.dark [class*="bg-[#f1f5f9]"],
+html.dark .bg-\[\#f8faff\],
+html.dark .bg-\[\#f8fafc\],
+html.dark .bg-\[\#f1f5f9\] {
+  background-color: #0f172a !important;
 }
 
+html.dark .bg-slate-50,
+html.dark .bg-gray-50,
+html.dark .bg-zinc-50,
+html.dark .bg-slate-50\/95,
+html.dark .bg-slate-50\/90,
+html.dark .bg-slate-50\/80,
+html.dark .bg-slate-50\/70,
+html.dark .bg-slate-50\/60,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-50\/40,
+html.dark .bg-gray-50\/90,
+html.dark .bg-gray-50\/80,
+html.dark .bg-gray-50\/70,
+html.dark .bg-gray-50\/60,
+html.dark .bg-gray-50\/50 {
+  background-color: #141d2e !important;
+}
 
-/* Card surfaces */
+html.dark .bg-slate-100,
+html.dark .bg-gray-100,
+html.dark .bg-zinc-100,
+html.dark .bg-slate-100\/95,
+html.dark .bg-slate-100\/90,
+html.dark .bg-slate-100\/80,
+html.dark .bg-slate-100\/70,
+html.dark .bg-slate-100\/60,
+html.dark .bg-slate-100\/50,
+html.dark .bg-gray-100\/90,
+html.dark .bg-gray-100\/80,
+html.dark .bg-gray-100\/70,
+html.dark .bg-gray-100\/60,
+html.dark .bg-gray-100\/50 {
+  background-color: #1e293b !important;
+}
+
+html.dark .bg-slate-200,
+html.dark .bg-gray-200,
+html.dark .bg-zinc-200,
+html.dark .bg-slate-200\/80,
+html.dark .bg-slate-200\/60,
+html.dark .bg-slate-200\/50 {
+  background-color: #334155 !important;
+}
+
+/* 2. Card Surfaces & Modal Containers */
 html.dark .bg-white {
-  background-color: #141d33 !important;
-  color: #f1f5f9;
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.dark [class*="from-white"],
+html.dark .from-white {
+  --tw-gradient-from: #1e293b var(--tw-gradient-from-position, ) !important;
+  --tw-gradient-to: rgba(30, 41, 59, 0) var(--tw-gradient-to-position, ) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
 }
 
 html.dark .bg-white\/95,
 html.dark .bg-white\/90,
 html.dark .bg-white\/80 {
-  background-color: rgba(20, 29, 51, 0.95) !important;
+  background-color: rgba(30, 41, 59, 0.95) !important;
 }
 
-/* Inner panels, secondary strips */
-html.dark .bg-slate-50 {
-  background-color: #0f1629 !important;
+html.dark .psx-card,
+html.dark .settings-card {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3) !important;
 }
 
-html.dark .bg-slate-100 {
-  background-color: #18223c !important;
+html.dark .psx-card:hover {
+  box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.4) !important;
 }
 
-html.dark .bg-slate-100\/80,
-html.dark .bg-slate-50\/60 {
-  background-color: #141d33 !important;
+html.dark .psx-glass {
+  background: rgba(30, 41, 59, 0.88) !important;
+  border-color: #334155 !important;
 }
 
-/* Top Header Bar */
-header {
-  background-color: rgba(255, 255, 255, 0.95);
-  border-bottom-color: rgba(226, 232, 240, 0.8);
-  backdrop-filter: blur(12px);
+html.dark .psx-btn-secondary {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
 }
 
+html.dark .psx-btn-secondary:hover {
+  background: #334155 !important;
+  color: #ffffff !important;
+  border-color: #475569 !important;
+}
+
+/* 3. Dropdowns, Popovers, Mega-Menus & Dialogs */
+html.dark .dropdown-menu,
+html.dark .dropdown-popover,
+html.dark .dropdown-box,
+html.dark .custom-dropdown-panel {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 20px 30px -6px rgba(0, 0, 0, 0.5), 0 10px 14px -6px rgba(0, 0, 0, 0.3) !important;
+}
+
+html.dark .dropdown-item,
+html.dark .custom-dropdown-item {
+  color: #cbd5e1 !important;
+}
+
+html.dark .dropdown-item:hover,
+html.dark .custom-dropdown-item:hover {
+  background-color: #334155 !important;
+  color: #818cf8 !important;
+}
+
+html.dark .dropdown-item.active,
+html.dark .custom-dropdown-item.active {
+  background-color: #312e81 !important;
+  color: #c7d2fe !important;
+}
+
+/* 4. Top Header Bar */
 html.dark header {
-  background-color: rgba(11, 15, 25, 0.95) !important;
-  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  background-color: rgba(30, 41, 59, 0.95) !important;
+  border-bottom-color: #334155 !important;
 }
 
 html.dark header .text-slate-900,
@@ -434,81 +555,78 @@ html.dark header .text-slate-300 {
   color: #94a3b8 !important;
 }
 
-html.dark header .bg-slate-100 {
-  background-color: rgba(255, 255, 255, 0.06) !important;
-}
-
-html.dark header .bg-slate-50 {
-  background-color: rgba(255, 255, 255, 0.04) !important;
-}
-
+html.dark header .bg-slate-100,
 html.dark header .bg-white {
-  background-color: rgba(255, 255, 255, 0.06) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
   color: #f8fafc !important;
 }
 
-html.dark header .border-slate-200,
-html.dark header .border-slate-200\/80,
-html.dark header .border-slate-200\/90 {
-  border-color: rgba(255, 255, 255, 0.08) !important;
-}
-
 html.dark header .bg-indigo-50 {
-  background-color: rgba(99, 102, 241, 0.15) !important;
+  background-color: rgba(99, 102, 241, 0.18) !important;
 }
 
 html.dark header .border-indigo-100\/80 {
-  border-color: rgba(99, 102, 241, 0.3) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
 }
 
 html.dark header .text-indigo-600 {
   color: #818cf8 !important;
 }
 
-html.dark header .bg-indigo-50 {
-  background-color: #eef2ff !important;
-}
-
-html.dark header .border-indigo-100\/80 {
-  border-color: rgba(224, 231, 255, 0.8) !important;
-}
-
-html.dark header .text-indigo-600 {
-  color: #4f46e5 !important;
-}
-
-/* Text adaptations */
+/* 5. Text Adaptations */
 html.dark .text-slate-900,
 html.dark .text-slate-800,
-html.dark .text-slate-700 {
+html.dark .text-slate-700,
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-gray-700 {
   color: #f8fafc !important;
 }
 
 html.dark .text-slate-600,
-html.dark .text-slate-500 {
+html.dark .text-slate-500,
+html.dark .text-gray-600,
+html.dark .text-gray-500 {
   color: #94a3b8 !important;
 }
 
-html.dark .text-slate-400 {
+html.dark .text-slate-400,
+html.dark .text-gray-400 {
   color: #64748b !important;
 }
 
-/* Border adaptations */
+/* 6. Border Adaptations */
 html.dark .border-slate-100,
 html.dark .border-slate-200,
-html.dark .border-slate-200\/80,
 html.dark .border-slate-200\/90,
-html.dark .border-slate-300 {
-  border-color: rgba(255, 255, 255, 0.08) !important;
+html.dark .border-slate-200\/80,
+html.dark .border-slate-200\/70,
+html.dark .border-slate-200\/60,
+html.dark .border-slate-200\/50,
+html.dark .border-slate-300,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300,
+html.dark .border-\[\#e8edf5\],
+html.dark .border-\[\#e2e8f0\] {
+  border-color: #334155 !important;
 }
 
 html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
 html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: #334155 !important;
 }
 
-/* Form inputs & controls */
+/* Recharts Dark Theme Global Enhancements */
+html.dark .recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.08) !important;
+}
+html.dark .recharts-cartesian-axis-tick text {
+  fill: #94a3b8 !important;
+}
+
+/* 7. Form Inputs & Controls */
 html.dark input[type="text"],
 html.dark input[type="email"],
 html.dark input[type="password"],
@@ -516,12 +634,20 @@ html.dark input[type="number"],
 html.dark input[type="search"],
 html.dark input[type="tel"],
 html.dark input[type="url"],
+html.dark input[type="date"],
 html.dark textarea,
 html.dark select,
 html.dark .psx-input {
-  background-color: #0f1629 !important;
+  background-color: #0f172a !important;
   color: #f8fafc !important;
-  border-color: #2b3b64 !important;
+  border-color: #334155 !important;
+}
+
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark .psx-input:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3.5px rgba(99, 102, 241, 0.25) !important;
 }
 
 html.dark input::placeholder,
@@ -530,45 +656,224 @@ html.dark textarea::placeholder {
 }
 
 html.dark select option {
-  background-color: #141d33 !important;
+  background-color: #1e293b !important;
   color: #f8fafc !important;
 }
 
 html.dark select option:checked {
-  background-color: #1f2b4c !important;
+  background-color: #334155 !important;
   color: #818cf8 !important;
 }
 
-/* Tables */
+html.dark select optgroup {
+  background-color: #141d2e !important;
+  color: #94a3b8 !important;
+}
+
+/* 8. Tables */
 html.dark .psx-table-container,
 html.dark table {
-  background-color: #141d33 !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
 }
 
 html.dark .psx-table th,
 html.dark table th {
-  background-color: #0f1629 !important;
+  background-color: #141d2e !important;
   color: #94a3b8 !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: #334155 !important;
 }
 
 html.dark .psx-table td,
 html.dark table td {
   color: #f1f5f9 !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(51, 65, 85, 0.6) !important;
 }
 
 html.dark .psx-table tr:hover td,
 html.dark table tr:hover td,
 html.dark tr.hover\:bg-slate-50:hover,
-html.dark tr.hover\:bg-slate-50\/80:hover {
-  background-color: #1f2b4c !important;
+html.dark tr.hover\:bg-slate-50\/80:hover,
+html.dark tr.hover\:bg-gray-50:hover {
+  background-color: #243248 !important;
 }
 
-/* Popover & dropdown panels */
+/* 9. Soft Badges, Pills & Pastel Tint Overrides (No harsh white pastels in Dark Mode) */
+html.dark .bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.16) !important;
+  color: #a5b4fc !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+html.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.16) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+html.dark .bg-rose-50 {
+  background-color: rgba(244, 63, 94, 0.16) !important;
+  color: #fda4af !important;
+  border-color: rgba(244, 63, 94, 0.3) !important;
+}
+
+html.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  color: #fcd34d !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+html.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.16) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+html.dark .bg-sky-50 {
+  background-color: rgba(14, 165, 233, 0.16) !important;
+  color: #7dd3fc !important;
+  border-color: rgba(14, 165, 233, 0.3) !important;
+}
+
+html.dark .bg-purple-50 {
+  background-color: rgba(168, 85, 247, 0.16) !important;
+  color: #d8b4fe !important;
+  border-color: rgba(168, 85, 247, 0.3) !important;
+}
+
+html.dark .bg-teal-50 {
+  background-color: rgba(20, 184, 166, 0.16) !important;
+  color: #5eead4 !important;
+  border-color: rgba(20, 184, 166, 0.3) !important;
+}
+
+html.dark .bg-cyan-50 {
+  background-color: rgba(6, 182, 212, 0.16) !important;
+  color: #67e8f9 !important;
+  border-color: rgba(6, 182, 212, 0.3) !important;
+}
+
+/* 10. Scrollbar Adaptations for Mild Dark Mode */
+html.dark .paysplitx-scrollbar-light::-webkit-scrollbar-track {
+  background: #0f172a !important;
+}
+html.dark .paysplitx-scrollbar-light::-webkit-scrollbar-thumb {
+  background: #334155 !important;
+  border-radius: 9999px;
+}
+html.dark .paysplitx-scrollbar-light::-webkit-scrollbar-thumb:hover {
+  background: #475569 !important;
+}
+
+/* 11. Modal and Drawer Overlays */
 html.dark .shadow-2xl,
 html.dark .shadow-xl {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4) !important;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   🇮🇳 TAMIL TYPOGRAPHY & LAYOUT ALIGNMENT PRESERVATION SYSTEM
+   Ensures seamless horizontal/vertical alignment when Tamil UI mode is active.
+───────────────────────────────────────────────────────────────────────────── */
+
+/* 1. Global Font Stack for Tamil */
+html[lang="ta"],
+html[lang="ta"] body,
+html[lang="ta"] button,
+html[lang="ta"] input,
+html[lang="ta"] select,
+html[lang="ta"] textarea {
+  font-family: 'Noto Sans Tamil', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+html[lang="ta"] body {
+  line-height: 1.5;
+}
+
+/* 2. Neutralize negative/wide tracking so Tamil ligatures and vowel signs do not overlap or detach */
+html[lang="ta"] .tracking-tight,
+html[lang="ta"] .tracking-tighter,
+html[lang="ta"] .tracking-wide,
+html[lang="ta"] .tracking-wider,
+html[lang="ta"] .tracking-widest {
+  letter-spacing: 0 !important;
+}
+
+/* 3. Neutralize tight line-heights that clip Tamil vowel signs and push baselines down */
+html[lang="ta"] .leading-tight,
+html[lang="ta"] .leading-none {
+  line-height: 1.45 !important;
+}
+
+/* 4. Prevent SVG icons in buttons, labels, and flex containers from squashing */
+svg.lucide,
+button > svg,
+label > svg,
+.flex > svg,
+.inline-flex > svg {
+  flex-shrink: 0;
+}
+
+/* 5. Protect all Table Headers & Cells from wrapping vertically */
+table th,
+.psx-table th {
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+
+table td,
+.psx-table td {
+  vertical-align: middle !important;
+}
+
+/* 6. Numeric & currency column tabular alignment */
+table td.text-right,
+table th.text-right,
+.psx-table td.text-right,
+.psx-table th.text-right {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap !important;
+}
+
+/* 7. Status badges, tags & pills must remain single-line inline pills */
+span[class*="rounded-full"],
+.status-badge {
+  white-space: nowrap !important;
+}
+
+/* 8. Uniform inline flex buttons */
+button,
+.psx-btn-primary,
+.psx-btn-secondary,
+.app-btn-primary {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 9. Protect keyboard shortcut elements across the app */
+kbd,
+.no-translate,
+[data-no-translate] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+/* 10. Metric and KPI Card flex protection */
+.grid > div > .flex {
+  min-width: 0;
+}
+
+/* 11. Tamil typography and layout alignment stability */
+html[lang="ta"] body {
+  font-feature-settings: "kern" 1;
+  text-rendering: optimizeLegibility;
+}
+
+html[lang="ta"] .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 

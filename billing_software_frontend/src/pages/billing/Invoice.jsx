@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import api from "../../services/api";
+import html2pdf from "html2pdf.js";
 import {
   Download, Printer, FileText, ChevronDown, ChevronUp,
   X, Maximize2, Minimize2, Check, Share2, MessageCircle, Mail,
@@ -12,8 +13,9 @@ import {
   FileCheck, ShieldCheck, ChevronRight, CornerDownLeft
 } from "lucide-react";
 import {
-  generateInvoicePdf,
+  createPosInvoicePdf,
   generateInvoicePdfBase64,
+  getA4InvoicePdfOptions,
   sendInvoiceViaWhatsAppApi,
   getInvoiceLogoUrl,
 } from "../../utils/invoiceShare";
@@ -1383,7 +1385,7 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
         </div>
       </div>
 
-      <div className="thermal-pos-details-divider" style={S.divider} />
+      <div style={S.divider} />
 
       {isPaymentVoucher ? (
         <div style={{ padding: "4px 0" }}>
@@ -1416,14 +1418,14 @@ export function ThemePOSClassic({ invoice, company, color, logoUrl, printSetting
       ) : (
         <>
           {/* Item Table */}
-          <table className="thermal-pos-items-table" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11 }}>
             <thead>
               <tr style={{ borderBottom: "1px dashed #000000" }}>
-                {printSettings.showSNo !== false && <th style={{ textAlign: "left", width: "12%", paddingBottom: 3, fontWeight: "bold" }}>#</th>}
-                <th style={{ textAlign: "left", width: printSettings.showSNo !== false ? "40%" : "45%", paddingBottom: 3, fontWeight: "bold" }}>Item</th>
-                <th style={{ textAlign: "right", width: "18%", paddingBottom: 3, fontWeight: "bold" }}>Rate</th>
-                <th style={{ textAlign: "center", width: "15%", paddingBottom: 3, fontWeight: "bold" }}>Qty</th>
-                <th style={{ textAlign: "right", width: "20%", paddingBottom: 3, fontWeight: "bold" }}>Amt</th>
+                {printSettings.showSNo !== false && <th style={{ textAlign: "left", width: "12%", padding: "0 0 6px", fontWeight: "bold" }}>#</th>}
+                <th style={{ textAlign: "left", width: printSettings.showSNo !== false ? "40%" : "45%", padding: "0 0 6px", fontWeight: "bold" }}>Item</th>
+                <th style={{ textAlign: "right", width: "18%", padding: "0 0 6px", fontWeight: "bold" }}>Rate</th>
+                <th style={{ textAlign: "center", width: "15%", padding: "0 0 6px", fontWeight: "bold" }}>Qty</th>
+                <th style={{ textAlign: "right", width: "20%", padding: "0 0 6px", fontWeight: "bold" }}>Amt</th>
               </tr>
             </thead>
             <tbody>
@@ -1765,7 +1767,7 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
           </div>
 
           {/* Prominent High Contrast Total Banner */}
-          <div className="thermal-pos-modern-total-banner" style={{
+          <div style={{
             background: "#0f172a",
             color: "#ffffff",
             borderRadius: 6,
@@ -1780,7 +1782,7 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
           </div>
 
           {/* Payment Status Bar */}
-          <div className="thermal-pos-modern-status-bar" style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#334155", background: "#f8fafc", padding: "4px 6px", borderRadius: 4, border: "1px solid #e2e8f0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#334155", background: "#f8fafc", padding: "4px 6px", borderRadius: 4, border: "1px solid #e2e8f0" }}>
             {showPaymentMode && <span>Payment: <strong>{paymentMethod}</strong></span>}
             {showBalance && <span>Status: <strong style={{ color: balanceAmount > 0 ? "#dc2626" : "#16a34a" }}>{balanceAmount > 0 ? `Due ₹${formatCurrency(balanceAmount, printSettings)}` : "PAID FULL"}</strong></span>}
           </div>
@@ -1908,7 +1910,7 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
         </tbody>
       </table>
 
-      <div className="thermal-pos-details-divider" style={{ borderBottom: "1px dashed #000", margin: "3px 0" }} />
+      <div style={{ borderBottom: "1px dashed #000", margin: "3px 0" }} />
 
       {isPaymentVoucher ? (
         <div style={{ padding: "4px 0" }}>
@@ -1945,12 +1947,12 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9.5 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid #000000" }}>
-                {printSettings.showSNo !== false && <th style={{ textAlign: "left", padding: "2px 0", fontWeight: "bold", width: 18 }}>#</th>}
-                <th style={{ textAlign: "left", padding: "2px 0", fontWeight: "bold" }}>Item</th>
-                {showHSN && vType !== "expense" && <th style={{ textAlign: "center", padding: "2px 0", fontWeight: "bold" }}>HSN</th>}
-                <th style={{ textAlign: "center", padding: "2px 0", fontWeight: "bold" }}>Qty</th>
-                <th style={{ textAlign: "right", padding: "2px 0", fontWeight: "bold" }}>Rate</th>
-                <th style={{ textAlign: "right", padding: "2px 0", fontWeight: "bold" }}>Amt</th>
+                {printSettings.showSNo !== false && <th style={{ textAlign: "left", padding: "2px 0 5px", fontWeight: "bold", width: 18 }}>#</th>}
+                <th style={{ textAlign: "left", padding: "2px 0 5px", fontWeight: "bold" }}>Item</th>
+                {showHSN && vType !== "expense" && <th style={{ textAlign: "center", padding: "2px 0 5px", fontWeight: "bold" }}>HSN</th>}
+                <th style={{ textAlign: "center", padding: "2px 0 5px", fontWeight: "bold" }}>Qty</th>
+                <th style={{ textAlign: "right", padding: "2px 0 5px", fontWeight: "bold" }}>Rate</th>
+                <th style={{ textAlign: "right", padding: "2px 0 5px", fontWeight: "bold" }}>Amt</th>
               </tr>
             </thead>
             <tbody>
@@ -2024,8 +2026,8 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
               </tr>
               {showTax && totalGst > 0 && (
                 <tr>
-                  <td style={{ padding: "1px 0" }}>Total Tax</td>
-                  <td style={{ textAlign: "right", padding: "1px 0" }}>₹{formatCurrency(totalGst, printSettings)}</td>
+                  <td style={{ padding: "3px 0" }}>Total Tax</td>
+                  <td style={{ textAlign: "right", padding: "3px 0" }}>₹{formatCurrency(totalGst, printSettings)}</td>
                 </tr>
               )}
               {showYouSaved && (invoice.savings_amount || invoice.discount_amount) && (
@@ -2035,8 +2037,8 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
                 </tr>
               )}
               <tr style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", fontWeight: "bold", fontSize: 12 }}>
-                <td style={{ padding: "3px 0" }}>NET AMOUNT</td>
-                <td style={{ textAlign: "right", padding: "3px 0" }}>₹{formatCurrency(totalAmount, printSettings)}</td>
+                <td style={{ padding: "5px 0" }}>NET AMOUNT</td>
+                <td style={{ textAlign: "right", padding: "5px 0" }}>₹{formatCurrency(totalAmount, printSettings)}</td>
               </tr>
               {(showReceived || showBalance) && (
                 <tr>
@@ -2091,7 +2093,9 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
   const showTerms = printSettings.printTerms !== false && Boolean(termsText);
 
   return (
-    <div className="thermal-pos-minimal-receipt" style={{
+    <div
+      className="pos-minimal-receipt"
+      style={{
       fontFamily: "'Courier New', Courier, monospace",
       fontSize: 11,
       color: "#000000",
@@ -2101,7 +2105,8 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
       lineHeight: 1.3,
       background: "#ffffff",
       boxSizing: "border-box"
-    }}>
+      }}
+    >
       {/* Big Token Number Header Box */}
       <div style={{ border: "2px solid #000000", padding: "6px 4px", textAlign: "center", marginBottom: 6 }}>
         {showLogo && logoUrl && (
@@ -2261,7 +2266,7 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
         <div>{partyLabel} {invoice.customer_name || invoice.party_name || "Valued Patron"}</div>
       </div>
 
-      <div style={{ borderBottom: "1px solid #000", margin: "10px 0 4px" }} />
+      <div style={{ borderBottom: "1px solid #000", margin: "4px 0" }} />
 
       {isPaymentVoucher ? (
         <div style={{ padding: "4px 0" }}>
@@ -2298,11 +2303,11 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
             <thead>
               <tr style={{ borderBottom: "1px dashed #71717a" }}>
-                {printSettings.showSNo !== false && <th style={{ textAlign: "left", paddingBottom: 6, fontWeight: "bold", width: 16 }}>#</th>}
-                <th style={{ textAlign: "left", paddingBottom: 6, fontWeight: "bold" }}>ITEM DESCRIPTION</th>
-                <th style={{ textAlign: "center", paddingBottom: 6, fontWeight: "bold" }}>QTY</th>
-                <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: "bold" }}>PRICE</th>
-                <th style={{ textAlign: "right", paddingBottom: 6, fontWeight: "bold" }}>TOTAL</th>
+                {printSettings.showSNo !== false && <th style={{ textAlign: "left", paddingBottom: 2, fontWeight: "bold", width: 16 }}>#</th>}
+                <th style={{ textAlign: "left", paddingBottom: 2, fontWeight: "bold" }}>ITEM DESCRIPTION</th>
+                <th style={{ textAlign: "center", paddingBottom: 2, fontWeight: "bold" }}>QTY</th>
+                <th style={{ textAlign: "right", paddingBottom: 2, fontWeight: "bold" }}>PRICE</th>
+                <th style={{ textAlign: "right", paddingBottom: 2, fontWeight: "bold" }}>TOTAL</th>
               </tr>
             </thead>
             <tbody>
@@ -2491,6 +2496,9 @@ export default function InvoicePreview() {
   const [toasts, setToasts] = useState([]);
 
   const isPOS = printerType === "thermal" || selectedTheme === "pos";
+  const posPaperWidthMm = isPOS && selectedPosLayout === "pos_minimal"
+    ? 120
+    : pageSize?.includes("80mm") ? 80 : 58;
   const logoUrl = getInvoiceLogoUrl(company?.logo);
 
   const showToast = useCallback((msg, type = "info") => {
@@ -2530,12 +2538,11 @@ export default function InvoicePreview() {
           }
         }`
       : `@media print {
-          @page { size: A4 portrait; margin: 8mm; }
+          @page { size: A4 portrait; margin: 0; }
           #invoice-print-area {
-            width: 194mm !important;
-            max-width: 194mm !important;
-            min-height: 281mm !important;
-            padding: 0 !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+            min-height: 297mm !important;
           }
         }`;
     s.innerHTML = `${PRINT_CSS}${posPrintCss}`;
@@ -2679,7 +2686,8 @@ export default function InvoicePreview() {
           element,
           invoiceNo: invoice.invoice_no,
           isPOS,
-          pageSize,
+          paperWidthMm: isPOS ? posPaperWidthMm : undefined,
+          isMinimalPos: isPOS && selectedPosLayout === "pos_minimal",
         });
 
         return api.post("/transaction-messages/attach-pdf", {
@@ -2700,7 +2708,7 @@ export default function InvoicePreview() {
       });
 
     return () => { cancelled = true; };
-  }, [invoice, isPOS, pageSize]);
+  }, [invoice, isPOS, posPaperWidthMm, selectedPosLayout]);
 
   /* PDF Download */
   const downloadPDF = useCallback(() => {
@@ -2709,35 +2717,34 @@ export default function InvoicePreview() {
 
     showToast("Generating PDF download...", "info");
     if (isPOS) {
-      generateInvoicePdf({
+      createPosInvoicePdf({
         element,
-        invoiceNo: invoice.invoice_no,
-        isPOS: true,
-        pageSize,
-        lowerPosDetailsDivider: true,
-        centerModernPosSummary: selectedPosLayout === "pos_modern",
-        fixMinimalPosPdf: selectedPosLayout === "pos_minimal",
+        paperWidthMm: posPaperWidthMm,
+        isMinimalPos: selectedPosLayout === "pos_minimal",
       })
         .then((pdf) => {
           pdf.save(`invoice-${invoice.invoice_no}.pdf`);
+        })
+        .then(() => {
           showToast("PDF downloaded successfully!", "success");
         })
-        .catch((error) => {
-          console.error("[THERMAL PDF] Failed to export receipt:", error);
+        .catch(() => {
           showToast("Failed to download PDF.", "error");
         });
     } else {
-      generateInvoicePdf({ element, invoiceNo: invoice.invoice_no, isPOS: false })
-        .then((pdf) => {
-          pdf.save(`invoice-${invoice.invoice_no}.pdf`);
+      const opt = getA4InvoicePdfOptions({ element, invoiceNo: invoice.invoice_no });
+      html2pdf()
+        .set(opt)
+        .from(element)
+        .save()
+        .then(() => {
           showToast("PDF downloaded successfully!", "success");
         })
-        .catch((error) => {
-          console.error("[INVOICE PDF] A4 export failed:", error);
+        .catch(() => {
           showToast("Failed to download PDF.", "error");
         });
     }
-  }, [invoice, isPOS, pageSize, selectedPosLayout, showToast]);
+  }, [invoice, isPOS, posPaperWidthMm, selectedPosLayout, showToast]);
 
   /* Print */
   const handlePrint = useCallback(() => {
@@ -2751,7 +2758,13 @@ export default function InvoicePreview() {
 
     setWaSending(true);
     showToast("Preparing & sending PDF via WhatsApp...", "info");
-    generateInvoicePdfBase64({ element, invoiceNo: invoice.invoice_no, isPOS, pageSize })
+    generateInvoicePdfBase64({
+      element,
+      invoiceNo: invoice.invoice_no,
+      isPOS,
+      paperWidthMm: isPOS ? posPaperWidthMm : undefined,
+      isMinimalPos: isPOS && selectedPosLayout === "pos_minimal",
+    })
       .then((pdf_base64) =>
         sendInvoiceViaWhatsAppApi({
           company_id: invoice.company_id,
@@ -2767,7 +2780,7 @@ export default function InvoicePreview() {
         showToast(err.response?.data?.message || "Failed to send invoice via WhatsApp.", "error");
       })
       .finally(() => setWaSending(false));
-  }, [invoice, isPOS, pageSize, waSending, showToast]);
+  }, [invoice, isPOS, posPaperWidthMm, selectedPosLayout, waSending, showToast]);
 
   /* Transaction Message via WhatsApp */
   const sendTransactionMessage = useCallback(() => {
@@ -2823,11 +2836,9 @@ export default function InvoicePreview() {
   /* Save & Close Navigation */
   const handleSaveAndClose = useCallback(() => {
     localStorage.setItem("skip_invoice_preview", doNotShowAgain ? "true" : "false");
-    const targetRoute = forcePosPrint
-      ? "/billing"
-      : getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
+    const targetRoute = getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
     navigate(targetRoute);
-  }, [doNotShowAgain, forcePosPrint, invoice, invoiceNo, navigate]);
+  }, [doNotShowAgain, invoice, invoiceNo, navigate]);
 
   /* Keyboard Shortcuts */
   useEffect(() => {
@@ -3031,6 +3042,31 @@ export default function InvoicePreview() {
 
         {/* Right Cluster: Quick Actions & Close */}
         <div className="flex items-center gap-2.5">
+          {/* Quick toggle check */}
+          <label className="hidden xl:flex items-center gap-2 cursor-pointer text-xs text-slate-600 hover:text-slate-900">
+            <input
+              type="checkbox"
+              checked={doNotShowAgain}
+              onChange={(e) => {
+                setDoNotShowAgain(e.target.checked);
+                localStorage.setItem("skip_invoice_preview", e.target.checked ? "true" : "false");
+              }}
+              className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-blue-600"
+            />
+            <span>Skip preview next time</span>
+          </label>
+
+          {/* Quick Print Primary Button */}
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all"
+            title="Print document (Ctrl+P)"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Print</span>
+            <kbd className="hidden lg:inline px-1 py-0.2 rounded bg-white/20 text-[9px] font-normal">^P</kbd>
+          </button>
+
           {/* Save & Close Button */}
           <button
             onClick={handleSaveAndClose}
@@ -3291,7 +3327,11 @@ export default function InvoicePreview() {
               id="invoice-print-area"
               className={`bg-white text-slate-900 shadow-xl rounded-sm ring-1 ring-slate-300/80 relative ${
                 isPOS
-                  ? pageSize && pageSize.includes("58mm")
+                  ? selectedPosLayout === "pos_minimal"
+                    ? pageSize && pageSize.includes("58mm")
+                      ? "w-[270px] p-3"
+                      : "w-[310px] p-4"
+                    : pageSize && pageSize.includes("58mm")
                     ? "w-[270px] p-3"
                     : "w-[310px] p-4"
                   : "w-[794px] min-h-[1050px] p-8"

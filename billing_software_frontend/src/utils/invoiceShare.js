@@ -1,5 +1,5 @@
 import html2pdf from "html2pdf.js";
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import api, { API_BASE_URL } from "../services/api";
 
 /* ── logo URL resolver (shared by Invoice view + Reports row actions) ── */
@@ -12,174 +12,138 @@ export const getInvoiceLogoUrl = (logo) => {
   return `${baseUrl}${logo}`;
 };
 
-/* ── render an invoice DOM node to base64 PDF using the exact same
-      options as the Invoice View page ── */
-export function generateInvoicePdf({
-  element,
-  invoiceNo,
-  isPOS,
-  pageSize,
-  lowerPosDetailsDivider = false,
-  centerModernPosSummary = false,
-  fixMinimalPosPdf = false,
-}) {
-  if (isPOS) {
-    const minimalReceipt = fixMinimalPosPdf
-      ? element.querySelector(".thermal-pos-minimal-receipt")
-      : null;
-    const captureElement = minimalReceipt || element;
-    const captureWidth = Math.max(captureElement.offsetWidth, captureElement.scrollWidth);
-    const captureHeight = Math.max(captureElement.offsetHeight, captureElement.scrollHeight);
-    if (!captureWidth || !captureHeight) {
-      return Promise.reject(new Error("Thermal receipt preview is empty."));
+export function getA4InvoicePdfOptions({ element, invoiceNo }) {
+  const sourceWidth = element?.offsetWidth || element?.scrollWidth || 794;
+  const printableWidth = (210 - 16) * (96 / 25.4);
+  const scale = Math.min(1, printableWidth / sourceWidth);
+
+  return {
+    margin: 8,
+    filename: `invoice-${invoiceNo}.pdf`,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      onclone: (_clonedDocument, clonedElement) => {
+        clonedElement.style.setProperty("box-sizing", "border-box", "important");
+        clonedElement.style.setProperty("width", `${sourceWidth}px`, "important");
+        clonedElement.style.setProperty("max-width", "none", "important");
+        clonedElement.style.setProperty("margin", "0", "important");
+        clonedElement.style.setProperty("transform", `scale(${scale})`, "important");
+        clonedElement.style.setProperty("transform-origin", "top left", "important");
+      },
+    },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+  };
+}
+
+export function createPosInvoicePdf({ element, paperWidthMm, isMinimalPos = false }) {
+  const sourceWidth = element?.offsetWidth || element?.scrollWidth || 310;
+  const captureWidth = isMinimalPos ? 460 : sourceWidth;
+  const paperWidth = paperWidthMm || (sourceWidth <= 290 ? 58 : 80);
+  const margin = 2;
+  const printableWidth = paperWidth - margin * 2;
+  let captureElement = element;
+
+  if (isMinimalPos) {
+    captureElement = element.cloneNode(true);
+    captureElement.style.cssText += `
+      box-sizing: border-box !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: ${captureWidth}px !important;
+      max-width: none !important;
+      margin: 0 !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      background: #ffffff !important;
+    `;
+    const receipt = captureElement.querySelector(".pos-minimal-receipt");
+    if (receipt) {
+      receipt.style.setProperty("width", "420px", "important");
+      receipt.style.setProperty("max-width", "420px", "important");
+      receipt.style.setProperty("margin", "0 auto", "important");
     }
-    return html2pdf()
-      .set({
-        html2canvas: {
-          scale: 3,
-          useCORS: true,
-          logging: false,
-          width: captureWidth,
-          height: captureHeight,
-          windowWidth: Math.max(document.documentElement.clientWidth, captureWidth),
-          scrollX: 0,
-          scrollY: 0,
-          onclone: lowerPosDetailsDivider || centerModernPosSummary
-            ? (clonedDocument) => {
-              if (lowerPosDetailsDivider) {
-                const divider = clonedDocument.querySelector(".thermal-pos-details-divider");
-                if (divider) divider.style.marginTop = "16px";
-
-                const itemHeaderCells = clonedDocument.querySelectorAll(".thermal-pos-items-table thead th");
-                itemHeaderCells.forEach((cell) => {
-                  cell.style.paddingBottom = "8px";
-                });
-              }
-
-              if (centerModernPosSummary) {
-                const totalBanner = clonedDocument.querySelector(".thermal-pos-modern-total-banner");
-                if (totalBanner) {
-                  totalBanner.style.setProperty("background", "#000000", "important");
-                  totalBanner.style.setProperty("color", "#ffffff", "important");
-                  totalBanner.style.setProperty("justify-content", "center", "important");
-                  totalBanner.style.setProperty("flex-direction", "column", "important");
-                  totalBanner.style.setProperty("text-align", "center", "important");
-                }
-
-                const statusBar = clonedDocument.querySelector(".thermal-pos-modern-status-bar");
-                if (statusBar) {
-                  statusBar.style.setProperty("justify-content", "center", "important");
-                  statusBar.style.setProperty("gap", "12px", "important");
-                  statusBar.style.setProperty("text-align", "center", "important");
-                  statusBar.querySelectorAll("span").forEach((item) => {
-                    item.style.setProperty("text-align", "center", "important");
-                  });
-                }
-              }
-            }
-            : undefined,
-        },
-      })
-      .from(captureElement)
-      .toCanvas()
-      .get("canvas")
-      .then((canvas) => {
-        if (!canvas.width || !canvas.height) {
-          throw new Error("Thermal receipt preview rendered an empty page.");
-        }
-
-        const rollWidth = pageSize?.includes("58mm") ? 58 : 80;
-        const receiptHeight = canvas.height * rollWidth / canvas.width;
-        const pdf = new jsPDF({
-          unit: "mm",
-          format: [rollWidth, receiptHeight],
-          orientation: "portrait",
-        });
-        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, rollWidth, receiptHeight);
-        return pdf;
-      });
+    document.body.appendChild(captureElement);
   }
 
-  const captureWidth = Math.max(element.offsetWidth, element.scrollWidth);
   return html2pdf()
     .set({
-      margin: 0,
-      filename: `invoice-${invoiceNo}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         logging: false,
         width: captureWidth,
-        windowWidth: Math.max(document.documentElement.clientWidth, captureWidth),
+        windowWidth: captureWidth,
         scrollX: 0,
         scrollY: 0,
+        onclone: (_clonedDocument, clonedElement) => {
+          clonedElement.style.setProperty("box-sizing", "border-box", "important");
+          clonedElement.style.setProperty("width", `${captureWidth}px`, "important");
+          clonedElement.style.setProperty("max-width", "none", "important");
+          clonedElement.style.setProperty("margin", "0", "important");
+          if (isMinimalPos) {
+            clonedElement.style.setProperty("position", "relative", "important");
+            clonedElement.style.setProperty("top", "0", "important");
+            clonedElement.style.setProperty("left", "0", "important");
+            clonedElement.style.setProperty("opacity", "1", "important");
+          }
+        },
       },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
     })
-    .from(element)
+    .from(captureElement)
     .toCanvas()
     .get("canvas")
     .then((canvas) => {
-      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-      const margin = 8;
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const contentWidth = pageWidth - margin * 2;
-      const contentHeight = pageHeight - margin * 2;
-      const scale = contentWidth / canvas.width;
-      const sourcePageHeight = Math.max(1, Math.floor(contentHeight / scale));
-      let sourceTop = 0;
-      let page = 0;
-
-      while (sourceTop < canvas.height) {
-        const sliceHeight = Math.min(sourcePageHeight, canvas.height - sourceTop);
-        const pageCanvas = document.createElement("canvas");
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = sliceHeight;
-        const context = pageCanvas.getContext("2d");
-        if (!context) {
-          throw new Error("Unable to prepare the invoice PDF page.");
-        }
-
-        context.fillStyle = "#ffffff";
-        context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-        context.drawImage(
-          canvas,
-          0,
-          sourceTop,
-          canvas.width,
-          sliceHeight,
-          0,
-          0,
-          canvas.width,
-          sliceHeight
-        );
-
-        if (page > 0) pdf.addPage();
-        const renderedHeight = sliceHeight * scale;
-        pdf.addImage(
-          pageCanvas.toDataURL("image/jpeg", 0.98),
-          "JPEG",
-          margin,
-          margin,
-          contentWidth,
-          renderedHeight
-        );
-
-        sourceTop += sliceHeight;
-        page += 1;
-      }
-
+      const imageHeight = (canvas.height / canvas.width) * printableWidth;
+      const contentHeight = isMinimalPos
+        ? (canvas.height / 3) * (25.4 / 96)
+        : imageHeight;
+      const pageHeight = contentHeight + margin * 2;
+      const pdf = new jsPDF({
+        unit: "mm",
+        format: [paperWidth, pageHeight],
+        orientation: "portrait",
+      });
+      pdf.addImage(
+        canvas.toDataURL("image/jpeg", 0.98),
+        "JPEG",
+        margin,
+        margin,
+        printableWidth,
+        imageHeight,
+      );
+      if (captureElement !== element) captureElement.remove();
       return pdf;
+    })
+    .catch((error) => {
+      if (captureElement !== element) captureElement.remove();
+      throw error;
     });
 }
 
-export function generateInvoicePdfBase64({ element, invoiceNo, isPOS, pageSize }) {
-  return generateInvoicePdf({ element, invoiceNo, isPOS, pageSize }).then((pdf) => {
-    const dataUri = pdf.output("datauristring");
-    return dataUri.split(",")[1];
-  });
+/* ── render an invoice DOM node to base64 PDF using the exact same
+      options as the Invoice View page ── */
+export function generateInvoicePdfBase64({ element, invoiceNo, isPOS, paperWidthMm, isMinimalPos }) {
+  if (isPOS) {
+    return createPosInvoicePdf({ element, paperWidthMm, isMinimalPos }).then((pdf) => {
+      const dataUri = pdf.output("datauristring");
+      return dataUri.split(",")[1];
+    });
+  }
+
+  return html2pdf()
+    .set(getA4InvoicePdfOptions({ element, invoiceNo }))
+    .from(element)
+    .toPdf()
+    .get("pdf")
+    .then((pdf) => {
+      const dataUri = pdf.output("datauristring");
+      return dataUri.split(",")[1];
+    });
 }
 
 /* ── the single WhatsApp send endpoint used by the Invoice View page
