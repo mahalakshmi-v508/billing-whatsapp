@@ -1873,6 +1873,11 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
             {company.company_name}
           </div>
         )}
+        {company?.slogan && (
+          <div style={{ fontSize: 8.5, fontStyle: "italic", color: "#4b5563", marginTop: 1, marginBottom: 1 }}>
+            "{company.slogan}"
+          </div>
+        )}
         {showAddress && (
           <div style={{ fontSize: 9.5, color: "#374151" }}>
             {company.company_address}
@@ -1895,6 +1900,11 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
             <td style={{ width: "50%", padding: "1px 0" }}><strong>{docNoLabel}:</strong> {invoice.invoice_no || invoice.receipt_no}</td>
             <td style={{ width: "50%", textAlign: "right", padding: "1px 0" }}><strong>Date:</strong> {formatPOSDateTime(invoice.created_at)}</td>
           </tr>
+          {company?.counter_name && (
+            <tr>
+              <td style={{ padding: "1px 0" }} colSpan={2}><strong>POS Counter:</strong> {company.counter_name}</td>
+            </tr>
+          )}
           <tr>
             <td style={{ padding: "1px 0" }} colSpan={2}><strong>{partyLabel}:</strong> {invoice.customer_name || invoice.party_name || "Party"}</td>
           </tr>
@@ -2061,13 +2071,19 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
         </>
       )}
 
-      {/* Signatory */}
+      {/* Signatory & Store Hours */}
       {showSignature && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 8, paddingTop: 4, borderTop: "1px dotted #9ca3af", fontSize: 8.5 }}>
           <div>
             <div>Thank you for your visit!</div>
+            {company?.working_hours && (
+              <div style={{ fontSize: 7.5, color: "#4b5563", marginTop: 1 }}>🕒 {company.working_hours}</div>
+            )}
           </div>
           <div style={{ textAlign: "center" }}>
+            {company?.signature_img && (
+              <img src={company.signature_img} alt="Signature" style={{ maxHeight: 28, maxWidth: 90, objectFit: "contain", margin: "0 auto 2px auto", display: "block" }} />
+            )}
             <div style={{ fontWeight: "bold" }}>{printSettings.signatureText || "Authorized Signatory"}</div>
           </div>
         </div>
@@ -2117,12 +2133,15 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
           #{invoice.invoice_no || invoice.receipt_no}
         </div>
         <div style={{ fontSize: 9.5 }}>{showCompanyName ? company.company_name : "Express Billing"} {showPhone ? `• ${company.phone}` : ""}</div>
+        {company?.slogan && (
+          <div style={{ fontSize: 8, fontStyle: "italic", marginTop: 2 }}>"{company.slogan}"</div>
+        )}
       </div>
 
       {/* Time & Counter */}
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, borderBottom: "1px dashed #000", paddingBottom: 3, marginBottom: 4 }}>
         <span>Date: {formatPOSDateTime(invoice.created_at)}</span>
-        <span>Type: {paymentMethod}</span>
+        <span>{company?.counter_name ? `Counter: ${company.counter_name}` : `Type: ${paymentMethod}`}</span>
       </div>
 
       <div style={{ fontSize: 9.5, marginBottom: 4 }}>
@@ -2188,6 +2207,18 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
           <div style={{ borderTop: "2px solid #000", borderBottom: "2px solid #000", padding: "3px 0", textAlign: "center", fontWeight: "bold", fontSize: 10, margin: "4px 0" }}>
             PAID BY {paymentMethod} • THANK YOU!
           </div>
+
+          {company?.working_hours && (
+            <div style={{ textAlign: "center", fontSize: 8, color: "#4b5563", marginTop: 3 }}>
+              🕒 {company.working_hours}
+            </div>
+          )}
+          {company?.signature_img && (
+            <div style={{ textAlign: "center", marginTop: 4 }}>
+              <img src={company.signature_img} alt="Signature" style={{ maxHeight: 24, maxWidth: 80, objectFit: "contain", margin: "0 auto" }} />
+              <div style={{ fontSize: 7.5, color: "#6b7280" }}>{printSettings.signatureText || "Authorized Signatory"}</div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -2480,7 +2511,6 @@ export default function InvoicePreview() {
       return {};
     }
   });
-  const [doNotShowAgain, setDoNotShowAgain] = useState(() => localStorage.getItem("skip_invoice_preview") === "true");
   const [waSending, setWaSending] = useState(false);
   const [tmSending, setTmSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -2629,6 +2659,26 @@ export default function InvoicePreview() {
         if (posLayoutCandidate) setSelectedPosLayout(posLayoutCandidate);
 
         if (printSettings.pageSize) setPageSize(printSettings.pageSize);
+
+        const storeSetup = data.store_setup || {};
+        if (storeSetup) {
+          setCompany((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              logo: (storeSetup.show_logo_on_bill !== false && storeSetup.store_logo) ? storeSetup.store_logo : prev.logo,
+              signature_img: (storeSetup.show_signature_on_bill !== false && storeSetup.owner_signature) ? storeSetup.owner_signature : (prev.signature_img || null),
+              slogan: (storeSetup.show_slogan_on_bill !== false && storeSetup.store_slogan) ? storeSetup.store_slogan : (prev.slogan || null),
+              working_hours: (storeSetup.show_working_hours_on_bill !== false && storeSetup.working_hours) ? storeSetup.working_hours : (prev.working_hours || null),
+              counter_name: (storeSetup.show_counter_on_bill !== false && storeSetup.counter_name) ? storeSetup.counter_name : (prev.counter_name || null),
+            };
+          });
+
+          if (storeSetup.signature_label) {
+            printSettings.signatureText = printSettings.signatureText || storeSetup.signature_label;
+          }
+        }
+
         setPrintSettings((prev) => ({ ...prev, ...printSettings }));
       })
       .catch(() => {})
@@ -2728,8 +2778,9 @@ export default function InvoicePreview() {
         .then(() => {
           showToast("PDF downloaded successfully!", "success");
         })
-        .catch(() => {
-          showToast("Failed to download PDF.", "error");
+        .catch((error) => {
+          console.error("Failed to download POS PDF:", error);
+          showToast(error?.message || "Failed to download PDF.", "error");
         });
     } else {
       const opt = getA4InvoicePdfOptions({ element, invoiceNo: invoice.invoice_no });
@@ -2835,10 +2886,9 @@ export default function InvoicePreview() {
 
   /* Save & Close Navigation */
   const handleSaveAndClose = useCallback(() => {
-    localStorage.setItem("skip_invoice_preview", doNotShowAgain ? "true" : "false");
     const targetRoute = getVoucherBackRoute(invoice || { invoice_no: invoiceNo });
     navigate(targetRoute);
-  }, [doNotShowAgain, invoice, invoiceNo, navigate]);
+  }, [invoice, invoiceNo, navigate]);
 
   /* Keyboard Shortcuts */
   useEffect(() => {
@@ -3042,31 +3092,6 @@ export default function InvoicePreview() {
 
         {/* Right Cluster: Quick Actions & Close */}
         <div className="flex items-center gap-2.5">
-          {/* Quick toggle check */}
-          <label className="hidden xl:flex items-center gap-2 cursor-pointer text-xs text-slate-600 hover:text-slate-900">
-            <input
-              type="checkbox"
-              checked={doNotShowAgain}
-              onChange={(e) => {
-                setDoNotShowAgain(e.target.checked);
-                localStorage.setItem("skip_invoice_preview", e.target.checked ? "true" : "false");
-              }}
-              className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-blue-600"
-            />
-            <span>Skip preview next time</span>
-          </label>
-
-          {/* Quick Print Primary Button */}
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all"
-            title="Print document (Ctrl+P)"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Print</span>
-            <kbd className="hidden lg:inline px-1 py-0.2 rounded bg-white/20 text-[9px] font-normal">^P</kbd>
-          </button>
-
           {/* Save & Close Button */}
           <button
             onClick={handleSaveAndClose}

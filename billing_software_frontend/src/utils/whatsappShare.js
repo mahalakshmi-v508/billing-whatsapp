@@ -22,6 +22,9 @@ export function normalizeWaPhone(phone) {
   if (!digits) return "";
   if (digits.length === 10) return `91${digits}`;
   if (digits.length === 11 && digits.startsWith("0")) return `91${digits.slice(1)}`;
+  if (digits.length === 9 && /^(50|52|54|55|56|58)/.test(digits)) return `971${digits}`;
+  if (digits.length === 9 && /^(51|53|57|59)/.test(digits)) return `966${digits}`;
+  if (digits.length === 8 && /^[89]/.test(digits)) return `65${digits}`;
   return digits;
 }
 

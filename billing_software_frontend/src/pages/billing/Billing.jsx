@@ -6,7 +6,14 @@ import QuickAddProductModal from "../products/QuickAddProductModal";
 import { fetchSettings } from "../settings/settingsApi";
 import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings";
 import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
+import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
+import { WHATSAPP_DEFAULTS_KEY, DEFAULT_WHATSAPP_DEFAULTS } from "../settings/WhatsAppDefaultSettings";
+import { STORE_SETUP_KEY, DEFAULT_STORE_SETUP } from "../settings/StoreSetupSettings";
+import { TAX_BACKUP_KEY, DEFAULT_TAX_BACKUP } from "../settings/TaxBackupSettings";
+import { COUNTRY_LIST, getCountryByCode, detectCountryFromPhone } from "../../utils/phoneCountryHelper";
+import { useLanguage } from "../../utils/i18n";
 import {
+  Coins,
   Search,
   Plus,
   X,
@@ -43,6 +50,7 @@ import {
   TrendingUp,
   Percent,
   Check,
+  Globe,
 } from "lucide-react";
 
 /* ── Currency Helper ─────────────────────────────────────────────────── */
@@ -251,7 +259,7 @@ function createFreshBill(id) {
   return {
     id,
     rows: [emptyRow()],
-    customer: { id: null, name: "", phone: "", address: "", gst_no: "", credit_enabled: "0", credit_limit: 0, points: 0, advance_balance: 0, pending_amount: 0 },
+    customer: { id: null, name: "", phone: "", address: "", gst_no: "", gst_no_locked: false, credit_enabled: "0", credit_limit: 0, points: 0, advance_balance: 0, pending_amount: 0 },
     billType: "cash_bill",
     paymentMethod: "cash",
     payment: { received: 0 },
@@ -264,6 +272,7 @@ function createFreshBill(id) {
 ══════════════════════════════════════════════════════════════════════════ */
 export default function Billing() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isCashier = user.role === "cashier";
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
   const navigate = useNavigate();
 
@@ -307,6 +316,7 @@ export default function Billing() {
   }, [activeBillId]);
 
   /* ══ SHARED STATE ══ */
+  const { isTamil } = useLanguage();
   const [products, setProducts] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(localStorage.getItem("selected_company_id") || "");
@@ -375,6 +385,71 @@ export default function Billing() {
     }
   });
 
+  /* ── Cashier & Staff Security Restrictions ── */
+  const [cashierSecurity, setCashierSecurity] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
+      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
+    } catch {
+      return { ...DEFAULT_CASHIER_SECURITY };
+    }
+  });
+
+  /* ── Store Setup & Counter ── */
+  const [storeSetup, setStoreSetup] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${STORE_SETUP_KEY}`);
+      return saved ? { ...DEFAULT_STORE_SETUP, ...JSON.parse(saved) } : { ...DEFAULT_STORE_SETUP };
+    } catch {
+      return { ...DEFAULT_STORE_SETUP };
+    }
+  });
+
+  /* ── Tax & Backup Settings ── */
+  const [taxBackup, setTaxBackup] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${TAX_BACKUP_KEY}`);
+      return saved ? { ...DEFAULT_TAX_BACKUP, ...JSON.parse(saved) } : { ...DEFAULT_TAX_BACKUP };
+    } catch {
+      return { ...DEFAULT_TAX_BACKUP };
+    }
+  });
+
+  const [activeTaxMode, setActiveTaxMode] = useState(
+    () => (taxBackup.default_tax_mode || "inclusive")
+  );
+
+  const toggleTaxMode = () => {
+    if (!taxBackup.allow_cashier_tax_toggle) {
+      showToast("Tax mode toggle is disabled in settings.", "warning");
+      return;
+    }
+    const next = activeTaxMode === "inclusive" ? "exclusive" : "inclusive";
+    setActiveTaxMode(next);
+    showToast(
+      next === "inclusive"
+        ? (isTamil ? "வரி முறை: வரி உட்பட (Tax Inclusive) மாற்றப்பட்டது!" : "Tax Mode: Switched to Tax Inclusive!")
+        : (isTamil ? "வரி முறை: வரி தனியாக (Tax Exclusive) மாற்றப்பட்டது!" : "Tax Mode: Switched to Tax Exclusive!"),
+      "success"
+    );
+  };
+
+  /* ── WhatsApp Defaults & Dynamic Country Code ── */
+  const [whatsappDefaults, setWhatsappDefaults] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${WHATSAPP_DEFAULTS_KEY}`);
+      return saved ? { ...DEFAULT_WHATSAPP_DEFAULTS, ...JSON.parse(saved) } : { ...DEFAULT_WHATSAPP_DEFAULTS };
+    } catch {
+      return { ...DEFAULT_WHATSAPP_DEFAULTS };
+    }
+  });
+
+  const [selectedCountryCode, setSelectedCountryCode] = useState(
+    () => (whatsappDefaults.default_country_code || "+91")
+  );
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const countryPickerRef = useRef(null);
+
   useEffect(() => {
     fetchSettings().then((res) => {
       if (res) {
@@ -383,6 +458,24 @@ export default function Billing() {
         }
         if (res[STOCK_SETTINGS_KEY]) {
           setStockSafety((prev) => ({ ...prev, ...res[STOCK_SETTINGS_KEY] }));
+        }
+        if (res[CASHIER_SECURITY_KEY]) {
+          setCashierSecurity((prev) => ({ ...prev, ...res[CASHIER_SECURITY_KEY] }));
+        }
+        if (res[WHATSAPP_DEFAULTS_KEY]) {
+          setWhatsappDefaults((prev) => ({ ...prev, ...res[WHATSAPP_DEFAULTS_KEY] }));
+          if (res[WHATSAPP_DEFAULTS_KEY].default_country_code) {
+            setSelectedCountryCode((prev) => (prev === "+91" ? res[WHATSAPP_DEFAULTS_KEY].default_country_code : prev));
+          }
+        }
+        if (res[STORE_SETUP_KEY]) {
+          setStoreSetup((prev) => ({ ...prev, ...res[STORE_SETUP_KEY] }));
+        }
+        if (res[TAX_BACKUP_KEY]) {
+          setTaxBackup((prev) => ({ ...prev, ...res[TAX_BACKUP_KEY] }));
+          if (res[TAX_BACKUP_KEY].default_tax_mode) {
+            setActiveTaxMode(res[TAX_BACKUP_KEY].default_tax_mode);
+          }
         }
       }
     });
@@ -395,11 +488,39 @@ export default function Billing() {
         if (e.detail[STOCK_SETTINGS_KEY]) {
           setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
         }
+        if (e.detail[CASHIER_SECURITY_KEY]) {
+          setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
+        }
+        if (e.detail[WHATSAPP_DEFAULTS_KEY]) {
+          setWhatsappDefaults((prev) => ({ ...prev, ...e.detail[WHATSAPP_DEFAULTS_KEY] }));
+        }
+        if (e.detail[STORE_SETUP_KEY]) {
+          setStoreSetup((prev) => ({ ...prev, ...e.detail[STORE_SETUP_KEY] }));
+        }
+        if (e.detail[TAX_BACKUP_KEY]) {
+          setTaxBackup((prev) => ({ ...prev, ...e.detail[TAX_BACKUP_KEY] }));
+          if (e.detail[TAX_BACKUP_KEY].default_tax_mode) {
+            setActiveTaxMode(e.detail[TAX_BACKUP_KEY].default_tax_mode);
+          }
+        }
       }
     };
     window.addEventListener("company-settings-updated", handleSettingsUpdate);
     return () => window.removeEventListener("company-settings-updated", handleSettingsUpdate);
   }, []);
+
+  /* Close country picker on outside click */
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (countryPickerRef.current && !countryPickerRef.current.contains(e.target)) {
+        setShowCountryPicker(false);
+      }
+    };
+    if (showCountryPicker) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showCountryPicker]);
 
   /* ── Derived Totals ── */
   const subtotal = rows.reduce((s, r) => s + posLineAmount(r, billType).taxable, 0);
@@ -519,6 +640,7 @@ export default function Billing() {
               name: act.customer.name,
               phone: act.customer.phone,
               gst_no: act.customer.gst_no || "",
+              gst_no_locked: Boolean(act.customer.gst_no?.trim()),
               credit_enabled: String(act.customer.credit_enabled || "0"),
               credit_limit: act.customer.credit_limit || 0,
               points: act.customer.points || 0,
@@ -754,6 +876,10 @@ export default function Billing() {
     const qtyNum = Number(qtyToAdd) || 1;
     // Saved sale price + its GST mode come straight from the API record.
     const posPricing = resolveProductPricing(p, { use: "sale" });
+    if (!p.sale_price_type && taxBackup?.apply_to_unlisted_items) {
+      posPricing.priceType = activeTaxMode === "inclusive" ? "with_gst" : "without_gst";
+      posPricing.mode = posPricing.priceType;
+    }
 
     // 1. Check Expiry
     if (stockSafety.expiry_control_mode !== "disabled" && isProductExpired(p.expiry_date)) {
@@ -785,6 +911,18 @@ export default function Billing() {
           `⚠️ Negative Stock Warning: "${p.product_name || p.name}" has 0 stock!`,
           "warning"
         );
+      }
+    }
+
+    // 3. Check Restrict Selling Below Cost
+    if (cashierSecurity.restrict_selling_below_cost) {
+      const purchasePrice = Number(p.purchase_price ?? p.cost_price ?? p.buying_price ?? 0);
+      if (purchasePrice > 0 && posPricing.price < purchasePrice) {
+        showToast(
+          `❌ Restrict Selling Below Cost: Sale price (${formatCurrency(posPricing.price)}) is below Purchase Cost (${formatCurrency(purchasePrice)}) for "${p.product_name || p.name}"!`,
+          "error"
+        );
+        return;
       }
     }
 
@@ -853,7 +991,7 @@ export default function Billing() {
     setShowNoResult(false);
     justSelectedRef.current = true;
     globalSearchRef.current?.focus();
-  }, [productById, showToast, setRows, stockSafety]);
+  }, [productById, showToast, setRows, stockSafety, cashierSecurity]);
 
   /* Quick Add (POS) - the limited popup saved the searched product to the
      database, so make it searchable and put it straight onto the active bill.
@@ -932,8 +1070,10 @@ export default function Billing() {
       price: Number(quickItem.price),
       gst: 0,
       // A free-typed quick item has no saved product config, so it follows the
-      // same historical default as a product that predates these columns.
-      price_type: normalisePriceType(quickItem.price_type),
+      // activeTaxMode or cashier's choice.
+      price_type: quickItem.price_type
+        ? normalisePriceType(quickItem.price_type)
+        : (activeTaxMode === "inclusive" ? "with_gst" : "without_gst"),
       qty: Number(quickItem.qty) || 1,
       discount: 0,
       freeQty: 0,
@@ -949,7 +1089,7 @@ export default function Billing() {
       if (updated[updated.length - 1].name) updated.push(emptyRow());
       return updated;
     });
-    setQuickItem({ name: "", price: "", qty: 1, unit: "", price_type: "without_gst" });
+    setQuickItem({ name: "", price: "", qty: 1, unit: "", price_type: activeTaxMode === "inclusive" ? "with_gst" : "without_gst" });
     setShowQuickAdd(false);
     setGlobalSearch("");
     setShowNoResult(false);
@@ -961,10 +1101,43 @@ export default function Billing() {
   const updateRow = useCallback((i, field, value) => {
     setRows((prev) => {
       const updated = [...prev];
+      const row = updated[i];
+      if (!row) return prev;
+
+      // 1. Lock Item Price Edit for Cashiers
+      if (field === "price" && isCashier && cashierSecurity.lock_item_price_edit) {
+        showToast("🔒 Price editing is restricted for cashiers by Administrator", "error");
+        return prev;
+      }
+
+      // 2. Restrict Selling Below Cost
+      if (field === "price" && cashierSecurity.restrict_selling_below_cost && row.product_id) {
+        const prod = productById[row.product_id];
+        const purchasePrice = Number(prod?.purchase_price ?? prod?.cost_price ?? 0);
+        if (purchasePrice > 0 && Number(value) < purchasePrice) {
+          showToast(`❌ Restrict Selling Below Cost: Cannot sell below purchase cost (${formatCurrency(purchasePrice)})!`, "error");
+          return prev;
+        }
+      }
+
+      // 3. Maximum Discount Limit for Cashiers
+      if (field === "discount") {
+        const discVal = Number(value) || 0;
+        const lineTotal = (Number(row.price) || 0) * (Number(row.qty) || 1);
+        if (isCashier && cashierSecurity.max_discount_enabled && lineTotal > 0) {
+          const maxLimitPct = Number(cashierSecurity.max_discount_limit) || 10;
+          const maxAllowedDisc = (lineTotal * maxLimitPct) / 100;
+          if (discVal > maxAllowedDisc) {
+            showToast(`⚠️ Maximum discount limit for Cashier is ${maxLimitPct}% (${formatCurrency(maxAllowedDisc)})`, "warning");
+            value = maxAllowedDisc;
+          }
+        }
+      }
+
       updated[i] = { ...updated[i], [field]: value };
       return updated;
     });
-  }, [setRows]);
+  }, [setRows, isCashier, cashierSecurity, productById, showToast]);
 
   const updateQty = useCallback((i, value) => {
     const num = Number(value);
@@ -1027,6 +1200,7 @@ export default function Billing() {
       phone: c.phone,
       address: c.address || "",
       gst_no: c.gst_no || "",
+      gst_no_locked: Boolean(c.gst_no?.trim()),
       credit_enabled: c.credit_enabled || "0",
       credit_limit: c.credit_limit || 0,
       points: c.loyalty_points || 0,
@@ -1046,6 +1220,7 @@ export default function Billing() {
         phone: fresh.phone,
         address: fresh.address || "",
         gst_no: fresh.gst_no || "",
+        gst_no_locked: Boolean(fresh.gst_no?.trim()),
         credit_enabled: fresh.credit_enabled || "0",
         credit_limit: fresh.credit_limit || 0,
         points: pts,
@@ -1065,7 +1240,7 @@ export default function Billing() {
   const handleNameSearch = (value) => {
     // A new name means a new customer — the previous customer's GSTIN must not
     // linger, otherwise it gets saved against whoever is selected next.
-    setCustomer((c) => ({ ...c, name: value, id: null, gst_no: "", credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
+    setCustomer((c) => ({ ...c, name: value, id: null, gst_no: "", gst_no_locked: false, credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
     clearTimeout(nameSearchTimer.current);
     if (!value || value.length < 2) {
       setNameSuggestions([]);
@@ -1086,12 +1261,21 @@ export default function Billing() {
   };
 
   const handlePhoneSearch = (value) => {
-    const digits = value.replace(/\D/g, "").slice(0, 10);
+    const detected = detectCountryFromPhone(value, selectedCountryCode);
+    if (detected.countryCode && detected.countryCode !== selectedCountryCode) {
+      setSelectedCountryCode(detected.countryCode);
+    }
+    const digits = detected.cleanDigits;
+    const activeCountry = detected.country;
+
     // Same as above: switching phone switches customer, so drop the old GSTIN.
-    setCustomer((c) => ({ ...c, phone: digits, id: null, name: c.id ? "" : c.name, gst_no: "", credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
+    setCustomer((c) => ({ ...c, phone: digits, id: null, name: c.id ? "" : c.name, gst_no: "", gst_no_locked: false, credit_enabled: "0", advance_balance: 0, pending_amount: 0 }));
     setPhoneSuggestions([]);
     clearTimeout(phoneSearchTimer.current);
-    if (digits.length !== 10) return;
+
+    const expectedLen = activeCountry.length || 10;
+    if (digits.length !== expectedLen && digits.length < 8) return;
+
     phoneSearchTimer.current = setTimeout(async () => {
       if (!selectedCompany) return;
       setCustomerSearchLoading(true);
@@ -1114,8 +1298,11 @@ export default function Billing() {
 
   const handleSaveNewCustomer = async () => {
     if (!addCustomerName.trim()) { showToast("Customer name is required", "error"); return; }
-    if (!addCustomerPhone.trim() || !/^[0-9]{10}$/.test(addCustomerPhone.trim())) {
-      showToast("Valid 10-digit phone number required", "error");
+    const activeCountry = getCountryByCode(selectedCountryCode);
+    const requiredLen = activeCountry.length || 10;
+    const cleanAdd = addCustomerPhone.trim();
+    if (!cleanAdd || cleanAdd.length < 7 || cleanAdd.length > 15 || (activeCountry.length && cleanAdd.length !== activeCountry.length)) {
+      showToast(`Valid ${requiredLen}-digit phone number required`, "error");
       return;
     }
     try {
@@ -1183,7 +1370,15 @@ export default function Billing() {
 
   const handleGenerate = async (action = "print") => {
     if (!customer.name.trim() && !customer.phone.trim()) { showToast("Enter Customer Name or Phone Number!", "error"); return; }
-    if (customer.phone.trim() && !/^[0-9]{10}$/.test(customer.phone)) { showToast("Enter a valid 10-digit mobile number!", "error"); return; }
+    const activeCountry = getCountryByCode(selectedCountryCode);
+    const requiredLen = activeCountry.length || 10;
+    if (customer.phone.trim()) {
+      const ph = customer.phone.trim();
+      if (ph.length < 7 || ph.length > 15 || (activeCountry.length && ph.length !== activeCountry.length)) {
+        showToast(`Enter a valid ${requiredLen}-digit mobile number!`, "error");
+        return;
+      }
+    }
     if (billType === "gst_bill" && !customer.gst_no.trim()) { showToast("GST Number is mandatory for GST Bill!", "error"); return; }
     if (billType === "gst_bill" && !isValidGstin(customer.gst_no.trim().toUpperCase())) {
       showToast("Enter a valid 15-character GSTIN (e.g. 22ABCDE1234F1Z5).", "error");
@@ -1446,13 +1641,25 @@ export default function Billing() {
                 <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
                   Phone Number <span className="text-red-500">*</span>
                 </label>
-                <input
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white focus:ring-3 focus:ring-indigo-100 transition-all"
-                  placeholder="10-digit mobile number"
-                  value={addCustomerPhone}
-                  maxLength={10}
-                  onChange={(e) => setAddCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                />
+                <div className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-3 focus-within:ring-indigo-100 transition-all">
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200/90 flex items-center gap-1 font-mono flex-shrink-0 select-none">
+                    <span>{getCountryByCode(selectedCountryCode).flag}</span>
+                    <span>{selectedCountryCode}</span>
+                  </span>
+                  <input
+                    className="w-full bg-transparent text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none font-mono tracking-wide"
+                    placeholder={getCountryByCode(selectedCountryCode).placeholder || "Mobile number"}
+                    value={addCustomerPhone}
+                    maxLength={getCountryByCode(selectedCountryCode).length || 15}
+                    onChange={(e) => {
+                      const detected = detectCountryFromPhone(e.target.value, selectedCountryCode);
+                      if (detected.countryCode && detected.countryCode !== selectedCountryCode) {
+                        setSelectedCountryCode(detected.countryCode);
+                      }
+                      setAddCustomerPhone(detected.cleanDigits);
+                    }}
+                  />
+                </div>
               </div>
 
               {billType === "gst_bill" && (
@@ -1511,7 +1718,7 @@ export default function Billing() {
             </div>
             <div>
               <span className="font-display font-bold text-xs tracking-tight text-white block leading-tight">PaySplit POS</span>
-              <span className="text-[10px] text-indigo-400 font-medium tracking-wide block leading-none">Cashio Terminal</span>
+              <span className="text-[10px] text-indigo-400 font-medium tracking-wide block leading-none">{storeSetup.counter_name || "Counter-1"}</span>
             </div>
           </div>
 
@@ -1587,6 +1794,36 @@ export default function Billing() {
               GST Bill
             </button>
           </div>
+
+          {/* Tax Mode: Inclusive vs Exclusive */}
+          <button
+            type="button"
+            onClick={toggleTaxMode}
+            title={
+              taxBackup.allow_cashier_tax_toggle
+                ? (isTamil ? "வரி முறையை மாற்ற கிளிக் செய்யவும் (Inclusive / Exclusive)" : "Click to toggle Tax Mode (Inclusive / Exclusive)")
+                : (isTamil ? "வரி முறை பூட்டப்பட்டுள்ளது" : "Tax mode is locked by settings")
+            }
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all border ${
+              activeTaxMode === "inclusive"
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                : "bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30"
+            } ${taxBackup.allow_cashier_tax_toggle ? "cursor-pointer" : "cursor-default"}`}
+          >
+            <Coins size={13} />
+            <span>{activeTaxMode === "inclusive" ? (isTamil ? "வரி உட்பட" : "Tax Incl.") : (isTamil ? "வரி தனியாக" : "Tax Excl.")}</span>
+          </button>
+
+          {/* Day Closing / Z-Report Shortcut */}
+          <button
+            type="button"
+            onClick={() => navigate("/settings/tax-backup")}
+            title={isTamil ? "கல்லா கணக்கு முடித்தல் & Z-Report" : "Day-End Cash Drawer Closing & Z-Report"}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all cursor-pointer"
+          >
+            <Receipt size={13} />
+            <span className="hidden xl:inline">{isTamil ? "கல்லா கணக்கு" : "Z-Report"}</span>
+          </button>
 
           <div className="w-px h-5 bg-white/10" />
 
@@ -2095,10 +2332,16 @@ export default function Billing() {
                         <input
                           type="number"
                           min="0"
+                          readOnly={isCashier && cashierSecurity.lock_item_price_edit}
                           value={r.price}
                           onChange={(e) => updateRow(i, "price", Number(e.target.value) || 0)}
                           onWheel={(e) => e.target.blur()}
-                          className="w-20 px-2 py-1 bg-white border border-slate-200 focus:border-indigo-500 rounded-lg text-right font-bold text-xs focus:outline-none"
+                          title={isCashier && cashierSecurity.lock_item_price_edit ? "Price editing is locked for cashiers" : ""}
+                          className={`w-20 px-2 py-1 border rounded-lg text-right font-bold text-xs focus:outline-none ${
+                            isCashier && cashierSecurity.lock_item_price_edit
+                              ? "bg-slate-100 text-slate-500 cursor-not-allowed border-slate-300"
+                              : "bg-white border-slate-200 focus:border-indigo-500"
+                          }`}
                         />
                       ) : (
                         <span className="font-bold text-slate-900">{r.price > 0 ? formatCurrency(r.price) : "—"}</span>
@@ -2112,6 +2355,11 @@ export default function Billing() {
                         value={r.discount || 0}
                         onChange={(e) => updateRow(i, "discount", Number(e.target.value) || 0)}
                         onWheel={(e) => e.target.blur()}
+                        title={
+                          isCashier && cashierSecurity.max_discount_enabled
+                            ? `Max cashier discount allowed: ${cashierSecurity.max_discount_limit}%`
+                            : ""
+                        }
                         className={`w-16 px-2 py-1 bg-white border rounded-lg text-right font-semibold text-xs focus:outline-none ${disc > 0 ? "border-red-300 text-red-600" : "border-slate-200 text-slate-800"
                           }`}
                       />
@@ -2226,17 +2474,67 @@ export default function Billing() {
 
                 {/* Phone search */}
                 <div ref={phoneSuggestRef} className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
-                    <Phone size={13} />
+                  <div className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-1.5 focus-within:bg-white focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/15 transition relative">
+                    {/* Country Selector Dropdown */}
+                    <div ref={countryPickerRef} className="relative flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowCountryPicker((v) => !v);
+                        }}
+                        title="Click to select country"
+                        className="text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 px-2 py-1 rounded-lg border border-emerald-200/90 flex items-center gap-1 font-mono transition cursor-pointer select-none"
+                      >
+                        <span>{getCountryByCode(selectedCountryCode).flag}</span>
+                        <span>{selectedCountryCode}</span>
+                        <ChevronDown size={11} className={`text-emerald-700 transition-transform ${showCountryPicker ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {showCountryPicker && (
+                        <div className="absolute top-full left-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 max-h-60 overflow-y-auto animate-in fade-in duration-100">
+                          <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                            <span>Select Country</span>
+                            <Globe size={11} />
+                          </div>
+                          {COUNTRY_LIST.map((item) => (
+                            <button
+                              key={item.code}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCountryCode(item.code);
+                                setShowCountryPicker(false);
+                              }}
+                              className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-emerald-50/70 transition cursor-pointer ${
+                                selectedCountryCode === item.code ? "bg-emerald-50 font-bold text-emerald-950" : "text-slate-700"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-base">{item.flag}</span>
+                                <div>
+                                  <div className="font-semibold">{item.name}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono">{item.code} ({item.length} digits)</div>
+                                </div>
+                              </div>
+                              {selectedCountryCode === item.code && (
+                                <Check size={14} className="text-emerald-600 flex-shrink-0" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <input
+                      type="tel"
+                      placeholder={getCountryByCode(selectedCountryCode).placeholder || "Mobile number"}
+                      value={customer.phone}
+                      maxLength={getCountryByCode(selectedCountryCode).length || 15}
+                      onChange={(e) => handlePhoneSearch(e.target.value)}
+                      className="w-full bg-transparent text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none font-mono tracking-wide"
+                    />
                   </div>
-                  <input
-                    type="tel"
-                    placeholder="10-digit mobile number"
-                    value={customer.phone}
-                    maxLength={10}
-                    onChange={(e) => handlePhoneSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
-                  />
                   {phoneSuggestions.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 max-h-48 overflow-y-auto p-1">
                       {phoneSuggestions.map((c) => (
@@ -2292,7 +2590,7 @@ export default function Billing() {
                     placeholder="22ABCDE1234F1Z5"
                     value={customer.gst_no ?? ""}
                     maxLength={15}
-                    disabled
+                    disabled={customer.gst_no_locked}
                     onChange={(e) => setCustomer((c) => ({ ...c, gst_no: e.target.value.toUpperCase() }))}
                     className={`w-full px-3 py-1.5 border rounded-xl text-xs font-bold font-mono uppercase tracking-wider focus:outline-none focus:bg-white disabled:cursor-not-allowed disabled:opacity-70 ${
                       customer.gst_no?.trim()
@@ -2300,11 +2598,6 @@ export default function Billing() {
                         : "bg-slate-50 border-amber-300 text-slate-900"
                     }`}
                   />
-                  {!customer.gst_no?.trim() ? (
-                    <p className="mt-1 text-[10.5px] font-semibold text-amber-700">
-                      No GSTIN on file — add the customer with a GSTIN to raise a GST Bill.
-                    </p>
-                  ) : null}
                 </div>
               )}
             </div>
