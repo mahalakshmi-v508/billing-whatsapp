@@ -18,6 +18,7 @@ import {
   Sliders,
   Sparkles,
   RefreshCw,
+  X,
 } from "lucide-react";
 import { SettingsShell, Toggle, Badge } from "./settingsUI";
 import { useCompanySetting } from "./useCompanySetting";
@@ -53,6 +54,12 @@ export default function CashierSecuritySettings() {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [pendingPin, setPendingPin] = useState(null);
+
+  // ─── Auto-screen lock PIN authorization state ─────────────
+  const [lockPinPrompt, setLockPinPrompt] = useState(false);
+  const [pendingLockMins, setPendingLockMins] = useState(null);
+  const [lockPin, setLockPin] = useState("");
+  const [showLockPinInput, setShowLockPinInput] = useState(false);
 
   const showToast = (message) => {
     setToast(message);
@@ -177,7 +184,7 @@ export default function CashierSecuritySettings() {
     }
   };
 
-  const handleAutoLockChange = (mins) => {
+  const applyAutoLock = (mins) => {
     setSetting("auto_screen_lock_minutes")(mins);
     showToast(
       mins === 0
@@ -188,6 +195,46 @@ export default function CashierSecuritySettings() {
         ? `ஆட்டோ ஸ்கிரீன் லாக்: ${mins} நிமிடங்களில் பூட்டப்படும்`
         : `Auto Screen Lock set to ${mins} minutes`
     );
+  };
+
+  const handleAutoLockRequest = (mins) => {
+    // Skip the PIN prompt if the clicked option is already active
+    if ((settings.auto_screen_lock_minutes || 0) === mins) return;
+    setPendingLockMins(mins);
+    setLockPin("");
+    setShowLockPinInput(false);
+    setLockPinPrompt(true);
+  };
+
+  const closeLockPinPrompt = () => {
+    setLockPinPrompt(false);
+    setPendingLockMins(null);
+    setLockPin("");
+    setShowLockPinInput(false);
+  };
+
+  const handleVerifyLockPin = () => {
+    if (pendingLockMins == null) return;
+    const pin = lockPin.trim();
+    if (!pin) {
+      showToast(
+        isTamil
+          ? "4-இலக்க மேற்பார்வையாளர் PIN ஐ உள்ளிடவும்"
+          : "Please enter the 4-digit supervisor/admin PIN"
+      );
+      return;
+    }
+    const requiredPin = String(settings.supervisor_admin_pin || "1234").trim();
+    if (pin === requiredPin) {
+      applyAutoLock(pendingLockMins);
+      closeLockPinPrompt();
+    } else {
+      showToast(
+        isTamil
+          ? "தவறான PIN! மீண்டும் முயற்சிக்கவும்."
+          : "Invalid PIN! Please try again."
+      );
+    }
   };
 
   return (
@@ -720,7 +767,7 @@ export default function CashierSecuritySettings() {
               <button
                 key={item.mins}
                 type="button"
-                onClick={() => handleAutoLockChange(item.mins)}
+                onClick={() => handleAutoLockRequest(item.mins)}
                 className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between cursor-pointer ${
                   isSelected
                     ? "border-teal-600 bg-teal-50/60 shadow-sm"
@@ -750,7 +797,90 @@ export default function CashierSecuritySettings() {
             );
           })}
         </div>
+
+        <p className="text-[11px] text-slate-400 mt-3">
+          {isTamil
+            ? "இந்த மாற்றத்தைப் பயன்படுத்த, மேற்பார்வையாளர் PIN சரிபார்ப்பு தேவை."
+            : "Applying an auto-lock time requires supervisor PIN verification."}
+        </p>
       </div>
+
+      {/* ── AUTO-SCREEN LOCK PIN AUTH MODAL ── */}
+      {lockPinPrompt && (
+        <div
+          className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={closeLockPinPrompt}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {isTamil
+                    ? "மேற்பார்வையாளர் PIN மூலம் உறுதிப்படுத்தவும்"
+                    : "Confirm with Supervisor PIN"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {isTamil
+                    ? "ஆட்டோ ஸ்கிரீன் லாக் நேர மாற்றத்தை அங்கீகரிக்க 4-இலக்க PIN ஐ உள்ளிடவும்."
+                    : "Enter the 4-digit supervisor/admin PIN to apply the selected auto-lock time."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeLockPinPrompt}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div className="relative flex-1">
+                <input
+                  type={showLockPinInput ? "text" : "password"}
+                  maxLength={4}
+                  placeholder="4-digit PIN"
+                  value={lockPin}
+                  onChange={(e) =>
+                    setLockPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleVerifyLockPin();
+                  }}
+                  autoFocus
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold tracking-[0.3em] text-center text-slate-900 focus:outline-none focus:border-purple-500 focus:bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLockPinInput((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  title={showLockPinInput ? "Hide PIN" : "Show PIN"}
+                >
+                  {showLockPinInput ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={handleVerifyLockPin}
+                disabled={!lockPin.trim()}
+                className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+              >
+                {isTamil ? "சரிபார்" : "Verify"}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-400 mt-3">
+              {isTamil
+                ? "PIN அங்கீகரிக்கப்பட்ட பின்னரே தேர்ந்தெடுக்கப்பட்ட நேரம் பயன்படுத்தப்படும்."
+                : "The selected time is only applied after the correct PIN is entered."}
+            </p>
+          </div>
+        </div>
+      )}
     </SettingsShell>
   );
 }
