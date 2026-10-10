@@ -1,4 +1,5 @@
 ﻿import { useState } from "react";
+import api from "../../services/api";
 import {
   Lock,
   Unlock,
@@ -16,6 +17,8 @@ import {
   Ban,
   Sliders,
   Sparkles,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import { SettingsShell, Toggle, Badge } from "./settingsUI";
 import { useCompanySetting } from "./useCompanySetting";
@@ -43,6 +46,21 @@ export default function CashierSecuritySettings() {
   const [showPin, setShowPin] = useState(false);
   const [tempPin, setTempPin] = useState(settings.supervisor_admin_pin || "1234");
 
+  // ─── PIN authorization OTP state ──────────────────────────
+  const [showOtpBox, setShowOtpBox] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [adminEmail, setAdminEmail] = useState("");
+  const [enteredOtp, setEnteredOtp] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [pendingPin, setPendingPin] = useState(null);
+
+  // ─── Auto-screen lock PIN authorization state ─────────────
+  const [lockPinPrompt, setLockPinPrompt] = useState(false);
+  const [pendingLockMins, setPendingLockMins] = useState(null);
+  const [lockPin, setLockPin] = useState("");
+  const [showLockPinInput, setShowLockPinInput] = useState(false);
+
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
@@ -69,7 +87,29 @@ export default function CashierSecuritySettings() {
     setSetting("max_discount_limit")(num);
   };
 
-  const handlePinSave = () => {
+  const resetPinOtp = () => {
+    setShowOtpBox(false);
+    setOtpSent(false);
+    setAdminEmail("");
+    setEnteredOtp("");
+    setPendingPin(null);
+    setIsSendingOtp(false);
+    setIsVerifyingOtp(false);
+  };
+
+  const isCustomPin =
+    String(settings.supervisor_admin_pin || "").trim() !==
+    String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
+
+  const pinActionLabel = isCustomPin
+    ? isTamil
+      ? "PIN மாற்று"
+      : "Change PIN"
+    : isTamil
+    ? "சேமி"
+    : "Save PIN";
+
+  const handlePinActionClick = () => {
     const cleaned = String(tempPin || "").replace(/\D/g, "").slice(0, 4);
     if (cleaned.length !== 4) {
       showToast(
@@ -79,16 +119,72 @@ export default function CashierSecuritySettings() {
       );
       return;
     }
-    setSetting("supervisor_admin_pin")(cleaned);
-    setTempPin(cleaned);
-    showToast(
-      isTamil
-        ? "மேற்பார்வையாளர் PIN வெற்றிகரமாக சேமிக்கப்பட்டது!"
-        : "Supervisor PIN saved successfully!"
-    );
+    setPendingPin(cleaned);
+    setEnteredOtp("");
+    setOtpSent(false);
+    setShowOtpBox(true);
   };
 
-  const handleAutoLockChange = (mins) => {
+  const handleSendPinOtp = async () => {
+    setIsSendingOtp(true);
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      const res = await api.post("/auth/send_otp_for_credit", {
+        user_id: user?.id,
+        role: user?.role,
+      });
+      if (res.data.status === "success") {
+        setAdminEmail(res.data.email);
+        setOtpSent(true);
+        showToast(res.data.message || "OTP sent successfully to admin email!");
+      } else {
+        showToast(res.data.message || "Failed to send OTP", false);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error sending OTP", false);
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyPinOtp = async () => {
+    if (!pendingPin) return;
+    if (!enteredOtp.trim()) {
+      showToast("Please enter the OTP code", false);
+      return;
+    }
+    setIsVerifyingOtp(true);
+    try {
+      const res = await api.post("/auth/verify_otp", {
+        email: adminEmail,
+        otp: enteredOtp.trim(),
+      });
+      if (res.data.status === "success") {
+        setSetting("supervisor_admin_pin")(pendingPin);
+        setTempPin(pendingPin);
+        showToast(
+          isTamil
+            ? isCustomPin
+              ? "மேற்பார்வையாளர் PIN வெற்றிகரமாக மாற்றப்பட்டது!"
+              : "மேற்பார்வையாளர் PIN வெற்றிகரமாக சேமிக்கப்பட்டது!"
+            : isCustomPin
+            ? "Supervisor PIN changed successfully!"
+            : "Supervisor PIN saved successfully!"
+        );
+        resetPinOtp();
+      } else {
+        showToast(res.data.message || "Invalid OTP code", false);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error verifying OTP", false);
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const applyAutoLock = (mins) => {
     setSetting("auto_screen_lock_minutes")(mins);
     showToast(
       mins === 0
@@ -99,6 +195,46 @@ export default function CashierSecuritySettings() {
         ? `ஆட்டோ ஸ்கிரீன் லாக்: ${mins} நிமிடங்களில் பூட்டப்படும்`
         : `Auto Screen Lock set to ${mins} minutes`
     );
+  };
+
+  const handleAutoLockRequest = (mins) => {
+    // Skip the PIN prompt if the clicked option is already active
+    if ((settings.auto_screen_lock_minutes || 0) === mins) return;
+    setPendingLockMins(mins);
+    setLockPin("");
+    setShowLockPinInput(false);
+    setLockPinPrompt(true);
+  };
+
+  const closeLockPinPrompt = () => {
+    setLockPinPrompt(false);
+    setPendingLockMins(null);
+    setLockPin("");
+    setShowLockPinInput(false);
+  };
+
+  const handleVerifyLockPin = () => {
+    if (pendingLockMins == null) return;
+    const pin = lockPin.trim();
+    if (!pin) {
+      showToast(
+        isTamil
+          ? "4-இலக்க மேற்பார்வையாளர் PIN ஐ உள்ளிடவும்"
+          : "Please enter the 4-digit supervisor/admin PIN"
+      );
+      return;
+    }
+    const requiredPin = String(settings.supervisor_admin_pin || "1234").trim();
+    if (pin === requiredPin) {
+      applyAutoLock(pendingLockMins);
+      closeLockPinPrompt();
+    } else {
+      showToast(
+        isTamil
+          ? "தவறான PIN! மீண்டும் முயற்சிக்கவும்."
+          : "Invalid PIN! Please try again."
+      );
+    }
   };
 
   return (
@@ -467,16 +603,16 @@ export default function CashierSecuritySettings() {
                 </div>
                 <button
                   type="button"
-                  onClick={handlePinSave}
+                  onClick={handlePinActionClick}
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm shadow-purple-600/20"
                 >
-                  {isTamil ? "சேமி" : "Save PIN"}
+                  {pinActionLabel}
                 </button>
               </div>
               <p className="text-[11px] text-slate-400">
                 {isTamil
-                  ? "இயல்புநிலை PIN: 1234. இதனை உங்களுக்குப் பிடித்தவாறு மாற்றிக்கொள்ளலாம்."
-                  : "Default PIN is 1234. Update to your private store PIN."}
+                  ? "இயல்புநிலை PIN: 1234. PIN-ஐ சேமிக்க அல்லது மாற்ற, நிர்வாகி OTP சரிபார்ப்பு அவசியம்."
+                  : "Default PIN is 1234. Saving or changing the PIN requires admin OTP verification."}
               </p>
             </div>
 
@@ -490,6 +626,96 @@ export default function CashierSecuritySettings() {
                 <li>{isTamil ? "கல்லா தொகை திருத்தம்" : "Cashier Cash Reconciliation Override"}</li>
               </ul>
             </div>
+
+            {showOtpBox && (
+              <div className="md:col-span-2 bg-amber-50/70 border border-amber-200/80 rounded-2xl p-5">
+                <div className="flex items-start gap-3.5 mb-4">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                    <Lock size={18} />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-amber-900">
+                      {isTamil ? "அட்மின் OTP அங்கீகாரம் தேவை" : "Admin OTP Authorization Required"}
+                    </h5>
+                    <p className="text-[11.5px] text-amber-700 mt-0.5">
+                      {isTamil
+                        ? "PIN-ஐ சேமிக்க/மாற்ற, நிர்வாகி மின்னஞ்சலுக்கு அனுப்பப்படும் OTP-ஐ சரிபார்க்கவும். OTP சரிபார்க்கப்பட்ட பின்னரே PIN மாறும்."
+                        : "To save or change the PIN, verify the OTP sent to the admin email. The PIN is only updated after the OTP is verified."}
+                    </p>
+                  </div>
+                </div>
+
+                {!otpSent ? (
+                  <button
+                    type="button"
+                    onClick={handleSendPinOtp}
+                    disabled={isSendingOtp}
+                    className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSendingOtp ? (
+                      <RefreshCw size={14} className="animate-spin" />
+                    ) : (
+                      <ShieldCheck size={16} />
+                    )}
+                    {isSendingOtp
+                      ? isTamil
+                        ? "OTP அனுப்பப்படுகிறது..."
+                        : "Dispatching OTP..."
+                      : isTamil
+                      ? "நிர்வாகி மின்னஞ்சலுக்கு OTP அனுப்பு"
+                      : "Send Verification OTP to Admin Email"}
+                  </button>
+                ) : (
+                  <div className="space-y-3 bg-white p-4 rounded-xl border border-amber-200">
+                    <p className="text-xs text-slate-600">
+                      {isTamil ? "சரிபார்ப்புக் குறியீடு இதற்கு அனுப்பப்பட்டது:" : "Verification code sent to:"}{" "}
+                      <strong className="text-slate-900">{adminEmail}</strong>
+                    </p>
+                    <div className="flex items-center gap-2.5 max-w-sm">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="Enter 6-digit OTP"
+                        value={enteredOtp}
+                        onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ""))}
+                        className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold tracking-widest text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifyPinOtp}
+                        disabled={isVerifyingOtp || !enteredOtp.trim()}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                      >
+                        {isVerifyingOtp
+                          ? isTamil
+                            ? "சரிபார்க்கிறது..."
+                            : "Verifying..."
+                          : isTamil
+                          ? "சரிபார்த்து அங்கீகரி"
+                          : "Verify & Authorize"}
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={handleSendPinOtp}
+                        disabled={isSendingOtp}
+                        className="text-[11px] font-semibold text-indigo-600 hover:underline inline-block"
+                      >
+                        {isTamil ? "OTP வரவில்லையா? மீண்டும் அனுப்பு" : "Didn't get code? Resend OTP"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetPinOtp}
+                        className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 underline"
+                      >
+                        {isTamil ? "ரத்துசெய்" : "Cancel"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -541,7 +767,7 @@ export default function CashierSecuritySettings() {
               <button
                 key={item.mins}
                 type="button"
-                onClick={() => handleAutoLockChange(item.mins)}
+                onClick={() => handleAutoLockRequest(item.mins)}
                 className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between cursor-pointer ${
                   isSelected
                     ? "border-teal-600 bg-teal-50/60 shadow-sm"
@@ -571,7 +797,90 @@ export default function CashierSecuritySettings() {
             );
           })}
         </div>
+
+        <p className="text-[11px] text-slate-400 mt-3">
+          {isTamil
+            ? "இந்த மாற்றத்தைப் பயன்படுத்த, மேற்பார்வையாளர் PIN சரிபார்ப்பு தேவை."
+            : "Applying an auto-lock time requires supervisor PIN verification."}
+        </p>
       </div>
+
+      {/* ── AUTO-SCREEN LOCK PIN AUTH MODAL ── */}
+      {lockPinPrompt && (
+        <div
+          className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={closeLockPinPrompt}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {isTamil
+                    ? "மேற்பார்வையாளர் PIN மூலம் உறுதிப்படுத்தவும்"
+                    : "Confirm with Supervisor PIN"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {isTamil
+                    ? "ஆட்டோ ஸ்கிரீன் லாக் நேர மாற்றத்தை அங்கீகரிக்க 4-இலக்க PIN ஐ உள்ளிடவும்."
+                    : "Enter the 4-digit supervisor/admin PIN to apply the selected auto-lock time."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeLockPinPrompt}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div className="relative flex-1">
+                <input
+                  type={showLockPinInput ? "text" : "password"}
+                  maxLength={4}
+                  placeholder="4-digit PIN"
+                  value={lockPin}
+                  onChange={(e) =>
+                    setLockPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleVerifyLockPin();
+                  }}
+                  autoFocus
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold tracking-[0.3em] text-center text-slate-900 focus:outline-none focus:border-purple-500 focus:bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLockPinInput((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  title={showLockPinInput ? "Hide PIN" : "Show PIN"}
+                >
+                  {showLockPinInput ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={handleVerifyLockPin}
+                disabled={!lockPin.trim()}
+                className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+              >
+                {isTamil ? "சரிபார்" : "Verify"}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-400 mt-3">
+              {isTamil
+                ? "PIN அங்கீகரிக்கப்பட்ட பின்னரே தேர்ந்தெடுக்கப்பட்ட நேரம் பயன்படுத்தப்படும்."
+                : "The selected time is only applied after the correct PIN is entered."}
+            </p>
+          </div>
+        </div>
+      )}
     </SettingsShell>
   );
 }

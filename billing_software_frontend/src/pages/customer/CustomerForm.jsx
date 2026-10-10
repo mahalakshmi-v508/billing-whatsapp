@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
+import { fetchSettings } from "../settings/settingsApi";
+import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
 import {
   X,
   RefreshCw,
@@ -19,7 +21,6 @@ import {
   Eye,
   EyeOff,
   Plus,
-  ShieldCheck,
   Lock,
   Calendar,
   Wallet,
@@ -73,13 +74,38 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   // ─── tab state ──────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("gst");
 
-  // ─── OTP state ──────────────────────────────────────────────
+  // ─── Credit authorization (Supervisor/Admin PIN) state ──────
   const [isCreditAuthorized, setIsCreditAuthorized] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [adminEmail, setAdminEmail] = useState("");
-  const [enteredOtp, setEnteredOtp] = useState("");
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [enteredPin, setEnteredPin] = useState("");
+  const [showPinInput, setShowPinInput] = useState(false);
+
+  // ─── Cashier security settings (source of the Supervisor PIN) ──
+  const [cashierSecurity, setCashierSecurity] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
+      return saved
+        ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) }
+        : { ...DEFAULT_CASHIER_SECURITY };
+    } catch {
+      return { ...DEFAULT_CASHIER_SECURITY };
+    }
+  });
+
+  useEffect(() => {
+    fetchSettings().then((res) => {
+      if (res?.[CASHIER_SECURITY_KEY]) {
+        setCashierSecurity((prev) => ({ ...prev, ...res[CASHIER_SECURITY_KEY] }));
+      }
+    });
+    const handleSettingsUpdate = (e) => {
+      if (e?.detail?.[CASHIER_SECURITY_KEY]) {
+        setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
+      }
+    };
+    window.addEventListener("company-settings-updated", handleSettingsUpdate);
+    return () =>
+      window.removeEventListener("company-settings-updated", handleSettingsUpdate);
+  }, []);
 
   // ─── GST verify state ──────────────────────────────────
   const [gstCaptchaImg, setGstCaptchaImg] = useState("");
@@ -224,52 +250,21 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     setConfirmAction(null);
   };
 
-  // ─── OTP handlers ──────────────────────────────
-  const handleSendCreditOtp = async () => {
-    setIsSendingOtp(true);
-    try {
-      const user = JSON.parse(localStorage.getItem("user"));
-      const res = await api.post("/auth/send_otp_for_credit", {
-        user_id: user?.id,
-        role: user?.role,
-      });
-      if (res.data.status === "success") {
-        setAdminEmail(res.data.email);
-        setOtpSent(true);
-        showToast(res.data.message || "OTP sent successfully to admin email!");
-      } else {
-        showToast(res.data.message || "Failed to send OTP", false);
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Error sending OTP", false);
-    } finally {
-      setIsSendingOtp(false);
-    }
-  };
-
-  const handleVerifyCreditOtp = async () => {
-    if (!enteredOtp.trim()) {
-      showToast("Please enter the OTP code", false);
+  // ─── Credit authorization (PIN) handlers ──────────────
+  const handleVerifyPin = () => {
+    const pin = enteredPin.trim();
+    if (!pin) {
+      showToast("Please enter the 4-digit supervisor/admin PIN", false);
       return;
     }
-    setIsVerifyingOtp(true);
-    try {
-      const res = await api.post("/auth/verify_otp", {
-        email: adminEmail,
-        otp: enteredOtp.trim(),
-      });
-      if (res.data.status === "success") {
-        setIsCreditAuthorized(true);
-        showToast("Credit limit authorized successfully!");
-      } else {
-        showToast(res.data.message || "Invalid OTP code", false);
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Error verifying OTP", false);
-    } finally {
-      setIsVerifyingOtp(false);
+    const requiredPin = String(
+      cashierSecurity.supervisor_admin_pin || "1234"
+    ).trim();
+    if (pin === requiredPin) {
+      setIsCreditAuthorized(true);
+      showToast("Supervisor PIN verified — credit fields unlocked!");
+    } else {
+      showToast("Invalid PIN. Enter the correct supervisor/admin PIN", false);
     }
   };
 
@@ -450,7 +445,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     }
 
     if (form.credit_enabled === 1 && !isCreditAuthorized) {
-      showToast("Please verify admin OTP to authorize credit limit", false);
+      showToast("Enter the supervisor/admin PIN to authorize credit limit", false);
       return;
     }
 
@@ -522,8 +517,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             pending: "",
           });
           setIsCreditAuthorized(false);
-          setOtpSent(false);
-          setEnteredOtp("");
+          setEnteredPin("");
           resetGstVerify();
           setErrors({});
           setActiveTab("gst");
@@ -1106,8 +1100,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                       onClick={() => {
                         set("credit_enabled", 0);
                         setIsCreditAuthorized(false);
-                        setOtpSent(false);
-                        setEnteredOtp("");
+                        setEnteredPin("");
                       }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                         form.credit_enabled === 0
@@ -1135,67 +1128,50 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                 {form.credit_enabled === 1 && (
                   <div className="mt-5 pt-5 border-t border-slate-200">
                     {!isCreditAuthorized ? (
-                      /* Admin OTP Authorization Box */
-                      <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-5">
+                      /* Supervisor / Admin PIN Authorization Box */
+                      <div className="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-5">
                         <div className="flex items-start gap-3.5 mb-4">
-                          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center flex-shrink-0">
                             <Lock size={18} />
                           </div>
                           <div>
-                            <h5 className="text-xs font-bold text-amber-900">Admin Authorization Required</h5>
-                            <p className="text-[11.5px] text-amber-700 mt-0.5">
-                              To prevent unapproved exposure, credit allocation requires a 2-factor OTP sent to admin email.
+                            <h5 className="text-xs font-bold text-indigo-900">Supervisor / Admin PIN Required</h5>
+                            <p className="text-[11.5px] text-indigo-700 mt-0.5">
+                              Enter the 4-digit supervisor/admin PIN set in Cashier &amp; Staff Security settings to unlock the credit fields below.
                             </p>
                           </div>
                         </div>
 
-                        {!otpSent ? (
-                          <button
-                            type="button"
-                            onClick={handleSendCreditOtp}
-                            disabled={isSendingOtp}
-                            className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                          >
-                            {isSendingOtp ? (
-                              <RefreshCw size={14} className="animate-spin" />
-                            ) : (
-                              <ShieldCheck size={16} />
-                            )}
-                            {isSendingOtp ? "Dispatching OTP..." : "Send Verification OTP to Admin Email"}
-                          </button>
-                        ) : (
-                          <div className="space-y-3 bg-white p-4 rounded-xl border border-amber-200">
-                            <p className="text-xs text-slate-600">
-                              Verification code sent to: <strong className="text-slate-900">{adminEmail}</strong>
-                            </p>
-                            <div className="flex items-center gap-2.5 max-w-sm">
-                              <input
-                                type="text"
-                                maxLength={6}
-                                placeholder="Enter 6-digit OTP"
-                                value={enteredOtp}
-                                onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ""))}
-                                className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold tracking-widest text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white"
-                              />
-                              <button
-                                type="button"
-                                onClick={handleVerifyCreditOtp}
-                                disabled={isVerifyingOtp || !enteredOtp.trim()}
-                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                              >
-                                {isVerifyingOtp ? "Verifying..." : "Verify & Unlock"}
-                              </button>
-                            </div>
+                        <div className="flex items-center gap-2.5 max-w-sm">
+                          <div className="relative flex-1">
+                            <input
+                              type={showPinInput ? "text" : "password"}
+                              maxLength={4}
+                              placeholder="4-digit PIN"
+                              value={enteredPin}
+                              onChange={(e) =>
+                                setEnteredPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                              }
+                              className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold tracking-[0.3em] text-center text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                            />
                             <button
                               type="button"
-                              onClick={handleSendCreditOtp}
-                              disabled={isSendingOtp}
-                              className="text-[11px] font-semibold text-indigo-600 hover:underline inline-block"
+                              onClick={() => setShowPinInput((v) => !v)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                              title={showPinInput ? "Hide PIN" : "Show PIN"}
                             >
-                              Didn't get code? Resend OTP
+                              {showPinInput ? <EyeOff size={15} /> : <Eye size={15} />}
                             </button>
                           </div>
-                        )}
+                          <button
+                            type="button"
+                            onClick={handleVerifyPin}
+                            disabled={!enteredPin.trim()}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                          >
+                            Authorize
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       /* Authorized Form Fields */
