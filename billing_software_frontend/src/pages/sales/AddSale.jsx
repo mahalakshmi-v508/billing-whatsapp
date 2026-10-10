@@ -9,7 +9,7 @@ import {
   Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap,
   Search, RotateCcw, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
   Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert, ArrowRight,
-  Globe
+  Globe, Lock
 } from "lucide-react";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
@@ -540,6 +540,12 @@ export default function AddSale() {
               }))
             : [createInitialRow()];
 
+          const rawCustomerPhone = inv.customer_phone || "";
+          const detectedPhone = detectCountryFromPhone(rawCustomerPhone, "+91");
+          if (detectedPhone.countryCode) {
+            setSelectedCountryCode(detectedPhone.countryCode);
+          }
+
           const loadedSale = {
             id: 1,
             tabIndex: 1,
@@ -551,7 +557,7 @@ export default function AddSale() {
             stateOfSupply: inv.state_of_supply || "Tamil Nadu",
             dueDate: inv.due_date ? inv.due_date.split("T")[0].split(" ")[0] : (inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0]),
             customerName: inv.customer_name || "",
-            customerPhone: inv.customer_phone || "",
+            customerPhone: detectedPhone.cleanDigits || rawCustomerPhone,
             customerId: inv.customer_id || null,
             gstNo: inv.gst_no || (inv.customer && inv.customer.gst_no) || "",
             billingAddress: inv.billing_address || "",
@@ -1593,7 +1599,7 @@ export default function AddSale() {
                     ...(activeSale.customerId && !retainCustomer ? {
                       customerId: null,
                       customerName: "",
-                      customerPhone: "",
+                      ...(isEditMode ? {} : { customerPhone: "" }),
                       billingAddress: "",
                       shippingAddress: "",
                       customerPendingBalance: 0,
@@ -1811,25 +1817,47 @@ export default function AddSale() {
 
               {/* Customer Phone */}
               <div className="sm:col-span-5">
-                <label className="text-[11px] font-bold text-slate-600 mb-1 block">Contact Phone</label>
-                <div className="relative border border-slate-300 rounded-xl px-2 py-1.5 bg-white flex items-center gap-1.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 transition relative">
+                <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
+                  <span>Contact Phone</span>
+                  {isEditMode && (
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <Lock size={10} />
+                      Not Editable
+                    </span>
+                  )}
+                </label>
+                <div
+                  className={`relative border rounded-xl px-2 py-1.5 flex items-center gap-1.5 transition ${
+                    isEditMode
+                      ? "border-slate-200 bg-slate-100/90 cursor-not-allowed select-none"
+                      : "border-slate-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15"
+                  }`}
+                >
                   {/* Country Selector Dropdown */}
                   <div ref={countryPickerRef} className="relative flex-shrink-0">
                     <button
                       type="button"
+                      disabled={isEditMode}
                       onClick={(e) => {
+                        if (isEditMode) return;
                         e.stopPropagation();
                         setShowCountryPicker((v) => !v);
                       }}
-                      title="Click to select country"
-                      className="text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 px-2 py-1 rounded-lg border border-emerald-200/90 flex items-center gap-1 font-mono transition cursor-pointer select-none"
+                      title={isEditMode ? "Phone number cannot be edited" : "Click to select country"}
+                      className={`text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200/90 flex items-center gap-1 font-mono transition ${
+                        isEditMode
+                          ? "opacity-60 cursor-not-allowed pointer-events-none"
+                          : "hover:bg-emerald-100 active:bg-emerald-200 cursor-pointer select-none"
+                      }`}
                     >
                       <span>{getCountryByCode(selectedCountryCode).flag}</span>
                       <span>{selectedCountryCode}</span>
-                      <ChevronDown size={11} className={`text-emerald-700 transition-transform ${showCountryPicker ? "rotate-180" : ""}`} />
+                      {!isEditMode && (
+                        <ChevronDown size={11} className={`text-emerald-700 transition-transform ${showCountryPicker ? "rotate-180" : ""}`} />
+                      )}
                     </button>
 
-                    {showCountryPicker && (
+                    {!isEditMode && showCountryPicker && (
                       <div className="absolute top-full left-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 max-h-60 overflow-y-auto animate-in fade-in duration-100">
                         <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
                           <span>Select Country</span>
@@ -1867,20 +1895,33 @@ export default function AddSale() {
                   <input
                     type="text"
                     inputMode="numeric"
+                    disabled={isEditMode}
+                    readOnly={isEditMode}
                     maxLength={getCountryByCode(selectedCountryCode).length || 15}
                     placeholder={getCountryByCode(selectedCountryCode).placeholder || "Mobile number"}
                     value={activeSale.customerPhone}
-                    onFocus={() => setIsPhoneFocused(true)}
+                    onFocus={() => {
+                      if (!isEditMode) setIsPhoneFocused(true);
+                    }}
                     onBlur={() => setIsPhoneFocused(false)}
                     onChange={(e) => {
+                      if (isEditMode) return;
                       const detected = detectCountryFromPhone(e.target.value, selectedCountryCode);
                       if (detected.countryCode && detected.countryCode !== selectedCountryCode) {
                         setSelectedCountryCode(detected.countryCode);
                       }
                       updateActiveSale({ customerPhone: detected.cleanDigits });
                     }}
-                    className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent font-mono tracking-wide"
+                    title={isEditMode ? "Phone number cannot be changed when editing sale" : undefined}
+                    className={`w-full text-xs font-bold font-mono tracking-wide outline-none bg-transparent ${
+                      isEditMode
+                        ? "text-slate-500 cursor-not-allowed select-none"
+                        : "text-slate-800 placeholder-slate-400"
+                    }`}
                   />
+                  {isEditMode && (
+                    <Lock size={13} className="text-slate-400 flex-shrink-0 mr-1" />
+                  )}
                 </div>
               </div>
 
