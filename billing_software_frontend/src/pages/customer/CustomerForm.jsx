@@ -192,9 +192,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     if (form.credit_enabled === 1) {
       requiredFields.push(
         ["Credit Limit", form.credit_limit],
-        ["Credit Days", form.credit_days],
-        ["Balance", form.balance],
-        ["Pending", form.pending]
+        ["Credit Days", form.credit_days]
       );
     }
 
@@ -1245,7 +1243,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
 
                           <div>
                             <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
-                              Opening Advance Balance (₹) <span className="text-red-500">*</span>
+                              Opening Advance Balance (₹)
                             </label>
                             <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -1263,7 +1261,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
 
                           <div>
                             <label className="block text-[11.5px] font-semibold text-slate-700 mb-1.5">
-                              Pending Due Amount (₹) <span className="text-red-500">*</span>
+                              Pending Due Amount (₹)
                             </label>
                             <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
