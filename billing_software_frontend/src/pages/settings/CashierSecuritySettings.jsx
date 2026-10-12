@@ -44,16 +44,16 @@ export default function CashierSecuritySettings() {
   );
   const [toast, setToast] = useState(null);
   const [showPin, setShowPin] = useState(false);
-  const [tempPin, setTempPin] = useState(settings.supervisor_admin_pin || "1234");
+  const [newPin, setNewPin] = useState("");
 
   // ─── PIN authorization OTP state ──────────────────────────
   const [showOtpBox, setShowOtpBox] = useState(false);
+  const [showNewPinModal, setShowNewPinModal] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
   const [enteredOtp, setEnteredOtp] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-  const [pendingPin, setPendingPin] = useState(null);
 
   // ─── Auto-screen lock PIN authorization state ─────────────
   const [lockPinPrompt, setLockPinPrompt] = useState(false);
@@ -89,10 +89,11 @@ export default function CashierSecuritySettings() {
 
   const resetPinOtp = () => {
     setShowOtpBox(false);
+    setShowNewPinModal(false);
     setOtpSent(false);
     setAdminEmail("");
     setEnteredOtp("");
-    setPendingPin(null);
+    setNewPin("");
     setIsSendingOtp(false);
     setIsVerifyingOtp(false);
   };
@@ -106,20 +107,10 @@ export default function CashierSecuritySettings() {
       ? "PIN மாற்று"
       : "Change PIN"
     : isTamil
-    ? "சேமி"
-    : "Save PIN";
+    ? "PIN அமை"
+    : "Set PIN";
 
   const handlePinActionClick = () => {
-    const cleaned = String(tempPin || "").replace(/\D/g, "").slice(0, 4);
-    if (cleaned.length !== 4) {
-      showToast(
-        isTamil
-          ? "PIN சரியாக 4 இலக்கங்களாக இருக்க வேண்டும்"
-          : "PIN must be exactly 4 digits"
-      );
-      return;
-    }
-    setPendingPin(cleaned);
     setEnteredOtp("");
     setOtpSent(false);
     setShowOtpBox(true);
@@ -149,7 +140,6 @@ export default function CashierSecuritySettings() {
   };
 
   const handleVerifyPinOtp = async () => {
-    if (!pendingPin) return;
     if (!enteredOtp.trim()) {
       showToast("Please enter the OTP code", false);
       return;
@@ -161,18 +151,8 @@ export default function CashierSecuritySettings() {
         otp: enteredOtp.trim(),
       });
       if (res.data.status === "success") {
-        setSetting("supervisor_admin_pin")(pendingPin);
-        setTempPin(pendingPin);
-        showToast(
-          isTamil
-            ? isCustomPin
-              ? "மேற்பார்வையாளர் PIN வெற்றிகரமாக மாற்றப்பட்டது!"
-              : "மேற்பார்வையாளர் PIN வெற்றிகரமாக சேமிக்கப்பட்டது!"
-            : isCustomPin
-            ? "Supervisor PIN changed successfully!"
-            : "Supervisor PIN saved successfully!"
-        );
-        resetPinOtp();
+        setShowOtpBox(false);
+        setShowNewPinModal(true);
       } else {
         showToast(res.data.message || "Invalid OTP code", false);
       }
@@ -182,6 +162,30 @@ export default function CashierSecuritySettings() {
     } finally {
       setIsVerifyingOtp(false);
     }
+  };
+
+  const handleSaveNewPin = () => {
+    const cleaned = String(newPin || "").replace(/\D/g, "").slice(0, 4);
+    if (cleaned.length !== 4) {
+      showToast(
+        isTamil
+          ? "PIN சரியாக 4 இலக்கங்களாக இருக்க வேண்டும்"
+          : "PIN must be exactly 4 digits"
+      );
+      return;
+    }
+
+    setSetting("supervisor_admin_pin")(cleaned);
+    showToast(
+      isTamil
+        ? isCustomPin
+          ? "மேற்பார்வையாளர் PIN வெற்றிகரமாக மாற்றப்பட்டது!"
+          : "மேற்பார்வையாளர் PIN வெற்றிகரமாக சேமிக்கப்பட்டது!"
+        : isCustomPin
+        ? "Supervisor PIN changed successfully!"
+        : "Supervisor PIN saved successfully!"
+    );
+    resetPinOtp();
   };
 
   const applyAutoLock = (mins) => {
@@ -575,44 +579,17 @@ export default function CashierSecuritySettings() {
         {settings.supervisor_pin_enabled && (
           <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 block">
-                {isTamil
-                  ? "4-இலக்க மேற்பார்வையாளர் PIN (4-Digit PIN):"
-                  : "4-Digit Supervisor PIN:"}
-              </label>
-              <div className="flex items-center gap-2.5">
-                <div className="relative">
-                  <input
-                    type={showPin ? "text" : "password"}
-                    maxLength={4}
-                    value={tempPin}
-                    onChange={(e) =>
-                      setTempPin(e.target.value.replace(/\D/g, "").slice(0, 4))
-                    }
-                    placeholder="1234"
-                    className="w-32 tracking-[0.3em] font-mono text-center px-3 py-2 text-base font-black text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 focus:bg-white transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPin(!showPin)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    title={showPin ? "Hide PIN" : "Show PIN"}
-                  >
-                    {showPin ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={handlePinActionClick}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm shadow-purple-600/20"
-                >
-                  {pinActionLabel}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handlePinActionClick}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm shadow-purple-600/20"
+              >
+                {pinActionLabel}
+              </button>
               <p className="text-[11px] text-slate-400">
                 {isTamil
-                  ? "இயல்புநிலை PIN: 1234. PIN-ஐ சேமிக்க அல்லது மாற்ற, நிர்வாகி OTP சரிபார்ப்பு அவசியம்."
-                  : "Default PIN is 1234. Saving or changing the PIN requires admin OTP verification."}
+                  ? "PIN மாற்ற நிர்வாகி மின்னஞ்சல் OTP சரிபார்ப்பு அவசியம்."
+                  : "Changing the PIN requires admin email OTP verification."}
               </p>
             </div>
 
@@ -628,7 +605,14 @@ export default function CashierSecuritySettings() {
             </div>
 
             {showOtpBox && (
-              <div className="md:col-span-2 bg-amber-50/70 border border-amber-200/80 rounded-2xl p-5">
+              <div
+                className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+                onClick={resetPinOtp}
+              >
+                <div
+                  className="w-full max-w-lg bg-white border border-amber-200/80 rounded-2xl p-5 shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
                 <div className="flex items-start gap-3.5 mb-4">
                   <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
                     <Lock size={18} />
@@ -712,9 +696,82 @@ export default function CashierSecuritySettings() {
                         {isTamil ? "ரத்துசெய்" : "Cancel"}
                       </button>
                     </div>
-                  </div>
+                    </div>
                 )}
+                </div>
               </div>
+            )}
+
+            {showNewPinModal && (
+                  <div
+                    className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+                    onClick={resetPinOtp}
+                  >
+                    <div
+                      className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center">
+                          <KeyRound size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900">
+                            {isTamil ? "புதிய மேற்பார்வையாளர் PIN" : "Set New Supervisor PIN"}
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {isTamil ? "புதிய 4 இலக்க PIN-ஐ உள்ளிடவும்." : "Enter a new 4-digit PIN."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <label className="text-xs font-bold text-slate-700 block mb-2">
+                        {isTamil ? "புதிய 4-இலக்க PIN:" : "New 4-Digit PIN:"}
+                      </label>
+                      <div className="relative mb-5">
+                        <input
+                          type={showPin ? "text" : "password"}
+                          maxLength={4}
+                          value={newPin}
+                          onChange={(e) =>
+                            setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveNewPin();
+                          }}
+                          placeholder="••••"
+                          autoFocus
+                          className="w-full tracking-[0.4em] font-mono text-center px-3 py-3 text-base font-black text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 focus:bg-white transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPin((visible) => !visible)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          title={showPin ? "Hide PIN" : "Show PIN"}
+                        >
+                          {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={resetPinOtp}
+                          className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                        >
+                          {isTamil ? "ரத்து" : "Cancel"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveNewPin}
+                          disabled={newPin.length !== 4}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+                        >
+                          {isTamil ? "PIN சேமி" : "Save PIN"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
             )}
           </div>
         )}
