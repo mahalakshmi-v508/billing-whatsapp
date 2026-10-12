@@ -370,19 +370,25 @@ export default function AddSale() {
   const updateSuggestPosition = (inputEl) => {
     if (!inputEl) return;
     const rect = inputEl.getBoundingClientRect();
-    const dropdownHeight = 224;
+    const dropdownHeight = 320;
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
 
-    let top = rect.bottom + 4;
-    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
-      top = Math.max(8, rect.top - dropdownHeight - 4);
+    let top = rect.bottom + 6;
+    if (spaceBelow < 260 && spaceAbove > spaceBelow) {
+      top = Math.max(8, rect.top - dropdownHeight - 6);
+    }
+
+    const targetWidth = Math.max(rect.width, 460);
+    let left = rect.left;
+    if (left + targetWidth > window.innerWidth - 16) {
+      left = Math.max(16, window.innerWidth - targetWidth - 16);
     }
 
     setSuggestCoords({
       top,
-      left: rect.left,
-      width: Math.max(rect.width, 320),
+      left,
+      width: Math.min(targetWidth, window.innerWidth - 32),
     });
   };
 
@@ -2333,62 +2339,178 @@ export default function AddSale() {
             width: `${suggestCoords.width}px`,
             zIndex: 99999,
           }}
-          className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 animate-in fade-in duration-100"
+          className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden ring-1 ring-slate-900/5 animate-in fade-in zoom-in-95 duration-150 flex flex-col"
         >
-          {filteredProducts.map(p => (
-            <div
-              key={p.id}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
-                if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
-                handleSelectProduct(activeRowSuggestId, p);
-              }}
-              className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
-            >
-              <div className="min-w-0 pr-2">
-                <div className="font-bold text-slate-900 truncate">{p.product_name || p.name}</div>
-                <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500 mt-0.5">
-                  {isProductExpired(p.expiry_date) ? (
-                    <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
-                      Expired: {p.expiry_date}
-                    </span>
-                  ) : null}
-                  {Number(p.stock ?? 0) <= 0 ? (
-                    <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
-                      Out of Stock (0)
-                    </span>
-                  ) : stockSafety.low_stock_alert && Number(p.stock ?? 0) <= (stockSafety.low_stock_threshold || 5) ? (
-                    <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                      ⚠️ Low: {p.stock} {p.unit || ""}
-                    </span>
-                  ) : (
-                    <span>Stock: {p.stock ?? 0} {p.unit || ""}</span>
-                  )}
-                </div>
+          {/* Header Bar */}
+          <div className="px-4 py-2.5 bg-gradient-to-r from-slate-50 to-blue-50/40 border-b border-slate-100 flex items-center justify-between select-none shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                <Package size={12} />
               </div>
-              <div className="font-extrabold text-blue-600 shrink-0">₹{parseFloat(p.price || 0).toLocaleString()}</div>
+              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                Select Product
+              </span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700">
+                {filteredProducts.length}
+              </span>
             </div>
-          ))}
+            <div className="flex items-center gap-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              <span>Item &amp; Stock</span>
+              <span>Rate / Unit</span>
+            </div>
+          </div>
+
+          {/* Product Items List */}
+          <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 overscroll-contain">
+            {filteredProducts.map(p => {
+              const stockNum = Number(p.stock ?? 0);
+              const isOut = stockNum <= 0;
+              const isLow = !isOut && stockSafety.low_stock_alert && stockNum <= (stockSafety.low_stock_threshold || 5);
+              const pricing = resolveProductPricing(p, { use: "sale" });
+
+              return (
+                <div
+                  key={p.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                    handleSelectProduct(activeRowSuggestId, p);
+                  }}
+                  className="group px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors border-l-4 border-l-transparent hover:border-l-blue-600"
+                >
+                  {/* Left: Product Icon & Info */}
+                  <div className="flex items-center gap-3 min-w-0 pr-3">
+                    <div
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                        isOut
+                          ? "bg-rose-50 text-rose-500"
+                          : isLow
+                          ? "bg-amber-50 text-amber-600"
+                          : "bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600"
+                      }`}
+                    >
+                      <Package size={15} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 group-hover:text-blue-700 truncate transition-colors flex items-center gap-2">
+                        <span>{p.product_name || p.name}</span>
+                        {p.product_code && (
+                          <span className="text-[10px] font-mono text-slate-400 font-normal">
+                            #{p.product_code}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                        {isProductExpired(p.expiry_date) && (
+                          <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                            Expired: {p.expiry_date}
+                          </span>
+                        )}
+
+                        {isOut ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                            Out of Stock (0)
+                          </span>
+                        ) : isLow ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                            Low: {stockNum} {p.unit || ""}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Stock: <strong className="font-bold">{stockNum}</strong> {p.unit || ""}
+                          </span>
+                        )}
+
+                        {Number(p.gst_percentage || 0) > 0 && (
+                          <span className="px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/60">
+                            GST {p.gst_percentage}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Price & Unit */}
+                  <div className="text-right shrink-0">
+                    <div className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors">
+                      ₹{parseFloat(pricing.price || p.price || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                      per {p.unit || "unit"}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom Not-In-List Action / Footer Bar */}
           {itemSearchQuery && !filteredProducts.some(p => (p.product_name || p.name || "").toLowerCase() === itemSearchQuery.toLowerCase()) && (
             <div
               onMouseDown={(e) => {
                 e.preventDefault();
                 if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
                 if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
-                triggerProductNotFound(activeRowSuggestId, itemSearchQuery);
+                const rowId = activeRowSuggestId;
+                const q = itemSearchQuery || "";
+                setActiveRowSuggestId(null);
+                setPendingProductRowId(rowId);
+                setProductInitialName(q);
+                setProductNotFoundDialog(null);
+                setShowAddProductModal(true);
               }}
-              className="px-3.5 py-2 hover:bg-amber-50/70 bg-slate-50/50 cursor-pointer flex items-center justify-between text-xs text-amber-800 font-bold border-t border-slate-100 transition"
+              className="px-4 py-2.5 hover:bg-amber-50/80 bg-amber-50/40 cursor-pointer flex items-center justify-between text-xs text-amber-900 font-bold border-t border-amber-200/60 transition shrink-0"
             >
-              <div className="flex items-center gap-1.5">
-                <AlertCircle size={13} className="text-amber-600" />
-                <span>Not in list? Click to add "{itemSearchQuery}"</span>
+              <div className="flex items-center gap-2">
+                <AlertCircle size={14} className="text-amber-600" />
+                <span>Not listed? Click to create "{itemSearchQuery}"</span>
               </div>
-              <span className="text-[11px] text-blue-600 font-bold flex items-center gap-0.5">
-                Proceed <ArrowRight size={11} />
+              <span className="text-[11px] text-blue-600 font-bold flex items-center gap-1 hover:underline">
+                Proceed <ArrowRight size={12} />
               </span>
             </div>
           )}
+
+          <div className="px-4 py-2 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium select-none shrink-0">
+            <span>💡 Click product to select • Enter to add</span>
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                const rowId = activeRowSuggestId;
+                const q = itemSearchQuery || "";
+                setActiveRowSuggestId(null);
+                setPendingProductRowId(rowId);
+                setProductInitialName(q);
+                setProductNotFoundDialog(null);
+                setShowAddProductModal(true);
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                const rowId = activeRowSuggestId;
+                const q = itemSearchQuery || "";
+                setActiveRowSuggestId(null);
+                setPendingProductRowId(rowId);
+                setProductInitialName(q);
+                setProductNotFoundDialog(null);
+                setShowAddProductModal(true);
+              }}
+              className="inline-flex items-center gap-1 font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer"
+            >
+              <Plus size={12} strokeWidth={2.5} />
+              <span>Add New Product</span>
+            </button>
+          </div>
         </div>,
         document.body
       )}

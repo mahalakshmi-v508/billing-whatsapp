@@ -243,80 +243,22 @@ export default function EstimateQuotation() {
 
 
 
-  // Print a single estimate in a printable window
-  const printEstimate = (est) => {
+  // Open full Invoice UI design for viewing or printing the estimate
+  const handleViewOrPrintEstimate = (est, autoPrint = false) => {
     if (!est) return;
-    const rowsHtml = (Array.isArray(est.rows) ? est.rows : [])
-      .map(
-        (r, i) => `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${r.item || "-"}</td>
-            <td>${r.qty || 0}</td>
-            <td>${r.unit || ""}</td>
-            <td>${formatCurrency(r.price)}</td>
-            <td>${formatCurrency(r.discount_amt)}</td>
-            <td>${r.tax_rate || 0}%</td>
-            <td>${formatCurrency(r.amount)}</td>
-          </tr>`
-      )
-      .join("");
-    const termsHtml = est.termsText
-      ? `<p style="font-size:12px;margin-top:14px;border-top:1px solid #e2e8f0;padding-top:8px;"><strong>Terms &amp; Conditions:</strong><br/>${est.termsText}</p>`
-      : "";
-    const win = window.open("", "_blank", "width=880,height=720");
-    if (!win) return;
-    win.document.write(`
-      <html>
-        <head>
-          <title>Estimate #${est.refNo}</title>
-          <style>
-            body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;padding:36px;}
-            h1{font-size:22px;margin:0 0 2px;}
-            .muted{color:#64748b;font-size:12px;}
-            table{width:100%;border-collapse:collapse;font-size:12px;margin-top:18px;}
-            th{background:#f1f5f9;text-align:left;padding:7px 8px;border:1px solid #e2e8f0;}
-            td{padding:7px 8px;border:1px solid #e2e8f0;}
-            .right{text-align:right;}
-            .total-row td{font-weight:700;}
-            .totals{margin-top:14px;margin-left:auto;width:280px;font-size:12px;}
-            .totals div{display:flex;justify-content:space-between;padding:3px 0;}
-            .totals .grand{font-size:14px;font-weight:800;border-top:2px solid #0f172a;margin-top:4px;padding-top:8px;}
-            .brand{display:flex;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:16px;}
-          </style>
-        </head>
-        <body>
-          <div class="brand">
-            <div>
-              <h1>Estimate / Quotation</h1>
-              <div class="muted">Ref No. #${est.refNo}</div>
-            </div>
-            <div class="right muted">
-              <div>Invoice Date: ${formatDateDMY(est.invoiceDate)}</div>
-              <div>State of Supply: ${est.stateOfSupply || "-"}</div>
-            </div>
-          </div>
-          <div class="muted"><strong style="color:#0f172a;">Customer:</strong> ${est.customer_name || "-"}${est.customer_phone ? ` &nbsp;(${est.customer_phone})` : ""}</div>
-          <table>
-            <thead>
-              <tr><th>#</th><th>ITEM</th><th>QTY</th><th>UNIT</th><th class="right">PRICE/UNIT</th><th class="right">DISCOUNT</th><th class="right">TAX</th><th class="right">AMOUNT</th></tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-          <div class="totals">
-            <div><span>Subtotal</span><span>${formatCurrency(est.subtotal)}</span></div>
-            <div><span>Discount</span><span>${formatCurrency(est.discount_total)}</span></div>
-            <div><span>Tax</span><span>${formatCurrency(est.tax_total)}</span></div>
-            <div><span>Round Off</span><span>${formatCurrency(est.round_off)}</span></div>
-            <div class="grand"><span>Total</span><span>${formatCurrency(est.total_amount)}</span></div>
-          </div>
-          ${termsHtml}
-        </body>
-      </html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 400);
+    const targetCompany = companies.find((c) => String(c.id) === String(est.company_id)) || companies[0] || null;
+    const docNo = est.refNo || est.id;
+    const url = autoPrint ? `/invoice/${docNo}?autoPrint=1` : `/invoice/${docNo}`;
+    navigate(url, {
+      state: {
+        estimate: est,
+        isEstimate: true,
+        company: targetCompany,
+      },
+    });
   };
+
+  const printEstimate = (est) => handleViewOrPrintEstimate(est, true);
 
   // Share estimate summary via the app's own /whatsapp page.
   // WhatsApp Web / wa.me are never opened: connected → send immediately,
@@ -693,7 +635,11 @@ export default function EstimateQuotation() {
                 {filteredEstimates.map((est) => (
                   <tr key={est.id} className="hover:bg-indigo-50/20 transition-colors">
                     {visibleColumns.ref_no && (
-                      <td className="py-3.5 px-4 font-bold text-indigo-600">
+                      <td
+                        className="py-3.5 px-4 font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                        title={isTamil ? "விலைப்பட்டியலைக் காண்க" : "View Invoice"}
+                        onClick={() => handleViewOrPrintEstimate(est, false)}
+                      >
                         #{est.refNo || est.id}
                       </td>
                     )}
@@ -737,8 +683,8 @@ export default function EstimateQuotation() {
                     )}
                     <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <TableActions
-                        onPrint={() => printEstimate(est)}
-                        printTitle="Print Quotation"
+                        onPrint={() => handleViewOrPrintEstimate(est, true)}
+                        printTitle={isTamil ? "அச்சிடுக" : "Print Quotation"}
                         shareTransaction={{
                           refNo: est.refNo,
                           customer_name: est.customer_name,
@@ -748,22 +694,22 @@ export default function EstimateQuotation() {
                           payment_type: "Estimate",
                         }}
                         shareType="Estimate"
-                        onViewInvoice={() => printEstimate(est)}
-                        viewInvoiceLabel="View Invoice"
+                        onViewInvoice={() => handleViewOrPrintEstimate(est, false)}
+                        viewInvoiceLabel={isTamil ? "விலைப்பட்டியலைக் காண்க" : "View Invoice"}
                         menuItems={[
                           {
-                            label: "Edit",
+                            label: isTamil ? "திருத்துக" : "Edit",
                             icon: Pencil,
                             onClick: () => navigate(`/sales/estimate-quotation/add/${est.id}`),
                           },
                           {
-                            label: "View Invoice",
+                            label: isTamil ? "விலைப்பட்டியலைக் காண்க" : "View Invoice",
                             icon: Eye,
-                            onClick: () => printEstimate(est),
+                            onClick: () => handleViewOrPrintEstimate(est, false),
                           },
                           { isDivider: true },
                           {
-                            label: "Delete",
+                            label: isTamil ? "நீக்குக" : "Delete",
                             icon: Trash2,
                             isDanger: true,
                             onClick: () => setDeleteTarget(est),

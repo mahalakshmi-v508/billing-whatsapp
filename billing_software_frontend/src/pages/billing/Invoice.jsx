@@ -135,6 +135,8 @@ function getVoucherConfig(invoice) {
     invoice?.invoice_type?.toLowerCase().includes("credit") ? "credit_note" :
     invoice?.invoice_type?.toLowerCase().includes("debit") ? "debit_note" :
     invoice?.invoice_type?.toLowerCase().includes("expense") ? "expense" :
+    invoice?.invoice_type?.toLowerCase().includes("estimate") ? "estimate" :
+    invoice?.invoice_type?.toLowerCase().includes("quotation") ? "estimate" :
     invoice?.invoice_type?.toLowerCase().includes("purchase") ? "purchase" : "sale"
   );
 
@@ -145,6 +147,12 @@ function getVoucherConfig(invoice) {
   let isPaymentVoucher = false;
 
   switch (vType) {
+    case "estimate":
+    case "quotation":
+      title = "Estimate / Quotation";
+      partyLabel = "Quotation To:";
+      docNoLabel = "Ref No.:";
+      break;
     case "payment_in":
       title = "Payment Receipt";
       partyLabel = "Received From:";
@@ -205,6 +213,9 @@ function getPaymentMode(invoice) {
 function getVoucherBackRoute(invoice) {
   const { vType } = getVoucherConfig(invoice);
   switch (vType) {
+    case "estimate":
+    case "quotation":
+      return "/sales/estimate-quotation";
     case "payment_in":
       return "/sales/payment-in";
     case "payment_out":
@@ -221,6 +232,76 @@ function getVoucherBackRoute(invoice) {
     default:
       return "/sales/invoices";
   }
+}
+
+/* ─── ESTIMATE TO INVOICE TRANSFORMER ──────────────────────────────────────── */
+function transformEstimateToInvoice(est, comp = null) {
+  const rawRows = Array.isArray(est.rows) ? est.rows : Array.isArray(est.products) ? est.products : [];
+  const products = rawRows.map((r, idx) => ({
+    id: r.product_id || r.id || idx + 1,
+    product_id: r.product_id || r.id || 0,
+    item_name: r.item || r.item_name || r.name || "Item",
+    name: r.item || r.item_name || r.name || "Item",
+    item: r.item || r.item_name || r.name || "Item",
+    description: r.description || "",
+    qty: parseFloat(r.qty || r.quantity) || 1,
+    quantity: parseFloat(r.qty || r.quantity) || 1,
+    unit: r.unit || "",
+    price: parseFloat(r.price || r.unit_price) || 0,
+    unit_price: parseFloat(r.price || r.unit_price) || 0,
+    price_type: r.price_type || "without_tax",
+    discount: parseFloat(r.discount_pct || r.discount) || 0,
+    discount_pct: parseFloat(r.discount_pct || r.discount) || 0,
+    discount_amount: parseFloat(r.discount_amt || 0),
+    tax_percent: parseFloat(r.tax_rate || r.gst) || 0,
+    tax_rate: parseFloat(r.tax_rate || r.gst) || 0,
+    gst: parseFloat(r.tax_rate || r.gst) || 0,
+    tax_amount: parseFloat(r.tax_amt || r.tax_amount || 0),
+    amount: parseFloat(r.amount || r.total || 0),
+    total: parseFloat(r.amount || r.total || 0),
+  }));
+
+  const docNo = est.refNo || est.invoice_no || String(est.id || "");
+  const totalAmt = parseFloat(est.total_amount ?? 0);
+  const paidAmt = parseFloat(est.paid_amount ?? 0);
+  const balanceAmt = parseFloat(est.balance_amount ?? totalAmt);
+
+  return {
+    ...est,
+    invoice_no: docNo,
+    voucher_type: "estimate",
+    invoice_type: "Estimate / Quotation",
+    status: est.status || "open",
+    customer_name: est.customer_name || est.partyQuery || (est.selectedParty?.name || "Cash Customer"),
+    customer_phone: est.customer_phone || est.phoneNo || est.selectedParty?.phone || "",
+    billing_address: est.billing_address || est.customer_address || est.stateOfSupply || "",
+    customer_address: est.customer_address || est.billing_address || "",
+    state_of_supply: est.stateOfSupply || est.state_of_supply || "",
+    created_at: est.invoiceDate || est.created_at || new Date().toISOString(),
+    invoice_date: est.invoiceDate || est.created_at || new Date().toISOString(),
+    products,
+    sub_total: parseFloat(est.subtotal ?? est.sub_total ?? 0),
+    discount_total: parseFloat(est.discount_total ?? est.discount ?? 0),
+    discount_amount: parseFloat(est.discount_total ?? est.discount ?? 0),
+    gst_total: parseFloat(est.tax_total ?? est.gst_total ?? 0),
+    tax_amount: parseFloat(est.tax_total ?? est.gst_total ?? 0),
+    round_off: parseFloat(est.round_off ?? 0),
+    total_amount: totalAmt,
+    paid_amount: paidAmt,
+    balance_amount: balanceAmt,
+    notes: est.descriptionText || est.notes || "",
+    terms_conditions: est.termsText || est.terms_conditions || "",
+    company_id: est.company_id || comp?.id || 0,
+    company_name: comp?.company_name || est.company_name || "My Company",
+    company_address: comp?.company_address || comp?.address || est.company_address || "",
+    phone: comp?.phone || comp?.company_phone || est.phone || "",
+    email: comp?.email || comp?.company_email || est.email || "",
+    gstin: comp?.gstin || est.gstin || "",
+    logo: comp?.logo || est.logo || null,
+    bank_name: comp?.bank_name || est.bank_name || "",
+    account_no: comp?.account_no || est.account_no || "",
+    ifsc_code: comp?.ifsc_code || est.ifsc_code || "",
+  };
 }
 
 /* ─── PRODUCT ITEM HELPERS ────────────────────────────────────────────────── */
@@ -2559,6 +2640,83 @@ export default function InvoicePreview() {
     }
     setLoading(true);
     setLoadError(null);
+
+    // 1. Check if estimate data was passed in route state or exists in localStorage saved_estimates
+    let localEstimate = location.state?.estimate || null;
+    if (!localEstimate) {
+      try {
+        const savedEstimates = JSON.parse(localStorage.getItem("saved_estimates") || "[]");
+        if (Array.isArray(savedEstimates)) {
+          localEstimate = savedEstimates.find(
+            (e) => String(e.refNo) === String(invoiceNo) || String(e.id) === String(invoiceNo)
+          );
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    if (localEstimate || location.state?.isEstimate) {
+      const est = localEstimate || {};
+      const targetCompany = location.state?.company || null;
+
+      const applyEstimate = (comp) => {
+        const normalized = transformEstimateToInvoice(est, comp);
+        setInvoice(normalized);
+        if (comp) {
+          setCompany({
+            company_name: comp.company_name,
+            company_address: comp.company_address || comp.address,
+            phone: comp.phone || comp.company_phone,
+            email: comp.email || comp.company_email,
+            gstin: comp.gstin,
+            logo: comp.logo,
+            bank_name: comp.bank_name,
+            account_no: comp.account_no,
+            ifsc_code: comp.ifsc_code,
+          });
+        }
+        setLoading(false);
+      };
+
+      if (targetCompany) {
+        applyEstimate(targetCompany);
+        return;
+      }
+
+      // If company wasn't passed, load it by id or admin_id
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
+      const companyId = est.company_id || user?.company_id || localStorage.getItem("selected_company_id") || 0;
+
+      if (companyId) {
+        api
+          .post("/company/get_company_by_id", { id: companyId })
+          .then((res) => {
+            const comp = res.data?.status ? res.data.data : null;
+            applyEstimate(comp);
+          })
+          .catch(() => {
+            applyEstimate(null);
+          });
+      } else if (adminId) {
+        api
+          .get(`/company/get_companies_by_admin?admin_id=${adminId}`)
+          .then((res) => {
+            const compList = res.data?.status && Array.isArray(res.data.data) ? res.data.data : [];
+            const comp = compList.find((c) => String(c.id) === String(est.company_id)) || compList[0] || null;
+            applyEstimate(comp);
+          })
+          .catch(() => {
+            applyEstimate(null);
+          });
+      } else {
+        applyEstimate(null);
+      }
+      return;
+    }
+
+    // 2. Load standard sale invoice via API
     api
       .get(`/invoice/get_invoice_by_id?id=${invoiceNo}`)
       .then((res) => {
@@ -2568,6 +2726,7 @@ export default function InvoicePreview() {
             company_name: res.data.data.company_name,
             company_address: res.data.data.company_address,
             phone: res.data.data.phone,
+            email: res.data.data.email,
             gstin: res.data.data.gstin,
             logo: res.data.data.logo,
             bank_name: res.data.data.bank_name,
@@ -2580,12 +2739,24 @@ export default function InvoicePreview() {
       })
       .catch((err) => {
         console.error(err);
+        try {
+          const savedEstimates = JSON.parse(localStorage.getItem("saved_estimates") || "[]");
+          const fallbackEst = Array.isArray(savedEstimates)
+            ? savedEstimates.find((e) => String(e.refNo) === String(invoiceNo) || String(e.id) === String(invoiceNo))
+            : null;
+          if (fallbackEst) {
+            const normalized = transformEstimateToInvoice(fallbackEst, location.state?.company || null);
+            setInvoice(normalized);
+            setLoading(false);
+            return;
+          }
+        } catch {}
         setLoadError(err.response?.data?.message || "Failed to load invoice details.");
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [invoiceNo]);
+  }, [invoiceNo, location.state]);
 
   /* Load print & invoice design settings from DB */
   useEffect(() => {
@@ -2876,7 +3047,7 @@ export default function InvoicePreview() {
           <div className="absolute -inset-2 rounded-2xl border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
         </div>
         <div className="text-center">
-          <h3 className="font-semibold text-slate-900 text-sm">Preparing Invoice #{invoiceNo}</h3>
+          <h3 className="font-semibold text-slate-900 text-sm">Preparing Document #{invoiceNo}</h3>
           <p className="text-xs text-slate-500 mt-0.5">Rendering precision print layout & templates...</p>
         </div>
       </div>
@@ -2884,27 +3055,31 @@ export default function InvoicePreview() {
   }
 
   if (loadError || !invoice) {
+    const isEstRoute = location.state?.isEstimate || String(invoiceNo || "").toUpperCase().startsWith("EST");
     return (
       <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
         <div className="bg-white border border-slate-200 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
           <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-500 flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-7 h-7" />
           </div>
-          <h2 className="text-lg font-bold text-slate-900 mb-2">Invoice Not Found</h2>
+          <h2 className="text-lg font-bold text-slate-900 mb-2">{isEstRoute ? "Estimate Not Found" : "Invoice Not Found"}</h2>
           <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-            {loadError || `Could not find invoice #${invoiceNo}. It may have been deleted or the document number is invalid.`}
+            {loadError || `Could not find record #${invoiceNo}. It may have been deleted or the document number is invalid.`}
           </p>
           <button
-            onClick={() => navigate(getVoucherBackRoute(invoice || { invoice_no: invoiceNo }))}
+            onClick={() => navigate(getVoucherBackRoute(invoice || { voucher_type: isEstRoute ? "estimate" : "sale", invoice_no: invoiceNo }))}
             className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Return to Invoices</span>
+            <span>{isEstRoute ? "Return to Estimates" : "Return to Invoices"}</span>
           </button>
         </div>
       </div>
     );
   }
+
+  const invoiceType = getInvoiceType(invoice);
+  const isEstimate = invoice?.voucher_type === "estimate" || invoiceType?.toLowerCase().includes("estimate") || invoiceType?.toLowerCase().includes("quotation");
 
   const totalAmountNum = parseFloat(invoice?.total_amount) || 0;
   const paidAmountNum = parseFloat(invoice?.paid_amount) || 0;
@@ -2912,7 +3087,16 @@ export default function InvoicePreview() {
   const isPaid = balanceAmountNum <= 0 && totalAmountNum > 0;
   const isPartial = paidAmountNum > 0 && balanceAmountNum > 0;
 
-  const statusBadge = isPaid ? (
+  const statusBadge = isEstimate ? (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+      invoice.status === "converted"
+        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+        : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+    }`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${invoice.status === "converted" ? "bg-emerald-500" : "bg-indigo-500"}`} />
+      {invoice.status === "converted" ? "CONVERTED" : "OPEN"}
+    </span>
+  ) : isPaid ? (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
       PAID
@@ -2928,8 +3112,6 @@ export default function InvoicePreview() {
       UNPAID
     </span>
   );
-
-  const invoiceType = getInvoiceType(invoice);
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col bg-slate-100 font-sans select-none overflow-hidden text-slate-800">
@@ -2958,7 +3140,7 @@ export default function InvoicePreview() {
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500 hidden lg:inline">Invoice</span>
+                <span className="text-xs text-slate-500 hidden lg:inline">{isEstimate ? "Estimate" : "Invoice"}</span>
                 <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 font-mono">
                   #{invoice.invoice_no}
                 </span>
