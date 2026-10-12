@@ -1375,8 +1375,9 @@ export default function SaleInvoices() {
             {/* Drawer Footer */}
             <div className="p-4 border-t border-slate-200 bg-slate-50/70">
               <button
+                type="button"
                 onClick={() => setShowColumnDrawer(false)}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
+                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer flex items-center justify-center text-center"
               >
                 Done
               </button>

@@ -271,7 +271,8 @@ class CustomerController extends Controller
         if (!empty($q)) {
             $query->where(function($sub) use ($q) {
                 $sub->where('name', 'like', "%{$q}%")
-                    ->orWhere('phone', 'like', "%{$q}%");
+                    ->orWhere('phone', 'like', "%{$q}%")
+                    ->orWhere('gst_no', 'like', "%{$q}%");
             });
         }
 

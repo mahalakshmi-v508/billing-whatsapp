@@ -8,7 +8,8 @@ import {
   Trash2, AlignLeft, BarChart2,
   Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap,
   Search, RotateCcw, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
-  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert, ArrowRight
+  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert, ArrowRight,
+  Lock
 } from "lucide-react";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
@@ -52,8 +53,37 @@ const INDIAN_STATES = [
   "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"
 ];
 
-/* ── Units List ──────────────────────────────────────────────────────────── */
-const UNITS = ["NONE", "PCS", "BOX", "KG", "LTR", "MTR", "DOZEN", "GRAM", "SET", "BAG"];
+/* ── Units List & Resolver ────────────────────────────────────────────────── */
+const UNITS = [
+  "NONE", "PCS", "BOX", "KG", "LTR", "MTR", "DOZEN", "GRAM", "SET", "BAG",
+  "PACK", "PAIR", "ROLL", "BOTTLE", "CAN", "ML", "FEET", "QUINTAL", "TON"
+];
+
+function normalizeUnit(rawUnit) {
+  if (!rawUnit || String(rawUnit).trim() === "" || String(rawUnit).trim().toUpperCase() === "NONE") return "NONE";
+  const u = String(rawUnit).trim();
+  const up = u.toUpperCase();
+  if (["PIECE", "PIECES", "PC", "PCS", "NOS", "NO", "NUMBERS", "NUMBER"].includes(up)) return "PCS";
+  if (["KG", "KILOGRAM", "KGS", "KILOGRAMS"].includes(up)) return "KG";
+  if (["GRAM", "GRAMS", "GM", "GMS", "GR"].includes(up)) return "GRAM";
+  if (["LITRE", "LITER", "LTR", "LTRS", "L"].includes(up)) return "LTR";
+  if (["METER", "METRE", "MTR", "MTRS", "M"].includes(up)) return "MTR";
+  if (["BOX", "BOXES", "BX"].includes(up)) return "BOX";
+  if (["DOZEN", "DOZENS", "DOZ", "DZ"].includes(up)) return "DOZEN";
+  if (["BAG", "BAGS"].includes(up)) return "BAG";
+  if (["SET", "SETS"].includes(up)) return "SET";
+  if (["PACK", "PACKS", "PKT", "PKTS", "PACKET", "PACKETS"].includes(up)) return "PACK";
+  if (["PAIR", "PAIRS", "PR"].includes(up)) return "PAIR";
+  if (["BOTTLE", "BOTTLES", "BTL"].includes(up)) return "BOTTLE";
+  if (["ROLL", "ROLLS", "ROL"].includes(up)) return "ROLL";
+  if (["CAN", "CANS"].includes(up)) return "CAN";
+  if (["TON", "TONS"].includes(up)) return "TON";
+  if (["ML", "MILLILITRE", "MILLILITER"].includes(up)) return "ML";
+  if (["FEET", "FT", "FOOT"].includes(up)) return "FEET";
+  if (["QUINTAL", "QUINTALS", "QTL"].includes(up)) return "QUINTAL";
+  return up;
+}
+
 
 /* ── Tax Rates List ──────────────────────────────────────────────────────── */
 const TAX_RATES = [
@@ -470,7 +500,7 @@ export default function AddSale() {
                 product_id: p.product_id || null,
                 item_name: p.product_name || p.name || "",
                 qty: parseFloat(p.qty) || 1,
-                unit: p.unit || "NONE",
+                unit: normalizeUnit(p.unit) || "NONE",
                 price: parseFloat(p.price) || 0,
                 discount_percent: p.discount_percent ? String(p.discount_percent) : "",
                 discount_amount: p.discount ? String(p.discount) : "",
@@ -585,6 +615,7 @@ export default function AddSale() {
     updateActiveSale({
       customerName: val,
       customerId: null,
+      ...(activeSale?.paymentType === "gst" ? { gstNo: "" } : {}),
       creditDays: 0,
       customerPendingBalance: 0,
       customerAdvanceBalance: 0,
@@ -618,12 +649,17 @@ export default function AddSale() {
   const selectCustomer = (c) => {
     const cDays = c.credit_days !== undefined && c.credit_days !== null && c.credit_days !== "" ? Number(c.credit_days) : 0;
     const calcDueDate = calculateDueDate(activeSale.invoiceDate, cDays);
+    const customerGst = (c.gst_no || c.gstin || c.gst_number || "").trim().toUpperCase();
+
+    if (activeSale.paymentType === "gst" && !customerGst) {
+      showToast("Selected customer does not have a registered GST No.", false);
+    }
 
     updateActiveSale({
       customerId: c.id,
       customerName: c.name || c.customer_name,
       customerPhone: c.phone || c.customer_phone || "",
-      gstNo: activeSale.paymentType === "gst" ? (c.gst_no || activeSale.gstNo || "") : "",
+      gstNo: customerGst,
       billingAddress: c.address || c.billing_address || "",
       shippingAddress: c.shipping_address || c.address || "",
       customerPendingBalance: parseFloat(c.pending_amount) || 0,
@@ -750,7 +786,9 @@ export default function AddSale() {
               showToast(`❌ Out of Stock! "${r.item_name}" has 0 stock.`, false);
               finalVal = 0;
             } else if (stockSafety.negative_stock_mode === "warning") {
-              showToast(`⚠️ Negative Stock Warning: "${r.item_name}" has 0 stock!`, false);
+              showToast(`⚠️ Out of Stock! "${r.item_name}" has 0 stock (Negative stock allowed).`, false);
+            } else {
+              showToast(`⚠️ Out of Stock! "${r.item_name}" has 0 stock.`, false);
             }
           }
         }
@@ -774,15 +812,17 @@ export default function AddSale() {
       }
     }
 
-    // 2. Negative stock check
+    // 2. Negative stock / Out of stock check
     const currentStock = Number(prod.stock ?? 0);
     if (currentStock <= 0) {
       if (stockSafety.negative_stock_mode === "block") {
-        showToast(`❌ Out of Stock! "${prod.product_name || prod.name}" has 0 stock. Negative stock is blocked.`, false);
+        showToast(`❌ Out of Stock! "${prod.product_name || prod.name}" has 0 stock. Product cannot be added.`, false);
         setActiveRowSuggestId(null);
         return;
       } else if (stockSafety.negative_stock_mode === "warning") {
-        showToast(`⚠️ Negative Stock Warning: "${prod.product_name || prod.name}" has 0 stock!`, false);
+        showToast(`⚠️ Out of Stock! "${prod.product_name || prod.name}" has 0 stock (Negative stock allowed).`, false);
+      } else {
+        showToast(`⚠️ Out of Stock! "${prod.product_name || prod.name}" has 0 stock.`, false);
       }
     } else if (stockSafety.low_stock_alert && currentStock <= (stockSafety.low_stock_threshold || 5)) {
       showToast(`⚠️ Low Stock Alert: Only ${currentStock} left for "${prod.product_name || prod.name}"!`, false);
@@ -796,13 +836,15 @@ export default function AddSale() {
         // "Without GST" still gets GST added on top. sale_price falls back to
         // the legacy `price` column for products that predate it.
         const pricing = resolveProductPricing(prod, { use: "sale" });
+        const resolvedUnit = normalizeUnit(prod.unit);
+        const finalUnit = resolvedUnit === "NONE" ? (prod.unit ? String(prod.unit).trim().toUpperCase() : "NONE") : resolvedUnit;
         const updated = {
           ...r,
           product_id: prod.id,
           item_name: prod.product_name || prod.name,
           price: pricing.price,
           qty: currentQty,
-          unit: prod.unit || "NONE",
+          unit: finalUnit || "NONE",
           tax_percent: pricing.gstRate,
           price_type: pricing.priceType,
           stock: prod.stock,
@@ -832,10 +874,18 @@ export default function AddSale() {
     if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     setActiveRowSuggestId(null);
+    const trimmed = (query || "").trim();
+    if (!trimmed) return;
+
+    if (productNotFoundDialog && productNotFoundDialog.rowId === rowId && productNotFoundDialog.query === trimmed) {
+      return;
+    }
+
     setPendingProductRowId(rowId);
+    showToast(`⚠️ "${trimmed}" is not available in inventory!`, false);
     setProductNotFoundDialog({
       rowId,
-      query: (query || "").trim(),
+      query: trimmed,
     });
   };
 
@@ -1012,6 +1062,21 @@ export default function AddSale() {
     if (activeSale.paymentType === "credit" && (!activeSale.customerName || !activeSale.customerName.trim())) {
       showToast("Party name doesn't exist, please create a new party.", false);
       return;
+    }
+
+    if (activeSale.paymentType === "gst") {
+      if (!activeSale.customerName || !activeSale.customerName.trim()) {
+        showToast("Customer name is mandatory for GST Sale.", false);
+        return;
+      }
+      if (!activeSale.customerPhone || !activeSale.customerPhone.trim()) {
+        showToast("Contact phone number is mandatory for GST Sale.", false);
+        return;
+      }
+      if (!activeSale.gstNo || !activeSale.gstNo.trim()) {
+        showToast("GST No is mandatory for GST Sale. Please select a registered GST customer.", false);
+        return;
+      }
     }
 
     const validItems = activeSale.rows.filter(r => r.item_name && r.item_name.trim() !== "");
@@ -1276,7 +1341,7 @@ export default function AddSale() {
                 product_id: newProduct.id,
                 item_name: newProduct.product_name,
                 price: pricing.price,
-                unit: (newProduct.unit && newProduct.unit !== "NONE") ? newProduct.unit : r.unit,
+                unit: normalizeUnit(newProduct.unit) || r.unit,
                 tax_percent: pricing.gstRate,
                 price_type: pricing.priceType,
                 stock: newProduct.stock,
@@ -1505,7 +1570,14 @@ export default function AddSale() {
               <button
                 type="button"
                 onClick={() => {
-                  updateActiveSale({ paymentType: "gst" });
+                  let custGst = activeSale.gstNo || "";
+                  if (!custGst && activeSale.customerId) {
+                    const found = customerSuggestions.find(c => c.id === activeSale.customerId);
+                    if (found && (found.gst_no || found.gstin)) {
+                      custGst = (found.gst_no || found.gstin || "").trim().toUpperCase();
+                    }
+                  }
+                  updateActiveSale({ paymentType: "gst", gstNo: custGst });
                   loadInitialCustomers(false);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
@@ -1537,19 +1609,32 @@ export default function AddSale() {
           </div>
         </div>
 
-        {/* Floating Toast Notification */}
-        {toast && (
-          <div className={`mt-4 px-4 py-3 border text-xs font-bold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in duration-150 ${
-            toast.ok ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-700"
-          }`}>
-            <div className="flex items-center gap-2">
-              {toast.ok ? <CheckCircle2 size={16} className="text-emerald-600 shrink-0" /> : <ShieldAlert size={16} className="text-rose-600 shrink-0" />}
-              <span>{toast.msg}</span>
+        {/* Floating Toast Notification (Fixed Top-Right Corner via Portal) */}
+        {toast && typeof document !== "undefined" && createPortal(
+          <div
+            className={`fixed top-6 right-6 z-[999999] max-w-sm sm:max-w-md px-4.5 py-3.5 rounded-2xl text-xs font-bold shadow-2xl border flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-auto ${
+              toast.ok
+                ? "bg-emerald-600 text-white border-emerald-500 shadow-emerald-950/25"
+                : "bg-rose-600 text-white border-rose-500 shadow-rose-950/25"
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              {toast.ok ? (
+                <CheckCircle2 size={18} className="shrink-0 text-white" />
+              ) : (
+                <AlertCircle size={18} className="shrink-0 text-white" />
+              )}
+              <span className="leading-snug break-words">{toast.msg}</span>
             </div>
-            <button onClick={() => setToast(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="text-white/80 hover:text-white transition p-1 rounded-lg hover:bg-white/20 cursor-pointer shrink-0 ml-1"
+            >
               <X size={14} />
             </button>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 
@@ -1588,7 +1673,7 @@ export default function AddSale() {
               {/* Customer Autocomplete Search Input */}
               <div className="sm:col-span-7 relative">
                 <label className="text-[11px] font-bold text-slate-600 mb-1 block">
-                  Customer / Business Name {isCredit && <span className="text-rose-500">*</span>}
+                  Customer / Business Name {(isCredit || isGst) && <span className="text-rose-500">*</span>}
                 </label>
                 <div
                   className={`relative border rounded-xl px-3.5 py-2 transition bg-white flex items-center justify-between ${
@@ -1658,7 +1743,14 @@ export default function AddSale() {
                             className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
                           >
                             <div className="min-w-0 pr-2">
-                              <div className="font-bold text-slate-900 truncate">{c.name || c.customer_name}</div>
+                              <div className="font-bold text-slate-900 truncate flex items-center gap-1.5">
+                                <span>{c.name || c.customer_name}</span>
+                                {c.gst_no && (
+                                  <span className="font-mono text-[9.5px] font-semibold text-blue-700 bg-blue-50 border border-blue-200/80 px-1.5 py-0.2 rounded shrink-0">
+                                    GST: {c.gst_no}
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                                 <span>{c.phone || c.customer_phone || ""}</span>
                                 {isCredit && (
@@ -1704,40 +1796,86 @@ export default function AddSale() {
 
               {/* Customer Phone */}
               <div className="sm:col-span-5">
-                <label className="text-[11px] font-bold text-slate-600 mb-1 block">Contact Phone</label>
-                <div className="relative border border-slate-300 rounded-xl px-3.5 py-2 bg-white flex items-center gap-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 transition">
+                <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
+                  <span>
+                    Contact Phone {isGst && <span className="text-rose-500">*</span>}
+                  </span>
+                  {isEditMode && (
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <Lock size={10} />
+                      Not Editable
+                    </span>
+                  )}
+                </label>
+                <div
+                  className={`relative border rounded-xl px-3.5 py-2 flex items-center gap-2 transition ${
+                    isEditMode
+                      ? "border-slate-200 bg-slate-100/90 cursor-not-allowed select-none"
+                      : "border-slate-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15"
+                  }`}
+                >
                   <Phone size={13} className="text-slate-400 flex-shrink-0" />
                   <input
                     type="text"
                     inputMode="numeric"
+                    disabled={isEditMode}
+                    readOnly={isEditMode}
                     maxLength={10}
                     placeholder="10-digit mobile number"
                     value={activeSale.customerPhone}
-                    onFocus={() => setIsPhoneFocused(true)}
+                    onFocus={() => {
+                      if (!isEditMode) setIsPhoneFocused(true);
+                    }}
                     onBlur={() => setIsPhoneFocused(false)}
                     onChange={(e) => {
+                      if (isEditMode) return;
                       const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                       updateActiveSale({ customerPhone: val });
                     }}
-                    className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent"
+                    title={isEditMode ? "Phone number cannot be changed when editing sale" : undefined}
+                    className={`w-full text-xs font-bold outline-none bg-transparent ${
+                      isEditMode
+                        ? "text-slate-500 cursor-not-allowed select-none"
+                        : "text-slate-800 placeholder-slate-400"
+                    }`}
                   />
+                  {isEditMode && (
+                    <Lock size={13} className="text-slate-400 flex-shrink-0 mr-1" />
+                  )}
                 </div>
               </div>
 
-              {/* GST No Field (Visible only when GST Sale is selected) */}
+              {/* GST No Field (Visible only when GST Sale is selected - Non-editable & Auto-filled) */}
               {isGst && (
                 <div className="sm:col-span-12">
-                  <label className="text-[11px] font-bold text-slate-600 mb-1 block">GST No</label>
-                  <div className="relative border border-slate-300 rounded-xl px-3.5 py-2 bg-white flex items-center gap-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 transition">
-                    <ReceiptText size={13} className="text-slate-400 flex-shrink-0" />
+                  <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <span>GST No</span>
+                      <span className="text-rose-500">*</span>
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Lock size={10} />
+                      Auto-filled from Customer (Not Editable)
+                    </span>
+                  </label>
+                  <div className="relative border border-slate-300 rounded-xl px-3.5 py-2 bg-slate-100/90 flex items-center gap-2 cursor-not-allowed select-none">
+                    <ReceiptText size={13} className="text-slate-500 flex-shrink-0" />
                     <input
                       type="text"
-                      placeholder="Enter customer GSTIN (e.g. 33AAAAA0000A1Z5)"
+                      readOnly
+                      disabled
+                      placeholder="Select a registered customer to auto-fill GSTIN"
                       value={activeSale.gstNo || ""}
-                      onChange={(e) => updateActiveSale({ gstNo: e.target.value.toUpperCase() })}
-                      className="w-full text-xs font-bold text-slate-800 placeholder-slate-400 outline-none bg-transparent uppercase"
+                      className="w-full text-xs font-bold text-slate-700 placeholder-slate-400 outline-none bg-transparent uppercase font-mono tracking-wide cursor-not-allowed select-none"
                     />
+                    <Lock size={13} className="text-slate-400 flex-shrink-0" />
                   </div>
+                  {!activeSale.gstNo && (
+                    <p className="text-[10.5px] text-amber-600 mt-1 font-medium flex items-center gap-1">
+                      <AlertCircle size={11} className="flex-shrink-0" />
+                      Customer GST No is mandatory. Choose a registered GST customer from the dropdown or add a new customer with GST No.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -1952,7 +2090,7 @@ export default function AddSale() {
                               if (!hasMatch) {
                                 searchDebounceTimerRef.current = setTimeout(() => {
                                   triggerProductNotFound(row.id, trimmed);
-                                }, 750);
+                                }, 600);
                               }
                             }
                           }}
@@ -2014,6 +2152,9 @@ export default function AddSale() {
                               handleSelectProduct(row.id, match);
                               return;
                             }
+                            blurTimerRef.current = setTimeout(() => {
+                              triggerProductNotFound(row.id, val);
+                            }, 250);
                           }}
                           className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
                         />
@@ -2042,7 +2183,9 @@ export default function AddSale() {
                           onChange={e => updateRowField(row.id, "unit", e.target.value)}
                           className="w-full py-1.5 px-1 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none cursor-pointer"
                         >
-                          {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                          {Array.from(new Set([...UNITS, row.unit].filter(Boolean))).map(u => (
+                            <option key={u} value={u}>{u}</option>
+                          ))}
                         </select>
                       </td>
                     )}
@@ -2179,8 +2322,8 @@ export default function AddSale() {
         </div>
       </div>
 
-      {/* Product Suggestions Floating Dropdown (Rendered via Portal to eliminate clipping) */}
-      {activeRowSuggestId && suggestCoords && createPortal(
+      {/* Product Suggestions Floating Dropdown (Rendered via Portal when matches exist) */}
+      {activeRowSuggestId && suggestCoords && filteredProducts.length > 0 && createPortal(
         <div
           ref={itemSuggestRef}
           style={{
@@ -2192,93 +2335,59 @@ export default function AddSale() {
           }}
           className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 animate-in fade-in duration-100"
         >
-          {filteredProducts.length === 0 ? (
-            itemSearchQuery.trim() ? (
-              <div
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
-                  triggerProductNotFound(activeRowSuggestId, itemSearchQuery);
-                }}
-                className="px-4 py-3 hover:bg-amber-50 cursor-pointer flex items-center justify-between transition group border border-amber-200/60 rounded-xl m-1.5 bg-amber-50/40"
-              >
-                <div className="flex items-center gap-2">
-                  <AlertCircle size={15} className="text-amber-600 shrink-0" />
-                  <div>
-                    <div className="text-xs font-bold text-amber-900">Product Not Found</div>
-                    <div className="text-[11px] text-slate-500">
-                      "{itemSearchQuery}" is not available in product list
-                    </div>
-                  </div>
+          {filteredProducts.map(p => (
+            <div
+              key={p.id}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                handleSelectProduct(activeRowSuggestId, p);
+              }}
+              className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
+            >
+              <div className="min-w-0 pr-2">
+                <div className="font-bold text-slate-900 truncate">{p.product_name || p.name}</div>
+                <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500 mt-0.5">
+                  {isProductExpired(p.expiry_date) ? (
+                    <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
+                      Expired: {p.expiry_date}
+                    </span>
+                  ) : null}
+                  {Number(p.stock ?? 0) <= 0 ? (
+                    <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
+                      Out of Stock (0)
+                    </span>
+                  ) : stockSafety.low_stock_alert && Number(p.stock ?? 0) <= (stockSafety.low_stock_threshold || 5) ? (
+                    <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                      ⚠️ Low: {p.stock} {p.unit || ""}
+                    </span>
+                  ) : (
+                    <span>Stock: {p.stock ?? 0} {p.unit || ""}</span>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  className="px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
-                >
-                  <span>Proceed</span>
-                  <ArrowRight size={12} />
-                </button>
               </div>
-            ) : (
-              <div className="px-4 py-3 text-center text-xs text-slate-400 select-none">
-                No products found in catalog. Type product name to search or add.
+              <div className="font-extrabold text-blue-600 shrink-0">₹{parseFloat(p.price || 0).toLocaleString()}</div>
+            </div>
+          ))}
+          {itemSearchQuery && !filteredProducts.some(p => (p.product_name || p.name || "").toLowerCase() === itemSearchQuery.toLowerCase()) && (
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+                if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                triggerProductNotFound(activeRowSuggestId, itemSearchQuery);
+              }}
+              className="px-3.5 py-2 hover:bg-amber-50/70 bg-slate-50/50 cursor-pointer flex items-center justify-between text-xs text-amber-800 font-bold border-t border-slate-100 transition"
+            >
+              <div className="flex items-center gap-1.5">
+                <AlertCircle size={13} className="text-amber-600" />
+                <span>Not in list? Click to add "{itemSearchQuery}"</span>
               </div>
-            )
-          ) : (
-            <>
-              {filteredProducts.map(p => (
-                <div
-                  key={p.id}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
-                    handleSelectProduct(activeRowSuggestId, p);
-                  }}
-                  className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
-                >
-                  <div className="min-w-0 pr-2">
-                    <div className="font-bold text-slate-900 truncate">{p.product_name || p.name}</div>
-                    <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500 mt-0.5">
-                      {isProductExpired(p.expiry_date) ? (
-                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
-                          Expired: {p.expiry_date}
-                        </span>
-                      ) : null}
-                      {Number(p.stock ?? 0) <= 0 ? (
-                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-100 text-red-700 border border-red-200">
-                          Out of Stock (0)
-                        </span>
-                      ) : stockSafety.low_stock_alert && Number(p.stock ?? 0) <= (stockSafety.low_stock_threshold || 5) ? (
-                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                          ⚠️ Low: {p.stock} {p.unit || ""}
-                        </span>
-                      ) : (
-                        <span>Stock: {p.stock ?? 0} {p.unit || ""}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="font-extrabold text-blue-600 shrink-0">₹{parseFloat(p.price || 0).toLocaleString()}</div>
-                </div>
-              ))}
-              {itemSearchQuery && !filteredProducts.some(p => (p.product_name || p.name || "").toLowerCase() === itemSearchQuery.toLowerCase()) && (
-                <div
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
-                    triggerProductNotFound(activeRowSuggestId, itemSearchQuery);
-                  }}
-                  className="px-3.5 py-2 hover:bg-amber-50/70 bg-slate-50/50 cursor-pointer flex items-center justify-between text-xs text-amber-800 font-bold border-t border-slate-100 transition"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <AlertCircle size={13} className="text-amber-600" />
-                    <span>Not in list? Click to add "{itemSearchQuery}"</span>
-                  </div>
-                  <span className="text-[11px] text-blue-600 font-bold flex items-center gap-0.5">
-                    Proceed <ArrowRight size={11} />
-                  </span>
-                </div>
-              )}
-            </>
+              <span className="text-[11px] text-blue-600 font-bold flex items-center gap-0.5">
+                Proceed <ArrowRight size={11} />
+              </span>
+            </div>
           )}
         </div>,
         document.body
@@ -2598,7 +2707,9 @@ export default function AddSale() {
                     onChange={e => setQuickAddForm("unit", e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none cursor-pointer"
                   >
-                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                    {Array.from(new Set([...UNITS, quickAddModal.form.unit].filter(Boolean))).map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -2648,7 +2759,7 @@ export default function AddSale() {
       />
 
       {/* Product Not Found Dialog */}
-      {productNotFoundDialog && (
+      {productNotFoundDialog && typeof document !== "undefined" && createPortal(
         <div
           className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
           onClick={handleCancelProductNotFound}
@@ -2697,7 +2808,8 @@ export default function AddSale() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Reused Existing Add Product Modal */}
