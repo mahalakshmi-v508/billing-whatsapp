@@ -30,6 +30,7 @@ import {
   CheckCircle2,
   SlidersHorizontal,
   Tag,
+  KeyRound,
 } from "lucide-react";
 import AddPaymentInModal from "./AddPaymentInModal";
 import PaymentInAnalytics from "./PaymentInAnalytics";
@@ -37,7 +38,9 @@ import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
+import useModalFocusTrap from "../../../hooks/useModalFocusTrap";
 import { useLanguage } from "../../../utils/i18n";
+import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../../settings/CashierSecuritySettings";
 
 const PERIOD_LABELS = {
   all_time: "All Time",
@@ -147,6 +150,34 @@ export default function PaymentIn() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+
+  // Delete PIN protection state
+  const [deletePin, setDeletePin] = useState("");
+  const [deletePinError, setDeletePinError] = useState("");
+  const deleteModalRef = useRef(null);
+  const deletePinRef = useRef(null);
+
+  // Keep focus inside the delete popup so the sidebar search box
+  // cannot grab it while the PIN is being entered.
+  useModalFocusTrap(Boolean(deleteTarget), deleteModalRef, deletePinRef);
+  const [cashierSecurity, setCashierSecurity] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
+      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
+    } catch {
+      return { ...DEFAULT_CASHIER_SECURITY };
+    }
+  });
+
+  useEffect(() => {
+    const handleSecUpdate = (e) => {
+      if (e?.detail && e.detail[CASHIER_SECURITY_KEY]) {
+        setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
+      }
+    };
+    window.addEventListener("company-settings-updated", handleSecUpdate);
+    return () => window.removeEventListener("company-settings-updated", handleSecUpdate);
+  }, []);
 
   // Analytics view state
   const [viewMode, setViewMode] = useState("report");
@@ -383,6 +414,20 @@ export default function PaymentIn() {
   // Delete Payment Record
   const handleDeletePayment = async () => {
     if (!deleteTarget) return;
+
+    // Check Supervisor / Admin PIN requirement
+    if (cashierSecurity.supervisor_pin_enabled) {
+      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "1234").trim();
+      if (deletePin.trim() !== requiredPin) {
+        setDeletePinError(
+          isTamil
+            ? "தவறான PIN! நீக்குவதற்கு 4-இலக்க மேற்பார்வையாளர் / அட்மின் PIN தேவை."
+            : "Invalid PIN! Deletion requires the 4-digit Supervisor/Admin PIN."
+        );
+        return;
+      }
+    }
+
     setDeleting(true);
     try {
       const res = await api.post("/invoice/delete_payment_in", {
@@ -392,6 +437,8 @@ export default function PaymentIn() {
         setPayments((prev) => prev.filter((p) => p.id !== deleteTarget.id));
         setActionToast({ msg: "Payment-In voucher deleted successfully.", ok: true });
         setDeleteTarget(null);
+        setDeletePin("");
+        setDeletePinError("");
         setTimeout(() => setActionToast(null), 3500);
       } else {
         setActionToast({ msg: res.data.message || "Failed to delete voucher.", ok: false });
@@ -1054,9 +1101,14 @@ export default function PaymentIn() {
       {deleteTarget && (
         <div
           className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150"
-          onClick={() => setDeleteTarget(null)}
+          onClick={() => {
+            setDeleteTarget(null);
+            setDeletePin("");
+            setDeletePinError("");
+          }}
         >
           <div
+            ref={deleteModalRef}
             className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1078,11 +1130,47 @@ export default function PaymentIn() {
                 : "Are you sure you want to permanently delete this payment transaction?"}
             </p>
 
+            {cashierSecurity.supervisor_pin_enabled && (
+              <div className="mb-4 bg-purple-50/70 border border-purple-200/80 rounded-2xl p-3.5 space-y-2 text-left">
+                <label className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                  <KeyRound size={14} className="text-purple-600" />
+                  <span>
+                    {isTamil ? "4-இலக்க மேற்பார்வையாளர் / அட்மின் PIN:" : "Enter 4-Digit Supervisor / Admin PIN:"}
+                  </span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    maxLength={4}
+                    value={deletePin}
+                    onChange={(e) => {
+                      setDeletePin(e.target.value.replace(/\D/g, "").slice(0, 4));
+                      setDeletePinError("");
+                    }}
+                    placeholder="••••"
+                    className="w-32 tracking-[0.4em] font-mono text-center px-3 py-2 text-sm font-bold bg-white border border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 shadow-inner"
+                    autoFocus
+                    ref={deletePinRef}
+                  />
+                  <span className="text-[11px] text-purple-700 font-medium">
+                    {isTamil ? "(நீக்குவதற்கு கட்டாயம்)" : "(Required for deletion)"}
+                  </span>
+                </div>
+                {deletePinError && (
+                  <p className="text-xs font-bold text-rose-600 animate-in fade-in">{deletePinError}</p>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 disabled={deleting}
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeletePin("");
+                  setDeletePinError("");
+                }}
                 className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
               >
                 {isTamil ? "ரத்து" : "Cancel"}

@@ -20,12 +20,15 @@ import {
   IndianRupee,
   CheckCircle2,
   SlidersHorizontal,
+  KeyRound,
 } from "lucide-react";
 import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import useTableColumns from "../../../hooks/useTableColumns";
+import useModalFocusTrap from "../../../hooks/useModalFocusTrap";
 import { useLanguage } from "../../../utils/i18n";
+import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../../settings/CashierSecuritySettings";
 import {
   fetchWhatsAppConnection,
   isValidWaPhone,
@@ -104,6 +107,34 @@ export default function EstimateQuotation() {
   const [actionToast, setActionToast] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
+  // Delete PIN protection state
+  const [deletePin, setDeletePin] = useState("");
+  const [deletePinError, setDeletePinError] = useState("");
+  const deleteModalRef = useRef(null);
+  const deletePinRef = useRef(null);
+
+  // Keep focus inside the delete popup so the sidebar search box
+  // cannot grab it while the PIN is being entered.
+  useModalFocusTrap(Boolean(deleteTarget), deleteModalRef, deletePinRef);
+  const [cashierSecurity, setCashierSecurity] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
+      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
+    } catch {
+      return { ...DEFAULT_CASHIER_SECURITY };
+    }
+  });
+
+  useEffect(() => {
+    const handleSecUpdate = (e) => {
+      if (e?.detail && e.detail[CASHIER_SECURITY_KEY]) {
+        setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
+      }
+    };
+    window.addEventListener("company-settings-updated", handleSecUpdate);
+    return () => window.removeEventListener("company-settings-updated", handleSecUpdate);
+  }, []);
+
   const ESTIMATE_STORAGE_KEY = "saved_estimates";
 
   const getSavedEstimates = useCallback(() => {
@@ -130,12 +161,26 @@ export default function EstimateQuotation() {
   }, [getSavedEstimates]);
 
   const handleDeleteEstimate = (id) => {
+    // Check Supervisor / Admin PIN requirement
+    if (cashierSecurity.supervisor_pin_enabled) {
+      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "1234").trim();
+      if (deletePin.trim() !== requiredPin) {
+        setDeletePinError(
+          isTamil
+            ? "தவறான PIN! நீக்குவதற்கு 4-இலக்க மேற்பார்வையாளர் / அட்மின் PIN தேவை."
+            : "Invalid PIN! Deletion requires the 4-digit Supervisor/Admin PIN."
+        );
+        return;
+      }
+    }
     try {
       const saved = JSON.parse(localStorage.getItem(ESTIMATE_STORAGE_KEY) || "[]");
       const next = (Array.isArray(saved) ? saved : []).filter((e) => String(e.id) !== String(id));
       localStorage.setItem(ESTIMATE_STORAGE_KEY, JSON.stringify(next));
       setEstimates(next);
       setDeleteTarget(null);
+      setDeletePin("");
+      setDeletePinError("");
       setActionToast("Estimate deleted.");
       setTimeout(() => setActionToast(null), 2500);
     } catch (err) {
@@ -783,17 +828,28 @@ export default function EstimateQuotation() {
       {deleteTarget && (
         <div
           className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
-          onClick={() => setDeleteTarget(null)}
+          onClick={() => {
+            setDeleteTarget(null);
+            setDeletePin("");
+            setDeletePinError("");
+          }}
         >
           <div
+            ref={deleteModalRef}
             className="bg-white rounded-xl shadow-2xl w-full max-w-sm border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-800">Delete Estimate?</h3>
+              <h3 className="text-sm font-bold text-slate-800">
+                {isTamil ? "மதிப்பீட்டை நீக்கவா?" : "Delete Estimate?"}
+              </h3>
               <button
                 type="button"
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeletePin("");
+                  setDeletePinError("");
+                }}
                 className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
               >
                 <X size={14} />
@@ -801,26 +857,58 @@ export default function EstimateQuotation() {
             </div>
             <div className="px-6 py-5">
               <p className="text-xs text-slate-500 leading-relaxed">
-                You are about to permanently delete{" "}
-                <span className="font-bold text-slate-700">#{deleteTarget.refNo || deleteTarget.id}</span> for{" "}
-                <span className="font-bold text-slate-700">{deleteTarget.customer_name}</span>. This action cannot be
-                undone.
+                {isTamil ? "நீங்கள் நிரந்தரமாக நீக்கப் போகிறீர்கள் " : "You are about to permanently delete "}
+                <span className="font-bold text-slate-700">#{deleteTarget.refNo || deleteTarget.id}</span>
+                {isTamil ? " — வாடிக்கையாளர் " : " for "}
+                <span className="font-bold text-slate-700">{deleteTarget.customer_name}</span>
+                {isTamil ? ". இதை மீள முடியாது." : ". This action cannot be undone."}
               </p>
+
+              {cashierSecurity.supervisor_pin_enabled && (
+                <div className="mt-4 bg-purple-50/70 border border-purple-200/80 rounded-2xl p-3.5 space-y-2">
+                  <label className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                    <KeyRound size={14} className="text-purple-600" />
+                    <span>
+                      {isTamil ? "4-இலக்க மேற்பார்வையாளர் / அட்மின் PIN:" : "Enter 4-Digit Supervisor / Admin PIN:"}
+                    </span>
+                  </label>
+                  <input
+                    type="password"
+                    maxLength={4}
+                    value={deletePin}
+                    onChange={(e) => {
+                      setDeletePin(e.target.value.replace(/\D/g, "").slice(0, 4));
+                      setDeletePinError("");
+                    }}
+                    placeholder="••••"
+                    className="w-32 tracking-[0.4em] font-mono text-center px-3 py-2 text-sm font-bold bg-white border border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 shadow-inner"
+                    autoFocus
+                    ref={deletePinRef}
+                  />
+                  {deletePinError && (
+                    <p className="text-xs font-bold text-rose-600 animate-in fade-in">{deletePinError}</p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50/50">
               <button
                 type="button"
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeletePin("");
+                  setDeletePinError("");
+                }}
                 className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
               >
-                Cancel
+                {isTamil ? "ரத்து" : "Cancel"}
               </button>
               <button
                 type="button"
                 onClick={() => handleDeleteEstimate(deleteTarget.id)}
                 className="px-4 py-2 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl transition cursor-pointer"
               >
-                Delete
+                {isTamil ? "நீக்கு" : "Delete"}
               </button>
             </div>
           </div>

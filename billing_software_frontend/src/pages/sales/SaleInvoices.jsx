@@ -42,6 +42,7 @@ import {
   Lock,
 } from "lucide-react";
 import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap";
 import SaleAnalytics from "../reports/transactions/sale/SaleAnalytics";
 import ShareTransactionPopover from "../../components/ShareTransactionPopover";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
@@ -216,6 +217,12 @@ export default function SaleInvoices() {
   const [deletePinError, setDeletePinError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+  const deleteModalRef = useRef(null);
+  const deletePinRef = useRef(null);
+
+  // Keep focus inside the delete popup so the sidebar search box
+  // cannot grab it while the PIN is being entered.
+  useModalFocusTrap(Boolean(deleteTarget), deleteModalRef, deletePinRef);
 
   // Cashier & Staff Security Restrictions
   const [cashierSecurity, setCashierSecurity] = useState(() => {
@@ -1259,6 +1266,7 @@ export default function SaleInvoices() {
           }}
         >
           <div
+            ref={deleteModalRef}
             className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1298,6 +1306,7 @@ export default function SaleInvoices() {
                     placeholder="••••"
                     className="w-32 tracking-[0.4em] font-mono text-center px-3 py-2 text-sm font-bold bg-white border border-purple-300 rounded-xl focus:outline-none focus:border-purple-600 shadow-inner"
                     autoFocus
+                    ref={deletePinRef}
                   />
                   <span className="text-[11px] text-purple-700 font-medium">
                     (Required for deletion)
