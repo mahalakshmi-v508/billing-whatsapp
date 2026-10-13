@@ -15,15 +15,12 @@ import {
   X,
   AlertCircle,
   Share2,
-  MoreVertical,
   Users,
   TrendingUp,
   TrendingDown,
   ArrowDownLeft,
   ArrowUpRight,
   Wallet,
-  Eye,
-  Edit2,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import * as XLSX from "xlsx";
@@ -51,6 +48,7 @@ const TIME_PRESETS = [
   { label: "This Quarter", value: "thisQuarter" },
   { label: "This Financial Year", value: "thisFY" },
   { label: "Last Financial Year", value: "lastFY" },
+  { label: "All Time", value: "allTime" },
   { label: "Custom", value: "custom" },
 ];
 
@@ -99,6 +97,8 @@ function getRange(preset) {
       const fyStart = now.getMonth() >= 3 ? now.getFullYear() - 1 : now.getFullYear() - 2;
       return { start: new Date(fyStart, 3, 1), end: new Date(fyStart + 1, 2, 31) };
     }
+    case "allTime":
+      return { start: new Date(2000, 0, 1), end: today };
     default:
       return { start: today, end: today };
   }
@@ -178,9 +178,9 @@ export default function PartyStatement() {
   const navigate = useNavigate();
   const { adminId } = getAuth();
   const [periodOpen, setPeriodOpen] = useState(false);
-  const [period, setPeriod] = useState("thisMonth");
-  const [startDate, setStartDate] = useState(() => getRange("thisMonth").start);
-  const [endDate, setEndDate] = useState(() => getRange("thisMonth").end);
+  const [period, setPeriod] = useState("allTime");
+  const [startDate, setStartDate] = useState(() => getRange("allTime").start);
+  const [endDate, setEndDate] = useState(() => getRange("allTime").end);
   const [partyQuery, setPartyQuery] = useState("");
   const [partyOpen, setPartyOpen] = useState(false);
   const [selectedParty, setSelectedParty] = useState(null);
@@ -207,13 +207,11 @@ export default function PartyStatement() {
 
   const [sharePopup, setSharePopup] = useState({ open: false, row: null, position: { top: 0, left: 0 } });
   const [whatsappSending, setWhatsappSending] = useState(false);
-  const [menuPopup, setMenuPopup] = useState({ open: false, row: null, position: { top: 0, left: 0 } });
   const [viewMode, setViewMode] = useState("report");
 
   const periodRef = useRef(null);
   const partyRef = useRef(null);
   const sharePopupRef = useRef(null);
-  const menuPopupRef = useRef(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -222,9 +220,6 @@ export default function PartyStatement() {
       if (partyRef.current && !partyRef.current.contains(e.target)) setPartyOpen(false);
       if (sharePopupRef.current && !sharePopupRef.current.contains(e.target) && !e.target.closest('[data-share-btn]')) {
         setSharePopup({ open: false, row: null, position: { top: 0, left: 0 } });
-      }
-      if (menuPopupRef.current && !menuPopupRef.current.contains(e.target) && !e.target.closest('[data-menu-btn]')) {
-        setMenuPopup({ open: false, row: null, position: { top: 0, left: 0 } });
       }
       if (!e.target.closest('[data-filter-box]')) {
         setFilterOpen(null);
@@ -439,7 +434,6 @@ export default function PartyStatement() {
   const handleShareClick = (t, event) => {
     const btn = event.currentTarget;
     const rect = btn.getBoundingClientRect();
-    setMenuPopup({ open: false, row: null, position: { top: 0, left: 0 } });
     setSharePopup({
       open: true,
       row: t,
@@ -449,46 +443,6 @@ export default function PartyStatement() {
 
   const closeSharePopup = () => {
     setSharePopup({ open: false, row: null, position: { top: 0, left: 0 } });
-  };
-
-  const handleMenuClick = (t, event) => {
-    const btn = event.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    setSharePopup({ open: false, row: null, position: { top: 0, left: 0 } });
-    setMenuPopup({
-      open: true,
-      row: t,
-      position: { top: rect.bottom + 6, left: Math.max(10, rect.left - 80) },
-    });
-  };
-
-  const closeMenuPopup = () => {
-    setMenuPopup({ open: false, row: null, position: { top: 0, left: 0 } });
-  };
-
-  const handleView = (t) => {
-    closeMenuPopup();
-    if (t.kind === "sale" && t.ref_no) {
-      navigate(`/invoice/${t.ref_no}`);
-    }
-  };
-
-  const handleEdit = (t) => {
-    closeMenuPopup();
-    switch (t.kind) {
-      case "sale":
-        if (t.ref_no) navigate(`/sales/edit/${t.ref_no}`);
-        break;
-      case "sales_return":
-        if (t.id) navigate(`/sales/credit-note/edit/${t.id}`);
-        break;
-      case "purchase":
-      case "payment":
-        if (t.id) navigate(`/purchases/edit/${t.id}`);
-        break;
-      default:
-        break;
-    }
   };
 
   const buildTransactionElement = (t) => {
@@ -1027,14 +981,6 @@ export default function PartyStatement() {
                         >
                           <Share2 size={14} />
                         </button>
-                        <button
-                          data-menu-btn
-                          onClick={(e) => handleMenuClick(t, e)}
-                          title="Options"
-                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
-                        >
-                          <MoreVertical size={14} />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1078,41 +1024,6 @@ export default function PartyStatement() {
             >
               <SiWhatsapp size={18} className="text-[#25D366]" />
               <span>WhatsApp</span>
-            </button>
-          </div>,
-          document.body
-        )}
-
-      {/* ═══════════════════════════════════════════════════════════════
-           ROW MENU POPUP (View / Edit)
-          ═══════════════════════════════════════════════════════════════ */}
-      {menuPopup.open &&
-        menuPopup.row &&
-        createPortal(
-          <div
-            ref={menuPopupRef}
-            style={{
-              position: "fixed",
-              top: menuPopup.position.top,
-              left: menuPopup.position.left,
-              zIndex: 9999,
-            }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 w-32 animate-in fade-in zoom-in-95 duration-100"
-          >
-            <button
-              onClick={() => handleView(menuPopup.row)}
-              className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition"
-            >
-              <Eye size={13} className="text-slate-400" />
-              <span>View</span>
-            </button>
-            <button
-              onClick={() => handleEdit(menuPopup.row)}
-              className="flex items-center gap-2 w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition"
-            >
-              <Edit2 size={13} className="text-slate-400" />
-              <span>Edit</span>
             </button>
           </div>,
           document.body

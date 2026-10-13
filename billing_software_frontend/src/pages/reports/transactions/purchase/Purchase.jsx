@@ -13,7 +13,6 @@ import {
   FileText,
   History,
   Loader2,
-  MoreVertical,
   Pencil,
   Plus,
   Printer,
@@ -146,12 +145,10 @@ export default function Purchase() {
 
   const [companies, setCompanies] = useState([]);
   const [companyFilter, setCompanyFilter] = useState("all");
-  const [period, setPeriod] = useState("custom");
+  const [period, setPeriod] = useState("all");
 
-  const [fromDate, setFromDate] = useState(
-    toInputDate(firstOfMonth())
-  );
-  const [toDate, setToDate] = useState(toInputDate(today()));
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -964,27 +961,6 @@ export default function Purchase() {
     } finally {
       setShareMenu(null);
     }
-  };
-
-  const toggleActionMenu = (e, p) => {
-    e.stopPropagation();
-
-    if (actionMenu && actionMenu.id === p.id) {
-      setActionMenu(null);
-      return;
-    }
-
-    setShareMenu(null);
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    let x = rect.right - ACTION_MENU_WIDTH;
-    if (x < 10) x = 10;
-
-    setActionMenu({
-      id: p.id,
-      x,
-      y: rect.bottom + ROW_GAP,
-    });
   };
 
   const toggleShareMenu = (e, p) => {
@@ -2166,7 +2142,7 @@ export default function Purchase() {
 
                       {/* ACTIONS */}
                       <td className="pb-no-print px-4 py-3.5 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center justify-start">
                           <button
                             data-share-trigger
                             data-purchase-id={p.id}
@@ -2176,17 +2152,6 @@ export default function Purchase() {
                             className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-emerald-600 transition cursor-pointer"
                           >
                             <Share2 size={14} />
-                          </button>
-
-                          {/* THREE DOT MENU */}
-                          <button
-                            data-action-trigger
-                            data-purchase-id={p.id}
-                            title="More actions"
-                            onClick={(e) => toggleActionMenu(e, p)}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
-                          >
-                            <MoreVertical size={14} />
                           </button>
                         </div>
                       </td>

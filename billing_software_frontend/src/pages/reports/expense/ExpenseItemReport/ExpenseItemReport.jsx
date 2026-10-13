@@ -9,7 +9,6 @@ import ExpenseItemReportAnalytics from "./ExpenseItemReportAnalytics";
 import { showToast } from "../../../../utils/reportToast";
 
 const today = () => new Date();
-const firstOfMonth = () => new Date(today().getFullYear(), today().getMonth(), 1);
 const toInputDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 const PERIOD_OPTIONS = [
@@ -19,6 +18,7 @@ const PERIOD_OPTIONS = [
   { value: "last_week", label: "Last Week" },
   { value: "month", label: "This Month" },
   { value: "year", label: "This Year" },
+  { value: "all_time", label: "All Time" },
   { value: "custom", label: "Custom" },
 ];
 
@@ -38,6 +38,8 @@ const getPeriodDates = (value) => {
   } else if (value === "year") {
     start.setMonth(0, 1);
     end.setMonth(11, 31);
+  } else if (value === "all_time") {
+    start.setFullYear(2000, 0, 1);
   } else {
     start.setDate(1);
   }
@@ -67,10 +69,10 @@ export default function ExpenseItemReport() {
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(savedCompanyId || 0);
   const [symbol, setSymbol] = useState("₹");
-  const [period, setPeriod] = useState("month");
+  const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
-  const [fromDate, setFromDate] = useState(toInputDate(firstOfMonth()));
+  const [fromDate, setFromDate] = useState(toInputDate(new Date(2000, 0, 1)));
   const [toDate, setToDate] = useState(toInputDate(today()));
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(false);

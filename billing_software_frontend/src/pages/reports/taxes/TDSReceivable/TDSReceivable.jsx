@@ -78,8 +78,8 @@ function printReport(element) {
 
 export default function TDSReceivable() {
   const { adminId } = getAuth();
-  const initial = rangeFor("This Month");
-  const [period, setPeriod] = useState("This Month");
+  const initial = rangeFor("All Time");
+  const [period, setPeriod] = useState("All Time");
   const [fromDate, setFromDate] = useState(initial.from);
   const [toDate, setToDate] = useState(initial.to);
   const [companyId, setCompanyId] = useState(Number(localStorage.getItem("selected_company_id") || 0) || null);

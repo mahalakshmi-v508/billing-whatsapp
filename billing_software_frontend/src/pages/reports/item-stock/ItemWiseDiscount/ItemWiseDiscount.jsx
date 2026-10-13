@@ -54,8 +54,8 @@ function printReport(element) {
 
 export default function ItemWiseDiscount() {
   const { adminId } = getAuth();
-  const [{ from: startDate, to: endDate }, setRange] = useState(dateRange("this_month"));
-  const [period, setPeriod] = useState("this_month");
+  const [{ from: startDate, to: endDate }, setRange] = useState(dateRange("all_time"));
+  const [period, setPeriod] = useState("all_time");
   const [companyId, setCompanyId] = useState(Number(localStorage.getItem("selected_company_id") || 0) || null);
   const [companyName, setCompanyName] = useState("My Company");
   const [companies, setCompanies] = useState([]);
