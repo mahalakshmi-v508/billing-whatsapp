@@ -184,8 +184,12 @@ export default function PurchaseForm() {
             const list = res.data.data || [];
             setCompanies(list);
             setSelectedCompany(prev => {
-              if (prev) return prev;
-              const defId = localStorage.getItem("selected_company_id") || user?.company_id || (list[0] ? list[0].id : "");
+              const saved = localStorage.getItem("selected_company_id");
+              if (saved && list.some(c => String(c.id) === String(saved))) {
+                return String(saved);
+              }
+              if (prev && list.some(c => String(c.id) === String(prev))) return prev;
+              const defId = saved || user?.company_id || (list[0] ? list[0].id : "");
               return defId ? String(defId) : "";
             });
           }

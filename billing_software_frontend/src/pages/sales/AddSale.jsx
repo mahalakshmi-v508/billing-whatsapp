@@ -524,18 +524,30 @@ export default function AddSale() {
         console.error("Error loading companies:", err);
       }
 
-      let activeCid = selectedCompany || localStorage.getItem("selected_company_id");
-      const isValid = companyList.some(c => String(c.id) === String(activeCid));
-      if ((!activeCid || !isValid) && companyList.length > 0) {
-        activeCid = String(companyList[0].id);
-        setSelectedCompany(activeCid);
-        localStorage.setItem("selected_company_id", activeCid);
-      }
+      const saved = localStorage.getItem("selected_company_id");
+      let activeCid = (saved && companyList.some(c => String(c.id) === String(saved)))
+        ? String(saved)
+        : (selectedCompany || (companyList[0] ? String(companyList[0].id) : ""));
+      setSelectedCompany(activeCid);
 
       await fetchAllProducts(activeCid);
     };
     loadCompaniesAndProducts();
   }, [adminId, user.role]);
+
+  // Sync selectedCompany when settings company changes
+  useEffect(() => {
+    const handleCompanySync = () => {
+      const saved = localStorage.getItem("selected_company_id");
+      if (saved && !isEditMode) setSelectedCompany(String(saved));
+    };
+    window.addEventListener("storage", handleCompanySync);
+    window.addEventListener("company_changed", handleCompanySync);
+    return () => {
+      window.removeEventListener("storage", handleCompanySync);
+      window.removeEventListener("company_changed", handleCompanySync);
+    };
+  }, [isEditMode]);
 
   useEffect(() => {
     if (!selectedCompany) return;

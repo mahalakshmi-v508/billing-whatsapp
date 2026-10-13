@@ -75,7 +75,7 @@ export default function ExpenseList() {
 
   // Companies state
   const [companies, setCompanies] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState("all");
+  const [selectedCompany, setSelectedCompany] = useState(() => localStorage.getItem("selected_company_id") || "all");
   const [firmOpen, setFirmOpen] = useState(false);
   const firmRef = useRef(null);
 
@@ -238,15 +238,37 @@ export default function ExpenseList() {
     api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
       .then((res) => {
         if (res.data?.status && Array.isArray(res.data.data)) {
-          setCompanies(res.data.data);
-          setSelectedCompany("all");
-          fetchData("all", "", "");
+          const list = res.data.data;
+          setCompanies(list);
+          const saved = localStorage.getItem("selected_company_id");
+          const chosen = (saved && list.some((c) => String(c.id) === String(saved)))
+            ? String(saved)
+            : "all";
+          setSelectedCompany(chosen);
+          fetchData(chosen, "", "");
         } else {
           fetchData("all", "", "");
         }
       })
       .catch(() => fetchData("all", "", ""));
   }, [adminId]);
+
+  // Sync selectedCompany when settings company changes
+  useEffect(() => {
+    const handleCompanySync = () => {
+      const saved = localStorage.getItem("selected_company_id");
+      if (saved) {
+        setSelectedCompany(String(saved));
+        fetchData(String(saved), fromDate, toDate);
+      }
+    };
+    window.addEventListener("storage", handleCompanySync);
+    window.addEventListener("company_changed", handleCompanySync);
+    return () => {
+      window.removeEventListener("storage", handleCompanySync);
+      window.removeEventListener("company_changed", handleCompanySync);
+    };
+  }, [fromDate, toDate]);
 
   useEffect(() => {
     if (isDateMounted.current) {

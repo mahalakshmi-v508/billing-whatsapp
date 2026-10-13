@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { setStoredCompany } from "../../utils/companyHelper";
 import {
   Crown,
   Settings,
@@ -174,11 +175,15 @@ function GeneralSettings() {
       if (res.data.status) {
         const list = res.data.data || [];
         setCompanies(list);
-        const currentSaved = localStorage.getItem("selected_company_id");
+        let currentSaved = localStorage.getItem("selected_company_id");
         if (!currentSaved && list.length > 0) {
-          const firstId = String(list[0].id);
-          setSelectedCompany(firstId);
-          localStorage.setItem("selected_company_id", firstId);
+          currentSaved = String(list[0].id);
+          setSelectedCompany(currentSaved);
+          setStoredCompany(list[0]);
+        } else if (currentSaved) {
+          setSelectedCompany(String(currentSaved));
+          const matched = list.find((c) => String(c.id) === String(currentSaved));
+          if (matched) setStoredCompany(matched);
         }
       }
     } catch (err) {
@@ -263,8 +268,7 @@ function GeneralSettings() {
   const handleSetDefaultCompany = (company) => {
     const compId = String(company.id);
     setSelectedCompany(compId);
-    localStorage.setItem("selected_company_id", compId);
-    window.dispatchEvent(new Event("storage"));
+    setStoredCompany(company);
     showToast(`Default company set to "${company.company_name}"`);
   };
 
