@@ -33,6 +33,7 @@ import api from "../../services/api";
 import { getCompanyId } from "./settingsApi";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
+import WhatsAppDefaultSettings from "./WhatsAppDefaultSettings";
 
 const blue = "#2563eb";
 
@@ -769,6 +770,11 @@ export default function TransactionMessage() {
           </div>
 
         </div>
+      </div>
+
+      {/* ── WhatsApp Defaults Design (at the bottom of WhatsApp & SMS Alerts page) ── */}
+      <div className="rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden shrink-0 mt-6">
+        <WhatsAppDefaultSettings />
       </div>
 
       {/* ── Toast Notifications ── */}
