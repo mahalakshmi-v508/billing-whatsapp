@@ -844,13 +844,6 @@ export default function PaymentIn() {
           >
             <Printer size={14} />
           </button>
-
-          {/* Customise Columns */}
-          <HeaderSettingsButton
-            variant="table"
-            onClick={() => setShowColumnDrawer(true)}
-            isActive={showColumnDrawer}
-          />
         </div>
       </div>
 

@@ -179,7 +179,7 @@ export default function CommonTableColumnSettings({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer"
+            className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-sm transition cursor-pointer flex items-center justify-center text-center"
           >
             Done
           </button>

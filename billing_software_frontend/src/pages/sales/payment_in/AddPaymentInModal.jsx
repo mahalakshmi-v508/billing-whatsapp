@@ -384,13 +384,13 @@ export default function AddPaymentInModal({ isOpen, onClose, onSuccess, initialP
                       key={type}
                       type="button"
                       onClick={() => setPaymentType(type)}
-                      className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
+                      className={`w-full py-2.5 px-1 text-xs font-bold rounded-xl border transition cursor-pointer flex items-center justify-center text-center ${
                         paymentType === type
                           ? "bg-blue-600 text-white border-blue-600 shadow-xs shadow-blue-600/30"
                           : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                       }`}
                     >
-                      {type}
+                      <span className="w-full text-center">{type}</span>
                     </button>
                   ))}
                 </div>

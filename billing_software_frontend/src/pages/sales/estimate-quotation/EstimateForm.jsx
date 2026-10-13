@@ -36,7 +36,8 @@ import {
   IndianRupee,
   Tag,
   ReceiptText,
-  Wallet
+  Wallet,
+  Lock
 } from "lucide-react";
 
 const DEFAULT_ITEM_COLUMNS = [
@@ -59,8 +60,33 @@ const INDIAN_STATES = [
   "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi",
 ];
 
-/* ── Units List ──────────────────────────────────────────────────────── */
-const UNITS = ["NONE", "PCS", "BOX", "KG", "LTR", "MTR", "DOZEN", "GRAM", "SET", "BAG", "BUNDLE", "ROLL", "SQFT"];
+/* ── Units List & Resolver ────────────────────────────────────────────────── */
+const UNITS = [
+  "NONE", "PCS", "BOX", "KG", "LTR", "MTR", "DOZEN", "GRAM", "SET", "BAG",
+  "PACK", "PAIR", "ROLL", "BOTTLE", "CAN", "ML", "FEET", "QUINTAL", "TON", "BUNDLE", "SQFT"
+];
+
+function normalizeUnit(rawUnit) {
+  if (!rawUnit || String(rawUnit).trim() === "" || String(rawUnit).trim().toUpperCase() === "NONE") return "NONE";
+  const u = String(rawUnit).trim();
+  const up = u.toUpperCase();
+  if (["PIECE", "PIECES", "PC", "PCS", "NOS", "NO", "NUMBERS", "NUMBER"].includes(up)) return "PCS";
+  if (["KG", "KILOGRAM", "KGS", "KILOGRAMS"].includes(up)) return "KG";
+  if (["GRAM", "GRAMS", "GM", "GMS", "GR"].includes(up)) return "GRAM";
+  if (["LITRE", "LITER", "LTR", "LTRS", "L"].includes(up)) return "LTR";
+  if (["METER", "METRE", "MTR", "MTRS", "M"].includes(up)) return "MTR";
+  if (["BOX", "BOXES", "BX"].includes(up)) return "BOX";
+  if (["DOZEN", "DOZENS", "DOZ", "DZ"].includes(up)) return "DOZEN";
+  if (["BAG", "BAGS"].includes(up)) return "BAG";
+  if (["SET", "SETS"].includes(up)) return "SET";
+  if (["PACK", "PACKS", "PKT", "PKTS", "PACKET", "PACKETS"].includes(up)) return "PACK";
+  if (["PAIR", "PAIRS", "PR"].includes(up)) return "PAIR";
+  if (["BOTTLE", "BOTTLES", "BTL"].includes(up)) return "BOTTLE";
+  if (["ROLL", "ROLLS", "ROL"].includes(up)) return "ROLL";
+  if (["CAN", "CANS"].includes(up)) return "CAN";
+  if (["TON", "TONS"].includes(up)) return "TON";
+  return up;
+}
 
 /* ── Tax Rates List ──────────────────────────────────────────────────── */
 const TAX_RATES = [
@@ -98,15 +124,20 @@ function createInitialRow(id = null) {
 function createNewEstimateTab(id, index, nextRefNo, savedEstimate = null) {
   const today = new Date().toISOString().split("T")[0];
   if (savedEstimate) {
+    const preservedId = savedEstimate.id || id;
     return {
       ...savedEstimate,
-      id,
+      id: preservedId,
       title: `Estimate #${index}`,
       refNo: savedEstimate.refNo || String(nextRefNo),
       invoiceDate: savedEstimate.invoiceDate || today,
       partyQuery: savedEstimate.partyQuery || savedEstimate.customer_name || "",
       phoneNo: savedEstimate.phoneNo || savedEstimate.customer_phone || "",
-      selectedParty: savedEstimate.selectedParty || null,
+      selectedParty: savedEstimate.selectedParty || (savedEstimate.customer_id || savedEstimate.customer_name ? {
+        id: savedEstimate.customer_id || 0,
+        name: savedEstimate.customer_name || savedEstimate.partyQuery || "",
+        phone: savedEstimate.customer_phone || savedEstimate.phoneNo || ""
+      } : null),
     };
   }
   return {
@@ -185,7 +216,7 @@ export default function EstimateForm() {
       console.error("Failed to load saved estimates:", e);
     }
     const savedEstimate = editId
-      ? saved.find((e) => String(e.id) === String(editId)) || saved[0] || null
+      ? saved.find((e) => String(e.id) === String(editId)) || null
       : null;
     return { saved, savedEstimate };
   }, [editId]);
@@ -208,6 +239,8 @@ export default function EstimateForm() {
   const activeTab = useMemo(() => {
     return tabs.find((t) => t.id === activeTabId) || tabs[0];
   }, [tabs, activeTabId]);
+
+  const isClientSelected = Boolean(activeTab?.selectedParty);
 
   // Column Customization Drawer state & persistence
   const {
@@ -266,25 +299,34 @@ export default function EstimateForm() {
   const updateSuggestPosition = (inputEl) => {
     if (!inputEl) return;
     const rect = inputEl.getBoundingClientRect();
-    const dropdownHeight = 224;
+    const dropdownHeight = 340;
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
 
     let top = rect.bottom + 4;
-    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+    if (spaceBelow < 280 && spaceAbove > spaceBelow) {
       top = Math.max(8, rect.top - dropdownHeight - 4);
     }
 
     setSuggestCoords({
       top,
       left: rect.left,
-      width: Math.max(rect.width, 320),
+      width: Math.max(rect.width, 460),
     });
   };
 
   // UI state
   const [saving, setSaving] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  const showToast = (msg, ok = false) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ msg, ok });
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+    }, 4500);
+  };
 
   // Terms & Description / Image / Doc selectors
   const imageInputRef = useRef(null);
@@ -337,7 +379,6 @@ export default function EstimateForm() {
       phoneNo: cust.phone || "",
     });
     setShowPartyDropdown(false);
-    setErrorMsg("");
   };
 
   // Close party dropdown and item suggest dropdown on click outside
@@ -439,10 +480,13 @@ export default function EstimateForm() {
       prev.map((tab) => {
         if (tab.id !== activeTabId) return tab;
         const nextRows = [...(tab.rows || [])];
-        const price = parseFloat(prod.price || prod.sale_price || prod.mrp || 0);
-        const taxRate = parseFloat(prod.tax_rate || prod.gst_rate || prod.gst_percentage || 0);
+        const price = parseFloat(prod.sale_price || prod.price || prod.mrp || 0);
+        const taxRate = parseFloat(prod.gst_percentage || prod.tax_rate || prod.gst_rate || 0);
         const currentQty = nextRows[idx]?.qty;
         const initialQty = currentQty && parseFloat(currentQty) > 0 ? currentQty : 1;
+        const resolvedUnit = normalizeUnit(prod.unit);
+        const finalUnit = resolvedUnit === "NONE" ? (prod.unit ? String(prod.unit).trim().toUpperCase() : "NONE") : resolvedUnit;
+
         nextRows[idx] = recalculateRow({
           ...nextRows[idx],
           product_id: prod.id,
@@ -450,18 +494,8 @@ export default function EstimateForm() {
           qty: initialQty,
           price: price,
           tax_rate: taxRate,
-          unit: prod.unit || "NONE",
+          unit: finalUnit,
         });
-
-        const isLastRow = idx === nextRows.length - 1;
-        const lastRow = nextRows[nextRows.length - 1];
-        const lastRowHasProduct = Boolean(
-          lastRow && (lastRow.product_id || (lastRow.item && lastRow.item.trim() !== ""))
-        );
-
-        if (isLastRow || lastRowHasProduct) {
-          return { ...tab, rows: [...nextRows, createInitialRow()] };
-        }
 
         return { ...tab, rows: nextRows };
       })
@@ -558,35 +592,36 @@ export default function EstimateForm() {
     if (!activeTab) return;
 
     if (!activeTab.selectedParty && !activeTab.partyQuery.trim()) {
-      setErrorMsg("Please specify or select a client customer.");
+      showToast("Please specify or select a client customer.", false);
       return;
     }
     if (!activeTab.invoiceDate) {
-      setErrorMsg("Please select an estimate date.");
+      showToast("Please select an estimate date.", false);
       return;
     }
 
     const validRows = (activeTab.rows || []).filter((r) => String(r.item || "").trim() !== "");
     if (validRows.length === 0) {
-      setErrorMsg("Please add at least one line item to the quotation.");
+      showToast("Please add at least one line item to the quotation.", false);
       return;
     }
     for (const r of validRows) {
       if (!(parseFloat(r.qty) > 0)) {
-        setErrorMsg("Quantity must be greater than 0 for all items.");
+        showToast("Quantity must be greater than 0 for all items.", false);
         return;
       }
       if (!(parseFloat(r.price) >= 0)) {
-        setErrorMsg("Price must be a valid non-negative amount.");
+        showToast("Price must be a valid non-negative amount.", false);
         return;
       }
     }
 
     setSaving(true);
-    setErrorMsg("");
 
+    const targetId = editId || activeTab.id;
     const estimateRecord = {
-      id: activeTab.id,
+      ...activeTab,
+      id: targetId,
       refNo: activeTab.refNo,
       invoiceDate: activeTab.invoiceDate,
       stateOfSupply: activeTab.stateOfSupply,
@@ -606,14 +641,17 @@ export default function EstimateForm() {
       tax_total: totals.tax,
       round_off: totals.roundOffValue,
       total_amount: totals.grandTotal,
-      status: "open",
-      created_at: new Date().toISOString(),
+      status: activeTab.status || "open",
+      created_at: activeTab.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     try {
       const saved = JSON.parse(localStorage.getItem(ESTIMATE_STORAGE_KEY) || "[]");
       const existing = Array.isArray(saved) ? saved : [];
-      const idx = existing.findIndex((e) => String(e.id) === String(estimateRecord.id));
+      const idx = existing.findIndex(
+        (e) => String(e.id) === String(targetId) || (editId && String(e.id) === String(editId))
+      );
       if (idx >= 0) {
         existing[idx] = estimateRecord;
       } else {
@@ -623,7 +661,7 @@ export default function EstimateForm() {
       navigate("/sales/estimate-quotation");
     } catch (err) {
       console.error(err);
-      setErrorMsg("An error occurred while saving the quotation.");
+      showToast("An error occurred while saving the quotation.", false);
     } finally {
       setSaving(false);
     }
@@ -750,17 +788,32 @@ export default function EstimateForm() {
           </div>
         </div>
 
-        {/* Error Alert */}
-        {errorMsg && (
-          <div className="mt-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center justify-between shadow-xs animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <AlertCircle size={15} className="text-red-600 flex-shrink-0" />
-              <span>{errorMsg}</span>
+        {/* Floating Toast Notification (Fixed Top-Right Corner via Portal) */}
+        {toast && typeof document !== "undefined" && createPortal(
+          <div
+            className={`fixed top-6 right-6 z-[999999] max-w-sm sm:max-w-md px-4.5 py-3.5 rounded-2xl text-xs font-bold shadow-2xl border flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-auto ${
+              toast.ok
+                ? "bg-emerald-600 text-white border-emerald-500 shadow-emerald-950/25"
+                : "bg-rose-600 text-white border-rose-500 shadow-rose-950/25"
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              {toast.ok ? (
+                <CheckCircle2 size={18} className="shrink-0 text-white" />
+              ) : (
+                <AlertCircle size={18} className="shrink-0 text-white" />
+              )}
+              <span className="leading-snug break-words">{toast.msg}</span>
             </div>
-            <button onClick={() => setErrorMsg("")} className="text-red-500 hover:text-red-700">
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="text-white/80 hover:text-white transition p-1 rounded-lg hover:bg-white/20 cursor-pointer shrink-0 ml-1"
+            >
               <X size={14} />
             </button>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 
@@ -789,39 +842,83 @@ export default function EstimateForm() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Customer Search AutoComplete */}
             <div ref={partyRef} className="relative sm:col-span-2">
-              <label className="text-[11px] font-bold text-slate-600 mb-1 block">
-                Client Name / Company <span className="text-red-500">*</span>
+              <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <span>Client Name / Company</span>
+                  <span className="text-red-500">*</span>
+                </span>
+                {isClientSelected && (
+                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Lock size={10} />
+                    Client Selected (Not Editable)
+                  </span>
+                )}
               </label>
               <div
-                className={`relative border rounded-xl px-3.5 py-2.5 transition bg-white flex items-center justify-between ${
-                  showPartyDropdown ? "border-blue-500 ring-2 ring-blue-500/15" : "border-slate-300 hover:border-slate-400"
+                className={`relative border rounded-xl px-3.5 py-2.5 transition flex items-center justify-between ${
+                  isClientSelected
+                    ? "border-slate-200 bg-slate-100/90 cursor-not-allowed select-none"
+                    : showPartyDropdown
+                    ? "border-blue-500 ring-2 ring-blue-500/15 bg-white"
+                    : "border-slate-300 hover:border-slate-400 bg-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5 w-full">
-                  <Search size={15} className="text-slate-400 flex-shrink-0" />
+                  {isClientSelected ? (
+                    <Lock size={15} className="text-slate-400 flex-shrink-0" />
+                  ) : (
+                    <Search size={15} className="text-slate-400 flex-shrink-0" />
+                  )}
                   <input
                     type="text"
+                    disabled={isClientSelected}
+                    readOnly={isClientSelected}
                     value={activeTab?.partyQuery || ""}
-                    onChange={(e) => handleSearchParty(e.target.value)}
+                    onChange={(e) => {
+                      if (!isClientSelected) handleSearchParty(e.target.value);
+                    }}
                     onFocus={() => {
-                      if (activeTab) {
+                      if (!isClientSelected && activeTab) {
                         handleSearchParty(activeTab.partyQuery);
                         setShowPartyDropdown(true);
                       }
                     }}
                     placeholder="Search client by name or phone..."
-                    className="w-full bg-transparent text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                    className={`w-full bg-transparent text-xs font-semibold outline-none placeholder:text-slate-400 ${
+                      isClientSelected
+                        ? "text-slate-700 cursor-not-allowed select-none"
+                        : "text-slate-900"
+                    }`}
                   />
                 </div>
-                <ChevronDown
-                  size={15}
-                  onClick={() => setShowPartyDropdown(!showPartyDropdown)}
-                  className="text-slate-400 cursor-pointer flex-shrink-0"
-                />
+                {isClientSelected ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateActiveTab({
+                        selectedParty: null,
+                        partyQuery: "",
+                        phoneNo: "",
+                      });
+                      setShowPartyDropdown(false);
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100/70 border border-blue-200/80 rounded-lg flex items-center gap-1 transition flex-shrink-0 ml-2"
+                    title="Change selected client"
+                  >
+                    <X size={12} />
+                    <span>Change</span>
+                  </button>
+                ) : (
+                  <ChevronDown
+                    size={15}
+                    onClick={() => setShowPartyDropdown(!showPartyDropdown)}
+                    className="text-slate-400 cursor-pointer flex-shrink-0"
+                  />
+                )}
               </div>
 
               {/* Suggestions Popover */}
-              {showPartyDropdown && (
+              {!isClientSelected && showPartyDropdown && (
                 <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-50 py-1.5 animate-in fade-in">
                   {loadingParties ? (
                     <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
@@ -871,21 +968,45 @@ export default function EstimateForm() {
 
             {/* Phone Number Field */}
             <div>
-              <label className="text-[11px] font-bold text-slate-600 mb-1 block">Phone / Mobile</label>
-              <div className="relative border border-slate-300 rounded-xl px-3.5 py-2.5 bg-white flex items-center gap-2">
-                <Phone size={14} className="text-slate-400" />
+              <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
+                <span>Phone / Mobile</span>
+                {isClientSelected && (
+                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Lock size={10} />
+                    Not Editable
+                  </span>
+                )}
+              </label>
+              <div
+                className={`relative border rounded-xl px-3.5 py-2.5 flex items-center gap-2 transition ${
+                  isClientSelected
+                    ? "border-slate-200 bg-slate-100/90 cursor-not-allowed select-none"
+                    : "border-slate-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15"
+                }`}
+              >
+                <Phone size={14} className="text-slate-400 flex-shrink-0" />
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
+                  disabled={isClientSelected}
+                  readOnly={isClientSelected}
                   value={activeTab?.phoneNo || ""}
                   onChange={(e) => {
+                    if (isClientSelected) return;
                     const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                     updateActiveTab({ phoneNo: val });
                   }}
                   placeholder="10-digit mobile number"
-                  className="w-full bg-transparent text-xs font-medium text-slate-800 outline-none"
+                  className={`w-full bg-transparent text-xs font-semibold outline-none ${
+                    isClientSelected
+                      ? "text-slate-700 cursor-not-allowed select-none"
+                      : "text-slate-800 placeholder:text-slate-400"
+                  }`}
                 />
+                {isClientSelected && (
+                  <Lock size={13} className="text-slate-400 flex-shrink-0 mr-1" />
+                )}
               </div>
             </div>
 
@@ -1036,42 +1157,82 @@ export default function EstimateForm() {
               </thead>
 
               <tbody className="divide-y divide-slate-100 font-medium">
-                {(activeTab?.rows || []).map((row, idx) => (
-                  <tr key={row.id || idx} className="hover:bg-blue-50/30 transition-colors">
-                    
-                    {/* # Index */}
-                    <td className="py-2.5 px-3 text-center border-r border-slate-200/60 text-slate-400 font-bold">
-                      {idx + 1}
-                    </td>
+                {(activeTab?.rows || []).map((row, idx) => {
+                  const isProductAdded = Boolean(
+                    (row.product_id && Number(row.product_id) > 0) ||
+                    (editId && row.item && row.item.trim() !== "")
+                  );
 
-                    {/* Item Name Autocomplete */}
-                    {visibleColumns.item !== false && (
-                      <td className="py-2 px-3 border-r border-slate-200/60 min-w-[240px]">
-                        <input
-                          type="text"
-                          placeholder="Search product from inventory or type..."
-                          value={row.item}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            activeInputRef.current = e.currentTarget;
-                            updateSuggestPosition(e.currentTarget);
-                            updateRow(idx, "item", val);
-                            setActiveSearchRow(idx);
-                          }}
-                          onFocus={(e) => {
-                            activeInputRef.current = e.currentTarget;
-                            updateSuggestPosition(e.currentTarget);
-                            setActiveSearchRow(idx);
-                          }}
-                          onClick={(e) => {
-                            activeInputRef.current = e.currentTarget;
-                            updateSuggestPosition(e.currentTarget);
-                            setActiveSearchRow(idx);
-                          }}
-                          className="w-full px-2.5 py-1.5 bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
-                        />
+                  return (
+                    <tr key={row.id || idx} className="hover:bg-blue-50/30 transition-colors">
+                      
+                      {/* # Index */}
+                      <td className="py-2.5 px-3 text-center border-r border-slate-200/60 text-slate-400 font-bold">
+                        {idx + 1}
                       </td>
-                    )}
+
+                      {/* Item Name Autocomplete */}
+                      {visibleColumns.item !== false && (
+                        <td className="py-2 px-3 border-r border-slate-200/60 min-w-[240px]">
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              disabled={isProductAdded}
+                              readOnly={isProductAdded}
+                              placeholder="Search product from inventory or type..."
+                              value={row.item}
+                              onChange={(e) => {
+                                if (isProductAdded) return;
+                                const val = e.target.value;
+                                activeInputRef.current = e.currentTarget;
+                                updateSuggestPosition(e.currentTarget);
+                                updateRow(idx, "item", val);
+                                setActiveSearchRow(idx);
+                              }}
+                              onFocus={(e) => {
+                                if (isProductAdded) return;
+                                activeInputRef.current = e.currentTarget;
+                                updateSuggestPosition(e.currentTarget);
+                                setActiveSearchRow(idx);
+                              }}
+                              onClick={(e) => {
+                                if (isProductAdded) return;
+                                activeInputRef.current = e.currentTarget;
+                                updateSuggestPosition(e.currentTarget);
+                                setActiveSearchRow(idx);
+                              }}
+                              title={isProductAdded ? "Product name cannot be edited once added. Click X to change." : undefined}
+                              className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-bold outline-none transition ${
+                                isProductAdded
+                                  ? "bg-slate-100 text-slate-700 border border-slate-200 cursor-not-allowed select-none pr-14"
+                                  : "bg-slate-50/70 hover:bg-slate-100 focus:bg-white border border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                              }`}
+                            />
+                            {isProductAdded && (
+                              <div className="absolute right-2 flex items-center gap-1">
+                                <Lock size={12} className="text-slate-400" title="Product locked" />
+                                <button
+                                  type="button"
+                                  title="Change / Remove product"
+                                  onClick={() => {
+                                    updateRowFields(idx, {
+                                      product_id: 0,
+                                      item: "",
+                                      price: "",
+                                      unit: "NONE",
+                                      tax_rate: 0,
+                                      amount: 0,
+                                    });
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-slate-200/70 rounded transition"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      )}
 
                     {/* Qty */}
                     {visibleColumns.qty !== false && (
@@ -1095,7 +1256,7 @@ export default function EstimateForm() {
                           onChange={(e) => updateRow(idx, "unit", e.target.value)}
                           className="w-full py-1.5 px-1 bg-slate-50/70 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none cursor-pointer"
                         >
-                          {UNITS.map((u) => (
+                          {Array.from(new Set([...UNITS, row.unit].filter(Boolean))).map((u) => (
                             <option key={u} value={u}>{u}</option>
                           ))}
                         </select>
@@ -1192,8 +1353,9 @@ export default function EstimateForm() {
                     </td>
 
                   </tr>
-                ))}
-              </tbody>
+                );
+              })}
+            </tbody>
 
               {/* Table Footer */}
               <tfoot>
@@ -1246,10 +1408,10 @@ export default function EstimateForm() {
             position: "fixed",
             top: `${suggestCoords.top}px`,
             left: `${suggestCoords.left}px`,
-            width: `${suggestCoords.width}px`,
+            width: `${Math.max(suggestCoords.width, 440)}px`,
             zIndex: 99999,
           }}
-          className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-56 overflow-y-auto py-1 divide-y divide-slate-100 animate-in fade-in duration-100"
+          className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden ring-1 ring-slate-900/5 animate-in fade-in zoom-in-95 duration-150 flex flex-col"
         >
           {(() => {
             const currentRow = (activeTab?.rows || [])[activeSearchRow];
@@ -1263,30 +1425,123 @@ export default function EstimateForm() {
                 (p.barcode && String(p.barcode).toLowerCase().includes(q))
             ).slice(0, 50);
 
-            if (filtered.length === 0) {
-              return (
-                <div className="px-4 py-3 text-center text-xs text-slate-400 select-none">
-                  No products found in catalog. Type custom item name.
+            return (
+              <>
+                {/* Header Bar */}
+                <div className="px-4 py-2.5 bg-gradient-to-r from-slate-50 to-blue-50/40 border-b border-slate-100 flex items-center justify-between select-none shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                      <Package size={12} />
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      Select Product
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700">
+                      {filtered.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    <span>Item &amp; Stock</span>
+                    <span>Rate / Unit</span>
+                  </div>
                 </div>
-              );
-            }
 
-            return filtered.map((prod) => (
-              <div
-                key={prod.id}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  selectProductForRow(activeSearchRow, prod);
-                }}
-                className="px-3.5 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition text-xs"
-              >
-                <div className="min-w-0 pr-2">
-                  <div className="font-bold text-slate-900 truncate">{prod.product_name || prod.name}</div>
-                  <div className="text-[11px] text-slate-400">Stock: {prod.stock ?? 0} {prod.unit || ""}</div>
+                {/* Product Items List */}
+                <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 overscroll-contain">
+                  {filtered.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-xs text-slate-400 select-none">
+                      No matching products found in catalog.
+                    </div>
+                  ) : (
+                    filtered.map((prod) => {
+                      const stockNum = Number(prod.stock ?? 0);
+                      const isOut = stockNum <= 0;
+                      const isLow = !isOut && stockNum <= 5;
+                      const priceVal = parseFloat(prod.sale_price || prod.price || prod.mrp || 0);
+                      const unitStr = prod.unit || "unit";
+                      const gstRate = parseFloat(prod.gst_percentage || prod.tax_rate || prod.gst_rate || 0);
+
+                      return (
+                        <div
+                          key={prod.id}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            selectProductForRow(activeSearchRow, prod);
+                          }}
+                          className="group px-4 py-2.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors border-l-4 border-l-transparent hover:border-l-blue-600"
+                        >
+                          {/* Left: Product Icon & Info */}
+                          <div className="flex items-center gap-3 min-w-0 pr-3">
+                            <div
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                isOut
+                                  ? "bg-rose-50 text-rose-500"
+                                  : isLow
+                                  ? "bg-amber-50 text-amber-600"
+                                  : "bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600"
+                              }`}
+                            >
+                              <Package size={15} />
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-slate-900 group-hover:text-blue-700 truncate transition-colors flex items-center gap-2">
+                                <span>{prod.product_name || prod.name}</span>
+                                {prod.product_code && (
+                                  <span className="text-[10px] font-mono text-slate-400 font-normal">
+                                    #{prod.product_code}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                {isOut ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                    Out of Stock (0)
+                                  </span>
+                                ) : isLow ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                    Low: {stockNum} {prod.unit || ""}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    Stock: <strong className="font-bold">{stockNum}</strong> {prod.unit || ""}
+                                  </span>
+                                )}
+
+                                {gstRate > 0 && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/60">
+                                    GST {gstRate}%
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right: Price & Unit */}
+                          <div className="text-right shrink-0">
+                            <div className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors">
+                              ₹{priceVal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                              per {unitStr}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-                <div className="font-extrabold text-blue-600 shrink-0">₹{parseFloat(prod.sale_price || prod.price || 0).toLocaleString()}</div>
-              </div>
-            ));
+
+                {/* Footer Bar */}
+                <div className="px-4 py-2 bg-slate-50/90 border-t border-slate-100 flex items-center justify-center text-[11px] text-slate-400 font-medium select-none shrink-0">
+                  <span>💡 Click product to select • Enter to add</span>
+                </div>
+              </>
+            );
           })()}
         </div>,
         document.body
