@@ -1,7 +1,10 @@
-require('dotenv').config();
+const path = require('path');
+
+// Load .env from the service folder itself, not process.cwd(), so the shared
+// token is picked up no matter where the service is started from.
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const fs = require('fs');
-const path = require('path');
 
 // always resolve session storage relative to the service folder (not cwd)
 function resolveSessionPath() {
