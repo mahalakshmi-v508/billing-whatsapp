@@ -46,6 +46,7 @@ import {
   Trash2,
   Rocket,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
 
 // Proper WhatsApp logo glyph (official mark, monochrome)
@@ -129,6 +130,9 @@ export default function WhatsAppChat() {
   const [waPhone, setWaPhone] = useState(null);
   const [waName, setWaName] = useState(null);
   const [connecting, setConnecting] = useState(false);
+  // Real configuration / reachability problem reported by the backend or the
+  // Node service (e.g. missing token, service offline). Never a WhatsApp state.
+  const [serviceError, setServiceError] = useState(null);
 
   const [chats, setChats] = useState([]);
   const [search, setSearch] = useState("");
@@ -246,11 +250,21 @@ export default function WhatsAppChat() {
       try {
         const res = await api.get(`/whatsapp/connect_status?company_id=${companyId}`);
         if (!cancelled && res.data.status) {
-          const st = res.data.data?.status || "disconnected";
+          const data = res.data.data || {};
+          const st = data.status || "disconnected";
           setConnState(st);
-          setQr(res.data.data?.qr || null);
-          setWaPhone(res.data.data?.phone || null);
-          setWaName(res.data.data?.name || null);
+          setQr(data.qr || null);
+          setWaPhone(data.phone || null);
+          setWaName(data.name || null);
+
+          // Surface backend-reported service/config problems (service offline,
+          // missing internal token, token mismatch) instead of hiding them.
+          const svc = res.data.service_state;
+          if (svc === "service_offline" || svc === "service_error") {
+            setServiceError(res.data.service_message || "WhatsApp service is not available.");
+          } else {
+            setServiceError(null);
+          }
         }
       } catch (err) {
         // Do NOT reset connState on network glitches or transient errors.
@@ -1757,6 +1771,8 @@ export default function WhatsAppChat() {
         .wa-spin { animation: wa-rotate 1s linear infinite; color: #128c7e; }
         @keyframes wa-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .wa-status-text { font-size: 13px; color: #64748b; font-weight: 600; }
+        .wa-service-error { display: flex; align-items: flex-start; gap: 8px; width: 100%; max-width: 420px; padding: 10px 12px; border-radius: 12px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 12.5px; font-weight: 600; line-height: 1.5; text-align: left; }
+        .wa-service-error-icon { flex-shrink: 0; margin-top: 2px; }
 
         .wc-toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; padding: 12px 20px; border-radius: 12px; color: #fff; font-size: 13.5px; font-weight: 600; box-shadow: 0 8px 24px rgba(15,23,42,0.25); }
         .wc-toast.ok { background: #16a34a; }
@@ -2007,6 +2023,12 @@ export default function WhatsAppChat() {
             </div>
 
             <div className="wa-connect">
+              {serviceError && (
+                <div className="wa-service-error" role="alert">
+                  <AlertTriangle size={16} className="wa-service-error-icon" />
+                  <span>{serviceError}</span>
+                </div>
+              )}
               {connState === "checking" ? (
                 <>
                   <Loader2 size={34} className="wa-spin" />

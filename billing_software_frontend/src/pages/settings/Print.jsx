@@ -23,6 +23,8 @@ import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
 import { SettingsHeader, InfoIcon, CheckRow, Badge } from "./settingsUI";
 import { DESIGN_COMPONENTS } from "../billing/Invoice";
+import StoreSetupSettings from "./StoreSetupSettings";
+import TaxBackupSettings from "./TaxBackupSettings";
 
 const blue = "#2563eb";
 const STORAGE_KEY = "print_settings";
@@ -1018,9 +1020,10 @@ export default function Print() {
   };
 
   return (
-    <div className="overflow-hidden flex flex-col h-[calc(100vh-130px)] min-h-[620px] bg-slate-50/50 rounded-2xl border border-slate-200/80 shadow-xs">
-      {/* ── Top Header Bar ── */}
-      <SettingsHeader
+    <div className="flex flex-col space-y-6 pb-8">
+      <div className="overflow-hidden flex flex-col h-[calc(100vh-130px)] min-h-[620px] bg-slate-50/50 rounded-2xl border border-slate-200/80 shadow-xs shrink-0">
+        {/* ── Top Header Bar ── */}
+        <SettingsHeader
         title="Print Settings"
         subtitle="LAYOUT, COLORS, THERMAL POS & PRINTER CONFIGURATION"
         icon={<Printer size={22} strokeWidth={2.2} />}
@@ -1552,6 +1555,17 @@ export default function Print() {
           </div>
         </div>
       )}
+      </div>
+
+      {/* ── Store & Counter Setup Design (at the bottom of Print page) ── */}
+      <div className="rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden shrink-0">
+        <StoreSetupSettings />
+      </div>
+
+      {/* ── Tax & Backup Design (at the bottom of Print page) ── */}
+      <div className="rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden shrink-0">
+        <TaxBackupSettings />
+      </div>
     </div>
   );
 }
