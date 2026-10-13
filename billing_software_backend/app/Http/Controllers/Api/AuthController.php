@@ -337,8 +337,8 @@ class AuthController extends Controller
             }
 
             try {
-                Mail::raw("Your OTP for authorizing Customer Credit Limit is: $otp", function ($message) use ($email) {
-                    $message->to($email)->subject("Credit Limit Verification OTP");
+                Mail::raw("Your OTP for authorizing this admin action is: $otp", function ($message) use ($email) {
+                    $message->to($email)->subject("Admin Authorization OTP");
                 });
             } catch (\Exception $mailEx) {
                 if (config('app.env') === 'local') {

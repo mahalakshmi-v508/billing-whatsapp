@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Search,
@@ -11,10 +10,6 @@ import {
   X,
   AlertCircle,
   Inbox,
-  MoreVertical,
-  Eye,
-  Trash2,
-  Edit,
   AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
@@ -129,7 +124,6 @@ const COL_FIELD = {
 const NUM_COLS = new Set(["Total", "Money In", "Money Out"]);
 
 export default function DayBook() {
-  const navigate = useNavigate();
   const { adminId } = getAuth();
   const [companies, setCompanies] = useState([]);
   const [firm, setFirm] = useState("all"); // "all" | company id
@@ -146,8 +140,6 @@ export default function DayBook() {
   const searchTimer = useRef(null);
   const firmNameRef = useRef("ALL FIRMS");
 
-  const [activeMenu, setActiveMenu] = useState(null);
-  const [menuPos, setMenuPos] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
@@ -155,19 +147,15 @@ export default function DayBook() {
   const [shareOpen, setShareOpen] = useState(null);
   const [sharePos, setSharePos] = useState(null);
   const [shareTarget, setShareTarget] = useState(null);
-  const menuRef = useRef(null);
   const shareRef = useRef(null);
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [viewMode, setViewMode] = useState("report");
 
-  /* close the 3-dot menu and the Share dropdown on outside click */
+  /* close the Share dropdown on outside click */
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setActiveMenu(null);
-      }
       if (shareRef.current && !shareRef.current.contains(e.target)) {
         setShareOpen(null);
         setSharePos(null);
@@ -177,20 +165,6 @@ export default function DayBook() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  /* open the 3-dot menu anchored above the clicked button (fixed positioning so it is never clipped) */
-  const toggleMenu = (e, reference) => {
-    e.stopPropagation();
-    if (activeMenu === reference) {
-      setActiveMenu(null);
-      setMenuPos(null);
-      return;
-    }
-    const btn = e.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    setMenuPos({ right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.top, top: rect.bottom });
-    setActiveMenu(reference);
-  };
 
   /* open the compact Share dropdown anchored just below the clicked Share icon.
      Also closes it when the same Share icon is clicked again. Sends nothing here. */
@@ -832,72 +806,6 @@ export default function DayBook() {
                               >
                                 WhatsApp
                               </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="relative inline-flex">
-                          <button
-                            onClick={(e) => toggleMenu(e, t.reference)}
-                            title="More actions"
-                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
-                          >
-                            <MoreVertical size={14} />
-                          </button>
-
-                          {activeMenu === t.reference && menuPos && (
-                            <div
-                              ref={menuRef}
-                              style={{
-                                position: "fixed",
-                                right: menuPos.right,
-                                bottom: menuPos.bottom,
-                                marginBottom: 8,
-                                zIndex: 99999,
-                              }}
-                              className="min-w-[160px] bg-white rounded-xl border border-slate-200 shadow-xl py-1 text-left"
-                            >
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenu(null);
-                                  navigate(`/invoice/${t.reference}`);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                              >
-                                <Eye size={14} className="text-slate-500" /> View Invoice
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenu(null);
-                                  navigate(`/sales/edit/${t.reference}`);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 cursor-pointer"
-                              >
-                                <Edit size={14} /> Edit
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenu(null);
-                                  navigate(`/invoice/${t.reference}`);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 cursor-pointer"
-                              >
-                                <Printer size={14} /> Print POS
-                              </button>
-                              <div className="border-t border-slate-100 my-1" />
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenu(null);
-                                  setDeleteTarget(t);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
-                              >
-                                <Trash2 size={14} /> Delete
-                              </button>
                             </div>
                           )}
                         </div>

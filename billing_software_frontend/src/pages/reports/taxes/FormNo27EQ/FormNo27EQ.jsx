@@ -78,8 +78,8 @@ function printReport(element) {
 
 export default function FormNo27EQ() {
   const { adminId } = auth();
-  const initial = periodRange("This Month");
-  const [period, setPeriod] = useState("This Month");
+  const initial = periodRange("All Time");
+  const [period, setPeriod] = useState("All Time");
   const [fromDate, setFromDate] = useState(initial.from);
   const [toDate, setToDate] = useState(initial.to);
   const [companyId, setCompanyId] = useState(Number(localStorage.getItem("selected_company_id") || 0) || null);

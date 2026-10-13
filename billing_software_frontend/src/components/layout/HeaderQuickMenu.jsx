@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -32,6 +33,25 @@ export default function HeaderQuickMenu({
   const { t: translate } = useLanguage();
   const [search, setSearch] = useState("");
   const inputRef = useRef(null);
+  const [menuPos, setMenuPos] = useState({ top: 72, right: 16 });
+
+  // Compute fixed coordinates from the trigger button so the portalled
+  // popup always renders above the sidebar and is never clipped.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const update = () => {
+      const el = containerRef?.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + 8,
+        right: Math.max(8, window.innerWidth - rect.right)
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [isOpen, containerRef]);
 
   // Focus search input on open
   useEffect(() => {
@@ -239,15 +259,18 @@ export default function HeaderQuickMenu({
         </button>
       </div>
 
-      {/* ── ADVANCED MEGA-MENU POPOVER ── */}
-      <AnimatePresence>
-        {isOpen && (
+      {/* ── ADVANCED MEGA-MENU POPOVER (portalled to body so it floats above the sidebar) ── */}
+      {createPortal(
+        <AnimatePresence>
+          {isOpen && (
           <motion.div
+            onMouseDown={(e) => e.stopPropagation()}
             initial={{ opacity: 0, y: 8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
-            className="absolute right-0 top-12 w-[760px] max-w-[95vw] bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden z-50"
+            style={{ position: "fixed", top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
+            className="w-[760px] max-w-[95vw] bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden"
           >
             {/* 1. Header Toolbar with Live Filter */}
             <div className="p-4 bg-slate-900 text-white flex flex-col gap-3">
@@ -379,8 +402,10 @@ export default function HeaderQuickMenu({
               </span>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }

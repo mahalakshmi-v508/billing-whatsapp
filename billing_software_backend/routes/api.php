@@ -49,6 +49,8 @@ use App\Http\Controllers\Api\InvoiceSettingController;
 use App\Http\Controllers\Api\GstReportController;
 use App\Http\Controllers\Api\EwayBillController;
 use App\Http\Controllers\Api\AuditLogController;
+use App\Http\Controllers\Api\BackupController;
+use App\Http\Controllers\Api\DayClosingController;
 
 // ── AI BILLING ROUTES ──
 Route::prefix('ai')->group(function () {
@@ -300,6 +302,7 @@ Route::prefix('whatsapp')->group(function () {
     Route::post('update_message', [WhatsappConnectController::class, 'updateMessage']);
     Route::post('delete_message', [WhatsappConnectController::class, 'deleteMessage']);
     Route::post('send_invoice', [WhatsappConnectController::class, 'sendInvoice']);
+    Route::post('send_daily_summary', [WhatsappConnectController::class, 'sendDailySummary']);
     Route::post('send_file', [WhatsappConnectController::class, 'sendFile']);
     Route::get('chats', [WhatsappConnectController::class, 'getChats']);
     Route::get('messages', [WhatsappConnectController::class, 'getMessages']);
@@ -412,5 +415,17 @@ Route::prefix('audit-log')->group(function () {
     Route::match(['get', 'post'], 'summary', [AuditLogController::class, 'summary']);
     Route::match(['get', 'post'], 'for-record', [AuditLogController::class, 'forRecord']);
     Route::post('clear', [AuditLogController::class, 'clear']);
+});
+
+// ── ONE-CLICK BACKUP ROUTES ──
+Route::prefix('backup')->group(function () {
+    Route::get('export', [BackupController::class, 'export']);
+});
+
+// ── DAY-END CLOSING (Z-REPORT) ROUTES ──
+Route::prefix('day-closing')->group(function () {
+    Route::get('summary', [DayClosingController::class, 'summary']);
+    Route::post('save', [DayClosingController::class, 'save']);
+    Route::get('history', [DayClosingController::class, 'history']);
 });
 

@@ -54,6 +54,8 @@ const getFirstDayOfMonthISO = () => {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
 };
 
+const getAllTimeStartISO = () => "2000-01-01";
+
 const money = (n) =>
   Number(n || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
@@ -169,8 +171,14 @@ function niceScale(maxValue) {
 function buildExpenseSeries(expenses, mode, fromDate, toDate, period) {
   /* Mirror the page's API query range so zero-filled buckets line up
      exactly with what /expense/list actually returned. */
-  const effFrom = period === "Between" ? fromDate : getFirstDayOfMonthISO();
-  const effTo = period === "Between" ? toDate : getTodayISO();
+  const effFrom =
+    period === "All Time"
+      ? getAllTimeStartISO()
+      : period === "Between"
+        ? fromDate
+        : getFirstDayOfMonthISO();
+  const effTo =
+    period === "All Time" ? getTodayISO() : period === "Between" ? toDate : getTodayISO();
 
   const start = toDay(effFrom);
   const end = toDay(effTo);
@@ -361,8 +369,8 @@ export default function ExpenseReport() {
   }, []);
 
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
-  const [period, setPeriod] = useState("This Month");
-  const [fromDate, setFromDate] = useState(getFirstDayOfMonthISO());
+  const [period, setPeriod] = useState("All Time");
+  const [fromDate, setFromDate] = useState(getAllTimeStartISO());
   const [toDate, setToDate] = useState(getTodayISO());
   const [selectedFirm, setSelectedFirm] = useState("all");
   const [companies, setCompanies] = useState([]);
@@ -411,8 +419,8 @@ export default function ExpenseReport() {
       const params = {
         admin_id: adminId || 0,
         company_id: selectedFirm === "all" ? 0 : selectedFirm,
-        from_date: period === "Between" ? fromDate : getFirstDayOfMonthISO(),
-        to_date: period === "Between" ? toDate : getTodayISO(),
+        from_date: period === "All Time" ? getAllTimeStartISO() : period === "Between" ? fromDate : getFirstDayOfMonthISO(),
+        to_date: period === "All Time" ? getTodayISO() : period === "Between" ? toDate : getTodayISO(),
         search: searchTerm.trim(),
       };
 
@@ -466,7 +474,10 @@ export default function ExpenseReport() {
 
   const handlePeriodChange = (value) => {
     setPeriod(value);
-    if (value === "This Month") {
+    if (value === "All Time") {
+      setFromDate(getAllTimeStartISO());
+      setToDate(getTodayISO());
+    } else if (value === "This Month") {
       setFromDate(getFirstDayOfMonthISO());
       setToDate(getTodayISO());
     }
@@ -960,6 +971,7 @@ export default function ExpenseReport() {
             onChange={(e) => handlePeriodChange(e.target.value)}
             className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50/80 text-slate-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
           >
+            <option>All Time</option>
             <option>This Month</option>
             <option>Between</option>
           </select>

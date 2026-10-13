@@ -133,8 +133,8 @@ const TABLE_MIN_WIDTH =
 export default function ItemWiseProfitAndLoss() {
   const { adminId } = getAuth();
 
-  const [period, setPeriod] = useState("this_month");
-  const [{ from: startDate, to: endDate }, setRange] = useState(applyPeriod("this_month"));
+  const [period, setPeriod] = useState("all_time");
+  const [{ from: startDate, to: endDate }, setRange] = useState(applyPeriod("all_time"));
   const [companyId, setCompanyId] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyName, setCompanyName] = useState("My Company");

@@ -9,7 +9,7 @@ import {
   Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap,
   Search, RotateCcw, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
   Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert, ArrowRight,
-  Lock
+  Globe, Lock
 } from "lucide-react";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
@@ -18,6 +18,9 @@ import CustomerForm from "../customer/CustomerForm";
 import AddProductModal from "../products/AddProductModal";
 import TermsDropdown from "../../components/common/TermsDropdown";
 import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
+import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
+import { WHATSAPP_DEFAULTS_KEY, DEFAULT_WHATSAPP_DEFAULTS } from "../settings/WhatsAppDefaultSettings";
+import { COUNTRY_LIST, getCountryByCode, detectCountryFromPhone } from "../../utils/phoneCountryHelper";
 
 const isProductExpired = (expiryDate) => {
   if (!expiryDate) return false;
@@ -271,6 +274,7 @@ export default function AddSale() {
   const location = useLocation();
   const isEditMode = Boolean(invoiceNo);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isCashier = user.role === "cashier";
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
 
   /* ── Modals State ── */
@@ -343,14 +347,63 @@ export default function AddSale() {
     }
   });
 
+  /* ── Cashier & Staff Security Restrictions ── */
+  const [cashierSecurity, setCashierSecurity] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
+      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
+    } catch {
+      return { ...DEFAULT_CASHIER_SECURITY };
+    }
+  });
+
+  /* ── WhatsApp Defaults ── */
+  const [whatsappDefaults, setWhatsappDefaults] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`settings_${WHATSAPP_DEFAULTS_KEY}`);
+      return saved ? { ...DEFAULT_WHATSAPP_DEFAULTS, ...JSON.parse(saved) } : { ...DEFAULT_WHATSAPP_DEFAULTS };
+    } catch {
+      return { ...DEFAULT_WHATSAPP_DEFAULTS };
+    }
+  });
+
+  const [selectedCountryCode, setSelectedCountryCode] = useState(
+    () => whatsappDefaults.default_country_code || "+91"
+  );
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const countryPickerRef = useRef(null);
+
   useEffect(() => {
-    const handleStockUpdate = (e) => {
-      if (e?.detail && e.detail[STOCK_SETTINGS_KEY]) {
-        setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
+    const handleOutsideClick = (e) => {
+      if (countryPickerRef.current && !countryPickerRef.current.contains(e.target)) {
+        setShowCountryPicker(false);
       }
     };
-    window.addEventListener("company-settings-updated", handleStockUpdate);
-    return () => window.removeEventListener("company-settings-updated", handleStockUpdate);
+    if (showCountryPicker) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showCountryPicker]);
+
+  useEffect(() => {
+    const handleSettingsUpdate = (e) => {
+      if (e?.detail) {
+        if (e.detail[STOCK_SETTINGS_KEY]) {
+          setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
+        }
+        if (e.detail[CASHIER_SECURITY_KEY]) {
+          setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
+        }
+        if (e.detail[WHATSAPP_DEFAULTS_KEY]) {
+          setWhatsappDefaults((prev) => ({ ...prev, ...e.detail[WHATSAPP_DEFAULTS_KEY] }));
+          if (e.detail[WHATSAPP_DEFAULTS_KEY]?.default_country_code) {
+            setSelectedCountryCode((prev) => (prev === "+91" ? e.detail[WHATSAPP_DEFAULTS_KEY].default_country_code : prev));
+          }
+        }
+      }
+    };
+    window.addEventListener("company-settings-updated", handleSettingsUpdate);
+    return () => window.removeEventListener("company-settings-updated", handleSettingsUpdate);
   }, []);
 
   /* ── Table Column Customization Drawer state & persistence ── */
@@ -523,6 +576,12 @@ export default function AddSale() {
               }))
             : [createInitialRow()];
 
+          const rawCustomerPhone = inv.customer_phone || "";
+          const detectedPhone = detectCountryFromPhone(rawCustomerPhone, "+91");
+          if (detectedPhone.countryCode) {
+            setSelectedCountryCode(detectedPhone.countryCode);
+          }
+
           const loadedSale = {
             id: 1,
             tabIndex: 1,
@@ -534,7 +593,7 @@ export default function AddSale() {
             stateOfSupply: inv.state_of_supply || "Tamil Nadu",
             dueDate: inv.due_date ? inv.due_date.split("T")[0].split(" ")[0] : (inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0]),
             customerName: inv.customer_name || "",
-            customerPhone: inv.customer_phone || "",
+            customerPhone: detectedPhone.cleanDigits || rawCustomerPhone,
             customerId: inv.customer_id || null,
             gstNo: inv.gst_no || (inv.customer && inv.customer.gst_no) || "",
             billingAddress: inv.billing_address || "",
@@ -737,10 +796,16 @@ export default function AddSale() {
       showToast("Selected customer does not have a registered GST No.", false);
     }
 
+    const rawPh = c.phone || c.customer_phone || "";
+    const detected = detectCountryFromPhone(rawPh, selectedCountryCode);
+    if (detected.countryCode && detected.countryCode !== selectedCountryCode) {
+      setSelectedCountryCode(detected.countryCode);
+    }
+
     updateActiveSale({
       customerId: c.id,
       customerName: c.name || c.customer_name,
-      customerPhone: c.phone || c.customer_phone || "",
+      customerPhone: detected.cleanDigits || rawPh,
       gstNo: customerGst,
       billingAddress: c.address || c.billing_address || "",
       shippingAddress: c.shipping_address || c.address || "",
@@ -853,6 +918,43 @@ export default function AddSale() {
       const updatedRows = sale.rows.map(r => {
         if (r.id !== rowId) return r;
         let finalVal = val;
+
+        // Cashier Security: Lock Item Price Edit
+        if (field === "price" && isCashier && cashierSecurity.lock_item_price_edit) {
+          showToast("🔒 Price editing is locked for cashiers by Administrator", false);
+          return r;
+        }
+
+        // Cashier Security: Restrict Selling Below Cost
+        if (field === "price" && cashierSecurity.restrict_selling_below_cost && r.product_id) {
+          const prod = products.find((p) => String(p.id) === String(r.product_id));
+          const purchasePrice = Number(prod?.purchase_price ?? prod?.cost_price ?? 0);
+          if (purchasePrice > 0 && Number(val) < purchasePrice) {
+            showToast(`❌ Restrict Selling Below Cost: Cannot sell below purchase cost (₹${purchasePrice})!`, false);
+            return r;
+          }
+        }
+
+        // Cashier Security: Maximum Discount Limit
+        if (field === "discount_percent" && isCashier && cashierSecurity.max_discount_enabled) {
+          const maxPct = Number(cashierSecurity.max_discount_limit) || 10;
+          if (Number(val) > maxPct) {
+            showToast(`⚠️ Maximum discount limit for Cashier is ${maxPct}%`, false);
+            finalVal = maxPct;
+          }
+        }
+        if (field === "discount_amount" && isCashier && cashierSecurity.max_discount_enabled) {
+          const lineSub = (Number(r.price) || 0) * (Number(r.qty) || 1);
+          if (lineSub > 0) {
+            const maxPct = Number(cashierSecurity.max_discount_limit) || 10;
+            const maxAmt = (lineSub * maxPct) / 100;
+            if (Number(val) > maxAmt) {
+              showToast(`⚠️ Max discount for Cashier is ${maxPct}% (₹${maxAmt.toFixed(2)})`, false);
+              finalVal = maxAmt.toFixed(2);
+            }
+          }
+        }
+
         if (field === "qty" && r.product_id && r.stock !== undefined && r.stock !== null) {
           const num = Number(val);
           const rowStock = Number(r.stock || 0);
@@ -908,6 +1010,17 @@ export default function AddSale() {
       }
     } else if (stockSafety.low_stock_alert && currentStock <= (stockSafety.low_stock_threshold || 5)) {
       showToast(`⚠️ Low Stock Alert: Only ${currentStock} left for "${prod.product_name || prod.name}"!`, false);
+    }
+
+    // 3. Restrict Selling Below Cost
+    if (cashierSecurity.restrict_selling_below_cost) {
+      const purchasePrice = Number(prod.purchase_price ?? prod.cost_price ?? 0);
+      const pricing = resolveProductPricing(prod, { use: "sale" });
+      if (purchasePrice > 0 && pricing.price < purchasePrice) {
+        showToast(`❌ Restrict Selling Below Cost: Sale price (₹${pricing.price}) is below Purchase Cost (₹${purchasePrice})!`, false);
+        setActiveRowSuggestId(null);
+        return;
+      }
     }
     updateActiveSale(sale => {
       const updatedRows = sale.rows.map(r => {
@@ -1652,7 +1765,7 @@ export default function AddSale() {
                     ...(activeSale.customerId && !retainCustomer ? {
                       customerId: null,
                       customerName: "",
-                      customerPhone: "",
+                      ...(isEditMode ? {} : { customerPhone: "" }),
                       billingAddress: "",
                       shippingAddress: "",
                       customerPendingBalance: 0,
@@ -1909,20 +2022,78 @@ export default function AddSale() {
                   )}
                 </label>
                 <div
-                  className={`relative border rounded-xl px-3.5 py-2 flex items-center gap-2 transition ${
+                  className={`relative border rounded-xl px-2 py-1.5 flex items-center gap-1.5 transition ${
                     isEditMode
                       ? "border-slate-200 bg-slate-100/90 cursor-not-allowed select-none"
                       : "border-slate-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15"
                   }`}
                 >
-                  <Phone size={13} className="text-slate-400 flex-shrink-0" />
+                  {/* Country Selector Dropdown */}
+                  <div ref={countryPickerRef} className="relative flex-shrink-0">
+                    <button
+                      type="button"
+                      disabled={isEditMode}
+                      onClick={(e) => {
+                        if (isEditMode) return;
+                        e.stopPropagation();
+                        setShowCountryPicker((v) => !v);
+                      }}
+                      title={isEditMode ? "Phone number cannot be edited" : "Click to select country"}
+                      className={`text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200/90 flex items-center gap-1 font-mono transition ${
+                        isEditMode
+                          ? "opacity-60 cursor-not-allowed pointer-events-none"
+                          : "hover:bg-emerald-100 active:bg-emerald-200 cursor-pointer select-none"
+                      }`}
+                    >
+                      <span>{getCountryByCode(selectedCountryCode).flag}</span>
+                      <span>{selectedCountryCode}</span>
+                      {!isEditMode && (
+                        <ChevronDown size={11} className={`text-emerald-700 transition-transform ${showCountryPicker ? "rotate-180" : ""}`} />
+                      )}
+                    </button>
+
+                    {!isEditMode && showCountryPicker && (
+                      <div className="absolute top-full left-0 mt-1.5 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 max-h-60 overflow-y-auto animate-in fade-in duration-100">
+                        <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                          <span>Select Country</span>
+                          <Globe size={11} />
+                        </div>
+                        {COUNTRY_LIST.map((item) => (
+                          <button
+                            key={item.code}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCountryCode(item.code);
+                              setShowCountryPicker(false);
+                            }}
+                            className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-emerald-50/70 transition cursor-pointer ${
+                              selectedCountryCode === item.code ? "bg-emerald-50 font-bold text-emerald-950" : "text-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{item.flag}</span>
+                              <div>
+                                <div className="font-semibold">{item.name}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">{item.code} ({item.length} digits)</div>
+                              </div>
+                            </div>
+                            {selectedCountryCode === item.code && (
+                              <Check size={14} className="text-emerald-600 flex-shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <input
                     type="text"
                     inputMode="numeric"
                     disabled={isEditMode}
                     readOnly={isEditMode}
-                    maxLength={10}
-                    placeholder="10-digit mobile number"
+                    maxLength={getCountryByCode(selectedCountryCode).length || 15}
+                    placeholder={getCountryByCode(selectedCountryCode).placeholder || "Mobile number"}
                     value={activeSale.customerPhone}
                     onFocus={() => {
                       if (!isEditMode) setIsPhoneFocused(true);
@@ -1930,11 +2101,14 @@ export default function AddSale() {
                     onBlur={() => setIsPhoneFocused(false)}
                     onChange={(e) => {
                       if (isEditMode) return;
-                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                      updateActiveSale({ customerPhone: val });
+                      const detected = detectCountryFromPhone(e.target.value, selectedCountryCode);
+                      if (detected.countryCode && detected.countryCode !== selectedCountryCode) {
+                        setSelectedCountryCode(detected.countryCode);
+                      }
+                      updateActiveSale({ customerPhone: detected.cleanDigits });
                     }}
                     title={isEditMode ? "Phone number cannot be changed when editing sale" : undefined}
-                    className={`w-full text-xs font-bold outline-none bg-transparent ${
+                    className={`w-full text-xs font-bold font-mono tracking-wide outline-none bg-transparent ${
                       isEditMode
                         ? "text-slate-500 cursor-not-allowed select-none"
                         : "text-slate-800 placeholder-slate-400"
@@ -2298,10 +2472,16 @@ export default function AddSale() {
                           type="number"
                           min="0"
                           step="0.01"
+                          readOnly={isCashier && cashierSecurity.lock_item_price_edit}
                           placeholder="0.00"
                           value={row.price}
                           onChange={e => updateRowField(row.id, "price", e.target.value)}
-                          className="w-full py-1.5 px-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-lg text-xs font-extrabold text-slate-900 text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition"
+                          title={isCashier && cashierSecurity.lock_item_price_edit ? "Price editing locked for cashiers" : ""}
+                          className={`w-full py-1.5 px-2 rounded-lg text-xs font-extrabold text-center outline-none transition ${
+                            isCashier && cashierSecurity.lock_item_price_edit
+                              ? "bg-slate-100 text-slate-500 cursor-not-allowed border border-slate-300"
+                              : "bg-slate-50/70 focus:bg-white border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 text-slate-900"
+                          }`}
                         />
                       </td>
                     )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useSyncExternalStore } from "react";
 import api from "../services/api";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import SettingsContext from "../pages/settings/SettingsContext";
@@ -48,6 +48,7 @@ import {
   Command,
   Bell,
   Store,
+  Coins,
   IndianRupee,
   RotateCcw,
   FileText,
@@ -55,13 +56,19 @@ import {
   Wallet,
   Sun,
   Moon,
+  Lock,
 } from "lucide-react";
 import HeaderQuickMenu from "../components/layout/HeaderQuickMenu";
 import AuditLogButton from "../components/audit/AuditLogButton";
 import HeaderNotifications from "../components/layout/HeaderNotifications";
 import HeaderUserDropdown from "../components/layout/HeaderUserDropdown";
+import AutoScreenLock from "../components/common/AutoScreenLock";
 import { useLanguage, t, startAutoTranslation } from "../utils/i18n";
 import { useTheme } from "../utils/themeInitializer";
+import {
+  getDeletePinModalState,
+  subscribeToDeletePinModal,
+} from "../utils/deletePinModalState";
 
 function getHeaderBreadcrumbs(pathname, lang = "en") {
   let res = { section: "Workspace", title: "Cashio", icon: Home };
@@ -149,6 +156,12 @@ export default function MainLayout() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const quickAddRef = useRef(null);
   const [sidebarSearch, setSidebarSearch] = useState("");
+  const deletePinModalOpen = useSyncExternalStore(
+    subscribeToDeletePinModal,
+    getDeletePinModalState,
+    () => false,
+  );
+  const visibleSidebarSearch = deletePinModalOpen ? "" : sidebarSearch;
   const searchInputRef = useRef(null);
   const [generalSettings, setGeneralSettings] = useState({});
   const [posControls, setPosControls] = useState(() => {
@@ -227,6 +240,18 @@ export default function MainLayout() {
   // Keyboard Shortcuts: Ctrl + Enter toggles menu, Alt shortcuts navigate
   useEffect(() => {
     const handleKeyDown = (e) => {
+      const target = e.target;
+      const tag = target?.tagName ? target.tagName.toLowerCase() : "";
+      const isEditable =
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select" ||
+        target?.isContentEditable === true;
+      // Never hijack shortcuts while the user is typing somewhere
+      // (e.g. entering the delete PIN) — otherwise Ctrl+F / Alt shortcuts
+      // would steal focus to the sidebar search or navigate away.
+      if (isEditable) return;
+
       if (e.ctrlKey && e.key === "Enter") {
         e.preventDefault();
         setQuickAddOpen((prev) => !prev);
@@ -480,8 +505,8 @@ export default function MainLayout() {
 
   // Live sidebar search filtering
   const filteredMenuItems = useMemo(() => {
-    if (!sidebarSearch.trim()) return menuItems;
-    const q = sidebarSearch.toLowerCase();
+    if (!visibleSidebarSearch.trim()) return menuItems;
+    const q = visibleSidebarSearch.toLowerCase();
     return menuItems.reduce((acc, item) => {
       if (item.isDropdown) {
         const parentMatches = item.name.toLowerCase().includes(q);
@@ -502,13 +527,14 @@ export default function MainLayout() {
       }
       return acc;
     }, []);
-  }, [menuItems, sidebarSearch]);
+  }, [menuItems, visibleSidebarSearch]);
 
   return (
     <div className="flex h-screen bg-[#f8faff] dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
       {/* ── SETTINGS SIDEBAR (when on /settings or /settings/:tab) ── */}
       {isSettingsPage ? (
         <motion.div
+          data-app-sidebar
           initial={false}
           animate={{ width: 270 }}
           transition={{ duration: 0.22, ease: "easeInOut" }}
@@ -541,6 +567,10 @@ export default function MainLayout() {
               { id: "general", label: "General Settings" },
               { id: "pos-controls", label: "POS & Counter Controls", icon: <Store size={15} /> },
               { id: "stock-safety", label: "Stock & Inventory Safety", icon: <Boxes size={15} /> },
+              { id: "cashier-security", label: "Cashier & Staff Security", icon: <Lock size={15} /> },
+              { id: "whatsapp-defaults", label: "WhatsApp Defaults", icon: <MessageCircle size={15} /> },
+              { id: "store-setup", label: "Store & Counter Setup", icon: <Store size={15} /> },
+              { id: "tax-backup", label: "Tax & Backup", icon: <Coins size={15} /> },
               { id: "audit-log", label: "Audit Log", icon: <History size={15} /> },
               { id: "invoice-numbering", label: "Invoice Numbering" },
               { id: "terms-conditions", label: "Terms & Conditions", icon: <FileText size={15} /> },
@@ -568,6 +598,7 @@ export default function MainLayout() {
       ) : (
         /* ── MAIN PAYSPLITX SIDEBAR ── */
         <motion.div
+          data-app-sidebar
           initial={false}
           animate={{ width: isCollapsed ? 76 : 292 }}
           transition={{ duration: 0.22, ease: "easeInOut" }}
@@ -624,58 +655,59 @@ export default function MainLayout() {
           </div>
 
           {/* QUICK SEARCH BUTTON IN SIDEBAR */}
-          {isCollapsed ? (
-            <div className="mb-4 flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  toggleSidebar();
-                  setTimeout(() => {
-                    if (searchInputRef.current) searchInputRef.current.focus();
-                  }, 100);
-                }}
-                title="Quick Search Menus (Ctrl+F)"
-                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
-              >
-                <Search size={16} />
-              </button>
-            </div>
-          ) : (
-            <div className="mb-3">
-              <div className="relative w-full">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={sidebarSearch}
-                  onChange={(e) => setSidebarSearch(e.target.value)}
-                  placeholder={translate("Quick Search Menus...")}
-                  className="w-full h-9 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 focus:bg-white/10 rounded-xl pl-8 pr-16 text-xs text-white placeholder-slate-400 focus:outline-none transition shadow-inner"
-                />
-                {sidebarSearch ? (
-                  <button
-                    type="button"
-                    onClick={() => setSidebarSearch("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center text-[10px] font-bold cursor-pointer"
-                    title="Clear Search"
-                  >
-                    ✕
-                  </button>
-                ) : (
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold font-mono bg-white/10 text-slate-400 px-1.5 py-0.5 rounded pointer-events-none no-translate" data-no-translate="true">
-                    Ctrl+F
-                  </span>
-                )}
+          {!deletePinModalOpen &&
+            (isCollapsed ? (
+              <div className="mb-4 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleSidebar();
+                    setTimeout(() => {
+                      if (searchInputRef.current) searchInputRef.current.focus();
+                    }, 100);
+                  }}
+                  title="Quick Search Menus (Ctrl+F)"
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+                >
+                  <Search size={16} />
+                </button>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="mb-3">
+                <div className="relative w-full">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={visibleSidebarSearch}
+                    onChange={(e) => setSidebarSearch(e.target.value)}
+                    placeholder={translate("Quick Search Menus...")}
+                    className="w-full h-9 bg-white/5 border border-white/10 hover:border-white/20 focus:border-indigo-500 focus:bg-white/10 rounded-xl pl-8 pr-16 text-xs text-white placeholder-slate-400 focus:outline-none transition shadow-inner"
+                  />
+                  {visibleSidebarSearch ? (
+                    <button
+                      type="button"
+                      onClick={() => setSidebarSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center text-[10px] font-bold cursor-pointer"
+                      title="Clear Search"
+                    >
+                      ✕
+                    </button>
+                  ) : (
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold font-mono bg-white/10 text-slate-400 px-1.5 py-0.5 rounded pointer-events-none no-translate" data-no-translate="true">
+                      Ctrl+F
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
 
           {/* NAVIGATION LIST */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden paysplitx-scrollbar space-y-0.5 pr-1 pb-6">
             {!isCollapsed && (
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1.5 flex items-center justify-between">
-                <span>{sidebarSearch ? translate("SEARCH RESULTS") : translate("MAIN MENU")}</span>
-                {sidebarSearch && (
+                <span>{visibleSidebarSearch ? translate("SEARCH RESULTS") : translate("MAIN MENU")}</span>
+                {visibleSidebarSearch && (
                   <span className="text-[10px] text-indigo-400 font-medium lowercase">
                     {filteredMenuItems.length} {translate("found")}
                   </span>
@@ -824,7 +856,7 @@ export default function MainLayout() {
             {filteredMenuItems.length === 0 && (
               <div className="py-8 px-2 text-center text-slate-400">
                 <Search size={20} className="mx-auto text-slate-500 mb-2" />
-                <p className="text-xs font-semibold text-slate-300">{translate("No menus match")} "{sidebarSearch}"</p>
+                <p className="text-xs font-semibold text-slate-300">{translate("No menus match")} "{visibleSidebarSearch}"</p>
                 <button
                   type="button"
                   onClick={() => setSidebarSearch("")}
@@ -980,6 +1012,7 @@ export default function MainLayout() {
           </SettingsContext.Provider>
         </main>
       </div>
+      <AutoScreenLock />
     </div>
   );
 }

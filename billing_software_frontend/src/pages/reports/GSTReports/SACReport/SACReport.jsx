@@ -286,6 +286,8 @@ const periodRangeDate = (key, now) => {
       return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) };
     case "thisYear":
       return { from: new Date(y, 0, 1), to: new Date(y, 11, 31) };
+    case "all":
+      return { from: new Date(2000, 0, 1), to: today };
     default:
       return { from: today, to: today };
   }
@@ -336,11 +338,11 @@ export default function SACReport() {
   const adminId = ADMIN_ID();
 
   const defaultRange = useMemo(() => {
-    const r = periodRangeDate("thisMonth", new Date());
+    const r = periodRangeDate("all", new Date());
     return { from: fmtDate(r.from), to: fmtDate(r.to) };
   }, []);
 
-  const [periodKey, setPeriodKey] = useState("thisMonth");
+  const [periodKey, setPeriodKey] = useState("all");
   const [fromDate, setFromDate] = useState(defaultRange.from);
   const [toDate, setToDate] = useState(defaultRange.to);
   const [selectedFirm, setSelectedFirm] = useState("all");

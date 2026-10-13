@@ -527,6 +527,165 @@ class WhatsappConnectController extends Controller
         ]);
     }
 
+    // ── SEND DAILY SALES SUMMARY TO OWNER VIA WHATSAPP ──
+    public function sendDailySummary(Request $request, WhatsAppService $whatsapp)
+    {
+        $company_id = intval($request->input('company_id', $request->query('company_id', 0)));
+        $rawPhone   = trim((string) $request->input('owner_phone', ''));
+        $targetDate = $request->input('date') ?: date('Y-m-d');
+
+        if (!$company_id) {
+            return response()->json(["status" => false, "message" => "company_id is required."]);
+        }
+
+        // Clean phone number
+        $phone = preg_replace('/[^0-9]/', '', $rawPhone);
+        if (strlen($phone) === 10) {
+            $phone = '91' . $phone;
+        } elseif (strlen($phone) === 11 && $phone[0] === '0') {
+            $phone = '91' . substr($phone, 1);
+        }
+
+        if (empty($phone) || strlen($phone) < 10) {
+            return response()->json([
+                "status" => false,
+                "message" => "Valid owner WhatsApp phone number is required (at least 10 digits)."
+            ]);
+        }
+
+        $connection = WhatsAppConnection::where('company_id', $company_id)->first();
+        if (!$connection || $connection->status !== 'ready') {
+            return response()->json([
+                "status" => false,
+                "message" => "WhatsApp device is not connected for this business. Please scan QR code in settings first."
+            ]);
+        }
+
+        $company = \App\Models\Company::find($company_id);
+        $firmName = $company->company_name ?? 'PaySplitX Store';
+
+        // Fetch today's invoices
+        $invoices = \App\Models\Invoice::where('company_id', $company_id)
+            ->whereDate('created_at', $targetDate)
+            ->get();
+
+        $totalBills = $invoices->count();
+        $totalSales = (float) $invoices->sum('total_amount');
+        $totalPaid = (float) $invoices->sum('paid_amount');
+        $totalBalance = (float) $invoices->sum('balance_amount');
+
+        // Payment method breakdown
+        $cashTotal = (float) $invoices->where('payment_method', 'cash')->sum('total_amount');
+        $upiTotal = (float) $invoices->whereIn('payment_method', ['online', 'upi'])->sum('total_amount');
+        $cardTotal = (float) $invoices->where('payment_method', 'card')->sum('total_amount');
+        $creditTotal = (float) $invoices->where('payment_type', 'credit')->sum('total_amount');
+        $otherTotal = max(0, $totalSales - ($cashTotal + $upiTotal + $cardTotal + $creditTotal));
+
+        // Unique customers
+        $customersCount = $invoices->pluck('customer_name')->filter()->unique()->count();
+
+        // Top 3 items
+        $itemCounts = [];
+        foreach ($invoices as $inv) {
+            $items = json_decode($inv->products, true);
+            if (is_array($items)) {
+                foreach ($items as $it) {
+                    $name = trim($it['name'] ?? $it['product_name'] ?? $it['item_name'] ?? '');
+                    $qty = floatval($it['qty'] ?? $it['quantity'] ?? 1);
+                    if ($name !== '') {
+                        $itemCounts[$name] = ($itemCounts[$name] ?? 0) + $qty;
+                    }
+                }
+            }
+        }
+        arsort($itemCounts);
+        $topItems = array_slice($itemCounts, 0, 3, true);
+
+        $formattedDate = date('d-M-Y', strtotime($targetDate));
+        $formattedTime = date('h:i A');
+
+        // Build WhatsApp message
+        $lines = [];
+        $lines[] = "📊 *{$firmName}*";
+        $lines[] = "⚡ *Daily Business Summary Report*";
+        $lines[] = "📅 *Date:* {$formattedDate} | *Time:* {$formattedTime}";
+        $lines[] = "─────────────────────";
+        $lines[] = "🧾 *Total Invoices:* " . number_format($totalBills);
+        $lines[] = "💰 *Total Sales:* ₹" . number_format($totalSales, 2);
+        $lines[] = "📥 *Total Collected:* ₹" . number_format($totalPaid, 2);
+        if ($totalBalance > 0) {
+            $lines[] = "⏳ *Credit Balance Due:* ₹" . number_format($totalBalance, 2);
+        }
+        $lines[] = "";
+        $lines[] = "💳 *Collection Breakdown:*";
+        $lines[] = "• 💵 Cash: ₹" . number_format($cashTotal, 2);
+        $lines[] = "• 📱 UPI / Online: ₹" . number_format($upiTotal, 2);
+        if ($cardTotal > 0) {
+            $lines[] = "• 💳 Card: ₹" . number_format($cardTotal, 2);
+        }
+        if ($creditTotal > 0) {
+            $lines[] = "• 🤝 Credit (Udhar): ₹" . number_format($creditTotal, 2);
+        }
+        if ($otherTotal > 0) {
+            $lines[] = "• 🔄 Other Modes: ₹" . number_format($otherTotal, 2);
+        }
+
+        if (!empty($topItems)) {
+            $lines[] = "";
+            $lines[] = "⭐ *Top Sold Items Today:*";
+            $rank = 1;
+            foreach ($topItems as $name => $qty) {
+                $lines[] = "{$rank}. {$name} (" . floatval($qty) . " units)";
+                $rank++;
+            }
+        }
+
+        if ($customersCount > 0) {
+            $lines[] = "";
+            $lines[] = "👥 *Customers Served:* " . $customersCount;
+        }
+
+        $lines[] = "─────────────────────";
+        $lines[] = "_Generated automatically by PaySplitX POS_";
+
+        $message = implode("\n", $lines);
+
+        try {
+            $result = $whatsapp->sendMessage($connection->session_id, $phone, $message);
+        } catch (\Exception $e) {
+            return response()->json([
+                "status" => false,
+                "message" => "Failed to send WhatsApp summary: " . $e->getMessage(),
+                "data" => $e->getMessage()
+            ]);
+        }
+
+        $msg = WhatsAppMessage::create([
+            'connection_id' => $connection->id,
+            'company_id' => $company_id,
+            'whatsapp_message_id' => $result['result']['id'] ?? null,
+            'customer_phone' => $phone,
+            'chat_id' => $phone . '@c.us',
+            'direction' => 'outgoing',
+            'message_type' => 'text',
+            'message' => $message,
+            'status' => 'sent',
+            'sent_at' => now()
+        ]);
+
+        return response()->json([
+            "status" => true,
+            "message" => "Today's sales summary sent successfully to Owner (+{$phone}) via WhatsApp!",
+            "data" => [
+                "id" => $msg->id,
+                "phone" => $phone,
+                "total_bills" => $totalBills,
+                "total_sales" => $totalSales,
+                "message_preview" => $message
+            ]
+        ]);
+    }
+
     // ── SEND ANY DOCUMENT / PHOTO / FILE VIA WHATSAPP (FROM CHAT UI) ──
     public function sendFile(Request $request, WhatsAppService $whatsapp)
     {
