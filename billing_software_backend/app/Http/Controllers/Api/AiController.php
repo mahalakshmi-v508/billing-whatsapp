@@ -175,15 +175,27 @@ class AiController extends Controller
 
         // 1. Frequently bought by this customer
         if ($customer_id > 0) {
-            $pastProductIds = DB::table('invoices as i')
-                ->join('invoice_items as ii', 'i.id', '=', 'ii.invoice_id')
-                ->where('i.company_id', $company_id)
-                ->where('i.customer_id', $customer_id)
-                ->groupBy('ii.product_id')
-                ->orderByRaw('COUNT(*) DESC')
-                ->limit(4)
-                ->pluck('ii.product_id')
-                ->toArray();
+            // Invoice products live in the JSON `products` column (no
+            // invoice_items table), so decode and count product ids in PHP.
+            $freqCounts = [];
+            $pastInvoices = DB::table('invoices')
+                ->where('company_id', $company_id)
+                ->where('customer_id', $customer_id)
+                ->get(['products']);
+
+            foreach ($pastInvoices as $pastInvoice) {
+                $lines = json_decode((string) $pastInvoice->products, true);
+                if (!is_array($lines)) { continue; }
+                foreach ($lines as $line) {
+                    $pid = intval($line['product_id'] ?? 0);
+                    if ($pid > 0) {
+                        $freqCounts[$pid] = ($freqCounts[$pid] ?? 0) + 1;
+                    }
+                }
+            }
+
+            arsort($freqCounts);
+            $pastProductIds = array_slice(array_keys($freqCounts), 0, 4);
 
             if (!empty($pastProductIds)) {
                 $custProducts = DB::table('products')
