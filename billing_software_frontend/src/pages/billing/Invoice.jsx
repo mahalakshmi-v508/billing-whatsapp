@@ -2569,6 +2569,37 @@ function getInitialPrintSettings() {
 /* ═══════════════════════════════════════════════════════════════════════════
    MAIN INVOICE PREVIEW COMPONENT (MATCHING ALL SCREENSHOTS)
 ═══════════════════════════════════════════════════════════════════════════ */
+
+// Only the invoice identifier is persisted (never customer/invoice data).
+const LAST_OPENED_INVOICE_KEY = "last_opened_invoice";
+
+function getSavedInvoiceId() {
+  try {
+    const v = localStorage.getItem(LAST_OPENED_INVOICE_KEY);
+    return typeof v === "string" && v.trim() ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function setSavedInvoiceId(id) {
+  try {
+    localStorage.setItem(LAST_OPENED_INVOICE_KEY, String(id));
+  } catch {
+    /* storage unavailable — feature degrades gracefully */
+  }
+}
+
+function clearSavedInvoiceId(id) {
+  try {
+    if (localStorage.getItem(LAST_OPENED_INVOICE_KEY) === String(id)) {
+      localStorage.removeItem(LAST_OPENED_INVOICE_KEY);
+    }
+  } catch {
+    /* storage unavailable — nothing to clear */
+  }
+}
+
 export default function InvoicePreview() {
   const { invoiceNo } = useParams();
   const navigate = useNavigate();
@@ -2664,6 +2695,14 @@ export default function InvoicePreview() {
   /* Load Invoice Data */
   useEffect(() => {
     if (!invoiceNo) {
+      // No invoice in the URL: reopen the last successfully opened invoice if
+      // one was remembered. The navigation replaces the URL, so a refresh keeps
+      // the same invoice and no first/latest/guessed invoice is ever shown.
+      const saved = getSavedInvoiceId();
+      if (saved) {
+        navigate(`/invoice/${encodeURIComponent(String(saved))}`, { replace: true });
+        return;
+      }
       setLoadError("Invoice number is missing.");
       setLoading(false);
       return;
@@ -2693,6 +2732,9 @@ export default function InvoicePreview() {
       const applyEstimate = (comp) => {
         const normalized = transformEstimateToInvoice(est, comp);
         setInvoice(normalized);
+        // Estimates are opened through the same studio URL, so remember the
+        // identifier too — otherwise reopening the studio has nothing to restore.
+        setSavedInvoiceId(String(invoiceNo));
         if (comp) {
           setCompany({
             company_name: comp.company_name,
@@ -2752,6 +2794,8 @@ export default function InvoicePreview() {
       .then((res) => {
         if (res.data && res.data.status && res.data.data) {
           setInvoice(res.data.data);
+          // Remember this as the last opened invoice (identifier only).
+          setSavedInvoiceId(String(invoiceNo));
           setCompany({
             company_name: res.data.data.company_name,
             company_address: res.data.data.company_address,
@@ -2764,6 +2808,9 @@ export default function InvoicePreview() {
             ifsc_code: res.data.data.ifsc_code,
           });
         } else {
+          // The requested invoice no longer exists: drop any saved reference to
+          // it so the next visit never re-opens stale data.
+          clearSavedInvoiceId(invoiceNo);
           setLoadError(res.data?.message || `Invoice #${invoiceNo} not found.`);
         }
       })
@@ -2777,6 +2824,7 @@ export default function InvoicePreview() {
           if (fallbackEst) {
             const normalized = transformEstimateToInvoice(fallbackEst, location.state?.company || null);
             setInvoice(normalized);
+            setSavedInvoiceId(String(invoiceNo));
             setLoading(false);
             return;
           }
@@ -2786,7 +2834,7 @@ export default function InvoicePreview() {
       .finally(() => {
         setLoading(false);
       });
-  }, [invoiceNo, location.state]);
+  }, [invoiceNo, location.state, navigate]);
 
   /* Load print & invoice design settings from DB */
   useEffect(() => {
@@ -2799,14 +2847,31 @@ export default function InvoicePreview() {
         const printSettings = data.print || {};
         const designSettings = data.invoiceDesign || {};
 
+        // The studio toolbar persists the user's last-used design to localStorage.
+        // If a design was chosen, keep it — do not force the company's saved
+        // defaults on every invoice view (which flipped the preview back to the
+        // default Classic POS layout after ~1s).
+        let hasUserDesign = false;
+        try {
+          hasUserDesign = !!(
+            localStorage.getItem("invoice_printer_type") ||
+            localStorage.getItem("invoice_default_theme") ||
+            localStorage.getItem("invoice_default_color") ||
+            localStorage.getItem("thermal_pos_layout") ||
+            localStorage.getItem("invoice_pos_layout")
+          );
+        } catch {
+          /* localStorage unavailable — keep DB defaults */
+        }
+
         const activePrinter = printSettings.printer || (designSettings.theme === "pos" ? "thermal" : "regular");
         if (forcePosPrint) setPrinterType("thermal");
-        else if (activePrinter) setPrinterType(activePrinter);
+        else if (activePrinter && !hasUserDesign) setPrinterType(activePrinter);
 
         const themeCandidate = printSettings.template || printSettings.theme || designSettings.template || designSettings.theme;
         if (forcePosPrint) {
           setSelectedTheme("pos");
-        } else if (themeCandidate) {
+        } else if (themeCandidate && !hasUserDesign) {
           const map = {
             "Tally Theme": "tally",
             "GST Theme 1": "gst1",
@@ -2824,12 +2889,12 @@ export default function InvoicePreview() {
         }
 
         const colorCandidate = printSettings.themeColor || designSettings.themeColor;
-        if (colorCandidate) setSelectedColor(colorCandidate);
+        if (colorCandidate && !hasUserDesign) setSelectedColor(colorCandidate);
 
         const posLayoutCandidate = printSettings.posLayout || designSettings.posLayout;
-        if (posLayoutCandidate) setSelectedPosLayout(posLayoutCandidate);
+        if (posLayoutCandidate && !hasUserDesign) setSelectedPosLayout(posLayoutCandidate);
 
-        if (printSettings.pageSize) setPageSize(printSettings.pageSize);
+        if (printSettings.pageSize && !hasUserDesign) setPageSize(printSettings.pageSize);
 
         const storeSetup = data.store_setup || {};
         if (storeSetup) {
