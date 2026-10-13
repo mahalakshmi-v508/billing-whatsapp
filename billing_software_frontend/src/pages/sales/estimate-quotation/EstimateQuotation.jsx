@@ -20,6 +20,7 @@ import {
   IndianRupee,
   CheckCircle2,
   SlidersHorizontal,
+  ShoppingCart,
 } from "lucide-react";
 import TableActions from "../../../components/ui/TableActions";
 import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
@@ -259,6 +260,31 @@ export default function EstimateQuotation() {
   };
 
   const printEstimate = (est) => handleViewOrPrintEstimate(est, true);
+
+  // Convert Estimate to a Sale Invoice
+  const handleConvertToSale = (est) => {
+    if (!est) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(ESTIMATE_STORAGE_KEY) || "[]");
+      const list = Array.isArray(saved) ? saved : [];
+      const updated = list.map((item) =>
+        String(item.id) === String(est.id) || (est.refNo && String(item.refNo) === String(est.refNo))
+          ? { ...item, status: "converted", converted_at: new Date().toISOString() }
+          : item
+      );
+      localStorage.setItem(ESTIMATE_STORAGE_KEY, JSON.stringify(updated));
+      setEstimates(updated);
+    } catch (e) {
+      console.error(e);
+    }
+
+    navigate("/sales/add", {
+      state: {
+        fromEstimate: true,
+        estimateData: est,
+      },
+    });
+  };
 
   // Share estimate summary via the app's own /whatsapp page.
   // WhatsApp Web / wa.me are never opened: connected → send immediately,
@@ -669,16 +695,28 @@ export default function EstimateQuotation() {
                     )}
                     {visibleColumns.status && (
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (est.status !== "converted") {
+                              handleConvertToSale(est);
+                            }
+                          }}
+                          title={
                             est.status === "converted"
-                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                              : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200"
+                              ? isTamil ? "விற்பனையாக மாற்றப்பட்டது" : "Converted to Sale"
+                              : isTamil ? "விற்பனையாக மாற்ற கிளிக் செய்க" : "Click to Convert to Sale"
+                          }
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition ${
+                            est.status === "converted"
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 cursor-default"
+                              : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100 hover:ring-indigo-300 cursor-pointer shadow-xs active:scale-95"
                           }`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${est.status === "converted" ? "bg-emerald-600" : "bg-indigo-600"}`} />
                           <span>{est.status === "converted" ? (isTamil ? "மாற்றப்பட்டது" : "Converted") : (isTamil ? "நிலுவை" : "Open")}</span>
-                        </span>
+                        </button>
                       </td>
                     )}
                     <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -706,6 +744,11 @@ export default function EstimateQuotation() {
                             label: isTamil ? "விலைப்பட்டியலைக் காண்க" : "View Invoice",
                             icon: Eye,
                             onClick: () => handleViewOrPrintEstimate(est, false),
+                          },
+                          {
+                            label: isTamil ? "விற்பனையாக மாற்றுக" : "Convert to Sale",
+                            icon: ShoppingCart,
+                            onClick: () => handleConvertToSale(est),
                           },
                           { isDivider: true },
                           {

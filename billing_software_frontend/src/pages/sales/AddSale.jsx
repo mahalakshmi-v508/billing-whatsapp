@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import api from "../../services/api";
 import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import {
@@ -268,6 +268,7 @@ function CloseSaleModal({ isOpen, onCancel, onConfirm }) {
 export default function AddSale() {
   const navigate = useNavigate();
   const { invoiceNo } = useParams();
+  const location = useLocation();
   const isEditMode = Boolean(invoiceNo);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const adminId = user.role === "cashier" ? user.admin_id : user.id;
@@ -561,6 +562,81 @@ export default function AddSale() {
     };
     loadInvoiceToEdit();
   }, [invoiceNo]);
+
+  /* ── Load from Estimate when converting to Sale ── */
+  const estimateLoadedRef = useRef(false);
+  useEffect(() => {
+    if (isEditMode || estimateLoadedRef.current) return;
+    const est = location.state?.estimateData;
+    if (!est) return;
+    estimateLoadedRef.current = true;
+
+    const rawRows = Array.isArray(est.rows) ? est.rows : [];
+    const validRows = rawRows.filter(
+      (r) => String(r.item || r.item_name || "").trim() !== ""
+    );
+
+    const mappedRows = validRows.length > 0
+      ? validRows.map((r, idx) => {
+          const qty = parseFloat(r.qty) || 1;
+          const price = parseFloat(r.price) || 0;
+          const discPct = r.discount_pct ? parseFloat(r.discount_pct) : 0;
+          const discAmt = r.discount_amt ? parseFloat(r.discount_amt) : 0;
+          const taxRate = parseFloat(r.tax_rate ?? 0) || 0;
+          const priceType = r.price_type === "with_tax" ? "with_tax" : "without_gst";
+          const lineCalc = calculateLine({
+            price,
+            quantity: qty,
+            discount: discAmt || (discPct ? `${discPct}%` : 0),
+            gstRate: taxRate,
+            priceType,
+          });
+
+          return {
+            id: Date.now() + idx + Math.random(),
+            product_id: r.product_id || null,
+            item_name: r.item || r.item_name || "",
+            qty: qty,
+            free_qty: "",
+            unit: normalizeUnit(r.unit) || "NONE",
+            price: price,
+            price_type: priceType,
+            discount_percent: discPct ? String(discPct) : "",
+            discount_amount: discAmt ? String(discAmt) : "",
+            tax_percent: taxRate,
+            tax_amount: lineCalc.gst,
+            amount: lineCalc.total,
+            stock: r.stock || null,
+            product_code: r.product_code || "",
+          };
+        })
+      : [createInitialRow()];
+
+    const convertedSaleTab = {
+      ...createNewSaleTab(1, 1),
+      label: `Sale (from #${est.refNo || est.id})`,
+      customerName: est.customer_name || est.partyQuery || "",
+      customerPhone: est.customer_phone || est.phoneNo || "",
+      customerId: est.customer_id || null,
+      gstNo: est.gst_no || (est.selectedParty && est.selectedParty.gst_no) || "",
+      billingAddress: est.billing_address || est.selectedParty?.billing_address || "",
+      shippingAddress: est.shipping_address || "",
+      stateOfSupply: est.stateOfSupply || "Tamil Nadu",
+      rows: mappedRows,
+      showTerms: Boolean(est.termsText),
+      termsText: est.termsText || "",
+      showDescription: Boolean(est.descriptionText),
+      descriptionText: est.descriptionText || `Converted from Estimate #${est.refNo || est.id}`,
+      roundOffEnabled: Boolean(est.roundOffEnabled),
+    };
+
+    setSales([convertedSaleTab]);
+    setActiveTabId(1);
+    if (est.company_id) {
+      setSelectedCompany(String(est.company_id));
+    }
+    showToast(`Converted from Estimate #${est.refNo || est.id}`, true);
+  }, [location.state, isEditMode]);
 
   /* ── Load Next Invoice Number Preview from Dedicated Invoice Settings ── */
   useEffect(() => {
@@ -1207,6 +1283,25 @@ export default function AddSale() {
       const res = await api.post(endpoint, submitPayload);
       if (res.data.status) {
         const savedInvNo = res.data.invoice_no || invoiceNo || "Invoice";
+
+        // If converted from an estimate, record converted_invoice_no in saved_estimates
+        if (location.state?.estimateData?.id) {
+          try {
+            const saved = JSON.parse(localStorage.getItem("saved_estimates") || "[]");
+            if (Array.isArray(saved)) {
+              const estId = location.state.estimateData.id;
+              const updated = saved.map((e) =>
+                String(e.id) === String(estId)
+                  ? { ...e, status: "converted", converted_at: new Date().toISOString(), converted_invoice_no: savedInvNo }
+                  : e
+              );
+              localStorage.setItem("saved_estimates", JSON.stringify(updated));
+            }
+          } catch (e) {
+            console.error("Error updating converted estimate:", e);
+          }
+        }
+
         if (isEditMode) {
           showToast(`Invoice #${savedInvNo} updated successfully!`, true);
           setTimeout(() => navigate("/sales/invoices"), 1500);
