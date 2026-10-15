@@ -78,6 +78,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   const [isCreditAuthorized, setIsCreditAuthorized] = useState(false);
   const [enteredPin, setEnteredPin] = useState("");
   const [showPinInput, setShowPinInput] = useState(false);
+  const [showPinSetupPrompt, setShowPinSetupPrompt] = useState(false);
 
   // ─── Cashier security settings (source of the Supervisor PIN) ──
   const [cashierSecurity, setCashierSecurity] = useState(() => {
@@ -251,6 +252,28 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   };
 
   // ─── Credit authorization (PIN) handlers ──────────────
+  const isSupervisorPinSet =
+    String(cashierSecurity.supervisor_admin_pin || "").trim() !==
+    String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
+
+  const handlePinFieldFocus = () => {
+    if (isSupervisorPinSet) return;
+    setShowPinSetupPrompt(true);
+  };
+
+  const handleEnableCreditClick = () => {
+    if (!isSupervisorPinSet) {
+      setShowPinSetupPrompt(true);
+      return;
+    }
+    set("credit_enabled", 1);
+  };
+
+  const goToPinSecuritySettings = () => {
+    setShowPinSetupPrompt(false);
+    navigate("/settings/cashier-security");
+  };
+
   const handleVerifyPin = () => {
     const pin = enteredPin.trim();
     if (!pin) {
@@ -623,6 +646,44 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                 className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-indigo-200 disabled:opacity-50 flex items-center justify-center min-w-[75px]"
               >
                 {isVerifyingGst ? <RefreshCw size={14} className="animate-spin" /> : "Verify"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── SUPERVISOR PIN NOT SET PROMPT ─── */}
+      {showPinSetupPrompt && (
+        <div
+          className="fixed inset-0 z-[100002] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setShowPinSetupPrompt(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+              <Lock size={22} />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">Supervisor PIN Not Set</h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              No supervisor/admin PIN has been set yet. Please set the PIN in Cashier &amp; Staff
+              Security settings before authorizing credit limits.
+            </p>
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowPinSetupPrompt(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={goToPinSecuritySettings}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-all"
+              >
+                Set PIN
               </button>
             </div>
           </div>
@@ -1112,7 +1173,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => set("credit_enabled", 1)}
+                      onClick={handleEnableCreditClick}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                         form.credit_enabled === 1
                           ? "bg-indigo-600 text-white shadow-xs"
@@ -1149,6 +1210,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                               maxLength={4}
                               placeholder="4-digit PIN"
                               value={enteredPin}
+                              onFocus={handlePinFieldFocus}
                               onChange={(e) =>
                                 setEnteredPin(e.target.value.replace(/\D/g, "").slice(0, 4))
                               }
