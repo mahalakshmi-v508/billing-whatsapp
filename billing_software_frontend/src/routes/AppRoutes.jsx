@@ -113,6 +113,7 @@ import PurchaseList from "../pages/purchase/PurchaseList";
 import PurchaseForm from "../pages/purchase/PurchaseForm";
 import PurchaseGSTReport from "../pages/purchase/PurchaseGSTReport";
 import PaymentOut from "../pages/purchase/payment_out/PaymentOut";
+import PaymentOutReport from "../pages/reports/transactions/payment-out/PaymentOutReport";
 import DebitNoteList from "../pages/purchase/debit_note/DebitNoteList";
 import AddDebitNote from "../pages/purchase/debit_note/AddDebitNote";
 import ExpenseList from "../pages/purchase/expenses/ExpenseList";
@@ -225,7 +226,7 @@ export default function AppRoutes() {
               <Route path="sale-purchase-by-party" element={<SalePurchaseByParty />} />
               <Route path="sale-purchase-by-party-group" element={<SalePurchaseByPartyGroup />} />
               <Route path="payment-in" element={<PaymentIn />} />
-              <Route path="payment-out" element={<PaymentOut />} />
+              <Route path="payment-out" element={<PaymentOutReport />} />
               <Route path="gst-r1" element={<GstR1 />} />
               <Route path="gst-r2" element={<GstR2 />} />
               <Route path="gstr-3b" element={<Gstr3B />} />
