@@ -1,5 +1,15 @@
 import { useEffect, useRef } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+
+// In Electron packaged desktop mode (file: protocol) or with electronAPI present,
+// HashRouter prevents file-path routing mismatch. In web browsers, BrowserRouter is preserved.
+const isElectron =
+  typeof window !== "undefined" &&
+  (window.location.protocol === "file:" ||
+    Boolean(window.electronAPI) ||
+    /electron/i.test(navigator.userAgent));
+
+const AppRouter = isElectron ? HashRouter : BrowserRouter;
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Dashboard from "../pages/dashboard/Dashboard";
@@ -163,7 +173,7 @@ function BillingRoute() {
 
 export default function AppRoutes() {
   return (
-    <BrowserRouter>
+    <AppRouter>
       <BillingReturnPathTracker />
       <Routes>
 
@@ -368,6 +378,6 @@ export default function AppRoutes() {
         {/* Catch-all 404 Route */}
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </BrowserRouter>
+    </AppRouter>
   );
 }

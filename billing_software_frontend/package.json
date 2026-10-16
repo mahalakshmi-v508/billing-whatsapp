@@ -1,16 +1,26 @@
 {
   "name": "billing_software",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Cashio Smart Billing and Analytics Desktop Application",
+  "author": "Smart Ledger <support@smartledger.in>",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "concurrently -k -s first \"npm run dev\" \"cross-env WAIT_ON_TIMEOUT=60000 wait-on http://127.0.0.1:5173 && electron .\"",
+    "build:web": "vite build",
+    "dist": "vite build && electron-builder --win",
+    "dist:dir": "vite build && electron-builder --win --dir",
+    "dist:publish": "vite build && electron-builder --win --publish always"
   },
   "dependencies": {
     "axios": "^1.16.1",
+    "electron-updater": "^6.8.9",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.40.0",
     "html2pdf.js": "^0.14.0",
@@ -37,12 +47,17 @@
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
     "babel-plugin-react-compiler": "^1.0.0",
+    "concurrently": "^10.0.6",
+    "cross-env": "^10.1.0",
+    "electron": "^44.8.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.3",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "wait-on": "^9.5.1"
   }
 }
