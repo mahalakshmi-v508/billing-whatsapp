@@ -704,9 +704,8 @@ export default function PurchaseList() {
                   <button
                     key={k}
                     onClick={() => setPresetDates(k)}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
-                      period === k ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
-                    }`}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${period === k ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                      }`}
                   >
                     {label}
                   </button>
@@ -763,9 +762,8 @@ export default function PurchaseList() {
                     handleCompanyChange("all");
                     setFirmOpen(false);
                   }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
-                    selectedCompany === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
-                  }`}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${selectedCompany === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                    }`}
                 >
                   🏢 All Store
                 </button>
@@ -776,9 +774,8 @@ export default function PurchaseList() {
                       handleCompanyChange(c.id);
                       setFirmOpen(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition truncate cursor-pointer ${
-                      String(selectedCompany) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
-                    }`}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition truncate cursor-pointer ${String(selectedCompany) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                      }`}
                   >
                     🏢 {c.company_name}
                   </button>

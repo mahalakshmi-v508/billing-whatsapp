@@ -44,6 +44,7 @@ export default function TableActions({
   onViewInvoice,
   viewInvoiceLabel = "View Invoice",
   menuItems = [],
+  showMoreMenu = true,
   className = "",
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -198,6 +199,7 @@ export default function TableActions({
       </div>
 
       {/* 3. THREE-DOT MORE ACTIONS */}
+      {showMoreMenu && (
       <div className="relative">
         <button
           ref={btnRef}
@@ -259,6 +261,7 @@ export default function TableActions({
             document.body
           )}
       </div>
+      )}
     </div>
   );
 }
