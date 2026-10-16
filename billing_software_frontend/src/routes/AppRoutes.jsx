@@ -90,6 +90,7 @@ import EwayBills from "../pages/eway-bills/EwayBills";
 import GenerateEwayBill from "../pages/eway-bills/GenerateEwayBill";
 import EstimateForm from "../pages/sales/estimate-quotation/EstimateForm";
 import PaymentIn from "../pages/sales/payment_in/PaymentIn";
+import PaymentInReport from "../pages/reports/transactions/payment-in/PaymentInReport";
 import CreditNoteList from "../pages/sales/credit_note/CreditNoteList";
 import AddCreditNote from "../pages/sales/credit_note/AddCreditNote";
 import PaymentPendingHistory from "../pages/reports/PaymentPendingHistory";
@@ -225,7 +226,7 @@ export default function AppRoutes() {
               <Route path="party-by-item" element={<PartyReportByItem />} />
               <Route path="sale-purchase-by-party" element={<SalePurchaseByParty />} />
               <Route path="sale-purchase-by-party-group" element={<SalePurchaseByPartyGroup />} />
-              <Route path="payment-in" element={<PaymentIn />} />
+              <Route path="payment-in" element={<PaymentInReport />} />
               <Route path="payment-out" element={<PaymentOutReport />} />
               <Route path="gst-r1" element={<GstR1 />} />
               <Route path="gst-r2" element={<GstR2 />} />
