@@ -6,7 +6,7 @@ import {
   Phone, Mail, MapPin, Wallet, Plus, Share2, Building2, CheckCircle2,
   AlertCircle, AlertTriangle, ShieldAlert, ShoppingCart, ArrowUpRight, X, ChevronRight, ChevronDown,
   Filter, Check, UserCheck, Layers, LayoutGrid, Calendar, RefreshCw,
-  Printer, FileText, KeyRound
+  Printer, FileText, KeyRound, Lock
 } from "lucide-react";
 import AddSupplierModal from "../supplier/AddSupplierModal";
 import TableActions from "../../components/ui/TableActions";
@@ -98,6 +98,7 @@ export default function PurchaseList() {
   const [deletePin, setDeletePin] = useState("");
   const [deletePinError, setDeletePinError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [showPinSetupPrompt, setShowPinSetupPrompt] = useState(false);
   const deleteModalRef = useRef(null);
   const deletePinRef = useRef(null);
 
@@ -287,6 +288,24 @@ export default function PurchaseList() {
   const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);
     fetchPurchasesAndSuppliers(companyId, fromDate, toDate);
+  };
+
+  const isSupervisorPinSet =
+    cashierSecurity.supervisor_pin_set === true ||
+    String(cashierSecurity.supervisor_admin_pin || "").trim() !==
+      String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
+
+  const handleDeleteClick = (purchase) => {
+    if (cashierSecurity.supervisor_pin_enabled && !isSupervisorPinSet) {
+      setShowPinSetupPrompt(true);
+      return;
+    }
+    setDeleteTarget(purchase);
+  };
+
+  const goToPinSecuritySettings = () => {
+    setShowPinSetupPrompt(false);
+    navigate("/settings/cashier-security");
   };
 
   const confirmDeletePurchase = async () => {
@@ -1189,7 +1208,7 @@ export default function PurchaseList() {
                                     label: "Delete",
                                     icon: Trash2,
                                     isDanger: true,
-                                    onClick: () => setDeleteTarget(p),
+                                    onClick: () => handleDeleteClick(p),
                                   },
                                 ]}
                               />
@@ -1391,7 +1410,7 @@ export default function PurchaseList() {
                                   label: "Delete",
                                   icon: Trash2,
                                   isDanger: true,
-                                  onClick: () => setDeleteTarget(p),
+                                  onClick: () => handleDeleteClick(p),
                                 },
                               ]}
                             />
@@ -1797,6 +1816,44 @@ export default function PurchaseList() {
         onResetColumns={resetColumns}
         title="Customize Purchase Bills Columns"
       />
+
+      {/* ── SUPERVISOR PIN NOT SET PROMPT ── */}
+      {showPinSetupPrompt && (
+        <div
+          className="fixed inset-0 z-[100002] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={() => setShowPinSetupPrompt(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+              <Lock size={22} />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">Supervisor PIN Not Set</h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              No supervisor/admin PIN has been set yet. Please set the PIN in Cashier & Staff
+              Security settings before deleting.
+            </p>
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowPinSetupPrompt(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={goToPinSecuritySettings}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-all"
+              >
+                Set PIN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 10. DELETE CONFIRMATION MODAL (Supervisor / Admin PIN protected) ── */}
       {deleteTarget && (
