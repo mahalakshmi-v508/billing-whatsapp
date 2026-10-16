@@ -253,8 +253,9 @@ export default function CustomerForm({ onSuccess, onCancel }) {
 
   // ─── Credit authorization (PIN) handlers ──────────────
   const isSupervisorPinSet =
+    cashierSecurity.supervisor_pin_set === true ||
     String(cashierSecurity.supervisor_admin_pin || "").trim() !==
-    String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
+      String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
 
   const handlePinFieldFocus = () => {
     if (isSupervisorPinSet) return;

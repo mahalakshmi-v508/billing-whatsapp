@@ -33,6 +33,7 @@ export const DEFAULT_CASHIER_SECURITY = {
   restrict_selling_below_cost: true, // Prevent selling below cost/purchase price
   supervisor_pin_enabled: true, // Require 4-digit PIN for bill delete/cancel
   supervisor_admin_pin: "1234", // 4-digit Supervisor/Admin PIN
+  supervisor_pin_set: false, // true once the user has explicitly saved a PIN
   auto_screen_lock_minutes: 0, // 0 = Off, 5 = 5m, 10 = 10m, 15 = 15m
 };
 
@@ -99,8 +100,9 @@ export default function CashierSecuritySettings() {
   };
 
   const isCustomPin =
+    settings.supervisor_pin_set === true ||
     String(settings.supervisor_admin_pin || "").trim() !==
-    String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
+      String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
 
   const pinActionLabel = isCustomPin
     ? isTamil
@@ -176,6 +178,7 @@ export default function CashierSecuritySettings() {
     }
 
     setSetting("supervisor_admin_pin")(cleaned);
+    setSetting("supervisor_pin_set")(true);
     showToast(
       isTamil
         ? isCustomPin

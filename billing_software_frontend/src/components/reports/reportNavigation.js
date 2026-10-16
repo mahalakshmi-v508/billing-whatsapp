@@ -100,10 +100,6 @@ export const reportSections = [
     reports: [
       { title: "GST Report", path: "/reports/gst-report", slug: "GSTReport" },
       { title: "GST Rate Report", path: "/reports/gst-rate-report", slug: "GSTRateReport" },
-      { title: "Form No. 27EQ", path: "/reports/form-27eq", slug: "FormNo27EQ" },
-      { title: "TCS Receivable", path: "/reports/tcs-receivable", slug: "TCSReceivable" },
-      { title: "TDS Payable", path: "/reports/tds-payable", slug: "TDSPayable" },
-      { title: "TDS Receivable", path: "/reports/tds-receivable", slug: "TDSReceivable" },
     ],
   },
   {
