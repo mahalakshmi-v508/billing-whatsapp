@@ -335,7 +335,7 @@ export default function Login() {
                 textShadow: "0 0 24px rgba(77,166,255,0.6)",
               }}
             >
-             Products
+              Products
             </span>
           </h1>
           <p
@@ -398,10 +398,10 @@ export default function Login() {
               {!isForgotMode
                 ? "Sign in to your account"
                 : forgotStep === 1
-                ? "Reset your password"
-                : forgotStep === 2
-                ? "Verify OTP"
-                : "Choose new password"}
+                  ? "Reset your password"
+                  : forgotStep === 2
+                    ? "Verify OTP"
+                    : "Choose new password"}
             </h2>
             {isForgotMode && (
               <p
@@ -415,8 +415,8 @@ export default function Login() {
                 {forgotStep === 1
                   ? "Enter your email to receive a verification OTP."
                   : forgotStep === 2
-                  ? `Enter the 6-digit OTP code sent to ${forgotEmail}`
-                  : "Enter a strong new password for your account."}
+                    ? `Enter the 6-digit OTP code sent to ${forgotEmail}`
+                    : "Enter a strong new password for your account."}
               </p>
             )}
           </div>
