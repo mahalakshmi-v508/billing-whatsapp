@@ -46,6 +46,7 @@ export default function Login() {
         };
 
         localStorage.setItem("user", JSON.stringify(user));
+        window.dispatchEvent(new Event("auth-user-changed"));
         console.log("LOGIN USER 👉", user);
         if (role === "superadmin") navigate("/admin");
         else navigate("/dashboard");

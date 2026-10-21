@@ -164,7 +164,7 @@ export default function CashierSecuritySettings() {
     }
   };
 
-  const handleSaveNewPin = () => {
+  const handleSaveNewPin = async () => {
     const cleaned = String(newPin || "").replace(/\D/g, "").slice(0, 4);
     if (cleaned.length !== 4) {
       showToast(
@@ -175,8 +175,35 @@ export default function CashierSecuritySettings() {
       return;
     }
 
-    setSetting("supervisor_admin_pin")(cleaned);
-    setSetting("supervisor_pin_set")(true);
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      const res = await api.post("/auth/supervisor_pin", {
+        user_id: user?.id,
+        role: user?.role,
+        pin: cleaned,
+      });
+      if (res.data.status !== "success") {
+        showToast(res.data.message || "Failed to save PIN", false);
+        return;
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error saving PIN", false);
+      return;
+    }
+
+    // Keep local + context state in sync (PIN now lives in users table)
+    setSettings((prev) => ({
+      ...prev,
+      supervisor_admin_pin: cleaned,
+      supervisor_pin_set: true,
+    }));
+    window.dispatchEvent(
+      new CustomEvent("supervisor-pin-updated", {
+        detail: { supervisor_admin_pin: cleaned, supervisor_pin_set: true },
+      })
+    );
+
     showToast(
       isTamil
         ? isCustomPin

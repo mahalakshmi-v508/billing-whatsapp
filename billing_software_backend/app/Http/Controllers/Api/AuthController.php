@@ -388,6 +388,117 @@ class AuthController extends Controller
         }
     }
 
+    /**
+     * Resolve the company admin user whose supervisor PIN is used company-wide.
+     * Priority: company's admin (companies.admin_id) → company admin on user row
+     * → cashier's admin → requesting user's own row.
+     */
+    private function resolveAdminUser($user_id, $role, $company_id = 0)
+    {
+        if ($company_id) {
+            $company = Company::find($company_id);
+            if ($company && !empty($company->admin_id)) {
+                $admin = User::find($company->admin_id);
+                if ($admin) {
+                    return $admin;
+                }
+            }
+        }
+
+        $user = User::find($user_id);
+        if (!$user) {
+            return null;
+        }
+
+        if (!empty($user->company_id)) {
+            $admin = User::where('company_id', $user->company_id)
+                ->where('role', 'admin')
+                ->orderBy('id')
+                ->first();
+            if ($admin) {
+                return $admin;
+            }
+        }
+
+        if ($role === 'cashier' && !empty($user->admin_id)) {
+            $admin = User::find($user->admin_id);
+            if ($admin) {
+                return $admin;
+            }
+        }
+
+        return $user;
+    }
+
+    private function requestCompanyId(Request $request)
+    {
+        return intval(
+            $request->input('company_id')
+            ?: $request->header('X-Company-Id')
+            ?: $request->query('company_id', 0)
+        );
+    }
+
+    public function getSupervisorPin(Request $request)
+    {
+        $user_id = intval($request->input('user_id') ?: $request->query('user_id', 0));
+        $role = $request->input('role') ?: $request->query('role');
+        $company_id = $this->requestCompanyId($request);
+
+        if (!$user_id || !$role) {
+            return response()->json(["status" => "error", "message" => "User ID and Role required"]);
+        }
+
+        try {
+            $admin = $this->resolveAdminUser($user_id, $role, $company_id);
+            if (!$admin) {
+                return response()->json(["status" => "error", "message" => "Admin user not found"]);
+            }
+
+            $pin = trim((string) ($admin->supervisor_pin ?? ''));
+
+            return response()->json([
+                "status" => "success",
+                "supervisor_pin" => $pin,
+                "supervisor_pin_set" => $pin !== '',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(["status" => "error", "message" => $e->getMessage()]);
+        }
+    }
+
+    public function saveSupervisorPin(Request $request)
+    {
+        $user_id = intval($request->input('user_id'));
+        $role = $request->input('role');
+        $company_id = $this->requestCompanyId($request);
+        $pin = preg_replace('/\D/', '', (string) $request->input('pin'));
+
+        if (!$user_id || !$role) {
+            return response()->json(["status" => "error", "message" => "User ID and Role required"]);
+        }
+
+        if (strlen($pin) !== 4) {
+            return response()->json(["status" => "error", "message" => "PIN must be exactly 4 digits"]);
+        }
+
+        try {
+            $admin = $this->resolveAdminUser($user_id, $role, $company_id);
+            if (!$admin) {
+                return response()->json(["status" => "error", "message" => "Admin user not found"]);
+            }
+
+            $admin->update(['supervisor_pin' => $pin]);
+
+            return response()->json([
+                "status" => "success",
+                "message" => "Supervisor PIN saved successfully"
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(["status" => "error", "message" => $e->getMessage()]);
+        }
+    }
+
     public function logout(Request $request)
     {
         $id = intval($request->input('id'));
