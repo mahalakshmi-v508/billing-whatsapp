@@ -37,7 +37,7 @@ import {
   KeyRound,
   Lock,
 } from "lucide-react";
-import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../../../settings/CashierSecuritySettings";
+import { useCashierSecurity } from "../../../../context/CashierSecurityContext";
 import useModalFocusTrap from "../../../../hooks/useModalFocusTrap";
 import SaleAnalytics from "./SaleAnalytics";
 import ShareTransactionPopover from "../../../../components/ShareTransactionPopover";
@@ -221,24 +221,7 @@ export default function SaleReport() {
   useModalFocusTrap(Boolean(deleteTarget), deleteModalRef, deletePinRef);
 
   // Cashier & Staff Security Restrictions
-  const [cashierSecurity, setCashierSecurity] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
-    } catch {
-      return { ...DEFAULT_CASHIER_SECURITY };
-    }
-  });
-
-  useEffect(() => {
-    const handleSecUpdate = (e) => {
-      if (e?.detail && e.detail[CASHIER_SECURITY_KEY]) {
-        setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
-      }
-    };
-    window.addEventListener("company-settings-updated", handleSecUpdate);
-    return () => window.removeEventListener("company-settings-updated", handleSecUpdate);
-  }, []);
+  const { cashierSecurity } = useCashierSecurity();
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -495,8 +478,8 @@ export default function SaleReport() {
 
     // Check Supervisor / Admin PIN requirement
     if (cashierSecurity.supervisor_pin_enabled) {
-      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "1234").trim();
-      if (deletePin.trim() !== requiredPin) {
+      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "").trim();
+      if (!requiredPin || deletePin.trim() !== requiredPin) {
         setDeletePinError("Invalid PIN! Bill deletion requires 4-digit Supervisor/Admin PIN.");
         return;
       }

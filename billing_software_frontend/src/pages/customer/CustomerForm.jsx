@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
-import { fetchSettings } from "../settings/settingsApi";
-import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
+import { useCashierSecurity } from "../../context/CashierSecurityContext";
 import {
   X,
   RefreshCw,
@@ -81,32 +80,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   const [showPinSetupPrompt, setShowPinSetupPrompt] = useState(false);
 
   // ─── Cashier security settings (source of the Supervisor PIN) ──
-  const [cashierSecurity, setCashierSecurity] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-      return saved
-        ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) }
-        : { ...DEFAULT_CASHIER_SECURITY };
-    } catch {
-      return { ...DEFAULT_CASHIER_SECURITY };
-    }
-  });
-
-  useEffect(() => {
-    fetchSettings().then((res) => {
-      if (res?.[CASHIER_SECURITY_KEY]) {
-        setCashierSecurity((prev) => ({ ...prev, ...res[CASHIER_SECURITY_KEY] }));
-      }
-    });
-    const handleSettingsUpdate = (e) => {
-      if (e?.detail?.[CASHIER_SECURITY_KEY]) {
-        setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
-      }
-    };
-    window.addEventListener("company-settings-updated", handleSettingsUpdate);
-    return () =>
-      window.removeEventListener("company-settings-updated", handleSettingsUpdate);
-  }, []);
+  const { cashierSecurity } = useCashierSecurity();
 
   // ─── GST verify state ──────────────────────────────────
   const [gstCaptchaImg, setGstCaptchaImg] = useState("");
@@ -254,8 +228,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   // ─── Credit authorization (PIN) handlers ──────────────
   const isSupervisorPinSet =
     cashierSecurity.supervisor_pin_set === true ||
-    String(cashierSecurity.supervisor_admin_pin || "").trim() !==
-      String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
+    String(cashierSecurity.supervisor_admin_pin || "").trim() !== "";
 
   const handlePinFieldFocus = () => {
     if (isSupervisorPinSet) return;
@@ -282,9 +255,9 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       return;
     }
     const requiredPin = String(
-      cashierSecurity.supervisor_admin_pin || "1234"
+      cashierSecurity.supervisor_admin_pin || ""
     ).trim();
-    if (pin === requiredPin) {
+    if (!requiredPin || pin === requiredPin) {
       setIsCreditAuthorized(true);
       showToast("Supervisor PIN verified — credit fields unlocked!");
     } else {

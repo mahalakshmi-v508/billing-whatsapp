@@ -18,7 +18,7 @@ import CustomerForm from "../customer/CustomerForm";
 import AddProductModal from "../products/AddProductModal";
 import TermsDropdown from "../../components/common/TermsDropdown";
 import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
-import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
+import { useCashierSecurity } from "../../context/CashierSecurityContext";
 import { WHATSAPP_DEFAULTS_KEY, DEFAULT_WHATSAPP_DEFAULTS } from "../settings/WhatsAppDefaultSettings";
 import { COUNTRY_LIST, getCountryByCode, detectCountryFromPhone } from "../../utils/phoneCountryHelper";
 
@@ -347,15 +347,7 @@ export default function AddSale() {
     }
   });
 
-  /* ── Cashier & Staff Security Restrictions ── */
-  const [cashierSecurity, setCashierSecurity] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
-    } catch {
-      return { ...DEFAULT_CASHIER_SECURITY };
-    }
-  });
+  const { cashierSecurity } = useCashierSecurity();
 
   /* ── WhatsApp Defaults ── */
   const [whatsappDefaults, setWhatsappDefaults] = useState(() => {
@@ -390,9 +382,6 @@ export default function AddSale() {
       if (e?.detail) {
         if (e.detail[STOCK_SETTINGS_KEY]) {
           setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
-        }
-        if (e.detail[CASHIER_SECURITY_KEY]) {
-          setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
         }
         if (e.detail[WHATSAPP_DEFAULTS_KEY]) {
           setWhatsappDefaults((prev) => ({ ...prev, ...e.detail[WHATSAPP_DEFAULTS_KEY] }));

@@ -31,7 +31,7 @@ import HeaderSettingsButton from "../../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../../components/CommonTableColumnSettings";
 import { useTableColumns } from "../../../../hooks/useTableColumns";
 import useModalFocusTrap from "../../../../hooks/useModalFocusTrap";
-import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../../../settings/CashierSecuritySettings";
+import { useCashierSecurity } from "../../../../context/CashierSecurityContext";
 import {
   filterPaymentOuts,
   summarizePayments,
@@ -108,24 +108,7 @@ export default function PaymentOutReport() {
   // Keep focus inside the delete popup so the sidebar search box
   // cannot grab it while the PIN is being entered.
   useModalFocusTrap(Boolean(deleteTarget), deleteModalRef, deletePinRef);
-  const [cashierSecurity, setCashierSecurity] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
-    } catch {
-      return { ...DEFAULT_CASHIER_SECURITY };
-    }
-  });
-
-  useEffect(() => {
-    const handleSecUpdate = (e) => {
-      if (e?.detail && e.detail[CASHIER_SECURITY_KEY]) {
-        setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
-      }
-    };
-    window.addEventListener("company-settings-updated", handleSecUpdate);
-    return () => window.removeEventListener("company-settings-updated", handleSecUpdate);
-  }, []);
+  const { cashierSecurity } = useCashierSecurity();
 
   // Ref used to keep dropdowns open while the user clicks inside the toolbar.
   const filterBarRef = useRef(null);
@@ -384,8 +367,8 @@ const handleDeletePayment = async () => {
 
   // Check Supervisor / Admin PIN requirement
   if (cashierSecurity.supervisor_pin_enabled) {
-    const requiredPin = String(cashierSecurity.supervisor_admin_pin || "1234").trim();
-    if (deletePin.trim() !== requiredPin) {
+    const requiredPin = String(cashierSecurity.supervisor_admin_pin || "").trim();
+    if (!requiredPin || deletePin.trim() !== requiredPin) {
       setDeletePinError("Invalid PIN! Deletion requires the 4-digit Supervisor/Admin PIN.");
       return;
     }

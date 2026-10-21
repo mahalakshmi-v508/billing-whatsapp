@@ -30,7 +30,7 @@ import CommonTableColumnSettings from "../../../components/CommonTableColumnSett
 import useTableColumns from "../../../hooks/useTableColumns";
 import useModalFocusTrap from "../../../hooks/useModalFocusTrap";
 import { useLanguage } from "../../../utils/i18n";
-import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../../settings/CashierSecuritySettings";
+import { useCashierSecurity } from "../../../context/CashierSecurityContext";
 import {
   fetchWhatsAppConnection,
   isValidWaPhone,
@@ -119,24 +119,7 @@ export default function EstimateQuotation() {
   // Keep focus inside the delete popup so the sidebar search box
   // cannot grab it while the PIN is being entered.
   useModalFocusTrap(Boolean(deleteTarget), deleteModalRef, deletePinRef);
-  const [cashierSecurity, setCashierSecurity] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
-    } catch {
-      return { ...DEFAULT_CASHIER_SECURITY };
-    }
-  });
-
-  useEffect(() => {
-    const handleSecUpdate = (e) => {
-      if (e?.detail && e.detail[CASHIER_SECURITY_KEY]) {
-        setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
-      }
-    };
-    window.addEventListener("company-settings-updated", handleSecUpdate);
-    return () => window.removeEventListener("company-settings-updated", handleSecUpdate);
-  }, []);
+  const { cashierSecurity } = useCashierSecurity();
 
   const ESTIMATE_STORAGE_KEY = "saved_estimates";
 
@@ -165,8 +148,7 @@ export default function EstimateQuotation() {
 
   const isSupervisorPinSet =
     cashierSecurity.supervisor_pin_set === true ||
-    String(cashierSecurity.supervisor_admin_pin || "").trim() !==
-      String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
+    String(cashierSecurity.supervisor_admin_pin || "").trim() !== "";
 
   const handleDeleteClick = (estimate) => {
     if (cashierSecurity.supervisor_pin_enabled && !isSupervisorPinSet) {
@@ -184,8 +166,8 @@ export default function EstimateQuotation() {
   const handleDeleteEstimate = (id) => {
     // Check Supervisor / Admin PIN requirement
     if (cashierSecurity.supervisor_pin_enabled) {
-      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "1234").trim();
-      if (deletePin.trim() !== requiredPin) {
+      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "").trim();
+      if (!requiredPin || deletePin.trim() !== requiredPin) {
         setDeletePinError(
           isTamil
             ? "தவறான PIN! நீக்குவதற்கு 4-இலக்க மேற்பார்வையாளர் / அட்மின் PIN தேவை."
