@@ -84,7 +84,7 @@ export default function PaymentOut() {
   // Filter states
   const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
-  const [selectedFirm, setSelectedFirm] = useState("all");
+  const [selectedFirm, setSelectedFirm] = useState(() => localStorage.getItem("selected_company_id") || "all");
   const [firmOpen, setFirmOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState("all");
   const [supplierOpen, setSupplierOpen] = useState(false);
@@ -207,11 +207,30 @@ export default function PaymentOut() {
       .get(`/company/get_companies_by_admin?admin_id=${adminId}`)
       .then((res) => {
         if (res.data?.status) {
-          setCompanies(res.data.data || []);
+          const list = res.data.data || [];
+          setCompanies(list);
+          const saved = localStorage.getItem("selected_company_id");
+          if (saved && list.some((c) => String(c.id) === String(saved))) {
+            setSelectedFirm(String(saved));
+          }
         }
       })
       .catch(console.error);
   }, [adminId]);
+
+  // Sync selectedFirm when settings company changes
+  useEffect(() => {
+    const handleCompanySync = () => {
+      const saved = localStorage.getItem("selected_company_id");
+      if (saved) setSelectedFirm(String(saved));
+    };
+    window.addEventListener("storage", handleCompanySync);
+    window.addEventListener("company_changed", handleCompanySync);
+    return () => {
+      window.removeEventListener("storage", handleCompanySync);
+      window.removeEventListener("company_changed", handleCompanySync);
+    };
+  }, []);
 
   // Fetch Suppliers (scoped to the selected firm)
   useEffect(() => {

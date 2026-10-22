@@ -133,7 +133,7 @@ export default function PaymentIn() {
   // Filter states
   const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
-  const [selectedFirm, setSelectedFirm] = useState("all");
+  const [selectedFirm, setSelectedFirm] = useState(() => localStorage.getItem("selected_company_id") || "all");
   const [firmOpen, setFirmOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState("all");
   const [userOpen, setUserOpen] = useState(false);
@@ -236,7 +236,12 @@ export default function PaymentIn() {
         if (adminId) {
           const compRes = await api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role}`);
           if (compRes.data.status) {
-            setCompanies(compRes.data.data || []);
+            const list = compRes.data.data || [];
+            setCompanies(list);
+            const saved = localStorage.getItem("selected_company_id");
+            if (saved && list.some((c) => String(c.id) === String(saved))) {
+              setSelectedFirm(String(saved));
+            }
           }
 
           const customerRes = await api.get(`/customer/get_all_customer?admin_id=${adminId}`);
@@ -253,6 +258,20 @@ export default function PaymentIn() {
 
     loadMeta();
   }, [adminId, user.role]);
+
+  // Sync selectedFirm when settings company changes
+  useEffect(() => {
+    const handleCompanySync = () => {
+      const saved = localStorage.getItem("selected_company_id");
+      if (saved) setSelectedFirm(String(saved));
+    };
+    window.addEventListener("storage", handleCompanySync);
+    window.addEventListener("company_changed", handleCompanySync);
+    return () => {
+      window.removeEventListener("storage", handleCompanySync);
+      window.removeEventListener("company_changed", handleCompanySync);
+    };
+  }, []);
 
   // Fetch Payment-In Records
   const fetchPayments = async () => {

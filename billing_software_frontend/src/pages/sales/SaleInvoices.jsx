@@ -190,7 +190,7 @@ export default function SaleInvoices() {
   // Filter states — the single source of truth for the API query (req 20)
   const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
-  const [selectedFirm, setSelectedFirm] = useState("all");
+  const [selectedFirm, setSelectedFirm] = useState(() => localStorage.getItem("selected_company_id") || "all");
   const [firmOpen, setFirmOpen] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState("all");
   const [userOpen, setUserOpen] = useState(false);
@@ -337,12 +337,31 @@ export default function SaleInvoices() {
     try {
       const res = await api.get(`/company/get_companies_by_admin?admin_id=${adminId}`);
       if (res.data?.status) {
-        setCompanies(res.data.data || []);
+        const list = res.data.data || [];
+        setCompanies(list);
+        const savedId = localStorage.getItem("selected_company_id");
+        if (savedId && list.some((c) => String(c.id) === String(savedId))) {
+          setSelectedFirm(String(savedId));
+        }
       }
     } catch (err) {
       console.error(err);
     }
   };
+
+  // Sync selectedFirm when settings company changes
+  useEffect(() => {
+    const handleCompanySync = () => {
+      const saved = localStorage.getItem("selected_company_id");
+      if (saved) setSelectedFirm(String(saved));
+    };
+    window.addEventListener("storage", handleCompanySync);
+    window.addEventListener("company_changed", handleCompanySync);
+    return () => {
+      window.removeEventListener("storage", handleCompanySync);
+      window.removeEventListener("company_changed", handleCompanySync);
+    };
+  }, []);
 
   // Fetch Customers — drives the "All Users" dropdown and the customer_id filter.
   const fetchCustomers = async () => {

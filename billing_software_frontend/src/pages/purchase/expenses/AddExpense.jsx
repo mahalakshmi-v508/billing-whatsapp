@@ -202,7 +202,7 @@ export default function AddExpense() {
 
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
-  const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
+  const companyId = localStorage.getItem("selected_company_id") || user?.company_id || 0;
 
   const [existingCount, setExistingCount] = useState(0);
   const [tabs, setTabs] = useState([createNewExpenseTab(1, 1)]);

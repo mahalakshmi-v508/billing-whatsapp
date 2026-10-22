@@ -20,7 +20,7 @@ import AddSupplierModal from "../../supplier/AddSupplierModal";
 export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initialSupplier = null, editPayment = null }) {
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
-  const companyId = user?.company_id || localStorage.getItem("selected_company_id") || 0;
+  const companyId = localStorage.getItem("selected_company_id") || user?.company_id || 0;
 
   // Form States
   const [partyQuery, setPartyQuery] = useState("");

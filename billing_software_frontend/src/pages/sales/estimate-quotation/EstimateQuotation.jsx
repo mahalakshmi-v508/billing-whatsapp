@@ -93,7 +93,7 @@ export default function EstimateQuotation() {
   // Header filters
   const [period, setPeriod] = useState("all_time");
   const [periodOpen, setPeriodOpen] = useState(false);
-  const [selectedFirm, setSelectedFirm] = useState("all");
+  const [selectedFirm, setSelectedFirm] = useState(() => localStorage.getItem("selected_company_id") || "all");
   const [firmOpen, setFirmOpen] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [docType, setDocType] = useState("Estimate");
@@ -273,10 +273,31 @@ export default function EstimateQuotation() {
     if (!adminId) return;
     api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
       .then((res) => {
-        if (res.data.status) setCompanies(res.data.data);
+        if (res.data.status) {
+          const list = res.data.data || [];
+          setCompanies(list);
+          const saved = localStorage.getItem("selected_company_id");
+          if (saved && list.some((c) => String(c.id) === String(saved))) {
+            setSelectedFirm(String(saved));
+          }
+        }
       })
       .catch(console.error);
   }, [adminId]);
+
+  // Sync selectedFirm when settings company changes
+  useEffect(() => {
+    const handleCompanySync = () => {
+      const saved = localStorage.getItem("selected_company_id");
+      if (saved) setSelectedFirm(String(saved));
+    };
+    window.addEventListener("storage", handleCompanySync);
+    window.addEventListener("company_changed", handleCompanySync);
+    return () => {
+      window.removeEventListener("storage", handleCompanySync);
+      window.removeEventListener("company_changed", handleCompanySync);
+    };
+  }, []);
 
   // Close dropdowns on outside click
   useEffect(() => {
