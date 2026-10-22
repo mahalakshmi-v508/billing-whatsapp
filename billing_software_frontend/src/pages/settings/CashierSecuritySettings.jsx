@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import api from "../../services/api";
 import {
   Lock,
@@ -21,27 +21,26 @@ import {
   X,
 } from "lucide-react";
 import { SettingsShell, Toggle, Badge } from "./settingsUI";
-import { useCompanySetting } from "./useCompanySetting";
+import { saveSettings } from "./settingsApi";
+import { useCashierSecurity } from "../../context/CashierSecurityContext";
 import { useLanguage } from "../../utils/i18n";
 
 export const CASHIER_SECURITY_KEY = "cashier_security";
 
-export const DEFAULT_CASHIER_SECURITY = {
-  lock_item_price_edit: false, // Lock unit price edit in billing for cashiers
-  max_discount_enabled: true, // Cap maximum discount cashier can give
-  max_discount_limit: 10, // Max discount percentage (e.g. 10%)
-  restrict_selling_below_cost: true, // Prevent selling below cost/purchase price
-  supervisor_pin_enabled: true, // Require 4-digit PIN for bill delete/cancel
-  supervisor_admin_pin: "1234", // 4-digit Supervisor/Admin PIN
-  auto_screen_lock_minutes: 0, // 0 = Off, 5 = 5m, 10 = 10m, 15 = 15m
-};
-
 export default function CashierSecuritySettings() {
   const { isTamil } = useLanguage();
-  const [settings, setSetting] = useCompanySetting(
-    CASHIER_SECURITY_KEY,
-    DEFAULT_CASHIER_SECURITY
-  );
+  const { cashierSecurity } = useCashierSecurity();
+  const [settings, setSettings] = useState(cashierSecurity);
+  useEffect(() => {
+    setSettings(cashierSecurity);
+  }, [cashierSecurity]);
+  const setSetting = useCallback((key) => (value) => {
+    setSettings((prev) => {
+      const next = { ...prev, [key]: typeof value === "function" ? value(prev[key]) : value };
+      saveSettings({ cashier_security: next });
+      return next;
+    });
+  }, []);
   const [toast, setToast] = useState(null);
   const [showPin, setShowPin] = useState(false);
   const [newPin, setNewPin] = useState("");
@@ -60,6 +59,7 @@ export default function CashierSecuritySettings() {
   const [pendingLockMins, setPendingLockMins] = useState(null);
   const [lockPin, setLockPin] = useState("");
   const [showLockPinInput, setShowLockPinInput] = useState(false);
+  const [showPinSetupPrompt, setShowPinSetupPrompt] = useState(false);
 
   const showToast = (message) => {
     setToast(message);
@@ -99,8 +99,8 @@ export default function CashierSecuritySettings() {
   };
 
   const isCustomPin =
-    String(settings.supervisor_admin_pin || "").trim() !==
-    String(DEFAULT_CASHIER_SECURITY.supervisor_admin_pin);
+    settings.supervisor_pin_set === true ||
+    String(settings.supervisor_admin_pin || "").trim() !== "";
 
   const pinActionLabel = isCustomPin
     ? isTamil
@@ -164,7 +164,7 @@ export default function CashierSecuritySettings() {
     }
   };
 
-  const handleSaveNewPin = () => {
+  const handleSaveNewPin = async () => {
     const cleaned = String(newPin || "").replace(/\D/g, "").slice(0, 4);
     if (cleaned.length !== 4) {
       showToast(
@@ -175,7 +175,35 @@ export default function CashierSecuritySettings() {
       return;
     }
 
-    setSetting("supervisor_admin_pin")(cleaned);
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      const res = await api.post("/auth/supervisor_pin", {
+        user_id: user?.id,
+        role: user?.role,
+        pin: cleaned,
+      });
+      if (res.data.status !== "success") {
+        showToast(res.data.message || "Failed to save PIN", false);
+        return;
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error saving PIN", false);
+      return;
+    }
+
+    // Keep local + context state in sync (PIN now lives in users table)
+    setSettings((prev) => ({
+      ...prev,
+      supervisor_admin_pin: cleaned,
+      supervisor_pin_set: true,
+    }));
+    window.dispatchEvent(
+      new CustomEvent("supervisor-pin-updated", {
+        detail: { supervisor_admin_pin: cleaned, supervisor_pin_set: true },
+      })
+    );
+
     showToast(
       isTamil
         ? isCustomPin
@@ -204,10 +232,20 @@ export default function CashierSecuritySettings() {
   const handleAutoLockRequest = (mins) => {
     // Skip the PIN prompt if the clicked option is already active
     if ((settings.auto_screen_lock_minutes || 0) === mins) return;
+    // If supervisor PIN is not set yet, show the Set PIN prompt instead
+    if (!isCustomPin) {
+      setShowPinSetupPrompt(true);
+      return;
+    }
     setPendingLockMins(mins);
     setLockPin("");
     setShowLockPinInput(false);
     setLockPinPrompt(true);
+  };
+
+  const handleGoToSetPin = () => {
+    setShowPinSetupPrompt(false);
+    handlePinActionClick();
   };
 
   const closeLockPinPrompt = () => {
@@ -228,8 +266,8 @@ export default function CashierSecuritySettings() {
       );
       return;
     }
-    const requiredPin = String(settings.supervisor_admin_pin || "1234").trim();
-    if (pin === requiredPin) {
+    const requiredPin = String(settings.supervisor_admin_pin || "").trim();
+    if (!requiredPin || pin === requiredPin) {
       applyAutoLock(pendingLockMins);
       closeLockPinPrompt();
     } else {
@@ -603,8 +641,10 @@ export default function CashierSecuritySettings() {
                 <li>{isTamil ? "கல்லா தொகை திருத்தம்" : "Cashier Cash Reconciliation Override"}</li>
               </ul>
             </div>
+          </div>
+        )}
 
-            {showOtpBox && (
+        {showOtpBox && (
               <div
                 className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
                 onClick={resetPinOtp}
@@ -773,8 +813,6 @@ export default function CashierSecuritySettings() {
                     </div>
                   </div>
             )}
-          </div>
-        )}
       </div>
 
       {/* ── 5. AUTO-SCREEN LOCK ── */}
@@ -861,6 +899,47 @@ export default function CashierSecuritySettings() {
             : "Applying an auto-lock time requires supervisor PIN verification."}
         </p>
       </div>
+
+      {/* ── PIN NOT SET PROMPT (for Auto-Screen Lock) ── */}
+      {showPinSetupPrompt && (
+        <div
+          className="fixed inset-0 z-[110] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setShowPinSetupPrompt(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+              <Lock size={22} />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">
+              {isTamil ? "மேற்பார்வையாளர் PIN அமைக்கப்படவில்லை" : "Supervisor PIN Not Set"}
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              {isTamil
+                ? "மேற்பார்வையாளர் / அட்மின் PIN இன்னும் அமைக்கப்படவில்லை. ஆட்டோ ஸ்கிரீன் லாக் நேரத்தை மாற்றுவதற்கு முன், முதலில் PIN-ஐ அமைக்கவும்."
+                : "No supervisor/admin PIN has been set yet. Please set the PIN before changing the auto-screen lock time."}
+            </p>
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowPinSetupPrompt(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                {isTamil ? "ரத்து" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={handleGoToSetPin}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-all"
+              >
+                {isTamil ? "PIN அமை" : "Set PIN"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── AUTO-SCREEN LOCK PIN AUTH MODAL ── */}
       {lockPinPrompt && (

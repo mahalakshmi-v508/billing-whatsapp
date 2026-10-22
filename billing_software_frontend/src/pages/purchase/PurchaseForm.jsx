@@ -1406,7 +1406,7 @@ export default function PurchaseForm() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse min-w-[1450px]">
+                <table className="w-full text-left text-xs border-collapse min-w-[1720px]">
                   <thead>
                     <tr className="bg-slate-50/60 border-b border-slate-200/80 text-slate-600 font-bold select-none text-[11px] uppercase tracking-wider">
                       {isColumnVisible("status") && (
@@ -1437,13 +1437,13 @@ export default function PurchaseForm() {
                         <th className="py-3 px-3 border-r border-slate-200/60 w-36">Selling Price Unit</th>
                       )}
                       {isColumnVisible("quantity") && (
-                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-24">Qty</th>
+                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-28">Qty</th>
                       )}
                       {isColumnVisible("unit") && (
-                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-28">Unit</th>
+                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-32">Unit</th>
                       )}
                       {isColumnVisible("gst_percentage") && (
-                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-24">GST %</th>
+                        <th className="py-3 px-3 text-center border-r border-slate-200/60 w-36">GST %</th>
                       )}
                       {!isLocked && <th className="py-3 px-2 text-center w-12">Action</th>}
                     </tr>

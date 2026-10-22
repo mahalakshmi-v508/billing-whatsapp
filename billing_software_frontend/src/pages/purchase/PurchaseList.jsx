@@ -6,7 +6,7 @@ import {
   Phone, Mail, MapPin, Wallet, Plus, Share2, Building2, CheckCircle2,
   AlertCircle, AlertTriangle, ShieldAlert, ShoppingCart, ArrowUpRight, X, ChevronRight, ChevronDown,
   Filter, Check, UserCheck, Layers, LayoutGrid, Calendar, RefreshCw,
-  Printer, FileText, KeyRound
+  Printer, FileText, KeyRound, Lock
 } from "lucide-react";
 import AddSupplierModal from "../supplier/AddSupplierModal";
 import TableActions from "../../components/ui/TableActions";
@@ -14,7 +14,7 @@ import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
 import { useTableColumns } from "../../hooks/useTableColumns";
 import useModalFocusTrap from "../../hooks/useModalFocusTrap";
-import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
+import { useCashierSecurity } from "../../context/CashierSecurityContext";
 
 const DEFAULT_PURCHASE_COLUMNS = [
   { id: "date", label: "Date", defaultVisible: true },
@@ -98,30 +98,14 @@ export default function PurchaseList() {
   const [deletePin, setDeletePin] = useState("");
   const [deletePinError, setDeletePinError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [showPinSetupPrompt, setShowPinSetupPrompt] = useState(false);
   const deleteModalRef = useRef(null);
   const deletePinRef = useRef(null);
 
   // Keep focus inside the delete popup so the sidebar search box
   // cannot grab it while the PIN is being entered.
   useModalFocusTrap(Boolean(deleteTarget), deleteModalRef, deletePinRef);
-  const [cashierSecurity, setCashierSecurity] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
-    } catch {
-      return { ...DEFAULT_CASHIER_SECURITY };
-    }
-  });
-
-  useEffect(() => {
-    const handleSecUpdate = (e) => {
-      if (e?.detail && e.detail[CASHIER_SECURITY_KEY]) {
-        setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
-      }
-    };
-    window.addEventListener("company-settings-updated", handleSecUpdate);
-    return () => window.removeEventListener("company-settings-updated", handleSecUpdate);
-  }, []);
+  const { cashierSecurity } = useCashierSecurity();
 
   // Currency Formatter
   const fmt = (n) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -311,13 +295,30 @@ export default function PurchaseList() {
     fetchPurchasesAndSuppliers(companyId, fromDate, toDate);
   };
 
+  const isSupervisorPinSet =
+    cashierSecurity.supervisor_pin_set === true ||
+    String(cashierSecurity.supervisor_admin_pin || "").trim() !== "";
+
+  const handleDeleteClick = (purchase) => {
+    if (cashierSecurity.supervisor_pin_enabled && !isSupervisorPinSet) {
+      setShowPinSetupPrompt(true);
+      return;
+    }
+    setDeleteTarget(purchase);
+  };
+
+  const goToPinSecuritySettings = () => {
+    setShowPinSetupPrompt(false);
+    navigate("/settings/cashier-security");
+  };
+
   const confirmDeletePurchase = async () => {
     if (!deleteTarget) return;
 
     // Check Supervisor / Admin PIN requirement
     if (cashierSecurity.supervisor_pin_enabled) {
-      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "1234").trim();
-      if (deletePin.trim() !== requiredPin) {
+      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "").trim();
+      if (!requiredPin || deletePin.trim() !== requiredPin) {
         setDeletePinError("Invalid PIN! Deletion requires the 4-digit Supervisor/Admin PIN.");
         return;
       }
@@ -726,9 +727,8 @@ export default function PurchaseList() {
                   <button
                     key={k}
                     onClick={() => setPresetDates(k)}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
-                      period === k ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
-                    }`}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${period === k ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                      }`}
                   >
                     {label}
                   </button>
@@ -785,9 +785,8 @@ export default function PurchaseList() {
                     handleCompanyChange("all");
                     setFirmOpen(false);
                   }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
-                    selectedCompany === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
-                  }`}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${selectedCompany === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                    }`}
                 >
                   🏢 All Store
                 </button>
@@ -798,9 +797,8 @@ export default function PurchaseList() {
                       handleCompanyChange(c.id);
                       setFirmOpen(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition truncate cursor-pointer ${
-                      String(selectedCompany) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
-                    }`}
+                    className={`w-full text-left px-3.5 py-2 text-xs font-medium hover:bg-slate-50 transition truncate cursor-pointer ${String(selectedCompany) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
+                      }`}
                   >
                     🏢 {c.company_name}
                   </button>
@@ -1214,7 +1212,7 @@ export default function PurchaseList() {
                                     label: "Delete",
                                     icon: Trash2,
                                     isDanger: true,
-                                    onClick: () => setDeleteTarget(p),
+                                    onClick: () => handleDeleteClick(p),
                                   },
                                 ]}
                               />
@@ -1416,7 +1414,7 @@ export default function PurchaseList() {
                                   label: "Delete",
                                   icon: Trash2,
                                   isDanger: true,
-                                  onClick: () => setDeleteTarget(p),
+                                  onClick: () => handleDeleteClick(p),
                                 },
                               ]}
                             />
@@ -1822,6 +1820,44 @@ export default function PurchaseList() {
         onResetColumns={resetColumns}
         title="Customize Purchase Bills Columns"
       />
+
+      {/* ── SUPERVISOR PIN NOT SET PROMPT ── */}
+      {showPinSetupPrompt && (
+        <div
+          className="fixed inset-0 z-[100002] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={() => setShowPinSetupPrompt(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+              <Lock size={22} />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">Supervisor PIN Not Set</h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              No supervisor/admin PIN has been set yet. Please set the PIN in Cashier & Staff
+              Security settings before deleting.
+            </p>
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowPinSetupPrompt(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={goToPinSecuritySettings}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-all"
+              >
+                Set PIN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 10. DELETE CONFIRMATION MODAL (Supervisor / Admin PIN protected) ── */}
       {deleteTarget && (

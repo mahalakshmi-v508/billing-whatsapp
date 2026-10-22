@@ -88,10 +88,6 @@ const REPORT_METADATA = {
 
   "/reports/gst-report": { category: "Taxes", code: "GST-REP", icon: Percent },
   "/reports/gst-rate-report": { category: "Taxes", code: "GST-RATE", icon: Percent },
-  "/reports/form-27eq": { category: "Taxes", code: "F-27EQ", icon: FileText },
-  "/reports/tcs-receivable": { category: "Taxes", code: "TCS-REC", icon: CreditCard },
-  "/reports/tds-payable": { category: "Taxes", code: "TDS-PAY", icon: CreditCard },
-  "/reports/tds-receivable": { category: "Taxes", code: "TDS-REC", icon: CreditCard },
 
   "/reports/expense": { category: "Expenses", code: "EXP-01", icon: CreditCard },
   "/reports/expense-category-report": { category: "Expenses", code: "EXP-CAT", icon: CreditCard },
@@ -106,18 +102,20 @@ function getAllValidReports() {
 }
 
 function loadInitialEnabledPaths() {
+  const validPaths = new Set(getAllValidReports().map((r) => r.path));
   try {
     const saved = localStorage.getItem(VISIBILITY_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return new Set(parsed);
+        const filtered = parsed.filter((p) => validPaths.has(p));
+        if (filtered.length > 0) return new Set(filtered);
       }
     }
   } catch (e) {
     console.error(e);
   }
-  return new Set(getAllValidReports().map((r) => r.path));
+  return validPaths;
 }
 
 export default function ReportsNavDropdown() {

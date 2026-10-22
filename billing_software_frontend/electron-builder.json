@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.smartledger.cashio",
+  "productName": "Cashio Smart Billing",
+  "copyright": "Copyright © 2026 Smart Ledger",
+  "npmRebuild": false,
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "electron/main.cjs"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "build/icon.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Cashio Smart Billing",
+    "uninstallDisplayName": "Cashio Smart Billing",
+    "runAfterFinish": true
+  },
+  "publish": {
+    "provider": "github",
+    "owner": "smart-ledger",
+    "repo": "billing-desktop",
+    "releaseType": "release"
+  }
+}

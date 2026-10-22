@@ -41,7 +41,7 @@ import {
   KeyRound,
   Lock,
 } from "lucide-react";
-import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
+import { useCashierSecurity } from "../../context/CashierSecurityContext";
 import useModalFocusTrap from "../../hooks/useModalFocusTrap";
 import SaleAnalytics from "../reports/transactions/sale/SaleAnalytics";
 import ShareTransactionPopover from "../../components/ShareTransactionPopover";
@@ -217,6 +217,7 @@ export default function SaleInvoices() {
   const [deletePinError, setDeletePinError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [actionToast, setActionToast] = useState(null);
+  const [showPinSetupPrompt, setShowPinSetupPrompt] = useState(false);
   const deleteModalRef = useRef(null);
   const deletePinRef = useRef(null);
 
@@ -225,24 +226,7 @@ export default function SaleInvoices() {
   useModalFocusTrap(Boolean(deleteTarget), deleteModalRef, deletePinRef);
 
   // Cashier & Staff Security Restrictions
-  const [cashierSecurity, setCashierSecurity] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
-    } catch {
-      return { ...DEFAULT_CASHIER_SECURITY };
-    }
-  });
-
-  useEffect(() => {
-    const handleSecUpdate = (e) => {
-      if (e?.detail && e.detail[CASHIER_SECURITY_KEY]) {
-        setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
-      }
-    };
-    window.addEventListener("company-settings-updated", handleSecUpdate);
-    return () => window.removeEventListener("company-settings-updated", handleSecUpdate);
-  }, []);
+  const { cashierSecurity } = useCashierSecurity();
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -513,13 +497,30 @@ export default function SaleInvoices() {
   }, [filteredInvoices, safePage, rowsPerPage]);
 
   // Delete Invoice Handler
+  const isSupervisorPinSet =
+    cashierSecurity.supervisor_pin_set === true ||
+    String(cashierSecurity.supervisor_admin_pin || "").trim() !== "";
+
+  const handleDeleteClick = (inv) => {
+    if (cashierSecurity.supervisor_pin_enabled && !isSupervisorPinSet) {
+      setShowPinSetupPrompt(true);
+      return;
+    }
+    setDeleteTarget(inv);
+  };
+
+  const goToPinSecuritySettings = () => {
+    setShowPinSetupPrompt(false);
+    navigate("/settings/cashier-security");
+  };
+
   const handleDeleteInvoice = async () => {
     if (!deleteTarget) return;
 
     // Check Supervisor / Admin PIN requirement
     if (cashierSecurity.supervisor_pin_enabled) {
-      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "1234").trim();
-      if (deletePin.trim() !== requiredPin) {
+      const requiredPin = String(cashierSecurity.supervisor_admin_pin || "").trim();
+      if (!requiredPin || deletePin.trim() !== requiredPin) {
         setDeletePinError("Invalid PIN! Bill deletion requires 4-digit Supervisor/Admin PIN.");
         return;
       }
@@ -1179,7 +1180,7 @@ export default function SaleInvoices() {
                                 label: "Delete",
                                 icon: Trash2,
                                 isDanger: true,
-                                onClick: () => setDeleteTarget(inv),
+                                onClick: () => handleDeleteClick(inv),
                               },
                             ]}
                           />
@@ -1273,6 +1274,44 @@ export default function SaleInvoices() {
           </div>
         )}
       </div>
+
+      {/* ── SUPERVISOR PIN NOT SET PROMPT ── */}
+      {showPinSetupPrompt && (
+        <div
+          className="fixed inset-0 z-[100002] flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={() => setShowPinSetupPrompt(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+              <Lock size={22} />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">Supervisor PIN Not Set</h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              No supervisor/admin PIN has been set yet. Please set the PIN in Cashier &amp; Staff
+              Security settings before deleting.
+            </p>
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowPinSetupPrompt(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={goToPinSecuritySettings}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-all"
+              >
+                Set PIN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 6. DELETE CONFIRMATION MODAL ── */}
       {deleteTarget && (

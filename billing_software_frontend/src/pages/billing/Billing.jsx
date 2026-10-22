@@ -6,7 +6,7 @@ import QuickAddProductModal from "../products/QuickAddProductModal";
 import { fetchSettings } from "../settings/settingsApi";
 import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings";
 import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
-import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../settings/CashierSecuritySettings";
+import { useCashierSecurity } from "../../context/CashierSecurityContext";
 import { WHATSAPP_DEFAULTS_KEY, DEFAULT_WHATSAPP_DEFAULTS } from "../settings/WhatsAppDefaultSettings";
 import { STORE_SETUP_KEY, DEFAULT_STORE_SETUP } from "../settings/StoreSetupSettings";
 import { TAX_BACKUP_KEY, DEFAULT_TAX_BACKUP } from "../settings/TaxBackupSettings";
@@ -385,15 +385,7 @@ export default function Billing() {
     }
   });
 
-  /* ── Cashier & Staff Security Restrictions ── */
-  const [cashierSecurity, setCashierSecurity] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
-    } catch {
-      return { ...DEFAULT_CASHIER_SECURITY };
-    }
-  });
+  const { cashierSecurity } = useCashierSecurity();
 
   /* ── Store Setup & Counter ── */
   const [storeSetup, setStoreSetup] = useState(() => {
@@ -459,9 +451,6 @@ export default function Billing() {
         if (res[STOCK_SETTINGS_KEY]) {
           setStockSafety((prev) => ({ ...prev, ...res[STOCK_SETTINGS_KEY] }));
         }
-        if (res[CASHIER_SECURITY_KEY]) {
-          setCashierSecurity((prev) => ({ ...prev, ...res[CASHIER_SECURITY_KEY] }));
-        }
         if (res[WHATSAPP_DEFAULTS_KEY]) {
           setWhatsappDefaults((prev) => ({ ...prev, ...res[WHATSAPP_DEFAULTS_KEY] }));
           if (res[WHATSAPP_DEFAULTS_KEY].default_country_code) {
@@ -487,9 +476,6 @@ export default function Billing() {
         }
         if (e.detail[STOCK_SETTINGS_KEY]) {
           setStockSafety((prev) => ({ ...prev, ...e.detail[STOCK_SETTINGS_KEY] }));
-        }
-        if (e.detail[CASHIER_SECURITY_KEY]) {
-          setCashierSecurity((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
         }
         if (e.detail[WHATSAPP_DEFAULTS_KEY]) {
           setWhatsappDefaults((prev) => ({ ...prev, ...e.detail[WHATSAPP_DEFAULTS_KEY] }));

@@ -1,5 +1,15 @@
 import { useEffect, useRef } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+
+// In Electron packaged desktop mode (file: protocol) or with electronAPI present,
+// HashRouter prevents file-path routing mismatch. In web browsers, BrowserRouter is preserved.
+const isElectron =
+  typeof window !== "undefined" &&
+  (window.location.protocol === "file:" ||
+    Boolean(window.electronAPI) ||
+    /electron/i.test(navigator.userAgent));
+
+const AppRouter = isElectron ? HashRouter : BrowserRouter;
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Dashboard from "../pages/dashboard/Dashboard";
@@ -90,6 +100,7 @@ import EwayBills from "../pages/eway-bills/EwayBills";
 import GenerateEwayBill from "../pages/eway-bills/GenerateEwayBill";
 import EstimateForm from "../pages/sales/estimate-quotation/EstimateForm";
 import PaymentIn from "../pages/sales/payment_in/PaymentIn";
+import PaymentInReport from "../pages/reports/transactions/payment-in/PaymentInReport";
 import CreditNoteList from "../pages/sales/credit_note/CreditNoteList";
 import AddCreditNote from "../pages/sales/credit_note/AddCreditNote";
 import PaymentPendingHistory from "../pages/reports/PaymentPendingHistory";
@@ -113,6 +124,7 @@ import PurchaseList from "../pages/purchase/PurchaseList";
 import PurchaseForm from "../pages/purchase/PurchaseForm";
 import PurchaseGSTReport from "../pages/purchase/PurchaseGSTReport";
 import PaymentOut from "../pages/purchase/payment_out/PaymentOut";
+import PaymentOutReport from "../pages/reports/transactions/payment-out/PaymentOutReport";
 import DebitNoteList from "../pages/purchase/debit_note/DebitNoteList";
 import AddDebitNote from "../pages/purchase/debit_note/AddDebitNote";
 import ExpenseList from "../pages/purchase/expenses/ExpenseList";
@@ -161,7 +173,7 @@ function BillingRoute() {
 
 export default function AppRoutes() {
   return (
-    <BrowserRouter>
+    <AppRouter>
       <BillingReturnPathTracker />
       <Routes>
 
@@ -224,8 +236,8 @@ export default function AppRoutes() {
               <Route path="party-by-item" element={<PartyReportByItem />} />
               <Route path="sale-purchase-by-party" element={<SalePurchaseByParty />} />
               <Route path="sale-purchase-by-party-group" element={<SalePurchaseByPartyGroup />} />
-              <Route path="payment-in" element={<PaymentIn />} />
-              <Route path="payment-out" element={<PaymentOut />} />
+              <Route path="payment-in" element={<PaymentInReport />} />
+              <Route path="payment-out" element={<PaymentOutReport />} />
               <Route path="gst-r1" element={<GstR1 />} />
               <Route path="gst-r2" element={<GstR2 />} />
               <Route path="gstr-3b" element={<Gstr3B />} />
@@ -366,6 +378,6 @@ export default function AppRoutes() {
         {/* Catch-all 404 Route */}
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </BrowserRouter>
+    </AppRouter>
   );
 }

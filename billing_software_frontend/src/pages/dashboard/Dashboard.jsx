@@ -414,11 +414,10 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setShowCompanyDropdown((prev) => !prev)}
-              className={`h-11 px-3.5 rounded-2xl border transition-all flex items-center gap-3 cursor-pointer shadow-xs group ${
-                showCompanyDropdown
+              className={`h-11 px-3.5 rounded-2xl border transition-all flex items-center gap-3 cursor-pointer shadow-xs group ${showCompanyDropdown
                   ? "bg-indigo-50/90 border-indigo-300 ring-2 ring-indigo-500/20 shadow-md dark:bg-slate-800 dark:border-indigo-500"
                   : "bg-white hover:bg-slate-50/90 border-slate-200/90 hover:border-slate-300 dark:bg-slate-800/90 dark:border-slate-700 dark:hover:bg-slate-700"
-              }`}
+                }`}
             >
               <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center font-black text-[11px] shadow-xs flex-shrink-0">
                 {activeCompany ? (
@@ -451,9 +450,8 @@ export default function Dashboard() {
 
               <ChevronDown
                 size={15}
-                className={`text-slate-400 group-hover:text-indigo-600 transition-transform duration-200 flex-shrink-0 ${
-                  showCompanyDropdown ? "rotate-180 text-indigo-600" : ""
-                }`}
+                className={`text-slate-400 group-hover:text-indigo-600 transition-transform duration-200 flex-shrink-0 ${showCompanyDropdown ? "rotate-180 text-indigo-600" : ""
+                  }`}
               />
             </button>
 
@@ -510,19 +508,17 @@ export default function Dashboard() {
                           key={comp.id}
                           type="button"
                           onClick={() => handleSelectCompany(comp.id)}
-                          className={`w-full text-left p-2.5 rounded-2xl transition flex items-center justify-between gap-3 cursor-pointer group ${
-                            isSelected
+                          className={`w-full text-left p-2.5 rounded-2xl transition flex items-center justify-between gap-3 cursor-pointer group ${isSelected
                               ? "bg-indigo-50/80 border border-indigo-200/90 text-indigo-950 dark:bg-indigo-950/60 dark:border-indigo-800 dark:text-indigo-200"
                               : "hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white border border-transparent"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div
-                              className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0 transition shadow-xs ${
-                                isSelected
+                              className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0 transition shadow-xs ${isSelected
                                   ? "bg-indigo-600 text-white"
                                   : "bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600 dark:bg-slate-700 dark:text-slate-300 dark:group-hover:bg-indigo-900 dark:group-hover:text-indigo-300"
-                              }`}
+                                }`}
                             >
                               {initials}
                             </div>
@@ -764,22 +760,20 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => setChartType("area")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                        chartType === "area"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${chartType === "area"
                           ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
                           : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                      }`}
+                        }`}
                     >
                       Area Curve
                     </button>
                     <button
                       type="button"
                       onClick={() => setChartType("bar")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                        chartType === "bar"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${chartType === "bar"
                           ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm"
                           : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                      }`}
+                        }`}
                     >
                       Bar Columns
                     </button>
@@ -895,8 +889,8 @@ export default function Dashboard() {
                                 activeBar === null
                                   ? "url(#barGrad)"
                                   : activeBar === i
-                                  ? "#3730a3"
-                                  : "#c7d2fe"
+                                    ? "#3730a3"
+                                    : "#c7d2fe"
                               }
                             />
                           ))}
@@ -1017,20 +1011,18 @@ export default function Dashboard() {
                         setChartTab(t.key);
                         setTableSearch("");
                       }}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer select-none ${
-                        active
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer select-none ${active
                           ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/80 dark:border-slate-700"
                           : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/60"
-                      }`}
+                        }`}
                     >
                       <t.icon size={15} />
                       <span>{t.label}</span>
                       {t.count !== undefined && t.count > 0 && (
-                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                          t.key === "lowstock" || t.key === "unsold" || t.key === "expire"
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${t.key === "lowstock" || t.key === "unsold" || t.key === "expire"
                             ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
                             : "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
-                        }`}>
+                          }`}>
                           {t.count}
                         </span>
                       )}
@@ -1175,11 +1167,10 @@ export default function Dashboard() {
                     {stats.monthly_sales.map((m, idx) => (
                       <div
                         key={idx}
-                        className={`p-3.5 rounded-2xl border transition ${
-                          m.total > 0
+                        className={`p-3.5 rounded-2xl border transition ${m.total > 0
                             ? "bg-indigo-50/40 border-indigo-100 dark:bg-indigo-950/40 dark:border-indigo-900/60"
                             : "bg-slate-50/50 border-slate-200/60 dark:bg-slate-900/50 dark:border-slate-800"
-                        }`}
+                          }`}
                       >
                         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                           {m.month}
@@ -1187,9 +1178,8 @@ export default function Dashboard() {
                         <span className="text-sm font-black text-slate-800 dark:text-slate-100 block mt-1">
                           ₹{Number(m.total).toLocaleString("en-IN")}
                         </span>
-                        <span className={`text-[10px] font-bold block mt-0.5 ${
-                          m.total > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"
-                        }`}>
+                        <span className={`text-[10px] font-bold block mt-0.5 ${m.total > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"
+                          }`}>
                           {m.total > 0 ? "Recorded" : "Zero"}
                         </span>
                       </div>
@@ -1351,69 +1341,67 @@ export default function Dashboard() {
                       <tbody>
                         {filteredLowStock.length > 0 ? (
                           filteredLowStock.map((item, i) => {
-                              const stock = Number(item.stock) || 0;
-                              const isOut = isOutOfStock(item);
-                              return (
-                            <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
-                              <td className="font-mono text-slate-400 text-xs">
-                                {String(i + 1).padStart(2, "0")}
-                              </td>
-                              <td>
-                                <div className="flex items-center gap-2.5">
-                                  <div
-                                    className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
-                                      isOut
-                                        ? "bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400"
-                                        : "bg-amber-50 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400"
-                                    }`}
-                                  >
-                                    {isOut ? <PackageX size={15} /> : <Package size={15} />}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block truncate">
-                                      {item.product_name}
-                                    </span>
-                                    {item.product_code && (
-                                      <span className="font-mono text-[10px] text-slate-400">
-                                        {item.product_code}
+                            const stock = Number(item.stock) || 0;
+                            const isOut = isOutOfStock(item);
+                            return (
+                              <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
+                                <td className="font-mono text-slate-400 text-xs">
+                                  {String(i + 1).padStart(2, "0")}
+                                </td>
+                                <td>
+                                  <div className="flex items-center gap-2.5">
+                                    <div
+                                      className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${isOut
+                                          ? "bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400"
+                                          : "bg-amber-50 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400"
+                                        }`}
+                                    >
+                                      {isOut ? <PackageX size={15} /> : <Package size={15} />}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block truncate">
+                                        {item.product_name}
                                       </span>
-                                    )}
+                                      {item.product_code && (
+                                        <span className="font-mono text-[10px] text-slate-400">
+                                          {item.product_code}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              </td>
-                              <td className="font-bold text-slate-700 dark:text-slate-200 text-xs">
-                                ₹{Number(item.price || 0).toLocaleString("en-IN")}
-                              </td>
-                              <td>
-                                <span
-                                  className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
-                                    isOut
-                                      ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900/60"
-                                      : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900/60"
-                                  }`}
-                                >
-                                  {stock} {item.unit || "units"}
-                                </span>
-                              </td>
-                              <td>
-                                <StatusBadge
-                                  status={isOut ? "danger" : "warning"}
-                                  label={isOut ? "Out of Stock" : "Low Stock"}
-                                  size="sm"
-                                />
-                              </td>
-                              <td>
-                                <button
-                                  type="button"
-                                  onClick={() => navigate("/products")}
-                                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
-                                >
-                                  Update Stock
-                                </button>
-                              </td>
-                            </tr>
-                              );
-                            })
+                                </td>
+                                <td className="font-bold text-slate-700 dark:text-slate-200 text-xs">
+                                  ₹{Number(item.price || 0).toLocaleString("en-IN")}
+                                </td>
+                                <td>
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${isOut
+                                        ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900/60"
+                                        : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900/60"
+                                      }`}
+                                  >
+                                    {stock} {item.unit || "units"}
+                                  </span>
+                                </td>
+                                <td>
+                                  <StatusBadge
+                                    status={isOut ? "danger" : "warning"}
+                                    label={isOut ? "Out of Stock" : "Low Stock"}
+                                    size="sm"
+                                  />
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate("/products")}
+                                    className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                                  >
+                                    Update Stock
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
                         ) : (
                           <tr>
                             <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
@@ -1543,11 +1531,10 @@ export default function Dashboard() {
                                 <td>
                                   <div className="flex items-center gap-2.5">
                                     <div
-                                      className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
-                                        isCritical
+                                      className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${isCritical
                                           ? "bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400"
                                           : "bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400"
-                                      }`}
+                                        }`}
                                     >
                                       <Clock size={15} />
                                     </div>
@@ -1579,13 +1566,12 @@ export default function Dashboard() {
                                 </td>
                                 <td>
                                   <span
-                                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                                      days <= 0
+                                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${days <= 0
                                         ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-900/60"
                                         : days <= 7
-                                        ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900/60"
-                                        : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900/60"
-                                    }`}
+                                          ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900/60"
+                                          : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900/60"
+                                      }`}
                                   >
                                     {days <= 0 ? "Expires Today" : `${days} ${days === 1 ? "day" : "days"} left`}
                                   </span>

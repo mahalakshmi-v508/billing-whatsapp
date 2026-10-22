@@ -2,20 +2,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Lock, Unlock, ShieldAlert, LogOut, ArrowRight, UserCheck, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../utils/i18n";
-import { CASHIER_SECURITY_KEY, DEFAULT_CASHIER_SECURITY } from "../../pages/settings/CashierSecuritySettings";
+import { useCashierSecurity } from "../../context/CashierSecurityContext";
 
 export default function AutoScreenLock() {
   const navigate = useNavigate();
   const { isTamil } = useLanguage();
 
-  const [settings, setSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-      return saved ? { ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) } : { ...DEFAULT_CASHIER_SECURITY };
-    } catch {
-      return { ...DEFAULT_CASHIER_SECURITY };
-    }
-  });
+  const { cashierSecurity: settings } = useCashierSecurity();
 
   const [isLocked, setIsLocked] = useState(() => {
     try {
@@ -40,26 +33,6 @@ export default function AutoScreenLock() {
 
   const timeoutRef = useRef(null);
   const pinInputRef = useRef(null);
-
-  // Sync settings when updated in CashierSecuritySettings
-  useEffect(() => {
-    const handleUpdate = (e) => {
-      if (e?.detail?.[CASHIER_SECURITY_KEY]) {
-        setSettings((prev) => ({ ...prev, ...e.detail[CASHIER_SECURITY_KEY] }));
-      } else {
-        try {
-          const saved = localStorage.getItem(`settings_${CASHIER_SECURITY_KEY}`);
-          if (saved) setSettings({ ...DEFAULT_CASHIER_SECURITY, ...JSON.parse(saved) });
-        } catch {}
-      }
-    };
-    window.addEventListener("company-settings-updated", handleUpdate);
-    window.addEventListener("storage", handleUpdate);
-    return () => {
-      window.removeEventListener("company-settings-updated", handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
-    };
-  }, []);
 
   // Update clock every second when locked
   useEffect(() => {
@@ -117,8 +90,8 @@ export default function AutoScreenLock() {
   }, [isLocked]);
 
   const handleUnlock = () => {
-    const requiredPin = String(settings.supervisor_admin_pin || "1234").trim();
-    if (pin.trim() === requiredPin) {
+    const requiredPin = String(settings.supervisor_admin_pin || "").trim();
+    if (!requiredPin || pin.trim() === requiredPin) {
       setIsLocked(false);
       setPin("");
       setErrorMsg("");

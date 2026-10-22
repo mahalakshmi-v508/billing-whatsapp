@@ -8,6 +8,18 @@ use App\Models\CompanySetting;
 
 class SettingsController extends Controller
 {
+    /**
+     * Supervisor PIN now lives in users table (admin row), not company settings.
+     * Strip it from any incoming/outgoing settings payload.
+     */
+    private function stripSupervisorPin($settings)
+    {
+        if (is_array($settings) && isset($settings['cashier_security']) && is_array($settings['cashier_security'])) {
+            unset($settings['cashier_security']['supervisor_admin_pin'], $settings['cashier_security']['supervisor_pin_set']);
+        }
+        return $settings;
+    }
+
     public function get(Request $request)
     {
         $company_id = intval($request->input('company_id') ?: $request->query('company_id', 0));
@@ -20,7 +32,7 @@ class SettingsController extends Controller
             if ($companySetting) {
                 return response()->json([
                     "status" => true,
-                    "data" => $companySetting->settings
+                    "data" => $this->stripSupervisorPin($companySetting->settings)
                 ]);
             }
         } catch (\Throwable $e) {
@@ -45,6 +57,8 @@ class SettingsController extends Controller
         if (!is_array($settings)) {
             $settings = [];
         }
+
+        $settings = $this->stripSupervisorPin($settings);
 
         CompanySetting::updateOrCreate(
             ['company_id' => $company_id],
