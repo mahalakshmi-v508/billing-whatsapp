@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import api from "../../services/api";
 import PriceWithGstInput from "./components/PriceWithGstInput";
 import Barcode from "react-barcode";
+import { getProductCustomFields } from "../../utils/productCustomFields";
 import {
   PackagePlus,
   Package,
@@ -103,6 +104,7 @@ export default function AddProductModal({
   const [subCategoryLoading, setSubCategoryLoading] = useState(false);
   const [brands, setBrands] = useState([]);
   const [brandLoading, setBrandLoading] = useState(false);
+  const [customFieldDefs, setCustomFieldDefs] = useState([]);
 
   const getCompanyId = () => Number(companyId || localStorage.getItem("selected_company_id") || 0);
 
@@ -123,11 +125,20 @@ export default function AddProductModal({
     subcategory_id: "",
     brand_id: "",
     supplier_id: "",
+    custom_fields: {},
   });
 
   const set = (field, val) => {
     setForm((p) => ({ ...p, [field]: val }));
     if (isEditing) setDirtyFields((p) => new Set(p).add(field));
+  };
+
+  const setCustomField = (key, val) => {
+    setForm((p) => ({
+      ...p,
+      custom_fields: { ...(p.custom_fields || {}), [key]: val },
+    }));
+    if (isEditing) setDirtyFields((p) => new Set(p).add("custom_fields"));
   };
 
   const setGstEnabledByUser = (enabled) => {
@@ -239,24 +250,39 @@ export default function AddProductModal({
           subcategory_id: "",
           brand_id: "",
           supplier_id: "",
+          custom_fields: {},
         };
-      const mapProductToForm = (savedProduct) => ({
-        name: savedProduct.product_name || "",
-        product_code: savedProduct.product_code || "",
-        price: savedProduct.sale_price ?? savedProduct.price ?? "",
-        sale_price: savedProduct.sale_price ?? savedProduct.price ?? "",
-        sale_price_type: savedProduct.sale_price_type || "without_gst",
-        purchase_price: savedProduct.purchase_price ?? "",
-        purchase_price_type: savedProduct.purchase_price_type || "without_gst",
-        stock: savedProduct.stock ?? "",
-        gst: savedProduct.gst_percentage ?? "",
-        barcode: savedProduct.barcode || "",
-        unit: savedProduct.unit || "",
-        category_id: savedProduct.category_id ? String(savedProduct.category_id) : "",
-        subcategory_id: savedProduct.subcategory_id ? String(savedProduct.subcategory_id) : "",
-        brand_id: savedProduct.brand_id ? String(savedProduct.brand_id) : "",
-        supplier_id: savedProduct.supplier_id ? String(savedProduct.supplier_id) : "",
-      });
+      const mapProductToForm = (savedProduct) => {
+        let parsedCustomFields = {};
+        if (savedProduct.custom_fields && typeof savedProduct.custom_fields === "object") {
+          parsedCustomFields = savedProduct.custom_fields;
+        } else if (typeof savedProduct.custom_fields === "string") {
+          try {
+            parsedCustomFields = JSON.parse(savedProduct.custom_fields) || {};
+          } catch {
+            parsedCustomFields = {};
+          }
+        }
+        return {
+          name: savedProduct.product_name || "",
+          product_code: savedProduct.product_code || "",
+          price: savedProduct.sale_price ?? savedProduct.price ?? "",
+          sale_price: savedProduct.sale_price ?? savedProduct.price ?? "",
+          sale_price_type: savedProduct.sale_price_type || "without_gst",
+          purchase_price: savedProduct.purchase_price ?? "",
+          purchase_price_type: savedProduct.purchase_price_type || "without_gst",
+          stock: savedProduct.stock ?? "",
+          expiry_date: savedProduct.expiry_date || "",
+          gst: savedProduct.gst_percentage ?? "",
+          barcode: savedProduct.barcode || "",
+          unit: savedProduct.unit || "",
+          category_id: savedProduct.category_id ? String(savedProduct.category_id) : "",
+          subcategory_id: savedProduct.subcategory_id ? String(savedProduct.subcategory_id) : "",
+          brand_id: savedProduct.brand_id ? String(savedProduct.brand_id) : "",
+          supplier_id: savedProduct.supplier_id ? String(savedProduct.supplier_id) : "",
+          custom_fields: parsedCustomFields,
+        };
+      };
 
       const initialize = async () => {
         const companyId = product?.company_id || getCompanyId();
@@ -271,7 +297,13 @@ export default function AddProductModal({
         setShowAdditional(Boolean(product?.id));
         setSubCategories([]);
 
-        const requests = [fetchCategories(companyId), fetchBrands(companyId)];
+        const requests = [
+          fetchCategories(companyId),
+          fetchBrands(companyId),
+          getProductCustomFields().then((defs) => {
+            if (!cancelled) setCustomFieldDefs(defs);
+          }),
+        ];
         if (!product) requests.push(fetchCompanyGST(companyId));
         await Promise.all(requests);
 
@@ -343,6 +375,17 @@ export default function AddProductModal({
       }
     }
 
+    // Custom Fields validation for required fields
+    for (const cf of customFieldDefs) {
+      if (cf.required) {
+        const val = form.custom_fields?.[cf.name];
+        if (val === undefined || val === null || String(val).trim() === "") {
+          show("warn", "Missing Field", `${cf.label} is required.`);
+          return;
+        }
+      }
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -364,6 +407,7 @@ export default function AddProductModal({
         barcode: form.barcode.trim(),
         unit: form.unit.trim(),
         supplier_id: Number(form.supplier_id) || Number(product?.supplier_id) || 0,
+        custom_fields: form.custom_fields || null,
       };
       let res;
       if (isEditing) {
@@ -387,6 +431,7 @@ export default function AddProductModal({
         }
         if (dirtyFields.has("barcode")) changes.barcode = payload.barcode;
         if (dirtyFields.has("unit")) changes.unit = payload.unit;
+        if (dirtyFields.has("custom_fields")) changes.custom_fields = payload.custom_fields;
 
         if (Object.keys(changes).length === 0) {
           show("warn", "No Changes", "Edit at least one field before updating.");
@@ -880,6 +925,73 @@ export default function AddProductModal({
                 </div>
               )}
             </div>
+
+            {/* ── CUSTOM FIELDS (FROM SETTINGS) ── */}
+            {customFieldDefs.length > 0 && (
+              <div className="pt-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-bold text-slate-800">Additional / Custom Fields</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200">
+                    {customFieldDefs.length} Fields
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80">
+                  {customFieldDefs.map((cf) => {
+                    const val = form.custom_fields?.[cf.name] ?? "";
+                    return (
+                      <div key={cf.id || cf.name} className="space-y-1.5">
+                        <label className="block text-[11.5px] font-semibold text-slate-700">
+                          {cf.label} {cf.required && <span className="text-rose-500">*</span>}
+                        </label>
+                        {cf.type === "select" ? (
+                          <div className="relative">
+                            <select
+                              value={val}
+                              onChange={(e) => setCustomField(cf.name, e.target.value)}
+                              className="w-full px-3.5 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 appearance-none cursor-pointer"
+                            >
+                              <option value="">Select {cf.label}</option>
+                              {cf.options.map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown
+                              size={14}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                            />
+                          </div>
+                        ) : cf.type === "date" ? (
+                          <input
+                            type="date"
+                            value={val}
+                            onChange={(e) => setCustomField(cf.name, e.target.value)}
+                            className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                          />
+                        ) : cf.type === "number" ? (
+                          <input
+                            type="number"
+                            value={val}
+                            onChange={(e) => setCustomField(cf.name, e.target.value)}
+                            placeholder={`Enter ${cf.label.toLowerCase()}`}
+                            className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={val}
+                            onChange={(e) => setCustomField(cf.name, e.target.value)}
+                            placeholder={`Enter ${cf.label.toLowerCase()}`}
+                            className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── STICKY FOOTER ACTIONS ── */}

@@ -383,7 +383,7 @@ class InvoiceController extends Controller
             try {
                 $invoice = Invoice::create($invoiceData);
             } catch (\Throwable $ex) {
-                if ($payment_type === 'gst') {
+                if ($payment_type === 'gst' || $payment_type === 'without_gst') {
                     $invoiceData['payment_type'] = 'cash';
                     $invoice = Invoice::create($invoiceData);
                 } else {
@@ -2565,7 +2565,7 @@ class InvoiceController extends Controller
             try {
                 $invoice->update($invoiceUpdateData);
             } catch (\Throwable $ex) {
-                if ($payment_type === 'gst') {
+                if ($payment_type === 'gst' || $payment_type === 'without_gst') {
                     $invoiceUpdateData['payment_type'] = 'cash';
                     $invoice->update($invoiceUpdateData);
                 } else {

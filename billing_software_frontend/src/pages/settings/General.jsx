@@ -31,9 +31,11 @@ import {
   Lock,
   MessageCircle,
   Store,
+  Package,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import Item from "./Item";
 import InvoiceSettings from "./InvoiceSettings";
 import InvoiceDesign from "./InvoiceDesign";
 import Print from "./Print";
@@ -832,6 +834,35 @@ function GeneralSettings() {
             </div>
           </div>
 
+          {/* Card: Custom Fields Quick Access */}
+          <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/50 rounded-2xl border border-indigo-200/80 p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Sliders size={15} className="text-indigo-600" />
+                <span>{isTamil ? "கூடுதல் ஃபீல்டுகள் (Custom Fields)" : "Product Custom Fields"}</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">
+                Custom Fields
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              {isTamil
+                ? "பொருட்களுக்குத் தேவையான கூடுதல் ஃபீல்டுகளை (Color, Size, Warranty, Rack No, etc.) எளிதாக சேர்த்து நிர்வகிக்கவும்."
+                : "Easily configure dynamic custom fields (Text, Number, Date, Dropdown) for your products."}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsTab("item");
+                navigate("/settings/item");
+              }}
+              className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-indigo-600/20"
+            >
+              <span>{isTamil ? "கூடுதல் ஃபீல்டு அமைப்புகளைத் திற" : "Open Custom Fields"}</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
           {/* Card: POS & Counter Controls Quick Access */}
           <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/50 rounded-2xl border border-indigo-200/80 p-5 space-y-3.5">
             <div className="flex items-center justify-between">
@@ -1131,6 +1162,7 @@ export default function General() {
   return (
     <div className="bg-transparent min-w-0 flex flex-col flex-1">
       {activeTab === "general" && <GeneralSettings />}
+      {(activeTab === "item" || activeTab === "item-settings" || activeTab === "items") && <Item />}
       {activeTab === "pos-controls" && <PosSettings />}
       {activeTab === "stock-safety" && <StockSettings />}
       {activeTab === "cashier-security" && <CashierSecuritySettings />}
