@@ -586,7 +586,7 @@ export default function CashierSecuritySettings() {
                     ? "4. மேற்பார்வையாளர் / அட்மின் PIN (Supervisor / Admin PIN)"
                     : "4. Supervisor / Admin Security PIN"}
                 </h3>
-                <Badge tone={settings.supervisor_pin_enabled ? "purple" : "gray"}>
+                {/* <Badge tone={settings.supervisor_pin_enabled ? "purple" : "gray"}>
                   {settings.supervisor_pin_enabled
                     ? isTamil
                       ? "PIN பாதுகாப்பு ஆன்"
@@ -594,7 +594,7 @@ export default function CashierSecuritySettings() {
                     : isTamil
                     ? "முடக்கப்பட்டது"
                     : "Disabled"}
-                </Badge>
+                </Badge> */}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isTamil
@@ -603,46 +603,35 @@ export default function CashierSecuritySettings() {
               </p>
             </div>
           </div>
-          <Toggle
-            checked={Boolean(settings.supervisor_pin_enabled)}
-            onChange={() =>
-              handleToggle(
-                "supervisor_pin_enabled",
-                isTamil ? "மேற்பார்வையாளர் PIN" : "Supervisor PIN"
-              )
-            }
-          />
         </div>
 
-        {settings.supervisor_pin_enabled && (
-          <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={handlePinActionClick}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm shadow-purple-600/20"
-              >
-                {pinActionLabel}
-              </button>
-              <p className="text-[11px] text-slate-400">
-                {isTamil
-                  ? "PIN மாற்ற நிர்வாகி மின்னஞ்சல் OTP சரிபார்ப்பு அவசியம்."
-                  : "Changing the PIN requires admin email OTP verification."}
-              </p>
-            </div>
-
-            <div className="bg-purple-50/60 border border-purple-200/80 rounded-xl p-3.5 text-xs text-purple-900 space-y-1">
-              <span className="font-bold block">
-                {isTamil ? "பாதுகாக்கப்படும் செயல்கள்:" : "Protected Operations:"}
-              </span>
-              <ul className="list-disc list-inside space-y-0.5 text-[11px] text-purple-800">
-                <li>{isTamil ? "விற்பனை பில் நீக்கம் (Delete Sale Invoice)" : "Permanent Invoice Deletion"}</li>
-                <li>{isTamil ? "பில் ரத்து மற்றும் ஸ்டாக் ரீசெட்" : "Invoice Cancellation & Stock Restoration"}</li>
-                <li>{isTamil ? "கல்லா தொகை திருத்தம்" : "Cashier Cash Reconciliation Override"}</li>
-              </ul>
-            </div>
+        <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={handlePinActionClick}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm shadow-purple-600/20"
+            >
+              {pinActionLabel}
+            </button>
+            <p className="text-[11px] text-slate-400">
+              {isTamil
+                ? "PIN மாற்ற நிர்வாகி மின்னஞ்சல் OTP சரிபார்ப்பு அவசியம்."
+                : "Changing the PIN requires admin email OTP verification."}
+            </p>
           </div>
-        )}
+
+          <div className="bg-purple-50/60 border border-purple-200/80 rounded-xl p-3.5 text-xs text-purple-900 space-y-1">
+            <span className="font-bold block">
+              {isTamil ? "பாதுகாக்கப்படும் செயல்கள்:" : "Protected Operations:"}
+            </span>
+            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-purple-800">
+              <li>{isTamil ? "விற்பனை பில் நீக்கம் (Delete Sale Invoice)" : "Permanent Invoice Deletion"}</li>
+              <li>{isTamil ? "பில் ரத்து மற்றும் ஸ்டாக் ரீசெட்" : "Invoice Cancellation & Stock Restoration"}</li>
+              <li>{isTamil ? "கல்லா தொகை திருத்தம்" : "Cashier Cash Reconciliation Override"}</li>
+            </ul>
+          </div>
+        </div>
 
         {showOtpBox && (
               <div
