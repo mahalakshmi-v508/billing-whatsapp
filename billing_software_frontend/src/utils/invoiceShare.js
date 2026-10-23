@@ -32,6 +32,8 @@ export function getA4InvoicePdfOptions({ element, invoiceNo }) {
         clonedElement.style.setProperty("margin", "0", "important");
         clonedElement.style.setProperty("transform", `scale(${scale})`, "important");
         clonedElement.style.setProperty("transform-origin", "top left", "important");
+        // PDF is always the original light print design, even in dark mode
+        clonedElement.style.setProperty("filter", "none", "important");
       },
     },
     jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
@@ -61,6 +63,8 @@ export function createPosInvoicePdf({ element, paperWidthMm, isMinimalPos = fals
           clonedElement.style.setProperty("width", `${captureWidth}px`, "important");
           clonedElement.style.setProperty("max-width", "none", "important");
           clonedElement.style.setProperty("margin", "0", "important");
+          // Thermal POS PDF is always the original light print design
+          clonedElement.style.setProperty("filter", "none", "important");
           if (isMinimalPos) {
             const receipt = clonedElement.querySelector(".pos-minimal-receipt");
             receipt?.style.setProperty("width", "420px", "important");

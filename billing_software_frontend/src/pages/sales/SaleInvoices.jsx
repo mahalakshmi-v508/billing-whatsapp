@@ -743,7 +743,7 @@ export default function SaleInvoices() {
                     onClick={() => {
                       setPresetDates(key);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer ${
                       period === key ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                     }`}
                   >
@@ -802,7 +802,7 @@ export default function SaleInvoices() {
               <div className="absolute left-0 mt-1.5 w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 max-h-56 overflow-y-auto">
                 <button
                   onClick={() => { setSelectedFirm("all"); setFirmOpen(false); setCurrentPage(1); }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer ${
                     selectedFirm === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
@@ -812,7 +812,7 @@ export default function SaleInvoices() {
                   <button
                     key={c.id}
                     onClick={() => { setSelectedFirm(c.id); setFirmOpen(false); setCurrentPage(1); }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition truncate cursor-pointer ${
+                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition truncate cursor-pointer ${
                       String(selectedFirm) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                     }`}
                   >
@@ -846,7 +846,7 @@ export default function SaleInvoices() {
               <div className="absolute left-0 mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 max-h-56 overflow-y-auto">
                 <button
                   onClick={() => { setSelectedCustomerId("all"); setUserOpen(false); setCurrentPage(1); }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer ${
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer ${
                     selectedCustomerId === "all" ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                   }`}
                 >
@@ -867,7 +867,7 @@ export default function SaleInvoices() {
                     <button
                       key={c.id}
                       onClick={() => { setSelectedCustomerId(c.id); setUserOpen(false); setCurrentPage(1); }}
-                      className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 transition cursor-pointer ${
+                      className={`w-full text-left px-3.5 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer ${
                         String(selectedCustomerId) === String(c.id) ? "text-indigo-600 font-bold bg-indigo-50/50" : "text-slate-700"
                       }`}
                     >

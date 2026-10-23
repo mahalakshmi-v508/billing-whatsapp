@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
 /* PaySplitX Design System Variables */
 :root {
@@ -46,9 +46,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   ✨ GLOBAL PREMIUM DROPDOWN (<select>) STYLING
-───────────────────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   âœ¨ GLOBAL PREMIUM DROPDOWN (<select>) STYLING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 select,
 .custom-select,
 .psx-select {
@@ -132,9 +132,9 @@ select optgroup {
   background-color: #f8faff;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   ✨ GLOBAL FORM INPUT & TEXTAREA STYLING
-───────────────────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   âœ¨ GLOBAL FORM INPUT & TEXTAREA STYLING
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -164,14 +164,14 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator {
   transform: scale(1.1);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   ✨ CUSTOM DROPDOWN MENUS, POPOVERS & SELECT BOX CONTAINERS
-───────────────────────────────────────────────────────────────────────────── */
-/* ─────────────────────────────────────────────────────────────────────────────
-   ✨ AUDIT LOG DRAWER SLIDE-IN
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   âœ¨ CUSTOM DROPDOWN MENUS, POPOVERS & SELECT BOX CONTAINERS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   âœ¨ AUDIT LOG DRAWER SLIDE-IN
    Used by the global Audit Log history drawer so it animates consistently with
    the rest of the app (no tailwindcss-animate plugin is installed here).
-───────────────────────────────────────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes auditDrawerIn {
   from {
     transform: translateX(100%);
@@ -244,9 +244,9 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator {
   font-weight: 700;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   ✨ UTILITY CLASSES & SCROLLBARS
-───────────────────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   âœ¨ UTILITY CLASSES & SCROLLBARS
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .paysplitx-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -386,8 +386,8 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator {
   box-shadow: 0 0 0 3.5px rgba(99, 102, 241, 0.16);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   🌙 PAYSPLITX COMPREHENSIVE MILD DARK MODE THEME SYSTEM
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   ðŸŒ™ PAYSPLITX COMPREHENSIVE MILD DARK MODE THEME SYSTEM
    Comfortable, eye-pleasing Slate/Zinc mild dark palette (No pure black #000)
    - App Canvas: #0f172a (Slate 900)
    - Cards, Tables, Panels, Headers: #1e293b (Slate 800)
@@ -395,7 +395,7 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator {
    - Primary text: #f8fafc (Slate 50)
    - Muted text: #94a3b8 (Slate 400)
    - Borders: #334155 (Slate 700)
-───────────────────────────────────────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 html.dark body {
   background-color: #0f172a !important;
@@ -672,30 +672,57 @@ html.dark select optgroup {
 
 /* 8. Tables */
 html.dark .psx-table-container,
-html.dark table {
+html.dark table:not(#invoice-print-area table):not(.invoice-sheet table) {
   background-color: #1e293b !important;
   border-color: #334155 !important;
 }
 
 html.dark .psx-table th,
-html.dark table th {
+html.dark table th:not(#invoice-print-area th):not(.invoice-sheet th) {
   background-color: #141d2e !important;
   color: #94a3b8 !important;
   border-color: #334155 !important;
 }
 
 html.dark .psx-table td,
-html.dark table td {
+html.dark table td:not(#invoice-print-area td):not(.invoice-sheet td) {
   color: #f1f5f9 !important;
   border-color: rgba(51, 65, 85, 0.6) !important;
 }
 
 html.dark .psx-table tr:hover td,
-html.dark table tr:hover td,
+html.dark table tr:hover td:not(#invoice-print-area td):not(.invoice-sheet td),
 html.dark tr.hover\:bg-slate-50:hover,
 html.dark tr.hover\:bg-slate-50\/80:hover,
 html.dark tr.hover\:bg-gray-50:hover {
   background-color: #243248 !important;
+}
+
+/* 8b. Printable Invoice Sheets (Invoice Studio preview + POS + PDF capture)
+   Invoice templates are designed as light paper documents with their own
+   inline colors, so the dark table/text overrides above are exempted for them
+   (see section 8) â€” the sheet first renders exactly like the light design.
+   In dark mode the LIVE preview is then inverted on screen so the invoice is
+   dark too while keeping the template's contrast, accents and hierarchy.
+   Print media and the offscreen PDF capture sheet stay on the original light
+   paper design, so Print / A4 PDF / Thermal POS output is unchanged. */
+html.dark #invoice-print-area,
+html.dark div.invoice-sheet {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  color-scheme: light;
+}
+
+@media screen {
+  html.dark #invoice-print-area {
+    filter: invert(1) hue-rotate(180deg);
+    box-shadow: none !important;
+  }
+
+  /* Keep logos / embedded images in their original colors */
+  html.dark #invoice-print-area img {
+    filter: invert(1) hue-rotate(180deg);
+  }
 }
 
 /* 9. Soft Badges, Pills & Pastel Tint Overrides (No harsh white pastels in Dark Mode) */
@@ -753,6 +780,137 @@ html.dark .bg-cyan-50 {
   border-color: rgba(6, 182, 212, 0.3) !important;
 }
 
+/* 9b. Dark Mode Hover State Adaptations
+   Hover tints (bg-*-50/100) are not covered by the selectors above, so in dark
+   mode they stayed near-white while text was forced light â€” menu items became
+   invisible on hover. Re-map every common hover tint to the dark pastel palette. */
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-50\/80:hover,
+html.dark .hover\:bg-slate-50\/70:hover,
+html.dark .hover\:bg-slate-50\/60:hover,
+html.dark .hover\:bg-slate-50\/50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-slate-100\/80:hover,
+html.dark .hover\:bg-slate-100\/70:hover,
+html.dark .hover\:bg-slate-100\/60:hover,
+html.dark .hover\:bg-slate-100\/50:hover,
+html.dark .hover\:bg-slate-200:hover,
+html.dark .hover\:bg-slate-200\/80:hover,
+html.dark .hover\:bg-slate-200\/70:hover,
+html.dark .hover\:bg-slate-200\/60:hover,
+html.dark .hover\:bg-gray-50:hover,
+html.dark .hover\:bg-gray-100:hover,
+html.dark .hover\:bg-gray-200:hover,
+html.dark .hover\:bg-white:hover {
+  background-color: #334155 !important;
+}
+
+/* Indigo / Blue pastel hover tints */
+html.dark .hover\:bg-indigo-50:hover,
+html.dark .hover\:bg-indigo-50\/80:hover,
+html.dark .hover\:bg-indigo-50\/70:hover,
+html.dark .hover\:bg-indigo-50\/60:hover,
+html.dark .hover\:bg-indigo-50\/50:hover,
+html.dark .hover\:bg-indigo-50\/30:hover,
+html.dark .hover\:bg-indigo-50\/20:hover,
+html.dark .hover\:bg-indigo-100:hover,
+html.dark .hover\:bg-indigo-100\/80:hover {
+  background-color: rgba(99, 102, 241, 0.18) !important;
+}
+
+html.dark .hover\:bg-blue-50:hover,
+html.dark .hover\:bg-blue-50\/70:hover,
+html.dark .hover\:bg-blue-50\/30:hover,
+html.dark .hover\:bg-blue-50\/20:hover,
+html.dark .hover\:bg-blue-100:hover,
+html.dark .hover\:bg-blue-100\/70:hover {
+  background-color: rgba(59, 130, 246, 0.18) !important;
+}
+
+/* Emerald / Teal / Cyan pastel hover tints */
+html.dark .hover\:bg-emerald-50:hover,
+html.dark .hover\:bg-emerald-50\/70:hover,
+html.dark .hover\:bg-emerald-50\/20:hover,
+html.dark .hover\:bg-emerald-100:hover,
+html.dark .hover\:bg-emerald-100\/80:hover,
+html.dark .hover\:bg-teal-100:hover,
+html.dark .hover\:bg-cyan-100:hover,
+html.dark .hover\:bg-cyan-100\/80:hover {
+  background-color: rgba(16, 185, 129, 0.18) !important;
+}
+
+/* Rose / Red pastel hover tints (danger actions keep their red identity) */
+html.dark .hover\:bg-rose-50:hover,
+html.dark .hover\:bg-rose-50\/50:hover,
+html.dark .hover\:bg-rose-50\/40:hover,
+html.dark .hover\:bg-rose-50\/20:hover,
+html.dark .hover\:bg-rose-100:hover,
+html.dark .hover\:bg-red-50:hover,
+html.dark .hover\:bg-red-100:hover {
+  background-color: rgba(244, 63, 94, 0.18) !important;
+}
+
+html.dark .hover\:bg-amber-50:hover,
+html.dark .hover\:bg-amber-50\/80:hover,
+html.dark .hover\:bg-amber-50\/70:hover,
+html.dark .hover\:bg-amber-50\/50:hover,
+html.dark .hover\:bg-amber-50\/40:hover,
+html.dark .hover\:bg-amber-50\/20:hover,
+html.dark .hover\:bg-amber-100:hover {
+  background-color: rgba(245, 158, 11, 0.18) !important;
+}
+
+/* Violet / Purple pastel hover tints */
+html.dark .hover\:bg-violet-50\/70:hover,
+html.dark .hover\:bg-purple-50\/20:hover {
+  background-color: rgba(139, 92, 246, 0.18) !important;
+}
+
+/* Hover text colors â€” stay readable on dark hover surfaces */
+html.dark .hover\:text-slate-900:hover,
+html.dark .hover\:text-slate-800:hover,
+html.dark .hover\:text-slate-700:hover,
+html.dark .hover\:text-gray-900:hover,
+html.dark .hover\:text-gray-800:hover {
+  color: #f8fafc !important;
+}
+
+html.dark .hover\:text-slate-600:hover {
+  color: #cbd5e1 !important;
+}
+
+html.dark .hover\:text-indigo-600:hover,
+html.dark .hover\:text-indigo-700:hover,
+html.dark .hover\:text-indigo-800:hover {
+  color: #818cf8 !important;
+}
+
+html.dark .hover\:text-blue-600:hover,
+html.dark .hover\:text-blue-700:hover,
+html.dark .hover\:text-blue-800:hover {
+  color: #60a5fa !important;
+}
+
+html.dark .hover\:text-emerald-600:hover,
+html.dark .hover\:text-emerald-700:hover {
+  color: #34d399 !important;
+}
+
+html.dark .hover\:text-rose-600:hover,
+html.dark .hover\:text-rose-700:hover {
+  color: #fb7185 !important;
+}
+
+html.dark .hover\:text-red-600:hover,
+html.dark .hover\:text-red-700:hover {
+  color: #f87171 !important;
+}
+
+html.dark .hover\:text-amber-600:hover,
+html.dark .hover\:text-amber-700:hover {
+  color: #fbbf24 !important;
+}
+
 /* 10. Scrollbar Adaptations for Mild Dark Mode */
 html.dark .paysplitx-scrollbar-light::-webkit-scrollbar-track {
   background: #0f172a !important;
@@ -771,10 +929,10 @@ html.dark .shadow-xl {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   🇮🇳 TAMIL TYPOGRAPHY & LAYOUT ALIGNMENT PRESERVATION SYSTEM
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   ðŸ‡®ðŸ‡³ TAMIL TYPOGRAPHY & LAYOUT ALIGNMENT PRESERVATION SYSTEM
    Ensures seamless horizontal/vertical alignment when Tamil UI mode is active.
-───────────────────────────────────────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /* 1. Global Font Stack for Tamil */
 html[lang="ta"],
