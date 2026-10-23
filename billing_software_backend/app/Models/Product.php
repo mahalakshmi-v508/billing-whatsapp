@@ -25,6 +25,7 @@ class Product extends Model
         'sale_price_type'     => 'string',
         'purchase_price_type' => 'string',
         'expiry_date'         => 'string',
+        'custom_fields'       => 'array',
     ];
 
     /**

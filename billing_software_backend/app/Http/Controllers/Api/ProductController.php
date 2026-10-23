@@ -44,6 +44,15 @@ class ProductController extends Controller
         $new_subcategory_name = trim($request->input('new_subcategory_name', ''));
         $new_brand_name       = trim($request->input('new_brand_name', ''));
 
+        $custom_fields = $request->input('custom_fields');
+        if (is_string($custom_fields)) {
+            $decoded = json_decode($custom_fields, true);
+            $custom_fields = is_array($decoded) ? $decoded : null;
+        }
+        if (!is_array($custom_fields)) {
+            $custom_fields = null;
+        }
+
         if (!$product_name || !$company_id) {
             return response()->json([
                 "status" => false,
@@ -125,6 +134,7 @@ class ProductController extends Controller
             'gst_enabled' => $gst_enabled,
             'company_id' => $company_id,
             'supplier_id' => $supplier_id > 0 ? $supplier_id : null,
+            'custom_fields' => $custom_fields,
             'status' => 'active',
             'is_deleted' => 0
         ]);
@@ -194,6 +204,11 @@ class ProductController extends Controller
         }
 
         $products = $query->orderBy('p.id', 'desc')->get();
+        foreach ($products as $p) {
+            if (isset($p->custom_fields) && is_string($p->custom_fields)) {
+                $p->custom_fields = json_decode($p->custom_fields, true) ?: null;
+            }
+        }
 
         return response()->json([
             "status" => true,
@@ -236,6 +251,12 @@ class ProductController extends Controller
             ->orderBy('p.id', 'desc')
             ->get();
 
+        foreach ($products as $p) {
+            if (isset($p->custom_fields) && is_string($p->custom_fields)) {
+                $p->custom_fields = json_decode($p->custom_fields, true) ?: null;
+            }
+        }
+
         return response()->json(["status" => true, "data" => $products]);
     }
 
@@ -271,6 +292,7 @@ class ProductController extends Controller
                 'p.product_name',
                 'p.product_code',
                 'p.barcode',
+                'p.custom_fields',
                 'p.price',
                 'p.sale_price',
                 'p.purchase_price',
@@ -294,6 +316,10 @@ class ProductController extends Controller
 
         if (!$product) {
             return response()->json(["status" => false, "message" => "Product not found"]);
+        }
+
+        if (isset($product->custom_fields) && is_string($product->custom_fields)) {
+            $product->custom_fields = json_decode($product->custom_fields, true) ?: null;
         }
 
         return response()->json(["status" => true, "data" => $product]);
@@ -358,6 +384,15 @@ class ProductController extends Controller
 
         if ($request->has('expiry_date')) {
             $updateData['expiry_date'] = !empty($request->input('expiry_date')) ? $request->input('expiry_date') : null;
+        }
+
+        if ($request->has('custom_fields')) {
+            $customFields = $request->input('custom_fields');
+            if (is_string($customFields)) {
+                $decoded = json_decode($customFields, true);
+                $customFields = is_array($decoded) ? $decoded : null;
+            }
+            $updateData['custom_fields'] = is_array($customFields) ? json_encode($customFields) : null;
         }
 
         if ($updateData) {

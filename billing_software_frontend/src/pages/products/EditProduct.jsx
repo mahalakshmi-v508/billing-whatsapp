@@ -693,6 +693,7 @@ import api from "../../services/api";
 import PriceWithGstInput from "./components/PriceWithGstInput";
 import { normalisePriceType } from "../../utils/gst";
 import Barcode from "react-barcode";
+import { getProductCustomFields } from "../../utils/productCustomFields";
 
 /* ─── Toast Hook ─────────────────────────────────────────── */
 function useToast() {
@@ -743,6 +744,7 @@ export default function EditProduct() {
   const [gstLoading, setGstLoading] = useState(true);
   const [barcodeKey, setBarcodeKey] = useState(0);
   const { toasts, show, remove } = useToast();
+  const [customFieldDefs, setCustomFieldDefs] = useState([]);
 
   const [form, setForm] = useState({
     name: "",
@@ -760,10 +762,17 @@ export default function EditProduct() {
     subcategory_id: "",
     brand_id: "",
     supplier_id: "",
-    unit: ""
+    unit: "",
+    custom_fields: {},
   });
 
   const set = (field, val) => setForm(p => ({ ...p, [field]: val }));
+
+  const setCustomField = (key, val) =>
+    setForm(p => ({
+      ...p,
+      custom_fields: { ...(p.custom_fields || {}), [key]: val },
+    }));
 
   /* ── Load companies (for the dropdown, same as ProductForm) ── */
   useEffect(() => {
@@ -954,6 +963,20 @@ export default function EditProduct() {
           await fetchBrands(p.company_id, p.category_id, p.subcategory_id);
         }
 
+        const defs = await getProductCustomFields();
+        setCustomFieldDefs(defs);
+
+        let parsedCustomFields = {};
+        if (p.custom_fields && typeof p.custom_fields === "object") {
+          parsedCustomFields = p.custom_fields;
+        } else if (typeof p.custom_fields === "string") {
+          try {
+            parsedCustomFields = JSON.parse(p.custom_fields) || {};
+          } catch {
+            parsedCustomFields = {};
+          }
+        }
+
         setForm({
           name: p.product_name,
           product_code: p.product_code || "",
@@ -974,7 +997,8 @@ export default function EditProduct() {
           subcategory_id: p.subcategory_id ? String(p.subcategory_id) : "",
           brand_id: p.brand_id ? String(p.brand_id) : "",
           supplier_id: p.supplier_id ? String(p.supplier_id) : "",
-          unit: p.unit || ""
+          unit: p.unit || "",
+          custom_fields: parsedCustomFields,
         });
 
       }
@@ -1037,6 +1061,17 @@ export default function EditProduct() {
       return;
     }
 
+    // Custom Fields validation
+    for (const cf of customFieldDefs) {
+      if (cf.required) {
+        const val = form.custom_fields?.[cf.name];
+        if (val === undefined || val === null || String(val).trim() === "") {
+          show("warn", "Missing Field", `${cf.label} is required.`);
+          return;
+        }
+      }
+    }
+
     setLoading(true);
     try {
       const res = await api.post("/product/update", {
@@ -1057,7 +1092,8 @@ export default function EditProduct() {
         expiry_date: form.expiry_date || null,
         gst_percentage: gstEnabled ? form.gst : "",
         barcode: form.barcode,
-        unit: form.unit
+        unit: form.unit,
+        custom_fields: form.custom_fields || null,
       });
       if (res.data.status) {
         show("success", "Product Updated!", `"${form.name}" saved successfully.`);
@@ -1678,6 +1714,71 @@ export default function EditProduct() {
                 <p className="ep-barcode-label">Barcode Preview</p>
                 <Barcode value={form.barcode} height={55} fontSize={13} margin={0} />
               </div>
+            )}
+
+            {/* ── Custom Fields (from Settings) ── */}
+            {customFieldDefs.length > 0 && (
+              <>
+                <div className="ep-divider" />
+                <p className="ep-section">Additional / Custom Fields</p>
+                {customFieldDefs.map((cf) => {
+                  const val = form.custom_fields?.[cf.name] ?? "";
+                  return (
+                    <div key={cf.id || cf.name} className="ep-field">
+                      <label className="ep-label">
+                        {cf.label}
+                        {cf.required && <span style={{ color: "#ef4444", marginLeft: 4 }}>*</span>}
+                      </label>
+                      {cf.type === "select" ? (
+                        <div className="ep-select-wrap">
+                          <select
+                            className="ep-select"
+                            value={val}
+                            onChange={(e) => setCustomField(cf.name, e.target.value)}
+                          >
+                            <option value="">Select {cf.label}</option>
+                            {cf.options.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="ep-select-arrow">▾</span>
+                        </div>
+                      ) : cf.type === "date" ? (
+                        <div className="ep-input-wrap">
+                          <input
+                            type="date"
+                            className="ep-input"
+                            value={val}
+                            onChange={(e) => setCustomField(cf.name, e.target.value)}
+                          />
+                        </div>
+                      ) : cf.type === "number" ? (
+                        <div className="ep-input-wrap">
+                          <input
+                            type="number"
+                            className="ep-input"
+                            placeholder={`Enter ${cf.label.toLowerCase()}`}
+                            value={val}
+                            onChange={(e) => setCustomField(cf.name, e.target.value)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="ep-input-wrap">
+                          <input
+                            type="text"
+                            className="ep-input"
+                            placeholder={`Enter ${cf.label.toLowerCase()}`}
+                            value={val}
+                            onChange={(e) => setCustomField(cf.name, e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
             )}
 
             <div className="ep-divider" />

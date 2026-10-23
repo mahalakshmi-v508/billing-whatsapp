@@ -57,6 +57,7 @@ import {
   Sun,
   Moon,
   Lock,
+  SlidersHorizontal,
 } from "lucide-react";
 import HeaderQuickMenu from "../components/layout/HeaderQuickMenu";
 import AuditLogButton from "../components/audit/AuditLogButton";
@@ -565,6 +566,7 @@ export default function MainLayout() {
           <div className="flex-1 overflow-y-auto paysplitx-scrollbar space-y-1 pr-1">
             {[
               { id: "general", label: "General Settings" },
+              { id: "item", label: "Custom Fields", icon: <SlidersHorizontal size={15} /> },
               { id: "pos-controls", label: "POS & Counter Controls", icon: <Store size={15} /> },
               { id: "stock-safety", label: "Stock & Inventory Safety", icon: <Boxes size={15} /> },
               { id: "cashier-security", label: "Cashier & Staff Security", icon: <Lock size={15} /> },

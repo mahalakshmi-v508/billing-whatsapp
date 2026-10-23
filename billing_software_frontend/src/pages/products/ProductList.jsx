@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { Edit } from "lucide-react";
 import {
@@ -24,6 +25,7 @@ import {
   countLowStock,
   countByStockStatus,
 } from "../../utils/stockAlerts";
+import { getProductCustomFields } from "../../utils/productCustomFields";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 const money = (n) =>
@@ -74,6 +76,7 @@ const SHADOW = {
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
 export default function ProductList() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("product");
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
@@ -94,6 +97,25 @@ export default function ProductList() {
   const [showProductDrawer, setShowProductDrawer] = useState(false);
   const [productDrawerTab, setProductDrawerTab] = useState("all");
   const [selectedProductRows, setSelectedProductRows] = useState([]);
+  const [customFieldDefs, setCustomFieldDefs] = useState([]);
+
+  useEffect(() => {
+    const loadFields = () => {
+      getProductCustomFields().then((defs) => setCustomFieldDefs(defs));
+    };
+    loadFields();
+    window.addEventListener("storage", loadFields);
+    window.addEventListener("company-settings-updated", loadFields);
+    return () => {
+      window.removeEventListener("storage", loadFields);
+      window.removeEventListener("company-settings-updated", loadFields);
+    };
+  }, [selectedCompany, showAddModal, showFullEditModal]);
+
+  const tableCustomFields = useMemo(
+    () => customFieldDefs.filter((cf) => cf.show_in_table !== false),
+    [customFieldDefs]
+  );
 
   const [saleHistory, setSaleHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -1160,6 +1182,16 @@ export default function ProductList() {
                   </div>
 
                   <button
+                    type="button"
+                    onClick={() => navigate("/settings/item")}
+                    title="Configure custom fields and product settings"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition transform active:scale-95 cursor-pointer"
+                  >
+                    <SlidersHorizontal size={14} />
+                    <span>Custom Fields</span>
+                  </button>
+
+                  <button
                     onClick={() => setShowAddModal(true)}
                     className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white font-semibold text-xs rounded-xl shadow-glow-brand transition transform active:scale-95 cursor-pointer"
                   >
@@ -1197,6 +1229,9 @@ export default function ProductList() {
                         <th>Purchase Price</th>
                         <th>Sale Price</th>
                         <th>Stock Level</th>
+                        {tableCustomFields.map((cf) => (
+                          <th key={cf.name}>{cf.label}</th>
+                        ))}
                         <th>Status</th>
                         <th className="text-right">Actions</th>
                       </tr>
@@ -1204,14 +1239,14 @@ export default function ProductList() {
                     <tbody>
                       {loading ? (
                         <tr>
-                          <td colSpan={8} className="py-16 text-center text-slate-400 text-xs">
+                          <td colSpan={8 + tableCustomFields.length} className="py-16 text-center text-slate-400 text-xs">
                             <RefreshCw size={20} className="animate-spin text-indigo-600 mx-auto mb-2" />
                             Loading inventory items...
                           </td>
                         </tr>
                       ) : displayedProducts.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-16 text-center text-slate-400">
+                          <td colSpan={8 + tableCustomFields.length} className="py-16 text-center text-slate-400">
                             {productFilterTab === "expire" ? (
                               <>
                                 <Clock size={36} className="mx-auto text-emerald-400 mb-2" />
@@ -1337,6 +1372,20 @@ export default function ProductList() {
                                   </span>
                                 </div>
                               </td>
+
+                              {/* Custom Fields Data Cells */}
+                              {tableCustomFields.map((cf) => {
+                                const customVal = p.custom_fields?.[cf.name];
+                                return (
+                                  <td key={cf.name}>
+                                    <span className="text-xs text-slate-700">
+                                      {customVal !== undefined && customVal !== null && customVal !== ""
+                                        ? String(customVal)
+                                        : "—"}
+                                    </span>
+                                  </td>
+                                );
+                              })}
 
                               {/* Status */}
                               <td>
@@ -4957,6 +5006,36 @@ export default function ProductList() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Custom Attributes (from Settings) */}
+                      {customFieldDefs.length > 0 && (
+                        <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                          <div className="flex items-center gap-2 text-xs font-bold text-slate-900 font-display uppercase tracking-wider">
+                            <SlidersHorizontal size={14} className="text-indigo-600" />
+                            <span>Custom Attributes</span>
+                          </div>
+                          <div className="space-y-2 text-xs">
+                            {customFieldDefs.map((cf, idx) => {
+                              const customVal = selectedProduct.custom_fields?.[cf.name];
+                              return (
+                                <div
+                                  key={cf.name}
+                                  className={`flex justify-between py-1 ${
+                                    idx < customFieldDefs.length - 1 ? "border-b border-slate-200/60" : ""
+                                  }`}
+                                >
+                                  <span className="text-slate-500 font-medium">{cf.label}</span>
+                                  <span className="font-semibold text-slate-800">
+                                    {customVal !== undefined && customVal !== null && customVal !== ""
+                                      ? String(customVal)
+                                      : "-"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action Bar inside Specs */}

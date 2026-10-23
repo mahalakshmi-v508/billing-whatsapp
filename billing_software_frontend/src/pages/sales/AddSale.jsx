@@ -195,7 +195,7 @@ function createNewSaleTab(id, index, defaultInvNo = "") {
   return {
     id,
     label: `Sale #${index}`,
-    paymentType: "cash", // "cash" or "credit"
+    paymentType: "cash", // "cash", "credit", "gst", or "without_gst"
     priceType: "without_tax",
     customerName: "",
     customerPhone: "",
@@ -587,7 +587,11 @@ export default function AddSale() {
             id: 1,
             tabIndex: 1,
             label: `Edit Sale #${inv.invoice_no}`,
-            paymentType: inv.payment_type === "gst" || (inv.payment_type === "cash" && (inv.gst_no || (inv.customer && inv.customer.gst_no))) ? "gst" : (inv.payment_type || (String(inv.payment_method).toLowerCase() === "credit" ? "credit" : "cash")),
+            paymentType: inv.payment_type === "without_gst"
+              ? "without_gst"
+              : (inv.payment_type === "gst" || (inv.payment_type === "cash" && (inv.gst_no || (inv.customer && inv.customer.gst_no)) && inv.gst_type !== "without_gst")
+                  ? "gst"
+                  : (inv.payment_type || (String(inv.payment_method).toLowerCase() === "credit" ? "credit" : "cash"))),
             invoiceNumber: inv.invoice_no,
             formattedInvoiceNo: inv.invoice_no,
             invoiceDate: inv.created_at ? inv.created_at.split("T")[0].split(" ")[0] : new Date().toISOString().split("T")[0],
@@ -879,7 +883,7 @@ export default function AddSale() {
    * a product saved as "With GST" keep its entered price instead of having GST
    * added on top.
    */
-  const recalculateRow = (row) => {
+  const recalculateRow = (row, withoutGstOverride) => {
     const q = parseFloat(row.qty);
     const p = parseFloat(row.price);
 
@@ -892,6 +896,10 @@ export default function AddSale() {
       };
     }
 
+    const useWithoutGst = withoutGstOverride !== undefined
+      ? withoutGstOverride
+      : (activeSale?.paymentType === "without_gst");
+
     // A discount_percent and a discount_amount are mutually exclusive in this
     // form: the percentage wins, otherwise the flat amount is used.
     const hasDiscPct = parseFloat(row.discount_percent) > 0;
@@ -900,8 +908,8 @@ export default function AddSale() {
     const line = calculateLine({
       price: p,
       quantity: q,
-      gstRate: parseFloat(row.tax_percent) || 0,
-      priceType: row.price_type,
+      gstRate: useWithoutGst ? 0 : (parseFloat(row.tax_percent) || 0),
+      priceType: useWithoutGst ? "without_gst" : row.price_type,
       discount: hasDiscPct ? 0 : hasDiscAmt ? parseFloat(row.discount_amount) : 0,
       discountPercent: hasDiscPct ? parseFloat(row.discount_percent) : 0,
     });
@@ -909,13 +917,14 @@ export default function AddSale() {
     return {
       ...row,
       discount_amount: line.discount ? line.discount.toFixed(2) : "",
-      tax_amount: line.gst,
+      tax_amount: useWithoutGst ? 0 : line.gst,
       amount: line.total,
     };
   };
 
   const updateRowField = (rowId, field, val) => {
     updateActiveSale(sale => {
+      const isWithoutGst = sale.paymentType === "without_gst";
       const updatedRows = sale.rows.map(r => {
         if (r.id !== rowId) return r;
         let finalVal = val;
@@ -978,10 +987,114 @@ export default function AddSale() {
           }
         }
         const updated = { ...r, [field]: finalVal };
-        return recalculateRow(updated);
+        return recalculateRow(updated, isWithoutGst);
       });
       return { ...sale, rows: updatedRows };
     });
+  };
+
+  /* ── Switch Payment / Sale Mode (Cash Sale | Credit Sale | GST Sale | Without GST Sale) ── */
+  const switchPaymentMode = (targetMode) => {
+    if (!activeSale) return;
+    const prevMode = activeSale.paymentType;
+    if (prevMode === targetMode) return;
+
+    updateActiveSale(sale => {
+      let updatedRows = sale.rows;
+
+      if (targetMode === "without_gst") {
+        // Going into Without GST Sale: remove all tax calculations and set tax_percent = 0
+        updatedRows = sale.rows.map(r => {
+          const rowWithSaved = {
+            ...r,
+            _saved_tax_percent: r._saved_tax_percent !== undefined ? r._saved_tax_percent : r.tax_percent,
+            _saved_price_type: r._saved_price_type !== undefined ? r._saved_price_type : r.price_type,
+            tax_percent: 0,
+            tax_amount: 0,
+            price_type: "without_gst",
+          };
+          return recalculateRow(rowWithSaved, true);
+        });
+      } else if (prevMode === "without_gst") {
+        // Leaving Without GST Sale back to cash / credit / gst: restore tax from saved or products list
+        updatedRows = sale.rows.map(r => {
+          let origTax = r._saved_tax_percent;
+          let origType = r._saved_price_type;
+
+          if (origTax === undefined || origTax === null) {
+            const prod = products.find(p => p.id === r.product_id);
+            if (prod) {
+              const pricing = resolveProductPricing(prod, { use: "sale" });
+              origTax = pricing.gstRate;
+              origType = pricing.priceType;
+            }
+          }
+
+          const restoredRow = {
+            ...r,
+            tax_percent: origTax !== undefined ? origTax : 0,
+            price_type: origType || "without_gst",
+          };
+          return recalculateRow(restoredRow, false);
+        });
+      }
+
+      if (targetMode === "credit") {
+        let cDays = 0;
+        let retainCustomer = false;
+        if (sale.customerId) {
+          const currentCust = customerSuggestions.find(c => c.id === sale.customerId);
+          if (currentCust && Number(currentCust.credit_enabled) === 1) {
+            cDays = Number(currentCust.credit_days) || 0;
+            retainCustomer = true;
+          }
+        }
+        const newDueDate = calculateDueDate(sale.invoiceDate, cDays);
+        return {
+          ...sale,
+          paymentType: "credit",
+          creditDays: cDays,
+          dueDate: newDueDate,
+          gstNo: "",
+          rows: updatedRows,
+          ...(sale.customerId && !retainCustomer ? {
+            customerId: null,
+            customerName: "",
+            ...(isEditMode ? {} : { customerPhone: "" }),
+            billingAddress: "",
+            shippingAddress: "",
+            customerPendingBalance: 0,
+            customerCreditLimit: 0,
+          } : {})
+        };
+      }
+
+      if (targetMode === "gst") {
+        let custGst = sale.gstNo || "";
+        if (!custGst && sale.customerId) {
+          const found = customerSuggestions.find(c => c.id === sale.customerId);
+          if (found && (found.gst_no || found.gstin)) {
+            custGst = (found.gst_no || found.gstin || "").trim().toUpperCase();
+          }
+        }
+        return {
+          ...sale,
+          paymentType: "gst",
+          gstNo: custGst,
+          rows: updatedRows,
+        };
+      }
+
+      // "cash" or "without_gst"
+      return {
+        ...sale,
+        paymentType: targetMode,
+        gstNo: "",
+        rows: updatedRows,
+      };
+    });
+
+    loadInitialCustomers(targetMode === "credit");
   };
 
   /* ── Product Selection: Automatically sets Quantity = 1 (if was empty) & appends next row ── */
@@ -1024,6 +1137,7 @@ export default function AddSale() {
       }
     }
     updateActiveSale(sale => {
+      const isWithoutGst = sale.paymentType === "without_gst";
       const updatedRows = sale.rows.map(r => {
         if (r.id !== rowId) return r;
         const currentQty = (r.qty !== "" && r.qty !== null && parseFloat(r.qty) > 0) ? r.qty : 1;
@@ -1041,12 +1155,12 @@ export default function AddSale() {
           price: pricing.price,
           qty: currentQty,
           unit: finalUnit || "NONE",
-          tax_percent: pricing.gstRate,
-          price_type: pricing.priceType,
+          tax_percent: isWithoutGst ? 0 : pricing.gstRate,
+          price_type: isWithoutGst ? "without_gst" : pricing.priceType,
           stock: prod.stock,
           product_code: prod.product_code || "",
         };
-        return recalculateRow(updated);
+        return recalculateRow(updated, isWithoutGst);
       });
 
       // Automatically append next row if the current row was the last row or if the bottom row is filled
@@ -1171,6 +1285,7 @@ export default function AddSale() {
   const totals = useMemo(() => {
     if (!activeSale) return { totalQty: 0, totalFreeQty: 0, totalDiscountAmount: 0, totalTaxAmount: 0, grossSubtotal: 0, taxableSubtotal: 0, subtotalAmount: 0, rawGrandTotal: 0, roundedGrandTotal: 0, roundDifference: 0 };
 
+    const isWithoutGst = activeSale.paymentType === "without_gst";
     let totalQty = 0;
     let totalFreeQty = 0;
     let grossSubtotal = 0;
@@ -1189,7 +1304,7 @@ export default function AddSale() {
       }
       const da = parseFloat(r.discount_amount);
       if (!isNaN(da) && da > 0) totalDiscountAmount += da;
-      const ta = parseFloat(r.tax_amount);
+      const ta = isWithoutGst ? 0 : parseFloat(r.tax_amount);
       if (!isNaN(ta) && ta > 0) totalTaxAmount += ta;
       const a = parseFloat(r.amount);
       if (!isNaN(a) && a > 0) roundedGrandTotal += a;
@@ -1202,7 +1317,7 @@ export default function AddSale() {
       totalQty,
       totalFreeQty,
       totalDiscountAmount,
-      totalTaxAmount,
+      totalTaxAmount: isWithoutGst ? 0 : totalTaxAmount,
       grossSubtotal,
       taxableSubtotal,
       subtotalAmount: taxableSubtotal,
@@ -1332,6 +1447,7 @@ export default function AddSale() {
     setSaving(true);
     setToast(null);
 
+    const isWithoutGst = activeSale.paymentType === "without_gst";
     const payloadProducts = validItems.map(r => ({
       product_id: r.product_id || 0,
       product_name: r.item_name,
@@ -1341,10 +1457,10 @@ export default function AddSale() {
       price: parseFloat(r.price) || 0,
       // Persisted so reopening the invoice bills it the same way. The backend
       // stores the products array as JSON, so this key round-trips as-is.
-      price_type: normalisePriceType(r.price_type),
+      price_type: isWithoutGst ? "without_gst" : normalisePriceType(r.price_type),
       discount: parseFloat(r.discount_amount) || 0,
-      gst: parseFloat(r.tax_percent) || 0,
-      tax_amount: parseFloat(r.tax_amount) || 0,
+      gst: isWithoutGst ? 0 : (parseFloat(r.tax_percent) || 0),
+      tax_amount: isWithoutGst ? 0 : (parseFloat(r.tax_amount) || 0),
       amount: parseFloat(r.amount) || 0,
     }));
 
@@ -1361,7 +1477,7 @@ export default function AddSale() {
       cashier_id: user.id || 0,
       products: payloadProducts,
       sub_total: totals.subtotalAmount,
-      gst_total: totals.totalTaxAmount,
+      gst_total: isWithoutGst ? 0 : totals.totalTaxAmount,
       total_amount: totals.roundedGrandTotal,
       paid_amount: activeSale.paymentType === "credit"
         ? (activeSale.receivedEnabled !== false
@@ -1381,7 +1497,7 @@ export default function AddSale() {
       payment_type: activeSale.paymentType,
       source: "sale",
       due_date: activeSale.paymentType === "credit" ? (activeSale.dueDate || activeSale.invoiceDate) : null,
-      gst_type: totals.totalTaxAmount > 0 ? "with_gst" : "without_gst",
+      gst_type: isWithoutGst ? "without_gst" : (totals.totalTaxAmount > 0 ? "with_gst" : "without_gst"),
       gst_no: activeSale.paymentType === "gst" ? (activeSale.gstNo?.trim() || "") : "",
       state_of_supply: activeSale.stateOfSupply,
       terms_conditions: activeSale.termsText,
@@ -1548,6 +1664,7 @@ export default function AddSale() {
 
         const currentItem = queue[currentIndex];
         updateActiveSale(sale => {
+          const isWithoutGst = sale.paymentType === "without_gst";
           const updatedRows = sale.rows.map(r => {
             if (r.id === currentItem.id || (r.item_name && r.item_name.trim().toLowerCase() === currentItem.item_name.trim().toLowerCase())) {
               const pricing = resolveProductPricing(newProduct, { use: "sale" });
@@ -1557,12 +1674,12 @@ export default function AddSale() {
                 item_name: newProduct.product_name,
                 price: pricing.price,
                 unit: normalizeUnit(newProduct.unit) || r.unit,
-                tax_percent: pricing.gstRate,
-                price_type: pricing.priceType,
+                tax_percent: isWithoutGst ? 0 : pricing.gstRate,
+                price_type: isWithoutGst ? "without_gst" : pricing.priceType,
                 stock: newProduct.stock,
                 product_code: newProduct.product_code || ""
               };
-              return recalculateRow(updated);
+              return recalculateRow(updated, isWithoutGst);
             }
             return r;
           });
@@ -1625,6 +1742,8 @@ export default function AddSale() {
   if (!activeSale) return null;
   const isCredit = activeSale.paymentType === "credit";
   const isGst = activeSale.paymentType === "gst";
+  const isWithoutGst = activeSale.paymentType === "without_gst";
+  const showTaxColumn = !isWithoutGst && visibleColumns.tax !== false;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 pb-24 antialiased">
@@ -1730,14 +1849,11 @@ export default function AddSale() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Sale Type Mode Switcher: Cash Sale | Credit Sale | GST Sale */}
+            {/* Sale Type Mode Switcher: Cash Sale | Credit Sale | GST Sale | Without GST Sale */}
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
               <button
                 type="button"
-                onClick={() => {
-                  updateActiveSale({ paymentType: "cash", gstNo: "" });
-                  loadInitialCustomers(false);
-                }}
+                onClick={() => switchPaymentMode("cash")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   activeSale.paymentType === "cash" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
                 }`}
@@ -1747,34 +1863,7 @@ export default function AddSale() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  let cDays = 0;
-                  let retainCustomer = false;
-                  if (activeSale.customerId) {
-                    const currentCust = customerSuggestions.find(c => c.id === activeSale.customerId);
-                    if (currentCust && Number(currentCust.credit_enabled) === 1) {
-                      cDays = Number(currentCust.credit_days) || 0;
-                      retainCustomer = true;
-                    }
-                  }
-                  const newDueDate = calculateDueDate(activeSale.invoiceDate, cDays);
-                  updateActiveSale({
-                    paymentType: "credit",
-                    creditDays: cDays,
-                    dueDate: newDueDate,
-                    gstNo: "",
-                    ...(activeSale.customerId && !retainCustomer ? {
-                      customerId: null,
-                      customerName: "",
-                      ...(isEditMode ? {} : { customerPhone: "" }),
-                      billingAddress: "",
-                      shippingAddress: "",
-                      customerPendingBalance: 0,
-                      customerCreditLimit: 0,
-                    } : {})
-                  });
-                  loadInitialCustomers(true);
-                }}
+                onClick={() => switchPaymentMode("credit")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   isCredit ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
                 }`}
@@ -1784,23 +1873,23 @@ export default function AddSale() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  let custGst = activeSale.gstNo || "";
-                  if (!custGst && activeSale.customerId) {
-                    const found = customerSuggestions.find(c => c.id === activeSale.customerId);
-                    if (found && (found.gst_no || found.gstin)) {
-                      custGst = (found.gst_no || found.gstin || "").trim().toUpperCase();
-                    }
-                  }
-                  updateActiveSale({ paymentType: "gst", gstNo: custGst });
-                  loadInitialCustomers(false);
-                }}
+                onClick={() => switchPaymentMode("gst")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                   isGst ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <ReceiptText size={13} />
                 <span>GST Sale</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => switchPaymentMode("without_gst")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  isWithoutGst ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <FileText size={13} />
+                <span>Without GST Sale</span>
               </button>
             </div>
 
@@ -1812,7 +1901,7 @@ export default function AddSale() {
                   `Invoice: ${activeSale.formattedInvoiceNo || activeSale.invoiceNumber}\n` +
                   `Customer: ${activeSale.customerName || "Cash Customer"}\n` +
                   `Total: ₹${totals.roundedGrandTotal.toFixed(2)}\n` +
-                  `Payment Mode: ${activeSale.paymentType.toUpperCase()}`;
+                  `Payment Mode: ${activeSale.paymentType === "without_gst" ? "WITHOUT GST" : activeSale.paymentType.toUpperCase()}`;
                 navigator.clipboard?.writeText(summary);
                 showToast("Invoice summary copied to clipboard!", true);
               }}
@@ -2312,7 +2401,7 @@ export default function AddSale() {
                       </div>
                     </th>
                   )}
-                  {visibleColumns.tax !== false && (
+                  {showTaxColumn && (
                     <th className="py-3 px-0 text-center border-r border-slate-200/60 w-36">
                       <div className="border-b border-slate-200/60 pb-1">Tax (GST)</div>
                       <div className="grid grid-cols-2 pt-1 font-semibold text-[10px] text-slate-400">
@@ -2519,7 +2608,7 @@ export default function AddSale() {
                     )}
 
                     {/* Tax */}
-                    {visibleColumns.tax !== false && (
+                    {showTaxColumn && (
                       <td className="py-2 px-0 border-r border-slate-200/60">
                         <div className="grid grid-cols-2 divide-x divide-slate-200 items-center">
                           <select
@@ -2586,7 +2675,7 @@ export default function AddSale() {
                       ₹ {totals.totalDiscountAmount.toFixed(2)}
                     </td>
                   )}
-                  {visibleColumns.tax !== false && (
+                  {showTaxColumn && (
                     <td className="py-3 px-2 text-center border-r border-slate-200/60 text-emerald-700">
                       ₹ {totals.totalTaxAmount.toFixed(2)}
                     </td>
@@ -2856,12 +2945,14 @@ export default function AddSale() {
               </span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span>Total Tax (GST)</span>
-              <span className={`font-bold ${totals.totalTaxAmount > 0 ? "text-emerald-700" : "text-slate-700"}`}>
-                {totals.totalTaxAmount > 0 ? `+ ₹ ${totals.totalTaxAmount.toFixed(2)}` : "₹ 0.00"}
-              </span>
-            </div>
+            {!isWithoutGst && (
+              <div className="flex justify-between items-center">
+                <span>Total Tax (GST)</span>
+                <span className={`font-bold ${totals.totalTaxAmount > 0 ? "text-emerald-700" : "text-slate-700"}`}>
+                  {totals.totalTaxAmount > 0 ? `+ ₹ ${totals.totalTaxAmount.toFixed(2)}` : "₹ 0.00"}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Grand Total Hero Box */}
@@ -2874,7 +2965,7 @@ export default function AddSale() {
             </div>
             <div className="text-right">
               <span className="text-[10px] bg-white/20 text-white px-2.5 py-1 rounded-full font-bold uppercase">
-                {isCredit ? "Credit Mode" : isGst ? "GST Sale" : "Cash Paid"}
+                {isCredit ? "Credit Mode" : isGst ? "GST Sale" : isWithoutGst ? "Without GST Sale" : "Cash Paid"}
               </span>
             </div>
           </div>
