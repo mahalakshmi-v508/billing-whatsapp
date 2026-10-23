@@ -1,4 +1,4 @@
-import { Children, useEffect, useState, useMemo } from "react";
+import { Children, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import * as XLSX from "xlsx";
@@ -82,6 +82,48 @@ export default function CustomerList() {
 
   // 3-dot menu state
   const [activeMenuId, setActiveMenuId] = useState(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const activeMenuBtnRef = useRef(null);
+
+  const ROW_MENU_HEIGHT = 112;
+
+  const updateMenuPos = useCallback(() => {
+    const btn = activeMenuBtnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const openUp = rect.bottom + 4 + ROW_MENU_HEIGHT + 8 > window.innerHeight;
+    setMenuPos({
+      top: openUp
+        ? Math.max(8, rect.top - ROW_MENU_HEIGHT - 4)
+        : rect.bottom + 4,
+      right: Math.max(8, window.innerWidth - rect.right),
+    });
+  }, []);
+
+  const toggleRowMenu = (e, id) => {
+    if (activeMenuId === id) {
+      setActiveMenuId(null);
+      return;
+    }
+    activeMenuBtnRef.current = e.currentTarget;
+    updateMenuPos();
+    setActiveMenuId(id);
+  };
+
+  useEffect(() => {
+    if (activeMenuId === null) return undefined;
+    const handleKey = (e) => {
+      if (e.key === "Escape") setActiveMenuId(null);
+    };
+    window.addEventListener("scroll", updateMenuPos, true);
+    window.addEventListener("resize", updateMenuPos);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("scroll", updateMenuPos, true);
+      window.removeEventListener("resize", updateMenuPos);
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [activeMenuId, updateMenuPos]);
 
   // View customer modal state
   const [showViewModal, setShowViewModal] = useState(false);
@@ -740,7 +782,7 @@ export default function CustomerList() {
                           {/* 3-dot menu */}
                           <div className="relative">
                             <button
-                              onClick={() => setActiveMenuId(activeMenuId === c.id ? null : c.id)}
+                              onClick={(e) => toggleRowMenu(e, c.id)}
                               className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
                             >
                               <MoreVertical size={15} />
@@ -752,7 +794,10 @@ export default function CustomerList() {
                                   className="fixed inset-0 z-40"
                                   onClick={() => setActiveMenuId(null)}
                                 />
-                                <div className="absolute right-0 top-9 w-44 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden py-1 z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
+                                <div
+                                  className="fixed w-44 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden py-1 z-50 animate-in fade-in zoom-in-95 duration-100 text-left"
+                                  style={{ top: menuPos.top, right: menuPos.right }}
+                                >
                                   <button
                                     onClick={() => openViewCustomer(c)}
                                     className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
