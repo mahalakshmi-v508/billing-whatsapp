@@ -353,7 +353,6 @@ export default function Item() {
       title="Product Custom Fields"
       subtitle="MANAGE DYNAMIC ATTRIBUTES FOR PRODUCTS"
       icon={<SlidersHorizontal size={22} strokeWidth={2.2} />}
-      onClose={() => setSettingsTab && setSettingsTab("general")}
       contentClassName="space-y-6 max-w-5xl"
     >
       {/* Top Banner & Action */}
