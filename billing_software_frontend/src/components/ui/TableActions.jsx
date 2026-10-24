@@ -243,8 +243,8 @@ export default function TableActions({
                     }}
                     className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold transition text-left cursor-pointer ${
                       isDanger
-                        ? "text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                        : "text-slate-700 hover:bg-indigo-50 hover:text-indigo-600"
+                        ? "text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-500/15 dark:hover:text-rose-300"
+                        : "text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-slate-700 dark:hover:text-indigo-400"
                     } ${item.className || ""}`}
                   >
                     {Icon && (

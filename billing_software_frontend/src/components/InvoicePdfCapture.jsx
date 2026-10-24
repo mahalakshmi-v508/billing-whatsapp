@@ -87,6 +87,7 @@ export default function InvoicePdfCapture({ doc, isPOS = false, onCapture }) {
     >
       <div
         id={areaId}
+        className="invoice-sheet"
         style={{
           background: "#ffffff",
           width: "740px",
