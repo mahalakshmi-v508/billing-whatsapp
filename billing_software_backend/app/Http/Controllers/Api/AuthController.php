@@ -142,18 +142,27 @@ class AuthController extends Controller
         if ($role == 'cashier') {
             $totalCashiers = User::where('admin_id', $admin_id)->where('role', 'cashier')->count();
             if ($totalCashiers >= 3) {
+                if (!$company_id && $admin_id) {
+                    $company_id = intval(Company::where('admin_id', $admin_id)->value('id') ?? 0);
+                }
+
                 CashierRequest::create([
                     'admin_id' => $admin_id,
+                    'company_id' => $company_id ?: null,
                     'requested_by' => $requested_by ?: null,
                     'name' => $name,
                     'email' => $email,
-                    'password' => $hashed
+                    'password' => $hashed,
+                    'cashier_name' => $name,
+                    'cashier_email' => $email,
+                    'cashier_password' => $hashed,
+                    'status' => 'pending'
                 ]);
 
                 return response()->json([
-                    "status" => false,
+                    "status" => true,
                     "request_sent" => true,
-                    "message" => "Cashier limit reached. Request sent to Super Admin."
+                    "message" => "Cashier limit reached. Request sent to Super Admin for approval."
                 ]);
             }
         }

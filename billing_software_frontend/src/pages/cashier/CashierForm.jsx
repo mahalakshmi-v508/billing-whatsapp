@@ -69,6 +69,7 @@ export default function CashierForm({ isOpen = true, onClose, onSuccess }) {
     setLoading(true);
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const companyId = localStorage.getItem("selected_company_id") || user?.company_id;
       const res = await api.post("/auth/register", {
         name: form.name.trim(),
         email: form.email.trim(),
@@ -76,16 +77,14 @@ export default function CashierForm({ isOpen = true, onClose, onSuccess }) {
         role: "cashier",
         admin_id: user?.id,
         requested_by: user?.id,
+        company_id: companyId ? Number(companyId) : undefined,
       });
 
       const msg = res.data.message || "";
-      const isOk =
-        res.data.status ||
-        msg.toLowerCase().includes("limit") ||
-        msg.toLowerCase().includes("request");
+      const isSuccess = Boolean(res.data.status || res.data.request_sent);
 
-      if (res.data.status) {
-        showToast(res.data.message || "Cashier account created successfully!", true);
+      if (isSuccess) {
+        showToast(msg || "Cashier account created successfully!", true);
         setForm({ name: "", email: "", password: "" });
         setShowPass(false);
 
@@ -95,7 +94,7 @@ export default function CashierForm({ isOpen = true, onClose, onSuccess }) {
           } else {
             navigate("/cashier");
           }
-        }, 1000);
+        }, 1200);
       } else {
         showToast(msg || "Failed to create cashier account", false);
       }
