@@ -297,7 +297,7 @@ export default function CashierSecuritySettings() {
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-6 right-6 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3 duration-200">
-          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[11px]">
+          <div className="w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-[11px]">
             ✓
           </div>
           <span>{toast}</span>
@@ -309,7 +309,7 @@ export default function CashierSecuritySettings() {
         <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
               <ShieldCheck size={24} />
             </div>
             <div>
@@ -319,7 +319,7 @@ export default function CashierSecuritySettings() {
                     ? "3. கேஷியர் & செக்யூரிட்டி கட்டுப்பாடுகள்"
                     : "3. Cashier & Security Staff Restrictions"}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold flex items-center gap-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold flex items-center gap-1">
                   <CheckCircle2 size={11} />{" "}
                   {isTamil ? "செயலில் உள்ளது" : "Security Active"}
                 </span>
@@ -380,7 +380,7 @@ export default function CashierSecuritySettings() {
           <div
             className={`p-3.5 rounded-xl border flex items-center gap-3 ${
               settings.lock_item_price_edit
-                ? "bg-indigo-50/60 border-indigo-200 text-indigo-900"
+                ? "bg-indigo-50/60 border-indigo-200 text-indigo-900 dark:bg-indigo-500/15 dark:border-indigo-500/30 dark:text-indigo-200"
                 : "bg-slate-50 border-slate-200 text-slate-600"
             }`}
           >
@@ -425,7 +425,7 @@ export default function CashierSecuritySettings() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
               <Percent size={20} />
             </div>
             <div>
@@ -435,7 +435,7 @@ export default function CashierSecuritySettings() {
                     ? "2. அதிகபட்ச தள்ளுபடி வரம்பு (Maximum Discount Limit)"
                     : "2. Maximum Discount Limit"}
                 </h3>
-                <Badge tone={settings.max_discount_enabled ? "amber" : "gray"}>
+                <Badge tone={settings.max_discount_enabled ? "blue" : "gray"}>
                   {settings.max_discount_enabled
                     ? `${settings.max_discount_limit || 10}% Max`
                     : isTamil
@@ -485,7 +485,7 @@ export default function CashierSecuritySettings() {
                     max="100"
                     value={settings.max_discount_limit || 10}
                     onChange={(e) => handleDiscountLimitChange(e.target.value)}
-                    className="w-24 px-3 py-2 pr-8 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-amber-500 focus:bg-white transition"
+                    className="w-24 px-3 py-2 pr-8 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
                     %
@@ -506,7 +506,7 @@ export default function CashierSecuritySettings() {
                   onClick={() => setSetting("max_discount_limit")(preset)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                     (settings.max_discount_limit || 10) === preset
-                      ? "bg-amber-500 text-white shadow-sm"
+                      ? "bg-indigo-600 text-white shadow-sm"
                       : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                   }`}
                 >
@@ -522,7 +522,7 @@ export default function CashierSecuritySettings() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
               <TrendingDown size={20} />
             </div>
             <div>
@@ -532,7 +532,7 @@ export default function CashierSecuritySettings() {
                     ? "3. அடக்க விலைக்கு கீழ் விற்க தடை (Restrict Selling Below Cost)"
                     : "3. Restrict Selling Below Cost"}
                 </h3>
-                <Badge tone={settings.restrict_selling_below_cost ? "red" : "gray"}>
+                <Badge tone={settings.restrict_selling_below_cost ? "blue" : "gray"}>
                   {settings.restrict_selling_below_cost
                     ? isTamil
                       ? "நஷ்ட தடுப்பு ஆன்"
@@ -576,7 +576,7 @@ export default function CashierSecuritySettings() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
               <KeyRound size={20} />
             </div>
             <div>
@@ -610,7 +610,7 @@ export default function CashierSecuritySettings() {
             <button
               type="button"
               onClick={handlePinActionClick}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm shadow-purple-600/20"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm shadow-indigo-600/20"
             >
               {pinActionLabel}
             </button>
@@ -621,11 +621,11 @@ export default function CashierSecuritySettings() {
             </p>
           </div>
 
-          <div className="bg-purple-50/60 border border-purple-200/80 rounded-xl p-3.5 text-xs text-purple-900 space-y-1">
+          <div className="bg-indigo-50/60 border border-indigo-200/80 rounded-xl p-3.5 text-xs text-indigo-900 dark:bg-indigo-500/15 dark:border-indigo-500/30 dark:text-indigo-200 space-y-1">
             <span className="font-bold block">
               {isTamil ? "பாதுகாக்கப்படும் செயல்கள்:" : "Protected Operations:"}
             </span>
-            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-purple-800">
+            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-indigo-800 dark:text-indigo-300">
               <li>{isTamil ? "விற்பனை பில் நீக்கம் (Delete Sale Invoice)" : "Permanent Invoice Deletion"}</li>
               <li>{isTamil ? "பில் ரத்து மற்றும் ஸ்டாக் ரீசெட்" : "Invoice Cancellation & Stock Restoration"}</li>
               <li>{isTamil ? "கல்லா தொகை திருத்தம்" : "Cashier Cash Reconciliation Override"}</li>
@@ -639,18 +639,18 @@ export default function CashierSecuritySettings() {
                 onClick={resetPinOtp}
               >
                 <div
-                  className="w-full max-w-lg bg-white border border-amber-200/80 rounded-2xl p-5 shadow-2xl"
+                  className="w-full max-w-lg bg-white border border-indigo-200/80 rounded-2xl p-5 shadow-2xl"
                   onClick={(e) => e.stopPropagation()}
                 >
                 <div className="flex items-start gap-3.5 mb-4">
-                  <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 flex items-center justify-center flex-shrink-0">
                     <Lock size={18} />
                   </div>
                   <div>
-                    <h5 className="text-xs font-bold text-amber-900">
+                    <h5 className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
                       {isTamil ? "அட்மின் OTP அங்கீகாரம் தேவை" : "Admin OTP Authorization Required"}
                     </h5>
-                    <p className="text-[11.5px] text-amber-700 mt-0.5">
+                    <p className="text-[11.5px] text-indigo-700 dark:text-indigo-300 mt-0.5">
                       {isTamil
                         ? "PIN-ஐ சேமிக்க/மாற்ற, நிர்வாகி மின்னஞ்சலுக்கு அனுப்பப்படும் OTP-ஐ சரிபார்க்கவும். OTP சரிபார்க்கப்பட்ட பின்னரே PIN மாறும்."
                         : "To save or change the PIN, verify the OTP sent to the admin email. The PIN is only updated after the OTP is verified."}
@@ -663,7 +663,7 @@ export default function CashierSecuritySettings() {
                     type="button"
                     onClick={handleSendPinOtp}
                     disabled={isSendingOtp}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isSendingOtp ? (
                       <RefreshCw size={14} className="animate-spin" />
@@ -679,7 +679,7 @@ export default function CashierSecuritySettings() {
                       : "Send Verification OTP to Admin Email"}
                   </button>
                 ) : (
-                  <div className="space-y-3 bg-white p-4 rounded-xl border border-amber-200">
+                  <div className="space-y-3 bg-white p-4 rounded-xl border border-indigo-200">
                     <p className="text-xs text-slate-600">
                       {isTamil ? "சரிபார்ப்புக் குறியீடு இதற்கு அனுப்பப்பட்டது:" : "Verification code sent to:"}{" "}
                       <strong className="text-slate-900">{adminEmail}</strong>
@@ -691,13 +691,13 @@ export default function CashierSecuritySettings() {
                         placeholder="Enter 6-digit OTP"
                         value={enteredOtp}
                         onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ""))}
-                        className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold tracking-widest text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white"
+                        className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold tracking-widest text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
                       />
                       <button
                         type="button"
                         onClick={handleVerifyPinOtp}
                         disabled={isVerifyingOtp || !enteredOtp.trim()}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                       >
                         {isVerifyingOtp
                           ? isTamil
@@ -741,7 +741,7 @@ export default function CashierSecuritySettings() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
                           <KeyRound size={20} />
                         </div>
                         <div>
@@ -770,7 +770,7 @@ export default function CashierSecuritySettings() {
                           }}
                           placeholder="••••"
                           autoFocus
-                          className="w-full tracking-[0.4em] font-mono text-center px-3 py-3 text-base font-black text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-purple-500 focus:bg-white transition"
+                          className="w-full tracking-[0.4em] font-mono text-center px-3 py-3 text-base font-black text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition"
                         />
                         <button
                           type="button"
@@ -794,7 +794,7 @@ export default function CashierSecuritySettings() {
                           type="button"
                           onClick={handleSaveNewPin}
                           disabled={newPin.length !== 4}
-                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
                         >
                           {isTamil ? "PIN சேமி" : "Save PIN"}
                         </button>
@@ -808,7 +808,7 @@ export default function CashierSecuritySettings() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 border border-teal-200 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
               <Clock size={20} />
             </div>
             <div>
@@ -820,7 +820,7 @@ export default function CashierSecuritySettings() {
                 </h3>
                 <Badge
                   tone={
-                    (settings.auto_screen_lock_minutes || 0) > 0 ? "teal" : "gray"
+                    (settings.auto_screen_lock_minutes || 0) > 0 ? "blue" : "gray"
                   }
                 >
                   {(settings.auto_screen_lock_minutes || 0) > 0
@@ -854,7 +854,7 @@ export default function CashierSecuritySettings() {
                 onClick={() => handleAutoLockRequest(item.mins)}
                 className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between cursor-pointer ${
                   isSelected
-                    ? "border-teal-600 bg-teal-50/60 shadow-sm dark:bg-teal-500/15"
+                    ? "border-indigo-600 bg-indigo-50/60 shadow-sm dark:bg-indigo-500/15"
                     : "border-slate-200 hover:border-slate-300 bg-white"
                 }`}
               >
@@ -873,7 +873,7 @@ export default function CashierSecuritySettings() {
                   </span>
                 </div>
                 {isSelected && (
-                  <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center shrink-0">
+                  <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
                     <Check size={12} strokeWidth={3} />
                   </div>
                 )}
@@ -899,7 +899,7 @@ export default function CashierSecuritySettings() {
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200"
           >
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
               <Lock size={22} />
             </div>
             <h3 className="text-base font-bold text-slate-900 mb-1">
@@ -977,7 +977,7 @@ export default function CashierSecuritySettings() {
                     if (e.key === "Enter") handleVerifyLockPin();
                   }}
                   autoFocus
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold tracking-[0.3em] text-center text-slate-900 focus:outline-none focus:border-purple-500 focus:bg-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold tracking-[0.3em] text-center text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
                 />
                 <button
                   type="button"
@@ -992,7 +992,7 @@ export default function CashierSecuritySettings() {
                 type="button"
                 onClick={handleVerifyLockPin}
                 disabled={!lockPin.trim()}
-                className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
               >
                 {isTamil ? "சரிபார்" : "Verify"}
               </button>
