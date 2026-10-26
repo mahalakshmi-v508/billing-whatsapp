@@ -31,7 +31,7 @@ import {
   History,
   MessageCircle,
   ChevronDown,
-  ChevronLeft,n
+  ChevronLeft,
   ChevronRight,
   PanelLeft,
   PanelLeftClose,
