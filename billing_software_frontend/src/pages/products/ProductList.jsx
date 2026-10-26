@@ -1178,7 +1178,7 @@ export default function ProductList() {
                               : "bg-indigo-50 text-indigo-700"
                             : tab.id === "expire" && tab.count > 0
                             ? "bg-rose-100 text-rose-700 font-bold"
-                            : "bg-slate-200/70 text-slate-600"
+                            : "bg-slate-200 text-slate-700"
                         }`}
                       >
                         {tab.count}
@@ -2077,7 +2077,7 @@ export default function ProductList() {
                                 >
                                   <span>{f.label}</span>
                                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                    categoryItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200/70 text-slate-500"
+                                    categoryItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200 text-slate-700"
                                   }`}>
                                     {f.count}
                                   </span>
@@ -2899,7 +2899,7 @@ export default function ProductList() {
                                 >
                                   <span>{f.label}</span>
                                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                    brandItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200/70 text-slate-500"
+                                    brandItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200 text-slate-700"
                                   }`}>
                                     {f.count}
                                   </span>
@@ -3693,7 +3693,7 @@ export default function ProductList() {
                                 >
                                   <span>{f.label}</span>
                                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                    unitItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200/70 text-slate-500"
+                                    unitItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200 text-slate-700"
                                   }`}>
                                     {f.count}
                                   </span>

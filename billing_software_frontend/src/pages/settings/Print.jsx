@@ -789,7 +789,7 @@ function ThermalSettings({ state, set, isOpen, toggle }) {
                 onClick={() => set("posLayout")(posOpt.id)}
                 className={`border rounded-xl p-2.5 text-left transition cursor-pointer flex items-center justify-between gap-2 ${
                   isSelected
-                    ? "bg-blue-50/90 border-blue-600 shadow-xs ring-1 ring-blue-500/30"
+                    ? "bg-blue-50/90 border-blue-600 shadow-xs ring-1 ring-blue-500/30 dark:bg-blue-500/15"
                     : "hover:bg-slate-50 border-slate-200 bg-white"
                 }`}
               >
@@ -1049,7 +1049,7 @@ export default function Print() {
           <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/60 flex-shrink-0 space-y-3">
             {/* Primary Printer Mode Tabs */}
             <div className="flex items-center justify-between gap-2">
-              <div className="flex gap-1.5 bg-slate-200/70 rounded-xl p-1 flex-1 shadow-inner">
+              <div className="flex gap-1.5 bg-slate-200 rounded-xl p-1 flex-1 shadow-inner">
                 {[
                   { id: "regular", label: "REGULAR PRINTER", icon: FileText },
                   { id: "thermal", label: "THERMAL POS", icon: Receipt },
@@ -1063,11 +1063,11 @@ export default function Print() {
                       onClick={() => set("printer")(t.id)}
                       className={`flex-1 py-2 px-3 text-xs font-extrabold rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
                         isSelected
-                          ? "bg-white text-blue-700 shadow-sm shadow-slate-300/50"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                          ? "bg-white text-blue-700 shadow-sm shadow-slate-300/50 dark:text-blue-300"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-white/50 dark:hover:bg-white/10"
                       }`}
                     >
-                      <Icon size={14} className={isSelected ? "text-blue-600" : "text-slate-400"} />
+                      <Icon size={14} className={isSelected ? "text-blue-600 dark:text-blue-400" : "text-slate-400"} />
                       <span>{t.label}</span>
                     </button>
                   );
@@ -1205,7 +1205,7 @@ export default function Print() {
                               }}
                               className={`border rounded-xl p-2.5 text-center transition cursor-pointer flex flex-col items-center justify-between ${
                                 isSelected
-                                  ? "bg-blue-50/80 border-blue-600 shadow-sm ring-1 ring-blue-500/30"
+                                  ? "bg-blue-50/80 border-blue-600 shadow-sm ring-1 ring-blue-500/30 dark:bg-blue-500/15"
                                   : "hover:bg-slate-50 border-slate-200/90 bg-white"
                               }`}
                             >
@@ -1297,7 +1297,7 @@ export default function Print() {
                               onClick={() => set("posLayout")(posOpt.id)}
                               className={`border rounded-xl p-3 text-left transition cursor-pointer flex flex-col justify-between relative ${
                                 isSelected
-                                  ? "bg-blue-50/90 border-blue-600 shadow-xs ring-2 ring-blue-500/30"
+                                  ? "bg-blue-50/90 border-blue-600 shadow-xs ring-2 ring-blue-500/30 dark:bg-blue-500/15"
                                   : "hover:bg-slate-50 border-slate-200/90 bg-white"
                               }`}
                             >

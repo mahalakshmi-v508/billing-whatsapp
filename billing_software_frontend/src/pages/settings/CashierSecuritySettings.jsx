@@ -854,7 +854,7 @@ export default function CashierSecuritySettings() {
                 onClick={() => handleAutoLockRequest(item.mins)}
                 className={`p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between cursor-pointer ${
                   isSelected
-                    ? "border-teal-600 bg-teal-50/60 shadow-sm"
+                    ? "border-teal-600 bg-teal-50/60 shadow-sm dark:bg-teal-500/15"
                     : "border-slate-200 hover:border-slate-300 bg-white"
                 }`}
               >

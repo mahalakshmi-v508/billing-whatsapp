@@ -181,7 +181,7 @@ export default function StoreSetupSettings() {
             
             {/* ── CARD 1: POS TERMINAL / COUNTER NAME ── */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/60 to-white">
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/60 to-white dark:from-blue-500/10 dark:to-slate-800">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
                     <Store size={18} />
@@ -266,7 +266,7 @@ export default function StoreSetupSettings() {
 
             {/* ── CARD 2: QUICK LOGO & SIGNATURE UPLOADER ── */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-purple-50/60 to-white">
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-purple-50/60 to-white dark:from-purple-500/10 dark:to-slate-800">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
                     <PenTool size={18} />
@@ -447,7 +447,7 @@ export default function StoreSetupSettings() {
 
             {/* ── CARD 3: STORE WORKING HOURS & SLOGAN ── */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50/60 to-white">
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50/60 to-white dark:from-emerald-500/10 dark:to-slate-800">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
                     <Clock size={18} />

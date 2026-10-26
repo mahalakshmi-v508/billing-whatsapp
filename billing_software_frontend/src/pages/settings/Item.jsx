@@ -356,7 +356,7 @@ export default function Item() {
       contentClassName="space-y-6 max-w-5xl"
     >
       {/* Top Banner & Action */}
-      <div className="bg-gradient-to-r from-indigo-50/80 via-blue-50/60 to-purple-50/40 border border-indigo-100 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-indigo-50/80 via-blue-50/60 to-purple-50/40 dark:from-slate-800 dark:via-slate-800 dark:to-indigo-950/60 border border-indigo-100 dark:border-indigo-500/30 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />

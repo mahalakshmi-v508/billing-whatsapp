@@ -294,7 +294,7 @@ export default function WhatsAppDefaultSettings() {
 
         {/* ── CARD 1: DEFAULT COUNTRY CODE (+91) ── */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50/60 to-white">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50/60 to-white dark:from-emerald-500/10 dark:to-slate-800">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
                 <Globe size={18} />
@@ -450,7 +450,7 @@ export default function WhatsAppDefaultSettings() {
 
         {/* ── CARD 2: SEND DAILY SUMMARY TO OWNER ── */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-teal-50/60 to-white">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-teal-50/60 to-white dark:from-teal-500/10 dark:to-slate-800">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
                 <TrendingUp size={18} />
