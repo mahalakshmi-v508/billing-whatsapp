@@ -23,27 +23,42 @@ function readCache() {
   }
 }
 
-function writeCache(data) {
+function writeCache(data, notify = false) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-    window.dispatchEvent(new CustomEvent("company-settings-updated", { detail: data }));
+    if (notify) {
+      window.dispatchEvent(new CustomEvent("company-settings-updated", { detail: data }));
+    }
   } catch {
     /* best-effort */
   }
 }
 
-export async function fetchSettings() {
+let inflightFetch = null;
+
+export async function fetchSettings(force = false) {
   const companyId = getCompanyId();
   const fallback = readCache();
   if (!companyId) return Promise.resolve(fallback || {});
-  try {
-    const res = await api.get("/settings/get", { params: { company_id: companyId } });
-    const data = (res.data && res.data.data) || {};
-    writeCache(data);
-    return data;
-  } catch {
-    return Promise.resolve(fallback || {});
+
+  if (!force && inflightFetch) {
+    return inflightFetch;
   }
+
+  inflightFetch = (async () => {
+    try {
+      const res = await api.get("/settings/get", { params: { company_id: companyId } });
+      const data = (res.data && res.data.data) || {};
+      writeCache(data, false);
+      return data;
+    } catch {
+      return fallback || {};
+    } finally {
+      inflightFetch = null;
+    }
+  })();
+
+  return inflightFetch;
 }
 
 export async function saveSettings(patch) {
@@ -51,7 +66,7 @@ export async function saveSettings(patch) {
   if (!companyId) return;
   const cache = readCache() || {};
   const merged = { ...cache, ...patch };
-  writeCache(merged);
+  writeCache(merged, true);
   try {
     await api.post("/settings/save", { company_id: companyId, settings: merged });
   } catch {
