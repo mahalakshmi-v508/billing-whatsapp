@@ -596,6 +596,25 @@ html.dark .text-gray-400 {
   color: #64748b !important;
 }
 
+/* 5b. Light gradient strips stay light in dark mode (modal headers, dropdown
+   headers, info cards) because only their `to-white` stop is remapped — the
+   white text overrides above then made their headings invisible. Force dark
+   text on those light surfaces instead. */
+html.dark [class*="from-slate-50"] .text-slate-900,
+html.dark [class*="from-slate-50"] .text-slate-800,
+html.dark [class*="from-slate-50"] .text-slate-700 {
+  color: #0f172a !important;
+}
+
+html.dark [class*="from-slate-50"] .text-slate-600,
+html.dark [class*="from-slate-50"] .text-slate-500 {
+  color: #475569 !important;
+}
+
+html.dark [class*="from-slate-50"] .text-slate-400 {
+  color: #64748b !important;
+}
+
 /* 6. Border Adaptations */
 html.dark .border-slate-100,
 html.dark .border-slate-200,

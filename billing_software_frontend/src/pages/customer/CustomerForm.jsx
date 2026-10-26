@@ -27,6 +27,17 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+// Billing fields that auto-mirror into the shipping fields while the user has
+// not manually edited the shipping address (shipping follows billing by default).
+const BILLING_TO_SHIPPING = {
+  billing_address: "shipping_address",
+  address_line1: "shipping_address_line1",
+  address_line2: "shipping_address_line2",
+  city: "shipping_city",
+  billing_country: "shipping_country",
+  billing_pincode: "shipping_pincode",
+};
+
 export default function CustomerForm({ onSuccess, onCancel }) {
   const navigate = useNavigate();
 
@@ -43,7 +54,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
     billing_country: "India",
     billing_pincode: "",
     shipping_address: "",
-    enable_shipping: false,
+    enable_shipping: true,
     shipping_address_line1: "",
     shipping_address_line2: "",
     shipping_city: "",
@@ -69,6 +80,8 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   const [toast, setToast] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
   const [errors, setErrors] = useState({});
+  // Once the user edits the shipping address themselves, stop mirroring billing.
+  const [shippingManuallyEdited, setShippingManuallyEdited] = useState(false);
 
   // ─── tab state ──────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("gst");
@@ -152,6 +165,21 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   };
 
   const set = (k, v) => {
+    setForm((p) => {
+      const next = { ...p, [k]: v };
+      const mirroredKey = BILLING_TO_SHIPPING[k];
+      if (mirroredKey && !shippingManuallyEdited) {
+        next[mirroredKey] = v;
+      }
+      return next;
+    });
+    setIsDirty(true);
+    validateField(k, v);
+  };
+
+  // Shipping inputs: mark as manually edited so billing stops overwriting it.
+  const setShipping = (k, v) => {
+    setShippingManuallyEdited(true);
     setForm((p) => ({ ...p, [k]: v }));
     setIsDirty(true);
     validateField(k, v);
@@ -177,7 +205,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
       );
     }
 
-    if (form.enable_shipping) {
+    if (form.enable_shipping && shippingManuallyEdited) {
       requiredFields.push(["Shipping Address", form.shipping_address]);
 
       if (form.show_detailed_shipping_address) {
@@ -494,7 +522,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
             billing_country: "India",
             billing_pincode: "",
             shipping_address: "",
-            enable_shipping: false,
+            enable_shipping: true,
             shipping_address_line1: "",
             shipping_address_line2: "",
             shipping_city: "",
@@ -519,6 +547,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
           setErrors({});
           setActiveTab("gst");
           setIsDirty(false);
+          setShippingManuallyEdited(false);
         } else if (onSuccess) {
           onSuccess(res.data?.customer || res.data?.data || payload);
         } else {
@@ -710,8 +739,13 @@ export default function CustomerForm({ onSuccess, onCancel }) {
               <UserPlus size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 leading-tight">Add Customer</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h2
+                className="text-lg font-bold leading-tight"
+                style={{ color: "#0f172a" }}
+              >
+                Add Customer
+              </h2>
+              <p className="text-xs mt-0.5" style={{ color: "#475569" }}>
                 Register new customer profile, GST details, billing & credit terms
               </p>
             </div>
@@ -1012,7 +1046,10 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                     {!form.enable_shipping ? (
                       <button
                         type="button"
-                        onClick={() => set("enable_shipping", true)}
+                        onClick={() => {
+                          setShippingManuallyEdited(false);
+                          set("enable_shipping", true);
+                        }}
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
                       >
                         <Plus size={13} /> Enable Shipping
@@ -1033,7 +1070,15 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                           type="button"
                           onClick={() => {
                             set("enable_shipping", false);
-                            set("shipping_address", "");
+                            setShippingManuallyEdited(false);
+                            setForm((p) => ({
+                              ...p,
+                              shipping_address: "",
+                              shipping_address_line1: "",
+                              shipping_address_line2: "",
+                              shipping_city: "",
+                              shipping_pincode: "",
+                            }));
                           }}
                           className="text-[11px] font-semibold text-red-500 hover:text-red-700"
                         >
@@ -1050,7 +1095,10 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                       </p>
                       <button
                         type="button"
-                        onClick={() => set("enable_shipping", true)}
+                        onClick={() => {
+                          setShippingManuallyEdited(false);
+                          set("enable_shipping", true);
+                        }}
                         className="mt-2 text-xs font-semibold text-indigo-600 hover:underline"
                       >
                         Click here to specify separate shipping destination
@@ -1063,7 +1111,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                         className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-100 resize-y"
                         placeholder="Enter full shipping delivery address..."
                         value={form.shipping_address}
-                        onChange={(e) => set("shipping_address", e.target.value)}
+                        onChange={(e) => setShipping("shipping_address", e.target.value)}
                       />
 
                       {/* Detailed Shipping Fields */}
@@ -1075,7 +1123,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                               className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
                               placeholder="Shipping Line 1"
                               value={form.shipping_address_line1}
-                              onChange={(e) => set("shipping_address_line1", e.target.value)}
+                              onChange={(e) => setShipping("shipping_address_line1", e.target.value)}
                             />
                           </div>
                           <div className="col-span-2">
@@ -1084,7 +1132,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                               className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
                               placeholder="Shipping Line 2"
                               value={form.shipping_address_line2}
-                              onChange={(e) => set("shipping_address_line2", e.target.value)}
+                              onChange={(e) => setShipping("shipping_address_line2", e.target.value)}
                             />
                           </div>
                           <div>
@@ -1093,7 +1141,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                               className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
                               placeholder="Shipping City"
                               value={form.shipping_city}
-                              onChange={(e) => set("shipping_city", e.target.value)}
+                              onChange={(e) => setShipping("shipping_city", e.target.value)}
                             />
                           </div>
                           <div>
@@ -1103,7 +1151,7 @@ export default function CustomerForm({ onSuccess, onCancel }) {
                               className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
                               placeholder="Shipping Pincode"
                               value={form.shipping_pincode}
-                              onChange={(e) => set("shipping_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                              onChange={(e) => setShipping("shipping_pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
                             />
                           </div>
                         </div>
