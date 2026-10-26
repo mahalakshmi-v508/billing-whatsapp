@@ -315,7 +315,7 @@ export default function PosSettings() {
             onClick={() => handleScreenChange("quick")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.default_billing_screen === "quick"
-                ? "border-blue-600 bg-blue-50/40 shadow-sm"
+                ? "border-blue-600 bg-blue-50/40 shadow-sm dark:bg-blue-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
@@ -351,7 +351,7 @@ export default function PosSettings() {
             onClick={() => handleScreenChange("detailed")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.default_billing_screen === "detailed"
-                ? "border-blue-600 bg-blue-50/40 shadow-sm"
+                ? "border-blue-600 bg-blue-50/40 shadow-sm dark:bg-blue-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >

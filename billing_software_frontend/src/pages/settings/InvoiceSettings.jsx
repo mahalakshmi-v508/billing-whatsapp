@@ -663,7 +663,8 @@ export default function InvoiceSettings() {
                 <div className="text-3xl sm:text-4xl font-black font-mono text-blue-900 tracking-wider my-3">
                   {currentPreview}
                 </div>
-                <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+                {/* Box keeps its light gradient in dark mode, so the note stays dark for contrast */}
+                <p className="text-xs text-[#475569] font-medium mt-2 leading-relaxed">
                   When creating the next <strong>{currentDoc.title}</strong>, it will automatically receive this formatted serial and advance to the subsequent number.
                 </p>
               </div>

@@ -315,7 +315,7 @@ export default function EwayBill() {
                     onClick={() => set("apiProvider")(prov.id)}
                     className={`p-3.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
                       isSelected
-                        ? "bg-blue-50/70 border-blue-600 shadow-2xs ring-1 ring-blue-500/20"
+                        ? "bg-blue-50/70 border-blue-600 shadow-2xs ring-1 ring-blue-500/20 dark:bg-blue-500/15"
                         : "border-slate-200/90 hover:bg-slate-50/80 bg-white"
                     }`}
                   >
