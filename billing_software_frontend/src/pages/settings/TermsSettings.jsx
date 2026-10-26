@@ -340,8 +340,8 @@ export default function TermsSettings() {
       )}
 
       {/* Info Card */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50/60 border border-blue-100 rounded-2xl p-4 mb-5 flex items-start gap-3 shadow-xs">
-        <div className="w-8 h-8 rounded-xl bg-blue-600/10 text-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50/60 dark:from-slate-800 dark:to-slate-800 border border-blue-100 dark:border-blue-500/30 rounded-2xl p-4 mb-5 flex items-start gap-3 shadow-xs">
+        <div className="w-8 h-8 rounded-xl bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 flex items-center justify-center flex-shrink-0 mt-0.5">
           <Sparkles size={16} />
         </div>
         <div className="text-xs text-slate-600 leading-relaxed flex-1">

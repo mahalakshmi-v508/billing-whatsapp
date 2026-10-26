@@ -450,7 +450,7 @@ export default function TransactionMessage() {
 
         {/* QR Code Inline Scanner (when linking) */}
         {!isReady && conn.qr && (
-          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-4 bg-emerald-50/40 p-3 rounded-xl border border-emerald-200/60 animate-in fade-in duration-200">
+          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-4 bg-emerald-50/40 dark:bg-emerald-500/10 p-3 rounded-xl border border-emerald-200/60 dark:border-emerald-500/30 animate-in fade-in duration-200">
             <div className="w-28 h-28 bg-white p-1.5 rounded-lg border border-slate-200 shadow-xs flex items-center justify-center flex-shrink-0">
               <img src={conn.qr} alt="Scan WhatsApp QR" className="w-full h-full object-contain" />
             </div>
@@ -459,7 +459,7 @@ export default function TransactionMessage() {
               <p className="text-[11px] text-slate-500 leading-snug">
                 WhatsApp on phone → Settings / Menu → Linked Devices → Link a Device, and point camera here.
               </p>
-              <div className="text-[10.5px] text-emerald-700 font-semibold pt-0.5">
+              <div className="text-[10.5px] text-emerald-700 dark:text-emerald-400 font-semibold pt-0.5">
                 Auto-connecting as soon as scanned...
               </div>
             </div>
@@ -534,7 +534,7 @@ export default function TransactionMessage() {
                     onClick={() => setSelectedType(t.key)}
                     className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none relative ${
                       isSelected
-                        ? "bg-blue-50/80 border-blue-600 shadow-xs ring-1 ring-blue-500/30"
+                        ? "bg-blue-50/80 border-blue-600 shadow-xs ring-1 ring-blue-500/30 dark:bg-blue-500/15"
                         : "bg-white border-slate-200/80 hover:bg-slate-50/70 hover:border-slate-300"
                     }`}
                   >

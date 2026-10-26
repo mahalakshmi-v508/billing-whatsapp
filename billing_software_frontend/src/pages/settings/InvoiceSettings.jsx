@@ -499,7 +499,7 @@ export default function InvoiceSettings() {
                 onClick={() => setSelectedDocKey(doc.key)}
                 className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border text-left transition-all whitespace-nowrap shrink-0 cursor-pointer select-none ${
                   isSelected
-                    ? "bg-blue-50/70 border-blue-500 shadow-sm ring-2 ring-blue-500/15"
+                    ? "bg-blue-50/70 border-blue-500 shadow-sm ring-2 ring-blue-500/15 dark:bg-blue-500/15"
                     : "bg-white hover:bg-slate-50 border-slate-200 shadow-xs hover:border-slate-300"
                 }`}
               >
@@ -514,7 +514,7 @@ export default function InvoiceSettings() {
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold text-slate-900">{doc.title}</span>
                   </div>
-                  <div className="text-[11px] font-mono font-extrabold text-blue-600 mt-0.5">
+                  <div className="text-[11px] font-mono font-extrabold text-blue-600 dark:text-blue-300 mt-0.5">
                     {liveNo}
                   </div>
                 </div>
@@ -650,20 +650,20 @@ export default function InvoiceSettings() {
               </div>
 
               {/* 3. Live Dynamic Number Preview Box (Enhanced Padding) */}
-              <div className="bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-slate-50 border border-blue-200/90 rounded-2xl p-6 sm:p-7 my-3.5 shadow-xs">
+              <div className="bg-gradient-to-br from-blue-50/90 via-indigo-50/60 to-slate-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-blue-200/90 dark:border-blue-500/30 rounded-2xl p-6 sm:p-7 my-3.5 shadow-xs">
                 <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-blue-700 flex items-center gap-2">
-                    <Sparkles size={16} className="text-blue-600" />
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                    <Sparkles size={16} className="text-blue-600 dark:text-blue-400" />
                     Next {currentDoc.title} Voucher Preview
                   </span>
                   <span className="text-[10px] font-extrabold bg-blue-600 text-white px-2.5 py-0.5 rounded-full shadow-xs">
                     Next Auto Sequence
                   </span>
                 </div>
-                <div className="text-3xl sm:text-4xl font-black font-mono text-blue-900 tracking-wider my-3">
+                <div className="text-3xl sm:text-4xl font-black font-mono text-blue-900 dark:text-blue-200 tracking-wider my-3">
                   {currentPreview}
                 </div>
-                <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+                <p className="text-xs text-[#475569] dark:text-slate-300 font-medium mt-2 leading-relaxed">
                   When creating the next <strong>{currentDoc.title}</strong>, it will automatically receive this formatted serial and advance to the subsequent number.
                 </p>
               </div>
@@ -700,7 +700,7 @@ export default function InvoiceSettings() {
                     onClick={() => setSelectedDocKey(doc.key)}
                     className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer select-none ${
                       isSelected
-                        ? "bg-blue-50/70 border-blue-400 ring-2 ring-blue-500/10 shadow-xs"
+                        ? "bg-blue-50/70 border-blue-400 ring-2 ring-blue-500/10 shadow-xs dark:bg-blue-500/15"
                         : "bg-slate-50/50 hover:bg-slate-100/70 border-slate-100"
                     }`}
                   >

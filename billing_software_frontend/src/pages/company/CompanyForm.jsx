@@ -178,10 +178,13 @@ export default function CompanyForm({ isOpen = true, onClose, onSuccess }) {
             <Building2 size={20} />
           </div>
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+            <h3
+              className="text-base sm:text-lg font-bold leading-tight"
+              style={{ color: "#0f172a" }}
+            >
               Register Company
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs mt-0.5" style={{ color: "#475569" }}>
               Set up business entity profile, GST tax details &amp; branding
             </p>
           </div>

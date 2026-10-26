@@ -195,7 +195,7 @@ export default function StockSettings() {
             onClick={() => handleNegativeStockChange("block")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.negative_stock_mode === "block"
-                ? "border-rose-600 bg-rose-50/40 shadow-sm"
+                ? "border-rose-600 bg-rose-50/40 shadow-sm dark:bg-rose-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
@@ -230,7 +230,7 @@ export default function StockSettings() {
             onClick={() => handleNegativeStockChange("warning")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.negative_stock_mode === "warning"
-                ? "border-amber-600 bg-amber-50/40 shadow-sm"
+                ? "border-amber-600 bg-amber-50/40 shadow-sm dark:bg-amber-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
@@ -421,7 +421,7 @@ export default function StockSettings() {
             onClick={() => handleExpiryModeChange("block")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.expiry_control_mode === "block"
-                ? "border-purple-600 bg-purple-50/40 shadow-sm"
+                ? "border-purple-600 bg-purple-50/40 shadow-sm dark:bg-purple-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
@@ -456,7 +456,7 @@ export default function StockSettings() {
             onClick={() => handleExpiryModeChange("warning")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.expiry_control_mode === "warning"
-                ? "border-amber-600 bg-amber-50/40 shadow-sm"
+                ? "border-amber-600 bg-amber-50/40 shadow-sm dark:bg-amber-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >

@@ -25,7 +25,7 @@ import {
   countLowStock,
   countByStockStatus,
 } from "../../utils/stockAlerts";
-import { getProductCustomFields } from "../../utils/productCustomFields";
+import { getProductCustomFields, normalizeFields } from "../../utils/productCustomFields";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 const money = (n) =>
@@ -100,17 +100,40 @@ export default function ProductList() {
   const [customFieldDefs, setCustomFieldDefs] = useState([]);
 
   useEffect(() => {
-    const loadFields = () => {
-      getProductCustomFields().then((defs) => setCustomFieldDefs(defs));
+    let cancelled = false;
+    const loadFields = (e) => {
+      if (e?.detail) {
+        const fields = e.detail?.item?.customFields || e.detail?.item?.custom_fields || [];
+        if (!cancelled) setCustomFieldDefs(normalizeFields(fields));
+        return;
+      }
+      getProductCustomFields().then((defs) => {
+        if (!cancelled) setCustomFieldDefs(defs);
+      });
     };
     loadFields();
     window.addEventListener("storage", loadFields);
     window.addEventListener("company-settings-updated", loadFields);
     return () => {
+      cancelled = true;
       window.removeEventListener("storage", loadFields);
       window.removeEventListener("company-settings-updated", loadFields);
     };
   }, [selectedCompany, showAddModal, showFullEditModal]);
+
+  const getProductCustomVal = (product, fieldName) => {
+    if (!product?.custom_fields) return "";
+    let cf = product.custom_fields;
+    if (typeof cf === "string") {
+      try {
+        cf = JSON.parse(cf);
+      } catch {
+        return "";
+      }
+    }
+    const val = cf?.[fieldName];
+    return val !== undefined && val !== null ? String(val) : "";
+  };
 
   const tableCustomFields = useMemo(
     () => customFieldDefs.filter((cf) => cf.show_in_table !== false),
@@ -460,12 +483,16 @@ export default function ProductList() {
     }
   };
 
-  const filtered = products.filter(
-    (p) =>
-      p.product_name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.product_code?.toLowerCase().includes(search.toLowerCase()) ||
-      p.barcode?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const q = (search || "").toLowerCase().trim();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.product_name?.toLowerCase().includes(q) ||
+        p.product_code?.toLowerCase().includes(q) ||
+        p.barcode?.toLowerCase().includes(q)
+    );
+  }, [products, search]);
 
   const totalStockUnits = useMemo(() => {
     return products.reduce((s, p) => s + Number(p.stock || 0), 0);
@@ -1151,7 +1178,7 @@ export default function ProductList() {
                               : "bg-indigo-50 text-indigo-700"
                             : tab.id === "expire" && tab.count > 0
                             ? "bg-rose-100 text-rose-700 font-bold"
-                            : "bg-slate-200/70 text-slate-600"
+                            : "bg-slate-200 text-slate-700"
                         }`}
                       >
                         {tab.count}
@@ -1375,13 +1402,11 @@ export default function ProductList() {
 
                               {/* Custom Fields Data Cells */}
                               {tableCustomFields.map((cf) => {
-                                const customVal = p.custom_fields?.[cf.name];
+                                const customVal = getProductCustomVal(p, cf.name);
                                 return (
                                   <td key={cf.name}>
                                     <span className="text-xs text-slate-700">
-                                      {customVal !== undefined && customVal !== null && customVal !== ""
-                                        ? String(customVal)
-                                        : "—"}
+                                      {customVal || "—"}
                                     </span>
                                   </td>
                                 );
@@ -2052,7 +2077,7 @@ export default function ProductList() {
                                 >
                                   <span>{f.label}</span>
                                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                    categoryItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200/70 text-slate-500"
+                                    categoryItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200 text-slate-700"
                                   }`}>
                                     {f.count}
                                   </span>
@@ -2874,7 +2899,7 @@ export default function ProductList() {
                                 >
                                   <span>{f.label}</span>
                                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                    brandItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200/70 text-slate-500"
+                                    brandItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200 text-slate-700"
                                   }`}>
                                     {f.count}
                                   </span>
@@ -3668,7 +3693,7 @@ export default function ProductList() {
                                 >
                                   <span>{f.label}</span>
                                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                    unitItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200/70 text-slate-500"
+                                    unitItemFilter === f.id ? "bg-indigo-50 text-indigo-700 font-bold" : "bg-slate-200 text-slate-700"
                                   }`}>
                                     {f.count}
                                   </span>
@@ -5016,7 +5041,7 @@ export default function ProductList() {
                           </div>
                           <div className="space-y-2 text-xs">
                             {customFieldDefs.map((cf, idx) => {
-                              const customVal = selectedProduct.custom_fields?.[cf.name];
+                              const customVal = getProductCustomVal(selectedProduct, cf.name);
                               return (
                                 <div
                                   key={cf.name}
@@ -5026,9 +5051,7 @@ export default function ProductList() {
                                 >
                                   <span className="text-slate-500 font-medium">{cf.label}</span>
                                   <span className="font-semibold text-slate-800">
-                                    {customVal !== undefined && customVal !== null && customVal !== ""
-                                      ? String(customVal)
-                                      : "-"}
+                                    {customVal || "-"}
                                   </span>
                                 </div>
                               );
