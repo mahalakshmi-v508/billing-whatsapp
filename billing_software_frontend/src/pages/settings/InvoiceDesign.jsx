@@ -1,16 +1,15 @@
 import { useState, useEffect } from "react";
 import {
-  Palette, Check, Save, Sparkles, Building2, Eye,
-  CheckCircle2, AlertCircle, Maximize2, Minimize2, X,
-  FileText, Layers, Printer, ZoomIn, ZoomOut
+  Palette, Check, Save, Sparkles, Building2,
+  CheckCircle2, AlertCircle, Maximize2, X
 } from "lucide-react";
 import api from "../../services/api";
 import { useSettings } from "./SettingsContext";
 import { SettingsShell, SettingsCard } from "./settingsUI";
-import { DESIGN_COMPONENTS } from "../billing/Invoice";
+import { DESIGN_COMPONENTS } from "../billing/designComponents";
 
 /* ─── REALISTIC SAMPLE INVOICE DATA FOR LIVE PREVIEW ───────────────────────── */
-export const SAMPLE_INVOICE = {
+const SAMPLE_INVOICE = {
   invoice_no: "INV-2026-0001",
   created_at: new Date().toISOString(),
   invoice_date: new Date().toISOString(),
@@ -69,7 +68,7 @@ export const SAMPLE_INVOICE = {
 };
 
 /* ─── THEME OPTIONS (SIMPLIFIED & CLEAN) ──────────────────────────────────── */
-export const THEME_OPTIONS = [
+const THEME_OPTIONS = [
   {
     id: "tally",
     label: "Tally Theme",
@@ -129,7 +128,7 @@ export const THEME_OPTIONS = [
 ];
 
 /* ─── 18 VIBRANT COLOR SWATCHES ────────────────────────────────────────────── */
-export const PALETTE_COLORS = [
+const PALETTE_COLORS = [
   { hex: "#2563eb", name: "Royal Blue" },
   { hex: "#1f8cff", name: "Bright Blue" },
   { hex: "#0284c7", name: "Sky Blue" },
@@ -193,40 +192,43 @@ export default function InvoiceDesign() {
 
   // Fetch settings for selected company
   useEffect(() => {
-    if (!companyId) return;
-    setLoading(true);
-    api.get(`/settings/get?company_id=${companyId}`)
-      .then((res) => {
-        if (res.data.status && res.data.data) {
-          const data = res.data.data || {};
-          setServerSettings(data);
-          const design = data.invoiceDesign || data.print || {};
-          if (design.theme) {
-            setSelectedTheme(design.theme);
-          } else if (design.template) {
-            const map = {
-              "Tally Theme": "tally",
-              "GST Theme 1": "gst1",
-              "GST Theme 2": "gst3",
-              "GST Theme 3": "gst3",
-              "Double Divine": "double_divine",
-              "Minimal Theme": "gst3",
-              "french_elite": "french_elite",
-              "pos": "pos",
-              "vintage_classic": "vintage_classic",
-              "vintage_bold": "vintage_bold"
-            };
-            setSelectedTheme(map[design.template] || design.template.toLowerCase().replace(/\s+/g, "_") || "tally");
+    const loadDesignSettings = async () => {
+      if (!companyId) return;
+      setLoading(true);
+      api.get(`/settings/get?company_id=${companyId}`)
+        .then((res) => {
+          if (res.data.status && res.data.data) {
+            const data = res.data.data || {};
+            setServerSettings(data);
+            const design = data.invoiceDesign || data.print || {};
+            if (design.theme) {
+              setSelectedTheme(design.theme);
+            } else if (design.template) {
+              const map = {
+                "Tally Theme": "tally",
+                "GST Theme 1": "gst1",
+                "GST Theme 2": "gst3",
+                "GST Theme 3": "gst3",
+                "Double Divine": "double_divine",
+                "Minimal Theme": "gst3",
+                "french_elite": "french_elite",
+                "pos": "pos",
+                "vintage_classic": "vintage_classic",
+                "vintage_bold": "vintage_bold"
+              };
+              setSelectedTheme(map[design.template] || design.template.toLowerCase().replace(/\s+/g, "_") || "tally");
+            }
+            if (design.themeColor) {
+              setSelectedColor(design.themeColor);
+            }
           }
-          if (design.themeColor) {
-            setSelectedColor(design.themeColor);
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load invoice design settings:", err);
-      })
-      .finally(() => setLoading(false));
+        })
+        .catch((err) => {
+          console.error("Failed to load invoice design settings:", err);
+        })
+        .finally(() => setLoading(false));
+    };
+    loadDesignSettings();
   }, [companyId]);
 
   const handleSave = async (e) => {

@@ -860,16 +860,7 @@ export default function ExpenseReport() {
   const totalBalanceDue = useMemo(() => filteredExpenses.reduce((s, e) => s + Number(e.balance_amount || 0), 0), [filteredExpenses]);
   const totalPaidAmount = useMemo(() => totalExpenseAmount - totalBalanceDue, [totalExpenseAmount, totalBalanceDue]);
 
-  const analyticsRows = useMemo(
-    () =>
-      (filteredExpenses || []).map((r) => ({
-        date: r.expense_date || "",
-        group: r.category_name || "General",
-        value: Number(r.total_amount) || 0,
-        count: 1,
-      })),
-    [filteredExpenses]
-  );
+  
 
   return (
     <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 space-y-3.5 max-w-[1600px] mx-auto text-slate-800 font-sans">

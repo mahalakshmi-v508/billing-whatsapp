@@ -65,13 +65,83 @@ const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
 
     if (!user?.id) return;
 
+    const loadCompanies = async (admin_id) => {
+
+      try {
+
+        const res = await api.get(
+          `/company/get_companies_by_admin?admin_id=${admin_id}`
+        );
+
+        if (res.data.status) {
+
+          setCompanies(res.data.data);
+
+          if (
+            !localStorage.getItem("selected_company_id") &&
+            res.data.data.length > 0
+          ) {
+
+            localStorage.setItem(
+              "selected_company_id",
+              res.data.data[0].id
+            );
+
+            setSelectedCompany(res.data.data[0].id);
+          }
+        }
+
+      } catch (err) {
+
+        console.log(err);
+
+      }
+
+    };
+
     loadCompanies(user.id);
 
   }, []);
 
   useEffect(() => {
 
+    const load = async () => {
+
     if (selectedCompany) {
+
+      const loadCategories = async (company_id) => {
+
+        setCategoriesLoading(true);
+        setSelectedCategory("");
+
+        try {
+
+          const res = await api.get(
+            `/category/get_active_category?company_id=${company_id}`
+          );
+
+          if (res.data.status) {
+
+            setCategories(res.data.data);
+
+          } else {
+
+            setCategories([]);
+
+          }
+
+        } catch (err) {
+
+          console.log(err);
+          setCategories([]);
+
+        } finally {
+
+          setCategoriesLoading(false);
+
+        }
+
+      };
 
       loadCategories(selectedCompany);
 
@@ -82,124 +152,71 @@ const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
 
     }
 
+    };
+
+    load();
+
   }, [selectedCompany]);
 
   useEffect(() => {
 
-  if(selectedCategory){
+  let cancelled = false;
+
+  if(selectedCompany && selectedCategory){
+
+    const loadSubcategories = async(company_id, category_id)=>{
+
+    setSubcategoriesLoading(true);
+
+    setSelectedSubcategory("");
+
+    try{
+
+      const res = await api.get(
+        `/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${category_id}`
+      );
+
+      if(cancelled) return;
+
+      if(res.data.status){
+
+        setSubcategories(res.data.data);
+
+      }else{
+
+        setSubcategories([]);
+
+      }
+
+    }catch{
+
+      if(!cancelled) setSubcategories([]);
+
+    }finally{
+
+      if(!cancelled) setSubcategoriesLoading(false);
+
+    }
+
+  };
 
     loadSubcategories(selectedCompany, selectedCategory);
 
-  }else{
+    return () => { cancelled = true; };
+
+  }
+
+  const clear = async () => {
 
     setSubcategories([]);
     setSelectedSubcategory("");
 
-  }
-
-}, [selectedCategory]);
-
-  const loadCompanies = async (admin_id) => {
-
-    try {
-
-      const res = await api.get(
-        `/company/get_companies_by_admin?admin_id=${admin_id}`
-      );
-
-      if (res.data.status) {
-
-        setCompanies(res.data.data);
-
-        if (
-          !localStorage.getItem("selected_company_id") &&
-          res.data.data.length > 0
-        ) {
-
-          localStorage.setItem(
-            "selected_company_id",
-            res.data.data[0].id
-          );
-
-          setSelectedCompany(res.data.data[0].id);
-        }
-      }
-
-    } catch (err) {
-
-      console.log(err);
-
-    }
-
   };
 
-  const loadCategories = async (company_id) => {
+  clear();
 
-    setCategoriesLoading(true);
-    setSelectedCategory("");
+}, [selectedCategory, selectedCompany]);
 
-    try {
-
-      const res = await api.get(
-        `/category/get_active_category?company_id=${company_id}`
-      );
-
-      if (res.data.status) {
-
-        setCategories(res.data.data);
-
-      } else {
-
-        setCategories([]);
-
-      }
-
-    } catch (err) {
-
-      console.log(err);
-      setCategories([]);
-
-    } finally {
-
-      setCategoriesLoading(false);
-
-    }
-
-  };
-
-  const loadSubcategories = async(company_id, category_id)=>{
-
-  setSubcategoriesLoading(true);
-
-  setSelectedSubcategory("");
-
-  try{
-
-    const res = await api.get(
-      `/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${category_id}`
-    );
-
-    if(res.data.status){
-
-      setSubcategories(res.data.data);
-
-    }else{
-
-      setSubcategories([]);
-
-    }
-
-  }catch{
-
-    setSubcategories([]);
-
-  }finally{
-
-    setSubcategoriesLoading(false);
-
-  }
-
-};
   const handleChange = (e) => {
     setName(e.target.value);
     setCharCount(e.target.value.length);

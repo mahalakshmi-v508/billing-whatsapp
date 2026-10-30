@@ -31,7 +31,7 @@ import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import { useTableColumns } from "../../../hooks/useTableColumns";
 import useModalFocusTrap from "../../../hooks/useModalFocusTrap";
-import { useCashierSecurity } from "../../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../../context/cashierSecurity";
 
 const DEFAULT_DEBIT_NOTE_COLUMNS = [
   { id: "seq", label: "#", defaultVisible: true },
@@ -169,10 +169,8 @@ export default function DebitNoteList() {
     setPeriodOpen(false);
   };
 
-  // Initial setup: preset dates, companies, and suppliers
+  // Initial setup: companies and suppliers
   useEffect(() => {
-    setPresetDates("all_time");
-
     if (adminId) {
       api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
         .then((res) => {
@@ -216,30 +214,30 @@ export default function DebitNoteList() {
   }, [selectedFirm, adminId]);
 
   // Fetch Debit Notes
-  const fetchDebitNotes = async () => {
-    setLoading(true);
-    try {
-      const compParam = selectedFirm !== "all" ? `&company_id=${selectedFirm}` : "";
-      const supParam = selectedSupplier !== "all" ? `&supplier_id=${selectedSupplier}` : "";
-      let dateParam = "";
-      if (fromDate) dateParam += `&from_date=${fromDate}`;
-      if (toDate) dateParam += `&to_date=${toDate}`;
-      const res = await api.get(`/debit_note/list?admin_id=${adminId || 0}${compParam}${supParam}${dateParam}`);
-      if (res.data?.status) {
-        setDebitNotes(res.data.data || []);
-      } else {
-        setDebitNotes([]);
-      }
-    } catch (err) {
-      console.error("Error fetching debit notes:", err);
-      setDebitNotes([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchDebitNotes();
+    const load = async () => {
+      setLoading(true);
+      try {
+        const compParam = selectedFirm !== "all" ? `&company_id=${selectedFirm}` : "";
+        const supParam = selectedSupplier !== "all" ? `&supplier_id=${selectedSupplier}` : "";
+        let dateParam = "";
+        if (fromDate) dateParam += `&from_date=${fromDate}`;
+        if (toDate) dateParam += `&to_date=${toDate}`;
+        const res = await api.get(`/debit_note/list?admin_id=${adminId || 0}${compParam}${supParam}${dateParam}`);
+        if (res.data?.status) {
+          setDebitNotes(res.data.data || []);
+        } else {
+          setDebitNotes([]);
+        }
+      } catch (err) {
+        console.error("Error fetching debit notes:", err);
+        setDebitNotes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
   }, [selectedFirm, selectedSupplier, fromDate, toDate, adminId]);
 
   // Close menus on outside click
@@ -336,10 +334,14 @@ export default function DebitNoteList() {
     };
   }, [filteredNotes, totals.totalAmt]);
 
-  // Reset page when filters change
-  useEffect(() => {
+  // Reset page when filters change (adjusting state during render avoids an
+  // extra pass through the effect -> state -> render cycle).
+  const filtersKey = `${searchQuery}|${selectedFirm}|${selectedSupplier}|${fromDate}|${toDate}|${period}|${paymentFilter}`;
+  const [prevFiltersKey, setPrevFiltersKey] = useState(filtersKey);
+  if (prevFiltersKey !== filtersKey) {
+    setPrevFiltersKey(filtersKey);
     setCurrentPage(1);
-  }, [searchQuery, selectedFirm, selectedSupplier, fromDate, toDate, period, paymentFilter]);
+  }
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredNotes.length / rowsPerPage) || 1;

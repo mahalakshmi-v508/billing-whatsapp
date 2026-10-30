@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { ArrowLeft, Download, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
@@ -55,8 +55,24 @@ export default function PurchaseGSTReport() {
     setCurrentPage(1);
   }, [showGstOnly, purchases]);
 
+  const fetchReport = useCallback(async (companyId, start, end) => {
+    setLoading(true);
+    try {
+      const res = await api.get(
+        `/purchase/get_purchases?company_id=${companyId}&start_date=${start}&end_date=${end}&status=submitted`
+      );
+      if (res.data.status) {
+        setPurchases(res.data.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    let user = {};
+    let user ;
     try {
       user = JSON.parse(localStorage.getItem("user") || "{}");
     } catch (e) {
@@ -80,23 +96,7 @@ export default function PurchaseGSTReport() {
         }
       })
       .catch(() => setLoading(false));
-  }, []);
-
-  const fetchReport = async (companyId, start, end) => {
-    setLoading(true);
-    try {
-      const res = await api.get(
-        `/purchase/get_purchases?company_id=${companyId}&start_date=${start}&end_date=${end}&status=submitted`
-      );
-      if (res.data.status) {
-        setPurchases(res.data.data);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchReport, startDate, endDate]);
 
   const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);

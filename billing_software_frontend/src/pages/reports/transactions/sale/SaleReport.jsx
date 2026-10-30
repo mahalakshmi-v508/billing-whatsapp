@@ -10,11 +10,7 @@ import {
   ChevronRight,
   Calendar,
   Search,
-  BarChart2,
   Printer,
-  Share2,
-  MoreVertical,
-  Filter,
   AlertTriangle,
   X,
   RefreshCw,
@@ -27,20 +23,16 @@ import {
   Wallet,
   CheckCircle2,
   SlidersHorizontal,
-  GripVertical,
   RotateCcw,
-  Check,
   TrendingUp,
   Receipt,
-  ArrowUpRight,
   BarChart3,
   KeyRound,
-  Lock,
 } from "lucide-react";
-import { useCashierSecurity } from "../../../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../../../context/cashierSecurity";
 import useModalFocusTrap from "../../../../hooks/useModalFocusTrap";
 import SaleAnalytics from "./SaleAnalytics";
-import ShareTransactionPopover from "../../../../components/ShareTransactionPopover";
+import "../../../../components/ShareTransactionPopover";
 import HeaderSettingsButton from "../../../../components/HeaderSettingsButton";
 import StatusBadge from "../../../../components/ui/StatusBadge";
 import TableActions from "../../../../components/ui/TableActions";
@@ -181,7 +173,7 @@ export default function SaleReport() {
     localStorage.setItem("sale_invoice_columns", JSON.stringify(next));
   };
 
-  const visibleColumnCount = DEFAULT_COLUMNS.filter((col) => visibleColumns[col.key]).length || 1;
+  
 
   // Filter states — the single source of truth for the API query (req 20)
   const [period, setPeriod] = useState("all_time");
@@ -204,8 +196,7 @@ export default function SaleReport() {
   // Debounced mirror so typing does not fire a request per keystroke.
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showSearchInput, setShowSearchInput] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState(null);
-  const [activeShareId, setActiveShareId] = useState(null);
+  const [, setActiveMenuId] = useState(null);
 
   // Delete modal state
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -322,7 +313,10 @@ export default function SaleReport() {
   // Fetch Invoices whenever any active filter changes. admin_id is part of the
   // same effect so switching account context does not double-request.
   useEffect(() => {
-    fetchInvoices();
+    const run = async () => {
+      await fetchInvoices();
+    };
+    run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminId, fromDate, toDate, selectedFirm, selectedCustomerId, statusFilter, debouncedSearch]);
 
@@ -360,8 +354,11 @@ export default function SaleReport() {
   // Lookup lists only depend on the admin/company context, not on the filters,
   // so they are fetched once per context change (no duplicate requests).
   useEffect(() => {
-    fetchCompanies();
-    fetchCustomers();
+    const run = async () => {
+      fetchCompanies();
+      fetchCustomers();
+    };
+    run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminId]);
 
@@ -1007,7 +1004,7 @@ export default function SaleReport() {
                   const isPaid = Number(inv.balance_amount || 0) === 0;
                   const isUnpaid = Number(inv.paid_amount || 0) === 0;
                   const isPos = isPosInvoice(inv);
-                  const isMenuOpen = activeMenuId === inv.invoice_no;
+                  
                   const initial = (inv.customer_name || "C").charAt(0).toUpperCase();
 
                   return (

@@ -1,35 +1,25 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import {
   ArrowLeft,
-  Save,
   UploadCloud,
   Plus,
   Trash2,
-  HelpCircle,
   CheckCircle2,
   X,
   FileText,
   Truck,
-  Building2,
-  Calendar,
   Layers,
-  Percent,
-  ReceiptText,
   Wallet,
   AlertCircle,
   Download,
   Check,
   RefreshCw,
-  RotateCcw,
-  Sparkles,
   Search,
   Package,
-  Phone,
   ChevronDown,
-  UserCheck,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
@@ -128,7 +118,7 @@ export default function PurchaseForm() {
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [supplierName, setSupplierName] = useState("");
-  const [supplierPhone, setSupplierPhone] = useState("");
+  const [, setSupplierPhone] = useState("");
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [supplierSuggestions, setSupplierSuggestions] = useState([]);
   const supplierBoxRef = useRef(null);
@@ -198,7 +188,7 @@ export default function PurchaseForm() {
     }
   }, []);
 
-  const fetchSuppliers = (companyId) => {
+  const fetchSuppliers = useCallback((companyId) => {
     if (!companyId) return;
     api.get(`/supplier/get_all?company_id=${companyId}`)
       .then(res => {
@@ -209,9 +199,9 @@ export default function PurchaseForm() {
         }
       })
       .catch(console.error);
-  };
+  }, []);
 
-  const fetchCategories = (companyId) => {
+  const fetchCategories = useCallback((companyId) => {
     if (!companyId) return;
     api.get(`/category/get_active_category?company_id=${companyId}`)
       .then(res => {
@@ -220,9 +210,9 @@ export default function PurchaseForm() {
         }
       })
       .catch(console.error);
-  };
+  }, []);
 
-  const fetchBrands = (companyId) => {
+  const fetchBrands = useCallback((companyId) => {
     if (!companyId) return;
     api.get(`/brand/get_active_brand?company_id=${companyId}`)
       .then(res => {
@@ -231,10 +221,59 @@ export default function PurchaseForm() {
         }
       })
       .catch(console.error);
-  };
+  }, []);
+
+  // Run validation on local items with backend lookups
+  const runBackendValidation = useCallback(async (currentItems) => {
+    if (currentItems.length === 0) return;
+    try {
+      const res = await api.post("/purchase/validate_items", {
+        company_id: selectedCompany,
+        items: currentItems.map(item => ({
+          product_name: item.product_name,
+          product_code: item.product_code,
+          barcode: item.barcode,
+          category_name: item.category_name,
+          brand_name: item.brand_name,
+          price: item.price,
+          selling_price: item.selling_price || 0,
+          selling_price_per_unit: item.selling_price_per_unit || "",
+          quantity: item.quantity,
+          unit: item.unit,
+          gst_percentage: item.gst_percentage,
+          tax_mode: item.tax_mode || "without_gst"
+        }))
+      });
+      if (res.data.status) {
+        const validated = res.data.data;
+
+        // Build the resolved items list
+        const resolvedItems = currentItems.map((item, index) => {
+          const val = validated[index] || {};
+          return {
+            ...item,
+            product_id: val.product_id,
+            category_id: val.category_id || item.category_id,
+            brand_id: val.brand_id || item.brand_id,
+            status: val.status,
+            errors: val.errors || [],
+            warnings: val.warnings || []
+          };
+        });
+
+        setItems(resolvedItems);
+      }
+    } catch (err) {
+      console.error("Backend validation error", err);
+    }
+  }, [selectedCompany]);
 
   /* ── Sync Supplier Name and Phone ── */
-  useEffect(() => {
+  // Adjusted during render (React's documented pattern) rather than in an
+  // effect, which would cause a cascading second render.
+  const [prevSupplierSync, setPrevSupplierSync] = useState({ selectedSupplier, suppliers });
+  if (prevSupplierSync.selectedSupplier !== selectedSupplier || prevSupplierSync.suppliers !== suppliers) {
+    setPrevSupplierSync({ selectedSupplier, suppliers });
     if (selectedSupplier && suppliers.length > 0) {
       const found = suppliers.find((s) => String(s.id) === String(selectedSupplier));
       if (found) {
@@ -242,7 +281,7 @@ export default function PurchaseForm() {
         setSupplierPhone(found.mobile_number || found.phone || found.supplier_phone || "");
       }
     }
-  }, [selectedSupplier, suppliers]);
+  }
 
   /* ── Close Supplier Dropdown on Click Outside ── */
   useEffect(() => {
@@ -364,7 +403,7 @@ export default function PurchaseForm() {
           setLoading(false);
         });
     }
-  }, [id]);
+  }, [id, selectedCompany, fetchSuppliers, fetchCategories, fetchBrands, runBackendValidation]);
 
   // Load Next Purchase Order / Bill Number immediately on mount or company change
   useEffect(() => {
@@ -372,7 +411,7 @@ export default function PurchaseForm() {
     let user = {};
     try {
       user = JSON.parse(localStorage.getItem("user") || "{}");
-    } catch {}
+    } catch { /* intentionally ignored */ }
     const compId = selectedCompany || localStorage.getItem("selected_company_id") || user?.company_id || (companies[0] ? companies[0].id : 0);
     if (!compId) return;
 
@@ -388,51 +427,6 @@ export default function PurchaseForm() {
 
     return () => { cancelled = true; };
   }, [id, selectedCompany, companies]);
-
-  // Run validation on local items with backend lookups
-  const runBackendValidation = async (currentItems) => {
-    if (currentItems.length === 0) return;
-    try {
-      const res = await api.post("/purchase/validate_items", {
-        company_id: selectedCompany,
-        items: currentItems.map(item => ({
-          product_name: item.product_name,
-          product_code: item.product_code,
-          barcode: item.barcode,
-          category_name: item.category_name,
-          brand_name: item.brand_name,
-          price: item.price,
-          selling_price: item.selling_price || 0,
-          selling_price_per_unit: item.selling_price_per_unit || "",
-          quantity: item.quantity,
-          unit: item.unit,
-          gst_percentage: item.gst_percentage,
-          tax_mode: item.tax_mode || "without_gst"
-        }))
-      });
-      if (res.data.status) {
-        const validated = res.data.data;
-
-        // Build the resolved items list
-        const resolvedItems = currentItems.map((item, index) => {
-          const val = validated[index] || {};
-          return {
-            ...item,
-            product_id: val.product_id,
-            category_id: val.category_id || item.category_id,
-            brand_id: val.brand_id || item.brand_id,
-            status: val.status,
-            errors: val.errors || [],
-            warnings: val.warnings || []
-          };
-        });
-
-        setItems(resolvedItems);
-      }
-    } catch (err) {
-      console.error("Backend validation error", err);
-    }
-  };
 
   // Perform complete required field local validation followed by backend API validation
   const validateAllItems = async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import api from "../../services/api";
 import Barcode from "react-barcode";
@@ -7,18 +7,18 @@ import Barcode from "react-barcode";
 function useToast() {
   const [toasts, setToasts] = useState([]);
 
-  const show = (type, title, msg) => {
+  const show = useCallback((type, title, msg) => {
     const id = Date.now();
     setToasts((p) => [...p, { id, type, title, msg }]);
 
     setTimeout(() => {
       setToasts((p) => p.filter((t) => t.id !== id));
     }, 3000);
-  };
+  }, []);
 
-  const remove = (id) => {
+  const remove = useCallback((id) => {
     setToasts((p) => p.filter((t) => t.id !== id));
-  };
+  }, []);
 
   return { toasts, show, remove };
 }
@@ -70,25 +70,25 @@ export default function SupplierEditProduct() {
 
   const set = (field, val) => setForm(p => ({ ...p, [field]: val }));
 
-  const fetchCategories = async (company_id) => {
+  const fetchCategories = useCallback(async (company_id) => {
     if (!company_id) { setCategories([]); return; }
     const res = await api.get(`/category/get_active_category?company_id=${company_id}`);
     setCategories(res.data.status ? res.data.data : []);
-  };
+  }, []);
 
-  const fetchSubCategories = async (company_id, category_id) => {
+  const fetchSubCategories = useCallback(async (company_id, category_id) => {
     if (!category_id) { setSubCategories([]); return; }
     const res = await api.get(`/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${category_id}`);
     setSubCategories(res.data.status ? res.data.data : []);
-  };
+  }, []);
 
-  const fetchBrands = async (company_id, category_id, subcategory_id) => {
+  const fetchBrands = useCallback(async (company_id, category_id, subcategory_id) => {
     if (!company_id || !category_id || !subcategory_id) { setBrands([]); return; }
     const res = await api.get(`/brand/get_active_brand?company_id=${company_id}&category_id=${category_id}&subcategory_id=${subcategory_id}`);
     setBrands(res.data.status ? res.data.data : []);
-  };
+  }, []);
 
-  const fetchCompanyGST = async (company_id) => {
+  const fetchCompanyGST = useCallback(async (company_id) => {
     setGstLoading(true);
     try {
       const res = await api.post("/company/get_company_by_id", { id: company_id });
@@ -96,9 +96,9 @@ export default function SupplierEditProduct() {
     } finally {
       setGstLoading(false);
     }
-  };
+  }, []);
 
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     setFetching(true);
     try {
       const res = await api.get(`/product/get_by_id?id=${id}`);
@@ -127,9 +127,14 @@ export default function SupplierEditProduct() {
     } finally {
       setFetching(false);
     }
-  };
+  }, [id, fetchCategories, fetchCompanyGST, fetchSubCategories, fetchBrands]);
 
-  useEffect(() => { fetchProduct(); }, [id]);
+  useEffect(() => {
+    const run = async () => {
+      fetchProduct();
+    };
+    run();
+  }, [fetchProduct]);
 
   const handleCompanyChange = async (e) => {
 
@@ -152,17 +157,7 @@ export default function SupplierEditProduct() {
 
 };
 
-useEffect(() => {
-
-  const user = JSON.parse(localStorage.getItem("user"));
-
-  if (!user?.id) return;
-
-  loadCompanies(user.id);
-
-}, []);
-
-const loadCompanies = async (admin_id) => {
+const loadCompanies = useCallback(async (admin_id) => {
 
   try {
 
@@ -178,7 +173,23 @@ const loadCompanies = async (admin_id) => {
     console.log(err);
   }
 
-};
+}, []);
+
+useEffect(() => {
+
+  const run = async () => {
+
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (!user?.id) return;
+
+    loadCompanies(user.id);
+
+  };
+
+  run();
+
+}, [loadCompanies]);
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);

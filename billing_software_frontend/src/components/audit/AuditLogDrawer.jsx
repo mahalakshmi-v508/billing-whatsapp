@@ -41,6 +41,7 @@ export default function AuditLogDrawer({ open, onClose, initialModule = "" }) {
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [expanded, setExpanded] = useState(null);
+  const [prevInitialModule, setPrevInitialModule] = useState(initialModule);
 
   const query = useMemo(
     () => ({
@@ -73,7 +74,10 @@ export default function AuditLogDrawer({ open, onClose, initialModule = "" }) {
 
   useEffect(() => {
     if (!open) return;
-    load();
+    const run = async () => {
+      await load();
+    };
+    run();
   }, [open, load]);
 
   // Escape closes the drawer, matching the existing modal behaviour.
@@ -101,10 +105,11 @@ export default function AuditLogDrawer({ open, onClose, initialModule = "" }) {
   }, [open]);
 
   // A different page (e.g. from the Invoice list) may preset the module filter.
-  useEffect(() => {
+  if (prevInitialModule !== initialModule) {
+    setPrevInitialModule(initialModule);
     setModule(initialModule || "all");
     setPage(1);
-  }, [initialModule]);
+  }
 
   // Debounce free-text search so typing does not fire a request per keystroke.
   useEffect(() => {

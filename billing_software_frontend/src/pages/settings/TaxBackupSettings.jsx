@@ -1,47 +1,32 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Coins,
   Database,
   Download,
   CheckCircle2,
   AlertCircle,
-  AlertTriangle,
   Clock,
   Printer,
-  Calendar,
   Layers,
-  Sparkles,
   ShieldCheck,
-  ChevronRight,
   TrendingUp,
   Receipt,
   RotateCcw,
   Check,
-  FileText,
-  DollarSign,
   Building2,
   Sliders,
   History,
-  Info,
   X,
-  CreditCard,
-  QrCode,
   Wallet,
 } from "lucide-react";
 import { SettingsShell, Toggle, Badge } from "./settingsUI";
 import { useCompanySetting } from "./useCompanySetting";
 import { useLanguage } from "../../utils/i18n";
-import api, { API_BASE_URL } from "../../services/api";
+import api from "../../services/api";
+
+import { DEFAULT_TAX_BACKUP } from "../../config/settingsDefaults";
 
 export const TAX_BACKUP_KEY = "tax_backup";
-
-export const DEFAULT_TAX_BACKUP = {
-  default_tax_mode: "inclusive", // "inclusive" (with_gst) | "exclusive" (without_gst)
-  allow_cashier_tax_toggle: true, // Allow cashier to toggle tax mode on POS screen
-  apply_to_unlisted_items: true,
-  auto_backup_reminder: true,
-  last_backup_date: null,
-};
 
 const DENOMINATIONS = [
   { value: 500, label: "₹500 Note" },
@@ -55,7 +40,7 @@ const DENOMINATIONS = [
 
 export default function TaxBackupSettings({ initialTab = "tax-mode" }) {
   const { isTamil } = useLanguage();
-  const [settings, setSetting, setEntireSettings] = useCompanySetting(
+  const [settings, setSetting] = useCompanySetting(
     TAX_BACKUP_KEY,
     DEFAULT_TAX_BACKUP
   );
@@ -93,13 +78,13 @@ export default function TaxBackupSettings({ initialTab = "tax-mode" }) {
     localStorage.getItem("company_id") ||
     "";
 
-  const showToast = (message, type = "success") => {
+  const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
-  };
+  }, []);
 
   // Fetch Day Closing summary
-  const fetchDaySummary = async (date = closingDate) => {
+  const fetchDaySummary = useCallback(async (date = closingDate) => {
     if (!companyId) return;
     setLoadingSummary(true);
     try {
@@ -108,9 +93,9 @@ export default function TaxBackupSettings({ initialTab = "tax-mode" }) {
       });
       if (res.data && res.data.status) {
         setSummaryData(res.data);
-        if (openingCashInput === "" || openingCashInput === null) {
-          setOpeningCashInput(String(res.data.opening_cash ?? 0));
-        }
+        setOpeningCashInput((prev) =>
+          prev === "" || prev === null ? String(res.data.opening_cash ?? 0) : prev
+        );
         if (res.data.closing?.denominations) {
           setCounts((prev) => ({ ...prev, ...res.data.closing.denominations }));
           if (res.data.closing.notes) setCashierNotes(res.data.closing.notes);
@@ -122,10 +107,10 @@ export default function TaxBackupSettings({ initialTab = "tax-mode" }) {
     } finally {
       setLoadingSummary(false);
     }
-  };
+  }, [companyId, closingDate, isTamil, showToast]);
 
   // Fetch Closing History
-  const fetchClosingHistory = async () => {
+  const fetchClosingHistory = useCallback(async () => {
     if (!companyId) return;
     setLoadingHistory(true);
     try {
@@ -140,14 +125,17 @@ export default function TaxBackupSettings({ initialTab = "tax-mode" }) {
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [companyId]);
 
   useEffect(() => {
-    if (activeSubTab === "day-closing") {
-      fetchDaySummary(closingDate);
-      fetchClosingHistory();
-    }
-  }, [activeSubTab, closingDate, companyId]);
+    const run = async () => {
+      if (activeSubTab === "day-closing") {
+        fetchDaySummary(closingDate);
+        fetchClosingHistory();
+      }
+    };
+    run();
+  }, [activeSubTab, closingDate, companyId, fetchDaySummary, fetchClosingHistory]);
 
   // Denominations Total
   const totalCountedCash = useMemo(() => {

@@ -11,16 +11,12 @@ import {
   Search,
   Printer,
   FileSpreadsheet,
-  Filter,
   Trash2,
   Eye,
   AlertTriangle,
   X,
   RefreshCw,
   FileText,
-  MoreVertical,
-  Share2,
-  Pencil,
   Edit,
   Hash,
   User,
@@ -39,7 +35,7 @@ import CommonTableColumnSettings from "../../../components/CommonTableColumnSett
 import useTableColumns from "../../../hooks/useTableColumns";
 import useModalFocusTrap from "../../../hooks/useModalFocusTrap";
 import { useLanguage } from "../../../utils/i18n";
-import { useCashierSecurity } from "../../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../../context/cashierSecurity";
 
 const DEFAULT_COLUMNS = [
   { key: "index", label: "#", icon: Hash, color: "text-slate-600", bg: "bg-slate-100", desc: "Index sequence number" },
@@ -73,7 +69,7 @@ const PERIOD_LABELS_TA = {
 };
 
 export default function CreditNoteList() {
-  const { isTamil, t: translate } = useLanguage();
+  const { isTamil } = useLanguage();
   const navigate = useNavigate();
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
   const adminId = user?.role === "cashier" ? user?.admin_id : (user?.id || user?.admin_id);
@@ -111,7 +107,7 @@ export default function CreditNoteList() {
   // Data states
   const [creditNotes, setCreditNotes] = useState([]);
   const [companies, setCompanies] = useState([]);
-  const [cashiers, setCashiers] = useState([]);
+  const [, setCashiers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filter states
@@ -119,16 +115,13 @@ export default function CreditNoteList() {
   const [periodOpen, setPeriodOpen] = useState(false);
   const [selectedFirm, setSelectedFirm] = useState(() => localStorage.getItem("selected_company_id") || "all");
   const [firmOpen, setFirmOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState("all");
-  const [userOpen, setUserOpen] = useState(false);
+  const [selectedUser] = useState("all");
 
-  const [docType, setDocType] = useState("credit_note");
   const [paymentFilter, setPaymentFilter] = useState("all");
 
   // Date range
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Search & Actions
   const [searchQuery, setSearchQuery] = useState("");
@@ -205,8 +198,6 @@ export default function CreditNoteList() {
 
   // Initial Load: Companies & Cashiers
   useEffect(() => {
-    setPresetDates("all_time");
-
     const loadMeta = async () => {
       try {
         if (adminId) {
@@ -246,28 +237,28 @@ export default function CreditNoteList() {
   }, []);
 
   // Fetch Credit Notes
-  const fetchCreditNotes = async () => {
-    if (!adminId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await api.get(`/credit_note/list?admin_id=${adminId}`);
-      if (res.data.status) {
-        setCreditNotes(res.data.data || []);
-      } else {
-        setCreditNotes([]);
-      }
-    } catch (err) {
-      console.error("Error loading credit notes:", err);
-      setCreditNotes([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchCreditNotes = async () => {
+      if (!adminId) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await api.get(`/credit_note/list?admin_id=${adminId}`);
+        if (res.data.status) {
+          setCreditNotes(res.data.data || []);
+        } else {
+          setCreditNotes([]);
+        }
+      } catch (err) {
+        console.error("Error loading credit notes:", err);
+        setCreditNotes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchCreditNotes();
   }, [adminId]);
 
@@ -330,9 +321,12 @@ export default function CreditNoteList() {
   }, [filteredNotes]);
 
   // Reset page when filters change
-  useEffect(() => {
+  const filtersKey = `${searchQuery}|${selectedFirm}|${selectedUser}|${fromDate}|${toDate}|${period}|${paymentFilter}`;
+  const [prevFiltersKey, setPrevFiltersKey] = useState(filtersKey);
+  if (prevFiltersKey !== filtersKey) {
+    setPrevFiltersKey(filtersKey);
     setCurrentPage(1);
-  }, [searchQuery, selectedFirm, selectedUser, fromDate, toDate, period, paymentFilter]);
+  }
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredNotes.length / rowsPerPage) || 1;

@@ -83,7 +83,10 @@ export default function DayBookAnalytics({
 }) {
   const locationState = useLocation()?.state || {};
 
-  const rows = rowsProp.length ? rowsProp : locationState.rows || [];
+  const rows = useMemo(
+    () => (rowsProp.length ? rowsProp : locationState.rows || []),
+    [rowsProp, locationState.rows]
+  );
   const date = dateProp || locationState.date || "";
   const firmName = firmNameProp || locationState.firmName || "ALL FIRMS";
   const canClose = typeof onClose === "function";

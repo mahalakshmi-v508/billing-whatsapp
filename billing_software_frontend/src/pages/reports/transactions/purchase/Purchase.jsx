@@ -25,7 +25,6 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   ShoppingCart,
-  Wallet,
   Building2,
   BarChart3,
 } from "lucide-react";
@@ -1131,26 +1130,9 @@ export default function Purchase() {
      STYLES
   ========================================================= */
 
-  const compactAction = {
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "3px",
-    minWidth: "54px",
-    padding: "2px 4px",
-  };
+  
 
-  const cardShadow = {
-    background: "#ffffff",
-    borderRadius: "10px",
-    border: "1px solid #e1e7ef",
-    boxShadow:
-      "0 1px 2px rgba(15,23,42,0.04)",
-  };
+  
 
   /* Row currently open in the Actions 3-dot menu */
   const actionMenuRow = actionMenu

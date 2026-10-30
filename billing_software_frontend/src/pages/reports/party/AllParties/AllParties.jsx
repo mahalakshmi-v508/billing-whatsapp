@@ -8,12 +8,10 @@ import {
   X,
   AlertCircle,
   Users,
-  Building2,
   Calendar,
   Wallet,
   ArrowDownLeft,
   ArrowUpRight,
-  ShieldCheck,
   Mail,
   Phone,
 } from "lucide-react";
@@ -224,16 +222,7 @@ export default function AllParties() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = filtered.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
-  const analyticsRows = useMemo(
-    () =>
-      (filtered || []).map((p) => ({
-        date: "",
-        group: p.name || "General",
-        value: Number(p.receivable) || 0,
-        count: 1,
-      })),
-    [filtered]
-  );
+  
 
   const handleSelectType = (v) => {
     setPartyType(v);

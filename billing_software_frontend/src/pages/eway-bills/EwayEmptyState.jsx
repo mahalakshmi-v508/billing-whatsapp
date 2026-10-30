@@ -1,5 +1,5 @@
-import React from "react";
-import { Truck, Plus, Search, FileText } from "lucide-react";
+import "react";
+import { Truck, Plus } from "lucide-react";
 
 export default function EwayEmptyState({
   title = "No E-Way Bills Found",

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../../services/api";
@@ -14,7 +14,6 @@ import {
   Calendar,
   ChevronDown,
   Search,
-  RefreshCw,
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
@@ -29,9 +28,7 @@ import {
   Save,
   Layers,
   Sparkles,
-  DollarSign,
   Check,
-  Percent,
   Package,
   Scale,
   IndianRupee,
@@ -173,15 +170,20 @@ export default function AddCreditNote() {
     resetDefaultColumns,
     showColumnDrawer,
     setShowColumnDrawer,
-    visibleColumnCount,
   } = useTableColumns("credit_note_item_columns", DEFAULT_ITEM_COLUMNS);
 
-  // Update active tab helper
-  const updateActiveTab = (updates) => {
+  // Update active tab helper (stable: the live tab id is read from a ref so
+  // this callback does not need to be re-created whenever the tab changes)
+  const activeTabIdRef = useRef(activeTabId);
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
+
+  const updateActiveTab = useCallback((updates) => {
     setTabs((prev) =>
-      prev.map((tab) => (tab.id === activeTabId ? { ...tab, ...updates } : tab))
+      prev.map((tab) => (tab.id === activeTabIdRef.current ? { ...tab, ...updates } : tab))
     );
-  };
+  }, []);
 
   // Add new tab with auto-incremented return no
   const handleAddTab = async () => {
@@ -329,7 +331,7 @@ export default function AddCreditNote() {
       }
     };
     loadInitData();
-  }, [companyId, adminId, editId, isEditMode]);
+  }, [companyId, adminId, editId, isEditMode, updateActiveTab]);
 
   // Search Customer Party
   const handleSearchParty = async (q) => {

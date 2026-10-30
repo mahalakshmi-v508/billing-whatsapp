@@ -5,7 +5,6 @@ import {
   RefreshCw,
   Download,
   User,
-  Globe,
   FileText,
   ShieldCheck,
   ChevronLeft,
@@ -110,7 +109,10 @@ export default function AuditLog() {
   // Re-fetch whenever the query changes *or* the Page Coverage config changes,
   // so toggling a page in Settings updates this list without a manual reload.
   useEffect(() => {
-    load();
+    const run = async () => {
+      await load();
+    };
+    run();
   }, [load, hiddenModules]);
 
   // Filter options and counters come from the same hidden-modules query on the

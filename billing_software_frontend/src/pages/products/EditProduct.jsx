@@ -687,7 +687,7 @@
 
 
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import PriceWithGstInput from "./components/PriceWithGstInput";
@@ -775,16 +775,7 @@ export default function EditProduct() {
     }));
 
   /* ── Load companies (for the dropdown, same as ProductForm) ── */
-  useEffect(() => {
-
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user?.id) return;
-
-    loadCompanies(user.id);
-
-  }, []);
-
-  const loadCompanies = async (admin_id) => {
+  const loadCompanies = useCallback(async (admin_id) => {
 
     try {
 
@@ -800,10 +791,25 @@ export default function EditProduct() {
       console.log(err);
     }
 
-  };
+  }, []);
+
+  useEffect(() => {
+
+    const run = async () => {
+
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user?.id) return;
+
+    await loadCompanies(user.id);
+
+    };
+
+    run();
+
+  }, [loadCompanies]);
 
   /* ── GST ── */
-  const fetchCompanyGSTByCompanyId = async (company_id) => {
+  const fetchCompanyGSTByCompanyId = useCallback(async (company_id) => {
 
     setGstLoading(true);
 
@@ -825,10 +831,10 @@ export default function EditProduct() {
       setGstLoading(false);
     }
 
-  };
+  }, []);
 
   /* ── Category / Subcategory / Brand (same pattern as ProductForm) ── */
-  const fetchCategories = async (company_id) => {
+  const fetchCategories = useCallback(async (company_id) => {
 
     try {
 
@@ -852,9 +858,9 @@ export default function EditProduct() {
       setCategories([]);
     }
 
-  };
+  }, []);
 
-  const fetchSubCategories = async (company_id, category_id) => {
+  const fetchSubCategories = useCallback(async (company_id, category_id) => {
 
     if (!category_id) {
       setSubCategories([]);
@@ -877,10 +883,10 @@ export default function EditProduct() {
       console.log(err);
     }
 
-  };
+  }, []);
 
 
-  const fetchSuppliers = async (company_id) => {
+  const fetchSuppliers = useCallback(async (company_id) => {
 
   if (!company_id) {
     setSuppliers([]);
@@ -904,9 +910,9 @@ export default function EditProduct() {
     setSuppliers([]);
   }
 
-};
+}, []);
   
-  const fetchBrands = async (company_id, category_id, subcategory_id) => {
+  const fetchBrands = useCallback(async (company_id, category_id, subcategory_id) => {
 
     if (!company_id || !category_id || !subcategory_id) {
       setBrands([]);
@@ -930,10 +936,10 @@ export default function EditProduct() {
       setBrands([]);
     }
 
-  };
+  }, []);
 
   /* ── Load existing product & prefill everything ── */
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
 
     setFetching(true);
 
@@ -1009,11 +1015,14 @@ export default function EditProduct() {
       setFetching(false);
     }
 
-  };
+  }, [id, fetchCategories, fetchCompanyGSTByCompanyId, fetchSuppliers, fetchSubCategories, fetchBrands]);
 
   useEffect(() => {
-    fetchProduct();
-  }, [id]);
+    const run = async () => {
+      await fetchProduct();
+    };
+    run();
+  }, [fetchProduct]);
 
   /* ── Company change (same behaviour as ProductForm) ── */
  const handleCompanyChange = (e) => {

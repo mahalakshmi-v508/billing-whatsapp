@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import  { useEffect, useState, useCallback } from "react";
 import api from "../../services/api";
 import {
   User,
@@ -6,7 +6,6 @@ import {
   Phone,
   ShieldCheck,
   KeyRound,
-  Calendar,
   Building2,
   Check,
   Copy,
@@ -41,10 +40,10 @@ export default function Profile() {
   const [copiedKey, setCopiedKey] = useState(null);
   const [toast, setToast] = useState(null);
 
-  const showToast = (msg, type = "success") => {
+  const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
-  };
+  }, []);
 
   const copyToClipboard = (text, key) => {
     if (!text) return;
@@ -63,7 +62,7 @@ export default function Profile() {
       .toUpperCase();
   };
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = useCallback(async () => {
     setLoading(true);
     try {
       const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -107,11 +106,14 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
-    fetchUserProfile();
-  }, []);
+    const run = async () => {
+      await fetchUserProfile();
+    };
+    run();
+  }, [fetchUserProfile]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

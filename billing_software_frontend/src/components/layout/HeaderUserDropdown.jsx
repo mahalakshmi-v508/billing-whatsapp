@@ -9,8 +9,6 @@ import {
   Building2,
   Headset,
   ChevronDown,
-  Sparkles,
-  KeyRound,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "../../utils/i18n";

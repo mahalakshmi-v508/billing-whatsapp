@@ -1,11 +1,9 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import {
   Pencil, Trash2, Eye, FileSpreadsheet, History, CreditCard, Search,
-  Phone, Mail, MapPin, Wallet, Plus, Share2, Building2, CheckCircle2,
-  AlertCircle, AlertTriangle, ShieldAlert, ShoppingCart, ArrowUpRight, X, ChevronRight, ChevronDown,
-  Filter, Check, UserCheck, Layers, LayoutGrid, Calendar, RefreshCw,
+  Phone, Mail, MapPin, Wallet, Plus, Building2, CheckCircle2, AlertTriangle, ShieldAlert, ShoppingCart, X, ChevronDown, Layers, LayoutGrid, Calendar, RefreshCw,
   Printer, FileText, KeyRound, Lock
 } from "lucide-react";
 import AddSupplierModal from "../supplier/AddSupplierModal";
@@ -14,7 +12,7 @@ import HeaderSettingsButton from "../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../components/CommonTableColumnSettings";
 import { useTableColumns } from "../../hooks/useTableColumns";
 import useModalFocusTrap from "../../hooks/useModalFocusTrap";
-import { useCashierSecurity } from "../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../context/cashierSecurity";
 
 const DEFAULT_PURCHASE_COLUMNS = [
   { id: "date", label: "Date", defaultVisible: true },
@@ -37,8 +35,7 @@ export default function PurchaseList() {
     closeSettings,
     toggleColumn,
     resetColumns,
-    isColumnVisible,
-    visibleColumnCount
+    isColumnVisible
   } = useTableColumns(DEFAULT_PURCHASE_COLUMNS, "purchase_list_columns_v1");
 
   // Core Data States
@@ -171,76 +168,7 @@ export default function PurchaseList() {
     setPeriodOpen(false);
   };
 
-  useEffect(() => {
-    let user = {};
-    try {
-      user = JSON.parse(localStorage.getItem("user") || "{}");
-    } catch (e) {
-      user = {};
-    }
-    const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
-    if (!adminId) {
-      setLoading(false);
-      return;
-    }
-
-    api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role || ""}`)
-      .then(res => {
-        if (res.data.status) {
-          const list = res.data.data || [];
-          setCompanies(list);
-          const saved = localStorage.getItem("selected_company_id");
-          const chosen = (saved && list.some((c) => String(c.id) === String(saved)))
-            ? String(saved)
-            : "all";
-          setSelectedCompany(chosen);
-          fetchPurchasesAndSuppliers(chosen, "", "");
-        } else {
-          setLoading(false);
-        }
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
-  // Sync selectedCompany when settings company changes
-  useEffect(() => {
-    const handleCompanySync = () => {
-      const saved = localStorage.getItem("selected_company_id");
-      if (saved) {
-        setSelectedCompany(String(saved));
-        fetchPurchasesAndSuppliers(String(saved), fromDate, toDate);
-      }
-    };
-    window.addEventListener("storage", handleCompanySync);
-    window.addEventListener("company_changed", handleCompanySync);
-    return () => {
-      window.removeEventListener("storage", handleCompanySync);
-      window.removeEventListener("company_changed", handleCompanySync);
-    };
-  }, [fromDate, toDate]);
-
-  useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (firmRef.current && !firmRef.current.contains(e.target)) {
-        setFirmOpen(false);
-      }
-      if (periodRef.current && !periodRef.current.contains(e.target)) {
-        setPeriodOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
-
-  useEffect(() => {
-    if (isDateMounted.current) {
-      fetchPurchasesAndSuppliers(selectedCompany, fromDate, toDate);
-    } else {
-      isDateMounted.current = true;
-    }
-  }, [fromDate, toDate]);
-
-  const fetchPurchasesAndSuppliers = async (companyId = selectedCompany, from = fromDate, to = toDate) => {
+  const fetchPurchasesAndSuppliers = useCallback(async (companyId, from, to) => {
     setLoading(true);
     try {
       let user = {};
@@ -288,7 +216,79 @@ export default function PurchaseList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const run = async () => {
+      let user ;
+      try {
+        user = JSON.parse(localStorage.getItem("user") || "{}");
+      } catch (e) {
+        user = {};
+      }
+      const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+      if (!adminId) {
+        setLoading(false);
+        return;
+      }
+
+      api.get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role || ""}`)
+        .then(res => {
+          if (res.data.status) {
+            const list = res.data.data || [];
+            setCompanies(list);
+            const saved = localStorage.getItem("selected_company_id");
+            const chosen = (saved && list.some((c) => String(c.id) === String(saved)))
+              ? String(saved)
+              : "all";
+            setSelectedCompany(chosen);
+            fetchPurchasesAndSuppliers(chosen, "", "");
+          } else {
+            setLoading(false);
+          }
+        })
+        .catch(() => setLoading(false));
+    };
+    run();
+  }, [fetchPurchasesAndSuppliers]);
+
+  // Sync selectedCompany when settings company changes
+  useEffect(() => {
+    const handleCompanySync = () => {
+      const saved = localStorage.getItem("selected_company_id");
+      if (saved) {
+        setSelectedCompany(String(saved));
+        fetchPurchasesAndSuppliers(String(saved), fromDate, toDate);
+      }
+    };
+    window.addEventListener("storage", handleCompanySync);
+    window.addEventListener("company_changed", handleCompanySync);
+    return () => {
+      window.removeEventListener("storage", handleCompanySync);
+      window.removeEventListener("company_changed", handleCompanySync);
+    };
+  }, [fromDate, toDate, fetchPurchasesAndSuppliers]);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (firmRef.current && !firmRef.current.contains(e.target)) {
+        setFirmOpen(false);
+      }
+      if (periodRef.current && !periodRef.current.contains(e.target)) {
+        setPeriodOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  useEffect(() => {
+    if (isDateMounted.current) {
+      fetchPurchasesAndSuppliers(selectedCompany, fromDate, toDate);
+    } else {
+      isDateMounted.current = true;
+    }
+  }, [fromDate, toDate, selectedCompany, fetchPurchasesAndSuppliers]);
 
   const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);
@@ -331,7 +331,7 @@ export default function PurchaseList() {
         setDeleteTarget(null);
         setDeletePin("");
         setDeletePinError("");
-        fetchPurchasesAndSuppliers(selectedCompany);
+        fetchPurchasesAndSuppliers(selectedCompany, fromDate, toDate);
       } else {
         alert(res.data.message);
       }
@@ -377,7 +377,7 @@ export default function PurchaseList() {
       if (res.data.status) {
         alert("Payment recorded successfully");
         setShowPayModal(false);
-        fetchPurchasesAndSuppliers(selectedCompany);
+        fetchPurchasesAndSuppliers(selectedCompany, fromDate, toDate);
       } else {
         alert(res.data.message);
       }
@@ -428,6 +428,12 @@ export default function PurchaseList() {
     setShowBulkPayModal(true);
   };
 
+  // Current selected supplier's bills
+  const supplierBills = useMemo(() => {
+    if (!selectedSupplier) return [];
+    return purchases.filter((p) => Number(p.supplier_id) === Number(selectedSupplier.id));
+  }, [purchases, selectedSupplier]);
+
   // Live preview update on bulk amount change
   const handleBulkAmountChange = (val) => {
     setBulkAmount(val);
@@ -462,7 +468,7 @@ export default function PurchaseList() {
       if (res.data.status) {
         alert(res.data.message);
         setShowBulkPayModal(false);
-        fetchPurchasesAndSuppliers(selectedCompany);
+        fetchPurchasesAndSuppliers(selectedCompany, fromDate, toDate);
       } else {
         alert(res.data.message);
       }
@@ -475,11 +481,11 @@ export default function PurchaseList() {
   };
 
   // Supplier-specific pending balance helper
-  const getSupplierPendingTotal = (supplierId) => {
+  const getSupplierPendingTotal = useCallback((supplierId) => {
     return purchases
       .filter((p) => Number(p.supplier_id) === Number(supplierId) && p.status === "submitted")
       .reduce((sum, p) => sum + Number(p.balance_amount || 0), 0);
-  };
+  }, [purchases]);
 
   // ── Financial Intelligence Calculations (PaySplitX KPI Metrics) ──
   const kpiMetrics = useMemo(() => {
@@ -521,7 +527,7 @@ export default function PurchaseList() {
       settledBillsCount,
       suppliersWithDuesCount,
     };
-  }, [purchases, suppliers]);
+  }, [purchases, suppliers, getSupplierPendingTotal]);
 
   // Filtered Suppliers for Sidebar
   const filteredSuppliers = useMemo(() => {
@@ -536,13 +542,7 @@ export default function PurchaseList() {
       }
       return true;
     });
-  }, [suppliers, supplierSearch, supplierFilter, purchases]);
-
-  // Current selected supplier's bills
-  const supplierBills = useMemo(() => {
-    if (!selectedSupplier) return [];
-    return purchases.filter((p) => Number(p.supplier_id) === Number(selectedSupplier.id));
-  }, [purchases, selectedSupplier]);
+  }, [suppliers, supplierSearch, supplierFilter, getSupplierPendingTotal]);
 
   // Filtered bills for selected supplier (or all bills in directory view)
   const filteredBills = useMemo(() => {
@@ -1804,7 +1804,7 @@ export default function PurchaseList() {
         onClose={() => setShowAddSupplierModal(false)}
         companyId={selectedCompany !== "all" ? selectedCompany : (companies[0]?.id || "")}
         onSupplierAdded={(newSupplier) => {
-          fetchPurchasesAndSuppliers(selectedCompany);
+          fetchPurchasesAndSuppliers(selectedCompany, fromDate, toDate);
           if (newSupplier?.id) {
             setSelectedSupplier(newSupplier);
           }

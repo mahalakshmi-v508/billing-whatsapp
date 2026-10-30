@@ -23,11 +23,11 @@ import ReportPagination from "../../../../components/reports/ReportPagination";
 import DayBookAnalytics from "./DayBookAnalytics";
 
 /* ─── Styling constants (reuse the app's report theme) ─────────────── */
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const BORDER = "#e2e8f0";
-const MONEY_IN = "#15803d";
-const MONEY_OUT = "#dc2626";
+
+
+
+
+
 
 /* Official WhatsApp logo glyph (same mark used elsewhere in the app) */
 const WhatsAppIcon = ({ size = 24, color = "currentColor" }) => (
@@ -138,7 +138,13 @@ export default function DayBook() {
   const [colFilters, setColFilters] = useState({}); // { columnKey: value }
   const [openFilter, setOpenFilter] = useState("");
   const searchTimer = useRef(null);
-  const firmNameRef = useRef("ALL FIRMS");
+
+  /* firm display name derived from state (never read a ref during render) */
+  const firmName = useMemo(() => {
+    if (firm === "all") return "ALL FIRMS";
+    const match = companies.find((c) => String(c.id) === String(firm));
+    return match?.company_name || "ALL FIRMS";
+  }, [firm, companies]);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -221,13 +227,10 @@ export default function DayBook() {
         const match = saved ? list.find((c) => String(c.id) === String(saved)) : null;
         if (match) {
           setFirm(String(match.id));
-          firmNameRef.current = match.company_name || "ALL FIRMS";
         } else if (list.length === 1) {
           setFirm(String(list[0].id));
-          firmNameRef.current = list[0].company_name || "ALL FIRMS";
         } else {
           setFirm("all");
-          firmNameRef.current = "ALL FIRMS";
         }
       })
       .catch(() => setError("Failed to load companies."));
@@ -277,15 +280,13 @@ export default function DayBook() {
     setFirm(v);
     setSearch("");
     if (v === "all") {
-      firmNameRef.current = "ALL FIRMS";
+      localStorage.removeItem("selected_company_id");
     } else {
-      const c = companies.find((x) => String(x.id) === String(v));
-      firmNameRef.current = c?.company_name || "ALL FIRMS";
       localStorage.setItem("selected_company_id", v);
     }
   };
 
-  const sortedFiltered = useCallback(() => {
+  const displayed = useMemo(() => {
     let list = [...transactions];
     if (colFilters && Object.keys(colFilters).some((k) => colFilters[k]?.trim())) {
       list = list.filter((row) => {
@@ -310,8 +311,6 @@ export default function DayBook() {
     }
     return list;
   }, [transactions, colFilters, sortKey, sortDir]);
-
-  const displayed = sortedFiltered();
 
   const toggleSort = (col) => {
     if (sortKey === col) setSortDir((d) => -d);
@@ -348,7 +347,7 @@ export default function DayBook() {
     const el = document.createElement("div");
     el.innerHTML =
       `<h2>Day Book</h2>
-       <div class="meta">${firmNameRef.current} &nbsp;|&nbsp; ${prettyDate} &nbsp;|&nbsp; ${displayed.length} transaction(s)</div>
+       <div class="meta">${firmName} &nbsp;|&nbsp; ${prettyDate} &nbsp;|&nbsp; ${displayed.length} transaction(s)</div>
        ${buildPrintTable(displayed)}
        <div class="sum">
          <div><span>Total Money-In</span><span>${fmtINR(summary.money_in)}</span></div>
@@ -365,7 +364,7 @@ export default function DayBook() {
     const el = document.createElement("div");
     el.innerHTML =
       `<h2>Day Book</h2>
-       <div class="meta">${firmNameRef.current} &nbsp;|&nbsp; ${prettyDate}</div>
+       <div class="meta">${firmName} &nbsp;|&nbsp; ${prettyDate}</div>
        <table>
          <tr><th>Name</th><td>${t.name || "-"}</td></tr>
          <tr><th>Ref. No</th><td>${t.reference || "-"}</td></tr>
@@ -526,7 +525,7 @@ export default function DayBook() {
         <DayBookAnalytics
           rows={analyticsRows}
           date={date}
-          firmName={firmNameRef.current}
+          firmName={firmName}
           onClose={() => setViewMode("report")}
         />
       ) : (
@@ -909,60 +908,7 @@ export default function DayBook() {
   );
 }
 
-const actionBtn = (color) => ({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "8px 14px",
-  borderRadius: 8,
-  fontSize: 12,
-  fontWeight: 700,
-  color: "#fff",
-  background: color,
-  border: "none",
-  cursor: "pointer",
-  fontFamily: FONT,
-});
-const rowIconBtn = (color) => ({
-  width: 28,
-  height: 28,
-  borderRadius: 6,
-  border: "1px solid " + BORDER,
-  background: "#fff",
-  color,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-  marginRight: 4,
-});
-const menuItemBtn = {
-  width: "100%",
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "8px 14px",
-  border: "none",
-  background: "transparent",
-  color: "#334155",
-  fontSize: 12,
-  fontWeight: 600,
-  textAlign: "left",
-  whiteSpace: "nowrap",
-  cursor: "pointer",
-  fontFamily: FONT,
-};
-const miniBtn = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 4,
-  padding: "6px 10px",
-  border: "1px solid " + BORDER,
-  borderRadius: 6,
-  background: "#fff",
-  color: "#334155",
-  fontSize: 11,
-  fontWeight: 600,
-  fontFamily: FONT,
-  cursor: "pointer",
-};
+
+
+
+

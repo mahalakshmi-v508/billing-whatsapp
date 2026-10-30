@@ -12,9 +12,9 @@ import { showToast } from "../../../../utils/reportToast";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const BORDER = "#e2e8f0";
-const NAVY = "#1e3a8a";
-const HEADER_BG = "#f1f5f9";
-const TOTAL_BG = "#eef2ff";
+
+
+
 
 const ZERO_ROW = { value: 0, igst: 0, cgst: 0, sgst: 0, cess: 0 };
 const ZERO_ITC = { igst: 0, cgst: 0, sgst: 0, cess: 0 };
@@ -678,21 +678,25 @@ export default function Gstr9() {
     (c) => String(c.id) === String(selectedCompany)
   );
 
-  const companyStateCode = getStateCodeFromGstin(companyObject?.gstin);
+  const companyStateCode = useMemo(
+    () =>
+      getStateCodeFromGstin(
+        companies.find((c) => String(c.id) === String(selectedCompany))?.gstin
+      ),
+    [companies, selectedCompany]
+  );
 
   /* ── Reference maps ───────────────────────────────────────── */
 
-  const customersMap = useMemo(() => {
-    const map = new Map();
-    customers.forEach((c) => map.set(String(c.id), c));
-    return map;
-  }, [customers]);
+  const customersMap = useMemo(
+    () => Object.fromEntries(customers.map((c) => [String(c.id), c])),
+    [customers]
+  );
 
-  const suppliersMap = useMemo(() => {
-    const map = new Map();
-    suppliers.forEach((s) => map.set(String(s.id), s));
-    return map;
-  }, [suppliers]);
+  const suppliersMap = useMemo(
+    () => Object.fromEntries(suppliers.map((s) => [String(s.id), s])),
+    [suppliers]
+  );
 
   /* ── Fetch report ─────────────────────────────────────────── */
 
@@ -787,7 +791,7 @@ export default function Gstr9() {
     const nonTax = { value: 0 };
 
     invoices.forEach((inv) => {
-      const customerRecord = customersMap.get(String(inv.customer_id));
+      const customerRecord = customersMap[String(inv.customer_id)];
       const inter = resolveSaleInterState(inv, customerRecord, companyStateCode);
       const tax = getTaxAmount(inv);
       const taxAmt = round2(tax ?? 0);
@@ -816,7 +820,7 @@ export default function Gstr9() {
     const nonTax = { value: 0 };
 
     purchases.forEach((p) => {
-      const supplierRecord = suppliersMap.get(String(p.supplier_id));
+      const supplierRecord = suppliersMap[String(p.supplier_id)];
       const inter = resolvePurchaseInterState(p, supplierRecord, companyStateCode);
       const taxAmt = round2(getTaxAmount(p) ?? 0);
       const value = round2(getTaxableValue(p));
@@ -1111,7 +1115,7 @@ export default function Gstr9() {
     let fallback = false;
 
     invoices.forEach((inv) => {
-      const customerRecord = customersMap.get(String(inv.customer_id));
+      const customerRecord = customersMap[String(inv.customer_id)];
       const inter = resolveSaleInterState(inv, customerRecord, companyStateCode);
       const products = Array.isArray(inv?.products) ? inv.products : [];
 
@@ -1188,48 +1192,13 @@ export default function Gstr9() {
 
   /* ── Shared UI pieces ─────────────────────────────────────── */
 
-  const selectStyle = {
-    height: 34,
-    padding: "0 30px 0 10px",
-    border: "1px solid " + BORDER,
-    borderRadius: 6,
-    fontSize: 12,
-    fontFamily: FONT,
-    color: "#334155",
-    outline: "none",
-    background: "#fff",
-    minWidth: 150,
-    cursor: "pointer",
-  };
+  
 
-  const fieldLabelStyle = {
-    fontSize: 10,
-    fontWeight: 700,
-    color: "#94a3b8",
-    marginBottom: 3,
-  };
+  
 
-  const iconBtn = {
-    width: 38,
-    height: 38,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "50%",
-    background: "#fff",
-    border: "1px solid " + BORDER,
-    boxShadow: "0 1px 2px rgba(15,23,42,.05)",
-    cursor: "pointer",
-    padding: 0,
-    fontFamily: FONT,
-    transition: "box-shadow .15s ease, border-color .15s ease",
-  };
+  
 
-  const iconBtnDisabled = {
-    ...iconBtn,
-    opacity: 0.45,
-    cursor: "not-allowed",
-  };
+  
 
   const tableWrap = {
     background: "#fff",
@@ -1368,26 +1337,9 @@ export default function Gstr9() {
     }
   };
 
-const checkboxInputStyle = {
-    width: 15,
-    height: 15,
-    margin: 0,
-    accentColor: "#4338ca",
-    cursor: "pointer",
-  };
 
-  const checkboxLabelStyle = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    height: 34,
-    fontSize: 10.5,
-    fontWeight: 700,
-    color: "#475569",
-    cursor: "pointer",
-    userSelect: "none",
-    whiteSpace: "nowrap",
-  };
+
+  
 
   /* ── Render ───────────────────────────────────────────────── */
 

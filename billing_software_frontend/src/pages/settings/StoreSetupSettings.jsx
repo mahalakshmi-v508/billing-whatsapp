@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+
 import {
   Store,
   Upload,
@@ -10,36 +10,18 @@ import {
   CheckCircle2,
   AlertCircle,
   Trash2,
-  Sparkles,
-  Building2,
-  FileText,
   Receipt,
   Check,
-  Sliders,
   ShieldCheck,
-  Eye,
-  RefreshCw,
 } from "lucide-react";
 import { SettingsShell, Toggle, Badge } from "./settingsUI";
 import { useCompanySetting } from "./useCompanySetting";
 import { useLanguage } from "../../utils/i18n";
 import api from "../../services/api";
 
-export const STORE_SETUP_KEY = "store_setup";
+import { DEFAULT_STORE_SETUP } from "../../config/settingsDefaults";
 
-export const DEFAULT_STORE_SETUP = {
-  counter_name: "Counter-1",
-  store_logo: "",
-  owner_signature: "",
-  signature_label: "Authorized Signatory",
-  working_hours: "09:00 AM - 10:00 PM (All Days)",
-  store_slogan: "தரமான பொருட்கள், நியாயமான விலை!",
-  show_counter_on_bill: true,
-  show_logo_on_bill: true,
-  show_signature_on_bill: true,
-  show_slogan_on_bill: true,
-  show_working_hours_on_bill: true,
-};
+export const STORE_SETUP_KEY = "store_setup";
 
 const COUNTER_PRESETS = [
   "Counter-1",
@@ -67,9 +49,9 @@ const WORKING_HOURS_PRESETS = [
 ];
 
 export default function StoreSetupSettings() {
-  const navigate = useNavigate();
+  
   const { isTamil } = useLanguage();
-  const [settings, setSetting, setEntireSettings] = useCompanySetting(
+  const [settings, setSetting] = useCompanySetting(
     STORE_SETUP_KEY,
     DEFAULT_STORE_SETUP
   );

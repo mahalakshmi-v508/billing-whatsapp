@@ -6,13 +6,7 @@ import {
   ChevronDown,
   UserCheck,
   AlertCircle,
-  CreditCard,
-  Building2,
-  Calendar,
-  DollarSign,
   CheckCircle2,
-  Wallet,
-  Tag,
   RefreshCw,
 } from "lucide-react";
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Barcode from "react-barcode";
 import api from "../../services/api";
@@ -6,12 +6,12 @@ import api from "../../services/api";
 /* ─── Toast Hook ─────────────────────────────────────────── */
 function useToast() {
   const [toasts, setToasts] = useState([]);
-  const show = (type, title, msg) => {
+  const show = useCallback((type, title, msg) => {
     const id = Date.now();
     setToasts(p => [...p, { id, type, title, msg }]);
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3600);
-  };
-  const remove = id => setToasts(p => p.filter(t => t.id !== id));
+  }, []);
+  const remove = useCallback(id => setToasts(p => p.filter(t => t.id !== id)), []);
   return { toasts, show, remove };
 }
 
@@ -50,32 +50,11 @@ export default function SupplierAddProductForm() {
   const [gstEnabled, setGstEnabled] = useState(false);
   const [gstLoading, setGstLoading] = useState(true);
   const { toasts, show, remove } = useToast();
-  const [existingCodes, setExistingCodes] = useState([]);
+  const [existingCodes] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState("");
 
-  useEffect(() => {
-
-    const user = JSON.parse(
-      localStorage.getItem("user")
-    );
-
-    if (!user?.id) return;
-
-    loadCompanies(user.id);
-
-  }, []);
-
-  useEffect(() => {
-
-    if (!supplierId) {
-      show("error", "Missing Supplier", "No supplier selected. Redirecting…");
-      setTimeout(() => navigate("/suppliers"), 1500);
-    }
-
-  }, [supplierId]);
-
-  const loadCompanies = async (admin_id) => {
+  const loadCompanies = useCallback(async (admin_id) => {
 
     try {
 
@@ -95,7 +74,35 @@ export default function SupplierAddProductForm() {
 
     }
 
-  };
+  }, []);
+
+  useEffect(() => {
+
+    const run = async () => {
+
+      const user = JSON.parse(
+        localStorage.getItem("user")
+      );
+
+      if (!user?.id) return;
+
+      loadCompanies(user.id);
+
+    };
+
+    run();
+
+  }, [loadCompanies]);
+
+  useEffect(() => {
+
+    if (!supplierId) {
+      show("error", "Missing Supplier", "No supplier selected. Redirecting…");
+      setTimeout(() => navigate("/suppliers"), 1500);
+    }
+
+  }, [supplierId, navigate, show]);
+
   const [form, setForm] = useState({
     name: "", product_code: "", price: "", brand_id: "",
     subcategory_id: "", stock: "", gst: "", barcode: "", category_id: "", unit: ""
@@ -111,7 +118,7 @@ export default function SupplierAddProductForm() {
 
   };
 
-  const fetchCompanyGST = async (company_id) => {
+  const fetchCompanyGST = useCallback(async (company_id) => {
 
     setGstLoading(true);
 
@@ -142,9 +149,9 @@ export default function SupplierAddProductForm() {
 
     }
 
-  };
+  }, []);
 
-  const fetchCategories = async (company_id) => {
+  const fetchCategories = useCallback(async (company_id) => {
 
     try {
 
@@ -170,7 +177,7 @@ export default function SupplierAddProductForm() {
 
     }
 
-  };
+  }, []);
 
   const fetchSubCategories = async (company_id, category_id) => {
 
@@ -231,12 +238,18 @@ export default function SupplierAddProductForm() {
 
   useEffect(() => {
 
-    if (!selectedCompany) return;
+    const run = async () => {
 
-    fetchCategories(selectedCompany);
-    fetchCompanyGST(selectedCompany);
+      if (!selectedCompany) return;
 
-  }, [selectedCompany]);
+      fetchCategories(selectedCompany);
+      fetchCompanyGST(selectedCompany);
+
+    };
+
+    run();
+
+  }, [selectedCompany, fetchCategories, fetchCompanyGST]);
 
 
   const handleCompanyChange = (e) => {

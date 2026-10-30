@@ -3,9 +3,7 @@ import Pusher from "pusher-js";
 
 window.Pusher = Pusher;
 
-const isLocalhost =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1";
+
 
 let echo = null;
 

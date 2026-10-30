@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { Pencil, ChevronLeft, ChevronRight, Search, Plus } from "lucide-react";
+import { Pencil, Search, Plus } from "lucide-react";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -25,6 +25,27 @@ export default function CategoryList() {
   const [subcategorySearch, setSubcategorySearch] = useState("");
   const [subcategoryPage, setSubcategoryPage] = useState(1);
 
+  const fetchData = useCallback(async (companyId) => {
+    setLoading(true);
+    try {
+      // Fetch Categories
+      const catRes = await api.get(`/category/get_all?company_id=${companyId}`);
+      if (catRes.data.status) {
+        setCategories(catRes.data.data);
+      }
+
+      // Fetch Subcategories
+      const subRes = await api.get(`/subcategory/get_all?company_id=${companyId}`);
+      if (subRes.data.status) {
+        setSubcategories(subRes.data.data);
+      }
+    } catch (err) {
+      console.error("Error loading categories or subcategories", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user) return;
@@ -44,28 +65,7 @@ export default function CategoryList() {
         }
       })
       .catch(() => setLoading(false));
-  }, []);
-
-  const fetchData = async (companyId) => {
-    setLoading(true);
-    try {
-      // Fetch Categories
-      const catRes = await api.get(`/category/get_all?company_id=${companyId}`);
-      if (catRes.data.status) {
-        setCategories(catRes.data.data);
-      }
-
-      // Fetch Subcategories
-      const subRes = await api.get(`/subcategory/get_all?company_id=${companyId}`);
-      if (subRes.data.status) {
-        setSubcategories(subRes.data.data);
-      }
-    } catch (err) {
-      console.error("Error loading categories or subcategories", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchData]);
 
   const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);

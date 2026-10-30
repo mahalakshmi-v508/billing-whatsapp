@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import  { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api, { API_BASE_URL } from "../../services/api";
 import {
@@ -11,7 +11,6 @@ import {
   X,
   RefreshCw,
   Image as ImageIcon,
-  CheckCircle2,
   AlertCircle,
   Building,
   Save,

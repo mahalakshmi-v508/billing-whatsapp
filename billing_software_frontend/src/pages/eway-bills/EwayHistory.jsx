@@ -1,15 +1,6 @@
 import { useState, useMemo } from "react";
 import {
   Clock,
-  CheckCircle2,
-  Truck,
-  RotateCcw,
-  XCircle,
-  AlertCircle,
-  Filter,
-  FileText,
-  User,
-  ShieldCheck,
   Search,
 } from "lucide-react";
 import { MOCK_ACTIVITY_HISTORY } from "./mockEwayData";
@@ -23,7 +14,7 @@ const EVENT_FILTERS = [
   { id: "Failed", label: "Errors & Failures" },
 ];
 
-export default function EwayHistory({ onViewBillByEwb }) {
+export default function EwayHistory() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -106,7 +97,7 @@ export default function EwayHistory({ onViewBillByEwb }) {
               const isGen = evt.badgeTone === "emerald";
               const isVeh = evt.badgeTone === "blue";
               const isExt = evt.badgeTone === "amber";
-              const isDanger = evt.badgeTone === "red";
+              
 
               const dotColor = isGen
                 ? "bg-emerald-500 ring-4 ring-emerald-100"

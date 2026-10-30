@@ -1,16 +1,13 @@
 import { useMemo } from "react";
-import { XCircle, Eye, Printer, Download, Share2 } from "lucide-react";
+import { XCircle, Eye } from "lucide-react";
 import EwayStatusBadge from "./EwayStatusBadge";
-import EwayActionMenu from "./EwayActionMenu";
+import "./EwayActionMenu";
 import EwayEmptyState from "./EwayEmptyState";
 import { formatINR } from "./mockEwayData";
 
 export default function EwayCancelled({
   bills,
   onViewBill,
-  onPrint,
-  onDownload,
-  onWhatsApp,
 }) {
   const cancelledBills = useMemo(() => {
     return bills.filter((b) => b.status === "Cancelled");

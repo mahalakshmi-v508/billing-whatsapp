@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Clock, AlertTriangle, Check, ShieldAlert } from "lucide-react";
+import { X, Clock, AlertTriangle, Check } from "lucide-react";
 
 export default function ExtendValidityModal({ bill, isOpen, onClose, onSave }) {
   const [extensionHours, setExtensionHours] = useState("24");

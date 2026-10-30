@@ -1,14 +1,12 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import api from "../../services/api";
 import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import {
-  X, Plus, Calendar, ChevronDown, Check,
-  Trash2, AlignLeft, BarChart2,
-  Printer, MessageSquare, AlertCircle, Phone, ScanBarcode, Zap,
-  Search, RotateCcw, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2,
-  Building2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, DollarSign, Percent, ShieldAlert, ArrowRight,
+  X, Plus, ChevronDown, Check,
+  Trash2, AlertCircle,
+  Search, Package, Layers, Scale, IndianRupee, Tag, ReceiptText, Wallet, FileText, CheckCircle2, UserCheck, CreditCard, ArrowLeft, RefreshCw, Save, Share2, ArrowRight,
   Globe, Lock
 } from "lucide-react";
 import HeaderSettingsButton from "../../components/HeaderSettingsButton";
@@ -17,9 +15,13 @@ import useTableColumns from "../../hooks/useTableColumns";
 import CustomerForm from "../customer/CustomerForm";
 import AddProductModal from "../products/AddProductModal";
 import TermsDropdown from "../../components/common/TermsDropdown";
-import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
-import { useCashierSecurity } from "../../context/CashierSecurityContext";
-import { WHATSAPP_DEFAULTS_KEY, DEFAULT_WHATSAPP_DEFAULTS } from "../settings/WhatsAppDefaultSettings";
+import { STOCK_SETTINGS_KEY } from "../settings/StockSettings";
+import { useCashierSecurity } from "../../context/cashierSecurity";
+import { WHATSAPP_DEFAULTS_KEY } from "../settings/WhatsAppDefaultSettings";
+import {
+  DEFAULT_STOCK_SETTINGS,
+  DEFAULT_WHATSAPP_DEFAULTS,
+} from "../../config/settingsDefaults";
 import { COUNTRY_LIST, getCountryByCode, detectCountryFromPhone } from "../../utils/phoneCountryHelper";
 
 const isProductExpired = (expiryDate) => {
@@ -316,8 +318,8 @@ export default function AddSale() {
   /* ── Autocomplete States ── */
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const [isCustomerFocused, setIsCustomerFocused] = useState(false);
-  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
+  const [, setIsCustomerFocused] = useState(false);
+  const [, setIsPhoneFocused] = useState(false);
 
   const [activeRowSuggestId, setActiveRowSuggestId] = useState(null);
   const [itemSearchQuery, setItemSearchQuery] = useState("");
@@ -469,7 +471,7 @@ export default function AddSale() {
   }, [activeRowSuggestId]);
 
   /* ── Fetch Products from Company / Admin / Catalog ── */
-  const fetchAllProducts = async (targetCompanyId) => {
+  const fetchAllProducts = useCallback(async (targetCompanyId) => {
     try {
       const compId = targetCompanyId || selectedCompany || localStorage.getItem("selected_company_id");
       let prods = [];
@@ -497,7 +499,18 @@ export default function AddSale() {
       console.error("Error loading products in AddSale:", err);
       return [];
     }
-  };
+  }, [selectedCompany, adminId]);
+
+  /* Latest-callback ref: the mount loader below must not re-run just because
+     fetchAllProducts got a new identity (company switch is handled separately). */
+  const fetchAllProductsRef = useRef(fetchAllProducts);
+  useEffect(() => {
+    fetchAllProductsRef.current = fetchAllProducts;
+  }, [fetchAllProducts]);
+
+  /* Company that was selected when the component mounted, captured once so the
+     mount loader does not need `selectedCompany` in its dependency list. */
+  const initialSelectedCompanyRef = useRef(selectedCompany);
 
   /* ── Load Companies & Products on Mount ── */
   useEffect(() => {
@@ -516,10 +529,10 @@ export default function AddSale() {
       const saved = localStorage.getItem("selected_company_id");
       let activeCid = (saved && companyList.some(c => String(c.id) === String(saved)))
         ? String(saved)
-        : (selectedCompany || (companyList[0] ? String(companyList[0].id) : ""));
+        : (initialSelectedCompanyRef.current || (companyList[0] ? String(companyList[0].id) : ""));
       setSelectedCompany(activeCid);
 
-      await fetchAllProducts(activeCid);
+      await fetchAllProductsRef.current(activeCid);
     };
     loadCompaniesAndProducts();
   }, [adminId, user.role]);
@@ -541,7 +554,7 @@ export default function AddSale() {
   useEffect(() => {
     if (!selectedCompany) return;
     fetchAllProducts(selectedCompany);
-  }, [selectedCompany]);
+  }, [selectedCompany, fetchAllProducts]);
 
   /* ── Load Existing Invoice when in Edit Mode ── */
   useEffect(() => {

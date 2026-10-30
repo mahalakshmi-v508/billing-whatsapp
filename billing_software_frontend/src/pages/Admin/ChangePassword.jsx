@@ -6,14 +6,12 @@ import {
   Eye,
   EyeOff,
   KeyRound,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
   ArrowLeft,
   Loader2,
   Check,
   X,
-  ShieldAlert,
 } from "lucide-react";
 
 export default function ChangePassword() {

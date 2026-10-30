@@ -161,7 +161,10 @@ export default function ItemDetail() {
     setItemOpen(false);
   };
 
-  const visibleRows = companyId && itemId ? rows : [];
+  const visibleRows = useMemo(
+    () => (companyId && itemId ? rows : []),
+    [companyId, itemId, rows]
+  );
 
   const handleExcel = () => {
     const sheetData = [

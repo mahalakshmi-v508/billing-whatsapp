@@ -20,17 +20,9 @@ import { useCompanySetting } from "./useCompanySetting";
 import { useLanguage } from "../../utils/i18n";
 import api from "../../services/api";
 
-export const WHATSAPP_DEFAULTS_KEY = "whatsapp_defaults";
+import { DEFAULT_WHATSAPP_DEFAULTS } from "../../config/settingsDefaults";
 
-export const DEFAULT_WHATSAPP_DEFAULTS = {
-  default_country_code: "+91",
-  auto_prefix_country_code: true,
-  send_daily_summary_to_owner: true,
-  owner_whatsapp_number: "",
-  daily_summary_time: "21:00",
-  include_payment_breakdown: true,
-  include_top_items: true,
-};
+export const WHATSAPP_DEFAULTS_KEY = "whatsapp_defaults";
 
 const COUNTRY_CODE_PRESETS = [
   { code: "+91", country: "India", flag: "🇮🇳" },

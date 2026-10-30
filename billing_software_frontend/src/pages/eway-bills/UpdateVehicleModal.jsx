@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Truck, AlertCircle, Check, Info } from "lucide-react";
+import { X, Truck, Check } from "lucide-react";
 
 export default function UpdateVehicleModal({ bill, isOpen, onClose, onSave }) {
   const [vehicleNo, setVehicleNo] = useState(bill?.vehicle_no || "");

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import  { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../../services/api";
 import {
@@ -6,11 +6,7 @@ import {
   Hash,
   MapPin,
   Phone,
-  Mail,
   ReceiptText,
-  ShieldCheck,
-  CheckCircle2,
-  XCircle,
   Pencil,
   X,
   ExternalLink,
@@ -18,11 +14,8 @@ import {
   Check,
   Store,
   Package,
-  Layers,
   Sparkles,
   ArrowRight,
-  Globe,
-  Tag,
 } from "lucide-react";
 
 const GST_STATE_CODES = {
@@ -69,7 +62,6 @@ export default function CompanyDetailsModal({
 }) {
   const navigate = useNavigate();
   const [copiedKey, setCopiedKey] = useState(null);
-  const [activeTab, setActiveTab] = useState("overview"); // "overview" | "tax" | "actions"
 
   // Close on Escape key
   useEffect(() => {

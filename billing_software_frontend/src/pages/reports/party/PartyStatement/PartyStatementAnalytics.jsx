@@ -23,7 +23,6 @@ import {
   Receipt,
   TrendingUp,
   ReceiptIndianRupee,
-  AlertCircle,
 } from "lucide-react";
 
 const TYPE_COLORS = ["#6366f1", "#0891b2", "#10b981", "#f59e0b", "#7c3aed", "#f43f5e", "#0ea5e9"];

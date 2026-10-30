@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 
@@ -24,6 +24,31 @@ export default function SubcategoryList() {
     localStorage.getItem("selected_company_id") || ""
   );
 
+  const fetchSubcategories = useCallback(async (companyId) => {
+
+    setLoading(true);
+
+    try {
+
+      const res = await api.get(
+        `/subcategory/get_all?company_id=${companyId}`
+      );
+
+      if (res.data.status) {
+        setSubcategories(res.data.data);
+      }
+
+    } catch (err) {
+
+      console.error(err);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+  }, []);
+
   useEffect(() => {
 
     const user = JSON.parse(localStorage.getItem("user"));
@@ -47,48 +72,29 @@ export default function SubcategoryList() {
 
     });
 
-  }, []);
+  }, [fetchSubcategories]);
 
 
   useEffect(() => {
 
-    if (selectedCompany) {
+    const run = async () => {
 
-      fetchSubcategories(selectedCompany);
+      if (selectedCompany) {
 
-    } else {
+        await fetchSubcategories(selectedCompany);
 
-      setSubcategories([]);
-      setLoading(false);
+      } else {
 
-    }
+        setSubcategories([]);
+        setLoading(false);
 
-  }, [selectedCompany]);
-
-  const fetchSubcategories = async (companyId) => {
-
-    setLoading(true);
-
-    try {
-
-      const res = await api.get(
-        `/subcategory/get_all?company_id=${companyId}`
-      );
-
-      if (res.data.status) {
-        setSubcategories(res.data.data);
       }
 
-    } catch (err) {
+    };
 
-      console.error(err);
+    run();
 
-    } finally {
-
-      setLoading(false);
-
-    }
-  };
+  }, [selectedCompany, fetchSubcategories]);
 
   const handleCompanyChange = (e) => {
 

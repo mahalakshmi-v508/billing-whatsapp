@@ -275,16 +275,7 @@ export default function PartyReportByItem() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = filtered.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
-  const analyticsRows = useMemo(
-    () =>
-      (filtered || []).map((r) => ({
-        date: "",
-        group: r.name || "General",
-        value: Number(r.sale_amt) || 0,
-        count: 1,
-      })),
-    [filtered]
-  );
+  
 
   /* ── Excel export ── */
   const handleExcel = () => {

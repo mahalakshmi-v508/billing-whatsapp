@@ -25,7 +25,7 @@ import {
 
 const PALETTE = ["#6366f1", "#10b981", "#3b82f6", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#f43f5e"];
 
-function CustomTrendTooltip({ active, payload, label, symbol, metricView }) {
+function CustomTrendTooltip({ active, payload, label, symbol }) {
   if (!active || !payload?.length) return null;
   const data = payload[0]?.payload;
   if (!data) return null;
@@ -85,7 +85,6 @@ export default function SaleOrderItemAnalytics({
   fromDate = "",
   toDate = "",
   orderType = "sale_order",
-  orderStatus = "all",
   onClose,
 }) {
   const [granularity, setGranularity] = useState("auto"); // "auto" | "daily" | "weekly" | "monthly"
@@ -123,9 +122,9 @@ export default function SaleOrderItemAnalytics({
       const d = new Date(l.date);
       if (isNaN(d.getTime())) return;
 
-      let key = "";
-      let label = "";
-      let fullDate = "";
+      let key ;
+      let label ;
+      let fullDate ;
 
       if (effectiveGranularity === "monthly") {
         key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

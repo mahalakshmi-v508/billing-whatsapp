@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import {
@@ -6,12 +6,8 @@ import {
   ResponsiveContainer, CartesianGrid, Cell
 } from "recharts";
 import {
-  TrendingUp, TrendingDown, Package, AlertTriangle,
-  BarChart2, BarChart3, Wallet, Clock, IndianRupee, Bell, ChevronDown,
-  Lock, LogOut, Plus, ReceiptText, PackagePlus, UserPlus, Truck,
-  FolderPlus, Building2, CheckCircle2, ArrowUpRight, ShieldCheck,
-  AlertCircle, RotateCw, ExternalLink, Calendar, Search, CreditCard, PackageX,
-  Sparkles, Filter, Users, Layers, Activity, ArrowRight, CheckCircle, Check
+  TrendingUp, Package, AlertTriangle,
+  BarChart2, BarChart3, Wallet, Clock, IndianRupee, ChevronDown, ReceiptText, PackagePlus, UserPlus, Building2, CheckCircle2, ShieldCheck, RotateCw, Calendar, Search, PackageX, Activity, ArrowRight, Check
 } from "lucide-react";
 import StatCard from "../../components/ui/StatCard";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -34,14 +30,17 @@ function CustomTooltip({ active, payload, label }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const isAdmin = user?.role === "admin";
+  
   const isCashier = user?.role === "cashier";
+  const userRole = user?.role;
+  const userId = user?.id;
+  const userAdminId = user?.admin_id;
 
-  const [showProfile, setShowProfile] = useState(false);
-  const [showNotif, setShowNotif] = useState(false);
+  const [, setShowProfile] = useState(false);
+  const [, setShowNotif] = useState(false);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [companySearch, setCompanySearch] = useState("");
-  const bellRef = useRef(null);
+  
   const profileRef = useRef(null);
   const companyDropdownRef = useRef(null);
 
@@ -74,13 +73,120 @@ export default function Dashboard() {
   const [activeBar, setActiveBar] = useState(null);
   const [tableSearch, setTableSearch] = useState("");
 
+  /* ── Data loaders ── */
+  const fetchStats = useCallback(async (companyId) => {
+    try {
+      const [basic, analytics] = await Promise.all([
+        api.get(`/dashboard/get_stats?company_id=${companyId}`),
+        api.get(`/dashboard/get_analytics?company_id=${companyId}`),
+      ]);
+      if (basic.data.status && analytics.data.status) {
+        setStats({ ...basic.data.data, monthly_sales: analytics.data.data.monthly_sales || [] });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const fetchLowStockProducts = useCallback(async (companyId) => {
+    try {
+      const res = await api.get(
+        `/dashboard/get_stock_alert_notifications?company_id=${companyId}&threshold=${LOW_STOCK_THRESHOLD}`
+      );
+      if (res.data.status) {
+        setLowStockProducts(res.data.data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const fetchRecentInvoices = useCallback(async (companyId) => {
+    try {
+      const res = await api.get(`/invoice/get_all_invoice?company_id=${companyId}`);
+      if (res.data.status) {
+        setInvoices(res.data.data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const fetchUnsoldProducts = useCallback(async () => {
+    try {
+      const res = await api.get(
+        `/dashboard/get_unsold_products_notification?company_id=${selectedCompany}`
+      );
+      if (res.data.status) {
+        setUnsoldProducts(res.data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [selectedCompany]);
+
+  const fetchExpiringProducts = useCallback(async (companyId) => {
+    try {
+      const cId = companyId || selectedCompany;
+      if (!cId) return;
+      const res = await api.get(
+        `/dashboard/get_expiring_products_notification?company_id=${cId}`
+      );
+      if (res.data.status) {
+        setExpiringProducts(res.data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [selectedCompany]);
+
+  const fetchCreditDashboard = useCallback(async (companyId) => {
+    try {
+      const res = await api.get(`/dashboard/get_dashboard?company_id=${companyId}`);
+      if (res.data.status) {
+        setCreditStats(res.data.cards || {});
+        setCreditList(res.data.list || []);
+        const overdue = (res.data.list || []).filter((c) => c.status === "Overdue");
+        setOverdueList(overdue);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const adminId = userRole === "cashier" ? userAdminId : userId;
+      const res = await api.get(
+        `/dashboard/get_admin_overdue_notifications?admin_id=${adminId}`
+      );
+      if (res.data.status) {
+        setOverdueList(res.data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [userRole, userAdminId, userId]);
+
+  const fetchAllData = useCallback(async (companyId) => {
+    setLoading(true);
+    await Promise.all([
+      fetchStats(companyId),
+      fetchLowStockProducts(companyId),
+      fetchCreditDashboard(companyId),
+      fetchRecentInvoices(companyId),
+      fetchExpiringProducts(companyId),
+    ]);
+    setLoading(false);
+  }, [fetchStats, fetchLowStockProducts, fetchCreditDashboard, fetchRecentInvoices, fetchExpiringProducts]);
+
   /* ── Load Companies on Mount ── */
   useEffect(() => {
     const loadCompanies = async () => {
       try {
-        const adminId = user.role === "cashier" ? user.admin_id : user.id;
+        const adminId = userRole === "cashier" ? userAdminId : userId;
         const res = await api.get(
-          `/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role}`
+          `/company/get_companies_by_admin?admin_id=${adminId}&role=${userRole}`
         );
         if (res.data.status) {
           setCompanies(res.data.data || []);
@@ -95,25 +201,16 @@ export default function Dashboard() {
       }
     };
     loadCompanies();
-  }, []);
+  }, [userRole, userAdminId, userId]);
 
   /* ── Fetch All Dashboard Data when company changes ── */
   useEffect(() => {
     if (!selectedCompany) return;
-    fetchAllData(selectedCompany);
-  }, [selectedCompany]);
-
-  const fetchAllData = async (companyId) => {
-    setLoading(true);
-    await Promise.all([
-      fetchStats(companyId),
-      fetchLowStockProducts(companyId),
-      fetchCreditDashboard(companyId),
-      fetchRecentInvoices(companyId),
-      fetchExpiringProducts(companyId),
-    ]);
-    setLoading(false);
-  };
+    const load = async () => {
+      await fetchAllData(selectedCompany);
+    };
+    load();
+  }, [selectedCompany, fetchAllData]);
 
   const handleRefresh = async () => {
     if (!selectedCompany) return;
@@ -127,110 +224,24 @@ export default function Dashboard() {
     setTimeout(() => setIsRefreshing(false), 450);
   };
 
-  const fetchStats = async (companyId) => {
-    try {
-      const [basic, analytics] = await Promise.all([
-        api.get(`/dashboard/get_stats?company_id=${companyId}`),
-        api.get(`/dashboard/get_analytics?company_id=${companyId}`),
-      ]);
-      if (basic.data.status && analytics.data.status) {
-        setStats({ ...basic.data.data, monthly_sales: analytics.data.data.monthly_sales || [] });
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchLowStockProducts = async (companyId) => {
-    try {
-      const res = await api.get(
-        `/dashboard/get_stock_alert_notifications?company_id=${companyId}&threshold=${LOW_STOCK_THRESHOLD}`
-      );
-      if (res.data.status) {
-        setLowStockProducts(res.data.data || []);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchRecentInvoices = async (companyId) => {
-    try {
-      const res = await api.get(`/invoice/get_all_invoice?company_id=${companyId}`);
-      if (res.data.status) {
-        setInvoices(res.data.data || []);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchUnsoldProducts = async () => {
-    try {
-      const res = await api.get(
-        `/dashboard/get_unsold_products_notification?company_id=${selectedCompany}`
-      );
-      if (res.data.status) {
-        setUnsoldProducts(res.data.data || []);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchExpiringProducts = async (companyId) => {
-    try {
-      const cId = companyId || selectedCompany;
-      if (!cId) return;
-      const res = await api.get(
-        `/dashboard/get_expiring_products_notification?company_id=${cId}`
-      );
-      if (res.data.status) {
-        setExpiringProducts(res.data.data || []);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   useEffect(() => {
     if (selectedCompany) {
-      fetchUnsoldProducts();
-      fetchExpiringProducts(selectedCompany);
+      const load = async () => {
+        await Promise.all([
+          fetchUnsoldProducts(),
+          fetchExpiringProducts(selectedCompany),
+        ]);
+      };
+      load();
     }
-  }, [selectedCompany]);
-
-  const fetchCreditDashboard = async (companyId) => {
-    try {
-      const res = await api.get(`/dashboard/get_dashboard?company_id=${companyId}`);
-      if (res.data.status) {
-        setCreditStats(res.data.cards || {});
-        setCreditList(res.data.list || []);
-        const overdue = (res.data.list || []).filter((c) => c.status === "Overdue");
-        setOverdueList(overdue);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchNotifications = async () => {
-    try {
-      const adminId = user.role === "cashier" ? user.admin_id : user.id;
-      const res = await api.get(
-        `/dashboard/get_admin_overdue_notifications?admin_id=${adminId}`
-      );
-      if (res.data.status) {
-        setOverdueList(res.data.data || []);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  }, [selectedCompany, fetchUnsoldProducts, fetchExpiringProducts]);
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    const load = async () => {
+      await fetchNotifications();
+    };
+    load();
+  }, [fetchNotifications]);
 
   /* ── Company Change Handler ── */
   const handleSelectCompany = (id) => {
@@ -269,7 +280,7 @@ export default function Dashboard() {
   /* ── Derived Analytics & Performance Metrics ── */
   const activeCompany = companies.find((c) => String(c.id) === String(selectedCompany));
 
-  const totalAlerts = overdueList.length + unsoldProducts.length + expiringProducts.length;
+  
 
   const outOfStockProducts = useMemo(
     () => lowStockProducts.filter((p) => isOutOfStock(p)),

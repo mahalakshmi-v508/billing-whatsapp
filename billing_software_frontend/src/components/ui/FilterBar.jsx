@@ -1,4 +1,4 @@
-import React from "react";
+import "react";
 import { Filter, RotateCcw } from "lucide-react";
 
 export default function FilterBar({

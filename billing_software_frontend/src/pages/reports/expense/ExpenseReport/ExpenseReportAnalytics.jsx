@@ -20,7 +20,6 @@ import {
   TrendingUp,
   FileText,
   ShoppingBag,
-  Percent,
 } from "lucide-react";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#7c3aed", "#0891b2", "#f43f5e", "#eab308"];

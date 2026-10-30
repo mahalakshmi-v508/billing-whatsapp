@@ -37,7 +37,7 @@ export async function getProductCustomFields() {
         if (Array.isArray(fields)) {
           return normalizeFields(fields);
         }
-      } catch {}
+      } catch { /* intentionally ignored */ }
     }
 
     // 2. Try company_settings_cache
@@ -55,7 +55,7 @@ export async function getProductCustomFields() {
             return [];
           }
         }
-      } catch {}
+      } catch { /* intentionally ignored */ }
     }
 
     // 3. Fetch from server

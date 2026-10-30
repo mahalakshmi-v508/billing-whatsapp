@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import api from "../../services/api";
 import Barcode from "react-barcode";
@@ -17,7 +17,7 @@ export default function SupplierProductList() {
 
   const ITEMS_PER_PAGE = 10;
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get(
@@ -29,11 +29,14 @@ export default function SupplierProductList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supplierId]);
 
   useEffect(() => {
-    if (supplierId) fetchProducts();
-  }, [supplierId]);
+    const run = async () => {
+      if (supplierId) fetchProducts();
+    };
+    run();
+  }, [supplierId, fetchProducts]);
 
   const filtered = products.filter((p) =>
     p.product_name?.toLowerCase().includes(search.toLowerCase())

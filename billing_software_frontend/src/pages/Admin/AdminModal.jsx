@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import api from "../../services/api";
 import {
   X,
@@ -9,10 +9,16 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  CheckCircle2,
   AlertCircle,
   Loader2,
 } from "lucide-react";
+
+const EMPTY_FORM = {
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+};
 
 export default function AdminModal({
   isOpen,
@@ -21,18 +27,22 @@ export default function AdminModal({
   onClose,
   onSuccess,
 }) {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  // Reset the form during render (instead of in an effect) whenever the modal
+  // opens or its target admin changes.
+  const [prevOpenState, setPrevOpenState] = useState(null);
+  if (
+    !prevOpenState ||
+    prevOpenState.isOpen !== isOpen ||
+    prevOpenState.mode !== mode ||
+    prevOpenState.adminData !== adminData
+  ) {
+    setPrevOpenState({ isOpen, mode, adminData });
     if (isOpen) {
       setError("");
       setShowPass(false);
@@ -44,15 +54,10 @@ export default function AdminModal({
           password: "",
         });
       } else {
-        setForm({
-          name: "",
-          email: "",
-          phone: "",
-          password: "",
-        });
+        setForm(EMPTY_FORM);
       }
     }
-  }, [isOpen, mode, adminData]);
+  }
 
   if (!isOpen) return null;
 

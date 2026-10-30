@@ -1,19 +1,15 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import {
   Plus,
-  Settings,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Calendar,
   Search,
   Printer,
-  Share2,
-  MoreVertical,
-  Filter,
   Eye,
   Trash2,
   Edit,
@@ -41,17 +37,9 @@ import CommonTableColumnSettings from "../../../components/CommonTableColumnSett
 import useTableColumns from "../../../hooks/useTableColumns";
 import useModalFocusTrap from "../../../hooks/useModalFocusTrap";
 import { useLanguage } from "../../../utils/i18n";
-import { useCashierSecurity } from "../../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../../context/cashierSecurity";
 
-const PERIOD_LABELS = {
-  all_time: "All Time",
-  today: "Today",
-  this_week: "This Week",
-  this_month: "This Month",
-  this_quarter: "This Quarter",
-  this_year: "This Year",
-  custom: "Custom",
-};
+
 
 const PERIOD_LABELS_TA = {
   all_time: "எல்லா நேரமும்",
@@ -229,8 +217,6 @@ export default function PaymentIn() {
 
   // Initial Load: Companies & Date Range
   useEffect(() => {
-    setPresetDates("all_time");
-
     const loadMeta = async () => {
       try {
         if (adminId) {
@@ -274,7 +260,7 @@ export default function PaymentIn() {
   }, []);
 
   // Fetch Payment-In Records
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     if (!adminId) {
       setLoading(false);
       return;
@@ -293,11 +279,14 @@ export default function PaymentIn() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminId]);
 
   useEffect(() => {
-    fetchPayments();
-  }, [adminId]);
+    const run = async () => {
+      await fetchPayments();
+    };
+    run();
+  }, [adminId, fetchPayments]);
 
 
 
@@ -368,9 +357,12 @@ export default function PaymentIn() {
   }, [filteredPayments]);
 
   // Reset page when filters change
-  useEffect(() => {
+  const filtersKey = `${searchQuery}|${selectedFirm}|${selectedUser}|${fromDate}|${toDate}|${period}`;
+  const [prevFiltersKey, setPrevFiltersKey] = useState(filtersKey);
+  if (prevFiltersKey !== filtersKey) {
+    setPrevFiltersKey(filtersKey);
     setCurrentPage(1);
-  }, [searchQuery, selectedFirm, selectedUser, fromDate, toDate, period]);
+  }
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredPayments.length / rowsPerPage) || 1;
@@ -381,16 +373,7 @@ export default function PaymentIn() {
   }, [filteredPayments, safePage, rowsPerPage]);
 
   // Analytics rows (Payment-In grouped by payment method)
-  const analyticsRows = useMemo(
-    () =>
-      filteredPayments.map((p) => ({
-        date: p.payment_date || p.created_at || "",
-        group: p.payment_method || "Cash",
-        value: Number(p.paid_amount || p.total_amount || 0),
-        count: 1,
-      })),
-    [filteredPayments]
-  );
+  
 
   // Excel Export
   const handleExportExcel = () => {

@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Truck,
   FileText,
   CheckCircle2,
-  AlertCircle,
   Plus,
   Trash2,
   ArrowRight,
@@ -16,13 +15,7 @@ import {
   RotateCcw,
   Copy,
   Check,
-  Building2,
-  User,
   Package,
-  Clock,
-  ShieldCheck,
-  Calendar,
-  Layers,
 } from "lucide-react";
 import { formatINR } from "./mockEwayData";
 

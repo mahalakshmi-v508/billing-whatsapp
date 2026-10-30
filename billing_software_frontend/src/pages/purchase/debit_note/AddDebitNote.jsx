@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../../../services/api";
 import { calculateLine, resolveProductPricing } from "../../../utils/gst";
@@ -15,29 +15,20 @@ import {
   Trash2,
   ChevronDown,
   Calculator,
-  Settings,
   ScanBarcode,
   Check,
   Search,
   RefreshCw,
   ArrowLeft,
-  Pencil,
-  AlignLeft,
   Zap,
-  ChevronsUpDown,
-  Building2,
   Truck,
-  DollarSign,
   FileText,
   AlertCircle,
   Layers,
   Percent,
   Receipt,
   Phone,
-  CreditCard,
   CornerUpLeft,
-  Save,
-  Clock,
   Wallet,
   CheckCircle2
 } from "lucide-react";
@@ -62,9 +53,12 @@ const indianStates = [
   "Tamil Nadu", "Kerala", "Karnataka", "Andhra Pradesh", "Telangana", "Maharashtra", "Delhi", "Gujarat", "Rajasthan", "Uttar Pradesh", "West Bengal", "Other"
 ];
 
+/* Module-scope id generator: keeps Date.now()/Math.random() out of render. */
+const makeRowId = () => Date.now() + Math.random();
+
 function createEmptyRow(isQuickAdd = false) {
   return {
-    id: Date.now() + Math.random(),
+    id: makeRowId(),
     product_id: null,
     product_name: "",
     product_code: "",
@@ -246,8 +240,7 @@ export default function AddDebitNote() {
     closeSettings,
     toggleColumn,
     resetColumns,
-    isColumnVisible,
-    visibleColumnCount
+    isColumnVisible
   } = useTableColumns(DEFAULT_DEBIT_NOTE_ITEM_COLUMNS, "add_debit_note_item_columns_v1");
 
   const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
@@ -273,16 +266,23 @@ export default function AddDebitNote() {
   const partyRef = useRef(null);
   const productSuggestRef = useRef(null);
 
+  // Mirror the active tab id in a ref so updateActiveTab stays referentially
+  // stable (mount-only loaders depend on it and must not re-run on tab switch).
+  const activeTabIdRef = useRef(activeTabId);
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
+
   // Active Tab
   const activeTab = useMemo(() => {
     return tabs.find((t) => t.id === activeTabId) || tabs[0];
   }, [tabs, activeTabId]);
 
-  const updateActiveTab = (updates) => {
+  const updateActiveTab = useCallback((updates) => {
     setTabs((prev) =>
-      prev.map((tab) => (tab.id === activeTabId ? { ...tab, ...updates } : tab))
+      prev.map((tab) => (tab.id === activeTabIdRef.current ? { ...tab, ...updates } : tab))
     );
-  };
+  }, []);
 
   // Add new tab
   const handleAddTab = async () => {
@@ -332,7 +332,7 @@ export default function AddDebitNote() {
         console.error("Error fetching next debit note number:", err);
       });
     return () => { cancelled = true; };
-  }, [companyId, isEditMode]);
+  }, [companyId, isEditMode, updateActiveTab, user]);
 
   // Load Suppliers and Products Catalog (with bulletproof fallbacks)
   useEffect(() => {
@@ -361,7 +361,7 @@ export default function AddDebitNote() {
       }
     };
     fetchCatalog();
-  }, [companyId]);
+  }, [companyId, adminId, user]);
 
   // If in edit mode, fetch Debit Note data
   useEffect(() => {
@@ -611,7 +611,7 @@ export default function AddDebitNote() {
 
     // If it was the Quick Add / Lightning Row (row 0), create a regular row below
     if (index === 0) {
-      updated.splice(1, 0, { ...row, id: Date.now() + Math.random() });
+      updated.splice(1, 0, { ...row, id: makeRowId() });
       updated[0] = createEmptyRow(true); // reset quick add
     } else if (index === updated.length - 1) {
       updated.push(createEmptyRow(false));

@@ -8,7 +8,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ShieldCheck,
   ChevronLeft,
   Loader2,
   Check,

@@ -59,7 +59,7 @@ export default function ItemWiseDiscount() {
   const [companyId, setCompanyId] = useState(Number(localStorage.getItem("selected_company_id") || 0) || null);
   const [companyName, setCompanyName] = useState("My Company");
   const [companies, setCompanies] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [itemName, setItemName] = useState("");
@@ -111,7 +111,7 @@ export default function ItemWiseDiscount() {
     }).catch(() => setError("Failed to load item filters."));
   }, [companyId]);
 
-  const matchingProducts = useMemo(() => products.filter((product) => !itemName || String(product.product_name || "").toLowerCase().includes(itemName.toLowerCase())), [products, itemName]);
+  
 
   useEffect(() => {
     if (!companyId) return undefined;

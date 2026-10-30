@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 import {
   Truck,
   Plus,
@@ -7,12 +7,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
-  AlertCircle,
   FileCheck2,
-  TrendingUp,
-  RefreshCw,
-  Search,
-  ExternalLink,
   ShieldCheck,
   ChevronRight,
 } from "lucide-react";
@@ -32,7 +27,6 @@ export default function EwayDashboard({
   onDownload,
   onWhatsApp,
 }) {
-  const [activeAlertFilter, setActiveAlertFilter] = useState("all");
 
   const recentBills = bills.slice(0, 7);
 

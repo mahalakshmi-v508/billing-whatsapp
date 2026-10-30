@@ -4,7 +4,6 @@ import {
   Search,
   FileSpreadsheet,
   Printer,
-  X,
   AlertCircle,
   BarChart3,
 } from "lucide-react";
@@ -14,11 +13,11 @@ import api from "../../../../services/api";
 import ReportPagination from "../../../../components/reports/ReportPagination";
 import StockSummaryAnalytics from "./StockSummaryAnalytics";
 
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const NAVY = "#1e1b4b";
-const GRAY_TEXT = "#6b7280";
-const LIGHT_BORDER = "#e5e7eb";
+
+
+
+
+
 const PAGE_SIZE = 15;
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -241,12 +240,8 @@ export default function StockSummary() {
   };
 
   /* ── Stock status helpers ── */
-  const stockColor = (qty) => {
-    if (qty < 0) return "#dc2626";
-    if (qty === 0) return "#b45309";
-    return "#334155";
-  };
-  const stockWeight = (qty) => (qty < 0 ? 800 : qty === 0 ? 600 : 600);
+  
+  
 
   /* ── Excel export (respects current filters) ── */
   const handleExcel = () => {
@@ -659,143 +654,26 @@ export default function StockSummary() {
    STYLES
    ═════════════════════════════════════════════════════════════════════ */
 
-const selectBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "8px 14px",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
 
-const actionBtnStyle = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: 2,
-  padding: "6px 14px",
-  background: "transparent",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
 
-const dateBoxStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "6px 12px",
-  background: "#f9fafb",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  whiteSpace: "nowrap",
-};
 
-const dateInputStyle = {
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  padding: "5px 8px",
-  fontSize: 13,
-  fontFamily: FONT,
-  color: "#334155",
-  background: "#fff",
-  outline: "none",
-  width: 137,
-};
 
-const dropdownPanelStyle = {
-  position: "absolute",
-  top: "calc(100% + 6px)",
-  left: 0,
-  minWidth: 170,
-  zIndex: 60,
-  background: "#fff",
-  border: "1.5px solid #e0e7ff",
-  borderRadius: 10,
-  boxShadow: "0 12px 32px rgba(30,27,75,.12)",
-  overflow: "hidden",
-  fontFamily: FONT,
-};
 
-const dropdownItemStyle = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "8px 14px",
-  background: "transparent",
-  border: "none",
-  fontSize: 13,
-  fontFamily: FONT,
-  cursor: "pointer",
-  transition: "background .1s",
-  whiteSpace: "nowrap",
-};
 
-const searchInputStyle = {
-  width: "100%",
-  padding: "10px 36px 10px 38px",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  fontSize: 13,
-  fontFamily: FONT,
-  color: "#334155",
-  background: "#fff",
-  outline: "none",
-  boxSizing: "border-box",
-};
 
-const tableContainerStyle = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 8,
-  overflow: "hidden",
-  background: "#fff",
-  minHeight: 0,
-};
 
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontFamily: FONT,
-  tableLayout: "fixed",
-};
 
-const thStyle = {
-  padding: "10px 12px",
-  fontSize: 11,
-  fontWeight: 700,
-  color: GRAY_TEXT,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  textAlign: "left",
-  background: "#f9fafb",
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  whiteSpace: "nowrap",
-  userSelect: "none",
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-};
 
-const emptyCellStyle = {
-  padding: "80px 24px",
-  textAlign: "center",
-  verticalAlign: "middle",
-};
 
-const tdStyle = {
-  padding: "10px 12px",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 12.5,
-  color: "#334155",
-  verticalAlign: "middle",
-};
+
+
+
+
+
+
+
+
+
+
+
+

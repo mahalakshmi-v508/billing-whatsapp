@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 
 /* ─── Toast Hook ─────────────────────────────────────────── */
 function useToast() {
   const [toasts, setToasts] = useState([]);
-  const show = (type, title, msg) => {
+  const show = useCallback((type, title, msg) => {
     const id = Date.now();
     setToasts(p => [...p, { id, type, title, msg }]);
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3800);
-  };
+  }, []);
   const remove = (id) => setToasts(p => p.filter(t => t.id !== id));
   return { toasts, show, remove };
 }
@@ -62,7 +62,39 @@ export default function EditBrand() {
   const [subLoading, setSubLoading] = useState(false);
   const { toasts, show, remove } = useToast();
 
-  const fetchBrand = async () => {
+  const loadCategories = useCallback(async (company_id) => {
+    try {
+      const res = await api.get(
+        `/category/get_active_category?company_id=${company_id}`
+      );
+      if (res.data.status) {
+        setCategories(res.data.data);
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }, []);
+
+  const loadSubcategories = useCallback(async (company_id, category_id) => {
+    setSubLoading(true);
+    try {
+      const res = await api.get(
+        `/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${category_id}`
+      );
+      if (res.data.status) {
+        setSubcategories(res.data.data);
+      } else {
+        setSubcategories([]);
+      }
+    } catch (err) {
+      console.log(err);
+      setSubcategories([]);
+    } finally {
+      setSubLoading(false);
+    }
+  }, []);
+
+  const fetchBrand = useCallback(async () => {
     setFetching(true);
     try {
       const res = await api.get(`/brand/get_by_id?id=${id}`);
@@ -88,41 +120,14 @@ export default function EditBrand() {
     } finally {
       setFetching(false);
     }
-  };
+  }, [id, loadCategories, loadSubcategories, show]);
 
-  const loadCategories = async (company_id) => {
-    try {
-      const res = await api.get(
-        `/category/get_active_category?company_id=${company_id}`
-      );
-      if (res.data.status) {
-        setCategories(res.data.data);
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  const loadSubcategories = async (company_id, category_id) => {
-    setSubLoading(true);
-    try {
-      const res = await api.get(
-        `/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${category_id}`
-      );
-      if (res.data.status) {
-        setSubcategories(res.data.data);
-      } else {
-        setSubcategories([]);
-      }
-    } catch (err) {
-      console.log(err);
-      setSubcategories([]);
-    } finally {
-      setSubLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchBrand(); }, [id]);
+  useEffect(() => {
+    const run = async () => {
+      await fetchBrand();
+    };
+    run();
+  }, [fetchBrand]);
 
   // when the user changes the category (after initial load), refresh subcategory list
   const handleCategoryChange = (e) => {

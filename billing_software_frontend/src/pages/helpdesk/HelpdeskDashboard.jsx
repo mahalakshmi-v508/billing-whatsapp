@@ -1,12 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   BarChart3,
   CheckCircle2,
   Clock,
-  AlertCircle,
   HelpCircle,
-  TrendingUp,
   Activity,
   Layers,
   ShieldAlert,
@@ -20,7 +18,9 @@ export default function HelpdeskDashboard({ onBack }) {
   const navigate = useNavigate();
   const { isTamil } = useLanguage();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const [loading, setLoading] = useState(true);
+  const userRole = user.role;
+  const userId = user.id;
+  const [, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState({
     total_tickets: 0,
     open_tickets: 0,
@@ -35,17 +35,13 @@ export default function HelpdeskDashboard({ onBack }) {
     recent_activities: [],
   });
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, []);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/helpdesk/analytics", {
         headers: {
-          "X-User-Role": user.role,
-          "X-User-Id": user.id,
+          "X-User-Role": userRole,
+          "X-User-Id": userId,
         },
       });
       if (res.data.status) {
@@ -56,7 +52,14 @@ export default function HelpdeskDashboard({ onBack }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userRole, userId]);
+
+  useEffect(() => {
+    const run = async () => {
+      await fetchAnalytics();
+    };
+    run();
+  }, [fetchAnalytics]);
 
   const priorityColors = {
     low: "bg-slate-500 text-slate-100",

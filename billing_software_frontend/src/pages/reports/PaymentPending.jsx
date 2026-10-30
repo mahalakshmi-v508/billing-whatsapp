@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import * as XLSX from "xlsx";
@@ -27,11 +27,8 @@ import {
   ShieldCheck,
   RefreshCw,
   ExternalLink,
-  Calendar,
   CreditCard,
-  Building2,
   Check,
-  ArrowRight,
   Info,
 } from "lucide-react";
 import ReportAnalyticsView from "../../components/reports/ReportAnalyticsView";
@@ -92,7 +89,6 @@ export default function PaymentPending() {
   );
   const [collectNotes, setCollectNotes] = useState("");
   const [collecting, setCollecting] = useState(false);
-  const [preview, setPreview] = useState([]);
 
   // WhatsApp Reminder State
   const [sendingReminder, setSendingReminder] = useState(false);
@@ -125,6 +121,59 @@ export default function PaymentPending() {
   ].filter(Boolean).length;
 
   /* ── Fetch customers & pending history ── */
+  const fetchCustomerHistory = useCallback(
+    async (customerId, overrides = {}) => {
+      if (!customerId) return;
+      setLoadingInvoices(true);
+      try {
+        const res = await api.get(
+          `/invoice/get_pending_invoice_history?admin_id=${admin_id}`
+        );
+        if (res.data.status) {
+          let data = (res.data.data || []).filter(
+            (item) => Number(item.customer_id) === Number(customerId)
+          );
+
+          // Apply filters
+          const method = overrides.filterMethod ?? filterMethod;
+          const status = overrides.filterStatus ?? filterStatus;
+          const from = overrides.fromDate ?? fromDate;
+          const to = overrides.toDate ?? toDate;
+
+          if (method !== "all") {
+            data = data.filter((i) => i.payment_method?.toLowerCase() === method);
+          }
+
+          if (status === "paid") {
+            data = data.filter((i) => Number(i.balance_amount) <= 0);
+          } else if (status === "not_paid") {
+            data = data.filter((i) => Number(i.balance_amount) > 0);
+          }
+
+          if (from) {
+            data = data.filter(
+              (i) => i.created_at && i.created_at.slice(0, 10) >= from
+            );
+          }
+          if (to) {
+            data = data.filter(
+              (i) => i.created_at && i.created_at.slice(0, 10) <= to
+            );
+          }
+
+          setInvoiceHistory(data);
+          setCheckedIds(new Set());
+          setInvPage(1);
+        }
+      } catch (err) {
+        console.error("Error fetching customer invoices:", err);
+      } finally {
+        setLoadingInvoices(false);
+      }
+    },
+    [admin_id, filterMethod, filterStatus, fromDate, toDate]
+  );
+
   const fetchCustomers = useCallback(
     async (keepSelectedId = null) => {
       setLoading(true);
@@ -155,7 +204,7 @@ export default function PaymentPending() {
         setLoading(false);
       }
     },
-    [admin_id]
+    [admin_id, fetchCustomerHistory, selectedCustomer]
   );
 
   const fetchAllHistory = useCallback(async () => {
@@ -174,63 +223,24 @@ export default function PaymentPending() {
     }
   }, [admin_id]);
 
-  const fetchCustomerHistory = async (customerId, overrides = {}) => {
-    if (!customerId) return;
-    setLoadingInvoices(true);
-    try {
-      const res = await api.get(
-        `/invoice/get_pending_invoice_history?admin_id=${admin_id}`
-      );
-      if (res.data.status) {
-        let data = (res.data.data || []).filter(
-          (item) => Number(item.customer_id) === Number(customerId)
-        );
-
-        // Apply filters
-        const method = overrides.filterMethod ?? filterMethod;
-        const status = overrides.filterStatus ?? filterStatus;
-        const from = overrides.fromDate ?? fromDate;
-        const to = overrides.toDate ?? toDate;
-
-        if (method !== "all") {
-          data = data.filter((i) => i.payment_method?.toLowerCase() === method);
-        }
-
-        if (status === "paid") {
-          data = data.filter((i) => Number(i.balance_amount) <= 0);
-        } else if (status === "not_paid") {
-          data = data.filter((i) => Number(i.balance_amount) > 0);
-        }
-
-        if (from) {
-          data = data.filter(
-            (i) => i.created_at && i.created_at.slice(0, 10) >= from
-          );
-        }
-        if (to) {
-          data = data.filter(
-            (i) => i.created_at && i.created_at.slice(0, 10) <= to
-          );
-        }
-
-        setInvoiceHistory(data);
-        setCheckedIds(new Set());
-        setInvPage(1);
-      }
-    } catch (err) {
-      console.error("Error fetching customer invoices:", err);
-    } finally {
-      setLoadingInvoices(false);
-    }
-  };
+  // Mount-only loader: fetchCustomers changes identity with the active filters,
+  // so keep the newest one in a ref instead of re-running this effect on every
+  // filter change.
+  const fetchCustomersRef = useRef(fetchCustomers);
+  useEffect(() => {
+    fetchCustomersRef.current = fetchCustomers;
+  }, [fetchCustomers]);
 
   useEffect(() => {
-    fetchCustomers();
-    fetchAllHistory();
-  }, [fetchCustomers, fetchAllHistory]);
+    const run = async () => {
+      fetchCustomersRef.current();
+      await fetchAllHistory();
+    };
+    run();
+  }, [fetchAllHistory]);
 
   // Live FIFO preview calculation
-  useEffect(() => {
+  const preview = useMemo(() => {
     const pending = invoiceHistory.filter((i) => Number(i.balance_amount) > 0);
     const sortedPending = [...pending].sort((a, b) => {
       const da = new Date(a.created_at || a.invoice_date || 0);
@@ -239,16 +249,18 @@ export default function PaymentPending() {
     });
 
     if (!collectAmount || Number(collectAmount) <= 0) {
-      setPreview([]);
-      return;
+      return [];
     }
-    setPreview(distributePayment(sortedPending, collectAmount));
+    return distributePayment(sortedPending, collectAmount);
   }, [collectAmount, invoiceHistory]);
 
-  const getCustomerPendingTotal = (customerId) =>
-    allHistory
-      .filter((i) => Number(i.customer_id) === Number(customerId))
-      .reduce((s, i) => s + Number(i.balance_amount || 0), 0);
+  const getCustomerPendingTotal = useCallback(
+    (customerId) =>
+      allHistory
+        .filter((i) => Number(i.customer_id) === Number(customerId))
+        .reduce((s, i) => s + Number(i.balance_amount || 0), 0),
+    [allHistory]
+  );
 
   const pendingInvoices = useMemo(
     () => invoiceHistory.filter((i) => Number(i.balance_amount) > 0),
@@ -283,7 +295,7 @@ export default function PaymentPending() {
       clearedCustomers,
       totalCreditLimit,
     };
-  }, [allHistory, customers]);
+  }, [allHistory, customers, getCustomerPendingTotal]);
 
   /* ── Filter apply & reset ── */
   const applyFilter = () => {
@@ -321,7 +333,7 @@ export default function PaymentPending() {
 
       return matchSearch;
     });
-  }, [customers, search, customerFilterTab, allHistory]);
+  }, [customers, search, customerFilterTab, getCustomerPendingTotal]);
 
   /* ── Invoice Pagination ── */
   const totalInvPages = Math.ceil(invoiceHistory.length / INV_PER_PAGE) || 1;
@@ -490,7 +502,6 @@ export default function PaymentPending() {
     setCollectMethod("cash");
     setCollectDate(new Date().toISOString().split("T")[0]);
     setCollectNotes("");
-    setPreview([]);
     setShowCollect(true);
   };
 
@@ -519,7 +530,6 @@ export default function PaymentPending() {
         showToast("Payment collected and allocated successfully! 🎉");
         setShowCollect(false);
         setCollectAmount("");
-        setPreview([]);
         await fetchCustomers(selectedCustomer.id);
         await fetchAllHistory();
         await fetchCustomerHistory(selectedCustomer.id);
@@ -950,7 +960,6 @@ export default function PaymentPending() {
                       setSelectedCustomer(c);
                       fetchCustomerHistory(c.id);
                       setCollectAmount("");
-                      setPreview([]);
                     }}
                     className={`p-3.5 flex items-center justify-between cursor-pointer transition-all border-l-4 ${
                       isSelected

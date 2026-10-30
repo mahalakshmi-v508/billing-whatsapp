@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import {
@@ -50,12 +50,15 @@ export default function HeaderNotifications() {
   const dropdownRef = useRef(null);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRole = user.role;
+  const userId = user.id;
+  const userAdminId = user.admin_id;
   const selectedCompany = localStorage.getItem("selected_company_id") || "";
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      const adminId = user.role === "cashier" ? user.admin_id : user.id;
+      const adminId = userRole === "cashier" ? userAdminId : userId;
 
       const promises = [];
       if (adminId) {
@@ -116,11 +119,14 @@ export default function HeaderNotifications() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userRole, userId, userAdminId, selectedCompany]);
 
   useEffect(() => {
-    fetchNotifications();
-  }, [selectedCompany]);
+    const run = async () => {
+      await fetchNotifications();
+    };
+    run();
+  }, [fetchNotifications]);
 
   // Close on outside click
   useEffect(() => {
@@ -360,9 +366,9 @@ export default function HeaderNotifications() {
                       const isToday = item.expires_today;
                       const daysLeft = item.days_left;
 
-                      let badgeText = "";
-                      let badgeClass = "";
-                      let dueText = "";
+                      let badgeText ;
+                      let badgeClass ;
+                      let dueText ;
 
                       if (isExpired) {
                         badgeText = "Expired";

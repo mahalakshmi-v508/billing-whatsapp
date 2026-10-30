@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import api from "../../services/api";
 import {
   Check,
@@ -11,10 +11,7 @@ import {
   RefreshCw,
   Building2,
   Mail,
-  UserCheck,
   ClipboardList,
-  AlertCircle,
-  HelpCircle,
 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 8;
@@ -33,12 +30,12 @@ export default function PendingCashierRequests() {
     item: null,
   });
 
-  const showToast = (msg, ok = true) => {
+  const showToast = useCallback((msg, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/CashierRequest/get_cashier_requests");
@@ -51,11 +48,14 @@ export default function PendingCashierRequests() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
-    fetchRequests();
-  }, []);
+    const run = async () => {
+      await fetchRequests();
+    };
+    run();
+  }, [fetchRequests]);
 
   const approve = async (id) => {
     setActionLoading(true);

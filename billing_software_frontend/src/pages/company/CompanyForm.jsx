@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import  { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import {
@@ -12,7 +12,6 @@ import {
   Plus,
   RefreshCw,
   Image as ImageIcon,
-  CheckCircle2,
   AlertCircle,
   Building,
 } from "lucide-react";

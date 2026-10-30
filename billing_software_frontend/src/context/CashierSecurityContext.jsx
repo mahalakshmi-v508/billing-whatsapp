@@ -1,22 +1,8 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../services/api";
 import { fetchSettings, getCompanyId } from "../pages/settings/settingsApi";
 import { CASHIER_SECURITY_KEY } from "../pages/settings/CashierSecuritySettings";
-
-const DEFAULT_SECURITY = {
-  lock_item_price_edit: false,
-  max_discount_enabled: true,
-  max_discount_limit: 10,
-  restrict_selling_below_cost: true,
-  supervisor_pin_enabled: true,
-  supervisor_admin_pin: "",
-  supervisor_pin_set: false,
-  auto_screen_lock_minutes: 0,
-};
-
-const CashierSecurityContext = createContext({
-  cashierSecurity: DEFAULT_SECURITY,
-});
+import { CashierSecurityContext, DEFAULT_SECURITY } from "./cashierSecurity";
 
 export function CashierSecurityProvider({ children }) {
   const [cashierSecurity, setCashierSecurity] = useState(DEFAULT_SECURITY);
@@ -103,8 +89,4 @@ export function CashierSecurityProvider({ children }) {
       {children}
     </CashierSecurityContext.Provider>
   );
-}
-
-export function useCashierSecurity() {
-  return useContext(CashierSecurityContext);
 }

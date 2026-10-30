@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { calculateLine, round2, normalisePriceType } from "../../../utils/gst";
+import { calculateLine, normalisePriceType } from "../../../utils/gst";
 
 /**
  * A price field with a "With GST / Without GST" mode selector.

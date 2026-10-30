@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { DESIGN_COMPONENTS } from "../pages/billing/Invoice";
+import { DESIGN_COMPONENTS } from "../pages/billing/designComponents";
 import { generateInvoicePdfBase64, getInvoiceLogoUrl } from "../utils/invoiceShare";
 
 /* ───────────────────────────────────────────────────────────────────────────

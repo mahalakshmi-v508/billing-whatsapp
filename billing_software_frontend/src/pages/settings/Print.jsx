@@ -1,28 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { 
   ChevronDown, 
-  QrCode, 
   Printer, 
   Maximize2, 
   X, 
   Check, 
   Palette, 
-  Sparkles, 
   Layers, 
   Sliders, 
-  Eye, 
   FileText, 
-  Receipt, 
-  ZoomIn, 
-  ZoomOut, 
-  CheckCircle2,
-  Settings2,
-  RotateCcw
+  Receipt
 } from "lucide-react";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
-import { SettingsHeader, InfoIcon, CheckRow, Badge } from "./settingsUI";
-import { DESIGN_COMPONENTS } from "../billing/Invoice";
+import { SettingsHeader, InfoIcon, CheckRow } from "./settingsUI";
+import { DESIGN_COMPONENTS } from "../billing/designComponents";
 import StoreSetupSettings from "./StoreSetupSettings";
 import TaxBackupSettings from "./TaxBackupSettings";
 
@@ -180,7 +172,7 @@ const THEME_OPTIONS = [
 ];
 
 /* ─── THERMAL POS LAYOUT / THEME OPTIONS ──────────────────────────────────── */
-export const POS_LAYOUT_OPTIONS = [
+const POS_LAYOUT_OPTIONS = [
   {
     id: "pos_classic",
     label: "Classic POS",
@@ -246,7 +238,7 @@ const PALETTE_COLORS = [
 ];
 
 /* ─── THEME ID NORMALIZER ─────────────────────────────────────────────────── */
-export function normalizeThemeId(t) {
+function normalizeThemeId(t) {
   if (!t) return "tally";
   const map = {
     "Tally Theme": "tally",
@@ -513,17 +505,7 @@ function ColorPalette({ value, onChange }) {
   );
 }
 
-function LinkText({ children, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-xs text-blue-600 hover:text-blue-700 font-bold mt-1.5 cursor-pointer text-left hover:underline flex items-center gap-1"
-    >
-      {children}
-    </button>
-  );
-}
+
 
 function PrintCompanyHeader({ state, set, open, onToggle }) {
   return (

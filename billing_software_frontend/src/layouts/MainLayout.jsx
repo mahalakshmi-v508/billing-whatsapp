@@ -3,27 +3,22 @@ import api from "../services/api";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import SettingsContext from "../pages/settings/SettingsContext";
 import { fetchSettings } from "../pages/settings/settingsApi";
-import { SALES_TRANSACTION_MENU_ITEMS } from "../config/salesTransactionMap";
+
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard,
+  
   Home,
-  Package,
   ReceiptText,
   BarChart3,
   Building2,
   Settings,
-  ShieldCheck,
   AlertCircle,
   User,
   LogOut,
-  FolderTree,
   Boxes,
-  Tags,
   Truck,
   PackageSearch,
   Search,
-  Users,
   UserCog,
   ClipboardList,
   Building,
@@ -33,22 +28,13 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  PanelLeft,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
-  ShoppingBag,
-  PackagePlus,
-  UserPlus,
-  FolderPlus,
-  Play,
   ShoppingCart,
   X,
   Sparkles,
-  Command,
-  Bell,
   Store,
-  Coins,
   IndianRupee,
   RotateCcw,
   FileText,
@@ -147,13 +133,15 @@ const SaleIcon = ({ size = 18 }) => (
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { lang, isTamil, t: translate, changeLanguage } = useLanguage();
+  const { lang, t: translate, changeLanguage } = useLanguage();
   const { isDark, toggleTheme } = useTheme();
   const [saleOpen, setSaleOpen] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(false);
+  const [prevMenuPath, setPrevMenuPath] = useState(null);
   const [settingsTab, setSettingsTab] = useState("general");
+  const [prevSettingsPath, setPrevSettingsPath] = useState(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const quickAddRef = useRef(null);
   const [sidebarSearch, setSidebarSearch] = useState("");
@@ -164,7 +152,7 @@ export default function MainLayout() {
   );
   const visibleSidebarSearch = deletePinModalOpen ? "" : sidebarSearch;
   const searchInputRef = useRef(null);
-  const [generalSettings, setGeneralSettings] = useState({});
+  const [, setGeneralSettings] = useState({});
   const [posControls, setPosControls] = useState(() => {
     try {
       const saved = localStorage.getItem("settings_pos_controls");
@@ -177,7 +165,8 @@ export default function MainLayout() {
   const isSettingsPage = location.pathname.startsWith("/settings");
 
   // Keep settingsTab in sync with URL if on /settings/:tab
-  useEffect(() => {
+  if (prevSettingsPath !== location.pathname) {
+    setPrevSettingsPath(location.pathname);
     if (location.pathname.startsWith("/settings/")) {
       const tab = location.pathname.replace("/settings/", "").split("/")[0];
       if (tab && tab !== "service-reminders") {
@@ -186,7 +175,7 @@ export default function MainLayout() {
     } else if (location.pathname === "/settings") {
       setSettingsTab("general");
     }
-  }, [location.pathname]);
+  }
 
   // Fetch general and POS settings
   useEffect(() => {
@@ -336,7 +325,8 @@ export default function MainLayout() {
   }, [user, navigate]);
 
   // Auto-expand dropdowns if current route is inside
-  useEffect(() => {
+  if (prevMenuPath !== location.pathname) {
+    setPrevMenuPath(location.pathname);
     if (location.pathname.startsWith("/sales")) {
       setSaleOpen(true);
     }
@@ -349,7 +339,7 @@ export default function MainLayout() {
     if (location.pathname.startsWith("/customer") || location.pathname.startsWith("/whatsapp")) {
       setCustomerOpen(true);
     }
-  }, [location.pathname]);
+  }
 
   // 🔥 Trigger DOM Auto-Translation on route change and language change
   useEffect(() => {
@@ -406,15 +396,13 @@ export default function MainLayout() {
     navigate("/");
   };
 
-  const saleSubItemsFromSettings = SALES_TRANSACTION_MENU_ITEMS.filter(
-    (item) => generalSettings[item.settingsKey] !== false && item.settingsKey !== "quotation"
-  ).map((item) => ({ name: item.label, path: item.path }));
+  
 
   const posBillingPath = posControls?.default_billing_screen === "detailed" ? "/sales/add" : "/billing";
 
-  const menuItems = [
+  const menuItems = useMemo(() => [
     // ADMIN ONLY
-    ...(role === "admin"
+    ...(user?.role === "admin"
       ? [
         { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
         {
@@ -471,7 +459,7 @@ export default function MainLayout() {
       : []),
 
     // SUPERADMIN ONLY
-    ...(role === "superadmin"
+    ...(user?.role === "superadmin"
       ? [
         { name: "Admin List", path: "/admin", icon: <UserCog size={18} /> },
         { name: "Cashier Requests", path: "/cashier-requests", icon: <ClipboardList size={18} /> },
@@ -480,7 +468,7 @@ export default function MainLayout() {
       : []),
 
     // CASHIER ONLY
-    ...(role === "cashier"
+    ...(user?.role === "cashier"
       ? [
         { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
         { name: "Point of Sale (POS)", path: posBillingPath, icon: <ReceiptText size={18} /> },
@@ -490,7 +478,7 @@ export default function MainLayout() {
       : []),
 
     // DEVELOPER ONLY
-    ...(role === "developer"
+    ...(user?.role === "developer"
       ? [
         { name: "Dashboard", path: "/dashboard", icon: <Home size={18} /> },
         { name: "Reports", path: "/reports", icon: <BarChart3 size={18} /> },
@@ -502,7 +490,7 @@ export default function MainLayout() {
     // allows (admin, cashier, superadmin, developer) can reach it.
     { name: "Audit Log", path: "/audit-log", icon: <History size={18} /> },
     { name: "Support", path: "/helpdesk", icon: <Headset size={18} /> },
-  ];
+  ], [user?.role, posBillingPath]);
 
   // Live sidebar search filtering
   const filteredMenuItems = useMemo(() => {

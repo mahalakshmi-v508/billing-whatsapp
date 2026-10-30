@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import {
   ShieldCheck,
   Lock,
-  Plus,
   ChevronDown,
   Zap,
   Save,
@@ -12,25 +11,19 @@ import {
   Eye,
   EyeOff,
   Building2,
-  Truck,
-  FileCheck2,
   AlertTriangle,
-  RefreshCw,
   Sliders,
   ExternalLink,
   Shield,
-  Activity,
-  Check,
-  Copy,
-  Info
+  Activity
 } from "lucide-react";
 import api from "../../services/api";
 import { useSettings } from "./SettingsContext";
 import { useBackendSync } from "./useBackendSync";
 import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
 
-const blue = "#2563eb";
-const gradient = "linear-gradient(135deg, #1f8cff 0%, #4338ca 100%)";
+
+
 
 const DEFAULT_STATE = {
   integrationEnabled: true,
@@ -98,50 +91,53 @@ export default function EwayBill() {
   const [showPassword, setShowPassword] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState("connected"); // connected, testing, failed
+  const [, setConnectionStatus] = useState("connected"); // connected, testing, failed
   const [lastTestedTime, setLastTestedTime] = useState("Just now");
   const [toast, setToast] = useState(null);
-  const [copiedKey, setCopiedKey] = useState(null);
+  const [, ] = useState(null);
 
   // Load companies
   useEffect(() => {
-    let user = {};
-    try {
-      user = JSON.parse(localStorage.getItem("user") || "{}");
-    } catch {
-      user = {};
-    }
-    const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+    const loadCompanies = async () => {
+      let user ;
+      try {
+        user = JSON.parse(localStorage.getItem("user") || "{}");
+      } catch {
+        user = {};
+      }
+      const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
 
-    if (!adminId) {
-      setLoadingCompanies(false);
-      return;
-    }
+      if (!adminId) {
+        setLoadingCompanies(false);
+        return;
+      }
 
-    api
-      .get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role || ""}`)
-      .then((res) => {
-        if (res.data.status && Array.isArray(res.data.data)) {
-          const list = res.data.data;
-          setCompanies(list);
-          const savedCompId = localStorage.getItem("selected_company_id");
-          if (savedCompId) {
-            const found = list.find((c) => String(c.id) === String(savedCompId));
-            if (found) {
-              set("selectedCompanyId")(String(found.id));
-              if (found.gstin) set("companyGstin")(found.gstin);
+      api
+        .get(`/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role || ""}`)
+        .then((res) => {
+          if (res.data.status && Array.isArray(res.data.data)) {
+            const list = res.data.data;
+            setCompanies(list);
+            const savedCompId = localStorage.getItem("selected_company_id");
+            if (savedCompId) {
+              const found = list.find((c) => String(c.id) === String(savedCompId));
+              if (found) {
+                set("selectedCompanyId")(String(found.id));
+                if (found.gstin) set("companyGstin")(found.gstin);
+              }
+            } else if (list.length > 0) {
+              set("selectedCompanyId")(String(list[0].id));
+              if (list[0].gstin) set("companyGstin")(list[0].gstin);
             }
-          } else if (list.length > 0) {
-            set("selectedCompanyId")(String(list[0].id));
-            if (list[0].gstin) set("companyGstin")(list[0].gstin);
           }
-        }
-      })
-      .catch((err) => console.error("Error loading companies for E-Way Bill:", err))
-      .finally(() => setLoadingCompanies(false));
+        })
+        .catch((err) => console.error("Error loading companies for E-Way Bill:", err))
+        .finally(() => setLoadingCompanies(false));
+    };
+    loadCompanies();
   }, []);
 
-  const activeCompany = companies.find((c) => String(c.id) === String(state.selectedCompanyId)) || companies[0] || null;
+  
 
   const handleCompanyChange = (compId) => {
     set("selectedCompanyId")(compId);
@@ -170,12 +166,7 @@ export default function EwayBill() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleCopy = (text, key) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
-  };
+  
 
   const guideSteps = [
     { title: "Portal Login", desc: "Login to the official government portal at ewaybillgst.gov.in with your tax admin ID." },

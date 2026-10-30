@@ -1,27 +1,18 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Hash,
-  Check,
   Save,
   RefreshCw,
   Sparkles,
   Building2,
-  CheckCircle2,
-  AlertCircle,
   FileText,
   RotateCcw,
   Receipt,
   ShoppingCart,
   CreditCard,
-  Layers,
-  ArrowRight,
   FileSpreadsheet,
   Sliders,
-  Search,
-  Filter,
-  Eye,
   CheckCircle,
-  Zap,
 } from "lucide-react";
 import api from "../../services/api";
 import { useSettings } from "./SettingsContext";
@@ -158,7 +149,7 @@ export default function InvoiceSettings() {
   const [companies, setCompanies] = useState([]);
   const [selectedDocKey, setSelectedDocKey] = useState("invoice");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -217,55 +208,58 @@ export default function InvoiceSettings() {
 
   // Fetch invoice settings for selected company
   useEffect(() => {
-    if (!companyId) return;
-    setLoading(true);
-    api
-      .get(`/invoice-settings/get?company_id=${companyId}`)
-      .then((res) => {
-        if (res.data.status && res.data.data) {
-          const d = res.data.data;
-          setFormData((prev) => ({
-            ...prev,
-            prefix: d.prefix ?? "INV-",
-            next_number: d.next_number ?? 1,
-            padding: d.padding ?? 4,
-            credit_note_prefix: d.credit_note_prefix ?? "CN-",
-            credit_note_next_number: d.credit_note_next_number ?? 1,
-            credit_note_padding: d.credit_note_padding ?? 4,
-            payment_in_prefix: d.payment_in_prefix ?? "PAYIN-",
-            payment_in_next_number: d.payment_in_next_number ?? 1,
-            payment_in_padding: d.payment_in_padding ?? 4,
-            purchase_order_prefix: d.purchase_order_prefix ?? "PO-",
-            purchase_order_next_number: d.purchase_order_next_number ?? 1,
-            purchase_order_padding: d.purchase_order_padding ?? 4,
-            payment_out_prefix: d.payment_out_prefix ?? "PAYOUT-",
-            payment_out_next_number: d.payment_out_next_number ?? 1,
-            payment_out_padding: d.payment_out_padding ?? 4,
-            debit_note_prefix: d.debit_note_prefix ?? "DN-",
-            debit_note_next_number: d.debit_note_next_number ?? 1,
-            debit_note_padding: d.debit_note_padding ?? 4,
-            estimate_prefix: d.estimate_prefix ?? "EST-",
-            estimate_next_number: d.estimate_next_number ?? 1,
-            estimate_padding: d.estimate_padding ?? 4,
-            delivery_challan_prefix: d.delivery_challan_prefix ?? "DC-",
-            delivery_challan_next_number: d.delivery_challan_next_number ?? 1,
-            delivery_challan_padding: d.delivery_challan_padding ?? 4,
-            proforma_invoice_prefix: d.proforma_invoice_prefix ?? "PI-",
-            proforma_invoice_next_number: d.proforma_invoice_next_number ?? 1,
-            proforma_invoice_padding: d.proforma_invoice_padding ?? 4,
-            sale_order_prefix: d.sale_order_prefix ?? "SO-",
-            sale_order_next_number: d.sale_order_next_number ?? 1,
-            sale_order_padding: d.sale_order_padding ?? 4,
-            expense_prefix: d.expense_prefix ?? "EXP-",
-            expense_next_number: d.expense_next_number ?? 1,
-            expense_padding: d.expense_padding ?? 4,
-          }));
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load invoice settings:", err);
-      })
-      .finally(() => setLoading(false));
+    const loadInvoiceSettings = async () => {
+      if (!companyId) return;
+      setLoading(true);
+      api
+        .get(`/invoice-settings/get?company_id=${companyId}`)
+        .then((res) => {
+          if (res.data.status && res.data.data) {
+            const d = res.data.data;
+            setFormData((prev) => ({
+              ...prev,
+              prefix: d.prefix ?? "INV-",
+              next_number: d.next_number ?? 1,
+              padding: d.padding ?? 4,
+              credit_note_prefix: d.credit_note_prefix ?? "CN-",
+              credit_note_next_number: d.credit_note_next_number ?? 1,
+              credit_note_padding: d.credit_note_padding ?? 4,
+              payment_in_prefix: d.payment_in_prefix ?? "PAYIN-",
+              payment_in_next_number: d.payment_in_next_number ?? 1,
+              payment_in_padding: d.payment_in_padding ?? 4,
+              purchase_order_prefix: d.purchase_order_prefix ?? "PO-",
+              purchase_order_next_number: d.purchase_order_next_number ?? 1,
+              purchase_order_padding: d.purchase_order_padding ?? 4,
+              payment_out_prefix: d.payment_out_prefix ?? "PAYOUT-",
+              payment_out_next_number: d.payment_out_next_number ?? 1,
+              payment_out_padding: d.payment_out_padding ?? 4,
+              debit_note_prefix: d.debit_note_prefix ?? "DN-",
+              debit_note_next_number: d.debit_note_next_number ?? 1,
+              debit_note_padding: d.debit_note_padding ?? 4,
+              estimate_prefix: d.estimate_prefix ?? "EST-",
+              estimate_next_number: d.estimate_next_number ?? 1,
+              estimate_padding: d.estimate_padding ?? 4,
+              delivery_challan_prefix: d.delivery_challan_prefix ?? "DC-",
+              delivery_challan_next_number: d.delivery_challan_next_number ?? 1,
+              delivery_challan_padding: d.delivery_challan_padding ?? 4,
+              proforma_invoice_prefix: d.proforma_invoice_prefix ?? "PI-",
+              proforma_invoice_next_number: d.proforma_invoice_next_number ?? 1,
+              proforma_invoice_padding: d.proforma_invoice_padding ?? 4,
+              sale_order_prefix: d.sale_order_prefix ?? "SO-",
+              sale_order_next_number: d.sale_order_next_number ?? 1,
+              sale_order_padding: d.sale_order_padding ?? 4,
+              expense_prefix: d.expense_prefix ?? "EXP-",
+              expense_next_number: d.expense_next_number ?? 1,
+              expense_padding: d.expense_padding ?? 4,
+            }));
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load invoice settings:", err);
+        })
+        .finally(() => setLoading(false));
+    };
+    loadInvoiceSettings();
   }, [companyId]);
 
   // Helper to compute formatted preview

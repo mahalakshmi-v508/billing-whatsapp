@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import {
@@ -6,14 +6,9 @@ import {
   ChevronDown,
   Truck,
   AlertCircle,
-  CreditCard,
-  Building2,
-  Calendar,
-  DollarSign,
   CheckCircle2,
   Search,
-  Plus,
-  Wallet
+  Plus
 } from "lucide-react";
 import AddSupplierModal from "../../supplier/AddSupplierModal";
 
@@ -110,7 +105,7 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
   }, [isOpen, editPayment, initialSupplier, companyId]);
 
   // Load suppliers list
-  const fetchSuppliers = async (q = "") => {
+  const fetchSuppliers = useCallback(async (q = "") => {
     if (!companyId) return;
     setSearchingParty(true);
     try {
@@ -136,12 +131,15 @@ export default function AddPaymentOutModal({ isOpen, onClose, onSuccess, initial
     } finally {
       setSearchingParty(false);
     }
-  };
+  }, [companyId]);
 
   useEffect(() => {
     if (!isOpen || !companyId) return;
-    fetchSuppliers();
-  }, [isOpen, companyId]);
+    const run = async () => {
+      await fetchSuppliers();
+    };
+    run();
+  }, [isOpen, companyId, fetchSuppliers]);
 
   // Search Suppliers when typing
   const handleSearchSuppliers = (q) => {

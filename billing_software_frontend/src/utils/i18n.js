@@ -267,7 +267,7 @@ export function translateTextString(text) {
   }
 
   // Do not translate if it's strictly numbers, currency, dates, symbols
-  if (/^[₹$€£\d\s.,:;/%+*#\-–—\(\)]+$/.test(trimmed)) {
+  if (/^[₹$€£\d\s.,:;/%+*#\-–—()]+$/.test(trimmed)) {
     return text;
   }
 
@@ -286,7 +286,7 @@ export function translateTextString(text) {
 
   // ── Tier 2: Stripped punctuation & leading/trailing wrappers ──
   const wrapMatch = trimmed.match(
-    /^([\s+•\-–—*#→←✓✕?!=:;()[\]"'{}\/\\~^|🏷️🏢⚡✏️🗂️★\u2022]+)?(.*?)([\s+•\-–—*#→←✓✕?!=:;()[\]"'{}\/\\~^|🏷️🏢⚡✏️🗂️★\u2022]+)?$/u
+    /^([\s+•\-–—*#→←✓✕?!=:;()[\]"'{}/\\~^|🏷🏢⚡✏🗂★\u2022]+)?(.*?)([\s+•\-–—*#→←✓✕?!=:;()[\]"'{}/\\~^|🏷🏢⚡✏🗂★\u2022]+)?$/u
   );
   if (wrapMatch) {
     const prefix = wrapMatch[1] || "";
@@ -380,7 +380,7 @@ function translateNode(node) {
     if (!/[a-zA-Z]/.test(raw)) return;
 
     // Do not translate if it's strictly numbers, currency, dates, symbols
-    if (/^[₹$€£\d\s.,:;/%+*#\-–—\(\)]+$/.test(raw.trim())) return;
+    if (/^[₹$€£\d\s.,:;/%+*#\-–—()]+$/.test(raw.trim())) return;
 
     const translated = translateTextString(raw);
     if (translated !== raw) {

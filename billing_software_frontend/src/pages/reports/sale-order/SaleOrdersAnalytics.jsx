@@ -16,9 +16,7 @@ import {
   Clock,
   Users,
   Calendar,
-  X,
   Sparkles,
-  BarChart2,
   ArrowLeft,
 } from "lucide-react";
 
@@ -209,9 +207,9 @@ export default function SaleOrdersAnalytics({
       const d = new Date(o.date);
       if (isNaN(d.getTime())) return;
 
-      let key = "";
-      let label = "";
-      let fullDate = "";
+      let key ;
+      let label ;
+      let fullDate ;
 
       if (effectiveGranularity === "monthly") {
         key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

@@ -1863,7 +1863,7 @@ import { FaWhatsapp } from "react-icons/fa";
 import ReportPagination from "../../components/reports/ReportPagination";
 
 /* reuse the EXACT invoice markup + WhatsApp send logic from the Invoice View page */
-import { DESIGN_COMPONENTS } from "../billing/Invoice";
+import { DESIGN_COMPONENTS } from "../billing/designComponents";
 import {
   generateInvoicePdfBase64,
   sendInvoiceViaWhatsAppApi,
@@ -2285,7 +2285,10 @@ allRows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
   // Initial load after companies are fetched
   useEffect(() => {
-    if (companies.length > 0 || adminId) fetchFiltered();
+    const run = async () => {
+      if (companies.length > 0 || adminId) await fetchFiltered();
+    };
+    run();
   }, [companies]); // eslint-disable-line
 
   /* ── filtered (client-side search) ── */
@@ -2682,19 +2685,21 @@ const downloadExcel = (rows, label) => {
   const [catalogBrand,   setCatalogBrand]   = useState("all");     // "all" or brand id
 
   /* fetch brands whenever a specific company is selected */
+  const [prevCatalogComp, setPrevCatalogComp] = useState(catalogComp);
+  if (prevCatalogComp !== catalogComp) {
+    setPrevCatalogComp(catalogComp);
+    setCatalogBrand("all"); // reset brand whenever company changes
+    if (catalogComp === "all") setCatalogBrands([]);
+  }
+
   useEffect(() => {
-    if (catalogComp === "all") {
-      setCatalogBrands([]);
-      setCatalogBrand("all");
-      return;
-    }
+    if (catalogComp === "all") return;
     api.get(`/brand/get_active_brand?company_id=${catalogComp}`)
       .then(res => {
         if (res.data.status) setCatalogBrands(res.data.data);
         else setCatalogBrands([]);
       })
       .catch(err => { console.error(err); setCatalogBrands([]); });
-    setCatalogBrand("all"); // reset brand whenever company changes
   }, [catalogComp]);
 
   const fetchProductCatalog = async () => {

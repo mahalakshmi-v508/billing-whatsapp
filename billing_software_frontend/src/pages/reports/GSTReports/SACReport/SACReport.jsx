@@ -26,108 +26,25 @@ function auth() {
 
 const ADMIN_ID = () => auth().adminId;
 
-const NAVY = "#334e68";
-const GREY = "#5b6b7c";
-const BORDER = "#e2e8f0";
-const HDR_BG = "#f1f5f9";
-const ALT_BG = "#fafafa";
-const FONT = "Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-const PAD = "6px 10px";
-const B = `1px solid ${BORDER}`;
 
-const selectStyle = {
-  height: 36,
-  borderRadius: 7,
-  border: B,
-  background: "#fff",
-  fontSize: 12.5,
-  fontWeight: 500,
-  color: "#1e293b",
-  padding: "0 24px 0 9px",
-  outline: "none",
-  cursor: "pointer",
-  fontFamily: FONT,
-};
-const labelStyle = {
-  fontSize: 10,
-  fontWeight: 600,
-  letterSpacing: 0.4,
-  color: GREY,
-  textTransform: "uppercase",
-  marginBottom: 4,
-};
-const dateInputStyle = {
-  height: 36,
-  borderRadius: 7,
-  border: B,
-  padding: "0 6px",
-  fontSize: 12.5,
-  fontFamily: FONT,
-  color: "#1e293b",
-  outline: "none",
-  width: 140,
-};
-const searchStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 7,
-  height: 34,
-  borderRadius: 7,
-  border: B,
-  padding: "0 10px",
-  background: "#fff",
-  minWidth: 220,
-  flex: "0 1 260px",
-};
-const searchInputStyle = {
-  border: "none",
-  outline: "none",
-  fontSize: 12.5,
-  fontFamily: FONT,
-  color: "#1e293b",
-  background: "transparent",
-  width: "100%",
-};
-const chipBtnStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 7,
-  height: 36,
-  borderRadius: 7,
-  border: B,
-  background: "#fff",
-  padding: "0 12px",
-  fontSize: 12.5,
-  fontWeight: 600,
-  fontFamily: FONT,
-  cursor: "pointer",
-  color: "#1e293b",
-};
-const thBase = {
-  background: HDR_BG,
-  color: "#475569",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: 0.4,
-  textTransform: "uppercase",
-  padding: PAD,
-  borderRight: B,
-  borderBottom: B,
-  whiteSpace: "nowrap",
-};
-const tdBase = {
-  fontSize: 12.5,
-  color: "#1e293b",
-  padding: PAD,
-  borderRight: B,
-  borderBottom: B,
-  background: "#fff",
-};
-const tdNum = {
-  fontVariantNumeric: "tabular-nums",
-  textAlign: "right",
-};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -712,15 +629,7 @@ export default function SACReport() {
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = filtered.slice(pagedStart, pagedStart + rowsPerPage);
 
-  const analyticsRows = useMemo(() => {
-    if (!filtered.length) return [];
-    return filtered.map((g) => ({
-      date: "",
-      group: `${g.sac} · ${g.invoiceType}`,
-      value: Number(g.base || 0),
-      count: g.invoicesNo?.size || 1,
-    }));
-  }, [filtered]);
+  
 
   const colSpan = 8;
 

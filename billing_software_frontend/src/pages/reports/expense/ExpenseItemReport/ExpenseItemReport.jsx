@@ -83,13 +83,16 @@ export default function ExpenseItemReport() {
 
   useEffect(() => {
     let cancelled = false;
+    // Read the persisted company id once here so the loader does not re-run
+    // after we store the first company id below.
+    const savedId = localStorage.getItem("selected_company_id") || user?.company_id || 0;
     const loadCompanies = async () => {
       try {
         const res = await api.get(`/company/get_companies_by_admin?admin_id=${adminId || 0}&role=${user?.role || "admin"}`);
         if (cancelled) return;
         const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
         setCompanies(list);
-        if (!savedCompanyId && list.length > 0) {
+        if (!savedId && list.length > 0) {
           setCompanyId(list[0].id);
           localStorage.setItem("selected_company_id", String(list[0].id));
         }
@@ -102,7 +105,7 @@ export default function ExpenseItemReport() {
     return () => {
       cancelled = true;
     };
-  }, [adminId, user?.role]);
+  }, [adminId, user?.role, user?.company_id]);
 
   useEffect(() => {
     let mounted = true;
@@ -139,7 +142,7 @@ export default function ExpenseItemReport() {
     return () => {
       cancelled = true;
     };
-  }, [companyId, fromDate, toDate]);
+  }, [companyId, fromDate, toDate, adminId]);
 
   const handlePeriodChange = (value) => {
     setPeriod(value);
@@ -183,16 +186,7 @@ export default function ExpenseItemReport() {
     return { quantity, amount };
   }, [displayedRows]);
 
-  const analyticsRows = useMemo(
-    () =>
-      (displayedRows || []).map((r) => ({
-        date: "",
-        group: r.item_name || "General",
-        value: Number(r.amount) || 0,
-        count: 1,
-      })),
-    [displayedRows]
-  );
+  
 
   const selectedCompany = useMemo(
     () => companies.find((c) => Number(c.id) === Number(companyId)) || null,

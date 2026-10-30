@@ -61,92 +61,85 @@ export default function SubcategoryForm() {
 
     if (!user?.id) return;
 
+    const loadCompanies = async (admin_id) => {
+
+      try {
+
+        const res = await api.get(
+          `/company/get_companies_by_admin?admin_id=${admin_id}`
+        );
+
+        if (res.data.status) {
+
+          setCompanies(res.data.data);
+
+          if (
+            !localStorage.getItem("selected_company_id") &&
+            res.data.data.length > 0
+          ) {
+
+            localStorage.setItem(
+              "selected_company_id",
+              res.data.data[0].id
+            );
+
+            setSelectedCompany(res.data.data[0].id);
+          }
+        }
+
+      } catch (err) {
+
+        console.log(err);
+
+      }
+
+    };
+
     loadCompanies(user.id);
 
   }, []);
 
   useEffect(() => {
 
-    if (selectedCompany) {
+    if (!selectedCompany) return;
 
-      loadCategories(selectedCompany);
+    const loadCategories = async (company_id) => {
 
-    } else {
-
-      setCategories([]);
+      setCategoriesLoading(true);
       setSelectedCategory("");
 
-    }
+      try {
 
-  }, [selectedCompany]);
+        const res = await api.get(
+          `/category/get_active_category?company_id=${company_id}`
+        );
 
-  const loadCompanies = async (admin_id) => {
+        if (res.data.status) {
 
-    try {
+          setCategories(res.data.data);
 
-      const res = await api.get(
-        `/company/get_companies_by_admin?admin_id=${admin_id}`
-      );
+        } else {
 
-      if (res.data.status) {
+          setCategories([]);
 
-        setCompanies(res.data.data);
-
-        if (
-          !localStorage.getItem("selected_company_id") &&
-          res.data.data.length > 0
-        ) {
-
-          localStorage.setItem(
-            "selected_company_id",
-            res.data.data[0].id
-          );
-
-          setSelectedCompany(res.data.data[0].id);
         }
-      }
 
-    } catch (err) {
+      } catch (err) {
 
-      console.log(err);
-
-    }
-
-  };
-
-  const loadCategories = async (company_id) => {
-
-    setCategoriesLoading(true);
-    setSelectedCategory("");
-
-    try {
-
-      const res = await api.get(
-        `/category/get_active_category?company_id=${company_id}`
-      );
-
-      if (res.data.status) {
-
-        setCategories(res.data.data);
-
-      } else {
-
+        console.log(err);
         setCategories([]);
 
+      } finally {
+
+        setCategoriesLoading(false);
+
       }
 
-    } catch (err) {
+    };
 
-      console.log(err);
-      setCategories([]);
+    loadCategories(selectedCompany);
 
-    } finally {
-
-      setCategoriesLoading(false);
-
-    }
-
-  };
+  }, [selectedCompany]);
 
   const handleChange = (e) => {
     setName(e.target.value);

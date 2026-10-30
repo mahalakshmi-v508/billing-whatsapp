@@ -1,19 +1,12 @@
 import { useState, useMemo } from "react";
 import {
   Clock,
-  AlertTriangle,
-  Truck,
-  Plus,
-  ArrowRight,
   ShieldAlert,
-  Printer,
-  Download,
-  Share2,
 } from "lucide-react";
-import EwayStatusBadge from "./EwayStatusBadge";
+import "./EwayStatusBadge";
 import EwayActionMenu from "./EwayActionMenu";
 import EwayEmptyState from "./EwayEmptyState";
-import { formatINR } from "./mockEwayData";
+
 
 const TIMEFRAME_FILTERS = [
   { id: "all", label: "All Expiring" },

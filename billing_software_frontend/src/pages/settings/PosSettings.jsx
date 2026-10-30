@@ -15,16 +15,9 @@ import {
 import { SettingsShell, Toggle, Badge } from "./settingsUI";
 import { useCompanySetting } from "./useCompanySetting";
 import { useLanguage } from "../../utils/i18n";
+import { DEFAULT_POS_SETTINGS } from "../../config/settingsDefaults";
 
 export const POS_SETTINGS_KEY = "pos_controls";
-
-export const DEFAULT_POS_SETTINGS = {
-  auto_print_on_save: false,
-  mandatory_customer_mobile: false,
-  default_billing_screen: "quick", // "quick" | "detailed"
-  barcode_scanner_speed_mode: true,
-  auto_clear_cart_after_save: true,
-};
 
 export default function PosSettings() {
   const { isTamil } = useLanguage();

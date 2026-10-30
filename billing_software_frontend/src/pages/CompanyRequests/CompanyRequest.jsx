@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import api from "../../services/api";
 import {
   Search,
@@ -10,10 +10,6 @@ import {
   ChevronRight,
   RefreshCw,
   ShieldCheck,
-  Mail,
-  UserCheck,
-  AlertCircle,
-  Building,
 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 8;
@@ -32,12 +28,12 @@ export default function CompanyRequest() {
     item: null,
   });
 
-  const showToast = (msg, ok = true) => {
+  const showToast = useCallback((msg, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.get("/CompanyRequest/get_company_requests");
@@ -50,11 +46,14 @@ export default function CompanyRequest() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
-    fetchRequests();
-  }, []);
+    const run = async () => {
+      await fetchRequests();
+    };
+    run();
+  }, [fetchRequests]);
 
   const handleApprove = async (requestId) => {
     try {

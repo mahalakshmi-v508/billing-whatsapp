@@ -10,7 +10,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   }
 
   // ✅ logged in
-  let user = null;
+  let user ;
   try {
     user = JSON.parse(userStr);
   } catch (e) {

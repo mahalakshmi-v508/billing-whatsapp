@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+
 import {
   Search,
-  Filter,
   Plus,
   BarChart3,
   HelpCircle,
@@ -18,13 +17,7 @@ import {
   ChevronRight,
   ShieldCheck,
   Headset,
-  Sparkles,
   Calendar,
-  Tag,
-  Building2,
-  User,
-  ArrowRight,
-  Check,
   Zap,
 } from "lucide-react";
 import api from "../../services/api";
@@ -33,9 +26,11 @@ import HelpdeskDashboard from "./HelpdeskDashboard";
 import { useLanguage } from "../../utils/i18n";
 
 export default function TicketList() {
-  const { isTamil, t: translate } = useLanguage();
+  const { isTamil } = useLanguage();
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRole = user.role;
+  const userId = user.id;
   const isSupportOrAdmin = ["admin", "superadmin", "support", "developer"].includes(user?.role?.toLowerCase());
   const isDeveloper = user?.role?.toLowerCase() === "developer";
 
@@ -75,31 +70,12 @@ export default function TicketList() {
     last_page: 1,
   });
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
-    fetchTickets();
-  }, [filters]);
-
-  const fetchCategories = async () => {
-    try {
-      const res = await api.get("/ticket/categories");
-      if (res.data.status) {
-        setCategories(res.data.data || []);
-      }
-    } catch (err) {
-      console.error("Error loading categories", err);
-    }
-  };
-
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     setLoading(true);
     try {
       const params = {
-        user_id: user.id,
-        user_role: user.role,
+        user_id: userId,
+        user_role: userRole,
         search: filters.search,
         status: filters.status,
         priority: filters.priority,
@@ -113,8 +89,8 @@ export default function TicketList() {
       const res = await api.get("/tickets", {
         params,
         headers: {
-          "X-User-Role": user.role,
-          "X-User-Id": user.id,
+          "X-User-Role": userRole,
+          "X-User-Id": userId,
         },
       });
 
@@ -128,7 +104,29 @@ export default function TicketList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, userRole, userId]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const res = await api.get("/ticket/categories");
+        if (res.data.status) {
+          setCategories(res.data.data || []);
+        }
+      } catch (err) {
+        console.error("Error loading categories", err);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    const run = async () => {
+      await fetchTickets();
+    };
+    run();
+  }, [fetchTickets]);
 
   const handleQuickStatusChange = async (ticketId, newStatus) => {
     try {
@@ -542,9 +540,9 @@ export default function TicketList() {
                         <span
                           className="px-2.5 py-1 rounded-full text-[11px] font-bold border shadow-2xs inline-flex items-center gap-1"
                           style={{
-                            backgroundColor: `${t.category?.color}15` || "#eef2ff",
+                            backgroundColor: t.category?.color ? `${t.category.color}15` : "#eef2ff",
                             color: t.category?.color || "#4f46e5",
-                            borderColor: `${t.category?.color}40` || "#c7d2fe",
+                            borderColor: t.category?.color ? `${t.category.color}40` : "#c7d2fe",
                           }}
                         >
                           <span

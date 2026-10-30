@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
@@ -11,20 +11,15 @@ import {
   Search,
   Printer,
   FileSpreadsheet,
-  MoreVertical,
   Trash2,
   Edit,
   Eye,
-  Share2,
   AlertTriangle,
   X,
   RefreshCw,
   TrendingDown,
-  Building2,
   Truck,
-  CheckCircle2,
   Wallet,
-  DollarSign,
   BarChart3,
   KeyRound,
   Lock,
@@ -36,7 +31,7 @@ import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import { useTableColumns } from "../../../hooks/useTableColumns";
 import useModalFocusTrap from "../../../hooks/useModalFocusTrap";
-import { useCashierSecurity } from "../../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../../context/cashierSecurity";
 import {
   filterPaymentOuts,
   summarizePayments,
@@ -254,7 +249,7 @@ export default function PaymentOut() {
   }, [selectedFirm]);
 
   // Fetch Payment-Out records
-  const fetchPaymentOuts = async () => {
+  const fetchPaymentOuts = useCallback(async () => {
     setLoading(true);
     try {
       const compParam = selectedFirm !== "all" ? `&company_id=${selectedFirm}` : "";
@@ -271,12 +266,12 @@ export default function PaymentOut() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedFirm, fromDate, toDate, adminId]);
 
   // Refetch whenever a server-side filter (firm / date range / admin) changes.
   useEffect(() => {
     fetchPaymentOuts();
-  }, [selectedFirm, fromDate, toDate, adminId]);
+  }, [fetchPaymentOuts]);
 
   // Close filter dropdowns on outside click
   useEffect(() => {
@@ -348,16 +343,7 @@ export default function PaymentOut() {
   }, [filteredPayments, safePage, rowsPerPage]);
 
   // Analytics rows (Payment-Out grouped by supplier)
-  const analyticsRows = useMemo(
-    () =>
-      filteredPayments.map((p) => ({
-        date: p.payment_date || "",
-        group: p.supplier_name || p.party_name || "Unknown Supplier",
-        value: getPaidAmount(p),
-        count: 1,
-      })),
-    [filteredPayments]
-  );
+  
 
   // Export to Excel — exports exactly what the filtered table is showing.
   const exportToExcel = () => {

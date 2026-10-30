@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import api from "../../services/api";
 import {
   ShieldCheck,
@@ -35,12 +35,12 @@ export default function AdminList() {
     adminData: null,
   });
 
-  const showToast = (msg, ok = true) => {
+  const showToast = useCallback((msg, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
-  const fetchAdmins = async () => {
+  const fetchAdmins = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/admin/get_admins");
@@ -53,11 +53,14 @@ export default function AdminList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
-    fetchAdmins();
-  }, []);
+    const run = async () => {
+      await fetchAdmins();
+    };
+    run();
+  }, [fetchAdmins]);
 
   const toggleStatus = async (admin) => {
     const newStatus = admin.status === "active" ? "inactive" : "active";

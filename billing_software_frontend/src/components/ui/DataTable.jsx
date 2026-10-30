@@ -1,4 +1,4 @@
-import React from "react";
+import "react";
 import { Search, ChevronLeft, ChevronRight, Inbox } from "lucide-react";
 
 export default function DataTable({

@@ -7,26 +7,13 @@ import {
   Ban,
   Check,
   CheckCircle2,
-  AlertOctagon,
-  Clock,
-  Sparkles,
-  Layers,
-  HelpCircle,
 } from "lucide-react";
 import { SettingsShell, Toggle, Badge } from "./settingsUI";
 import { useCompanySetting } from "./useCompanySetting";
 import { useLanguage } from "../../utils/i18n";
+import { DEFAULT_STOCK_SETTINGS } from "../../config/settingsDefaults";
 
 export const STOCK_SETTINGS_KEY = "stock_safety";
-
-export const DEFAULT_STOCK_SETTINGS = {
-  negative_stock_mode: "block", // "block" | "warning" | "allow"
-  low_stock_alert: true,
-  low_stock_threshold: 5,
-  expiry_control_mode: "block", // "block" | "warning" | "disabled"
-  near_expiry_alert: true,
-  near_expiry_days: 30,
-};
 
 export default function StockSettings() {
   const { isTamil } = useLanguage();

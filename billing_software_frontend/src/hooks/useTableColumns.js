@@ -8,10 +8,10 @@ import { useState, useMemo, useCallback } from "react";
  */
 export default function useTableColumns(arg1, arg2) {
   const storageKey = typeof arg1 === "string" ? arg1 : (typeof arg2 === "string" ? arg2 : "table_columns_default");
-  const rawColumns = Array.isArray(arg1) ? arg1 : (Array.isArray(arg2) ? arg2 : []);
 
   // Normalize column definitions so both .key and .id work seamlessly
   const defaultColumns = useMemo(() => {
+    const rawColumns = Array.isArray(arg1) ? arg1 : (Array.isArray(arg2) ? arg2 : []);
     return rawColumns.map((col) => {
       const key = col.key || col.id || "";
       const id = col.id || col.key || "";
@@ -23,7 +23,7 @@ export default function useTableColumns(arg1, arg2) {
         defaultVisible,
       };
     });
-  }, [rawColumns]);
+  }, [arg1, arg2]);
 
   const [showColumnDrawer, setShowColumnDrawer] = useState(false);
 

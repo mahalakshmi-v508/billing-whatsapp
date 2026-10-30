@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import {
@@ -8,7 +8,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ShieldCheck,
   ChevronLeft,
   Loader2,
   Check,
@@ -34,41 +33,41 @@ export default function EditAdmin() {
   const [toast, setToast] = useState(null);
   const [error, setError] = useState("");
 
-  const showToast = (msg, ok = true) => {
+  const showToast = useCallback((msg, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
   const setValue = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     if (error) setError("");
   };
 
-  const loadAdmin = async () => {
-    try {
-      setPageLoading(true);
-      const res = await api.get(`/admin/get_admin_by_id?id=${id}`);
-      if (res.data.status) {
-        setForm({
-          name: res.data.data.name || "",
-          email: res.data.data.email || "",
-          phone: res.data.data.phone || "",
-          password: "",
-        });
-      } else {
-        showToast(res.data.message || "Admin not found", false);
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to load admin data", false);
-    } finally {
-      setPageLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const loadAdmin = async () => {
+      try {
+        setPageLoading(true);
+        const res = await api.get(`/admin/get_admin_by_id?id=${id}`);
+        if (res.data.status) {
+          setForm({
+            name: res.data.data.name || "",
+            email: res.data.data.email || "",
+            phone: res.data.data.phone || "",
+            password: "",
+          });
+        } else {
+          showToast(res.data.message || "Admin not found", false);
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("Failed to load admin data", false);
+      } finally {
+        setPageLoading(false);
+      }
+    };
+
     loadAdmin();
-  }, [id]);
+  }, [id, showToast]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

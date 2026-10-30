@@ -7,7 +7,6 @@ import {
   FileSpreadsheet,
   Printer,
   ClipboardList,
-  RefreshCw,
 } from "lucide-react";
 import ReportPagination from "../../../../components/reports/ReportPagination";
 import Gstr3BAnalytics from "./Gstr3BAnalytics";
@@ -17,12 +16,12 @@ import { showToast } from "../../../../utils/reportToast";
    CONSTANTS
 ───────────────────────────────────────────────────────────── */
 
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const BORDER = "#e2e8f0";
+
+
+
 const NAVY = "#1e3a8a";
-const HEADER_BG = "#f1f5f9";
-const TOTAL_BG = "#eef2ff";
+
+
 
 /* ─────────────────────────────────────────────────────────────
    DATE RANGE HELPERS
@@ -1034,63 +1033,15 @@ export default function Gstr3B() {
      STYLES
   ─────────────────────────────────────────────────────────── */
 
-  const selectStyle = {
-    height: 34,
-    padding: "0 26px 0 9px",
-    border: "1px solid " + BORDER,
-    borderRadius: 6,
-    fontSize: 12,
-    fontFamily: FONT,
-    color: "#334155",
-    outline: "none",
-    background: "#fff",
-    minWidth: 120,
-    cursor: "pointer",
-  };
+  
 
-  const dateInputStyle = {
-    height: 34,
-    width: 190,
-    padding: "0 9px",
-    border: "1px solid " + BORDER,
-    borderRadius: 6,
-    fontSize: 12,
-    fontFamily: FONT,
-    color: "#334155",
-    outline: "none",
-    background: "#fff",
-    boxSizing: "border-box",
-  };
+  
 
-  const fieldLabelStyle = {
-    fontSize: 10,
-    fontWeight: 700,
-    color: "#94a3b8",
-    marginBottom: 3,
-    textTransform: "none",
-  };
+  
 
-  const iconBtn = {
-    width: 38,
-    height: 38,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "50%",
-    background: "#fff",
-    border: "1px solid " + BORDER,
-    boxShadow: "0 1px 2px rgba(15,23,42,.05)",
-    cursor: "pointer",
-    padding: 0,
-    fontFamily: FONT,
-    transition: "box-shadow .15s ease, border-color .15s ease",
-  };
+  
 
-  const iconBtnDisabled = {
-    ...iconBtn,
-    opacity: 0.45,
-    cursor: "not-allowed",
-  };
+  
 
   const sectionTitleStyle = {
     fontSize: 13,

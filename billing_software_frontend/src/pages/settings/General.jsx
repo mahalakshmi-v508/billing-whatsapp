@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { setStoredCompany } from "../../utils/companyHelper";
 import {
   Crown,
@@ -6,21 +6,15 @@ import {
   RefreshCw,
   Building2,
   CheckCircle2,
-  Globe,
   Coins,
   Calendar,
   CreditCard,
-  Volume2,
-  Sparkles,
   Shield,
   User,
   Search,
   Sliders,
   Check,
-  Layers,
   Boxes,
-  Database,
-  Info,
   Clock,
   Zap,
   ArrowRight,
@@ -31,7 +25,6 @@ import {
   Lock,
   MessageCircle,
   Store,
-  Package,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
@@ -51,14 +44,14 @@ import WhatsAppDefaultSettings from "./WhatsAppDefaultSettings";
 import StoreSetupSettings from "./StoreSetupSettings";
 import TaxBackupSettings from "./TaxBackupSettings";
 import { useSettings } from "./SettingsContext";
-import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
+import { SettingsShell, Toggle } from "./settingsUI";
 import { saveSettings, fetchSettings } from "./settingsApi";
 import { AUDIT_SETTINGS_KEY, DEFAULT_AUDIT_SETTINGS } from "../../components/audit/auditApi";
 import { applyTheme, applyLanguage } from "../../utils/themeInitializer";
-import { t, useLanguage } from "../../utils/i18n";
+
 
 const blue = "#2563eb";
-const gradient = "linear-gradient(135deg, #1f8cff 0%, #4338ca 100%)";
+
 
 const DEFAULT_PREFERENCES = {
   currency: "₹ Indian Rupee (INR)",
@@ -134,10 +127,15 @@ function GeneralSettings() {
   });
 
   // Keep DOM synchronized on component mount & listen for external changes
-  useEffect(() => {
-    if (preferences.themeMode) applyTheme(preferences.themeMode);
-    if (preferences.appLanguage) applyLanguage(preferences.appLanguage);
+  const themeMode = preferences.themeMode;
+  const appLanguage = preferences.appLanguage;
 
+  useEffect(() => {
+    if (themeMode) applyTheme(themeMode);
+    if (appLanguage) applyLanguage(appLanguage);
+  }, [themeMode, appLanguage]);
+
+  useEffect(() => {
     const handleTheme = (e) => {
       const theme = e?.detail || localStorage.getItem("app_theme") || "light";
       setPreferences((prev) => (prev.themeMode === theme ? prev : { ...prev, themeMode: theme }));
@@ -159,12 +157,13 @@ function GeneralSettings() {
   try {
     user = JSON.parse(localStorage.getItem("user") || "{}");
   } catch (e) {
-    user = {};
+    /* ignore malformed user payload */
   }
   const adminId = user?.role === "cashier" ? user?.admin_id : user?.id;
+  const userRole = user?.role;
 
   /* Fetch Companies */
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
     if (!adminId) {
       setLoading(false);
       return;
@@ -172,7 +171,7 @@ function GeneralSettings() {
     setLoading(true);
     try {
       const res = await api.get(
-        `/company/get_companies_by_admin?admin_id=${adminId}&role=${user.role || ""}`
+        `/company/get_companies_by_admin?admin_id=${adminId}&role=${userRole || ""}`
       );
       if (res.data.status) {
         const list = res.data.data || [];
@@ -193,11 +192,14 @@ function GeneralSettings() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminId, userRole]);
 
   useEffect(() => {
-    fetchCompanies();
-  }, [adminId]);
+    const loadCompanies = async () => {
+      await fetchCompanies();
+    };
+    loadCompanies();
+  }, [fetchCompanies]);
 
   /* Audit Log settings - persisted in the shared company_settings blob */
   const [auditSettings, setAuditSettings] = useState({ ...DEFAULT_AUDIT_SETTINGS });

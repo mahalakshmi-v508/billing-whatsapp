@@ -17,9 +17,12 @@ export default function EditTicketModal({ isOpen, onClose, ticket, onTicketUpdat
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [prevTicket, setPrevTicket] = useState(ticket);
+  if (prevIsOpen !== isOpen || prevTicket !== ticket) {
+    setPrevIsOpen(isOpen);
+    setPrevTicket(ticket);
     if (isOpen && ticket) {
-      fetchCategories();
       setFormData({
         subject: ticket.subject || "",
         category_id: ticket.category_id || "",
@@ -28,18 +31,24 @@ export default function EditTicketModal({ isOpen, onClose, ticket, onTicketUpdat
       });
       setError("");
     }
-  }, [isOpen, ticket]);
+  }
 
-  const fetchCategories = async () => {
-    try {
-      const res = await api.get("/ticket/categories");
-      if (res.data.status) {
-        setCategories(res.data.data || []);
+  useEffect(() => {
+    if (!isOpen || !ticket) return;
+
+    const loadCategories = async () => {
+      try {
+        const res = await api.get("/ticket/categories");
+        if (res.data.status) {
+          setCategories(res.data.data || []);
+        }
+      } catch (err) {
+        console.error("Failed to load categories", err);
       }
-    } catch (err) {
-      console.error("Failed to load categories", err);
-    }
-  };
+    };
+
+    loadCategories();
+  }, [isOpen, ticket]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

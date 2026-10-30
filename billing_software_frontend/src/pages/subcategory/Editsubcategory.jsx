@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 
 /* ─── Toast Hook ─────────────────────────────────────────── */
 function useToast() {
   const [toasts, setToasts] = useState([]);
-  const show = (type, title, msg) => {
+  const show = useCallback((type, title, msg) => {
     const id = Date.now();
     setToasts(p => [...p, { id, type, title, msg }]);
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3800);
-  };
+  }, []);
   const remove = (id) => setToasts(p => p.filter(t => t.id !== id));
   return { toasts, show, remove };
 }
@@ -47,7 +47,7 @@ export default function EditSubcategory() {
   const [originalName, setOriginalName] = useState("");
   const [charCount, setCharCount] = useState(0);
 
-  const [companyId, setCompanyId] = useState(null);
+  const [, setCompanyId] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [originalCategory, setOriginalCategory] = useState("");
@@ -56,45 +56,47 @@ export default function EditSubcategory() {
   const [fetching, setFetching] = useState(true);
   const { toasts, show, remove } = useToast();
 
-  const fetchSubcategory = async () => {
-    setFetching(true);
-    try {
-      const res = await api.get(`/subcategory/get_by_id?id=${id}`);
-      if (res.data.status) {
-        const s = res.data.data;
-        setName(s.name);
-        setOriginalName(s.name);
-        setCharCount(s.name.length);
-        setSelectedCategory(String(s.category_id));
-        setOriginalCategory(String(s.category_id));
-        setCompanyId(s.company_id);
-
-        // load categories for this subcategory's company
-        loadCategories(s.company_id);
-      } else {
-        show("error", "Not found", "Subcategory could not be loaded.");
+  useEffect(() => {
+    const loadCategories = async (company_id) => {
+      try {
+        const res = await api.get(
+          `/category/get_active_category?company_id=${company_id}`
+        );
+        if (res.data.status) {
+          setCategories(res.data.data);
+        }
+      } catch (err) {
+        console.log(err);
       }
-    } catch {
-      show("error", "Server error", "Failed to fetch subcategory.");
-    } finally {
-      setFetching(false);
-    }
-  };
+    };
 
-  const loadCategories = async (company_id) => {
-    try {
-      const res = await api.get(
-        `/category/get_active_category?company_id=${company_id}`
-      );
-      if (res.data.status) {
-        setCategories(res.data.data);
+    const fetchSubcategory = async () => {
+      setFetching(true);
+      try {
+        const res = await api.get(`/subcategory/get_by_id?id=${id}`);
+        if (res.data.status) {
+          const s = res.data.data;
+          setName(s.name);
+          setOriginalName(s.name);
+          setCharCount(s.name.length);
+          setSelectedCategory(String(s.category_id));
+          setOriginalCategory(String(s.category_id));
+          setCompanyId(s.company_id);
+
+          // load categories for this subcategory's company
+          loadCategories(s.company_id);
+        } else {
+          show("error", "Not found", "Subcategory could not be loaded.");
+        }
+      } catch {
+        show("error", "Server error", "Failed to fetch subcategory.");
+      } finally {
+        setFetching(false);
       }
-    } catch (err) {
-      console.log(err);
-    }
-  };
+    };
 
-  useEffect(() => { fetchSubcategory(); }, [id]);
+    fetchSubcategory();
+  }, [id, show]);
 
   const handleChange = (e) => {
     setName(e.target.value);

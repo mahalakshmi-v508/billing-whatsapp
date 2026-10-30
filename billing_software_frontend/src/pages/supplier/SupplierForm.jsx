@@ -70,23 +70,24 @@ export default function SupplierForm() {
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (!user?.id) return;
+
+    const loadCompanies = async (admin_id) => {
+      try {
+        const res = await api.get(`/company/get_companies_by_admin?admin_id=${admin_id}`);
+        if (res.data.status) {
+          setCompanies(res.data.data);
+          if (!localStorage.getItem("selected_company_id") && res.data.data.length > 0) {
+            localStorage.setItem("selected_company_id", res.data.data[0].id);
+            setSelectedCompany(res.data.data[0].id);
+          }
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    };
+
     loadCompanies(user.id);
   }, []);
-
-  const loadCompanies = async (admin_id) => {
-    try {
-      const res = await api.get(`/company/get_companies_by_admin?admin_id=${admin_id}`);
-      if (res.data.status) {
-        setCompanies(res.data.data);
-        if (!localStorage.getItem("selected_company_id") && res.data.data.length > 0) {
-          localStorage.setItem("selected_company_id", res.data.data[0].id);
-          setSelectedCompany(res.data.data[0].id);
-        }
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
 
   const handleField = (key, value) => {
     if (key === "mobile_number" || key === "alt_mobile") {

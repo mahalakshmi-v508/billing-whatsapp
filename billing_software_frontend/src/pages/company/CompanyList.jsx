@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import CompanyForm from "./CompanyForm";
@@ -37,7 +37,7 @@ export default function CompanyList() {
   const isLimitReached = companies.length >= MAX_COMPANIES;
 
   /* FETCH COMPANIES */
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
     setLoading(true);
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -50,11 +50,14 @@ export default function CompanyList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchCompanies();
-  }, []);
+    const run = async () => {
+      await fetchCompanies();
+    };
+    run();
+  }, [fetchCompanies]);
 
   /* TOGGLE STATUS */
   const toggleStatus = async (company) => {

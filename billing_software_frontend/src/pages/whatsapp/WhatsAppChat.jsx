@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import api, { API_BASE_URL_IMAGE } from "../../services/api";
 import { getEcho, leaveChannel } from "../../services/echo";
@@ -122,7 +122,7 @@ const statusRank = { pending: 0, sent: 1, delivered: 2, read: 3, received: 4 };
 
 export default function WhatsAppChat() {
   const location = useLocation();
-  const [companies, setCompanies] = useState([]);
+  const [, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(localStorage.getItem("selected_company_id") || "");
   // connection state: 'checking' | 'initializing' | 'reconnecting' | 'authenticated' | 'ready' | 'qr_ready' | 'disconnected' | 'auth_failure'
   const [connState, setConnState] = useState("checking");
@@ -281,7 +281,7 @@ export default function WhatsAppChat() {
   }, [companyId, connected]);
 
   // ── contact list polling ──
-  const loadChats = async () => {
+  const loadChats = useCallback(async () => {
     if (!companyId || !connected) return;
     try {
       const res = await api.get(`/whatsapp/chats?company_id=${companyId}`);
@@ -289,7 +289,7 @@ export default function WhatsAppChat() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [companyId, connected]);
 
   useEffect(() => {
     if (!companyId || !connected) {
@@ -299,12 +299,26 @@ export default function WhatsAppChat() {
     loadChats();
     const t = setInterval(loadChats, 5000);
     return () => clearInterval(t);
-  }, [companyId, connected]);
+  }, [companyId, connected, loadChats]);
+
+  // Plain-text summary of a message, used in quote banners and previews.
+  const quoteText = useCallback((m) => {
+    if (!m) return "";
+    if (m.text) return m.text;
+    if (m.type === "image") return m.filename || "Photo";
+    if (m.type === "document") {
+      if (m.invoice) return m.invoice.invoice_no || "Invoice";
+      return m.filename || "Document";
+    }
+    return "Message";
+  }, []);
+
+  const selectedMeta = chats.find((c) => c.phone === selectedPhone) || null;
 
   // Build the quote banner data for a message that carries a reply reference.
   // The original message lives in the same chat history, so we always resolve
   // the exact sender name and original text from it (backend-driven flow).
-  const buildReplyMeta = (m, lookup) => {
+  const buildReplyMeta = useCallback((m, lookup) => {
     const rid = m.reply_to_message_id ?? m.replyToId;
     if (!rid) return null;
     const ridS = String(rid);
@@ -318,10 +332,10 @@ export default function WhatsAppChat() {
           : (orig.customer_name || selectedMeta?.name || "Customer"),
       text: quoteText(orig),
     };
-  };
+  }, [waName, selectedMeta, quoteText]);
 
   // ── selected conversation with monotonic status merge ──
-  const loadMessages = async (phone) => {
+  const loadMessages = useCallback(async (phone) => {
     if (!companyId || !phone) return;
     try {
       const res = await api.get(`/whatsapp/messages?company_id=${companyId}&phone=${phone}`);
@@ -375,7 +389,7 @@ export default function WhatsAppChat() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [companyId, buildReplyMeta]);
 
   const markRead = async (phone) => {
     try {
@@ -663,7 +677,15 @@ export default function WhatsAppChat() {
           return [contact, ...prev];
         });
         // update the current chat / header contact state immediately
-        if (contact) setCurrentContact(contact);
+        if (contact) {
+          setChats((prev) =>
+            prev.map((c) =>
+              newLast10 !== "" && last10(c.phone) === newLast10
+                ? { ...c, name: contact.name || c.name }
+                : c
+            )
+          );
+        }
         // make the new contact available in the WhatsApp chat list
         if (companyId && connected) loadChats();
       } else {
@@ -708,7 +730,7 @@ export default function WhatsAppChat() {
     if (!selectedPhone) return;
     const t = setInterval(() => loadMessages(selectedPhone), 3000);
     return () => clearInterval(t);
-  }, [selectedPhone]);
+  }, [selectedPhone, loadMessages]);
 
   // ── real-time WebSocket listener for message status ticks ──
   useEffect(() => {
@@ -915,23 +937,7 @@ export default function WhatsAppChat() {
     reader.readAsDataURL(file);
   };
 
-  const handleCompanyChange = (e) => {
-    const id = e.target.value;
-    // A pending invoice share belongs to one company — switching companies
-    // abandons it instead of leaving an undeliverable action hanging around.
-    if (pendingSend && String(pendingSend.companyId || "") !== String(id)) {
-      cancelPendingSend();
-    }
-    setCompanyId(id);
-    setSelectedPhone(null);
-    setMessages([]);
-    setChats([]);
-    setConnState(null);
-    setQr(null);
-    setWaPhone(null);
-    setWaName(null);
-    localStorage.setItem("selected_company_id", id);
-  };
+  
 
   // ── message action menu ──
   const toggleMenu = (e, m) => {
@@ -945,7 +951,7 @@ export default function WhatsAppChat() {
 
   // Recompute popup position relative to the scroll container.
   // The popup is absolutely-positioned inside .wc-row (position: relative).
-  const repositionMenu = () => {
+  const repositionMenu = useCallback(() => {
     const menu = menuRef.current;
     const container = scrollRef.current;
     if (!menu || !container) return;
@@ -1001,7 +1007,7 @@ export default function WhatsAppChat() {
     menu.style.top   = menuTop  + "px";
     menu.style.left  = menuLeft + "px";
     menu.style.right = "auto";
-  };
+  }, [menuOpenFor]);
 
   useEffect(() => {
     if (!menuOpenFor) return;
@@ -1013,7 +1019,7 @@ export default function WhatsAppChat() {
     if (!container) return;
     container.addEventListener("scroll", repositionMenu, { passive: true });
     return () => container.removeEventListener("scroll", repositionMenu);
-  }, [menuOpenFor]);
+  }, [menuOpenFor, repositionMenu]);
 
   // close menus / forward on outside click
   useEffect(() => {
@@ -1026,22 +1032,8 @@ export default function WhatsAppChat() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const quoteText = (m) => {
-    if (!m) return "";
-    if (m.text) return m.text;
-    if (m.type === "image") return m.filename || "Photo";
-    if (m.type === "document") {
-      if (m.invoice) return m.invoice.invoice_no || "Invoice";
-      return m.filename || "Document";
-    }
-    return "Message";
-  };
-
   // stable key for a message object (DB id preferred, wa id fallback)
-  const msgKey = (m) =>
-    m == null
-      ? null
-      : String(m.id !== undefined && m.id !== null ? m.id : m.whatsapp_message_id);
+  
 
   // REPLY → set up quoted message banner in composer
   const handleReply = (m) => {
@@ -1323,7 +1315,6 @@ export default function WhatsAppChat() {
     );
   });
 
-  const selectedMeta = chats.find((c) => c.phone === selectedPhone) || null;
   const avatarLetter = (name) => (name || "?").trim().charAt(0).toUpperCase();
 
   // ── WhatsApp profile picture (DP) fetching / caching ──
@@ -1407,23 +1398,14 @@ export default function WhatsAppChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactsPageOpen, contacts, companyId, connected]);
 
-  const CompanySelect = ({ className }) => (
-    <select className={className} value={companyId} onChange={handleCompanyChange}>
-      <option value="">Select Company</option>
-      {companies.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.company_name}
-        </option>
-      ))}
-    </select>
-  );
+  
 
   // ── render helpers ──
   const renderBubble = (m) => {
     const out = m.direction === "outgoing";
     const menuOpen = menuOpenFor === String(m.id);
     const isHighlighted = highlightId === String(m.id);
-    const key = msgKey(m);
+    
     const reply = m.replyMetadata || null;
     const bodyText = m.text;
 

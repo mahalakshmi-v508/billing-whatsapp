@@ -87,16 +87,7 @@ export default function ExpenseCategoryReport() {
 
   const totalAmount = useMemo(() => reportRows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0), [reportRows]);
 
-  const analyticsRows = useMemo(
-    () =>
-      (reportRows || []).map((r) => ({
-        date: "",
-        group: r.name || "General",
-        value: Number(r.total_amount) || 0,
-        count: 1,
-      })),
-    [reportRows]
-  );
+  
 
   const handleExportExcel = () => {
     if (!reportRows.length) {

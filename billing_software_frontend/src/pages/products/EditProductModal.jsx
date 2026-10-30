@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import api from "../../services/api";
 import {
   Package,
@@ -6,12 +6,6 @@ import {
   X,
   IndianRupee,
   Boxes,
-  Tag,
-  Hash,
-  Scale,
-  Percent,
-  CheckCircle2,
-  AlertCircle,
   RefreshCw,
   Save,
 } from "lucide-react";
@@ -74,10 +68,14 @@ export default function EditProductModal({ isOpen, onClose, product, onProductUp
   const [fetching, setFetching] = useState(true);
 
   const [form, setForm] = useState({ stock: "", price: "", expiry_date: "" });
+  const [prevOpenState, setPrevOpenState] = useState({});
 
   const set = (field, val) => setForm((p) => ({ ...p, [field]: val }));
 
-  useEffect(() => {
+  // Reset the form when the modal opens (or the product changes) - adjusts
+  // state during render instead of from an effect.
+  if (prevOpenState.isOpen !== isOpen || prevOpenState.product !== product) {
+    setPrevOpenState({ isOpen, product });
     if (isOpen && product) {
       setForm({
         stock: product.stock ?? "",
@@ -86,7 +84,7 @@ export default function EditProductModal({ isOpen, onClose, product, onProductUp
       });
       setFetching(false);
     }
-  }, [isOpen, product]);
+  }
 
   const handleUpdate = async () => {
     if (!form.stock && form.stock !== 0) {

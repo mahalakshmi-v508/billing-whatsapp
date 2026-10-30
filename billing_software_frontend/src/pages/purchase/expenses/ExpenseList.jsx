@@ -1,39 +1,27 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import * as XLSX from "xlsx";
 import {
   Plus,
   Search,
-  MoreVertical,
   Pencil,
   Trash2,
   RefreshCw,
-  FileText,
   AlertTriangle,
   X,
   Printer,
   FileSpreadsheet,
   Layers,
-  Package,
   FolderPlus,
   CheckCircle2,
-  TrendingDown,
-  ChevronRight,
   ChevronDown,
-  TrendingUp,
   Receipt,
-  ArrowUpRight,
-  SlidersHorizontal,
   Folder,
   Tag,
-  Share2,
   Edit,
   Eye,
-  Building2,
-  CreditCard,
   ShieldAlert,
-  Wallet,
   LayoutGrid,
   Calendar,
   KeyRound,
@@ -44,7 +32,7 @@ import HeaderSettingsButton from "../../../components/HeaderSettingsButton";
 import CommonTableColumnSettings from "../../../components/CommonTableColumnSettings";
 import { useTableColumns } from "../../../hooks/useTableColumns";
 import useModalFocusTrap from "../../../hooks/useModalFocusTrap";
-import { useCashierSecurity } from "../../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../../context/cashierSecurity";
 
 const DEFAULT_EXPENSE_COLUMNS = [
   { id: "date", label: "Date", defaultVisible: true },
@@ -70,8 +58,7 @@ export default function ExpenseList() {
     closeSettings,
     toggleColumn,
     resetColumns,
-    isColumnVisible,
-    visibleColumnCount
+    isColumnVisible
   } = useTableColumns(DEFAULT_EXPENSE_COLUMNS, "expense_list_table_columns_v1");
 
   // Companies state
@@ -173,8 +160,8 @@ export default function ExpenseList() {
   const [sidebarSearch, setSidebarSearch] = useState("");
 
   // Menus & Modals
-  const [activeTxMenuId, setActiveTxMenuId] = useState(null);
-  const [activeCatMenuId, setActiveCatMenuId] = useState(null);
+  const [, setActiveTxMenuId] = useState(null);
+  const [, setActiveCatMenuId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [showPinSetupPrompt, setShowPinSetupPrompt] = useState(false);
@@ -214,57 +201,8 @@ export default function ExpenseList() {
       maximumFractionDigits: 2
     });
 
-  // Load Companies
-  useEffect(() => {
-    if (!adminId) {
-      setLoading(false);
-      return;
-    }
-    api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
-      .then((res) => {
-        if (res.data?.status && Array.isArray(res.data.data)) {
-          const list = res.data.data;
-          setCompanies(list);
-          const saved = localStorage.getItem("selected_company_id");
-          const chosen = (saved && list.some((c) => String(c.id) === String(saved)))
-            ? String(saved)
-            : "all";
-          setSelectedCompany(chosen);
-          fetchData(chosen, "", "");
-        } else {
-          fetchData("all", "", "");
-        }
-      })
-      .catch(() => fetchData("all", "", ""));
-  }, [adminId]);
-
-  // Sync selectedCompany when settings company changes
-  useEffect(() => {
-    const handleCompanySync = () => {
-      const saved = localStorage.getItem("selected_company_id");
-      if (saved) {
-        setSelectedCompany(String(saved));
-        fetchData(String(saved), fromDate, toDate);
-      }
-    };
-    window.addEventListener("storage", handleCompanySync);
-    window.addEventListener("company_changed", handleCompanySync);
-    return () => {
-      window.removeEventListener("storage", handleCompanySync);
-      window.removeEventListener("company_changed", handleCompanySync);
-    };
-  }, [fromDate, toDate]);
-
-  useEffect(() => {
-    if (isDateMounted.current) {
-      fetchData(selectedCompany, fromDate, toDate);
-    } else {
-      isDateMounted.current = true;
-    }
-  }, [fromDate, toDate]);
-
   // Load Categories, Items, and Expenses for the given company
-  const fetchData = async (cId = selectedCompany, from = fromDate, to = toDate) => {
+  const loadData = useCallback(async (cId, from, to) => {
     setLoading(true);
     try {
       const compParam = cId && cId !== "all" ? `&company_id=${cId}` : "";
@@ -325,7 +263,59 @@ export default function ExpenseList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminId]);
+
+  // Same loader, defaulting to the currently selected filters.
+  const fetchData = (cId = selectedCompany, from = fromDate, to = toDate) => loadData(cId, from, to);
+
+  // Load Companies
+  useEffect(() => {
+    if (!adminId) {
+      setLoading(false);
+      return;
+    }
+    api.get(`/company/get_companies_by_admin?admin_id=${adminId}`)
+      .then((res) => {
+        if (res.data?.status && Array.isArray(res.data.data)) {
+          const list = res.data.data;
+          setCompanies(list);
+          const saved = localStorage.getItem("selected_company_id");
+          const chosen = (saved && list.some((c) => String(c.id) === String(saved)))
+            ? String(saved)
+            : "all";
+          setSelectedCompany(chosen);
+          loadData(chosen, "", "");
+        } else {
+          loadData("all", "", "");
+        }
+      })
+      .catch(() => loadData("all", "", ""));
+  }, [adminId, loadData]);
+
+  // Sync selectedCompany when settings company changes
+  useEffect(() => {
+    const handleCompanySync = () => {
+      const saved = localStorage.getItem("selected_company_id");
+      if (saved) {
+        setSelectedCompany(String(saved));
+        loadData(String(saved), fromDate, toDate);
+      }
+    };
+    window.addEventListener("storage", handleCompanySync);
+    window.addEventListener("company_changed", handleCompanySync);
+    return () => {
+      window.removeEventListener("storage", handleCompanySync);
+      window.removeEventListener("company_changed", handleCompanySync);
+    };
+  }, [loadData, fromDate, toDate]);
+
+  useEffect(() => {
+    if (isDateMounted.current) {
+      loadData(selectedCompany, fromDate, toDate);
+    } else {
+      isDateMounted.current = true;
+    }
+  }, [loadData, selectedCompany, fromDate, toDate]);
 
   const handleCompanyChange = (cId) => {
     setSelectedCompany(cId);

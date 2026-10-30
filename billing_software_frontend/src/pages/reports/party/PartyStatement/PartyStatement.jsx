@@ -363,16 +363,7 @@ export default function PartyStatement() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = displayed.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
-  const analyticsRows = useMemo(
-    () =>
-      (displayed || []).map((r) => ({
-        date: r.date || "",
-        group: summary.party_name || selectedParty?.name || "General",
-        value: Number(r.total) || 0,
-        count: 1,
-      })),
-    [displayed, selectedParty, summary]
-  );
+  
 
   /* ── Print ── */
   const handlePrint = () => {

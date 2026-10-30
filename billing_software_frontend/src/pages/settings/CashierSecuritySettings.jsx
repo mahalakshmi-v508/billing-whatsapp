@@ -1,28 +1,23 @@
-﻿import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useState } from "react";
 import api from "../../services/api";
 import {
   Lock,
   Unlock,
-  ShieldAlert,
   ShieldCheck,
   Percent,
   TrendingDown,
   KeyRound,
   Clock,
   CheckCircle2,
-  AlertTriangle,
   Eye,
   EyeOff,
   Check,
-  Ban,
-  Sliders,
-  Sparkles,
   RefreshCw,
   X,
 } from "lucide-react";
 import { SettingsShell, Toggle, Badge } from "./settingsUI";
 import { saveSettings } from "./settingsApi";
-import { useCashierSecurity } from "../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../context/cashierSecurity";
 import { useLanguage } from "../../utils/i18n";
 
 export const CASHIER_SECURITY_KEY = "cashier_security";
@@ -31,9 +26,11 @@ export default function CashierSecuritySettings() {
   const { isTamil } = useLanguage();
   const { cashierSecurity } = useCashierSecurity();
   const [settings, setSettings] = useState(cashierSecurity);
-  useEffect(() => {
+  const [prevCashierSecurity, setPrevCashierSecurity] = useState(cashierSecurity);
+  if (prevCashierSecurity !== cashierSecurity) {
+    setPrevCashierSecurity(cashierSecurity);
     setSettings(cashierSecurity);
-  }, [cashierSecurity]);
+  }
   const setSetting = useCallback((key) => (value) => {
     setSettings((prev) => {
       const next = { ...prev, [key]: typeof value === "function" ? value(prev[key]) : value };

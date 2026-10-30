@@ -6,11 +6,8 @@ import {
   FileText,
   Trash2,
   AlertCircle,
-  CheckCircle2,
   Tag,
-  ShieldAlert,
   Headset,
-  Sparkles,
   Paperclip,
   Check,
   Zap,
@@ -19,7 +16,7 @@ import api from "../../services/api";
 import { useLanguage } from "../../utils/i18n";
 
 export default function CreateTicketModal({ isOpen, onClose, onTicketCreated }) {
-  const { isTamil, t: translate } = useLanguage();
+  const { isTamil } = useLanguage();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const selectedCompanyId = localStorage.getItem("selected_company_id");
 
@@ -39,26 +36,33 @@ export default function CreateTicketModal({ isOpen, onClose, onTicketCreated }) 
   const allowedExtensions = ["jpg", "jpeg", "png", "pdf", "docx", "xlsx", "zip"];
   const maxFileSizeMB = 10; // 10MB limit
 
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
     if (isOpen) {
-      fetchCategories();
       setError("");
     }
-  }, [isOpen]);
+  }
 
-  const fetchCategories = async () => {
-    try {
-      const res = await api.get("/ticket/categories");
-      if (res.data.status) {
-        setCategories(res.data.data || []);
-        if (res.data.data.length > 0) {
-          setFormData((prev) => ({ ...prev, category_id: res.data.data[0].id }));
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadCategories = async () => {
+      try {
+        const res = await api.get("/ticket/categories");
+        if (res.data.status) {
+          setCategories(res.data.data || []);
+          if (res.data.data.length > 0) {
+            setFormData((prev) => ({ ...prev, category_id: res.data.data[0].id }));
+          }
         }
+      } catch (err) {
+        console.error("Failed to load ticket categories", err);
       }
-    } catch (err) {
-      console.error("Failed to load ticket categories", err);
-    }
-  };
+    };
+
+    loadCategories();
+  }, [isOpen]);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {

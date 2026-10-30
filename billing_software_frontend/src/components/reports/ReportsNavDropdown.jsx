@@ -15,21 +15,12 @@ import {
   AlertTriangle,
   FileText,
   Search,
-  Sliders,
-  Sparkles,
-  BarChart3,
-  Layers,
-  ArrowRight,
   Settings2,
   X,
-  Check,
-  RotateCcw,
   SlidersHorizontal,
-  Eye,
-  EyeOff,
-  CheckCircle2
+  Eye
 } from "lucide-react";
-import { reports, reportSections, otherReports, findReportByPath } from "./reportNavigation";
+import { reports, findReportByPath } from "./reportNavigation";
 
 /** Reports hidden by default from navigation */
 const HIDDEN_REPORT_PATHS = new Set([
@@ -132,6 +123,7 @@ export default function ReportsNavDropdown() {
 
   const activeReport = findReportByPath(location.pathname);
   const activePath = activeReport ? activeReport.path : null;
+  const [prevActivePath, setPrevActivePath] = useState(activePath);
 
   // Save visibility changes to localStorage
   const saveVisibility = (newSet) => {
@@ -187,14 +179,15 @@ export default function ReportsNavDropdown() {
   };
 
   // Sync category filter to active report's category
-  useEffect(() => {
+  if (prevActivePath !== activePath) {
+    setPrevActivePath(activePath);
     if (activePath && REPORT_METADATA[activePath]) {
       const targetCategory = REPORT_METADATA[activePath].category;
-      if (categoryFilter !== "All" && categoryFilter !== targetCategory) {
-        setCategoryFilter(targetCategory);
-      }
+      setCategoryFilter((prev) =>
+        prev !== "All" && prev !== targetCategory ? targetCategory : prev
+      );
     }
-  }, [activePath]);
+  }
 
   // Smoothly scroll active card into view
   useEffect(() => {
@@ -476,7 +469,7 @@ export default function ReportsNavDropdown() {
                 {Object.entries(drawerGroupedReports).map(([catName, list]) => {
                   if (list.length === 0) return null;
                   const allCatEnabled = list.every((r) => enabledPaths.has(r.path));
-                  const someCatEnabled = list.some((r) => enabledPaths.has(r.path));
+                  
 
                   return (
                     <div key={catName} className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">

@@ -9,7 +9,7 @@ import {
 } from "../../utils/whatsappShare";
 import { queuePendingWhatsAppSend } from "../../utils/pendingWhatsAppSend";
 import {
-  Truck,
+  
   Plus,
   LayoutDashboard,
   Clock,
@@ -17,13 +17,10 @@ import {
   AlertTriangle,
   XCircle,
   History,
-  FileSpreadsheet,
   Layers,
-  ArrowRight,
   ShieldCheck,
-  Search,
 } from "lucide-react";
-import { MOCK_EWAY_BILLS, MOCK_SUMMARY_METRICS } from "./mockEwayData";
+import { MOCK_EWAY_BILLS } from "./mockEwayData";
 import EwayDashboard from "./EwayDashboard";
 import EwayList from "./EwayList";
 import EwayGenerateStepper from "./EwayGenerateStepper";

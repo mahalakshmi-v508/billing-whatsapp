@@ -6,11 +6,11 @@ import api from "../../../../services/api";
 import ReportPagination from "../../../../components/reports/ReportPagination";
 import LowStockSummaryAnalytics from "./LowStockSummaryAnalytics";
 
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const NAVY = "#1e1b4b";
-const GRAY_TEXT = "#64748b";
-const LIGHT_BORDER = "#e2e8f0";
+
+
+
+
+
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 function getAuth() {
@@ -67,7 +67,7 @@ const COLUMNS = [
   { key: "stock_value", label: "Stock Value", right: true },
 ];
 
-const TABLE_MIN_WIDTH = 520;
+
 
 /* ── Main Component ─────────────────────────────────────────────────── */
 export default function LowStockSummary() {
@@ -469,154 +469,27 @@ export default function LowStockSummary() {
    STYLES — compact accounting-report look (Vyapar style)
    ═════════════════════════════════════════════════════════════════════ */
 
-const topBarStyle = {
-  display: "flex",
-  gap: 10,
-  alignItems: "center",
-  flexWrap: "wrap",
-  padding: "8px 0",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-};
 
-const filtersLabelStyle = {
-  fontSize: 10.5,
-  fontWeight: 700,
-  color: "#94a3b8",
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  minWidth: 44,
-};
 
-const compactSelectBtnStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "5px 10px",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  cursor: "pointer",
-  fontFamily: FONT,
-  whiteSpace: "nowrap",
-};
 
-const checkboxLabelStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  fontSize: 12.5,
-  fontWeight: 600,
-  color: NAVY,
-  whiteSpace: "nowrap",
-  cursor: "pointer",
-  userSelect: "none",
-  fontFamily: FONT,
-};
 
-const circleBtnStyle = {
-  width: 32,
-  height: 32,
-  borderRadius: "50%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "#fff",
-  border: `1px solid ${LIGHT_BORDER}`,
-  cursor: "pointer",
-  flexShrink: 0,
-};
 
-const dropdownPanelStyle = {
-  position: "absolute",
-  top: "calc(100% + 5px)",
-  left: 0,
-  minWidth: 170,
-  maxHeight: 280,
-  overflowY: "auto",
-  zIndex: 60,
-  background: "#fff",
-  border: `1.5px solid #e0e7ff`,
-  borderRadius: 8,
-  boxShadow: "0 12px 32px rgba(30,27,75,.12)",
-  fontFamily: FONT,
-};
 
-const dropdownItemStyle = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "7px 12px",
-  background: "transparent",
-  border: "none",
-  fontSize: 12.5,
-  fontFamily: FONT,
-  cursor: "pointer",
-  transition: "background .1s",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
 
-const tableContainerStyle = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  border: `1px solid ${LIGHT_BORDER}`,
-  borderRadius: 6,
-  overflow: "hidden",
-  background: "#fff",
-  minHeight: 0,
-};
 
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontFamily: FONT,
-  tableLayout: "fixed",
-};
 
-const thStyle = {
-  padding: "7px 8px",
-  fontSize: 10,
-  fontWeight: 700,
-  color: "#475569",
-  textTransform: "uppercase",
-  letterSpacing: "0.03em",
-  background: "#f2f4f7",
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  whiteSpace: "normal",
-  lineHeight: 1.3,
-  userSelect: "none",
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-  verticalAlign: "middle",
-};
 
-const emptyCellStyle = {
-  padding: "70px 24px",
-  textAlign: "center",
-  verticalAlign: "middle",
-};
 
-const tdStyle = {
-  padding: "6px 8px",
-  borderBottom: `1px solid ${LIGHT_BORDER}`,
-  borderRight: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 12,
-  color: "#334155",
-  verticalAlign: "middle",
-};
 
-const totalAmountBarStyle = {
-  display: "flex",
-  justifyContent: "flex-end",
-  alignItems: "center",
-  padding: "8px 14px",
-  background: "#fff",
-  borderTop: `1px solid ${LIGHT_BORDER}`,
-  fontSize: 13,
-  fontWeight: 800,
-  color: NAVY,
-};
+
+
+
+
+
+
+
+
+
+
+
+

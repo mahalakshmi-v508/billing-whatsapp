@@ -178,15 +178,7 @@ export default function FormNo27EQ() {
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = filteredRows.slice(pagedStart, pagedStart + rowsPerPage);
 
-  const analyticsRows = useMemo(() => {
-    if (!filteredRows.length) return [];
-    return filteredRows.map((row) => ({
-      date: row.date || "",
-      group: row.party_name || row.tax_name || "",
-      value: Number(row.tcs || 0),
-      count: 1,
-    }));
-  }, [filteredRows]);
+  
 
   const selectPeriod = (value) => {
     setPeriod(value);

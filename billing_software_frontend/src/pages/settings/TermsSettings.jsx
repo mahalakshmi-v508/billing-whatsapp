@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import  { useState, useEffect, useCallback } from "react";
 import {
   FileText,
   Plus,
@@ -69,8 +69,13 @@ export default function TermsSettings() {
     }
   }, []);
 
+  const showToast = useCallback((message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
   // Fetch terms list for company
-  const fetchTerms = async (cid) => {
+  const fetchTerms = useCallback(async (cid) => {
     if (!cid) return;
     setLoading(true);
     try {
@@ -86,16 +91,14 @@ export default function TermsSettings() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
-    fetchTerms(companyId);
-  }, [companyId]);
-
-  const showToast = (message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+    const loadTerms = async () => {
+      await fetchTerms(companyId);
+    };
+    loadTerms();
+  }, [companyId, fetchTerms]);
 
   // Persist terms list to server
   const persistTerms = async (listToSave) => {

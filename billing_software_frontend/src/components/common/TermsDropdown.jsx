@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import  { useState, useEffect } from "react";
 import { ChevronDown, X } from "lucide-react";
 import api from "../../services/api";
 
@@ -27,32 +27,36 @@ export default function TermsDropdown({
     let isMounted = true;
     const cid = Number(companyId) || 1;
 
-    setLoading(true);
-    api
-      .get(`/settings/terms?company_id=${cid}&page=${page}`)
-      .then((res) => {
-        if (!isMounted) return;
-        if (res.data?.status && Array.isArray(res.data.data)) {
-          // Double filter on client side as well to guarantee page-wise scoping and is_enabled check
-          const filtered = res.data.data.filter((item) => {
-            if (item.is_enabled === false) return false;
-            if (page === "sale") return item.applies_to_sale !== false;
-            if (page === "estimate") return item.applies_to_estimate !== false;
-            if (page === "credit_note") return item.applies_to_credit_note !== false;
-            return true;
-          });
-          setOptions(filtered);
-        } else {
-          setOptions([]);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to fetch page terms:", err);
-        if (isMounted) setOptions([]);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
+    const load = () => {
+      setLoading(true);
+      api
+        .get(`/settings/terms?company_id=${cid}&page=${page}`)
+        .then((res) => {
+          if (!isMounted) return;
+          if (res.data?.status && Array.isArray(res.data.data)) {
+            // Double filter on client side as well to guarantee page-wise scoping and is_enabled check
+            const filtered = res.data.data.filter((item) => {
+              if (item.is_enabled === false) return false;
+              if (page === "sale") return item.applies_to_sale !== false;
+              if (page === "estimate") return item.applies_to_estimate !== false;
+              if (page === "credit_note") return item.applies_to_credit_note !== false;
+              return true;
+            });
+            setOptions(filtered);
+          } else {
+            setOptions([]);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to fetch page terms:", err);
+          if (isMounted) setOptions([]);
+        })
+        .finally(() => {
+          if (isMounted) setLoading(false);
+        });
+    };
+
+    load();
 
     return () => {
       isMounted = false;

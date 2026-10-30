@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 
@@ -24,6 +24,31 @@ export default function BrandList() {
     localStorage.getItem("selected_company_id") || ""
   );
 
+  const fetchBrands = useCallback(async (companyId) => {
+
+    setLoading(true);
+
+    try {
+
+      const res = await api.get(
+        `/brand/get_all?company_id=${companyId}`
+      );
+
+      if (res.data.status) {
+       setBrands(res.data.data);
+      }
+
+    } catch (err) {
+
+      console.error(err);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+  }, []);
+
   useEffect(() => {
 
     const user = JSON.parse(localStorage.getItem("user"));
@@ -47,14 +72,16 @@ export default function BrandList() {
 
     });
 
-  }, []);
+  }, [fetchBrands]);
 
 
   useEffect(() => {
 
+    const run = async () => {
+
     if (selectedCompany) {
 
-      fetchBrands(selectedCompany);
+      await fetchBrands(selectedCompany);
 
     } else {
 
@@ -63,32 +90,11 @@ export default function BrandList() {
 
     }
 
-  }, [selectedCompany]);
+    };
 
- const fetchBrands = async (companyId) => {
+    run();
 
-    setLoading(true);
-
-    try {
-
-      const res = await api.get(
-        `/brand/get_all?company_id=${companyId}`
-      );
-
-      if (res.data.status) {
-       setBrands(res.data.data);
-      }
-
-    } catch (err) {
-
-      console.error(err);
-
-    } finally {
-
-      setLoading(false);
-
-    }
-  };
+  }, [selectedCompany, fetchBrands]);
 
   const handleCompanyChange = (e) => {
 

@@ -18,10 +18,12 @@ import {
   X,
   Sparkles,
   Command,
-  ChevronDown,
-  ArrowRight
+  ChevronDown
 } from "lucide-react";
 import { useLanguage } from "../../utils/i18n";
+
+/* Module-scope key generator: keeps Date.now() out of the render path. */
+const nextEntryKey = () => Date.now();
 
 export default function HeaderQuickMenu({
   isOpen,
@@ -32,8 +34,15 @@ export default function HeaderQuickMenu({
 }) {
   const { t: translate } = useLanguage();
   const [search, setSearch] = useState("");
+  const [wasOpen, setWasOpen] = useState(isOpen);
   const inputRef = useRef(null);
   const [menuPos, setMenuPos] = useState({ top: 72, right: 16 });
+
+  // Clearing the filter when the menu closes keeps the next open state fresh.
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (!isOpen) setSearch("");
+  }
 
   // Compute fixed coordinates from the trigger button so the portalled
   // popup always renders above the sidebar and is never clipped.
@@ -59,8 +68,6 @@ export default function HeaderQuickMenu({
       setTimeout(() => {
         if (inputRef.current) inputRef.current.focus();
       }, 100);
-    } else {
-      setSearch("");
     }
   }, [isOpen]);
 
@@ -75,7 +82,7 @@ export default function HeaderQuickMenu({
     return () => window.removeEventListener("keydown", handleEsc);
   }, [isOpen, setIsOpen]);
 
-  const actionSections = [
+  const actionSections = useMemo(() => [
     {
       category: "Sales & Invoicing",
       color: "emerald",
@@ -193,7 +200,7 @@ export default function HeaderQuickMenu({
         }
       ]
     }
-  ];
+  ], []);
 
   // Filter actions based on search
   const filteredSections = useMemo(() => {
@@ -210,11 +217,11 @@ export default function HeaderQuickMenu({
         )
       }))
       .filter((sec) => sec.items.length > 0);
-  }, [search]);
+  }, [search, actionSections]);
 
   const handleActionClick = (path) => {
     setIsOpen(false);
-    navigate(path, path === "/billing" ? { state: { entryKey: Date.now() } } : undefined);
+    navigate(path, path === "/billing" ? { state: { entryKey: nextEntryKey() } } : undefined);
   };
 
   return (

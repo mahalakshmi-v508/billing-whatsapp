@@ -20,7 +20,6 @@ import {
   Plus,
   ShieldCheck,
   Lock,
-  Calendar,
   Wallet,
   Clock,
   ArrowRight,
@@ -92,33 +91,38 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
   const [confirmAction, setConfirmAction] = useState(null);
 
   useEffect(() => {
-    const phone = form.phone.trim();
-    if (phone.length !== 10 || !customerId) {
-      setPhoneExists(false);
-      setCheckingPhone(false);
-      return undefined;
-    }
-
     let cancelled = false;
-    const checkPhone = async () => {
-      setCheckingPhone(true);
-      try {
-        const user = JSON.parse(localStorage.getItem("user"));
-        const customer = await api.get("/customer/get_by_phone", {
-          params: { phone, admin_id: user?.id },
-        });
-        const foundCustomer = customer.data?.status ? customer.data.data : null;
-        if (!cancelled) {
-          setPhoneExists(Boolean(foundCustomer && String(foundCustomer.id) !== String(customerId)));
-        }
-      } catch (err) {
-        if (!cancelled) setPhoneExists(false);
-      } finally {
-        if (!cancelled) setCheckingPhone(false);
+
+    const run = async () => {
+      const phone = form.phone.trim();
+      if (phone.length !== 10 || !customerId) {
+        setPhoneExists(false);
+        setCheckingPhone(false);
+        return;
       }
+
+      const checkPhone = async () => {
+        setCheckingPhone(true);
+        try {
+          const user = JSON.parse(localStorage.getItem("user"));
+          const customer = await api.get("/customer/get_by_phone", {
+            params: { phone, admin_id: user?.id },
+          });
+          const foundCustomer = customer.data?.status ? customer.data.data : null;
+          if (!cancelled) {
+            setPhoneExists(Boolean(foundCustomer && String(foundCustomer.id) !== String(customerId)));
+          }
+        } catch (err) {
+          if (!cancelled) setPhoneExists(false);
+        } finally {
+          if (!cancelled) setCheckingPhone(false);
+        }
+      };
+
+      await checkPhone();
     };
 
-    checkPhone();
+    run();
     return () => {
       cancelled = true;
     };
@@ -160,11 +164,11 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
 
   // ─── fetch existing customer ─────────────────────────────────
   useEffect(() => {
-    if (!customerId) {
-      setFetching(false);
-      return;
-    }
-    (async () => {
+    const run = async () => {
+      if (!customerId) {
+        setFetching(false);
+        return;
+      }
       setFetching(true);
       try {
         const res = await api.get(`/customer/get_customer_by_id?id=${customerId}`);
@@ -220,7 +224,8 @@ export default function EditCustomer({ customerId, onSuccess, onCancel }) {
         setFetching(false);
         setIsDirty(false);
       }
-    })();
+    };
+    run();
   }, [customerId]);
 
   // ─── whole-form cancel: confirm only if the form is dirty ──

@@ -5,8 +5,6 @@ import {
   Printer,
   RefreshCw,
   Search,
-  Filter,
-  ArrowUpDown,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import api from "../../../../services/api";
@@ -27,105 +25,25 @@ function auth() {
 
 const ADMIN_ID = () => auth().adminId;
 
-const NAVY = "#334e68";
-const GREY = "#5b6b7c";
-const BORDER = "#e2e8f0";
-const HDR_BG = "#f1f5f9";
-const ALT_BG = "#fafafa";
-const FONT = "Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-const PAD = "6px 10px";
-const B = `1px solid ${BORDER}`;
 
-const selectStyle = {
-  height: 36,
-  borderRadius: 7,
-  border: B,
-  background: "#fff",
-  fontSize: 12.5,
-  fontWeight: 500,
-  color: "#1e293b",
-  padding: "0 24px 0 9px",
-  outline: "none",
-  cursor: "pointer",
-  fontFamily: FONT,
-};
-const labelStyle = {
-  fontSize: 10,
-  fontWeight: 600,
-  letterSpacing: 0.4,
-  color: GREY,
-  textTransform: "uppercase",
-  marginBottom: 4,
-};
-const dateInputStyle = {
-  height: 36,
-  borderRadius: 7,
-  border: B,
-  padding: "0 6px",
-  fontSize: 12.5,
-  fontFamily: FONT,
-  color: "#1e293b",
-  outline: "none",
-  width: 140,
-};
-const searchStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: 7,
-  height: 34,
-  borderRadius: 7,
-  border: B,
-  padding: "0 10px",
-  background: "#fff",
-  width: 250,
-};
-const searchInputStyle = {
-  border: "none",
-  outline: "none",
-  fontSize: 12.5,
-  fontFamily: FONT,
-  color: "#1e293b",
-  background: "transparent",
-  width: "100%",
-};
-const iconBtnStyle = {
-  height: 36,
-  width: 36,
-  borderRadius: "50%",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  border: B,
-  background: "#fff",
-  cursor: "pointer",
-  color: GREY,
-  boxShadow: "none",
-};
-const thBase = {
-  background: HDR_BG,
-  color: "#475569",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: 0.4,
-  textTransform: "uppercase",
-  padding: PAD,
-  borderRight: B,
-  borderBottom: B,
-  whiteSpace: "nowrap",
-};
-const tdBase = {
-  fontSize: 12.5,
-  color: "#1e293b",
-  padding: PAD,
-  borderRight: B,
-  borderBottom: B,
-  background: "#fff",
-};
-const tdNum = {
-  fontVariantNumeric: "tabular-nums",
-  textAlign: "right",
-};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const round2 = (n) =>
   Math.round((Number(n) || 0) * 100) / 100;
@@ -687,15 +605,7 @@ console.warn(
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = filtered.slice(pagedStart, pagedStart + rowsPerPage);
 
-  const analyticsRows = useMemo(() => {
-    if (!filtered.length) return [];
-    return filtered.map((g) => ({
-      date: "",
-      group: g.hsn,
-      value: Number(g.base || 0),
-      count: g.items?.length || 1,
-    }));
-  }, [filtered]);
+  
 
   return (
     <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 space-y-3.5 max-w-[1600px] mx-auto text-slate-800 font-sans">

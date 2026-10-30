@@ -1,16 +1,14 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import { Edit } from "lucide-react";
+
 import {
-  Search, Plus, ChevronDown, SlidersHorizontal,
-  MoreVertical, FileSpreadsheet, ArrowUpRight, Filter, X,
-  Package, MousePointerClick, Boxes, Tags, Ruler, Inbox,
-  ShoppingBag, Layers, ListTree, Grid, List, BarChart3,
-  ChevronRight, ChevronLeft, Star, Zap, Eye, Building2,
-  CheckCircle2, AlertTriangle, ShieldAlert, RefreshCw, Pencil,
+  Search, Plus, ChevronDown, SlidersHorizontal, FileSpreadsheet, ArrowUpRight, X,
+  Package, Boxes, Tags, Ruler,
+  ShoppingBag, Layers, Grid, List, Zap, Eye,
+  CheckCircle2, AlertTriangle, RefreshCw, Pencil,
   Tag, Sparkles, TrendingUp, LayoutGrid, LayoutList, ArrowRight, Check,
-  IndianRupee, Hash, Percent, Receipt, Calendar, Info, History, DollarSign, ScanBarcode, Clock
+  IndianRupee, Calendar, Info, History, ScanBarcode, Clock
 } from "lucide-react";
 import AddProductModal from "./AddProductModal";
 import EditProductModal from "./EditProductModal";
@@ -88,7 +86,7 @@ export default function ProductList() {
     localStorage.getItem("selected_company_id") || ""
   );
   const [toast, setToast] = useState(null);
-  const [viewMode, setViewMode] = useState("list");
+  
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -158,7 +156,7 @@ export default function ProductList() {
   const [conversionIsBase, setConversionIsBase] = useState(false);
   const [conversionRate, setConversionRate] = useState("");
   const [savingConversion, setSavingConversion] = useState(false);
-  const unitConversionMap = {
+  const unitConversionMap = useMemo(() => ({
     LITRE: [
       { fromUnit: "LITRE", value: 1000, toUnit: "MILLILITRE", isBase: true },
       { fromUnit: "LITRE", value: 1000, toUnit: "MILILITRE", isBase: false },
@@ -243,7 +241,7 @@ export default function ProductList() {
     HOUR: [
       { fromUnit: "HOUR", value: 60, toUnit: "MINUTES", isBase: true },
     ],
-  };
+  }), []);
 
   const [conversions, setConversions] = useState([]);
 
@@ -294,28 +292,26 @@ export default function ProductList() {
   const [moveSubcategorySearch, setMoveSubcategorySearch] = useState("");
   const [moveSubcategorySelected, setMoveSubcategorySelected] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
-  const [subcategoryListSearch, setSubcategoryListSearch] = useState("");
-  const [subcategoryItemsSearch, setSubcategoryItemsSearch] = useState("");
-  const [showSubcatModal, setShowSubcatModal] = useState(false);
-  const [subcatForm, setSubcatForm] = useState("");
-  const [subcatCategoryId, setSubcatCategoryId] = useState("");
+  const [selectedSubcategory] = useState(null);
+  
+  
+  const [showSubcatModal] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [unitListSearch, setUnitListSearch] = useState("");
   const [unitItemsSearch, setUnitItemsSearch] = useState("");
   const [unitViewMode, setUnitViewMode] = useState("cards");
   const [unitItemFilter, setUnitItemFilter] = useState("all");
   const [unitItemsLayout, setUnitItemsLayout] = useState("grid");
-  const [conversionSearch, setConversionSearch] = useState("");
+  
   const [unitFullForm, setUnitFullForm] = useState("");
   const [unitShortForm, setUnitShortForm] = useState("");
 
-  const handleSelectUnit = (u) => {
+  const handleSelectUnit = useCallback((u) => {
     setSelectedUnit(u);
     const key = u.full.replace(/\s+/g, "_");
     const defaultConvs = unitConversionMap[key] || unitConversionMap[u.full] || [];
     setConversions(defaultConvs);
-  };
+  }, [unitConversionMap]);
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -333,7 +329,26 @@ export default function ProductList() {
 
   const getCompanyId = () => Number(localStorage.getItem("selected_company_id"));
 
-  const loadCompanies = async () => {
+  const fetchProducts = useCallback(async (company_id, preferredProductId = null) => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/product/get?company_id=${company_id}`);
+      if (res.data.status) {
+        setProducts(res.data.data);
+        const preferredProduct = preferredProductId
+          ? res.data.data?.find((item) => Number(item.id) === Number(preferredProductId))
+          : null;
+        setSelectedProduct(preferredProduct || res.data.data?.[0] || null);
+        setSaleHistory([]);
+      }
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadCompanies = useCallback(async () => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
       const res = await api.get(`/company/get_companies_by_admin?admin_id=${user.id}`);
@@ -353,28 +368,9 @@ export default function ProductList() {
     } catch (err) {
       console.log(err);
     }
-  };
+  }, [fetchProducts]);
 
-  const fetchProducts = async (company_id, preferredProductId = null) => {
-    setLoading(true);
-    try {
-      const res = await api.get(`/product/get?company_id=${company_id}`);
-      if (res.data.status) {
-        setProducts(res.data.data);
-        const preferredProduct = preferredProductId
-          ? res.data.data?.find((item) => Number(item.id) === Number(preferredProductId))
-          : null;
-        setSelectedProduct(preferredProduct || res.data.data?.[0] || null);
-        setSaleHistory([]);
-      }
-    } catch (err) {
-      console.log(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCategories = async (company_id) => {
+  const fetchCategories = useCallback(async (company_id) => {
     if (!company_id) {
       setCategories([]);
       return;
@@ -385,9 +381,9 @@ export default function ProductList() {
     } catch (err) {
       console.log(err);
     }
-  };
+  }, []);
 
-  const fetchSubcategories = async (company_id) => {
+  const fetchSubcategories = useCallback(async (company_id) => {
     if (!company_id) {
       setSubcategories([]);
       return;
@@ -398,9 +394,9 @@ export default function ProductList() {
     } catch (err) {
       console.log(err);
     }
-  };
+  }, []);
 
-  const fetchBrands = async (company_id) => {
+  const fetchBrands = useCallback(async (company_id) => {
     if (!company_id) {
       setBrands([]);
       return;
@@ -411,9 +407,9 @@ export default function ProductList() {
     } catch (err) {
       console.log(err);
     }
-  };
+  }, []);
 
-  const fetchSaleHistory = async (product_id) => {
+  const fetchSaleHistory = useCallback(async (product_id) => {
     setLoadingHistory(true);
     try {
       const res = await api.get(`/product/get_sale_history?product_id=${product_id}`);
@@ -423,31 +419,36 @@ export default function ProductList() {
     } finally {
       setLoadingHistory(false);
     }
-  };
-
-  useEffect(() => {
-    loadCompanies();
   }, []);
 
   useEffect(() => {
+    const run = async () => {
+      await loadCompanies();
+    };
+    run();
+  }, [loadCompanies]);
+
+  useEffect(() => {
     if (!selectedCompany) return;
-    fetchProducts(selectedCompany);
-    fetchCategories(selectedCompany);
-    fetchSubcategories(selectedCompany);
-    fetchBrands(selectedCompany);
-  }, [selectedCompany]);
+    const run = async () => {
+      fetchProducts(selectedCompany);
+      fetchCategories(selectedCompany);
+      fetchSubcategories(selectedCompany);
+      fetchBrands(selectedCompany);
+    };
+    run();
+  }, [selectedCompany, fetchProducts, fetchCategories, fetchSubcategories, fetchBrands]);
+
+  const selectedProductId = selectedProduct?.id;
 
   useEffect(() => {
-    if (selectedProduct && showProductDrawer) {
-      fetchSaleHistory(selectedProduct.id);
+    if (selectedProductId && showProductDrawer) {
+      const run = async () => {
+        await fetchSaleHistory(selectedProductId);
+      };
+      run();
     }
-  }, [selectedProduct?.id, showProductDrawer]);
-
-  useEffect(() => {
-    if (activeTab === "unit" && !selectedUnit && units.length > 0) {
-      handleSelectUnit(units[0]);
-    }
-  }, [activeTab]);
+  }, [selectedProductId, showProductDrawer, fetchSaleHistory]);
 
   const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);
@@ -463,25 +464,7 @@ export default function ProductList() {
     fetchBrands(companyId);
   };
 
-  const toggleStatus = async (product) => {
-    const newStatus = product.status === "active" ? "inactive" : "active";
-    try {
-      const res = await api.post("/product/toggle_status_product", {
-        id: product.id,
-        status: newStatus,
-      });
-      if (res.data.status) {
-        setProducts((prev) =>
-          prev.map((p) => (p.id === product.id ? { ...p, status: newStatus } : p))
-        );
-        if (selectedProduct?.id === product.id)
-          setSelectedProduct((prev) => ({ ...prev, status: newStatus }));
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Server Error", false);
-    }
-  };
+  
 
   const filtered = useMemo(() => {
     const q = (search || "").toLowerCase().trim();
@@ -623,38 +606,7 @@ export default function ProductList() {
     }
   };
 
-  const handleAddSubcategory = async () => {
-    if (!subcatForm.trim()) {
-      showToast("Enter a subcategory name", false);
-      return;
-    }
-    if (!subcatCategoryId) {
-      showToast("Please select a category", false);
-      return;
-    }
-    setSavingSub(true);
-    try {
-      const res = await api.post("/subcategory/create", {
-        name: subcatForm.trim(),
-        category_id: Number(subcatCategoryId),
-        company_id: getCompanyId(),
-      });
-      if (res.data.status) {
-        showToast("Subcategory added!");
-        setSubcatForm("");
-        setSubcatCategoryId("");
-        setShowSubcatModal(false);
-        fetchSubcategories(selectedCompany);
-        fetchCategories(selectedCompany);
-      } else {
-        showToast(res.data.message || "Failed", false);
-      }
-    } catch (err) {
-      showToast("Server Error", false);
-    } finally {
-      setSavingSub(false);
-    }
-  };
+  
 
   const handleAddUnit = () => {
     if (!unitFullForm.trim() || !unitShortForm.trim()) {
@@ -825,73 +777,12 @@ export default function ProductList() {
     { key: "unit", label: "Units", icon: Ruler },
   ];
 
-  const stockValue = selectedProduct
-    ? Number(selectedProduct.stock || 0) * Number(selectedProduct.purchase_price || 0)
-    : 0;
+  
 
   // ─── Components ───
-  const EmptyState = ({ icon, title, subtitle }) => (
-    <div style={{ padding: "60px 24px", textAlign: "center" }}>
-      <div
-        style={{
-          width: 64,
-          height: 64,
-          borderRadius: RADIUS.xl,
-          background: COLORS.bg,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          margin: "0 auto 16px",
-          border: `2px dashed ${COLORS.border}`,
-        }}
-      >
-        {icon}
-      </div>
-      <div style={{ fontWeight: 700, fontSize: 16, color: COLORS.text }}>{title}</div>
-      {subtitle && (
-        <p style={{ fontSize: 13, marginTop: 6, color: COLORS.textMuted, lineHeight: 1.6 }}>
-          {subtitle}
-        </p>
-      )}
-    </div>
-  );
+  
 
-  const StatCard = ({ label, value, icon, color }) => (
-    <div
-      style={{
-        background: COLORS.surface,
-        borderRadius: RADIUS.md,
-        padding: "14px 18px",
-        border: `1px solid ${COLORS.border}`,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        flex: 1,
-        minWidth: 120,
-      }}
-    >
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: RADIUS.sm,
-          background: color || COLORS.primaryTint,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: COLORS.primary,
-        }}
-      >
-        {icon}
-      </div>
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-          {label}
-        </div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.text }}>{value}</div>
-      </div>
-    </div>
-  );
+  
 
   return (
     <>
@@ -1043,7 +934,12 @@ export default function ProductList() {
             return (
               <button
                 key={key}
-                onClick={() => setActiveTab(key)}
+                onClick={() => {
+                  setActiveTab(key);
+                  if (key === "unit" && !selectedUnit && units.length > 0) {
+                    handleSelectUnit(units[0]);
+                  }
+                }}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
                   isActive
                     ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200"
@@ -2753,7 +2649,7 @@ export default function ProductList() {
                               </div>
                             )}
 
-                            {brandRows.map((b, idx) => {
+                            {brandRows.map((b) => {
                               const isSelected = selectedBrand?.id === b.id;
                               const monogram = (b.name || "B").substring(0, 2).toUpperCase();
 

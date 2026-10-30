@@ -21,7 +21,7 @@ import {
   FileText,
   Wallet,
 } from "lucide-react";
-import { getTotalAmount, getPaidAmount, getBalanceAmount } from "./paymentOutFilters";
+import { getTotalAmount, getPaidAmount } from "./paymentOutFilters";
 
 const COLORS = ["#7c3aed", "#6366f1", "#f59e0b", "#10b981", "#0891b2", "#f43f5e", "#eab308"];
 

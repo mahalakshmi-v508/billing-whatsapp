@@ -89,7 +89,10 @@ export default function SaleAnalytics({
 }) {
   const locationState = useLocation()?.state || {};
 
-  const rows = rowsProp.length ? rowsProp : locationState.rows || [];
+  const rows = useMemo(
+    () => (rowsProp.length ? rowsProp : locationState.rows || []),
+    [rowsProp, locationState.rows]
+  );
   const fromDate = fromDateProp || locationState.fromDate || "";
   const toDate = toDateProp || locationState.toDate || "";
   const canClose = typeof onClose === "function";

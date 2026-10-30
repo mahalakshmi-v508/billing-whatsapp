@@ -62,18 +62,18 @@
 //   );
 // }
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 
 /* ─── Toast Hook ─────────────────────────────────────────── */
 function useToast() {
   const [toasts, setToasts] = useState([]);
-  const show = (type, title, msg) => {
+  const show = useCallback((type, title, msg) => {
     const id = Date.now();
     setToasts(p => [...p, { id, type, title, msg }]);
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3800);
-  };
+  }, []);
   const remove = (id) => setToasts(p => p.filter(t => t.id !== id));
   return { toasts, show, remove };
 }
@@ -113,25 +113,27 @@ export default function EditCategory() {
   const [fetching, setFetching] = useState(true);
   const { toasts, show, remove } = useToast();
 
-  const fetchCategory = async () => {
-    setFetching(true);
-    try {
-      const res = await api.get(`/category/get_by_id?id=${id}`);
-      if (res.data.status) {
-        setName(res.data.data.name);
-        setOriginalName(res.data.data.name);
-        setCharCount(res.data.data.name.length);
-      } else {
-        show("error", "Not found", "Category could not be loaded.");
+  useEffect(() => {
+    const fetchCategory = async () => {
+      setFetching(true);
+      try {
+        const res = await api.get(`/category/get_by_id?id=${id}`);
+        if (res.data.status) {
+          setName(res.data.data.name);
+          setOriginalName(res.data.data.name);
+          setCharCount(res.data.data.name.length);
+        } else {
+          show("error", "Not found", "Category could not be loaded.");
+        }
+      } catch {
+        show("error", "Server error", "Failed to fetch category.");
+      } finally {
+        setFetching(false);
       }
-    } catch {
-      show("error", "Server error", "Failed to fetch category.");
-    } finally {
-      setFetching(false);
-    }
-  };
+    };
 
-  useEffect(() => { fetchCategory(); }, [id]);
+    fetchCategory();
+  }, [id, show]);
 
   const handleChange = (e) => {
     setName(e.target.value);

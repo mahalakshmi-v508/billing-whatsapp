@@ -1,11 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+
 import {
   ArrowLeft,
   Clock,
-  User,
-  Tag,
   CheckCircle2,
   AlertCircle,
   FileText,
@@ -16,11 +14,9 @@ import {
   History,
   Trash2,
   Edit,
-  UserPlus,
   ShieldCheck,
   Download,
   Eye,
-  Building,
   Calendar,
 } from "lucide-react";
 import api, { API_BASE_URL_IMAGE } from "../../services/api";
@@ -62,21 +58,14 @@ export default function TicketDetails() {
   // Image Preview Modal State
   const [previewImage, setPreviewImage] = useState(null);
 
-  useEffect(() => {
-    fetchTicketDetails();
-    if (isSupportOrAdmin) {
-      fetchStaffUsers();
-    }
-  }, [id]);
-
-  const fetchTicketDetails = async () => {
+  const fetchTicketDetails = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const res = await api.get(`/tickets/${id}`, {
         headers: {
-          "X-User-Role": user.role,
-          "X-User-Id": user.id,
+          "X-User-Role": user?.role,
+          "X-User-Id": user?.id,
         },
       });
       if (res.data.status) {
@@ -89,9 +78,9 @@ export default function TicketDetails() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, user?.role, user?.id]);
 
-  const fetchStaffUsers = async () => {
+  const fetchStaffUsers = useCallback(async () => {
     try {
       const res = await api.get("/helpdesk/staff-users");
       if (res.data.status) {
@@ -100,7 +89,17 @@ export default function TicketDetails() {
     } catch (err) {
       console.error("Failed to load staff list", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const run = async () => {
+      fetchTicketDetails();
+      if (isSupportOrAdmin) {
+        await fetchStaffUsers();
+      }
+    };
+    run();
+  }, [id, isSupportOrAdmin, fetchTicketDetails, fetchStaffUsers]);
 
   const handleStatusChange = async (newStatus) => {
     try {

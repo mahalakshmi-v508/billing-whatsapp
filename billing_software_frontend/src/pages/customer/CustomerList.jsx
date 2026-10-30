@@ -1,14 +1,13 @@
-import { Children, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {  useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import api from "../../services/api";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import {
-  Pencil, Search, Phone, MapPin, Download, Wallet,
-  CheckCircle, ChevronRight, IndianRupee, X, MessageCircle, History,
-  MoreVertical, Eye, Users, UserCheck, AlertCircle, TrendingUp,
-  FileText, ArrowUpRight, Filter, ChevronLeft, Building2, Check,
-  ShieldAlert, RefreshCw, Plus, CheckCircle2
+  Pencil, Search, Download, Wallet, IndianRupee, X, MessageCircle, History,
+  MoreVertical, Eye, Users, UserCheck, AlertCircle,
+  FileText,
+  ShieldAlert, Plus, CheckCircle2
 } from "lucide-react";
 import CustomerForm from "./CustomerForm";
 import EditCustomer from "./EditCustomer";
@@ -39,7 +38,7 @@ const distributePayment = (pendingInvoices, totalAmount) => {
 
 /* ─────────────────── Component ─────────────────── */
 export default function CustomerList() {
-  const navigate = useNavigate();
+  
 
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
@@ -64,12 +63,9 @@ export default function CustomerList() {
   const [collectDate, setCollectDate] = useState(new Date().toISOString().split("T")[0]);
   const [collectNotes, setCollectNotes] = useState("");
   const [collecting, setCollecting] = useState(false);
-  const [preview, setPreview] = useState([]);
 
   const [sendingReminder, setSendingReminder] = useState(false);
 
-  const [companies, setCompanies] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState("");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const admin_id = user?.id;
 
@@ -128,7 +124,7 @@ export default function CustomerList() {
   // View customer modal state
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewCustomer, setViewCustomer] = useState(null);
-  const [viewLoading, setViewLoading] = useState(false);
+  const [, setViewLoading] = useState(false);
 
   /* ── toast ── */
   const showToast = (msg, ok = true) => {
@@ -136,7 +132,7 @@ export default function CustomerList() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       const res = await api.get(`/customer/get_all_customer?admin_id=${admin_id}`);
       if (res.data.status) {
@@ -145,16 +141,16 @@ export default function CustomerList() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [admin_id]);
 
-  const fetchAllHistory = async () => {
+  const fetchAllHistory = useCallback(async () => {
     try {
       const res = await api.get(`/invoice/get_pending_invoice_history?admin_id=${admin_id}`);
       if (res.data.status) setAllHistory(res.data.data || []);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [admin_id]);
 
   const fetchCustomerHistory = async (customerId) => {
     try {
@@ -172,12 +168,15 @@ export default function CustomerList() {
   };
 
   useEffect(() => {
-    fetchCustomers();
-    fetchAllHistory();
-  }, []);
+    const run = async () => {
+      fetchCustomers();
+      fetchAllHistory();
+    };
+    run();
+  }, [fetchCustomers, fetchAllHistory]);
 
   /* ── preview recalc ── */
-  useEffect(() => {
+  const preview = useMemo(() => {
     const pending = invoiceHistory.filter((i) => Number(i.balance_amount) > 0);
     const sortedPending = [...pending].sort((a, b) => {
       const da = new Date(a.created_at || a.invoice_date || 0);
@@ -185,17 +184,19 @@ export default function CustomerList() {
       return da - db || a.id - b.id;
     });
     if (!collectAmount || Number(collectAmount) <= 0) {
-      setPreview([]);
-      return;
+      return [];
     }
-    setPreview(distributePayment(sortedPending, collectAmount));
+    return distributePayment(sortedPending, collectAmount);
   }, [collectAmount, invoiceHistory]);
 
   /* ── derived metrics ── */
-  const getCustomerPendingTotal = (customerId) =>
-    allHistory
-      .filter((i) => Number(i.customer_id) === Number(customerId))
-      .reduce((s, i) => s + Number(i.balance_amount || 0), 0);
+  const getCustomerPendingTotal = useCallback(
+    (customerId) =>
+      allHistory
+        .filter((i) => Number(i.customer_id) === Number(customerId))
+        .reduce((s, i) => s + Number(i.balance_amount || 0), 0),
+    [allHistory]
+  );
 
   const totalOutstandingAll = useMemo(() => {
     return allHistory.reduce((s, i) => s + Number(i.balance_amount || 0), 0);
@@ -254,7 +255,7 @@ export default function CustomerList() {
       if (filterTab === "active") return Number(c.status !== "inactive");
       return true;
     });
-  }, [customers, search, filterTab, allHistory]);
+  }, [customers, search, filterTab, getCustomerPendingTotal]);
 
   /* ── Collect Payment Handler ── */
   const openCollectForCustomer = (cust) => {
@@ -285,7 +286,6 @@ export default function CustomerList() {
         showToast("Payment collected successfully", true);
         setShowCollect(false);
         setCollectAmount("");
-        setPreview([]);
         fetchCustomerHistory(selectedCustomer.id);
         fetchAllHistory();
         fetchCustomers();

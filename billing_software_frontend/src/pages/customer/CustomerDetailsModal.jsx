@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from "react";
+import  { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { WHATSAPP_ROUTE } from "../../utils/whatsappShare";
 import {
-  User,
+  
   Phone,
   Mail,
   MapPin,
-  Building2,
   CreditCard,
   ReceiptText,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
   X,
@@ -22,10 +20,7 @@ import {
   ExternalLink,
   Sparkles,
   ArrowRight,
-  Clock,
-  Send,
   Truck,
-  Hash,
 } from "lucide-react";
 
 const GST_STATE_CODES = {

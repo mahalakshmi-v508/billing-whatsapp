@@ -17,7 +17,6 @@ import {
   IndianRupee,
   Layers,
   Users,
-  TrendingUp,
   FileText,
   Percent,
 } from "lucide-react";

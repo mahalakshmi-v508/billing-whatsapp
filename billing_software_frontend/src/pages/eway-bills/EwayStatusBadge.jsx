@@ -1,4 +1,4 @@
-import React from "react";
+import "react";
 import { CheckCircle2, Clock, AlertTriangle, XCircle, AlertCircle } from "lucide-react";
 
 export default function EwayStatusBadge({ status, size = "md" }) {

@@ -4,13 +4,12 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import api from "../../services/api";
 import html2pdf from "html2pdf.js";
 import {
-  Download, Printer, FileText, ChevronDown, ChevronUp,
-  X, Maximize2, Minimize2, Check, Share2, MessageCircle, Mail,
-  Smartphone, Copy, ExternalLink, QrCode, Building2, Palette,
-  ArrowLeft, ZoomIn, ZoomOut, RotateCcw, Send, CheckCircle2,
-  AlertCircle, Info, Sparkles, Layers, Sliders, Eye, EyeOff,
-  CheckCheck, Loader2, Phone, Calendar, CreditCard, User,
-  FileCheck, ShieldCheck, ChevronRight, CornerDownLeft
+  Download, Printer, FileText,
+  X, Check, Share2, MessageCircle, Mail,
+  Smartphone, Copy, Palette,
+  ArrowLeft, ZoomIn, ZoomOut, Send, CheckCircle2,
+  AlertCircle, Info, Sparkles, Sliders, Loader2, Phone, Calendar, CreditCard, User,
+  FileCheck, ShieldCheck, ChevronRight
 } from "lucide-react";
 import {
   createPosInvoicePdf,
@@ -140,9 +139,9 @@ function getVoucherConfig(invoice) {
     invoice?.invoice_type?.toLowerCase().includes("purchase") ? "purchase" : "sale"
   );
 
-  let title = "Tax Invoice";
-  let partyLabel = "Bill To:";
-  let docNoLabel = "Invoice No.:";
+  let title ;
+  let partyLabel ;
+  let docNoLabel ;
   let dateLabel = "Date:";
   let isPaymentVoucher = false;
 
@@ -437,7 +436,7 @@ function isInterStateSupply(invoice, company) {
 /* ═══════════════════════════════════════════════════════════════════════════
    1. THEME: TALLY THEME (MATCHING SCREENSHOT 1 & 2)
 ═══════════════════════════════════════════════════════════════════════════ */
-function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
+export function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
   const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalQty = products.reduce((s, p) => s + (parseFloat(p.qty || p.quantity) || 0), 0);
@@ -723,10 +722,10 @@ function ThemeTally({ invoice, company, color, logoUrl, printSettings = {} }) {
 /* ═══════════════════════════════════════════════════════════════════════════
    2. THEME: GST THEME 1 (MATCHING SCREENSHOT 3)
 ═══════════════════════════════════════════════════════════════════════════ */
-function ThemeGST1({ invoice, company, color, logoUrl, printSettings = {} }) {
+export function ThemeGST1({ invoice, company, color, logoUrl, printSettings = {} }) {
   const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
-  const totalQty = products.reduce((s, p) => s + (parseFloat(p.qty || p.quantity) || 0), 0);
+  
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
   const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
@@ -966,7 +965,7 @@ function ThemeGST1({ invoice, company, color, logoUrl, printSettings = {} }) {
 /* ═══════════════════════════════════════════════════════════════════════════
    3. THEME: GST THEME 3 (MATCHING SCREENSHOT 4)
 ═══════════════════════════════════════════════════════════════════════════ */
-function ThemeGST3({ invoice, company, color, logoUrl, printSettings = {} }) {
+export function ThemeGST3({ invoice, company, color, logoUrl, printSettings = {} }) {
   const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
@@ -989,15 +988,15 @@ function ThemeGST3({ invoice, company, color, logoUrl, printSettings = {} }) {
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
   const termsText = getTermsConditionsText(invoice);
   const showTerms = printSettings.printTerms !== false && Boolean(termsText);
-  const showReceivedBy = printSettings.printReceivedBy;
-  const showDeliveredBy = printSettings.printDeliveredBy;
+  
+  
   const showSignature = printSettings.printSignatureText !== false;
   const showReceived = printSettings.receivedAmount !== false;
   const showBalance = printSettings.balanceAmount !== false;
-  const showPartyBalance = printSettings.currentBalanceParty && (invoice.current_balance !== undefined || invoice.previous_balance !== undefined);
+  
   const showYouSaved = printSettings.youSaved && (invoice.savings_amount || invoice.discount_amount);
   const showPaymentMode = printSettings.paymentMode !== false;
-  const showAck = printSettings.printAcknowledgement;
+  
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
@@ -1140,7 +1139,7 @@ function ThemeGST3({ invoice, company, color, logoUrl, printSettings = {} }) {
 /* ═══════════════════════════════════════════════════════════════════════════
    4. THEME: DOUBLE DIVINE (MATCHING SCREENSHOT 5)
 ═══════════════════════════════════════════════════════════════════════════ */
-function ThemeDoubleDivine({ invoice, company, color, logoUrl, printSettings = {} }) {
+export function ThemeDoubleDivine({ invoice, company, color, logoUrl, printSettings = {} }) {
   const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
@@ -1163,15 +1162,15 @@ function ThemeDoubleDivine({ invoice, company, color, logoUrl, printSettings = {
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
   const termsText = getTermsConditionsText(invoice);
   const showTerms = printSettings.printTerms !== false && Boolean(termsText);
-  const showReceivedBy = printSettings.printReceivedBy;
-  const showDeliveredBy = printSettings.printDeliveredBy;
+  
+  
   const showSignature = printSettings.printSignatureText !== false;
   const showReceived = printSettings.receivedAmount !== false;
   const showBalance = printSettings.balanceAmount !== false;
-  const showPartyBalance = printSettings.currentBalanceParty && (invoice.current_balance !== undefined || invoice.previous_balance !== undefined);
+  
   const showYouSaved = printSettings.youSaved && (invoice.savings_amount || invoice.discount_amount);
   const showPaymentMode = printSettings.paymentMode !== false;
-  const showAck = printSettings.printAcknowledgement;
+  
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1e293b", fontSize: 12 }}>
@@ -1353,7 +1352,7 @@ function formatPOSDateTime(dateStr) {
 }
 
 /* ─── 5.1 POS LAYOUT: CLASSIC MONOSPACE (STANDARD THERMAL) ─── */
-export function ThemePOSClassic({ invoice, company, color, logoUrl, printSettings = {} }) {
+export function ThemePOSClassic({ invoice, company, logoUrl, printSettings = {} }) {
   const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
@@ -1680,15 +1679,15 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
   const termsText = getTermsConditionsText(invoice);
   const showTerms = printSettings.printTerms !== false && Boolean(termsText);
-  const showReceivedBy = printSettings.printReceivedBy;
-  const showDeliveredBy = printSettings.printDeliveredBy;
+  
+  
   const showSignature = printSettings.printSignatureText !== false;
-  const showReceived = printSettings.receivedAmount !== false;
+  
   const showBalance = printSettings.balanceAmount !== false;
-  const showPartyBalance = printSettings.currentBalanceParty;
+  
   const showYouSaved = printSettings.youSaved;
   const showPaymentMode = printSettings.paymentMode !== false;
-  const showAck = printSettings.printAcknowledgement;
+  
 
   return (
     <div style={{
@@ -1892,7 +1891,7 @@ export function ThemePOSModern({ invoice, company, color, logoUrl, printSettings
 }
 
 /* ─── 5.3 POS LAYOUT: DETAILED GST TAX INVOICE (FULL GST TAX SPLIT) ─── */
-export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettings = {} }) {
+export function ThemePOSDetailed({ invoice, company, logoUrl, printSettings = {} }) {
   const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
@@ -1914,15 +1913,15 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
   const termsText = getTermsConditionsText(invoice);
   const showTerms = printSettings.printTerms !== false && Boolean(termsText);
-  const showReceivedBy = printSettings.printReceivedBy;
-  const showDeliveredBy = printSettings.printDeliveredBy;
+  
+  
   const showSignature = printSettings.printSignatureText !== false;
   const showReceived = printSettings.receivedAmount !== false;
   const showBalance = printSettings.balanceAmount !== false;
-  const showPartyBalance = printSettings.currentBalanceParty;
+  
   const showYouSaved = printSettings.youSaved;
   const showPaymentMode = printSettings.paymentMode !== false;
-  const showAck = printSettings.printAcknowledgement;
+  
 
   // splitGst assigns any odd paisa to SGST so the parts always add back up to
   // the document total. The old `totalGst / 2` printed a half-paisa on each
@@ -2174,8 +2173,8 @@ export function ThemePOSDetailed({ invoice, company, color, logoUrl, printSettin
 }
 
 /* ─── 5.4 POS LAYOUT: QUICK MINIMAL / FAST BILLING TOKEN ─── */
-export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSettings = {} }) {
-  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
+export function ThemePOSMinimal({ invoice, company, logoUrl, printSettings = {} }) {
+  const { vType, title: invoiceType, partyLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
@@ -2255,7 +2254,7 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
           <div style={{ fontSize: 11, marginBottom: 4 }}>
             {products.map((p, i) => {
               const qty = parseFloat(p.qty || p.quantity) || 1;
-              const price = parseFloat(p.price || p.unit_price) || 0;
+              
               const amt = printLineAmount(p);
 
               return (
@@ -2307,14 +2306,14 @@ export function ThemePOSMinimal({ invoice, company, color, logoUrl, printSetting
 }
 
 /* ─── 5.5 POS LAYOUT: VINTAGE BOUTIQUE (DECORATIVE BORDERS & STORE STORY) ─── */
-export function ThemePOSVintage({ invoice, company, color, logoUrl, printSettings = {} }) {
-  const { vType, title: invoiceType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
+export function ThemePOSVintage({ invoice, company, logoUrl, printSettings = {} }) {
+  const { vType, partyLabel, docNoLabel, isPaymentVoucher } = getVoucherConfig(invoice);
   const products = Array.isArray(invoice.products) ? invoice.products : [];
   const totalAmount = parseFloat(invoice.total_amount) || 0;
   const totalGst = parseFloat(invoice.gst_total || invoice.tax_amount) || 0;
   const subTotal = printDocSubTotal(invoice, totalAmount, totalGst);
   const paidAmount = parseFloat(invoice.paid_amount) || 0;
-  const balanceAmount = parseFloat(invoice.balance_amount) ?? Math.max(0, totalAmount - paidAmount);
+  
   const paymentMethod = getPaymentMode(invoice);
 
   const showLogo = printSettings.companyLogo !== false;
@@ -2329,15 +2328,15 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
   const showRemarks = printSettings.printDescription !== false && invoice.notes;
   const termsText = getTermsConditionsText(invoice);
   const showTerms = printSettings.printTerms !== false && Boolean(termsText);
-  const showReceivedBy = printSettings.printReceivedBy;
-  const showDeliveredBy = printSettings.printDeliveredBy;
+  
+  
   const showSignature = printSettings.printSignatureText !== false;
-  const showReceived = printSettings.receivedAmount !== false;
-  const showBalance = printSettings.balanceAmount !== false;
-  const showPartyBalance = printSettings.currentBalanceParty;
+  
+  
+  
   const showYouSaved = printSettings.youSaved;
   const showPaymentMode = printSettings.paymentMode !== false;
-  const showAck = printSettings.printAcknowledgement;
+  
 
   return (
     <div style={{
@@ -2514,7 +2513,7 @@ export function ThemePOSVintage({ invoice, company, color, logoUrl, printSetting
 }
 
 /* ─── MAIN POS RECEIPT THEME DISPATCHER ─── */
-function ThemePOS({ invoice, company, color, logoUrl, layout, printSettings = {} }) {
+export function ThemePOS({ invoice, company, color, logoUrl, layout, printSettings = {} }) {
   const activeLayout = layout || invoice?.pos_layout || (() => {
     try {
       return localStorage.getItem("thermal_pos_layout") || "pos_classic";
@@ -2828,7 +2827,7 @@ export default function InvoicePreview() {
             setLoading(false);
             return;
           }
-        } catch {}
+        } catch { /* intentionally ignored */ }
         setLoadError(err.response?.data?.message || "Failed to load invoice details.");
       })
       .finally(() => {
@@ -3924,8 +3923,8 @@ export default function InvoicePreview() {
   );
 }
 
-/* ─── EXPORTS FOR BACKWARD COMPATIBILITY (USED IN SALESREPORT) ─── */
-export const DESIGN_COMPONENTS = {
+/* ─── LOCAL LOOKUP (external consumers use designComponents.js) ─── */
+const DESIGN_COMPONENTS = {
   original: ThemeTally,
   classic: ThemeTally,
   modern: ThemeGST1,

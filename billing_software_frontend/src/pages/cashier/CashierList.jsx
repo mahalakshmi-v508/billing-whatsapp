@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "../../services/api";
 import {
   Pencil,
@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
-  CheckCircle2,
   XCircle,
   AlertTriangle,
   UserCheck
@@ -32,7 +31,7 @@ export default function CashierList() {
   const isLimitReached = cashiers.length >= MAX_CASHIERS;
 
   /* FETCH CASHIERS */
-  const fetchCashiers = async () => {
+  const fetchCashiers = useCallback(async () => {
     setLoading(true);
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -47,11 +46,14 @@ export default function CashierList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchCashiers();
-  }, []);
+    const run = async () => {
+      await fetchCashiers();
+    };
+    run();
+  }, [fetchCashiers]);
 
   /* TOGGLE STATUS */
   const toggleStatus = async (cashier) => {

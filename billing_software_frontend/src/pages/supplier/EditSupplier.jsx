@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 
 /* ─── Toast Hook ─────────────────────────────────────────── */
 function useToast() {
   const [toasts, setToasts] = useState([]);
-  const show = (type, title, msg) => {
+  const show = useCallback((type, title, msg) => {
     const id = Date.now();
     setToasts(p => [...p, { id, type, title, msg }]);
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3800);
-  };
+  }, []);
   const remove = (id) => setToasts(p => p.filter(t => t.id !== id));
   return { toasts, show, remove };
 }
@@ -79,29 +79,31 @@ export default function EditSupplier() {
       });
   }, []);
 
-  const fetchSupplier = async () => {
-    setFetching(true);
-    try {
-      const res = await api.get(`/supplier/get_by_id?id=${id}`);
-      if (res.data.status && res.data.data) {
-        const d = res.data.data;
-        const loaded = { ...emptyForm };
-        Object.keys(loaded).forEach((k) => { loaded[k] = d[k] || ""; });
-        setForm(loaded);
-        setOriginal(loaded);
-        setSelectedCompany(String(d.company_id || ""));
-        setOriginalCompany(String(d.company_id || ""));
-      } else {
-        show("error", "Not found", "Supplier could not be loaded.");
+  useEffect(() => {
+    const fetchSupplier = async () => {
+      setFetching(true);
+      try {
+        const res = await api.get(`/supplier/get_by_id?id=${id}`);
+        if (res.data.status && res.data.data) {
+          const d = res.data.data;
+          const loaded = { ...emptyForm };
+          Object.keys(loaded).forEach((k) => { loaded[k] = d[k] || ""; });
+          setForm(loaded);
+          setOriginal(loaded);
+          setSelectedCompany(String(d.company_id || ""));
+          setOriginalCompany(String(d.company_id || ""));
+        } else {
+          show("error", "Not found", "Supplier could not be loaded.");
+        }
+      } catch {
+        show("error", "Server error", "Failed to fetch supplier.");
+      } finally {
+        setFetching(false);
       }
-    } catch {
-      show("error", "Server error", "Failed to fetch supplier.");
-    } finally {
-      setFetching(false);
-    }
-  };
+    };
 
-  useEffect(() => { fetchSupplier(); }, [id]);
+    fetchSupplier();
+  }, [id, show]);
 
   const handleField = (key, value) => {
     if (key === "mobile_number" || key === "alt_mobile") {

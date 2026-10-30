@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 
 /* ─── Theme reused from the rest of the Reports pages ─────────────── */
-const FONT = "'Plus Jakarta Sans', sans-serif";
-const INDIGO = "#4338ca";
-const BORDER = "#e2e8f0";
+
+
+
 
 const monthNames = [
   "January",
@@ -733,34 +733,10 @@ export default function GstR1() {
   };
 
   /* ── Select style ───────────────────────────────────────────────── */
-  const selectStyle = {
-    padding: "9px 12px",
-    border:
-      "1.5px solid " + BORDER,
-    borderRadius: 9,
-    fontSize: 13,
-    fontFamily: FONT,
-    color: "#334155",
-    outline: "none",
-    background: "#fff",
-    minWidth: 150,
-  };
+  
 
   /* ── Action button ──────────────────────────────────────────────── */
-  const actionBtn = (color) => ({
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "8px 14px",
-    borderRadius: 8,
-    fontSize: 12,
-    fontWeight: 700,
-    color: "#fff",
-    background: color,
-    border: "none",
-    cursor: "pointer",
-    fontFamily: FONT,
-  });
+  
 
   const totalRows = activeRows.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
@@ -768,15 +744,7 @@ export default function GstR1() {
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = activeRows.slice(pagedStart, pagedStart + rowsPerPage);
 
-  const analyticsRows = useMemo(() => {
-    if (!activeRows.length) return [];
-    return activeRows.map((r) => ({
-      date: r.date || "",
-      group: r.party_name || "",
-      value: Number(r.value || 0),
-      count: 1,
-    }));
-  }, [activeRows]);
+  
 
   return (
     <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 space-y-3.5 max-w-[1600px] mx-auto text-slate-800">

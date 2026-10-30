@@ -259,16 +259,7 @@ export default function SalePurchaseByPartyGroup() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = displayed.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
-  const analyticsRows = useMemo(
-    () =>
-      (displayed || []).map((r) => ({
-        date: "",
-        group: r.group_name || "General",
-        value: Number(r.sale_amount) || 0,
-        count: 1,
-      })),
-    [displayed]
-  );
+  
 
   /* ── Excel export ── */
   const handleExcel = () => {

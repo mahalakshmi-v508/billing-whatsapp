@@ -172,15 +172,7 @@ export default function TCSReceivable() {
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = filteredRows.slice(pagedStart, pagedStart + rowsPerPage);
 
-  const analyticsRows = useMemo(() => {
-    if (!filteredRows.length) return [];
-    return filteredRows.map((row) => ({
-      date: row.date_of_collection || "",
-      group: row.party_name || row.tax_name || "",
-      value: Number(row.total_tcs_paid || 0),
-      count: 1,
-    }));
-  }, [filteredRows]);
+  
 
   const exportExcel = () => {
     const data = [

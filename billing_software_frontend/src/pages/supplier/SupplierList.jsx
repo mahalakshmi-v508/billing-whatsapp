@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import {
@@ -23,6 +23,20 @@ export default function SupplierList() {
     localStorage.getItem("selected_company_id") || ""
   );
 
+  const fetchSuppliers = useCallback(async (companyId) => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/supplier/get_all?company_id=${companyId}`);
+      if (res.data.status) {
+        setSuppliers(res.data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     if (!user?.id) return;
@@ -44,30 +58,20 @@ export default function SupplierList() {
         }
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [fetchSuppliers]);
 
   useEffect(() => {
-    if (selectedCompany) {
-      fetchSuppliers(selectedCompany);
-    } else {
-      setSuppliers([]);
-      setLoading(false);
-    }
-  }, [selectedCompany]);
-
-  const fetchSuppliers = async (companyId) => {
-    setLoading(true);
-    try {
-      const res = await api.get(`/supplier/get_all?company_id=${companyId}`);
-      if (res.data.status) {
-        setSuppliers(res.data.data || []);
+    const run = async () => {
+      if (selectedCompany) {
+        await fetchSuppliers(selectedCompany);
+      } else {
+        setSuppliers([]);
+        setLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    run();
+  }, [selectedCompany, fetchSuppliers]);
 
   const handleCompanyChange = (companyId) => {
     setSelectedCompany(companyId);

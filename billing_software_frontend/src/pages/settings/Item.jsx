@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   SlidersHorizontal,
   Plus,
@@ -6,11 +6,10 @@ import {
   Trash2,
   X,
   ChevronDown,
-  Check,
   Table,
   Info,
 } from "lucide-react";
-import { useSettings } from "./SettingsContext";
+
 import { useBackendSync } from "./useBackendSync";
 import { SettingsShell } from "./settingsUI";
 
@@ -31,6 +30,27 @@ function loadState() {
   }
 }
 
+const EMPTY_FIELD_FORM = {
+  label: "",
+  key: "",
+  type: "text",
+  optionsStr: "",
+  required: false,
+  showInTable: true,
+};
+
+function fieldFormValues(field) {
+  if (!field) return EMPTY_FIELD_FORM;
+  return {
+    label: field.label || field.name || "",
+    key: field.name || field.key || "",
+    type: field.type || "text",
+    optionsStr: Array.isArray(field.options) ? field.options.join(", ") : field.options || "",
+    required: Boolean(field.required),
+    showInTable: field.show_in_table !== undefined ? Boolean(field.show_in_table) : true,
+  };
+}
+
 function CustomFieldModal({ isOpen, onClose, field, onSave }) {
   const [label, setLabel] = useState(field?.label || field?.name || "");
   const [key, setKey] = useState(field?.name || field?.key || "");
@@ -45,26 +65,20 @@ function CustomFieldModal({ isOpen, onClose, field, onSave }) {
   const [error, setError] = useState("");
 
   // Sync state whenever field or isOpen changes
-  useEffect(() => {
-    if (field) {
-      setLabel(field.label || field.name || "");
-      setKey(field.name || field.key || "");
-      setType(field.type || "text");
-      setOptionsStr(
-        Array.isArray(field.options) ? field.options.join(", ") : field.options || ""
-      );
-      setRequired(Boolean(field.required));
-      setShowInTable(field.show_in_table !== undefined ? Boolean(field.show_in_table) : true);
-    } else {
-      setLabel("");
-      setKey("");
-      setType("text");
-      setOptionsStr("");
-      setRequired(false);
-      setShowInTable(true);
-    }
+  const [prevField, setPrevField] = useState(field);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (prevField !== field || prevIsOpen !== isOpen) {
+    setPrevField(field);
+    setPrevIsOpen(isOpen);
+    const values = fieldFormValues(field);
+    setLabel(values.label);
+    setKey(values.key);
+    setType(values.type);
+    setOptionsStr(values.optionsStr);
+    setRequired(values.required);
+    setShowInTable(values.showInTable);
     setError("");
-  }, [field, isOpen]);
+  }
 
   const handleLabelChange = (val) => {
     setLabel(val);
@@ -270,7 +284,7 @@ function CustomFieldModal({ isOpen, onClose, field, onSave }) {
 }
 
 export default function Item() {
-  const { setSettingsTab } = useSettings();
+  
   const [state, setState] = useState(loadState);
   useBackendSync("item", state, setState);
 

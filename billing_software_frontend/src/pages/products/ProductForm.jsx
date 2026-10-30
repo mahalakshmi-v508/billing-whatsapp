@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Barcode from "react-barcode";
 import api from "../../services/api";
@@ -14,12 +14,11 @@ import {
   Percent,
   Sparkles,
   Boxes,
-  Layers,
   ArrowLeft,
   Plus,
   RefreshCw,
   ChevronDown,
-  Calendar,
+  SlidersHorizontal,
 } from "lucide-react";
 
 /* ─── Toast Hook ─────────────────────────────────────────── */
@@ -78,9 +77,9 @@ function ToastPortal({ toasts, remove }) {
 /* ─── Main Component ─────────────────────────────────────── */
 export default function ProductForm() {
   const navigate = useNavigate();
-  const [categories, setCategories] = useState([]);
-  const [subCategories, setSubCategories] = useState([]);
-  const [brands, setBrands] = useState([]);
+  const [, setCategories] = useState([]);
+  const [, setSubCategories] = useState([]);
+  const [, setBrands] = useState([]);
   const [loading, setLoading] = useState(false);
   const [barcodeKey, setBarcodeKey] = useState(0);
   const [gstEnabled, setGstEnabled] = useState(false);
@@ -89,7 +88,7 @@ export default function ProductForm() {
   const [existingCodes, setExistingCodes] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState("");
-  const [suppliers, setSuppliers] = useState([]);
+  const [, setSuppliers] = useState([]);
   const [customFieldDefs, setCustomFieldDefs] = useState([]);
 
   const [form, setForm] = useState({
@@ -119,13 +118,7 @@ export default function ProductForm() {
       custom_fields: { ...(p.custom_fields || {}), [key]: val },
     }));
 
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user?.id) loadCompanies(user.id);
-    getProductCustomFields().then((defs) => setCustomFieldDefs(defs));
-  }, []);
-
-  const loadCompanies = async (admin_id) => {
+  const loadCompanies = useCallback(async (admin_id) => {
     try {
       const res = await api.get(`/company/get_companies_by_admin?admin_id=${admin_id}`);
       if (res.data.status) {
@@ -140,13 +133,22 @@ export default function ProductForm() {
     } catch (err) {
       console.log(err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const run = async () => {
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (user?.id) loadCompanies(user.id);
+      getProductCustomFields().then((defs) => setCustomFieldDefs(defs));
+    };
+    run();
+  }, [loadCompanies]);
 
   const getCompanyId = () => {
     return selectedCompany || Number(localStorage.getItem("selected_company_id"));
   };
 
-  const fetchCompanyGST = async (company_id) => {
+  const fetchCompanyGST = useCallback(async (company_id) => {
     setGstLoading(true);
     try {
       if (!company_id) return;
@@ -157,9 +159,9 @@ export default function ProductForm() {
     } finally {
       setGstLoading(false);
     }
-  };
+  }, []);
 
-  const fetchCategories = async (company_id) => {
+  const fetchCategories = useCallback(async (company_id) => {
     try {
       if (!company_id) {
         setCategories([]);
@@ -175,29 +177,11 @@ export default function ProductForm() {
       console.log(err);
       setCategories([]);
     }
-  };
+  }, []);
 
-  const fetchSubCategories = async (company_id, category_id) => {
-    if (!category_id) {
-      setSubCategories([]);
-      return;
-    }
-    try {
-      const res = await api.get(
-        `/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${category_id}`
-      );
-      if (res.data.status) {
-        setSubCategories(res.data.data || []);
-      } else {
-        setSubCategories([]);
-      }
-    } catch (err) {
-      console.log(err);
-      setSubCategories([]);
-    }
-  };
+  
 
-  const fetchBrands = async (company_id) => {
+  const fetchBrands = useCallback(async (company_id) => {
     if (!company_id) {
       setBrands([]);
       return;
@@ -213,9 +197,9 @@ export default function ProductForm() {
       console.log(err);
       setBrands([]);
     }
-  };
+  }, []);
 
-  const fetchSuppliers = async (company_id) => {
+  const fetchSuppliers = useCallback(async (company_id) => {
     if (!company_id) {
       setSuppliers([]);
       return;
@@ -231,9 +215,9 @@ export default function ProductForm() {
       console.log(err);
       setSuppliers([]);
     }
-  };
+  }, []);
 
-  const fetchProducts = async (company_id) => {
+  const fetchProducts = useCallback(async (company_id) => {
     if (!company_id) return;
     try {
       const res = await api.get(`/product/get_product_by_company?company_id=${company_id}`);
@@ -246,16 +230,19 @@ export default function ProductForm() {
     } catch (e) {
       console.log(e);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (!selectedCompany) return;
-    fetchCategories(selectedCompany);
-    fetchCompanyGST(selectedCompany);
-    fetchProducts(selectedCompany);
-    fetchSuppliers(selectedCompany);
-    fetchBrands(selectedCompany);
-  }, [selectedCompany]);
+    const run = async () => {
+      if (!selectedCompany) return;
+      fetchCategories(selectedCompany);
+      fetchCompanyGST(selectedCompany);
+      fetchProducts(selectedCompany);
+      fetchSuppliers(selectedCompany);
+      fetchBrands(selectedCompany);
+    };
+    run();
+  }, [selectedCompany, fetchCategories, fetchCompanyGST, fetchProducts, fetchSuppliers, fetchBrands]);
 
   const handleCompanyChange = (e) => {
     const companyId = e.target.value;

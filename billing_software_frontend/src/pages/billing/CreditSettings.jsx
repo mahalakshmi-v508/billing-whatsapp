@@ -7,19 +7,20 @@ export default function CreditSettings() {
   const [loading, setLoading] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user"));
+  const companyId = user?.company_id;
 
   /* ── Fetch settings ── */
   useEffect(() => {
-    if (!user?.company_id) return;
+    if (!companyId) return;
 
     api.get("/credit/get", {
-      params: { company_id: user.company_id }
+      params: { company_id: companyId }
     }).then(res => {
       if (res.data.status) {
         setDays(res.data.data.default_credit_days);
       }
     });
-  }, []);
+  }, [companyId]);
 
   /* ── Save ── */
   const handleSave = async () => {

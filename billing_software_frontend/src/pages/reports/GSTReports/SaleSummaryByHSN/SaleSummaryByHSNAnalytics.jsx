@@ -20,7 +20,6 @@ import {
   Hash,
   TrendingUp,
   FileText,
-  ShoppingBag,
 } from "lucide-react";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#7c3aed", "#0891b2", "#f43f5e", "#eab308"];
@@ -29,13 +28,7 @@ const fmtINR = (n) =>
   "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
 
-function Capitalized({ text }) {
-  if (!text) return "-";
-  return String(text)
-    .split(/[\s_]+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
+
 
 function taxOf(g) {
   return Number(g.igst || 0) + Number(g.cgst || 0) + Number(g.sgst || 0) + Number(g.cess || 0);

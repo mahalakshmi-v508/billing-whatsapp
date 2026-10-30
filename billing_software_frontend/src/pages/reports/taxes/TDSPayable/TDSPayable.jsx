@@ -170,15 +170,7 @@ export default function TDSPayable() {
   const pagedStart = (safePage - 1) * rowsPerPage;
   const pagedRows = filteredRows.slice(pagedStart, pagedStart + rowsPerPage);
 
-  const analyticsRows = useMemo(() => {
-    if (!filteredRows.length) return [];
-    return filteredRows.map((row) => ({
-      date: row.date_of_deduction || "",
-      group: row.party_name || row.tax_name || "",
-      value: Number(row.tds_payable || 0),
-      count: 1,
-    }));
-  }, [filteredRows]);
+  
 
   const exportExcel = () => {
     const data = [

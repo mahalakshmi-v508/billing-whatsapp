@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "../../services/api";
 import PriceWithGstInput from "./components/PriceWithGstInput";
 import Barcode from "react-barcode";
@@ -8,7 +8,6 @@ import {
   Package,
   X,
   Sparkles,
-  Check,
   RefreshCw,
   Tag,
   Layers,
@@ -18,22 +17,18 @@ import {
   ChevronUp,
   Hash,
   Scale,
-  IndianRupee,
-  CheckCircle2,
-  AlertCircle,
   Plus,
-  Calendar,
   Save,
 } from "lucide-react";
 
 function useToast() {
   const [toasts, setToasts] = useState([]);
-  const show = (type, title, msg) => {
+  const show = useCallback((type, title, msg) => {
     const id = Date.now();
     setToasts((p) => [...p, { id, type, title, msg }]);
     setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 3600);
-  };
-  const remove = (id) => setToasts((p) => p.filter((t) => t.id !== id));
+  }, []);
+  const remove = useCallback((id) => setToasts((p) => p.filter((t) => t.id !== id)), []);
   return { toasts, show, remove };
 }
 
@@ -100,13 +95,16 @@ export default function AddProductModal({
 
   const [categories, setCategories] = useState([]);
   const [categoryLoading, setCategoryLoading] = useState(false);
-  const [subCategories, setSubCategories] = useState([]);
-  const [subCategoryLoading, setSubCategoryLoading] = useState(false);
+  const [, setSubCategories] = useState([]);
+  const [, ] = useState(false);
   const [brands, setBrands] = useState([]);
   const [brandLoading, setBrandLoading] = useState(false);
   const [customFieldDefs, setCustomFieldDefs] = useState([]);
 
-  const getCompanyId = () => Number(companyId || localStorage.getItem("selected_company_id") || 0);
+  const getCompanyId = useCallback(
+    () => Number(companyId || localStorage.getItem("selected_company_id") || 0),
+    [companyId]
+  );
 
   const [form, setForm] = useState({
     name: "",
@@ -146,7 +144,7 @@ export default function AddProductModal({
     if (isEditing) setDirtyFields((p) => new Set(p).add("gst_enabled"));
   };
 
-  const fetchCompanyGST = async (companyId = getCompanyId()) => {
+  const fetchCompanyGST = useCallback(async (companyId = getCompanyId()) => {
     setGstLoading(true);
     try {
       if (!companyId) return;
@@ -160,9 +158,9 @@ export default function AddProductModal({
     } finally {
       setGstLoading(false);
     }
-  };
+  }, [getCompanyId]);
 
-  const fetchCategories = async (company_id = getCompanyId()) => {
+  const fetchCategories = useCallback(async (company_id = getCompanyId()) => {
     if (!company_id) {
       setCategories([]);
       return;
@@ -181,33 +179,11 @@ export default function AddProductModal({
     } finally {
       setCategoryLoading(false);
     }
-  };
+  }, [getCompanyId]);
 
-  const fetchSubCategories = async (categoryId) => {
-    const company_id = getCompanyId();
-    if (!company_id || !categoryId) {
-      setSubCategories([]);
-      return;
-    }
-    setSubCategoryLoading(true);
-    try {
-      const res = await api.get(
-        `/subcategory/get_active_subcategory?company_id=${company_id}&category_id=${categoryId}`
-      );
-      if (res.data.status) {
-        setSubCategories(res.data.data || []);
-      } else {
-        setSubCategories([]);
-      }
-    } catch (err) {
-      console.log(err);
-      setSubCategories([]);
-    } finally {
-      setSubCategoryLoading(false);
-    }
-  };
+  
 
-  const fetchBrands = async (company_id = getCompanyId()) => {
+  const fetchBrands = useCallback(async (company_id = getCompanyId()) => {
     if (!company_id) {
       setBrands([]);
       return;
@@ -226,7 +202,7 @@ export default function AddProductModal({
     } finally {
       setBrandLoading(false);
     }
-  };
+  }, [getCompanyId]);
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
@@ -337,7 +313,7 @@ export default function AddProductModal({
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, product?.id, initialProductName, initialName]);
+  }, [isOpen, product, initialProductName, initialName, fetchCategories, fetchBrands, fetchCompanyGST, getCompanyId, show]);
 
   const generateBarcode = () => {
     const code = "PRD" + Math.floor(100000 + Math.random() * 900000);

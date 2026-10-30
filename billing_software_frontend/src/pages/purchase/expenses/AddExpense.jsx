@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../../services/api";
@@ -7,22 +7,16 @@ import {
   X,
   Plus,
   Trash2,
-  Calendar,
   ChevronDown,
   Calculator,
   Layers,
-  Check,
-  Building,
   User,
   Phone,
   FileText,
   Save,
   ArrowLeft,
-  Receipt,
   FolderPlus,
   Tag,
-  CreditCard,
-  Percent,
   AlertCircle,
   CheckCircle2,
   Share2,
@@ -239,6 +233,13 @@ export default function AddExpense() {
   const activeInputRef = useRef(null);
   const [suggestCoords, setSuggestCoords] = useState(null);
 
+  // Mirror the active tab id in a ref so updateActiveTab stays referentially
+  // stable (mount-only loaders depend on it and must not re-run on tab switch).
+  const activeTabIdRef = useRef(activeTabId);
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
+
   const updateSuggestPosition = (inputEl) => {
     if (!inputEl) return;
     const rect = inputEl.getBoundingClientRect();
@@ -263,11 +264,11 @@ export default function AddExpense() {
     return tabs.find((t) => t.id === activeTabId) || tabs[0];
   }, [tabs, activeTabId]);
 
-  const updateActiveTab = (updates) => {
+  const updateActiveTab = useCallback((updates) => {
     setTabs((prev) =>
-      prev.map((tab) => (tab.id === activeTabId ? { ...tab, ...updates } : tab))
+      prev.map((tab) => (tab.id === activeTabIdRef.current ? { ...tab, ...updates } : tab))
     );
-  };
+  }, []);
 
   // Add new tab
   const handleAddTab = async () => {
@@ -316,10 +317,10 @@ export default function AddExpense() {
         console.error("Error fetching next expense number:", err);
       });
     return () => { cancelled = true; };
-  }, [companyId, isEditMode]);
+  }, [companyId, isEditMode, updateActiveTab]);
 
   // Load Categories & Items Catalog in parallel
-  const fetchCatalog = async () => {
+  const fetchCatalog = useCallback(async () => {
     try {
       const [catRes, itemRes, countRes] = await Promise.all([
         api.get(`/expense/categories?company_id=${companyId}&admin_id=${adminId || 0}`),
@@ -335,11 +336,11 @@ export default function AddExpense() {
     } catch (err) {
       console.error("Error loading expense catalog:", err);
     }
-  };
+  }, [companyId, adminId]);
 
   useEffect(() => {
     fetchCatalog();
-  }, [companyId, adminId]);
+  }, [fetchCatalog]);
 
   // Load Expense if Edit Mode
   useEffect(() => {

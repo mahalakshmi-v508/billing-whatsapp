@@ -4,12 +4,19 @@ import api from "../../services/api";
 import { calculateLine, resolveProductPricing, normalisePriceType } from "../../utils/gst";
 import QuickAddProductModal from "../products/QuickAddProductModal";
 import { fetchSettings } from "../settings/settingsApi";
-import { POS_SETTINGS_KEY, DEFAULT_POS_SETTINGS } from "../settings/PosSettings";
-import { STOCK_SETTINGS_KEY, DEFAULT_STOCK_SETTINGS } from "../settings/StockSettings";
-import { useCashierSecurity } from "../../context/CashierSecurityContext";
-import { WHATSAPP_DEFAULTS_KEY, DEFAULT_WHATSAPP_DEFAULTS } from "../settings/WhatsAppDefaultSettings";
-import { STORE_SETUP_KEY, DEFAULT_STORE_SETUP } from "../settings/StoreSetupSettings";
-import { TAX_BACKUP_KEY, DEFAULT_TAX_BACKUP } from "../settings/TaxBackupSettings";
+import { POS_SETTINGS_KEY } from "../settings/PosSettings";
+import { STOCK_SETTINGS_KEY } from "../settings/StockSettings";
+import { useCashierSecurity } from "../../context/cashierSecurity";
+import { WHATSAPP_DEFAULTS_KEY } from "../settings/WhatsAppDefaultSettings";
+import { STORE_SETUP_KEY } from "../settings/StoreSetupSettings";
+import { TAX_BACKUP_KEY } from "../settings/TaxBackupSettings";
+import {
+  DEFAULT_POS_SETTINGS,
+  DEFAULT_STOCK_SETTINGS,
+  DEFAULT_WHATSAPP_DEFAULTS,
+  DEFAULT_STORE_SETUP,
+  DEFAULT_TAX_BACKUP,
+} from "../../config/settingsDefaults";
 import { COUNTRY_LIST, getCountryByCode, detectCountryFromPhone } from "../../utils/phoneCountryHelper";
 import { useLanguage } from "../../utils/i18n";
 import {
@@ -18,8 +25,6 @@ import {
   Plus,
   X,
   HelpCircle,
-  Settings,
-  Minimize2,
   Phone,
   Clock,
   Star,
@@ -28,11 +33,7 @@ import {
   Sparkles,
   Mic,
   MicOff,
-  AlertCircle,
   AlertTriangle,
-  Info,
-  CreditCard,
-  Wallet,
   Receipt,
   User,
   Building2,
@@ -40,15 +41,10 @@ import {
   CheckCircle2,
   RefreshCw,
   ChevronDown,
-  ArrowRight,
   Printer,
   Trash2,
   Tag,
   Boxes,
-  ShieldCheck,
-  ChevronRight,
-  TrendingUp,
-  Percent,
   Check,
   Globe,
 } from "lucide-react";
@@ -232,6 +228,9 @@ function emptyRow() {
   return { product_id: null, name: "", product_code: "", price: 0, qty: 0, discount: 0, freeQty: 0, gst: 0, price_type: "without_gst", unit: "", stock: 0, isUnlisted: false };
 }
 
+/* Module-scope id generator: keeps Date.now()/Math.random() out of the render path. */
+const makeToastId = () => Date.now() + Math.random();
+
 function isValidGstin(value) {
   return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(value);
 }
@@ -245,7 +244,7 @@ function isValidGstin(value) {
  * Product GST is included in both POS bill types; the GST bill additionally
  * carries the customer's GST registration details.
  */
-function posLineAmount(r, billType) {
+function posLineAmount(r) {
   return calculateLine({
     price: Number(r.price) || 0,
     quantity: Number(r.qty) || 0,
@@ -366,7 +365,7 @@ export default function Billing() {
   const handleGenerateRef = useRef(null);
 
   /* ── POS Controls & Speed Settings ── */
-  const [posSettings, setPosSettings] = useState(() => {
+  const [, setPosSettings] = useState(() => {
     try {
       const saved = localStorage.getItem(`settings_${POS_SETTINGS_KEY}`);
       return saved ? { ...DEFAULT_POS_SETTINGS, ...JSON.parse(saved) } : { ...DEFAULT_POS_SETTINGS };
@@ -410,6 +409,12 @@ export default function Billing() {
   const [activeTaxMode, setActiveTaxMode] = useState(
     () => (taxBackup.default_tax_mode || "inclusive")
   );
+
+  const showToast = useCallback((msg, type = "error") => {
+    const id = makeToastId();
+    setToasts((p) => [...p, { id, msg, type }]);
+    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 3500);
+  }, []);
 
   const toggleTaxMode = () => {
     if (!taxBackup.allow_cashier_tax_toggle) {
@@ -526,7 +531,10 @@ export default function Billing() {
   const cashNeeded = effectiveTotal;
   const extraAmount = received > cashNeeded ? received - cashNeeded : 0;
   const pendingBalance = received < cashNeeded ? cashNeeded - received : 0;
-  const validRows = rows.filter((r) => r.name && r.price > 0 && r.qty > 0);
+  const validRows = useMemo(
+    () => rows.filter((r) => r.name && r.price > 0 && r.qty > 0),
+    [rows]
+  );
   const totalItems = validRows.length;
   const totalQty = validRows.reduce((s, r) => s + r.qty + (Number(r.freeQty) || 0), 0);
   const changeToReturn = extraAmount;
@@ -569,7 +577,7 @@ export default function Billing() {
     }).then((res) => {
       if (res.data.status) setAiSuggestions(res.data.data || []);
     }).catch(() => { });
-  }, [selectedCompany, customer.id, validRows.length]);
+  }, [selectedCompany, customer.id, validRows]);
 
   /* AI Anomaly check effect */
   useEffect(() => {
@@ -587,12 +595,6 @@ export default function Billing() {
     }, 400);
     return () => clearTimeout(timer);
   }, [validRows, total]);
-
-  const showToast = useCallback((msg, type = "error") => {
-    const id = Date.now() + Math.random();
-    setToasts((p) => [...p, { id, msg, type }]);
-    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 3500);
-  }, []);
 
   const handleAiCopilotSubmit = async (queryText) => {
     const text = queryText || globalSearch || aiPrompt;
@@ -855,6 +857,8 @@ export default function Billing() {
     }
   };
 
+  const applyUnlistedTax = Boolean(taxBackup?.apply_to_unlisted_items);
+
   const addOrMergeProduct = useCallback((product, qtyToAdd = 1) => {
     if (!product) return;
     const p = productById[product.id] || productById[product.product_id] || product;
@@ -862,7 +866,7 @@ export default function Billing() {
     const qtyNum = Number(qtyToAdd) || 1;
     // Saved sale price + its GST mode come straight from the API record.
     const posPricing = resolveProductPricing(p, { use: "sale" });
-    if (!p.sale_price_type && taxBackup?.apply_to_unlisted_items) {
+    if (!p.sale_price_type && applyUnlistedTax) {
       posPricing.priceType = activeTaxMode === "inclusive" ? "with_gst" : "without_gst";
       posPricing.mode = posPricing.priceType;
     }
@@ -977,7 +981,7 @@ export default function Billing() {
     setShowNoResult(false);
     justSelectedRef.current = true;
     globalSearchRef.current?.focus();
-  }, [productById, showToast, setRows, stockSafety, cashierSecurity]);
+  }, [productById, showToast, setRows, stockSafety, cashierSecurity, activeTaxMode, applyUnlistedTax]);
 
   /* Quick Add (POS) - the limited popup saved the searched product to the
      database, so make it searchable and put it straight onto the active bill.
@@ -1174,7 +1178,7 @@ export default function Billing() {
     try {
       const res = await api.get(`/customer/get_customer_by_id?id=${id}`);
       if (res.data.status && res.data.data) return res.data.data;
-    } catch { }
+    } catch { /* intentionally ignored */ }
     return null;
   };
 
@@ -1277,7 +1281,7 @@ export default function Billing() {
         setAddCustomerAddress("");
         setAddCustomerGstNo("");
         setShowAddCustomer(true);
-      } catch { }
+      } catch { /* intentionally ignored */ }
       setCustomerSearchLoading(false);
     }, 300);
   };

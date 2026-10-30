@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Lock, Unlock, ShieldAlert, LogOut, ArrowRight, UserCheck, Clock } from "lucide-react";
+import { Lock, Unlock, LogOut, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../utils/i18n";
-import { useCashierSecurity } from "../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../context/cashierSecurity";
 
 export default function AutoScreenLock() {
   const navigate = useNavigate();
@@ -22,6 +22,16 @@ export default function AutoScreenLock() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isShaking, setIsShaking] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [wasLocked, setWasLocked] = useState(isLocked);
+
+  // Reset the PIN entry whenever the screen becomes locked.
+  if (isLocked !== wasLocked) {
+    setWasLocked(isLocked);
+    if (isLocked) {
+      setPin("");
+      setErrorMsg("");
+    }
+  }
 
   const user = (() => {
     try {
@@ -46,7 +56,7 @@ export default function AutoScreenLock() {
     setIsLocked(true);
     try {
       sessionStorage.setItem("screen_locked", "true");
-    } catch {}
+    } catch { /* intentionally ignored */ }
   }, []);
 
   // Inactivity timer logic
@@ -83,8 +93,6 @@ export default function AutoScreenLock() {
   // Focus input when locked
   useEffect(() => {
     if (isLocked) {
-      setPin("");
-      setErrorMsg("");
       setTimeout(() => pinInputRef.current?.focus(), 150);
     }
   }, [isLocked]);
@@ -97,7 +105,7 @@ export default function AutoScreenLock() {
       setErrorMsg("");
       try {
         sessionStorage.removeItem("screen_locked");
-      } catch {}
+      } catch { /* intentionally ignored */ }
     } else {
       setErrorMsg(isTamil ? "தவறான PIN! மீண்டும் முயற்சிக்கவும்." : "Invalid PIN! Please try again.");
       setIsShaking(true);
@@ -113,7 +121,7 @@ export default function AutoScreenLock() {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-    } catch {}
+    } catch { /* intentionally ignored */ }
     navigate("/login");
   };
 

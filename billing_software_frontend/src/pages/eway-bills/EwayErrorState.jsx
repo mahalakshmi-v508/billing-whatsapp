@@ -1,5 +1,5 @@
-import React from "react";
-import { AlertCircle, RefreshCw, HelpCircle } from "lucide-react";
+import "react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 export default function EwayErrorState({
   title = "Failed to load E-Way Bill data",

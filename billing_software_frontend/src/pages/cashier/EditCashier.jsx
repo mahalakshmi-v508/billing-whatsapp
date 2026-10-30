@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import {
@@ -31,10 +31,10 @@ export default function EditCashier({
   const [toast, setToast] = useState(null);
   const [errors, setErrors] = useState({});
 
-  const showToast = (msg, ok = true) => {
+  const showToast = useCallback((msg, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3500);
-  };
+  }, []);
 
   const handleClose = () => {
     if (onClose) {
@@ -44,30 +44,30 @@ export default function EditCashier({
     }
   };
 
-  const fetchCashier = async () => {
-    if (!id) return;
-    setFetching(true);
-    try {
-      const res = await api.get(`/cashier/get_cashier_by_id?id=${id}`);
-      if (res.data?.status) {
-        setForm({
-          name: res.data.data.name || "",
-          email: res.data.data.email || "",
-          password: "",
-        });
-      } else {
-        showToast("Failed to load cashier details", false);
-      }
-    } catch {
-      showToast("Server error while loading cashier details", false);
-    } finally {
-      setFetching(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchCashier = async () => {
+      if (!id) return;
+      setFetching(true);
+      try {
+        const res = await api.get(`/cashier/get_cashier_by_id?id=${id}`);
+        if (res.data?.status) {
+          setForm({
+            name: res.data.data.name || "",
+            email: res.data.data.email || "",
+            password: "",
+          });
+        } else {
+          showToast("Failed to load cashier details", false);
+        }
+      } catch {
+        showToast("Server error while loading cashier details", false);
+      } finally {
+        setFetching(false);
+      }
+    };
+
     fetchCashier();
-  }, [id]);
+  }, [id, showToast]);
 
   const set = (k, v) => {
     setForm((p) => ({ ...p, [k]: v }));

@@ -1,45 +1,37 @@
 import { useState, useEffect } from "react";
 import api from "../../services/api";
-import { X, User, Phone, Mail, Building, MapPin, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, User, CheckCircle2, AlertCircle } from "lucide-react";
+
+const EMPTY_FORM = {
+  supplier_name: "",
+  mobile_number: "",
+  alt_mobile: "",
+  email: "",
+  gst_number: "",
+  address: "",
+  city: "",
+  district: "",
+  state: "Tamil Nadu",
+  pincode: "",
+  country: "India",
+};
 
 export default function AddSupplierModal({ isOpen, onClose, companyId, onSupplierAdded }) {
-  const [form, setForm] = useState({
-    supplier_name: "",
-    mobile_number: "",
-    alt_mobile: "",
-    email: "",
-    gst_number: "",
-    address: "",
-    city: "",
-    district: "",
-    state: "Tamil Nadu",
-    pincode: "",
-    country: "India",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
     if (isOpen) {
-      setForm({
-        supplier_name: "",
-        mobile_number: "",
-        alt_mobile: "",
-        email: "",
-        gst_number: "",
-        address: "",
-        city: "",
-        district: "",
-        state: "Tamil Nadu",
-        pincode: "",
-        country: "India",
-      });
+      setForm(EMPTY_FORM);
       setError("");
       setSuccess("");
     }
-  }, [isOpen]);
+  }
 
   useEffect(() => {
     if (isOpen) {

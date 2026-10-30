@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
-import { useCashierSecurity } from "../../context/CashierSecurityContext";
+import { useCashierSecurity } from "../../context/cashierSecurity";
 import {
   X,
   RefreshCw,
@@ -16,12 +16,10 @@ import {
   FileText,
   AlertCircle,
   CheckCircle2,
-  ChevronDown,
   Eye,
   EyeOff,
   Plus,
   Lock,
-  Calendar,
   Wallet,
   Clock,
   ArrowRight,
@@ -108,30 +106,35 @@ export default function CustomerForm({ onSuccess, onCancel }) {
   const [confirmAction, setConfirmAction] = useState(null);
 
   useEffect(() => {
-    const phone = form.phone.trim();
-    if (phone.length !== 10) {
-      setPhoneExists(false);
-      setCheckingPhone(false);
-      return undefined;
-    }
-
     let cancelled = false;
-    const checkPhone = async () => {
-      setCheckingPhone(true);
-      try {
-        const user = JSON.parse(localStorage.getItem("user"));
-        const res = await api.get("/customer/get_by_phone", {
-          params: { phone, admin_id: user?.id },
-        });
-        if (!cancelled) setPhoneExists(Boolean(res.data?.status));
-      } catch (err) {
-        if (!cancelled) setPhoneExists(false);
-      } finally {
-        if (!cancelled) setCheckingPhone(false);
+
+    const run = async () => {
+      const phone = form.phone.trim();
+      if (phone.length !== 10) {
+        setPhoneExists(false);
+        setCheckingPhone(false);
+        return;
       }
+
+      const checkPhone = async () => {
+        setCheckingPhone(true);
+        try {
+          const user = JSON.parse(localStorage.getItem("user"));
+          const res = await api.get("/customer/get_by_phone", {
+            params: { phone, admin_id: user?.id },
+          });
+          if (!cancelled) setPhoneExists(Boolean(res.data?.status));
+        } catch (err) {
+          if (!cancelled) setPhoneExists(false);
+        } finally {
+          if (!cancelled) setCheckingPhone(false);
+        }
+      };
+
+      await checkPhone();
     };
 
-    checkPhone();
+    run();
     return () => {
       cancelled = true;
     };

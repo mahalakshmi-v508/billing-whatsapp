@@ -10,8 +10,6 @@ import {
   UserPlus,
   X,
   RefreshCw,
-  ArrowLeft,
-  CheckCircle2,
   AlertCircle,
   ShieldCheck,
 } from "lucide-react";
@@ -79,10 +77,7 @@ export default function CashierForm({ isOpen = true, onClose, onSuccess }) {
       });
 
       const msg = res.data.message || "";
-      const isOk =
-        res.data.status ||
-        msg.toLowerCase().includes("limit") ||
-        msg.toLowerCase().includes("request");
+      
 
       if (res.data.status) {
         showToast(res.data.message || "Cashier account created successfully!", true);

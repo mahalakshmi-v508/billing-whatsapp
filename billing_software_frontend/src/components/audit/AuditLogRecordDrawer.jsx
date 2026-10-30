@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   X,
   History,
@@ -32,24 +32,24 @@ export default function AuditLogRecordDrawer({ open, onClose, recordType, record
     return () => window.removeEventListener("company-settings-updated", sync);
   }, []);
 
-  const load = useCallback(async () => {
-    if (!open || !recordType || !recordId) return;
-
-    setLoading(true);
-    setError("");
-    try {
-      setRows(await fetchRecordHistory(recordType, recordId));
-    } catch {
-      setError("Could not load the history for this record.");
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [open, recordType, recordId]);
-
   useEffect(() => {
+    const load = async () => {
+      if (!open || !recordType || !recordId) return;
+
+      setLoading(true);
+      setError("");
+      try {
+        setRows(await fetchRecordHistory(recordType, recordId));
+      } catch {
+        setError("Could not load the history for this record.");
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     load();
-  }, [load]);
+  }, [open, recordType, recordId]);
 
   if (!enabled || !open) return null;
 

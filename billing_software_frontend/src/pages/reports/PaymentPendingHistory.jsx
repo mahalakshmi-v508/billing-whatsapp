@@ -362,18 +362,18 @@ export default function PaymentPendingHistory() {
 
   // ✅ FETCH DATA
 
-  const fetchData = async () => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const admin_id = user?.role === "cashier" ? user?.admin_id : user?.id;
-
-    const res = await api.get(`/invoice/get_pending_invoice_history?admin_id=${admin_id}`);
-
-    if (res.data.status) {
-      setData(res.data.data);
-    }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const admin_id = user?.role === "cashier" ? user?.admin_id : user?.id;
+
+      const res = await api.get(`/invoice/get_pending_invoice_history?admin_id=${admin_id}`);
+
+      if (res.data.status) {
+        setData(res.data.data);
+      }
+    };
+
     fetchData();
   }, []);
 

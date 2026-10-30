@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BarChart3, ChevronDown, FileSpreadsheet, Printer, RefreshCw, AlertCircle, Calendar, Receipt, TrendingUp, ShoppingBag, DollarSign } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -101,15 +101,7 @@ export default function GSTRateReport() {
   const safePage = Math.min(page, totalPages);
   const pagedRows = rows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
 
-  const analyticsRows = useMemo(() => {
-    if (!rows.length) return [];
-    return rows.map((row) => ({
-      date: "",
-      group: `${row.tax_name} (${row.tax_percent}%)`,
-      value: Number(row.taxable_sale_amount || 0),
-      count: 1,
-    }));
-  }, [rows]);
+  
 
   const netTax = (totals.tax_in || 0) - (totals.tax_out || 0);
 

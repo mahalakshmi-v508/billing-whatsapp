@@ -6,7 +6,6 @@ import {
   Check,
   Send,
   ShieldAlert,
-  Info,
   Sparkles,
   Smartphone,
   CheckCheck,
@@ -15,26 +14,18 @@ import {
   Receipt,
   CreditCard,
   Phone,
-  Wifi,
-  WifiOff,
-  Building2,
   Search,
-  CheckCircle2,
-  ExternalLink,
-  Zap,
-  Tag,
   Sliders,
   Calendar,
   IndianRupee,
-  Layers,
-  X
+  Layers
 } from "lucide-react";
 import api from "../../services/api";
 import { getCompanyId } from "./settingsApi";
 import { useSettings } from "./SettingsContext";
-import { SettingsShell, Badge, Toggle, InfoIcon } from "./settingsUI";
+import { SettingsShell, Badge, Toggle } from "./settingsUI";
 
-const blue = "#2563eb";
+
 
 /* ─── TRANSACTION TYPES & METADATA ─────────────────────────────────────────── */
 const TYPES = [
@@ -109,10 +100,7 @@ function fieldForVariant(variant) {
 }
 
 /** The message content stored for a variant on a settings row. */
-function messageForVariant(row, variant) {
-  if (!row) return "";
-  return row[fieldForVariant(variant)] || "";
-}
+
 
 /** Mirrors the server-side line/token suppression rules for the live preview. */
 function renderPreview(template, ctx, s) {
@@ -169,13 +157,13 @@ export default function TransactionMessage() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [previewCtx, setPreviewCtx] = useState(null);
-  const [firm, setFirm] = useState({ name: "", phone: "" });
-  const [loaded, setLoaded] = useState(false);
+  const [, setFirm] = useState({ name: "", phone: "" });
+  const [, setLoaded] = useState(false);
 
   // connection
   const [conn, setConn] = useState({ status: "disconnected", qr: null, phone: null, name: null });
   const [connecting, setConnecting] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
+  const [, setShowQrModal] = useState(false);
 
   // save feedback
   const [savedAt, setSavedAt] = useState(null);
@@ -256,19 +244,22 @@ export default function TransactionMessage() {
 
   // ── preview context per selected type ──
   useEffect(() => {
-    if (!companyId || !selectedType) {
-      setPreviewCtx(null);
-      return;
-    }
     let cancelled = false;
-    api
-      .get("/transaction-messages/preview-data", {
-        params: { company_id: companyId, transaction_type: selectedType },
-      })
-      .then((res) => {
-        if (!cancelled && res.data.status) setPreviewCtx(res.data.data);
-      })
-      .catch(() => setPreviewCtx(null));
+    const loadPreviewCtx = async () => {
+      if (!companyId || !selectedType) {
+        setPreviewCtx(null);
+        return;
+      }
+      api
+        .get("/transaction-messages/preview-data", {
+          params: { company_id: companyId, transaction_type: selectedType },
+        })
+        .then((res) => {
+          if (!cancelled && res.data.status) setPreviewCtx(res.data.data);
+        })
+        .catch(() => setPreviewCtx(null));
+    };
+    loadPreviewCtx();
     return () => {
       cancelled = true;
     };
