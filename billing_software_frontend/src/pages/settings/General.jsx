@@ -50,8 +50,8 @@ import { AUDIT_SETTINGS_KEY, DEFAULT_AUDIT_SETTINGS } from "../../components/aud
 import { applyTheme, applyLanguage } from "../../utils/themeInitializer";
 
 
-const blue = "#2563eb";
-
+const brandColor = "#4f46e5";
+const gradient = "linear-gradient(135deg, #1f8cff 0%, #4338ca 100%)";
 
 const DEFAULT_PREFERENCES = {
   currency: "₹ Indian Rupee (INR)",
@@ -310,7 +310,7 @@ function GeneralSettings() {
       {/* ── Toast Notification ── */}
       {toast && (
         <div className="fixed top-6 right-6 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3 duration-200">
-          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[11px]">
+          <div className="w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-[11px]">
             ✓
           </div>
           <span>{toast}</span>
@@ -322,7 +322,7 @@ function GeneralSettings() {
         <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/30 shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
               <Building2 size={24} />
             </div>
             <div>
@@ -330,10 +330,10 @@ function GeneralSettings() {
                 <h1 className="text-lg md:text-xl font-black tracking-tight text-white">
                   {activeCompanyObj ? activeCompanyObj.company_name : isTamil ? "பணியிட அமைப்பு" : "Workspace Setup"}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-[11px] font-bold flex items-center gap-1">
-                  <Crown size={11} className="text-amber-400" /> {isTamil ? "முதன்மை பணியிடம்" : "Default Workspace"}
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold flex items-center gap-1">
+                  <Crown size={11} className="text-indigo-300" /> {isTamil ? "முதன்மை பணியிடம்" : "Default Workspace"}
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold flex items-center gap-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold flex items-center gap-1">
                   <CheckCircle2 size={11} /> {isTamil ? "செயலில் உள்ளது" : "Ready & Active"}
                 </span>
               </div>
@@ -352,7 +352,7 @@ function GeneralSettings() {
               disabled={loading}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 text-white border border-white/15 text-xs font-bold transition shadow-xs cursor-pointer"
             >
-              <RefreshCw size={13} className={loading ? "animate-spin text-blue-400" : ""} />
+              <RefreshCw size={13} className={loading ? "animate-spin text-indigo-300" : ""} />
               <span>{isTamil ? "நிறுவனங்களைப் புதுப்பி" : "Refresh Firms"}</span>
             </button>
           </div>
@@ -369,7 +369,7 @@ function GeneralSettings() {
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
               <div className="flex items-center gap-2.5">
-                <span className="w-1.5 h-4 rounded-full bg-blue-600" />
+                <span className="w-1.5 h-4 rounded-full bg-indigo-600" />
                 <h2 className="text-sm font-bold text-slate-900">Multi Firm Management</h2>
                 <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold">
                   {companies.length} Registered
@@ -384,7 +384,7 @@ function GeneralSettings() {
                   value={firmSearch}
                   onChange={(e) => setFirmSearch(e.target.value)}
                   placeholder="Search firms by name/GST..."
-                  className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-2xs"
+                  className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition shadow-2xs"
                 />
               </div>
             </div>
@@ -396,7 +396,7 @@ function GeneralSettings() {
 
               {loading ? (
                 <div className="py-12 text-center text-xs text-slate-400 font-medium flex flex-col items-center justify-center gap-2">
-                  <RefreshCw size={20} className="animate-spin text-blue-600" />
+                  <RefreshCw size={20} className="animate-spin text-indigo-600" />
                   <span>Loading registered firms...</span>
                 </div>
               ) : filteredCompanies.length === 0 ? (
@@ -412,7 +412,7 @@ function GeneralSettings() {
                         key={company.id}
                         onClick={() => handleSetDefaultCompany(company)}
                         className={`group p-4 rounded-xl border-2 transition-all cursor-pointer select-none relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isSelected
-                          ? "border-blue-600 bg-blue-50/50 shadow-sm ring-2 ring-blue-500/10"
+                          ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-500/15 dark:border-indigo-500 shadow-sm ring-2 ring-indigo-500/10"
                           : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/70"
                           }`}
                       >
@@ -423,18 +423,18 @@ function GeneralSettings() {
                               name="default_company_radio"
                               checked={isSelected}
                               onChange={() => handleSetDefaultCompany(company)}
-                              className="cursor-pointer w-4 h-4 text-blue-600 focus:ring-blue-500"
-                              style={{ accentColor: blue }}
+                              className="cursor-pointer w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                              style={{ accentColor: brandColor }}
                             />
                           </div>
 
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[13.5px] font-bold text-slate-900 group-hover:text-blue-700 transition">
+                              <span className="text-[13.5px] font-bold text-slate-900 group-hover:text-indigo-700 transition">
                                 {company.company_name}
                               </span>
                               {isSelected && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-blue-600 text-white px-2 py-0.5 rounded-md shadow-xs">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-indigo-600 text-white px-2 py-0.5 rounded-md shadow-xs">
                                   <Crown size={10} /> DEFAULT FIRM
                                 </span>
                               )}
@@ -465,7 +465,7 @@ function GeneralSettings() {
 
                         <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                           {isSelected ? (
-                            <span className="text-xs font-bold text-blue-600 flex items-center gap-1 bg-blue-100/70 px-2.5 py-1 rounded-lg">
+                            <span className="text-xs font-bold text-indigo-600 flex items-center gap-1 bg-indigo-50 px-2.5 py-1 rounded-lg">
                               <Check size={13} strokeWidth={2.5} /> Active
                             </span>
                           ) : (
@@ -487,7 +487,7 @@ function GeneralSettings() {
             <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5">
               <div className="flex items-center justify-between mb-3.5">
                 <div className="flex items-center gap-2">
-                  <Building2 size={16} className="text-blue-600" />
+                  <Building2 size={16} className="text-indigo-600" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                     Active Workspace Details
                   </h3>
@@ -529,11 +529,11 @@ function GeneralSettings() {
           ══════════════════════════════════════════════════════════════ */}
           <div className="bg-white rounded-2xl border-2 border-indigo-200/90 dark:border-indigo-900/60 shadow-xs p-5 space-y-5 relative overflow-hidden">
             {/* Top gradient decorative glow */}
-            <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-indigo-500/10 via-violet-500/5 to-transparent rounded-bl-full pointer-events-none" />
+            <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-indigo-500/10 via-indigo-500/5 to-transparent rounded-bl-full pointer-events-none" />
 
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 relative z-10">
               <div className="flex items-center gap-2.5">
-                <span className="w-2 h-5 rounded-full bg-gradient-to-b from-indigo-600 via-violet-600 to-purple-600" />
+                <span className="w-2 h-5 rounded-full bg-gradient-to-b from-indigo-600 to-indigo-400" />
                 <div>
                   <h2 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <span>{isTamil ? "7. 🎨 காட்சி & தோற்றம்" : "7. 🎨 Display & Theme"}</span>
@@ -654,7 +654,7 @@ function GeneralSettings() {
                       : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900/40"
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
                     <Sun size={17} />
                   </div>
                   <div className="min-w-0">
@@ -782,19 +782,19 @@ function GeneralSettings() {
           {/* Card: Billing & POS Operational Behaviors */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
             <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-              <span className="w-1.5 h-4 rounded-full bg-emerald-600" />
+              <span className="w-1.5 h-4 rounded-full bg-indigo-600" />
               <h2 className="text-sm font-bold text-slate-900">Application & POS Preferences</h2>
             </div>
 
             {/* Default Payment Mode */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <CreditCard size={14} className="text-emerald-600" /> Default Payment Mode on Transactions
+                <CreditCard size={14} className="text-indigo-600" /> Default Payment Mode on Transactions
               </label>
               <select
                 value={preferences.defaultPaymentMode}
                 onChange={(e) => updatePreference("defaultPaymentMode", e.target.value)}
-                className="w-full px-3.5 py-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                className="w-full px-3.5 py-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
               >
                 {PAYMENT_MODES.map((pm) => (
                   <option key={pm.id} value={pm.id}>
@@ -837,13 +837,13 @@ function GeneralSettings() {
           </div>
 
           {/* Card: Custom Fields Quick Access */}
-          <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/50 rounded-2xl border border-indigo-200/80 p-5 space-y-3.5">
+          <div className="bg-gradient-to-br from-indigo-50/70 to-indigo-50/50 dark:from-slate-800 dark:to-slate-800 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 p-5 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <Sliders size={15} className="text-indigo-600" />
+                <Sliders size={15} className="text-indigo-600 dark:text-indigo-400" />
                 <span>{isTamil ? "கூடுதல் ஃபீல்டுகள் (Custom Fields)" : "Product Custom Fields"}</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700">
                 Custom Fields
               </span>
             </div>
@@ -866,13 +866,13 @@ function GeneralSettings() {
           </div>
 
           {/* Card: POS & Counter Controls Quick Access */}
-          <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/50 rounded-2xl border border-indigo-200/80 p-5 space-y-3.5">
+          <div className="bg-gradient-to-br from-indigo-50/70 to-indigo-50/50 dark:from-slate-800 dark:to-slate-800 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 p-5 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <Zap size={15} className="text-amber-500" />
+                <Zap size={15} className="text-indigo-600 dark:text-indigo-400" />
                 <span>{isTamil ? "பில்லிங் & கவுண்டர் அமைப்புகள்" : "POS & Counter Controls"}</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700">
                 Fast POS
               </span>
             </div>
@@ -895,13 +895,13 @@ function GeneralSettings() {
           </div>
 
           {/* Card: Stock & Inventory Safety Quick Access */}
-          <div className="bg-gradient-to-br from-rose-50/70 to-amber-50/50 rounded-2xl border border-rose-200/80 p-5 space-y-3.5">
+          <div className="bg-gradient-to-br from-indigo-50/70 to-indigo-50/50 dark:from-slate-800 dark:to-slate-800 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 p-5 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <Boxes size={15} className="text-rose-600" />
+                <Boxes size={15} className="text-indigo-600 dark:text-indigo-400" />
                 <span>{isTamil ? "ஸ்டாக் & இன்வென்டரி பாதுகாப்பு" : "Stock & Inventory Safety"}</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-700">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700">
                 Safety Shield
               </span>
             </div>
@@ -916,7 +916,7 @@ function GeneralSettings() {
                 setSettingsTab("stock-safety");
                 navigate("/settings/stock-safety");
               }}
-              className="w-full py-2 px-3 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-rose-600/20"
+              className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-indigo-600/20"
             >
               <span>{isTamil ? "இருப்பு பாதுகாப்பு அமைப்புகளைத் திற" : "Open Stock Safety Controls"}</span>
               <ArrowRight size={13} />
@@ -924,13 +924,13 @@ function GeneralSettings() {
           </div>
 
           {/* Card: Cashier & Security Controls Quick Access */}
-          <div className="bg-gradient-to-br from-purple-50/70 to-indigo-50/50 rounded-2xl border border-purple-200/80 p-5 space-y-3.5">
+          <div className="bg-gradient-to-br from-indigo-50/70 to-indigo-50/50 dark:from-slate-800 dark:to-slate-800 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 p-5 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <Lock size={15} className="text-purple-600" />
+                <Lock size={15} className="text-indigo-600 dark:text-indigo-400" />
                 <span>{isTamil ? "3. 🔒 கேஷியர் & செக்யூரிட்டி" : "3. Cashier & Security Controls"}</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-700">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700">
                 Staff Restrictions
               </span>
             </div>
@@ -945,7 +945,7 @@ function GeneralSettings() {
                 setSettingsTab("cashier-security");
                 navigate("/settings/cashier-security");
               }}
-              className="w-full py-2 px-3 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-purple-600/20"
+              className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-indigo-600/20"
             >
               <span>{isTamil ? "கேஷியர் பாதுகாப்பு அமைப்புகளைத் திற" : "Open Cashier & Security Settings"}</span>
               <ArrowRight size={13} />
@@ -953,13 +953,13 @@ function GeneralSettings() {
           </div>
 
           {/* Card: WhatsApp Defaults Quick Access */}
-          <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/50 rounded-2xl border border-emerald-200/80 p-5 space-y-3.5">
+          <div className="bg-gradient-to-br from-indigo-50/70 to-indigo-50/50 dark:from-slate-800 dark:to-slate-800 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 p-5 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <MessageCircle size={15} className="text-emerald-600" />
+                <MessageCircle size={15} className="text-indigo-600 dark:text-indigo-400" />
                 <span>{isTamil ? "4. 💬 வாட்ஸ்அப் அமைப்புகள்" : "4. WhatsApp Defaults"}</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-700">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700">
                 WhatsApp Defaults
               </span>
             </div>
@@ -974,7 +974,7 @@ function GeneralSettings() {
                 setSettingsTab("whatsapp-defaults");
                 navigate("/settings/whatsapp-defaults");
               }}
-              className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-emerald-600/20"
+              className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-indigo-600/20"
             >
               <span>{isTamil ? "வாட்ஸ்அப் அமைப்புகளைத் திற" : "Open WhatsApp Default Settings"}</span>
               <ArrowRight size={13} />
@@ -982,13 +982,13 @@ function GeneralSettings() {
           </div>
 
           {/* Card: Store & Counter Setup Quick Access */}
-          <div className="bg-gradient-to-br from-blue-50/70 to-indigo-50/50 rounded-2xl border border-blue-200/80 p-5 space-y-3.5">
+          <div className="bg-gradient-to-br from-indigo-50/70 to-indigo-50/50 dark:from-slate-800 dark:to-slate-800 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 p-5 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <Store size={15} className="text-blue-600" />
+                <Store size={15} className="text-indigo-600 dark:text-indigo-400" />
                 <span>{isTamil ? "5. 🏢 கடை & கவுண்டர் விவரங்கள்" : "5. Store & Counter Setup"}</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-700">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700">
                 Store Setup
               </span>
             </div>
@@ -1003,7 +1003,7 @@ function GeneralSettings() {
                 setSettingsTab("store-setup");
                 navigate("/settings/store-setup");
               }}
-              className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-blue-600/20"
+              className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-indigo-600/20"
             >
               <span>{isTamil ? "கடை அமைப்புகளைத் திற" : "Open Store & Counter Settings"}</span>
               <ArrowRight size={13} />
@@ -1011,13 +1011,13 @@ function GeneralSettings() {
           </div>
 
           {/* Card: Tax & Backup Quick Access */}
-          <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/50 rounded-2xl border border-emerald-200/80 p-5 space-y-3.5">
+          <div className="bg-gradient-to-br from-indigo-50/70 to-indigo-50/50 dark:from-slate-800 dark:to-slate-800 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/30 p-5 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                <Coins size={15} className="text-emerald-600" />
+                <Coins size={15} className="text-indigo-600 dark:text-indigo-400" />
                 <span>{isTamil ? "6. 💰 வரி & பேக்கப்" : "6. Tax & Backup"}</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-700">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700">
                 Tax & Backup
               </span>
             </div>
@@ -1032,7 +1032,7 @@ function GeneralSettings() {
                 setSettingsTab("tax-backup");
                 navigate("/settings/tax-backup");
               }}
-              className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-emerald-600/20"
+              className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-indigo-600/20"
             >
               <span>{isTamil ? "வரி & பேக்கப் அமைப்புகளைத் திற" : "Open Tax & Backup Settings"}</span>
               <ArrowRight size={13} />
@@ -1049,7 +1049,7 @@ function GeneralSettings() {
               <span
                 className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
                   auditSettings.enabled
-                    ? "bg-emerald-100 text-emerald-700"
+                    ? "bg-indigo-50 text-indigo-700"
                     : "bg-slate-200 text-slate-500"
                 }`}
               >
@@ -1115,10 +1115,10 @@ function GeneralSettings() {
           <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                <User size={15} className="text-blue-600" />
+                <User size={15} className="text-indigo-600" />
                 <span>Logged In Account</span>
               </div>
-              <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-bold uppercase">
+              <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase">
                 {user.role || "Admin"}
               </span>
             </div>
@@ -1131,7 +1131,7 @@ function GeneralSettings() {
 
             <div className="flex items-center justify-between pt-1">
               <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                 Backend Sync Active
               </span>
               <button
@@ -1144,7 +1144,7 @@ function GeneralSettings() {
                     /* ignore */
                   }
                 }}
-                className="text-[11px] font-bold text-blue-600 hover:text-blue-800 transition cursor-pointer"
+                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
               >
                 Clear Settings Cache
               </button>

@@ -72,7 +72,7 @@ export default function PosSettings() {
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-6 right-6 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3 duration-200">
-          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[11px]">
+          <div className="w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-[11px]">
             ✓
           </div>
           <span>{toast}</span>
@@ -84,7 +84,7 @@ export default function PosSettings() {
         <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
               <Zap size={24} />
             </div>
             <div>
@@ -92,7 +92,7 @@ export default function PosSettings() {
                 <h1 className="text-lg md:text-xl font-black tracking-tight text-white">
                   {isTamil ? "பில்லிங் & கவுண்டர் கட்டுப்பாடுகள்" : "POS Counter Controls & Speed Engine"}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold flex items-center gap-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold flex items-center gap-1">
                   <CheckCircle2 size={11} /> {isTamil ? "நேரலை தயார்" : "Live Sync Active"}
                 </span>
               </div>
@@ -112,10 +112,10 @@ export default function PosSettings() {
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between hover:border-indigo-300 transition-all">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
                 <Printer size={20} />
               </div>
-              <Badge tone={settings.auto_print_on_save ? "green" : "gray"}>
+              <Badge tone={settings.auto_print_on_save ? "blue" : "gray"}>
                 {settings.auto_print_on_save
                   ? isTamil
                     ? "செயலில் உள்ளது"
@@ -153,10 +153,10 @@ export default function PosSettings() {
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between hover:border-indigo-300 transition-all">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
                 <Phone size={20} />
               </div>
-              <Badge tone={settings.mandatory_customer_mobile ? "amber" : "gray"}>
+              <Badge tone={settings.mandatory_customer_mobile ? "blue" : "gray"}>
                 {settings.mandatory_customer_mobile
                   ? isTamil
                     ? "கட்டாயம் (Mandatory)"
@@ -197,10 +197,10 @@ export default function PosSettings() {
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between hover:border-indigo-300 transition-all">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
                 <Barcode size={20} />
               </div>
-              <Badge tone={settings.barcode_scanner_speed_mode ? "green" : "gray"}>
+              <Badge tone={settings.barcode_scanner_speed_mode ? "blue" : "gray"}>
                 {settings.barcode_scanner_speed_mode
                   ? isTamil
                     ? "அதிவேகம் (Active)"
@@ -241,10 +241,10 @@ export default function PosSettings() {
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between hover:border-indigo-300 transition-all">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
                 <RotateCcw size={20} />
               </div>
-              <Badge tone={settings.auto_clear_cart_after_save ? "green" : "gray"}>
+              <Badge tone={settings.auto_clear_cart_after_save ? "blue" : "gray"}>
                 {settings.auto_clear_cart_after_save
                   ? isTamil
                     ? "செயலில் உள்ளது"
@@ -308,14 +308,14 @@ export default function PosSettings() {
             onClick={() => handleScreenChange("quick")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.default_billing_screen === "quick"
-                ? "border-blue-600 bg-blue-50/40 shadow-sm dark:bg-blue-500/15"
+                ? "border-indigo-600 bg-indigo-50/40 shadow-sm dark:bg-indigo-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
             <div
               className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                 settings.default_billing_screen === "quick"
-                  ? "border-blue-600 bg-blue-600 text-white"
+                  ? "border-indigo-600 bg-indigo-600 text-white"
                   : "border-slate-300 bg-white"
               }`}
             >
@@ -323,11 +323,11 @@ export default function PosSettings() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Receipt size={16} className="text-blue-600 shrink-0" />
+                <Receipt size={16} className="text-indigo-600 shrink-0" />
                 <span className="text-sm font-bold text-slate-900">
                   {isTamil ? "விரைவு பில்லிங் (Quick POS Bill)" : "Quick POS Bill (/billing)"}
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
                   {isTamil ? "பரிந்துரைக்கப்படுகிறது" : "Recommended"}
                 </span>
               </div>
@@ -344,14 +344,14 @@ export default function PosSettings() {
             onClick={() => handleScreenChange("detailed")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.default_billing_screen === "detailed"
-                ? "border-blue-600 bg-blue-50/40 shadow-sm dark:bg-blue-500/15"
+                ? "border-indigo-600 bg-indigo-50/40 shadow-sm dark:bg-indigo-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
             <div
               className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                 settings.default_billing_screen === "detailed"
-                  ? "border-blue-600 bg-blue-600 text-white"
+                  ? "border-indigo-600 bg-indigo-600 text-white"
                   : "border-slate-300 bg-white"
               }`}
             >

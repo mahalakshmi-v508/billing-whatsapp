@@ -200,7 +200,7 @@ export default function WhatsAppDefaultSettings() {
           className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 text-xs font-bold transition-all transform animate-bounce ${
             toast.type === "error"
               ? "bg-rose-600 text-white"
-              : "bg-emerald-600 text-white"
+              : "bg-indigo-600 text-white"
           }`}
         >
           {toast.type === "error" ? (
@@ -217,16 +217,16 @@ export default function WhatsAppDefaultSettings() {
         <div
           className={`rounded-2xl border p-4.5 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
             connectionStatus.connected
-              ? "bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent border-emerald-500/30"
-              : "bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent border-amber-500/30"
+              ? "bg-gradient-to-r from-indigo-500/10 via-indigo-500/5 to-transparent border-indigo-500/30"
+              : "bg-gradient-to-r from-slate-500/10 via-slate-500/5 to-transparent border-slate-400/40"
           }`}
         >
           <div className="flex items-center gap-3.5">
             <div
               className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${
                 connectionStatus.connected
-                  ? "bg-emerald-600 text-white shadow-emerald-500/30"
-                  : "bg-amber-600 text-white shadow-amber-500/30"
+                  ? "bg-indigo-600 text-white shadow-indigo-500/30"
+                  : "bg-slate-600 text-white shadow-slate-500/30"
               }`}
             >
               <MessageCircle size={22} />
@@ -245,8 +245,8 @@ export default function WhatsAppDefaultSettings() {
                 <span
                   className={`w-2 h-2 rounded-full ${
                     connectionStatus.connected
-                      ? "bg-emerald-500 animate-pulse"
-                      : "bg-amber-500"
+                      ? "bg-indigo-500 animate-pulse"
+                      : "bg-slate-400"
                   }`}
                 />
               </div>
@@ -265,11 +265,7 @@ export default function WhatsAppDefaultSettings() {
           <button
             type="button"
             onClick={() => navigate("/whatsapp")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer shadow-sm ${
-              connectionStatus.connected
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
-                : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20"
-            }`}
+            className="px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 transition cursor-pointer shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20"
           >
             <span>
               {connectionStatus.connected
@@ -286,9 +282,9 @@ export default function WhatsAppDefaultSettings() {
 
         {/* ── CARD 1: DEFAULT COUNTRY CODE (+91) ── */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50/60 to-white dark:from-emerald-500/10 dark:to-slate-800">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50/60 to-white dark:from-indigo-500/10 dark:to-slate-800">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+              <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 flex items-center justify-center font-bold">
                 <Globe size={18} />
               </div>
               <div>
@@ -298,7 +294,7 @@ export default function WhatsAppDefaultSettings() {
                       ? "1. 📱 இயல்புநிலை நாட்டின் குறியீடு (Default Country Code)"
                       : "1. Default Country Code (+91)"}
                   </span>
-                  <Badge color="green">
+                  <Badge tone="blue">
                     {settings.default_country_code || "+91"}
                   </Badge>
                 </h3>
@@ -346,7 +342,7 @@ export default function WhatsAppDefaultSettings() {
                       onClick={() => handleCountryCodeSelect(item.code)}
                       className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${
                         isSelected
-                          ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-950 font-bold"
+                          ? "bg-indigo-50 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-900 font-bold"
                           : "bg-slate-50/70 border-slate-200/80 hover:bg-slate-100/70 text-slate-700"
                       }`}
                     >
@@ -360,7 +356,7 @@ export default function WhatsAppDefaultSettings() {
                         </div>
                       </div>
                       {isSelected && (
-                        <Check size={14} className="text-emerald-600" />
+                        <Check size={14} className="text-indigo-600 dark:text-indigo-400" />
                       )}
                     </button>
                   );
@@ -385,7 +381,7 @@ export default function WhatsAppDefaultSettings() {
                     value={settings.default_country_code || "+91"}
                     onChange={handleCustomCodeChange}
                     placeholder="+91"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500 font-mono"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500 font-mono"
                   />
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1">
@@ -399,20 +395,20 @@ export default function WhatsAppDefaultSettings() {
               <div className="bg-slate-50 rounded-xl border border-slate-200/80 p-3.5 space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                   <span className="flex items-center gap-1.5">
-                    <Sparkles size={13} className="text-emerald-600" />
+                    <Sparkles size={13} className="text-indigo-600 dark:text-indigo-400" />
                     <span>
                       {isTamil
                         ? "நேரடி சோதனை (Live Simulator)"
                         : "Live Cashier Simulator"}
                     </span>
                   </span>
-                  <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-100 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded">
                     {isTamil ? "தானியங்கு" : "Auto-Prefix"}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-mono font-bold border border-emerald-300">
+                  <span className="px-2 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-mono font-bold border border-indigo-200">
                     {activeCountryCode}
                   </span>
                   <input
@@ -421,7 +417,7 @@ export default function WhatsAppDefaultSettings() {
                     value={testPhone}
                     onChange={(e) => setTestPhone(e.target.value)}
                     placeholder="Enter 10 digits"
-                    className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
+                    className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
@@ -431,7 +427,7 @@ export default function WhatsAppDefaultSettings() {
                       ? "வாட்ஸ்அப் செல்லும் வடிவம்:"
                       : "WhatsApp Destination:"}
                   </span>
-                  <span className="font-mono font-bold text-emerald-700">
+                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-300">
                     {simulatedFullNumber}
                   </span>
                 </div>
@@ -442,9 +438,9 @@ export default function WhatsAppDefaultSettings() {
 
         {/* ── CARD 2: SEND DAILY SUMMARY TO OWNER ── */}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-teal-50/60 to-white dark:from-teal-500/10 dark:to-slate-800">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50/60 to-white dark:from-indigo-500/10 dark:to-slate-800">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
+              <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 flex items-center justify-center font-bold">
                 <TrendingUp size={18} />
               </div>
               <div>
@@ -454,7 +450,7 @@ export default function WhatsAppDefaultSettings() {
                       ? "2. 📊 முதலாளிக்கு தினசரி சேல்ஸ் கணக்கு (Send Daily Summary to Owner)"
                       : "2. Send Daily Summary to Owner"}
                   </span>
-                  <Badge color={settings.send_daily_summary_to_owner ? "emerald" : "gray"}>
+                  <Badge tone={settings.send_daily_summary_to_owner ? "blue" : "gray"}>
                     {settings.send_daily_summary_to_owner
                       ? isTamil
                         ? "செயல்பாட்டில்"
@@ -513,7 +509,7 @@ export default function WhatsAppDefaultSettings() {
                           ? "எ.கா: 9876543210 (10 இலக்கம் அல்லது நாட்டின் குறியீட்டுடன்)"
                           : "e.g. 9876543210 (10-digits or with country code)"
                       }
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:bg-white focus:border-teal-500"
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500"
                     />
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
@@ -540,7 +536,7 @@ export default function WhatsAppDefaultSettings() {
                       onChange={(e) =>
                         setSetting("daily_summary_time")(e.target.value)
                       }
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:bg-white focus:border-teal-500"
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:bg-white focus:border-indigo-500"
                     />
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
@@ -599,7 +595,7 @@ export default function WhatsAppDefaultSettings() {
                     type="button"
                     disabled={isSendingSummary}
                     onClick={handleSendDailySummaryNow}
-                    className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-teal-600/20"
+                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shadow-indigo-600/20"
                   >
                     {isSendingSummary ? (
                       <>
@@ -633,7 +629,7 @@ export default function WhatsAppDefaultSettings() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                   <span className="flex items-center gap-1.5">
-                    <MessageCircle size={14} className="text-teal-600" />
+                    <MessageCircle size={14} className="text-indigo-600 dark:text-indigo-400" />
                     <span>
                       {isTamil
                         ? "வாட்ஸ்அப் செய்தி முன்னோட்டம்"
@@ -646,10 +642,10 @@ export default function WhatsAppDefaultSettings() {
                 </div>
 
                 {/* Realistic WhatsApp Chat Bubble */}
-                <div className="bg-[#efeae2] p-4 rounded-2xl border border-slate-200 relative overflow-hidden font-sans shadow-inner">
+                <div className="bg-[#efeae2] dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 relative overflow-hidden font-sans shadow-inner">
                   {/* WhatsApp background pattern imitation */}
                   <div className="bg-white/95 rounded-2xl rounded-tl-none p-3.5 shadow-sm border border-slate-100 max-w-sm ml-auto space-y-2 text-slate-800">
-                    <div className="text-[12px] font-bold text-emerald-800 flex items-center gap-1 border-b border-emerald-100 pb-1.5">
+                    <div className="text-[12px] font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1 border-b border-slate-100 dark:border-slate-700 pb-1.5">
                       <span>📊</span>
                       <span>
                         {isTamil
@@ -710,16 +706,16 @@ export default function WhatsAppDefaultSettings() {
                       <span>✨ PaySplitX ERP</span>
                       <div className="flex items-center gap-1 font-mono">
                         <span>{settings.daily_summary_time || "21:00"}</span>
-                        <Check size={11} className="text-teal-600" />
-                        <Check size={11} className="-ml-2 text-teal-600" />
+                        <Check size={11} className="text-indigo-600 dark:text-indigo-400" />
+                        <Check size={11} className="-ml-2 text-indigo-600 dark:text-indigo-400" />
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Helpful Tip */}
-                <div className="bg-teal-50/70 border border-teal-200/80 rounded-xl p-3 text-[11px] text-teal-900 flex items-start gap-2">
-                  <ShieldCheck size={16} className="text-teal-600 flex-shrink-0 mt-0.5" />
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-[11px] text-indigo-900 flex items-start gap-2">
+                  <ShieldCheck size={16} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold">
                       {isTamil

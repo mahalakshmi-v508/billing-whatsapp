@@ -99,7 +99,7 @@ export default function StockSettings() {
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-6 right-6 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3 duration-200">
-          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[11px]">
+          <div className="w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-[11px]">
             ✓
           </div>
           <span>{toast}</span>
@@ -107,11 +107,11 @@ export default function StockSettings() {
       )}
 
       {/* Hero Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-sm relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 md:p-6 text-white border border-slate-800 shadow-sm relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/20 shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
               <ShieldAlert size={24} />
             </div>
             <div>
@@ -119,7 +119,7 @@ export default function StockSettings() {
                 <h1 className="text-lg md:text-xl font-black tracking-tight text-white">
                   {isTamil ? "இருப்பு & காலாவதி பாதுகாப்பு அமைப்புகள்" : "Inventory Stock & Expiry Safety Shield"}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold flex items-center gap-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-200 text-[11px] font-bold flex items-center gap-1">
                   <CheckCircle2 size={11} /> {isTamil ? "நேரலை தயார்" : "Live Protection Active"}
                 </span>
               </div>
@@ -137,7 +137,7 @@ export default function StockSettings() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
               <Ban size={20} />
             </div>
             <div>
@@ -146,13 +146,7 @@ export default function StockSettings() {
                   {isTamil ? "1. நெகட்டிவ் ஸ்டாக் கட்டுப்பாடு (Negative Stock Control)" : "1. Negative Stock Control"}
                 </h3>
                 <Badge
-                  tone={
-                    settings.negative_stock_mode === "block"
-                      ? "red"
-                      : settings.negative_stock_mode === "warning"
-                      ? "amber"
-                      : "gray"
-                  }
+                  tone={settings.negative_stock_mode === "allow" ? "gray" : "blue"}
                 >
                   {settings.negative_stock_mode === "block"
                     ? isTamil
@@ -182,14 +176,14 @@ export default function StockSettings() {
             onClick={() => handleNegativeStockChange("block")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.negative_stock_mode === "block"
-                ? "border-rose-600 bg-rose-50/40 shadow-sm dark:bg-rose-500/15"
+                ? "border-indigo-600 bg-indigo-50/40 shadow-sm dark:bg-indigo-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
             <div
               className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                 settings.negative_stock_mode === "block"
-                  ? "border-rose-600 bg-rose-600 text-white"
+                  ? "border-indigo-600 bg-indigo-600 text-white"
                   : "border-slate-300 bg-white"
               }`}
             >
@@ -200,7 +194,7 @@ export default function StockSettings() {
                 <span className="text-sm font-bold text-slate-900">
                   {isTamil ? "முழு தடை (Block Billing)" : "Strict Block (Recommended)"}
                 </span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700">
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700">
                   {isTamil ? "பரிந்துரை" : "Recommended"}
                 </span>
               </div>
@@ -217,14 +211,14 @@ export default function StockSettings() {
             onClick={() => handleNegativeStockChange("warning")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.negative_stock_mode === "warning"
-                ? "border-amber-600 bg-amber-50/40 shadow-sm dark:bg-amber-500/15"
+                ? "border-indigo-600 bg-indigo-50/40 shadow-sm dark:bg-indigo-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
             <div
               className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                 settings.negative_stock_mode === "warning"
-                  ? "border-amber-600 bg-amber-600 text-white"
+                  ? "border-indigo-600 bg-indigo-600 text-white"
                   : "border-slate-300 bg-white"
               }`}
             >
@@ -247,14 +241,14 @@ export default function StockSettings() {
             onClick={() => handleNegativeStockChange("allow")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.negative_stock_mode === "allow"
-                ? "border-slate-600 bg-slate-50/70 shadow-sm"
+                ? "border-indigo-600 bg-indigo-50/40 shadow-sm dark:bg-indigo-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
             <div
               className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                 settings.negative_stock_mode === "allow"
-                  ? "border-slate-600 bg-slate-600 text-white"
+                  ? "border-indigo-600 bg-indigo-600 text-white"
                   : "border-slate-300 bg-white"
               }`}
             >
@@ -278,7 +272,7 @@ export default function StockSettings() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
               <AlertTriangle size={20} />
             </div>
             <div>
@@ -286,7 +280,7 @@ export default function StockSettings() {
                 <h3 className="text-[15px] font-bold text-slate-900">
                   {isTamil ? "2. பில்லிங்கில் குறைந்த இருப்பு எச்சரிக்கை (Low Stock Alert at POS)" : "2. Low Stock Alert at POS"}
                 </h3>
-                <Badge tone={settings.low_stock_alert ? "amber" : "gray"}>
+                <Badge tone={settings.low_stock_alert ? "blue" : "gray"}>
                   {settings.low_stock_alert
                     ? isTamil
                       ? "செயலில் உள்ளது"
@@ -325,7 +319,7 @@ export default function StockSettings() {
                   max="999"
                   value={settings.low_stock_threshold || 5}
                   onChange={(e) => handleThresholdChange(e.target.value)}
-                  className="w-28 px-3 py-2 text-sm font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-amber-500 focus:bg-white transition"
+                  className="w-28 px-3 py-2 text-sm font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition"
                 />
                 <span className="text-xs text-slate-500">
                   {isTamil
@@ -363,7 +357,7 @@ export default function StockSettings() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0">
               <CalendarX2 size={20} />
             </div>
             <div>
@@ -372,13 +366,7 @@ export default function StockSettings() {
                   {isTamil ? "3. காலாவதியான பொருட்கள் கட்டுப்பாடு (Batch / Expiry Warning)" : "3. Batch / Expiry Warning Control"}
                 </h3>
                 <Badge
-                  tone={
-                    settings.expiry_control_mode === "block"
-                      ? "red"
-                      : settings.expiry_control_mode === "warning"
-                      ? "amber"
-                      : "gray"
-                  }
+                  tone={settings.expiry_control_mode === "disabled" ? "gray" : "blue"}
                 >
                   {settings.expiry_control_mode === "block"
                     ? isTamil
@@ -408,14 +396,14 @@ export default function StockSettings() {
             onClick={() => handleExpiryModeChange("block")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.expiry_control_mode === "block"
-                ? "border-purple-600 bg-purple-50/40 shadow-sm dark:bg-purple-500/15"
+                ? "border-indigo-600 bg-indigo-50/40 shadow-sm dark:bg-indigo-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
             <div
               className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                 settings.expiry_control_mode === "block"
-                  ? "border-purple-600 bg-purple-600 text-white"
+                  ? "border-indigo-600 bg-indigo-600 text-white"
                   : "border-slate-300 bg-white"
               }`}
             >
@@ -426,7 +414,7 @@ export default function StockSettings() {
                 <span className="text-sm font-bold text-slate-900">
                   {isTamil ? "பில்லில் சேர்க்க முழு தடை (Block)" : "Block Expired Items"}
                 </span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-700">
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700">
                   {isTamil ? "பாதுகாப்பானது" : "Strict Safe"}
                 </span>
               </div>
@@ -443,14 +431,14 @@ export default function StockSettings() {
             onClick={() => handleExpiryModeChange("warning")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.expiry_control_mode === "warning"
-                ? "border-amber-600 bg-amber-50/40 shadow-sm dark:bg-amber-500/15"
+                ? "border-indigo-600 bg-indigo-50/40 shadow-sm dark:bg-indigo-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
             <div
               className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                 settings.expiry_control_mode === "warning"
-                  ? "border-amber-600 bg-amber-600 text-white"
+                  ? "border-indigo-600 bg-indigo-600 text-white"
                   : "border-slate-300 bg-white"
               }`}
             >
@@ -473,14 +461,14 @@ export default function StockSettings() {
             onClick={() => handleExpiryModeChange("disabled")}
             className={`cursor-pointer rounded-2xl border-2 p-4 transition-all flex items-start gap-3.5 h-full ${
               settings.expiry_control_mode === "disabled"
-                ? "border-slate-600 bg-slate-50/70 shadow-sm"
+                ? "border-indigo-600 bg-indigo-50/40 shadow-sm dark:bg-indigo-500/15"
                 : "border-slate-200 hover:border-slate-300 bg-white"
             }`}
           >
             <div
               className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
                 settings.expiry_control_mode === "disabled"
-                  ? "border-slate-600 bg-slate-600 text-white"
+                  ? "border-indigo-600 bg-indigo-600 text-white"
                   : "border-slate-300 bg-white"
               }`}
             >
@@ -520,7 +508,7 @@ export default function StockSettings() {
                 max="365"
                 value={settings.near_expiry_days || 30}
                 onChange={(e) => handleExpiryDaysChange(e.target.value)}
-                className="w-16 px-2.5 py-1 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-purple-500"
+                className="w-16 px-2.5 py-1 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500"
               />
             </div>
             <Toggle
